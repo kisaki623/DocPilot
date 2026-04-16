@@ -10,6 +10,7 @@
 <img width="2558" height="1365" alt="image" src="https://github.com/user-attachments/assets/d9a1b0d7-8471-4e98-b6b2-8f4fed5cd1b9" />
 <img width="2556" height="1396" alt="image" src="https://github.com/user-attachments/assets/b8a78695-a793-4f1e-a316-24467b17d1bc" />
 <img width="2555" height="1399" alt="image" src="https://github.com/user-attachments/assets/d757393f-e667-4ef7-8598-0993f97023f1" />
+
 ## 核心亮点
 
 - **Outbox + RocketMQ 异步解析链路**：`task/parse/create` 返回后，解析通过消息链路异步推进；含补偿扫描与重投，避免事务与消息不一致。
