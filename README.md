@@ -4,13 +4,12 @@
 > 
 > 项目重点不在“堆功能页”，而在可验证的工程链路：Outbox + RocketMQ 异步可靠投递、Redis/Redisson 幂等与限流、MinIO 分片上传、Prometheus 指标可观测。
 
-## Why This Project
-
-DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
-- 业务链路完整：注册/登录 -> 上传 -> 创建解析任务 -> 文档详情 -> AI 问答
-- 关键中间件可切换：本地 demo 可一键拉起，云环境可按配置切换
-- 面向真实约束：限流、幂等、异步补偿、可观测性、错误降级都在主链路内可见
-
+## 项目预览
+<img width="2543" height="1401" alt="image" src="https://github.com/user-attachments/assets/928a2778-0668-4067-934c-3d2e25c86fc9" />
+<img width="2558" height="1199" alt="image" src="https://github.com/user-attachments/assets/feaaaf26-ea95-432d-bd10-8b41f26d14fe" />
+<img width="2558" height="1365" alt="image" src="https://github.com/user-attachments/assets/d9a1b0d7-8471-4e98-b6b2-8f4fed5cd1b9" />
+<img width="2556" height="1396" alt="image" src="https://github.com/user-attachments/assets/b8a78695-a793-4f1e-a316-24467b17d1bc" />
+<img width="2555" height="1399" alt="image" src="https://github.com/user-attachments/assets/d757393f-e667-4ef7-8598-0993f97023f1" />
 ## 核心亮点
 
 - **Outbox + RocketMQ 异步解析链路**：`task/parse/create` 返回后，解析通过消息链路异步推进；含补偿扫描与重投，避免事务与消息不一致。
@@ -36,17 +35,6 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
 - **Infra / Middleware**: Docker Compose, MySQL, Redis, RocketMQ, MinIO
 - **Observability**: Spring Boot Actuator, Prometheus
-
-## 页面预览
-
-当前仓库未提交可公开截图文件（避免误传本地调试产物）。
-
-建议补充到 `assets/screenshots/` 后在此处引用（推荐顺序）：
-1. `01-login-register-and-password-YYYYMMDD.png`（注册/登录双模式）
-2. `02-upload-workflow-success-YYYYMMDD.png`（上传 + 自动建文档/建任务）
-3. `03-documents-list-filter-status-YYYYMMDD.png`（搜索/筛选/状态）
-4. `04-detail-qa-citations-YYYYMMDD.png`（详情 + 回答 + 引用）
-5. `05-detail-sse-streaming-in-progress-YYYYMMDD.png`（流式输出过程态）
 
 ## 快速开始（本地演示）
 
