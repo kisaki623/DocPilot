@@ -1,13 +1,122 @@
 ﻿# DocPilot
 
-DocPilot 是一个可运行、可演示的 AI 文档解析与问答项目。
+> 面向 AI 文档问答场景的全栈工程项目：覆盖账号认证、文件上传、异步解析、文档检索与问答（含 SSE 流式输出）。
+> 
+> 项目重点不在“堆功能页”，而在可验证的工程链路：Outbox + RocketMQ 异步可靠投递、Redis/Redisson 幂等与限流、MinIO 分片上传、Prometheus 指标可观测。
 
-主链路：
-1. 账号注册/登录
-2. 上传文档
-3. 创建解析任务（RocketMQ 异步）
-4. 查看文档列表/详情
-5. 基于文档问答（普通 + SSE 流式）
+## Why This Project
+
+DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
+- 业务链路完整：注册/登录 -> 上传 -> 创建解析任务 -> 文档详情 -> AI 问答
+- 关键中间件可切换：本地 demo 可一键拉起，云环境可按配置切换
+- 面向真实约束：限流、幂等、异步补偿、可观测性、错误降级都在主链路内可见
+
+## 核心亮点
+
+- **Outbox + RocketMQ 异步解析链路**：`task/parse/create` 返回后，解析通过消息链路异步推进；含补偿扫描与重投，避免事务与消息不一致。
+- **消费幂等 + 分布式锁**：解析消费端用消费记录去重，解析任务创建侧用 Redisson 锁防重复创建。
+- **MinIO + 分片上传/断点续传**：支持普通上传与分片上传会话，含上传状态查询与合并完成。
+- **AI 问答 + SSE 流式输出**：详情页支持普通问答与流式问答切换，流式失败自动降级普通问答。
+- **Redis 缓存 + 令牌桶限流 + 会话上下文**：文档详情缓存、问答答案缓存、问答限流、短期会话上下文全部可见。
+- **可观测性与压测基线**：内置 Actuator/Prometheus 指标，并提供 benchmark harness 与 smoke 脚本用于复现。
+
+## 系统主链路
+
+1. **注册/登录**：前端 `/login` 默认注册模式，认证主入口为账号密码。
+2. **上传文件**：上传页支持 `txt / md / pdf`，上传后自动进入文档创建与解析任务创建。
+3. **异步解析**：解析任务入队后异步执行，前端轮询详情状态（`PENDING -> ... -> SUCCESS/FAILED`）。
+4. **文档浏览**：列表页按状态查看文档，详情页查看摘要、正文、状态与引用证据。
+5. **AI 问答**：在详情页进行普通/SSE 问答，查看引用片段与历史问答。
+
+> 说明：上传页已将 `file/upload -> document/create -> task/parse/create` 串为一条流程；无需手动逐接口触发。
+
+## 技术栈
+
+- **Backend**: Java 17, Spring Boot 3, MyBatis-Plus, MySQL, Redis, RocketMQ, MinIO, Redisson, Micrometer
+- **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
+- **Infra / Middleware**: Docker Compose, MySQL, Redis, RocketMQ, MinIO
+- **Observability**: Spring Boot Actuator, Prometheus
+
+## 页面预览
+
+当前仓库未提交可公开截图文件（避免误传本地调试产物）。
+
+建议补充到 `assets/screenshots/` 后在此处引用（推荐顺序）：
+1. `01-login-register-and-password-YYYYMMDD.png`（注册/登录双模式）
+2. `02-upload-workflow-success-YYYYMMDD.png`（上传 + 自动建文档/建任务）
+3. `03-documents-list-filter-status-YYYYMMDD.png`（搜索/筛选/状态）
+4. `04-detail-qa-citations-YYYYMMDD.png`（详情 + 回答 + 引用）
+5. `05-detail-sse-streaming-in-progress-YYYYMMDD.png`（流式输出过程态）
+
+## 快速开始（本地演示）
+
+### 0) 前置依赖
+
+- Docker Desktop（需确保 daemon 已启动）
+- Java 17+
+- Maven 3.9+
+- Node.js 20+（建议 LTS）
+- npm 10+
+
+### 1) 启动中间件（MySQL/Redis/RocketMQ/MinIO/Prometheus）
+
+```bash
+docker compose -f docker-compose.demo.yml up -d
+docker compose -f docker-compose.demo.yml ps
+```
+
+### 2) 启动后端（默认 8081）
+
+Windows PowerShell:
+```powershell
+cd backend
+Copy-Item .env.demo.example .env
+mvn spring-boot:run
+```
+
+macOS/Linux:
+```bash
+cd backend
+cp .env.demo.example .env
+mvn spring-boot:run
+```
+
+健康检查：
+```bash
+curl http://localhost:8081/actuator/health
+```
+
+### 3) 启动前端（默认 3000）
+
+Windows PowerShell:
+```powershell
+cd frontend
+Copy-Item .env.example .env.local
+npm install
+npm run dev
+```
+
+macOS/Linux:
+```bash
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+访问：
+- Home: `http://localhost:3000/`
+- Login: `http://localhost:3000/login`
+- Dashboard: `http://localhost:3000/dashboard`
+
+> 若 3000 被占用，Next.js 会自动切到 3001/3002，请以终端输出端口为准。
+
+### 4) 可选：运行最小链路 smoke
+
+```powershell
+powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-main-flow.ps1 -BaseUrl http://127.0.0.1:8081
+powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-qa-stream.ps1 -BackendBaseUrl http://127.0.0.1:8081
+```
 
 ## 项目结构
 
@@ -15,80 +124,63 @@ DocPilot 是一个可运行、可演示的 AI 文档解析与问答项目。
 DocPilot/
   backend/                 # Spring Boot 后端
   frontend/                # Next.js 前端
-  deploy/                  # docker-compose 依赖配置（MySQL/Redis/RocketMQ/MinIO/Prometheus）
-  .run/                    # IDEA 运行配置
-  docker-compose.demo.yml  # 本地演示依赖编排
+  deploy/                  # compose 依赖配置（MySQL / RocketMQ / Prometheus）
+  .run/                    # IDEA 运行配置（Backend/Frontend Local + HK Cloud）
+  docker-compose.demo.yml  # 本地演示中间件编排
 ```
 
-## 技术栈
+## 核心能力说明（解决了什么问题）
 
-- Backend: Java 17, Spring Boot 3, MyBatis-Plus, MySQL, Redis, RocketMQ, MinIO
-- Frontend: Next.js 14, TypeScript, Tailwind CSS
+- **异步解耦（RocketMQ + Outbox）**
+  将“接口响应”与“耗时解析”拆开，避免同步阻塞；通过 outbox 补偿降低消息丢失风险。
 
-## 快速开始（推荐演示路径）
+- **幂等与并发控制（Redisson + 消费去重）**
+  解决并发重复创建任务、消息重复消费导致的重复执行问题。
 
-### 1) 启动依赖
+- **对象存储与上传体验（MinIO + Chunk）**
+  支持大文件分片上传、续传与合并，减少单次上传失败重试成本。
 
-```bash
-docker compose -f docker-compose.demo.yml up -d
-```
+- **问答体验与稳态（SSE + 降级）**
+  流式输出提升交互反馈速度；流式异常时自动降级普通问答，保证可用性。
 
-### 2) 启动后端
+- **性能与稳定性（Redis 缓存 + 限流）**
+  热路径走缓存，问答入口做令牌桶限流，降低高并发下的抖动和雪崩风险。
 
-```bash
-cd backend
-cp .env.demo.example .env   # Windows 可手动复制
-mvn spring-boot:run
-```
+- **可观测性（Actuator + Prometheus）**
+  通过指标查看健康状态与关键业务计数，便于演示和定位问题。
 
-默认端口：`8081`
+## 量化结果（可复现边界）
 
-### 3) 启动前端
+仓库包含 `Task11_6BenchmarkTest` 基准测试与脚本，当前可稳定复现以下“门槛结论”（非线上 SLA）：
 
-```bash
-cd frontend
-cp .env.example .env.local  # Windows 可手动复制
-npm install
-npm run dev
-```
+- 文档详情缓存命中延迟 **低于** 缓存未命中（同机基准对比）。
+- 问答缓存命中延迟 **低于** 缓存未命中（同机基准对比）。
+- `document/create` 与 `task/parse/create` 在测试阈值下要求成功率 `>= 99%`。
+- 异步非阻塞证明要求：`task/parse/create` 在大多数请求中先返回，`responseBeforeParseFinishRate >= 95%`。
 
-默认端口：`3000`
+> 边界说明：以上来自本地基准 harness 与断言门槛，结果会受机器配置与运行环境影响。
 
-### 4) 访问页面
+## 已知限制
 
-- Home: `http://localhost:3000/`
-- Login: `http://localhost:3000/login`
-- Dashboard: `http://localhost:3000/dashboard`
+- `pdf` 解析目前为占位逻辑；真实文本解析能力主要针对 `txt/md`。
+- AI 默认 `AI_MODE=mock`；切换 `real` 模式需配置 `AI_REAL_*` 参数与可用模型服务。
+- RocketMQ 异步链路依赖 `ROCKETMQ_ENABLED=true` 与可用 NameServer；关闭后会走 Noop Producer。
+- 短信验证码接口保留为兼容联调能力，不代表已接入生产短信网关。
+- Prometheus 默认抓取 `host.docker.internal:8081`；Linux 环境需要改为宿主机可达地址。
 
-## 认证说明
+## 运行与配置补充
 
-默认认证方案为账号密码：
-- `POST /api/auth/register`
-- `POST /api/auth/password/login`
-
-兼容保留短信链路（非主入口）：
-- `POST /api/auth/code`
-- `POST /api/auth/login`
-
-## 开发环境变量
-
-- 不要提交 `backend/.env`、`frontend/.env.local`
-- 仓库中仅保留模板：
-  - `backend/.env.example`
+- 环境变量模板：
   - `backend/.env.demo.example`
+  - `backend/.env.example`
   - `backend/.env.cloud.example`
   - `frontend/.env.example`
+- 请勿提交：
+  - `backend/.env`
+  - `backend/.env.cloud`
+  - `frontend/.env.local`
 
-## Docker 演示环境
+---
 
-`docker-compose.demo.yml` 依赖以下文件：
-- `deploy/mysql/init/00_init_docpilot.sql`
-- `deploy/rocketmq/broker.conf`
-- `deploy/prometheus/prometheus.yml`
-
-请确保 `deploy/` 目录与 `docker-compose.demo.yml` 同时保留。
-
-## 已知说明
-
-- Prometheus 默认抓取 `host.docker.internal:8081`，Linux 环境下若不可达，请改成宿主机可访问地址。
-- 本仓库为公开演示版本，不包含内部协作文档目录 `docs/`。
+如果你在准备面试演示，建议优先展示这条 5 分钟链路：
+`注册/登录 -> 上传 -> 自动创建解析任务 -> 详情页 SSE 问答 -> 查看引用与历史记录`。
