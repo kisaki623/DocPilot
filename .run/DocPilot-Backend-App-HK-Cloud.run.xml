@@ -1,0 +1,16 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="DocPilot-Backend-App-HK-Cloud" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="ACTIVE_PROFILES" value="local" />
+    <option name="MAIN_CLASS_NAME" value="com.docpilot.backend.DocPilotApplication" />
+    <module name="docpilot-backend" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend" />
+    <envs>
+      <env name="SPRING_PROFILES_ACTIVE" value="local" />
+      <env name="SERVER_PORT" value="8081" />
+      <env name="SPRING_CONFIG_IMPORT" value="optional:file:./.env.cloud[.properties],optional:file:./.env[.properties]" />
+    </envs>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

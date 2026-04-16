@@ -1,0 +1,107 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: docpilot-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:docpilot}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # Allow startup before DB is ready; first real SQL call will verify connection.
+      initialization-fail-timeout: -1
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: ${REDIS_TIMEOUT:3s}
+  servlet:
+    multipart:
+      max-file-size: ${MULTIPART_MAX_FILE_SIZE:20MB}
+      max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:20MB}
+
+app:
+  file:
+    upload-dir: ${FILE_UPLOAD_DIR:./data/uploads}
+    storage:
+      mode: ${FILE_STORAGE_MODE:local}
+      chunk-temp-dir: ${FILE_CHUNK_TEMP_DIR:./data/upload-chunks}
+      chunk-session-ttl-seconds: ${FILE_CHUNK_SESSION_TTL_SECONDS:86400}
+      minio:
+        endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+        access-key: ${MINIO_ACCESS_KEY:minioadmin}
+        secret-key: ${MINIO_SECRET_KEY:minioadmin}
+        bucket: ${MINIO_BUCKET:docpilot}
+        base-path: ${MINIO_BASE_PATH:uploads}
+  ai:
+    mode: ${AI_MODE:mock}
+    max-document-context-length: ${AI_MAX_DOCUMENT_CONTEXT_LENGTH:4000}
+    mock:
+      stream-chunk-delay-ms: ${AI_MOCK_STREAM_CHUNK_DELAY_MS:30}
+    session:
+      context-max-turns: ${AI_SESSION_CONTEXT_MAX_TURNS:6}
+      ttl-seconds: ${AI_SESSION_CONTEXT_TTL_SECONDS:1800}
+      max-context-chars: ${AI_SESSION_CONTEXT_MAX_CHARS:1200}
+    real:
+      provider: ${AI_REAL_PROVIDER:openai-compatible}
+      base-url: ${AI_REAL_BASE_URL:https://api.openai.com/v1}
+      api-key: ${AI_REAL_API_KEY:}
+      model: ${AI_REAL_MODEL:gpt-4o-mini}
+      connect-timeout-ms: ${AI_REAL_CONNECT_TIMEOUT_MS:2000}
+      read-timeout-ms: ${AI_REAL_READ_TIMEOUT_MS:8000}
+      temperature: ${AI_REAL_TEMPERATURE:0.2}
+      max-output-tokens: ${AI_REAL_MAX_OUTPUT_TOKENS:800}
+      cost:
+        input-per-1k-usd: ${AI_REAL_INPUT_COST_PER_1K_USD:0}
+        output-per-1k-usd: ${AI_REAL_OUTPUT_COST_PER_1K_USD:0}
+    retry:
+      enabled: ${AI_RETRY_ENABLED:true}
+      max-attempts: ${AI_RETRY_MAX_ATTEMPTS:3}
+      initial-backoff-ms: ${AI_RETRY_INITIAL_BACKOFF_MS:120}
+      backoff-multiplier: ${AI_RETRY_BACKOFF_MULTIPLIER:2.0}
+      max-backoff-ms: ${AI_RETRY_MAX_BACKOFF_MS:800}
+  rocketmq:
+    enabled: ${ROCKETMQ_ENABLED:false}
+    parse-topic: ${DOCPILOT_PARSE_TOPIC:docpilot-parse-topic}
+    consumer-group: ${ROCKETMQ_CONSUMER_GROUP:docpilot-parse-consumer-group}
+    outbox:
+      scan-fixed-delay-ms: ${ROCKETMQ_OUTBOX_SCAN_FIXED_DELAY_MS:15000}
+      scan-batch-size: ${ROCKETMQ_OUTBOX_SCAN_BATCH_SIZE:20}
+      retry-backoff-seconds: ${ROCKETMQ_OUTBOX_RETRY_BACKOFF_SECONDS:30}
+      max-retry-count: ${ROCKETMQ_OUTBOX_MAX_RETRY_COUNT:20}
+  redisson:
+    lock-watchdog-timeout-ms: ${REDISSON_LOCK_WATCHDOG_TIMEOUT_MS:30000}
+    parse-task-lock-fail-message: ${REDISSON_PARSE_TASK_LOCK_FAIL_MESSAGE:当前文档解析任务处理中，请稍后重试}
+
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+  producer:
+    group: ${ROCKETMQ_PRODUCER_GROUP:docpilot-producer-group}
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    root: info
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+

@@ -1,0 +1,28 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="DocPilot-Backend-Local" type="MavenRunConfiguration" factoryName="Maven">
+    <MavenSettings>
+      <option name="myRunnerParameters">
+        <MavenRunnerParameters>
+          <option name="workingDirPath" value="$PROJECT_DIR$/backend" />
+          <option name="pomFileName" value="$PROJECT_DIR$/backend/pom.xml" />
+          <option name="goals">
+            <list>
+              <option value="spring-boot:run" />
+            </list>
+          </option>
+          <option name="profiles">
+            <set />
+          </option>
+        </MavenRunnerParameters>
+      </option>
+    </MavenSettings>
+    <envs>
+      <env name="SPRING_PROFILES_ACTIVE" value="local" />
+      <env name="SERVER_PORT" value="8081" />
+      <env name="SPRING_CONFIG_IMPORT" value="optional:file:./.env.demo.example[.properties],optional:file:./.env[.properties]" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>
+
+

@@ -1,0 +1,12 @@
+# Local-only secrets and IDE run helpers
+.env
+.env.*
+!.env.example
+!.env.demo.example
+!.env.cloud.example
+
+# Build/test artifacts
+target/
+*.log
+hs_err_pid*
+

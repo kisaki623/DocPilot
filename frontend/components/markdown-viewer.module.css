@@ -1,0 +1,344 @@
+﻿.viewer {
+  margin-top: 0.75rem;
+}
+
+.viewerSummary,
+.viewerDocument,
+.viewerAnswer,
+.viewerHistory {
+  width: 100%;
+}
+
+.toolbar {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--dp-border);
+  border-radius: 10px;
+  background: var(--dp-surface-soft);
+}
+
+.toggleButton {
+  border: 0;
+  border-right: 1px solid var(--dp-border);
+  background: transparent;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  color: var(--dp-muted);
+  cursor: pointer;
+}
+
+.toggleButton:last-child {
+  border-right: 0;
+}
+
+.toggleButton:hover {
+  background: #edf3ff;
+}
+
+.toggleButtonActive {
+  background: var(--dp-primary);
+  color: #ffffff;
+}
+
+.toggleButtonActive:hover {
+  background: var(--dp-primary-strong);
+}
+
+.panel {
+  margin-top: 0.75rem;
+  max-height: 520px;
+  overflow: auto;
+  border: 1px solid var(--dp-border);
+  border-radius: 12px;
+  background: var(--dp-surface);
+  padding: 0.9rem;
+}
+
+.panelSummary {
+  max-height: 320px;
+  background: #f9fbff;
+  border-color: #dce7f6;
+}
+
+.panelDocument {
+  max-height: 560px;
+}
+
+.panelAnswer {
+  max-height: 460px;
+}
+
+.panelHistory {
+  max-height: 260px;
+  background: #fbfdff;
+}
+
+.emptyText {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--dp-muted-soft);
+}
+
+.rawText {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.9rem;
+  line-height: 1.62;
+  color: #334155;
+}
+
+.rawTextSummary {
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.rawTextDocument,
+.rawTextAnswer {
+  font-size: 0.9rem;
+}
+
+.rawTextHistory {
+  font-size: 0.84rem;
+  line-height: 1.54;
+}
+
+.markdown {
+  font-size: 0.95rem;
+  line-height: 1.72;
+  color: #334155;
+  word-break: break-word;
+}
+
+.markdownSummary {
+  font-size: 0.89rem;
+  line-height: 1.62;
+  color: #334155;
+}
+
+.markdownDocument {
+  font-size: 0.95rem;
+}
+
+.markdownAnswer {
+  font-size: 0.95rem;
+}
+
+.markdownHistory {
+  font-size: 0.87rem;
+  line-height: 1.64;
+  color: #334155;
+}
+
+.markdown :global(*) {
+  max-width: 100%;
+}
+
+.markdown :global(h1),
+.markdown :global(h2),
+.markdown :global(h3),
+.markdown :global(h4),
+.markdown :global(h5),
+.markdown :global(h6) {
+  margin: 1rem 0 0.5rem;
+  font-weight: 650;
+  line-height: 1.35;
+  color: #0f172a;
+}
+
+.markdown :global(h1) {
+  font-size: 1.35rem;
+}
+
+.markdown :global(h2) {
+  font-size: 1.2rem;
+}
+
+.markdown :global(h3) {
+  font-size: 1.08rem;
+}
+
+.markdown :global(p),
+.markdown :global(ul),
+.markdown :global(ol),
+.markdown :global(blockquote),
+.markdown :global(table),
+.markdown :global(pre) {
+  margin: 0.65rem 0;
+}
+
+.markdown :global(ul),
+.markdown :global(ol) {
+  padding-left: 1.25rem;
+}
+
+.markdown :global(li + li) {
+  margin-top: 0.25rem;
+}
+
+.markdown :global(blockquote) {
+  margin-left: 0;
+  margin-right: 0;
+  border-left: 4px solid #9ec4ff;
+  background: #edf4ff;
+  padding: 0.6rem 0.75rem;
+  color: #1e3a8a;
+}
+
+.markdown :global(table) {
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid var(--dp-border);
+  border-radius: 10px;
+}
+
+.markdown :global(th),
+.markdown :global(td) {
+  border: 1px solid var(--dp-border);
+  padding: 0.5rem 0.65rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown :global(th) {
+  background: var(--dp-surface-soft);
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.markdown :global(code) {
+  border-radius: 0.35rem;
+  background: #ecf1f8;
+  padding: 0.1rem 0.35rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.84em;
+}
+
+.markdown :global(pre) {
+  overflow: auto;
+  border-radius: 10px;
+  background: #111827;
+  padding: 0.75rem;
+  color: #f3f4f6;
+}
+
+.markdown :global(pre code) {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 0.84rem;
+}
+
+.markdown :global(.hljs-comment),
+.markdown :global(.hljs-quote) {
+  color: #94a3b8;
+}
+
+.markdown :global(.hljs-keyword),
+.markdown :global(.hljs-selector-tag),
+.markdown :global(.hljs-subst) {
+  color: #f87171;
+}
+
+.markdown :global(.hljs-string),
+.markdown :global(.hljs-doctag),
+.markdown :global(.hljs-addition),
+.markdown :global(.hljs-attribute),
+.markdown :global(.hljs-meta .hljs-string) {
+  color: #86efac;
+}
+
+.markdown :global(.hljs-number),
+.markdown :global(.hljs-literal) {
+  color: #fbbf24;
+}
+
+.markdown :global(.hljs-title),
+.markdown :global(.hljs-section),
+.markdown :global(.hljs-selector-id) {
+  color: #7dd3fc;
+}
+
+.markdown :global(.hljs-built_in),
+.markdown :global(.hljs-type),
+.markdown :global(.hljs-class .hljs-title),
+.markdown :global(.hljs-template-variable),
+.markdown :global(.hljs-variable) {
+  color: #c4b5fd;
+}
+
+.markdown :global(a) {
+  color: var(--dp-primary-strong);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown :global(hr) {
+  border: 0;
+  border-top: 1px solid var(--dp-border);
+  margin: 1rem 0;
+}
+
+.markdownSummary :global(h1),
+.markdownSummary :global(h2),
+.markdownSummary :global(h3),
+.markdownSummary :global(h4),
+.markdownSummary :global(h5),
+.markdownSummary :global(h6),
+.markdownHistory :global(h1),
+.markdownHistory :global(h2),
+.markdownHistory :global(h3),
+.markdownHistory :global(h4),
+.markdownHistory :global(h5),
+.markdownHistory :global(h6) {
+  margin: 0.72rem 0 0.35rem;
+  font-weight: 620;
+  line-height: 1.32;
+}
+
+.markdownSummary :global(h1) {
+  font-size: 1.08rem;
+}
+
+.markdownSummary :global(h2) {
+  font-size: 1rem;
+}
+
+.markdownSummary :global(h3),
+.markdownHistory :global(h1) {
+  font-size: 0.94rem;
+}
+
+.markdownHistory :global(h2) {
+  font-size: 0.89rem;
+}
+
+.markdownHistory :global(h3) {
+  font-size: 0.84rem;
+}
+
+.markdownSummary :global(p),
+.markdownSummary :global(ul),
+.markdownSummary :global(ol),
+.markdownSummary :global(blockquote),
+.markdownSummary :global(table),
+.markdownSummary :global(pre),
+.markdownHistory :global(p),
+.markdownHistory :global(ul),
+.markdownHistory :global(ol),
+.markdownHistory :global(blockquote),
+.markdownHistory :global(table),
+.markdownHistory :global(pre) {
+  margin: 0.46rem 0;
+}
+
+.markdownSummary :global(blockquote),
+.markdownHistory :global(blockquote) {
+  border-left-width: 3px;
+  padding: 0.45rem 0.62rem;
+}
+
+.markdownSummary :global(pre),
+.markdownHistory :global(pre) {
+  padding: 0.62rem;
+}

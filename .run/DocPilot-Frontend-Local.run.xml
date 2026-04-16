@@ -1,0 +1,17 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="DocPilot-Frontend-Local" type="js.build_tools.npm" factoryName="npm">
+    <package-json value="$PROJECT_DIR$/frontend/package.json" />
+    <command value="run" />
+    <scripts>
+      <script value="dev" />
+    </scripts>
+    <node-interpreter value="project" />
+    <package-manager value="npm" />
+    <envs>
+      <env name="BACKEND_BASE_URL" value="http://localhost:8081" />
+      <env name="NEXT_PUBLIC_BACKEND_BASE_URL" value="http://localhost:8081" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>
+

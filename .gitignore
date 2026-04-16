@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE / editor local state
+.idea/
+.vscode/
+.runlogs/
+backend/.run/
+frontend/.run/
+
+# Internal docs are not part of public first upload
+docs/
+
+# Local env / secrets
+backend/.env
+backend/.env.cloud
+backend/.env.local
+frontend/.env.local
+
+# Local runtime artifacts
+backend/data/
+tmp-e2e/
+pwtmp/
+test-results/
+.playwright-mcp/
+frontend/.playwright-mcp/
+history-markdown-render.png
+stream-fix-final.png
+
+# Logs and temp files
+*.log
+*.tmp

@@ -1,0 +1,44 @@
+server:
+  port: ${SERVER_PORT:8081}
+
+spring:
+  config:
+    import: optional:file:./.env[.properties]
+  datasource:
+    # Local development connects to the cloud DB by default; credentials are injected via env vars.
+    url: jdbc:mysql://${MYSQL_HOST:116.204.132.136}:${MYSQL_PORT:3306}/${MYSQL_DB:${MYSQL_DATABASE:docpilot}}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:docpilot_user}
+    password: ${MYSQL_PASSWORD:}
+  data:
+    redis:
+      host: ${REDIS_HOST:116.204.132.136}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+
+app:
+  file:
+    upload-dir: ${FILE_UPLOAD_DIR:./data/uploads-local}
+    storage:
+      mode: ${FILE_STORAGE_MODE:local}
+      chunk-temp-dir: ${FILE_CHUNK_TEMP_DIR:./data/upload-chunks-local}
+      chunk-session-ttl-seconds: ${FILE_CHUNK_SESSION_TTL_SECONDS:86400}
+      minio:
+        endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9000}
+        access-key: ${MINIO_ACCESS_KEY:minioadmin}
+        secret-key: ${MINIO_SECRET_KEY:minioadmin}
+        bucket: ${MINIO_BUCKET:docpilot}
+        base-path: ${MINIO_BASE_PATH:uploads}
+  redis:
+    key-prefix: ${APP_REDIS_KEY_PREFIX:docpilot:}
+  rocketmq:
+    enabled: ${ROCKETMQ_ENABLED:false}
+    parse-topic: ${DOCPILOT_PARSE_TOPIC:docpilot-parse-topic}
+    consumer-group: ${ROCKETMQ_CONSUMER_GROUP:docpilot-parse-consumer-group}
+
+rocketmq:
+  # Keep MQ optional for local debugging; sending is controlled by app.rocketmq.enabled.
+  name-server: ${ROCKETMQ_NAME_SERVER:116.204.132.136:9876}
+  producer:
+    group: ${ROCKETMQ_PRODUCER_GROUP:docpilot-producer-group}
+
