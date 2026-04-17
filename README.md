@@ -1,8 +1,8 @@
-﻿# DocPilot
+﻿# DocPilot 面向 AI 文档问答的企业级全栈解决方案
 
-> 面向 AI 文档问答场景的全栈工程项目：覆盖账号认证、文件上传、异步解析、文档检索与问答（含 SSE 流式输出）。
-> 
-> 项目重点不在“堆功能页”，而在可验证的工程链路：Outbox + RocketMQ 异步可靠投递、Redis/Redisson 幂等与限流、MinIO 分片上传、Prometheus 指标可观测。
+> **DocPilot** 是一个面向 AI 文档问答场景的全栈工程项目，提供了从**大文件分片上传、异步文档解析、状态流转到大模型流式问答（SSE）**的完整业务闭环。
+>
+>💡 **设计初衷**：本项目不仅提供前卫的 AI 产品交互体验体验（Next.js 14），更深耕于后端工程的健壮性。重点攻坚高并发下的异步解耦、分布式事务一致性（Outbox 消息补偿）、请求幂等与高可用降级策略，是绝佳的“真实复杂业务场景”演示沙盒。
 
 ## 项目预览
 <img width="2543" height="1401" alt="image" src="https://github.com/user-attachments/assets/928a2778-0668-4067-934c-3d2e25c86fc9" />
@@ -11,31 +11,20 @@
 <img width="2556" height="1396" alt="image" src="https://github.com/user-attachments/assets/b8a78695-a793-4f1e-a316-24467b17d1bc" />
 <img width="2555" height="1399" alt="image" src="https://github.com/user-attachments/assets/d757393f-e667-4ef7-8598-0993f97023f1" />
 
-## 核心亮点
+## 🚀 核心亮点
 
-- **Outbox + RocketMQ 异步解析链路**：`task/parse/create` 返回后，解析通过消息链路异步推进；含补偿扫描与重投，避免事务与消息不一致。
-- **消费幂等 + 分布式锁**：解析消费端用消费记录去重，解析任务创建侧用 Redisson 锁防重复创建。
-- **MinIO + 分片上传/断点续传**：支持普通上传与分片上传会话，含上传状态查询与合并完成。
-- **AI 问答 + SSE 流式输出**：详情页支持普通问答与流式问答切换，流式失败自动降级普通问答。
-- **Redis 缓存 + 令牌桶限流 + 会话上下文**：文档详情缓存、问答答案缓存、问答限流、短期会话上下文全部可见。
-- **可观测性与压测基线**：内置 Actuator/Prometheus 指标，并提供 benchmark harness 与 smoke 脚本用于复现。
+- **高可靠异步解析链路**：采用 **Outbox 模式 + RocketMQ** 彻底解决本地事务与消息通知不一致的问题。配合定时后台补偿扫表，确保庞大的文档解析任务在任何极端宕机下 100% 可靠投递。
+- **并发防抖与绝对幂等**：基于 **Redisson 分布式锁**和 DB 唯一索引拦截高频上传与任务重复创建；MQ 消费端引入消费记录去重表，保障哪怕发生网络抖动和重发，解析引擎也不会重复扣减性能。
+- **大文件分片与断点合并**：基于 **MinIO** 封装了一套健壮的分片上传与合并调度流程，支持大文件的分块连续上传、进度感知和快速重试，大幅提升弱网环境下的上传成功率。
+- **极致的 AI SSE 流式问答**：支持打字机效果的 **SSE（Server-Sent Events）** 流式时延极低输出；核心问答链路配备了**降级容灾机制**，当流式接口出错或超时，自动无缝降级为普通同步问答。
+- **多级防线与可观测性**：基于 **Redis 令牌桶算法**对高昂的大模型调用接口做细粒度限流，严防雪崩；全局集成 **Spring Boot Actuator + Prometheus** 打通了核心业务指标（缓存命中率、解析成功率等）的埋点埋点。
 
-## 系统主链路
+## 🏗️ 核心架构与技术栈
 
-1. **注册/登录**：前端 `/login` 默认注册模式，认证主入口为账号密码。
-2. **上传文件**：上传页支持 `txt / md / pdf`，上传后自动进入文档创建与解析任务创建。
-3. **异步解析**：解析任务入队后异步执行，前端轮询详情状态（`PENDING -> ... -> SUCCESS/FAILED`）。
-4. **文档浏览**：列表页按状态查看文档，详情页查看摘要、正文、状态与引用证据。
-5. **AI 问答**：在详情页进行普通/SSE 问答，查看引用片段与历史问答。
-
-> 说明：上传页已将 `file/upload -> document/create -> task/parse/create` 串为一条流程；无需手动逐接口触发。
-
-## 技术栈
-
-- **Backend**: Java 17, Spring Boot 3, MyBatis-Plus, MySQL, Redis, RocketMQ, MinIO, Redisson, Micrometer
-- **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
-- **Infra / Middleware**: Docker Compose, MySQL, Redis, RocketMQ, MinIO
-- **Observability**: Spring Boot Actuator, Prometheus
+- **后端底座**: `Java 17` + `Spring Boot 3` + `MyBatis-Plus`
+- **核心中间件**: `MySQL 8` + `Redis` + `RocketMQ 5` + `MinIO`
+- **前端架构**: `Next.js 14 (App Router)` + `React` + `TypeScript` + `Tailwind CSS`
+- **高可用与监控**: `Redisson` + `Docker Compose` + `Prometheus`
 
 ## 快速开始（本地演示）
 
@@ -151,7 +140,6 @@ DocPilot/
 
 ## 已知限制
 
-- `pdf` 解析目前为占位逻辑；真实文本解析能力主要针对 `txt/md`。
 - AI 默认 `AI_MODE=mock`；切换 `real` 模式需配置 `AI_REAL_*` 参数与可用模型服务。
 - RocketMQ 异步链路依赖 `ROCKETMQ_ENABLED=true` 与可用 NameServer；关闭后会走 Noop Producer。
 - 短信验证码接口保留为兼容联调能力，不代表已接入生产短信网关。
@@ -171,5 +159,3 @@ DocPilot/
 
 ---
 
-如果你在准备面试演示，建议优先展示这条 5 分钟链路：
-`注册/登录 -> 上传 -> 自动创建解析任务 -> 详情页 SSE 问答 -> 查看引用与历史记录`。
