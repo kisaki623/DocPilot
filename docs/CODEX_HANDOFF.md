@@ -76,15 +76,16 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - 工作区已有大量未提交改动，下一轮不能默认它们都属于当前任务。
 - eval 指标已按 T001a/T001b 收敛到 `stagec_eval_latest.json`（90% / 100%，20 cases / 8 stream pairs）。后续风险不再是“三套指标冲突”，而是需要通过 T005 重新运行 eval，并补充实际运行时 `AI_MODE`、模型名、provider 记录。
 - AI 问答 / SSE 后端改进包已在 2026-05-13 完成 T002a 验证：`mvn -DskipTests compile` 通过，`mvn test -DskipITs` 通过，测试统计为 `Tests run: 141, Failures: 0, Errors: 0, Skipped: 0`。当前无编译或测试阻塞，适合作为独立提交候选进入 Claude Code 只读提交前审查。
-- SSE 质量和普通问答一致性仍需持续回归；本轮只验证后端编译和测试，未启动服务、未验证前端、未重跑 eval。
+- 前端 QA / SSE 展示改进已在 2026-05-13 完成 T002b 验证：`npm run lint` 通过，`npm run build` 通过。当前前端流式事件解析、引用展示、Markdown inline 渲染和降级提示可作为独立提交候选；本轮不提交 Agent Demo、benchmark、`.run`、根 README 或 AGENTS。
+- SSE 质量和普通问答一致性仍需持续回归；T002a/T002b 只覆盖后端单元测试和前端 lint/build，未启动完整前后端服务、未用 Playwright 走浏览器主链路、未重跑 eval。
 - mock / real provider 边界容易被文档夸大。
 - PDF 能力边界容易被误写成完整解析能力。
 - 部分历史中文文档存在乱码，影响交接质量。
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 对 AI 问答 / SSE 后端改进包执行 Claude Code 只读提交前审查，重点看 diff 边界、SSE 兜底、缓存优先、结构化事件和测试覆盖是否匹配。
-2. 做剩余最小可运行 smoke：前端 lint/build、核心页面 / API 路径验证。
+1. 对已拆分的 AI 问答 / SSE 后端和前端提交做最终只读审查，确认提交边界和文档记录一致。
+2. 做剩余最小可运行 smoke：核心页面 / API 路径验证，必要时用 Playwright 验证文档详情 QA/SSE 主链路。
 3. 修复历史文档乱码和协作看板漂移，让后续 Codex 每轮都能从同一事实源开始。
 
 ## 10. 接手时优先阅读

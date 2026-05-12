@@ -9,6 +9,10 @@
   width: 100%;
 }
 
+.viewerInline {
+  margin-top: 0;
+}
+
 .toolbar {
   display: inline-flex;
   overflow: hidden;
@@ -71,6 +75,14 @@
 .panelHistory {
   max-height: 260px;
   background: #fbfdff;
+}
+
+.panelInline {
+  margin-top: 0;
+  max-height: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
 }
 
 .emptyText {

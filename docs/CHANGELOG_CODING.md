@@ -122,6 +122,44 @@
 - 未修改配置文件。
 - 未执行 `git add` / `git commit` / `git push`。
 
+## 2026-05-13 - T002b 前端 QA / SSE 展示改进验证记录
+
+### 本轮目标
+
+自审、验证并提交前端 QA / SSE 展示改进包；保持与后端 `91421a9 feat(ai): improve document QA SSE robustness` 拆分提交，不混入 Agent Demo、benchmark、`.run` 或根 README / AGENTS。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，`next lint` 输出无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建、类型检查和静态页面生成成功。
+- 当前 `package.json` 无 `test` 脚本，因此本轮未执行前端 test。
+
+### 自审结论
+
+- 白名单文件未发现真实 API Key、token、password、secret 或真实公网 IP。
+- `frontend/lib/qa-api.ts` 已适配后端 SSE `meta/chunk/done/error` 事件，并能解析结构化 `done/error` payload。
+- 文档详情页保留流式输出、首字延迟展示、引用更新、失败自动降级普通问答和历史回答 Markdown 渲染。
+- `MarkdownViewer` 新增 inline mode，不改变默认 card 模式，降低破坏普通 Markdown 展示的风险。
+- `dashboard/layout/frontend README` 中存在 Agent 入口或说明改动，不属于本轮 QA/SSE 提交范围，本轮不提交。
+
+### 修改文件
+
+- `frontend/app/documents/[documentId]/page.tsx`
+- `frontend/components/markdown-viewer.tsx`
+- `frontend/components/markdown-viewer.module.css`
+- `frontend/lib/qa-api.ts`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 明确未做事项
+
+- 未提交 Agent Demo。
+- 未提交 benchmark。
+- 未提交 `.run` 配置。
+- 未提交根目录 `README.md` 或 `AGENTS.md`。
+- 未执行 `git push`。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

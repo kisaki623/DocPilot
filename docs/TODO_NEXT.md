@@ -125,6 +125,21 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 面试价值：体现 AI 问答 / SSE 改进不仅停留在实现层面，也经过后端编译和测试验证。
 - 下一步动作：建议进入 Claude Code 只读提交前审查；该 AI 问答 / SSE 改进包适合作为独立提交候选。
 
+### T002b
+
+- 状态：DONE
+- 优先级：P0
+- 任务目标：自审、验证并提交前端 QA / SSE 展示改进包。
+- 为什么要做：后端 AI 问答 / SSE 改进已作为独立提交落地，需要把前端流式事件解析、引用展示、Markdown 渲染和降级体验作为独立提交收口。
+- 涉及文件：`frontend/app/documents/[documentId]/page.tsx`、`frontend/components/markdown-viewer.tsx`、`frontend/components/markdown-viewer.module.css`、`frontend/lib/qa-api.ts`、`docs/TODO_NEXT.md`、`docs/CHANGELOG_CODING.md`、`docs/CODEX_HANDOFF.md`。
+- 前置依赖：T002a 后端改进已提交；本地 Node/npm 依赖可用。
+- 验收标准：白名单 diff 自审无敏感信息；前端 lint/build 通过；暂存区只包含本任务允许文件；不提交 Agent Demo、benchmark、`.run`、根 README 或 AGENTS。
+- 验证命令：`cd frontend; npm run lint; npm run build`；`git diff --cached --name-only`；`git diff --cached --stat`。
+- 验证结果：2026-05-13 本地执行通过；`npm run lint` 无 warning/error；`npm run build` 编译、类型检查和静态生成通过。
+- 风险点：当前工作区仍有未提交 Agent 页面和 dashboard/layout Agent 入口改动；本任务不提交这些内容。
+- 面试价值：体现 SSE 前端事件协议适配、流式降级、引用展示和 Markdown 稳定渲染的工程闭环。
+- 下一步动作：继续拆分剩余文档修复、Agent Demo、benchmark 和 `.run` 配置，不混提。
+
 ### T003
 
 - 状态：TODO
