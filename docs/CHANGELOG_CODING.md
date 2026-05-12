@@ -160,6 +160,62 @@
 - 未提交根目录 `README.md` 或 `AGENTS.md`。
 - 未执行 `git push`。
 
+## 2026-05-13 - 固化 commit message 协作规则
+
+### 本轮目标
+
+只将 commit message 格式规则写入协作文档（AGENTS.md、CODEX_TOOLING.md），使后续 Claude Code / Codex CLI 生成 commit message 时有统一约束，避免出现 Co-Authored-By、多行 body、工具/模型签名等问题。
+
+### 修改文件
+
+- `AGENTS.md`
+- `docs/CODEX_TOOLING.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 规则摘要
+
+- 单行 conventional commits 格式（`type(scope): description`）。
+- 不生成多行 body、不添加 Co-Authored-By、不出现工具/模型名称（Claude、Anthropic、Opus、AI assistant、Codex）。
+- 详细实现说明写入 CHANGELOG / HANDOFF / TODO_NEXT，不写入 commit message。
+- commit message 要像正常开发者提交，不是 AI 生成说明。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改前端代码。
+- 未修改配置文件。
+- 未执行 `git add` / `git commit` / `git push`。
+
+### 后续约束
+
+所有 Claude Code / Codex CLI 在本仓库生成 commit message 时必须遵守 AGENTS.md 和 CODEX_TOOLING.md 中的 Commit Message 规则。
+
+## 2026-05-13 - T003 Agent Demo 提交
+
+### 本轮目标
+
+自审、验证并提交 Agent Demo 最小工具编排闭环。
+
+### 提交文件
+
+- 后端 Agent 模块（9 个）：controller / dto / service / impl / tool x4 / vo。
+- 后端测试（1 个）：`DocumentAgentServiceImplTest.java`。
+- 后端 smoke 脚本（1 个）：`smoke-agent-min.ps1`。
+- 前端 Agent 页面/API（2 个）：`agent/page.tsx` / `agent-api.ts`。
+- 前端导航入口（2 个）：`layout.tsx` / `dashboard/page.tsx`。
+
+### 验证结果
+
+- `mvn -DskipTests compile`：通过。
+- `mvn test -DskipITs`：通过（141 tests, 0 failures）。
+- `npm run lint`：通过。
+- `npm run build`：通过。
+- smoke 脚本语法已确认，未实跑。
+
+### 明确未提交
+
+- `.run` 配置、benchmark、README、AGENTS、`docs/ai-dev`。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

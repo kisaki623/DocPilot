@@ -9,6 +9,17 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 任务必须围绕真实短板、可运行性、稳定性、工程化和面试价值。
 - 每轮结束后更新本文件、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
 - 如发现工作区有 modified / untracked 文件，先汇报再行动，不自动 `git add` / `git commit` / `git push`。
+- 提交时必须使用一行 conventional commit（`type(scope): description`），不允许 `Co-Authored-By` 或工具/模型签名；详细规则见 `AGENTS.md` Commit Message 规则。
+
+## 已完成
+
+### T003-fast-submit
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：自审、验证并提交当前 Agent Demo。
+- 验证结果：后端 compile/test 通过（141 tests），前端 lint/build 通过。
+- commit：25793ed feat(agent): add minimal document agent demo
 
 ## 任务列表
 

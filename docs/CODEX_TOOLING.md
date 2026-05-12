@@ -10,6 +10,15 @@ This document records local collaboration tools and MCP capabilities available a
 - Do not execute `git add`, `git commit`, or `git push` unless the user explicitly asks for it.
 - If a tool starts a local process, the agent that started it is responsible for cleanup and must report port/process state.
 
+## Commit Message Rules
+
+- Use a single-line conventional commit format: `type(scope): description`.
+- Do not generate multi-line commit bodies unless the user explicitly asks.
+- Do not add `Co-Authored-By`, tool signatures, or model names (Claude, Anthropic, Opus, AI assistant, Codex) to commit messages.
+- Write commit messages as a normal developer would, not as AI-generated annotations.
+- Put detailed implementation notes in `docs/CHANGELOG_CODING.md`, `docs/CODEX_HANDOFF.md`, or `docs/TODO_NEXT.md`, never in the commit message.
+- Recommended prefixes: `feat`, `fix`, `docs`, `test`, `chore`, `refactor`.
+
 ## Subagents
 
 ### code-map.toml

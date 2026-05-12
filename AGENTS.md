@@ -94,8 +94,28 @@ curl http://localhost:8081/actuator/health
 12. 每轮开始必须检查 `.env`、`.env.local`、`.env.*`、`application-*.yml`、`*.example` 中是否存在硬编码密钥、密码、token、真实云服务 IP；如有必须先告警，不能把敏感值复制到回复里。
 13. 使用 subagents、context7 MCP、playwright MCP 或远程 hk-ops 前，先遵守 `docs/CODEX_TOOLING.md` 中的用途、授权和禁止事项。
 
+## Commit Message 规则
+
+14. 默认使用一行 conventional commits 格式（`type(scope): description`）。
+15. 不生成多行 commit body，除非用户明确要求。
+16. 不添加 `Co-Authored-By` 或任何形式的共同作者签名。
+17. 不出现 Claude、Anthropic、Opus、AI assistant、Codex 等第三方工具或模型名称。
+18. 不把详细功能列表写进 git commit message；详细实现说明写入 `docs/CHANGELOG_CODING.md`、`docs/CODEX_HANDOFF.md` 或 `docs/TODO_NEXT.md`。
+19. commit message 要像正常开发者提交，而不是 AI 生成说明。
+20. 推荐格式示例：
+    - `feat(agent): add document agent demo with tool orchestration`
+    - `feat(ai): improve document QA SSE robustness`
+    - `feat(frontend): improve document QA streaming experience`
+    - `docs: update collaboration workflow`
+    - `test(agent): add document agent service tests`
+
 ## 编码规范
 
+- 中文 Markdown 编码安全是硬性规则：修改 `README.md`、`docs/**/*.md`、`backend/README.md`、`frontend/README.md` 前后，必须检查乱码特征 `锛|鏂|銆|闈|�`。
+- 不要用普通 `Get-Content -Raw` 读取中文 Markdown 后再整文件写回；Windows PowerShell 可能把无 BOM UTF-8 按本地编码解码，导致 mojibake。
+- 如必须脚本读写中文文档，必须显式使用 UTF-8：`[System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)` 和 `WriteAllText` with `UTF8Encoding($false)`。
+- 小范围修改中文文档优先使用 `apply_patch`；不要对中文文档做无必要的整文件重写、格式化或编码转换。
+- 如果发现当前文件已有乱码，必须先停止并向用户汇报，不能继续在乱码内容上追加修改；需要从最近正常版本恢复后再合入必要变更。
 - 保持小步修改，优先复用现有模块，不做无意义大重构。
 - 后端优先保持 controller / service / mapper / DTO / VO 分层清晰。
 - 前端优先复用现有视觉语言、MarkdownViewer、API 封装和页面布局。
