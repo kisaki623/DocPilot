@@ -109,6 +109,9 @@ export default function DashboardPage() {
             <Link href="/upload" className="dp-btn dp-btn-primary px-6">
               上传新文档
             </Link>
+            <Link href="/agent" className="dp-btn dp-btn-ghost px-6">
+              Agent 演示
+            </Link>
             <button
               type="button"
               onClick={() => {
@@ -222,6 +225,11 @@ export default function DashboardPage() {
               <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">3</div>
               <p className="font-semibold text-slate-800 text-sm">智能问答</p>
               <p className="text-xs text-slate-500 mt-1">进入文档详情页，向 AI 助手提问，获取带有精准原文引用的回答。</p>
+            </li>
+            <li className="relative pl-8">
+              <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">4</div>
+              <p className="font-semibold text-slate-800 text-sm">Agent 工具链演示</p>
+              <p className="text-xs text-slate-500 mt-1">在 Agent 页面输入任务，观察工具选择、步骤 trace 与最终回答。</p>
             </li>
           </ol>
         </article>
