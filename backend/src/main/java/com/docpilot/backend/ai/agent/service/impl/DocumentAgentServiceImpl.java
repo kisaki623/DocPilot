@@ -1,7 +1,9 @@
 package com.docpilot.backend.ai.agent.service.impl;
 
 import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
+import com.docpilot.backend.ai.agent.entity.AgentTask;
 import com.docpilot.backend.ai.agent.service.DocumentAgentService;
+import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
@@ -10,6 +12,8 @@ import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.util.ValidationUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -20,6 +24,8 @@ import java.util.UUID;
 
 @Service
 public class DocumentAgentServiceImpl implements DocumentAgentService {
+
+    private static final Logger log = LoggerFactory.getLogger(DocumentAgentServiceImpl.class);
 
     private static final int STEP_OUTPUT_MAX_LENGTH = 200;
 
@@ -36,13 +42,16 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
     private final DocumentStatusTool documentStatusTool;
     private final DocumentSummaryTool documentSummaryTool;
     private final DocumentQaTool documentQaTool;
+    private final AgentTaskPersistenceService persistenceService;
 
     public DocumentAgentServiceImpl(DocumentStatusTool documentStatusTool,
                                     DocumentSummaryTool documentSummaryTool,
-                                    DocumentQaTool documentQaTool) {
+                                    DocumentQaTool documentQaTool,
+                                    AgentTaskPersistenceService persistenceService) {
         this.documentStatusTool = documentStatusTool;
         this.documentSummaryTool = documentSummaryTool;
         this.documentQaTool = documentQaTool;
+        this.persistenceService = persistenceService;
     }
 
     @Override
@@ -68,7 +77,10 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         response.setSessionId(normalizeSessionId(request.getSessionId()));
 
         List<DocumentAgentResponse.AgentStep> steps = new ArrayList<>();
+        Long taskId = createTaskSafely(userId, request.getDocumentId(), task, response.getSessionId());
+        response.setTaskId(taskId);
 
+        try {
         TimedResult<DocumentStatusTool.StatusResult> statusResult = timedExecute(() ->
                 documentStatusTool.execute(new DocumentStatusTool.StatusInput(userId, request.getDocumentId())));
         steps.add(buildStep(
@@ -79,13 +91,14 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                 statusResult.durationMs(),
                 "success"
         ));
+        persistLastStep(taskId, steps);
 
         DocumentStatusTool.StatusResult detail = statusResult.value();
         if (!detail.parseReady()) {
             response.setDecision("status_only");
             response.setFinalAnswer(buildPendingAnswer(detail));
             response.setSteps(steps);
-            return finalizeResponse(response, beginNanos);
+            return completeSuccess(taskId, response, beginNanos);
         }
 
         boolean statusIntent = containsAnyKeyword(task, STATUS_KEYWORDS);
@@ -96,7 +109,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
             response.setDecision("status_only");
             response.setFinalAnswer(buildStatusAnswer(detail));
             response.setSteps(steps);
-            return finalizeResponse(response, beginNanos);
+            return completeSuccess(taskId, response, beginNanos);
         }
 
         if (summaryIntent && !evidenceIntent) {
@@ -110,11 +123,12 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                     summaryResult.durationMs(),
                     "success"
             ));
+            persistLastStep(taskId, steps);
 
             response.setDecision("summary_tool");
             response.setFinalAnswer(summaryResult.value().output());
             response.setSteps(steps);
-            return finalizeResponse(response, beginNanos);
+            return completeSuccess(taskId, response, beginNanos);
         }
 
         TimedResult<DocumentQaResponse> qaResult = timedExecute(() ->
@@ -128,13 +142,56 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                 qaResult.durationMs(),
                 "success"
         ));
+        persistLastStep(taskId, steps);
 
         response.setDecision("qa_tool");
         response.setFinalAnswer(qa.getAnswer());
         response.setSessionId(qa.getSessionId());
         response.setCitations(qa.getCitations());
         response.setSteps(steps);
-        return finalizeResponse(response, beginNanos);
+        return completeSuccess(taskId, response, beginNanos);
+        } catch (Exception ex) {
+            updateTaskFailedSafely(taskId, ex);
+            throw ex;
+        }
+    }
+
+    private DocumentAgentResponse completeSuccess(Long taskId, DocumentAgentResponse response, long beginNanos) {
+        DocumentAgentResponse finalized = finalizeResponse(response, beginNanos);
+        updateTaskSuccessSafely(taskId, finalized);
+        return finalized;
+    }
+
+    private Long createTaskSafely(Long userId, Long documentId, String task, String sessionId) {
+        try {
+            AgentTask agentTask = persistenceService.createTask(userId, documentId, task, sessionId);
+            return agentTask == null ? null : agentTask.getId();
+        } catch (Exception ex) {
+            log.warn("Failed to create agent task record, continue without task persistence", ex);
+            return null;
+        }
+    }
+
+    private void updateTaskSuccessSafely(Long taskId, DocumentAgentResponse response) {
+        if (taskId == null) {
+            return;
+        }
+        try {
+            persistenceService.updateTaskSuccess(taskId, response.getDecision(), response.getFinalAnswer(), response.getTotalDurationMs());
+        } catch (Exception ex) {
+            log.warn("Failed to mark agent task success, taskId={}", taskId, ex);
+        }
+    }
+
+    private void updateTaskFailedSafely(Long taskId, Exception failure) {
+        if (taskId == null) {
+            return;
+        }
+        try {
+            persistenceService.updateTaskFailed(taskId, failure.getMessage());
+        } catch (Exception ex) {
+            log.warn("Failed to mark agent task failed, taskId={}", taskId, ex);
+        }
     }
 
     private DocumentAgentResponse finalizeResponse(DocumentAgentResponse response, long beginNanos) {
@@ -216,6 +273,29 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         step.setDurationMs(durationMs);
         step.setStatus(status);
         return step;
+    }
+
+    private void persistLastStep(Long taskId, List<DocumentAgentResponse.AgentStep> steps) {
+        persistStepSafely(taskId, steps.get(steps.size() - 1));
+    }
+
+    private void persistStepSafely(Long taskId, DocumentAgentResponse.AgentStep step) {
+        if (taskId == null) {
+            return;
+        }
+        try {
+            persistenceService.createStep(
+                    taskId,
+                    step.getStepIndex(),
+                    step.getToolName(),
+                    step.getInputSummary(),
+                    step.getOutputSummary(),
+                    step.getDurationMs(),
+                    step.getStatus()
+            );
+        } catch (Exception ex) {
+            log.warn("Failed to create agent step record, taskId={}, stepIndex={}", taskId, step.getStepIndex(), ex);
+        }
     }
 
     private <T> TimedResult<T> timedExecute(ThrowingSupplier<T> supplier) {

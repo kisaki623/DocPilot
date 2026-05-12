@@ -29,6 +29,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：后端 `mvn -DskipTests compile` 通过。
 - 边界：未接入 `DocumentAgentServiceImpl`，未执行 DDL，未修改前端，未接 MQ。
 
+### T004b
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：将 AgentTask / AgentStep 持久化接入 `DocumentAgentServiceImpl`。
+- 验证结果：后端 compile/test 通过。
+- 边界：未新增查询 API，未执行 DDL，未修改前端。
+
 ## 任务列表
 
 ### T000

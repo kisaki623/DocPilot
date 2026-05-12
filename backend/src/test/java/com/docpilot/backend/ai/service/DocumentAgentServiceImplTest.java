@@ -1,6 +1,8 @@
 package com.docpilot.backend.ai.service;
 
 import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
+import com.docpilot.backend.ai.agent.entity.AgentTask;
+import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
@@ -20,6 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,8 +42,23 @@ class DocumentAgentServiceImplTest {
     @Mock
     private DocumentQaTool documentQaTool;
 
+    @Mock
+    private AgentTaskPersistenceService persistenceService;
+
     private DocumentAgentServiceImpl buildService() {
-        return new DocumentAgentServiceImpl(documentStatusTool, documentSummaryTool, documentQaTool);
+        return new DocumentAgentServiceImpl(documentStatusTool, documentSummaryTool, documentQaTool, persistenceService);
+    }
+
+    private void stubPersistenceTask() {
+        AgentTask mockTask = new AgentTask();
+        mockTask.setId(1001L);
+        when(persistenceService.createTask(anyLong(), anyLong(), anyString(), any())).thenReturn(mockTask);
+    }
+
+    private void verifyPersistenceSuccess() {
+        verify(persistenceService).createTask(anyLong(), anyLong(), anyString(), any());
+        verify(persistenceService, atLeastOnce()).createStep(anyLong(), anyInt(), anyString(), anyString(), anyString(), anyLong(), anyString());
+        verify(persistenceService).updateTaskSuccess(anyLong(), anyString(), anyString(), anyLong());
     }
 
     @Test
@@ -65,9 +86,11 @@ class DocumentAgentServiceImplTest {
                 "This is the summary field.",
                 "This is the full content."
         ))).thenReturn(new DocumentSummaryTool.SummaryResult("This is the summary field.", "summary_field"));
+        stubPersistenceTask();
 
         var response = service.run(100L, request);
 
+        assertEquals(1001L, response.getTaskId());
         assertEquals("summary_tool", response.getDecision());
         assertEquals("This is the summary field.", response.getFinalAnswer());
         assertEquals(2, response.getSteps().size());
@@ -76,6 +99,7 @@ class DocumentAgentServiceImplTest {
         assertNotNull(response.getStartedAt());
         assertNotNull(response.getFinishedAt());
         assertTrue(response.getTotalDurationMs() >= 0);
+        verifyPersistenceSuccess();
         verify(documentQaTool, never()).execute(any());
     }
 
@@ -108,9 +132,11 @@ class DocumentAgentServiceImplTest {
         qaResponse.setCitations(List.of(new DocumentQaResponse.CitationItem()));
         when(documentQaTool.execute(new DocumentQaTool.QaInput(100L, 102L, "Please answer with evidence and cite the key points.", "sess-qa")))
                 .thenReturn(qaResponse);
+        stubPersistenceTask();
 
         var response = service.run(100L, request);
 
+        assertEquals(1001L, response.getTaskId());
         assertEquals("qa_tool", response.getDecision());
         assertEquals("This is the answer backed by document evidence.", response.getFinalAnswer());
         assertEquals("sess-qa", response.getSessionId());
@@ -118,6 +144,7 @@ class DocumentAgentServiceImplTest {
         assertFalse(response.getCitations().isEmpty());
         assertEquals(2, response.getSteps().size());
         assertTrue(response.isSuccess());
+        verifyPersistenceSuccess();
     }
 
     @Test
@@ -139,12 +166,15 @@ class DocumentAgentServiceImplTest {
                         null
                 ));
         when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        stubPersistenceTask();
 
         var response = service.run(100L, request);
 
+        assertEquals(1001L, response.getTaskId());
         assertEquals("status_only", response.getDecision());
         assertNull(response.getSessionId());
         assertTrue(response.getFinalAnswer().contains("PARSING"));
+        verifyPersistenceSuccess();
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
     }

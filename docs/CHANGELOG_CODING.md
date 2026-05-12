@@ -253,6 +253,33 @@
 - 未接 RocketMQ。
 - 未引入 Spring AI / LangChain4j / MCP。
 
+## 2026-05-13 - T004b Agent 执行痕迹持久化接入
+
+### 本轮目标
+
+将 T004a 的 AgentTask / AgentStep 持久化服务接入 `DocumentAgentServiceImpl`，让每次 Agent run best-effort 记录 task、tool step、成功或失败状态。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/vo/DocumentAgentResponse.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未新增 Agent task 查询 API。
+- 未执行 DDL。
+- 未修改前端。
+- 未接 RocketMQ。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

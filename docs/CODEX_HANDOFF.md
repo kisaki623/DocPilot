@@ -47,6 +47,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T001a 已定位当前权威 eval 基准为 `docs/ai-dev/benchmarks/artifacts/stagec_eval_latest.json`：`answerSuccessRate=90%`、`citationHitRate=100%`、`caseCount/streamPairs=20/8`、`generatedAt=2026-04-18T18:58:42.2763129+00:00`、`datasetVersion=2026-04-19-r2`。T001b 已将 README / STATE / docs 准备统一到该 artifact。保留不确定项：artifact 未记录实际运行时 `AI_MODE`、模型名或 provider，且本轮未重跑 eval。
 - Agent Demo 已通过 T003-fast-submit 提交：`25793ed feat(agent): add minimal document agent demo`，包含后端 `/api/ai/agent/run`、三类工具、前端 `/agent` 页面和 smoke 脚本。
 - T004a 已新增 AgentTask / AgentStep 持久化骨架，包括 `tb_agent_task` / `tb_agent_step` DDL、Entity、Mapper 和 `AgentTaskPersistenceService`；尚未接入 `DocumentAgentServiceImpl`，尚未执行 DDL，也未接 MQ。
+- T004b 已将 AgentTask / AgentStep 持久化接入 `DocumentAgentServiceImpl`：Agent run 会 best-effort 创建 task、记录 tool step、成功/失败更新 task 状态；尚未新增 task 查询 API，尚未执行 DDL。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -71,7 +72,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - SSE 流式输出与 Markdown 稳定渲染。
 - 轻量检索增强问答、引用映射和 eval artifact。
 - Agent 工具抽象与 trace 展示。
-- Agent task / step 持久化骨架。
+- Agent task / step 持久化骨架与执行时记录接入。
 - Actuator / Prometheus 可观测性基础。
 
 ## 8. 当前代码风险

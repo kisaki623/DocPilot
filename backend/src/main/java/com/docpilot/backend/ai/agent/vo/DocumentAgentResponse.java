@@ -12,6 +12,7 @@ public class DocumentAgentResponse {
     private String finishedAt;
     private Long totalDurationMs;
     private boolean success;
+    private Long taskId;
     private Long documentId;
     private String task;
     private String sessionId;
@@ -58,6 +59,14 @@ public class DocumentAgentResponse {
 
     public void setSuccess(boolean success) {
         this.success = success;
+    }
+
+    public Long getTaskId() {
+        return taskId;
+    }
+
+    public void setTaskId(Long taskId) {
+        this.taskId = taskId;
     }
 
     public Long getDocumentId() {
