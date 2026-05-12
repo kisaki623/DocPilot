@@ -1,0 +1,213 @@
+﻿# TODO_NEXT.md
+
+DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证结果不能标记为 DONE；代码已改但验证不完整只能标记为 REVIEW；缺环境、账号、密钥、数据库、依赖或用户确认时标记为 BLOCKED。
+
+## 看板规则
+
+- 一次只允许有一个任务处于 IN_PROGRESS。
+- 每个任务尽量控制在 30-90 分钟内可完成。
+- 任务必须围绕真实短板、可运行性、稳定性、工程化和面试价值。
+- 每轮结束后更新本文件、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
+- 如发现工作区有 modified / untracked 文件，先汇报再行动，不自动 `git add` / `git commit` / `git push`。
+
+## 任务列表
+
+### T000
+
+- 状态：TODO
+- 优先级：P0
+- 任务目标：审计当前工作区未提交改动 + 敏感信息检查。
+- 为什么要做：当前工作区存在较多 modified 和 untracked 文件，必须先明确哪些文件安全、哪些可能包含敏感信息、哪些属于历史残留，才能决定后续提交和开发顺序。
+- 涉及文件：全仓库只读审计；重点包括 `git status`、`.env`、`.env.*`、`application-*.yml`、`*.example`、`README.md`、`docs/`。
+- 前置依赖：无；本任务只做审计，不修改文件。
+- 验收标准：列出所有 modified 文件；列出所有 untracked 文件；检查 `.env`、`.env.*`、`application-*.yml`、`*.example`、README、docs 是否包含 API Key、token、password、secret、真实云服务 IP；只输出审计报告，不自动提交，不删除文件，不修改业务代码。
+- 验证命令：`git status --short`；`git diff --name-only`；`git ls-files --others --exclude-standard`；`rg -n "(?i)(api[_-]?key|token|password|secret|access[_-]?key|private[_-]?key|116\.204\.|[0-9]{1,3}(\.[0-9]{1,3}){3})" .env* backend/src/main/resources/application-*.yml **/*.example README.md docs`。
+- 风险点：只能审计和报告，不下结论是否提交；不能删除本地文件；不能把敏感值复制到最终回复里，发现时只说明文件和键名。
+- 面试价值：体现代码公开前的安全审计、仓库治理和交付责任感。
+- 下一步动作：先输出完整审计报告，再由用户决定哪些文件保留、忽略、清理或提交。
+
+### T000b
+
+- 状态：REVIEW
+- 优先级：P0
+- 任务目标：敏感信息脱敏修复 + 协作文档入库策略修正。
+- 为什么要做：T000 审计发现 README、backend README、cloud env example、application-local、CONSTRAINTS 中存在真实公网 IP 风险，同时根目录 `docs/*` 规则导致协作文档无法被普通 `git status` 看见。
+- 涉及文件：`.gitignore`、`README.md`、`backend/README.md`、`backend/.env.cloud.example`、`backend/.env.demo.example`、`backend/src/main/resources/application-local.yml`、`docs/ai-dev/CONSTRAINTS.md`、`AGENTS.md`、`docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
+- 前置依赖：已完成 T000 审计；本任务只处理安全脱敏和协作文档入库策略，不做业务代码开发。
+- 验收标准：指定文件中不再保留真实公网 IP；`backend/.env` 仍未被 Git 跟踪；`docs/CODEX_HANDOFF.md`、`docs/TODO_NEXT.md`、`docs/CHANGELOG_CODING.md` 能被 `git status` 看见；不执行 `git add` / `git commit` / `git push`。
+- 验证命令：`git status`；`git diff --stat`；`git diff --name-only`；对指定文件执行公网 IP 扫描；`git check-ignore -v backend/.env docs/CODEX_HANDOFF.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md`。
+- 风险点：不能输出真实 IP、密码、token、API Key；不能修改 `backend/.env`；不能顺手改业务代码。
+- 面试价值：体现开源前安全脱敏、仓库可追踪性和协作文档治理。
+- 下一步动作：等待用户复核本轮 diff；通过后再进入 T001a 定位权威 eval artifact。
+
+### T000c
+
+- 状态：REVIEW
+- 优先级：P0
+- 任务目标：剩余敏感信息复核，重点检查 `.run` 配置文件。
+- 为什么要做：T000b 已完成主要文档和配置脱敏，但 `.run/*.xml` 仍处于 modified 状态，需要确认是否包含真实公网 IP、密码、token、secret、API Key 等敏感信息。
+- 涉及文件：`.run/*.xml`、README、backend README、backend env example、`application-*.yml`、docs markdown、`AGENTS.md`。
+- 前置依赖：已完成 T000b；本任务只做剩余敏感信息复核，必要时仅脱敏 `.run/*.xml`。
+- 验收标准：`.run/*.xml` 不包含真实公网 IP 或敏感值；允许检查范围内不输出任何真实敏感值；`backend/.env` 仍未被 Git 跟踪；不执行 `git add` / `git commit` / `git push`。
+- 验证命令：扫描 `.run/*.xml` 的 IPv4 字面量和敏感关键词；扫描允许范围内的公网 IP；`git ls-files --error-unmatch backend/.env`；`git diff --stat`。
+- 风险点：不要输出真实 IP、密码、token、API Key；不要读取或修改 `backend/.env`；不要修改业务代码。
+- 面试价值：体现开源前最后一轮敏感信息复核和 IDEA 运行配置治理。
+- 下一步动作：等待用户复核；确认无敏感信息后进入 T001a。
+
+### T000d
+
+- 状态：REVIEW
+- 优先级：P0
+- 任务目标：记录 Codex subagents 和 MCP 工具能力边界。
+- 为什么要做：后续 Claude Code、Codex、ChatGPT 接手时需要知道本地 subagents、context7 MCP、playwright MCP 的用途、授权条件和禁止事项，避免误用远程工具、残留进程或泄露敏感信息。
+- 涉及文件：`AGENTS.md`、`docs/CODEX_TOOLING.md`、`docs/CODEX_HANDOFF.md`、`docs/TODO_NEXT.md`、`docs/CHANGELOG_CODING.md`。
+- 前置依赖：已完成 T000b/T000c 敏感信息脱敏和 `.run` 复核。
+- 验收标准：新增 `docs/CODEX_TOOLING.md`；AGENTS 和 HANDOFF 有简短引用；hk-ops 明确需要用户确认；playwright 明确不要未经确认启动长期 dev server；context7 明确用于查官方/库文档；不记录真实 IP、账号、密码、token、API Key 或 `.env` 内容。
+- 验证命令：`rg -n "CODEX_TOOLING|hk-ops|playwright|context7|password|token|API Key|CLOUD_HOST" AGENTS.md docs/CODEX_TOOLING.md docs/CODEX_HANDOFF.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md`；`git diff --stat`。
+- 风险点：不要把工具说明写成实际凭据或服务器信息；不要误导后续 agent 以为 hk-ops 可直接使用。
+- 面试价值：体现多 agent 协作、工具治理和安全边界意识。
+- 下一步动作：等待用户复核；后续继续 T005a 或仓库提交前风险复查。
+
+### T001a
+
+- 状态：DONE
+- 优先级：P0
+- 任务目标：定位权威 eval artifact，确认哪份评测结果是当前基准。
+- 为什么要做：当前 README、STATE、最新 artifact JSON 存在三套指标冲突，不能直接用其中任意一份继续写展示口径。
+- 涉及文件：eval artifact 目录、`README.md`、`docs/ai-dev/STATE.md`、`docs/ai-dev/SHOWCASE.md`、`docs/ai-dev/HANDOFF.md`。
+- 前置依赖：先完成 T000，确认 docs / artifact 中没有敏感信息风险。
+- 验收标准：列出所有候选 eval markdown / json artifact；标出生成时间、样本数、关键指标；明确推荐哪一份作为当前基准，或说明需要重跑 eval。已完成只读定位：当前权威基准为 `docs/ai-dev/benchmarks/artifacts/stagec_eval_latest.json`。
+- 验证命令：`rg -n "answerSuccessRate|citationHitRate|casePassRate|streamVsNonStreamConsistency" README.md docs backend/scripts`；必要时读取 artifact JSON / markdown。
+- 风险点：不能因为指标更好就选最新 artifact；必须说明为什么它是当前权威基准。
+- 面试价值：体现评测证据链和可追溯指标管理。
+- 下一步动作：已完成只读定位；进入 T001b 统一文档引用。
+
+### T001b
+
+- 状态：REVIEW
+- 优先级：P0
+- 任务目标：统一 README / STATE / docs / artifact 中的指标引用。
+- 为什么要做：T001a 确定权威基准后，需要把公开文档和协作文档中的指标口径收敛到同一证据链。
+- 涉及文件：`README.md`、`docs/ai-dev/SHOWCASE.md`、`docs/ai-dev/STATE.md`、`docs/ai-dev/HANDOFF.md`、必要的 artifact 引用说明。
+- 前置依赖：必须先完成 T001a。
+- 验收标准：所有公开指标都能追溯到同一 artifact；明确写清轻量检索增强边界；不再出现 README / STATE / artifact 互相矛盾的数字。已统一到 `stagec_eval_latest.json`，等待人工复查。
+- 验证命令：`rg -n "answerSuccessRate|citationHitRate|casePassRate|90%|100%|57\.143|46\.154|50%" README.md docs`；`git diff --stat`。
+- 风险点：不能篡改 artifact；不能把单次本地 eval 写成线上 SLA；不能夸大为向量 RAG。
+- 面试价值：让项目证据链可信，便于说明“如何用数据驱动 AI 应用质量改进”。
+- 下一步动作：等待用户复查本轮文档 diff；保留 T005a/T005b，用于补充 eval 规则、运行时配置记录和重跑验证。
+
+### T002
+
+- 状态：TODO
+- 优先级：P0
+- 任务目标：完成一次最小本地 smoke 验证并记录真实结果。
+- 为什么要做：当前仓库有较多未提交改动，需要确认本地基础启动、构建、测试是否仍可用。
+- 涉及文件：`backend/README.md`、`frontend/README.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
+- 前置依赖：本地 JDK、Maven、Node、npm、Docker 或可用中间件；先完成 T000，避免在敏感信息不明时扩大改动。
+- 验收标准：后端 compile/test、前端 lint/build、基础健康检查或失败原因被真实记录。
+- 验证命令：`cd backend; mvn -DskipTests compile; mvn test -DskipITs`；`cd frontend; npm run lint; npm run build`；`curl http://localhost:8081/actuator/health`。
+- 风险点：本地中间件、端口占用、真实模型密钥可能缺失；不能伪造通过结果。
+- 面试价值：体现工程项目可运行、可验证、可交接。
+- 下一步动作：按 README 运行最小验证，失败时只记录真实阻塞，不顺手改业务代码。
+
+### T003
+
+- 状态：TODO
+- 优先级：P0
+- 任务目标：审计并修复核心协作文档中的中文乱码和阶段流水账残留。
+- 为什么要做：`docs/ai-dev/HANDOFF.md` 等历史文档存在乱码，影响后续 agent 接手和项目可信度。
+- 涉及文件：`docs/ai-dev/HANDOFF.md`、`docs/ai-dev/STATE.md`、`docs/ai-dev/TASKS.md`、`docs/ai-dev/SHOWCASE.md`。
+- 前置依赖：先完成 T000；确认哪些历史内容仍有保留价值，避免误删事实源。
+- 验收标准：核心交接文档可读；不再把轮次日志当成当前事实；删除或合并内容有理由。
+- 验证命令：`rg "�|Ã|Â|乱码" docs README.md backend/README.md frontend/README.md`；人工抽读修改后的文档。
+- 风险点：可能误删历史决策；应只收口文档，不改业务逻辑。
+- 面试价值：体现文档治理和工程协作习惯。
+- 下一步动作：先列出乱码文件和重复段落，再小步整理。
+
+### T004
+
+- 状态：TODO
+- 优先级：P1
+- 任务目标：补齐或稳定一条 Playwright 主链路 smoke。
+- 为什么要做：登录、上传、文档详情、问答、Agent 是展示链路，缺浏览器级回归会让 UI 改动风险变高。
+- 涉及文件：`frontend/`、可能的 e2e 脚本目录、`docs/CODEX_HANDOFF.md`。
+- 前置依赖：前后端可启动；有可用测试账号或注册接口；中间件可用；先完成 T000 / T002。
+- 验收标准：Playwright 能验证至少登录 / 文档列表或详情 / Agent 页面；失败时有明确日志。
+- 验证命令：使用 Playwright MCP 打开页面并走主流程；如已有脚本则执行对应 npm 命令。
+- 风险点：本地环境不稳定；真实上传文件和数据状态可能影响可重复性。
+- 面试价值：体现端到端验证和演示稳定性。
+- 下一步动作：先查现有 e2e / Playwright 配置，再决定用 MCP 手工流还是脚本化。
+
+### T005a
+
+- 状态：TODO
+- 优先级：P1
+- 任务目标：列出当前 eval 规则与门禁阈值。
+- 为什么要做：在修改 eval 之前，必须先明确当前 answerSuccess、citationHit、casePass、stream consistency 的判定逻辑和默认 gate。
+- 涉及文件：`backend/scripts/benchmark/`、eval dataset、eval artifact、`docs/ai-dev/SHOWCASE.md`。
+- 前置依赖：先完成 T001a，确认当前权威 artifact。
+- 验收标准：输出当前规则、阈值、样本覆盖、已知宽松点和失败 case 分类；不修改 runner 逻辑。
+- 验证命令：`rg -n "answerSuccess|citationHit|casePass|gate|threshold|consistency" backend/scripts docs`；读取当前 eval 报告。
+- 风险点：不要在没理解规则前直接改阈值；不要把规则审计写成指标优化。
+- 面试价值：体现 AI 评测规则审计和质量门禁意识。
+- 下一步动作：逐项列出现有规则和它们的可信度问题。
+
+### T005b
+
+- 状态：TODO
+- 优先级：P1
+- 任务目标：逐项修改 eval 规则并重跑评测。
+- 为什么要做：T005a 明确规则后，再小步改进判定逻辑和门禁阈值，避免通过放宽规则美化指标。
+- 涉及文件：`backend/scripts/benchmark/`、eval dataset / artifact、`README.md`、`docs/ai-dev/SHOWCASE.md`。
+- 前置依赖：必须先完成 T005a；本地后端和 eval 依赖可运行。
+- 验收标准：规则变化有说明；不达标时脚本返回非 0；输出新的 markdown + json artifact；README / SHOWCASE 只引用真实结果。
+- 验证命令：执行当前 stage C eval 脚本；检查生成的 markdown / json artifact；`git diff --stat`。
+- 风险点：不能通过放宽规则美化指标；真实模型波动可能影响结果；需要保留旧结果可追溯。
+- 面试价值：体现 AI 应用质量评测、门禁和回归治理。
+- 下一步动作：一次只改一类规则，重跑并记录指标变化。
+
+### T006
+
+- 状态：TODO
+- 优先级：P1
+- 任务目标：明确 PDF 解析能力边界并统一 UI / README / 后端说明。
+- 为什么要做：项目容易被误解为完整 PDF 智能解析系统，但当前主能力更偏 txt / md 和轻量文本解析。
+- 涉及文件：`README.md`、`backend/README.md`、`frontend/README.md`、上传页文案、文档解析相关代码注释或提示。
+- 前置依赖：确认当前 PDF 解析实际实现。
+- 验收标准：所有公开文档和页面都清楚说明支持边界；不夸大 PDF 能力。
+- 验证命令：`rg "PDF|pdf|解析" README.md backend/README.md frontend/README.md frontend backend/src/main/java`；必要时上传样例验证。
+- 风险点：如果改前端文案，需要跑 lint/build；不能改解析逻辑。
+- 面试价值：体现诚实边界管理和产品化表达。
+- 下一步动作：先审计所有 PDF 表述，再统一口径。
+
+### T007
+
+- 状态：TODO
+- 优先级：P2
+- 任务目标：整理 Agent 演示案例和最小验证说明。
+- 为什么要做：Agent 已有最小闭环，但需要更清楚的 demo 输入、预期 trace 和失败边界，才能稳定演示。
+- 涉及文件：`README.md`、`docs/ai-dev/SHOWCASE.md`、`frontend/app/agent/`、后端 Agent service / DTO。
+- 前置依赖：前后端 Agent 页面和 API 可运行。
+- 验收标准：文档提供 2 个可复制 demo 输入；页面能展示工具步骤和最终回答；边界不夸大为多 Agent。
+- 验证命令：后端 agent smoke；Playwright MCP 打开 `/agent` 并执行 demo 输入。
+- 风险点：真实模型不可用时需要 mock 口径；不能把原始 JSON 当作用户展示。
+- 面试价值：体现 AI Agent 工具调用和可视化 trace 能力。
+- 下一步动作：先确认 `/agent` 当前交互，再补 demo 文档或最小 smoke。
+
+### T008
+
+- 状态：TODO
+- 优先级：P2
+- 任务目标：建立本地 / 香港云中间件排障清单。
+- 为什么要做：项目依赖 MySQL、Redis、RocketMQ、MinIO、Prometheus，本地和云环境切换容易导致启动问题。
+- 涉及文件：`backend/README.md`、`docs/CODEX_HANDOFF.md`、`.run/` 配置说明、`.env.example` / demo env 模板。
+- 前置依赖：确认当前推荐启动方式和可用 run config。
+- 验收标准：常见启动失败能按端口、配置、Bean、数据库、Redis、MQ、MinIO 分类排查；不包含真实密钥。
+- 验证命令：`docker compose -f docker-compose.demo.yml ps`；`curl http://localhost:8081/actuator/health`；必要时检查 IDEA run config。
+- 风险点：不能泄露云服务器密码或真实 env；不能把临时本机配置写成通用规则。
+- 面试价值：体现复杂中间件联调和问题定位能力。
+- 下一步动作：先基于 README 和 run config 梳理排障路径。
+
+## 推荐第一个任务
+
+推荐先做 `T000`。理由：当前工作区有较多 modified 和 untracked 文件，必须先明确哪些文件安全、哪些包含敏感信息、哪些属于历史残留，才能决定后续提交和开发顺序。

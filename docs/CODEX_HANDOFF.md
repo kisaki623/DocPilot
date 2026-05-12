@@ -1,0 +1,155 @@
+﻿# Codex Handoff
+
+本文是 DocPilot 当前版本给下一位 Codex / API agent / Claude Code 的简明交接。它只记录当前真实状态，不把规划写成已完成。
+
+## 1. 项目当前真实状态
+
+DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓库已经具备文档上传、文档创建、异步解析、文档列表 / 详情、轻量检索增强问答、SSE 流式输出、引用展示、历史问答、账号密码认证和最小 Agent 演示链路。
+
+项目仍处于作品展示与实习投递导向的持续打磨阶段。它可以展示工程化能力，但还不是生产级 SaaS，也不是完整向量 RAG / 多 Agent 平台。
+
+## 2. 已经实现的功能
+
+- 账号密码注册 / 登录，旧短信登录逻辑保留兼容口径。
+- 文件上传、分片上传、对象存储落盘与文件记录。
+- 文档创建、文档列表、文档详情、状态展示。
+- 解析任务创建、Outbox、RocketMQ 异步消费、Redisson 锁与幂等保护。
+- 文档内容轻量切分、关键词检索、上下文组装、引用返回。
+- 普通问答与 SSE 流式问答。
+- Markdown 展示、历史问答、引用证据面板。
+- 最小 Agent 后端 / 前端演示入口，能展示输入、工具步骤与最终回答。
+- eval / benchmark 脚本和 artifact 雏形，用于记录问答质量指标。
+- Docker Compose demo 中间件编排。
+
+## 3. 半实现 / 有边界的功能
+
+- RAG 是轻量检索增强，主要依赖文本 chunk、关键词、上下文拼装，不是向量数据库 + embedding + rerank 的完整 RAG。
+- PDF 解析不是当前主能力，txt / md 更可靠。
+- Agent 是单 Agent / 工具链演示，不是多 Agent 协作系统。
+- eval 数据集和门禁已经有基础，但质量指标、样本覆盖和判定规则仍需继续校准。
+- 真实模型接入依赖环境变量和外部 provider，可使用 mock 模式保证本地演示。
+- 前端页面已具备展示感，但仍有局部样式和交互稳定性可以继续打磨。
+
+## 4. 未实现的功能
+
+- 完整向量化索引、embedding 存储、语义 rerank。
+- 生产级 PDF 结构化解析。
+- 生产级短信网关、账号风控、权限体系。
+- 多租户、团队协作、权限隔离。
+- 完整 CI/CD、线上部署流水线和长期 SLA 监控。
+- 完整多 Agent 编排、长期记忆、复杂工具市场。
+
+## 5. 不确定 / 需要用户确认的地方
+
+- 香港云中间件当前是否可稳定连通，需要实际联调时确认。
+- 当前未提交工作区里有较多历史改动和未跟踪文件，接手前必须看 `git status` / `git diff`，不要误覆盖。
+- `docs/ai-dev/HANDOFF.md` 等历史文档存在乱码和阶段漂移，是否继续保留旧阶段文档需要用户确认。
+- T001a 已定位当前权威 eval 基准为 `docs/ai-dev/benchmarks/artifacts/stagec_eval_latest.json`：`answerSuccessRate=90%`、`citationHitRate=100%`、`caseCount/streamPairs=20/8`、`generatedAt=2026-04-18T18:58:42.2763129+00:00`、`datasetVersion=2026-04-19-r2`。T001b 已将 README / STATE / docs 准备统一到该 artifact。保留不确定项：artifact 未记录实际运行时 `AI_MODE`、模型名或 provider，且本轮未重跑 eval。
+- subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
+
+## 6. 核心业务链路
+
+1. 用户注册 / 登录，前端保存 token。
+2. 用户上传文件，后端生成文件记录并写入对象存储。
+3. 用户创建文档，并触发解析任务。
+4. 后端通过 Outbox / RocketMQ 异步解析文档，更新文档状态和内容片段。
+5. 用户进入文档列表 / 详情查看摘要、正文和状态。
+6. 用户发起普通问答或 SSE 问答。
+7. 后端检索文档片段，组装上下文，调用 mock 或 real AI service 生成回答。
+8. 前端展示回答、引用、历史记录和流式输出过程。
+9. Agent 页面可基于文档业务工具展示任务输入、工具调用步骤和最终结果。
+
+## 7. 关键技术点
+
+- Spring Boot 分层架构与 MyBatis-Plus 数据访问。
+- RocketMQ + Outbox 异步解析链路。
+- Redisson 分布式锁、幂等与去重。
+- MinIO 对象存储与分片上传。
+- Redis 缓存、会话上下文、限流。
+- SSE 流式输出与 Markdown 稳定渲染。
+- 轻量检索增强问答、引用映射和 eval artifact。
+- Agent 工具抽象与 trace 展示。
+- Actuator / Prometheus 可观测性基础。
+
+## 8. 当前代码风险
+
+- 工作区已有大量未提交改动，下一轮不能默认它们都属于当前任务。
+- eval 指标已按 T001a/T001b 收敛到 `stagec_eval_latest.json`（90% / 100%，20 cases / 8 stream pairs）。后续风险不再是“三套指标冲突”，而是需要通过 T005 重新运行 eval，并补充实际运行时 `AI_MODE`、模型名、provider 记录。
+- SSE 质量和普通问答一致性仍需持续回归。
+- mock / real provider 边界容易被文档夸大。
+- PDF 能力边界容易被误写成完整解析能力。
+- 部分历史中文文档存在乱码，影响交接质量。
+
+## 9. 后续最应该做的 3 个方向
+
+1. 收敛文档和 artifact 证据链：确认 README / SHOWCASE / STATE / HANDOFF 与最新 eval 结果一致。
+2. 做一次最小可运行 smoke：后端 compile/test、前端 lint/build、核心页面 / API 路径验证。
+3. 修复历史文档乱码和协作看板漂移，让后续 Codex 每轮都能从同一事实源开始。
+
+## 10. 接手时优先阅读
+
+- `AGENTS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `README.md`
+- `backend/README.md`
+- `frontend/README.md`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/DocumentQaServiceImpl.java`
+- `frontend/app/documents/[documentId]/page.tsx`
+- `frontend/app/agent/page.tsx`（若存在）
+- `git status --short`
+- `git diff --stat`
+
+## 11. 本地启动方式
+
+中间件：
+
+```powershell
+docker compose -f docker-compose.demo.yml up -d
+```
+
+后端：
+
+```powershell
+cd backend
+mvn spring-boot:run "-Dspring-boot.run.profiles=local"
+```
+
+前端：
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+具体环境变量以 `backend/README.md`、`frontend/README.md`、`.env.example`、`.env.demo.example` 为准。
+
+## 12. 本地测试方式
+
+```powershell
+cd backend
+mvn -DskipTests compile
+mvn test -DskipITs
+```
+
+```powershell
+cd frontend
+npm run lint
+npm run build
+```
+
+## 13. 本地验证方式
+
+- 后端健康检查：`curl http://localhost:8081/actuator/health`
+- 前端页面：打开 `/`、`/login`、`/dashboard`、`/upload`、`/documents`、`/agent`。
+- 问答链路：准备一个 txt / md 文档，上传、创建文档、等待解析、发起普通问答和 SSE 问答。
+- Agent 链路：进入 Agent 页面，输入文档总结或状态查询类任务，观察工具步骤和最终回答。
+- eval：以仓库当前 benchmark / scripts 文档为准，重跑后再更新指标。
+
+## 14. 当前最建议优先做的一个最小任务
+
+优先执行 `T000：审计当前工作区未提交改动 + 敏感信息检查`。
+
+原因：当前工作区有较多 modified 和 untracked 文件，必须先明确哪些文件安全、哪些包含敏感信息、哪些属于历史残留，才能决定后续提交和开发顺序。T000 只做审计，不下结论是否提交，不删除文件，不修改业务代码。

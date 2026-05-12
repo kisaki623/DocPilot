@@ -9,8 +9,15 @@ Thumbs.db
 backend/.run/
 frontend/.run/
 
-# Internal docs are not part of public first upload
-docs/
+# Keep ai-dev benchmark artifacts and collaboration docs trackable for evidence chain
+docs/*
+!docs/
+!docs/CODEX_HANDOFF.md
+!docs/TODO_NEXT.md
+!docs/CHANGELOG_CODING.md
+!docs/CODEX_TOOLING.md
+!docs/ai-dev/
+!docs/ai-dev/**
 
 # Local env / secrets
 backend/.env

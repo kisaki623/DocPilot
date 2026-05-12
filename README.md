@@ -1,72 +1,122 @@
-﻿# DocPilot
+# DocPilot
 
-> 面向 AI 文档问答场景的全栈工程项目：覆盖账号认证、文件上传、异步解析、文档检索与问答（含 SSE 流式输出）。
-> 
-> 项目重点不在“堆功能页”，而在可验证的工程链路：Outbox + RocketMQ 异步可靠投递、Redis/Redisson 幂等与限流、MinIO 分片上传、Prometheus 指标可观测。
-
+> 闈㈠悜 AI 鏂囨。闂瓟鍦烘櫙鐨勫叏鏍堝伐绋嬮」鐩細瑕嗙洊璐﹀彿璁よ瘉銆佹枃浠朵笂浼犮€佸紓姝ヨВ鏋愩€佽交閲忔绱㈠寮洪棶绛旓紙鍚?SSE 娴佸紡杈撳嚭锛夈€?> 
+> 椤圭洰閲嶇偣涓嶅湪鈥滃爢鍔熻兘椤碘€濓紝鑰屽湪鍙獙璇佺殑宸ョ▼閾捐矾锛歄utbox + RocketMQ 寮傛鎶曢€掍笌琛ュ伩鏈哄埗銆丷edis/Redisson 骞傜瓑涓庨檺娴併€丮inIO 鍒嗙墖涓婁紶銆丳rometheus 鎸囨爣鍙娴嬨€?
 ## Why This Project
 
-DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
-- 业务链路完整：注册/登录 -> 上传 -> 创建解析任务 -> 文档详情 -> AI 问答
-- 关键中间件可切换：本地 demo 可一键拉起，云环境可按配置切换
-- 面向真实约束：限流、幂等、异步补偿、可观测性、错误降级都在主链路内可见
+DocPilot 閫傚悎浣滀负鍚庣宸ョ▼ + 鍏ㄦ爤鑱旇皟鑳藉姏鐨勫睍绀烘牱鏈細
+- 涓氬姟閾捐矾鍙鍒扮婕旂ず锛氭敞鍐?鐧诲綍 -> 涓婁紶 -> 鍒涘缓瑙ｆ瀽浠诲姟 -> 鏂囨。璇︽儏 -> AI 闂瓟
+- 鍏抽敭涓棿浠跺彲鍒囨崲锛氶粯璁ゆ寜鈥滄湰鍦板簲鐢?+ 棣欐腐浜戜腑闂翠欢鈥濆紑鍙戯紝涔熷彲鍒囧埌鏈湴 demo
+- 闈㈠悜鐪熷疄绾︽潫锛氶檺娴併€佸箓绛夈€佸紓姝ヨˉ鍋裤€佸彲瑙傛祴鎬с€侀敊璇檷绾ч兘鍦ㄤ富閾捐矾鍐呭彲瑙?
 
-## 核心亮点
+## 鏍稿績浜偣
 
-- **Outbox + RocketMQ 异步解析链路**：`task/parse/create` 返回后，解析通过消息链路异步推进；含补偿扫描与重投，避免事务与消息不一致。
-- **消费幂等 + 分布式锁**：解析消费端用消费记录去重，解析任务创建侧用 Redisson 锁防重复创建。
-- **MinIO + 分片上传/断点续传**：支持普通上传与分片上传会话，含上传状态查询与合并完成。
-- **AI 问答 + SSE 流式输出**：详情页支持普通问答与流式问答切换，流式失败自动降级普通问答。
-- **Redis 缓存 + 令牌桶限流 + 会话上下文**：文档详情缓存、问答答案缓存、问答限流、短期会话上下文全部可见。
-- **可观测性与压测基线**：内置 Actuator/Prometheus 指标，并提供 benchmark harness 与 smoke 脚本用于复现。
-
-## 系统主链路
-
-1. **注册/登录**：前端 `/login` 默认注册模式，认证主入口为账号密码。
-2. **上传文件**：上传页支持 `txt / md / pdf`，上传后自动进入文档创建与解析任务创建。
-3. **异步解析**：解析任务入队后异步执行，前端轮询详情状态（`PENDING -> ... -> SUCCESS/FAILED`）。
-4. **文档浏览**：列表页按状态查看文档，详情页查看摘要、正文、状态与引用证据。
-5. **AI 问答**：在详情页进行普通/SSE 问答，查看引用片段与历史问答。
-
-> 说明：上传页已将 `file/upload -> document/create -> task/parse/create` 串为一条流程；无需手动逐接口触发。
-
-## 技术栈
+- **Outbox + RocketMQ 寮傛瑙ｆ瀽閾捐矾**锛歚task/parse/create` 杩斿洖鍚庡紓姝ユ帹杩涳紝鍚ˉ鍋挎壂鎻忎笌閲嶆姇銆?- **娑堣垂骞傜瓑 + 鍒嗗竷寮忛攣**锛氭秷璐硅褰曞幓閲?+ Redisson 閿侊紙WatchDog锛夋敹鏁涘苟鍙戦噸澶嶆墽琛屻€?- **MinIO + 鍒嗙墖涓婁紶/鏂偣缁紶**锛氭敮鎸佹櫘閫氫笂浼犱笌鍒嗙墖浼氳瘽锛屽惈鐘舵€佹煡璇笌鍚堝苟瀹屾垚銆?- **AI 闂瓟 + SSE 娴佸紡杈撳嚭**锛氳鎯呴〉鏀寔鏅€氶棶绛斾笌娴佸紡闂瓟鍒囨崲锛涙祦寮忓け璐ユ椂鍓嶇浼氬皾璇曡嚜鍔ㄩ檷绾у埌鏅€氶棶绛旓紝骞跺洖浼犲紩鐢ㄥ厓淇℃伅銆?- **Redis 娌荤悊鑳藉姏**锛氭枃妗?闂瓟缂撳瓨銆侀棶绛斾护鐗屾《闄愭祦銆佺煭鏈熶細璇濅笂涓嬫枃銆?- **鍙娴嬫€т笌鍘嬫祴鍩虹嚎**锛欰ctuator/Prometheus 鎸囨爣 + benchmark harness + smoke 鑴氭湰銆?
+## 绯荤粺涓婚摼璺?
+1. **娉ㄥ唽/鐧诲綍**锛氬墠绔?`/login` 榛樿娉ㄥ唽妯″紡锛岃璇佷富鍏ュ彛涓鸿处鍙峰瘑鐮併€?2. **涓婁紶鏂囦欢**锛氭敮鎸?`txt/md/pdf` 涓婁紶锛涘綋鍓?`txt/md` 鍙繘鍏ヨВ鏋愪富閾捐矾锛宍pdf` 瑙ｆ瀽涓哄崰浣嶈兘鍔涖€?3. **寮傛瑙ｆ瀽**锛氬墠绔疆璇㈢姸鎬侊紝鍚庣寮傛娑堣垂鎺ㄨ繘鍒扮粓鎬併€?4. **鏂囨。娴忚**锛氬垪琛ㄦ煡鐪嬬姸鎬侊紝璇︽儏鏌ョ湅鎽樿銆佹鏂囦笌璇佹嵁寮曠敤銆?5. **AI 闂瓟**锛氭櫘閫?SSE 闂瓟鍏变韩妫€绱笂涓嬫枃锛屾敮鎸佸紩鐢ㄧ墖娈典笌鍘嗗彶璁板綍銆?
+## 鎶€鏈爤
 
 - **Backend**: Java 17, Spring Boot 3, MyBatis-Plus, MySQL, Redis, RocketMQ, MinIO, Redisson, Micrometer
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
 - **Infra / Middleware**: Docker Compose, MySQL, Redis, RocketMQ, MinIO
 - **Observability**: Spring Boot Actuator, Prometheus
 
-## 页面预览
+## 閲忓寲璇勬祴锛堥樁娈?C锛?
+- 鏁版嵁闆嗭細`docs/ai-dev/benchmarks/datasets/stagec_eval_dataset.json`
+- 鎵ц鑴氭湰锛歚backend/scripts/benchmark/run-stage-c-eval.ps1`
+- 缁撴灉鏂囨。锛歚docs/ai-dev/benchmarks/STAGEC_EVAL_RESULTS.md`
+- 鍘熷 artifact锛歚docs/ai-dev/benchmarks/artifacts/stagec_eval_latest.json`
 
-当前仓库未提交可公开截图文件（避免误传本地调试产物）。
+当前权威基准来自仓库内最新 artifact：`docs/ai-dev/benchmarks/artifacts/stagec_eval_latest.json`。
 
-建议补充到 `assets/screenshots/` 后在此处引用（推荐顺序）：
-1. `01-login-register-and-password-YYYYMMDD.png`（注册/登录双模式）
-2. `02-upload-workflow-success-YYYYMMDD.png`（上传 + 自动建文档/建任务）
-3. `03-documents-list-filter-status-YYYYMMDD.png`（搜索/筛选/状态）
-4. `04-detail-qa-citations-YYYYMMDD.png`（详情 + 回答 + 引用）
-5. `05-detail-sse-streaming-in-progress-YYYYMMDD.png`（流式输出过程态）
+- `generatedAt`: `2026-04-18T18:58:42.2763129+00:00`
+- `datasetName`: `stagec-core-qa-eval`
+- `datasetVersion`: `2026-04-19-r2`
+- `caseCount / streamPairs`: `20 / 8`
+- `answerSuccessRate`: `90%`
+- `citationHitRate`: `100%`
+- `casePassRate`: `85%`
+- `streamVsNonStreamConsistency`: `87.5%`
+- Gate: `passed=true`
 
-## 快速开始（本地演示）
+边界说明：以上是仓库内当前 artifact 记录，不是本轮重新运行结果；artifact 未记录实际运行时 `AI_MODE`、模型名或 provider；该结果用于本地版本证据链，不代表线上 SLA。后续需通过 T005 重新运行 eval，并补充运行时配置记录。
+## 椤甸潰棰勮
 
-### 0) 前置依赖
+鍏紑浠撳簱褰撳墠鏈撼鍏モ€滄寮忓睍绀烘埅鍥捐祫浜р€濄€?
+濡傛灉浣犳兂琛ュ浘锛屽缓璁粺涓€鏀惧埌 `assets/screenshots/`锛屾帹鑽愰『搴忥細
+1. 鐧诲綍椤碉紙娉ㄥ唽/鐧诲綍鍙屾ā寮忥級
+2. 涓婁紶椤碉紙鑷姩 create/parse锛?3. 鏂囨。鍒楄〃椤碉紙鎼滅储/绛涢€?鐘舵€侊級
+4. 鏂囨。璇︽儏椤碉紙闂瓟 + 寮曠敤锛?5. SSE 娴佸紡杩囩▼鎬?
+> 璇存槑锛氭湰鍦扮洰褰曞彲鑳藉瓨鍦ㄦ湭璺熻釜鐨勮皟璇曟埅鍥撅紝涓嶄綔涓?README 姝ｅ紡灞曠ず绱犳潗銆?
+## 蹇€熷紑濮?
+### 0) 鍥㈤槦鍐呴粯璁ゅ紑鍙戠幆澧冿紙闇€浜戜腑闂翠欢鍙揪锛?
+褰撳墠浠撳簱鐨勬棩甯稿紑鍙戦粯璁ゅ彛寰勬槸锛?
+- 鍓嶇锛氭湰鍦拌繍琛?- 鍚庣锛氭湰鍦拌繍琛?- 涓棿浠讹細棣欐腐浜戞湇鍔″櫒 `<CLOUD_HOST>` 涓婄殑 Docker 瀹瑰櫒
 
-- Docker Desktop（需确保 daemon 已启动）
+涔熷氨鏄锛屼綘涓嶅繀鍏堝湪鏈満鎷夎捣 MySQL / Redis / RocketMQ / MinIO锛屼紭鍏堜娇鐢ㄤ簯涓棿浠舵ā鏉垮嵆鍙€?
+### 1) 鍓嶇疆渚濊禆
+
 - Java 17+
 - Maven 3.9+
-- Node.js 20+（建议 LTS）
-- npm 10+
+- Node.js 20+锛堝缓璁?LTS锛?- npm 10+
+- 鑻ヨ璧扳€滅函鏈湴 demo鈥濇ā寮忥紝鍐嶅噯澶?Docker Desktop
 
-### 1) 启动中间件（MySQL/Redis/RocketMQ/MinIO/Prometheus）
+### 2) 鍚姩鍚庣锛堥粯璁わ細鏈湴搴旂敤 + 棣欐腐浜戜腑闂翠欢锛?
+Windows PowerShell:
 
+```powershell
+cd backend
+Copy-Item .env.cloud.example .env
+mvn spring-boot:run
+```
+
+鎴栧湪 IDEA 涓洿鎺ヤ娇鐢細
+
+- `.run/DocPilot-Backend-HK-Cloud.run.xml`
+- `.run/DocPilot-Backend-App-HK-Cloud.run.xml`
+
+璇存槑锛?
+1. `application-local.yml` 鐨勯粯璁ゅ厹搴曞氨鏄娓簯涓棿浠跺湴鍧€銆?2. 鍛戒护琛屽惎鍔ㄦ椂浼氳鍙?`backend/.env`锛岃繖涔熸槸浣犲綋鍓嶉粯璁ょ殑浜戜腑闂翠欢鎺ュ叆鏂瑰紡銆?3. 棣栨浜戣仈璋冨缓璁厛淇濇寔 `ROCKETMQ_ENABLED=false`锛屽緟鍩虹鍚姩绋冲畾鍚庡啀鎵撳紑鐪熷疄娑堟伅閾捐矾銆?
+鍋ュ悍妫€鏌ワ細
+
+```bash
+curl http://localhost:8081/actuator/health
+```
+
+### 3) 鍚姩鍓嶇锛堥粯璁?3000锛?
+Windows PowerShell:
+
+```powershell
+cd frontend
+Copy-Item .env.example .env.local
+npm install
+npm run dev
+```
+
+macOS/Linux:
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm install
+npm run dev
+```
+
+璁块棶锛?
+- Home: `http://localhost:3000/`
+- Login: `http://localhost:3000/login`
+- Dashboard: `http://localhost:3000/dashboard`
+
+> 鑻?3000 琚崰鐢紝Next.js 浼氳嚜鍔ㄥ垏鍒?3001/3002锛岃浠ョ粓绔緭鍑虹鍙ｄ负鍑嗐€?
+### 4) 鍙€夛細绾湰鍦?demo 妯″紡
+
+濡傛灉浣犲笇鏈涘湪娌℃湁浜戜腑闂翠欢鏉冮檺鐨勬儏鍐典笅瀹屾暣婕旂ず锛屽啀浣跨敤鏈湴 compose锛?
 ```bash
 docker compose -f docker-compose.demo.yml up -d
 docker compose -f docker-compose.demo.yml ps
 ```
 
-### 2) 启动后端（默认 8081）
-
+鐒跺悗浣跨敤 `backend/.env.demo.example` 鍚姩鍚庣锛?
 Windows PowerShell:
 ```powershell
 cd backend
@@ -81,106 +131,36 @@ cp .env.demo.example .env
 mvn spring-boot:run
 ```
 
-健康检查：
-```bash
-curl http://localhost:8081/actuator/health
-```
-
-### 3) 启动前端（默认 3000）
-
-Windows PowerShell:
-```powershell
-cd frontend
-Copy-Item .env.example .env.local
-npm install
-npm run dev
-```
-
-macOS/Linux:
-```bash
-cd frontend
-cp .env.example .env.local
-npm install
-npm run dev
-```
-
-访问：
-- Home: `http://localhost:3000/`
-- Login: `http://localhost:3000/login`
-- Dashboard: `http://localhost:3000/dashboard`
-
-> 若 3000 被占用，Next.js 会自动切到 3001/3002，请以终端输出端口为准。
-
-### 4) 可选：运行最小链路 smoke
+### 5) 鍙€夛細杩愯鏈€灏忛摼璺?smoke
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-main-flow.ps1 -BaseUrl http://127.0.0.1:8081
 powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-qa-stream.ps1 -BackendBaseUrl http://127.0.0.1:8081
 ```
 
-## 项目结构
+### 6) 鍙€夛細杩愯闃舵 C 璇勬祴
+
+```powershell
+powershell -ExecutionPolicy Bypass -File backend/scripts/benchmark/run-stage-c-eval.ps1 -BackendBaseUrl http://127.0.0.1:8081
+```
+
+### 7) 鍙€夛細杩愯闃舵 D 鏈€灏?Agent smoke
+
+```powershell
+powershell -ExecutionPolicy Bypass -File backend/scripts/agent/smoke-agent-min.ps1 -BackendBaseUrl http://127.0.0.1:8081 -FilePath README.md
+```
+
+## 椤圭洰缁撴瀯
 
 ```text
 DocPilot/
-  backend/                 # Spring Boot 后端
-  frontend/                # Next.js 前端
-  deploy/                  # compose 依赖配置（MySQL / RocketMQ / Prometheus）
-  .run/                    # IDEA 运行配置（Backend/Frontend Local + HK Cloud）
-  docker-compose.demo.yml  # 本地演示中间件编排
-```
+  backend/                 # Spring Boot 鍚庣
+  frontend/                # Next.js 鍓嶇
+  deploy/                  # compose 渚濊禆閰嶇疆锛圡ySQL / RocketMQ / Prometheus锛?  .run/                    # IDEA 杩愯閰嶇疆锛圔ackend/Frontend Local + HK Cloud锛?  docker-compose.demo.yml  # 鏈湴婕旂ず涓棿浠剁紪鎺?```
 
-## 核心能力说明（解决了什么问题）
+## 宸茬煡闄愬埗
 
-- **异步解耦（RocketMQ + Outbox）**
-  将“接口响应”与“耗时解析”拆开，避免同步阻塞；通过 outbox 补偿降低消息丢失风险。
-
-- **幂等与并发控制（Redisson + 消费去重）**
-  解决并发重复创建任务、消息重复消费导致的重复执行问题。
-
-- **对象存储与上传体验（MinIO + Chunk）**
-  支持大文件分片上传、续传与合并，减少单次上传失败重试成本。
-
-- **问答体验与稳态（SSE + 降级）**
-  流式输出提升交互反馈速度；流式异常时自动降级普通问答，保证可用性。
-
-- **性能与稳定性（Redis 缓存 + 限流）**
-  热路径走缓存，问答入口做令牌桶限流，降低高并发下的抖动和雪崩风险。
-
-- **可观测性（Actuator + Prometheus）**
-  通过指标查看健康状态与关键业务计数，便于演示和定位问题。
-
-## 量化结果（可复现边界）
-
-仓库包含 `Task11_6BenchmarkTest` 基准测试与脚本，当前可稳定复现以下“门槛结论”（非线上 SLA）：
-
-- 文档详情缓存命中延迟 **低于** 缓存未命中（同机基准对比）。
-- 问答缓存命中延迟 **低于** 缓存未命中（同机基准对比）。
-- `document/create` 与 `task/parse/create` 在测试阈值下要求成功率 `>= 99%`。
-- 异步非阻塞证明要求：`task/parse/create` 在大多数请求中先返回，`responseBeforeParseFinishRate >= 95%`。
-
-> 边界说明：以上来自本地基准 harness 与断言门槛，结果会受机器配置与运行环境影响。
-
-## 已知限制
-
-- `pdf` 解析目前为占位逻辑；真实文本解析能力主要针对 `txt/md`。
-- AI 默认 `AI_MODE=mock`；切换 `real` 模式需配置 `AI_REAL_*` 参数与可用模型服务。
-- RocketMQ 异步链路依赖 `ROCKETMQ_ENABLED=true` 与可用 NameServer；关闭后会走 Noop Producer。
-- 短信验证码接口保留为兼容联调能力，不代表已接入生产短信网关。
-- Prometheus 默认抓取 `host.docker.internal:8081`；Linux 环境需要改为宿主机可达地址。
-
-## 运行与配置补充
-
-- 环境变量模板：
-  - `backend/.env.demo.example`
-  - `backend/.env.example`
-  - `backend/.env.cloud.example`
-  - `frontend/.env.example`
-- 请勿提交：
-  - `backend/.env`
-  - `backend/.env.cloud`
-  - `frontend/.env.local`
-
+- `pdf` 瑙ｆ瀽鐩墠涓哄崰浣嶉€昏緫锛涚湡瀹炴枃鏈В鏋愪富瑕嗙洊 `txt/md`銆?- 褰撳墠闂瓟涓衡€滆交閲忔绱㈠寮衡€濊€岄潪瀹屾暣鍚戦噺 RAG锛堟棤 embedding/vector index/rerank锛夈€?- AI 榛樿 `AI_MODE=mock`锛涘垏鎹?`real` 闇€閰嶇疆 `AI_REAL_*`銆?- 閲忓寲缁撴灉鏉ヨ嚜浠撳簱鍐呭彲澶嶇幇鑴氭湰涓庡浐瀹氭牱鏈紝鐢ㄤ簬鐗堟湰闂寸浉瀵规瘮杈冿紝涓嶇瓑鍚岀嚎涓?SLA銆?- 闃舵 C 鏍锋湰涓粛鍑虹幇杩?SSE 500锛涘綋鍓嶇敱鈥滃墠绔嚜鍔ㄩ檷绾?+ runner 閲嶈瘯鈥濆厹搴曪紝涓嶄唬琛ㄦ祦寮忕ǔ瀹氭€ч棶棰樺凡瀹屽叏闂幆銆?- RocketMQ 寮傛閾捐矾渚濊禆 `ROCKETMQ_ENABLED=true` 涓庡彲鐢?NameServer銆?- 鐭俊楠岃瘉鐮佹帴鍙ｄ负鍏煎鑱旇皟鑳藉姏锛屼笉浠ｈ〃鐢熶骇鐭俊缃戝叧鎺ュ叆銆?- Prometheus 榛樿鎶?`host.docker.internal:8081`锛孡inux 闇€鏀逛负瀹夸富鏈哄彲杈惧湴鍧€銆?- 褰撳墠榛樿寮€鍙戠幆澧冧緷璧栭娓簯涓棿浠跺彲杈撅紱鑻ヤ簯绔笉鍙敤锛岃鍒囨崲鍒?`docker-compose.demo.yml` 鐨勭函鏈湴 demo 妯″紡銆?- 褰撳墠 Agent 涓哄崟 Agent 鏈€灏忓伐鍏烽棴鐜紙鍙姝ラ锛夛紝涓嶆槸澶?Agent 缂栨帓绯荤粺銆?
 ---
 
-如果你在准备面试演示，建议优先展示这条 5 分钟链路：
-`注册/登录 -> 上传 -> 自动创建解析任务 -> 详情页 SSE 问答 -> 查看引用与历史记录`。
+濡傛灉浣犲湪鍑嗗闈㈣瘯婕旂ず锛屽缓璁蛋杩欐潯 5 鍒嗛挓閾捐矾锛?`娉ㄥ唽/鐧诲綍 -> 涓婁紶 -> 鑷姩鍒涘缓瑙ｆ瀽浠诲姟 -> 璇︽儏椤?SSE 闂瓟 -> Agent 椤甸潰灞曠ず宸ュ叿姝ラ涓庡紩鐢╜
