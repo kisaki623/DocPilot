@@ -308,6 +308,30 @@
 - 未执行 DDL。
 - 未新增 MQ / Outbox。
 
+## 2026-05-13 - T004d Agent smoke 与协作文档收尾
+
+### 本轮目标
+
+补充 Agent smoke 对 `taskId` 的断言，并将 T004b/T004c/T004d 的完成状态同步到协作文档。
+
+### 修改文件
+
+- `backend/scripts/agent/smoke-agent-min.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过。
+- `powershell -NoProfile -Command "Get-Command .\backend\scripts\agent\smoke-agent-min.ps1 -ErrorAction Stop"`：通过。
+
+### 明确未做事项
+
+- 未实跑 Agent smoke。
+- 未启动后端服务。
+- 未执行 DDL。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

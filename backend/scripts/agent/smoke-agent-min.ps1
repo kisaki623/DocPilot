@@ -111,12 +111,18 @@ $summaryRun = Invoke-JsonPost -Uri "$baseUrl/api/ai/agent/run" -Headers $headers
   task = "Please summarize the document for a quick project overview."
 }
 Assert-ApiSuccess -Response $summaryRun -Step "agent summary run"
+if (-not $summaryRun.data.taskId -or $summaryRun.data.taskId -le 0) {
+  throw "Agent summary run missing valid taskId."
+}
 
 $qaRun = Invoke-JsonPost -Uri "$baseUrl/api/ai/agent/run" -Headers $headers -Body @{
   documentId = $documentId
   task = "Please answer with evidence: what are the core technical highlights?"
 }
 Assert-ApiSuccess -Response $qaRun -Step "agent qa run"
+if (-not $qaRun.data.taskId -or $qaRun.data.taskId -le 0) {
+  throw "Agent qa run missing valid taskId."
+}
 
 if (@($summaryRun.data.steps).Count -lt 2) {
   throw "Agent summary run has insufficient steps."
@@ -136,8 +142,10 @@ if (@($qaRun.data.citations).Count -lt 1) {
 
 $result = [PSCustomObject]@{
   documentId = $documentId
+  summaryTaskId = $summaryRun.data.taskId
   summaryDecision = $summaryRun.data.decision
   summaryStepCount = @($summaryRun.data.steps).Count
+  qaTaskId = $qaRun.data.taskId
   qaDecision = $qaRun.data.decision
   qaStepCount = @($qaRun.data.steps).Count
   qaCitationCount = @($qaRun.data.citations).Count

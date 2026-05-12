@@ -18,6 +18,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - 普通问答与 SSE 流式问答。
 - Markdown 展示、历史问答、引用证据面板。
 - 最小 Agent 后端 / 前端演示入口，能展示输入、工具步骤与最终回答。
+- Agent 执行痕迹持久化与查询 API，Agent run 返回 `taskId`，支持按 `taskId` 查询 task / steps。
 - eval / benchmark 脚本和 artifact 雏形，用于记录问答质量指标。
 - Docker Compose demo 中间件编排。
 
@@ -49,6 +50,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T004a 已新增 AgentTask / AgentStep 持久化骨架，包括 `tb_agent_task` / `tb_agent_step` DDL、Entity、Mapper 和 `AgentTaskPersistenceService`；尚未接入 `DocumentAgentServiceImpl`，尚未执行 DDL，也未接 MQ。
 - T004b 已将 AgentTask / AgentStep 持久化接入 `DocumentAgentServiceImpl`：Agent run 会 best-effort 创建 task、记录 tool step、成功/失败更新 task 状态；尚未新增 task 查询 API，尚未执行 DDL。
 - T004c 已新增 Agent task / step 查询 API：支持按 `taskId` 查询当前用户的 task 与 steps，未修改前端，未执行 DDL。
+- T004d 已补充 Agent smoke 的 `taskId` 断言和协作文档收尾；smoke 脚本仅做语法/命令可解析检查，未实跑。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
