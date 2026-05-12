@@ -216,6 +216,43 @@
 
 - `.run` 配置、benchmark、README、AGENTS、`docs/ai-dev`。
 
+## 2026-05-13 - T004a Agent 执行痕迹持久化骨架
+
+### 本轮目标
+
+新增 AgentTask / AgentStep 持久化骨架，为后续 Agent 执行痕迹、工具步骤 trace 和失败诊断落库做准备。
+
+### 修改文件
+
+- `deploy/mysql/init/01_add_agent_tables.sql`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/entity/AgentTask.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/entity/AgentStep.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/mapper/AgentTaskMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/mapper/AgentStepMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/AgentTaskPersistenceService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/AgentTaskPersistenceServiceImpl.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 结果摘要
+
+- 新增 `tb_agent_task` 和 `tb_agent_step` DDL。
+- 新增 MyBatis-Plus Entity / Mapper。
+- 新增 `AgentTaskPersistenceService` 骨架，支持创建 task、标记成功/失败、创建 step。
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未接入 `DocumentAgentServiceImpl`。
+- 未执行 DDL。
+- 未修改前端。
+- 未接 RocketMQ。
+- 未引入 Spring AI / LangChain4j / MCP。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

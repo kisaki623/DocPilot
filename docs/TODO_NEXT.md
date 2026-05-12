@@ -21,6 +21,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：后端 compile/test 通过（141 tests），前端 lint/build 通过。
 - commit：25793ed feat(agent): add minimal document agent demo
 
+### T004a-fast-submit
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：新增 AgentTask / AgentStep 持久化 DDL、Entity、Mapper、PersistenceService 骨架。
+- 验证结果：后端 `mvn -DskipTests compile` 通过。
+- 边界：未接入 `DocumentAgentServiceImpl`，未执行 DDL，未修改前端，未接 MQ。
+
 ## 任务列表
 
 ### T000
