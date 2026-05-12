@@ -5,10 +5,13 @@ import com.docpilot.backend.ai.agent.entity.AgentTask;
 import com.docpilot.backend.ai.agent.mapper.AgentStepMapper;
 import com.docpilot.backend.ai.agent.mapper.AgentTaskMapper;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
+import com.docpilot.backend.common.error.ErrorCode;
+import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.util.ValidationUtils;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class AgentTaskPersistenceServiceImpl implements AgentTaskPersistenceService {
@@ -99,6 +102,23 @@ public class AgentTaskPersistenceServiceImpl implements AgentTaskPersistenceServ
 
         agentStepMapper.insert(step);
         return step;
+    }
+
+    @Override
+    public AgentTask getTaskByUserAndId(Long userId, Long taskId) {
+        ValidationUtils.requireNonNull(userId, "userId");
+        ValidationUtils.requireNonNull(taskId, "taskId");
+        AgentTask task = agentTaskMapper.selectByUserAndId(userId, taskId);
+        if (task == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "agent task not found");
+        }
+        return task;
+    }
+
+    @Override
+    public List<AgentStep> getStepsByTaskId(Long taskId) {
+        ValidationUtils.requireNonNull(taskId, "taskId");
+        return agentStepMapper.selectByTaskId(taskId);
     }
 
     private AgentTask requireTask(Long taskId) {

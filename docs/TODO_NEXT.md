@@ -37,6 +37,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：后端 compile/test 通过。
 - 边界：未新增查询 API，未执行 DDL，未修改前端。
 
+### T004c
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：增加 Agent task / step 查询 API。
+- 验证结果：后端 compile/test 通过。
+- 边界：未改前端，未执行 DDL。
+
 ## 任务列表
 
 ### T000

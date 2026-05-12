@@ -280,6 +280,34 @@
 - 未修改前端。
 - 未接 RocketMQ。
 
+## 2026-05-13 - T004c Agent 执行轨迹查询 API
+
+### 本轮目标
+
+提供 Agent task / step 查询接口，可按 `taskId` 查询当前用户的单次 Agent 执行记录和步骤列表。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/controller/DocumentAgentController.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/mapper/AgentTaskMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/mapper/AgentStepMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/AgentTaskPersistenceService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/AgentTaskPersistenceServiceImpl.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未修改前端 Agent 页面。
+- 未执行 DDL。
+- 未新增 MQ / Outbox。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标
