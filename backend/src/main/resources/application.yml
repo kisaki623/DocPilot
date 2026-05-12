@@ -55,7 +55,7 @@ app:
       model: ${AI_REAL_MODEL:gpt-4o-mini}
       connect-timeout-ms: ${AI_REAL_CONNECT_TIMEOUT_MS:2000}
       read-timeout-ms: ${AI_REAL_READ_TIMEOUT_MS:8000}
-      temperature: ${AI_REAL_TEMPERATURE:0.2}
+      temperature: ${AI_REAL_TEMPERATURE:0.0}
       max-output-tokens: ${AI_REAL_MAX_OUTPUT_TOKENS:800}
       cost:
         input-per-1k-usd: ${AI_REAL_INPUT_COST_PER_1K_USD:0}
@@ -104,4 +104,3 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-

@@ -16,6 +16,7 @@ import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,12 +50,18 @@ public class DocumentQaServiceImpl implements DocumentQaService {
     private static final int DEFAULT_MAX_DOCUMENT_CONTEXT_LENGTH = 4_000;
     private static final int DEFAULT_CHUNK_SIZE = 600;
     private static final int DEFAULT_CHUNK_OVERLAP = 120;
-    private static final int MAX_CITATION_COUNT = 3;
-    private static final int MAX_CITATION_SNIPPET_LENGTH = 180;
+    private static final int MAX_RANKED_CHUNK_COUNT = 5;
+    private static final int MAX_CITATION_COUNT = 4;
+    private static final int MAX_CITATION_SNIPPET_LENGTH = 320;
+    private static final int CITATION_MATCH_FOCUS_OFFSET = 96;
     private static final int DEFAULT_HISTORY_LIMIT = 10;
     private static final int MAX_HISTORY_LIMIT = 50;
     private static final long SSE_TIMEOUT_MS = 60_000L;
+    private static final int STREAM_CACHE_EMIT_CHUNK_SIZE = 64;
+    private static final int QUERY_TERM_MAX_COUNT = 24;
+    private static final int QUERY_TERM_MIN_LENGTH = 2;
     private static final Pattern QUERY_SPLIT_PATTERN = Pattern.compile("[^\\p{L}\\p{N}]+", Pattern.UNICODE_CHARACTER_CLASS);
+    private static final Pattern CJK_BLOCK_PATTERN = Pattern.compile("[\\p{IsHan}]+");
 
     private final DocumentMapper documentMapper;
     private final AiAnswerService aiAnswerService;
@@ -89,6 +96,7 @@ public class DocumentQaServiceImpl implements DocumentQaService {
         String promptQuestion = buildQuestionWithSessionContext(userId, context.documentId(), context.sessionId(), context.question());
 
         String answer = getOrGenerateAnswer(userId, context, promptQuestion);
+        List<DocumentQaResponse.CitationItem> refinedCitations = buildAnswerAwareCitations(context, answer);
         saveQaHistory(userId, context.documentId(), context.question(), answer);
         appendSessionContext(userId, context.documentId(), context.sessionId(), context.question(), answer);
 
@@ -97,20 +105,40 @@ public class DocumentQaServiceImpl implements DocumentQaService {
         response.setQuestion(context.question());
         response.setAnswer(answer);
         response.setSessionId(context.sessionId());
-        response.setCitations(context.citations());
+        response.setCitations(refinedCitations);
         return response;
     }
 
     @Override
     public SseEmitter streamAnswer(Long userId, Long documentId, String question, String sessionId) {
-        checkQaRateLimit(userId);
-
-        QaContext context = prepareQaContext(userId, documentId, question, sessionId);
-        String promptQuestion = buildQuestionWithSessionContext(userId, context.documentId(), context.sessionId(), context.question());
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
-
-        CompletableFuture.runAsync(() -> doStreamAnswer(emitter, userId, context, promptQuestion));
+        CompletableFuture.runAsync(() -> doStreamAnswerSafely(emitter, userId, documentId, question, sessionId));
         return emitter;
+    }
+
+    private void doStreamAnswerSafely(SseEmitter emitter, Long userId, Long documentId, String question, String sessionId) {
+        try {
+            checkQaRateLimit(userId);
+            QaContext context = prepareQaContext(userId, documentId, question, sessionId);
+            String promptQuestion = buildQuestionWithSessionContext(userId, context.documentId(), context.sessionId(), context.question());
+            doStreamAnswer(emitter, userId, context, promptQuestion);
+        } catch (BusinessException ex) {
+            log.warn("SSE QA rejected at pre-check stage, documentId={}, code={}", documentId, ex.getErrorCode(), ex);
+            try {
+                sendStreamError(emitter, ex.getMessage());
+            } catch (Exception ignored) {
+                // ignore
+            }
+            emitter.complete();
+        } catch (Exception ex) {
+            log.warn("SSE QA failed at pre-check stage, documentId={}", documentId, ex);
+            try {
+                sendStreamError(emitter, "流式问答失败，请稍后重试");
+            } catch (Exception ignored) {
+                // ignore
+            }
+            emitter.complete();
+        }
     }
 
     @Override
@@ -122,6 +150,26 @@ public class DocumentQaServiceImpl implements DocumentQaService {
     }
 
     private void doStreamAnswer(SseEmitter emitter, Long userId, QaContext context, String promptQuestion) {
+        sendStreamMeta(emitter, context);
+
+        String cacheKey = buildQaAnswerCacheKey(userId, context, promptQuestion);
+        String cachedAnswer = getCachedAnswer(cacheKey);
+        if (cachedAnswer != null) {
+            DocPilotMetrics.recordCacheAccess("qa_answer", "hit");
+            emitCachedAnswerAsChunks(emitter, cachedAnswer);
+            List<DocumentQaResponse.CitationItem> refinedCitations = buildAnswerAwareCitations(context, cachedAnswer);
+            saveQaHistory(userId, context.documentId(), context.question(), cachedAnswer);
+            appendSessionContext(userId, context.documentId(), context.sessionId(), context.question(), cachedAnswer);
+            try {
+                sendStreamDone(emitter, context, true, refinedCitations);
+            } catch (Exception ex) {
+                log.warn("Failed to send SSE done event for cache hit, documentId={}", context.documentId(), ex);
+            }
+            emitter.complete();
+            return;
+        }
+        DocPilotMetrics.recordCacheAccess("qa_answer", "miss");
+
         AtomicBoolean anyChunkSent = new AtomicBoolean(false);
         StringBuilder answerBuilder = new StringBuilder();
 
@@ -144,22 +192,28 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                         throw new IllegalArgumentException("AI 流式回答为空");
                     }
                     return Boolean.TRUE;
-                } catch (RuntimeException ex) {
+                } catch (Exception ex) {
                     if (anyChunkSent.get()) {
                         throw new IllegalStateException("stream interrupted after partial output", ex);
                     }
-                    throw ex;
+                    if (ex instanceof RuntimeException runtimeException) {
+                        throw runtimeException;
+                    }
+                    throw new RuntimeException(ex);
                 }
             });
 
             String finalAnswer = answerBuilder.toString().trim();
+            List<DocumentQaResponse.CitationItem> refinedCitations = buildAnswerAwareCitations(context, finalAnswer);
+            cacheAnswer(cacheKey, finalAnswer);
             saveQaHistory(userId, context.documentId(), context.question(), finalAnswer);
             appendSessionContext(userId, context.documentId(), context.sessionId(), context.question(), finalAnswer);
-            sendEvent(emitter, "done", "[DONE]");
+            sendStreamDone(emitter, context, false, refinedCitations);
             emitter.complete();
         } catch (Exception ex) {
+            log.warn("SSE QA execution failed, documentId={}, sessionId={}", context.documentId(), context.sessionId(), ex);
             try {
-                sendEvent(emitter, "error", "流式问答失败");
+                sendStreamError(emitter, "流式问答失败，请稍后重试");
             } catch (Exception ignored) {
                 // ignore
             }
@@ -169,6 +223,65 @@ public class DocumentQaServiceImpl implements DocumentQaService {
 
     private void sendEvent(SseEmitter emitter, String eventName, String data) throws Exception {
         emitter.send(SseEmitter.event().name(eventName).data(data));
+    }
+
+    private void sendStreamMeta(SseEmitter emitter, QaContext context) {
+        try {
+            ObjectNode payload = objectMapper.createObjectNode();
+            payload.put("documentId", context.documentId());
+            payload.put("sessionId", context.sessionId());
+            payload.set("citations", buildCitationArray(context.citations()));
+            sendEvent(emitter, "meta", payload.toString());
+        } catch (Exception ex) {
+            log.warn("Failed to send SSE meta event, documentId={}", context.documentId(), ex);
+        }
+    }
+
+    private void sendStreamDone(SseEmitter emitter, QaContext context, boolean fromCache) throws Exception {
+        sendStreamDone(emitter, context, fromCache, context.citations());
+    }
+
+    private void sendStreamDone(SseEmitter emitter,
+                                QaContext context,
+                                boolean fromCache,
+                                List<DocumentQaResponse.CitationItem> citations) throws Exception {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("documentId", context.documentId());
+        payload.put("sessionId", context.sessionId());
+        payload.put("fromCache", fromCache);
+        payload.set("citations", buildCitationArray(citations));
+        sendEvent(emitter, "done", payload.toString());
+    }
+
+    private void sendStreamError(SseEmitter emitter, String message) throws Exception {
+        ObjectNode payload = objectMapper.createObjectNode();
+        payload.put("message", message);
+        sendEvent(emitter, "error", payload.toString());
+    }
+
+    private ArrayNode buildCitationArray(List<DocumentQaResponse.CitationItem> citations) {
+        ArrayNode citationArray = objectMapper.createArrayNode();
+        for (DocumentQaResponse.CitationItem item : citations) {
+            ObjectNode citation = objectMapper.createObjectNode();
+            citation.put("chunkIndex", item.getChunkIndex());
+            citation.put("charStart", item.getCharStart());
+            citation.put("charEnd", item.getCharEnd());
+            citation.put("snippet", item.getSnippet());
+            citation.put("score", item.getScore());
+            citationArray.add(citation);
+        }
+        return citationArray;
+    }
+
+    private void emitCachedAnswerAsChunks(SseEmitter emitter, String cachedAnswer) {
+        try {
+            for (int i = 0; i < cachedAnswer.length(); i += STREAM_CACHE_EMIT_CHUNK_SIZE) {
+                int end = Math.min(i + STREAM_CACHE_EMIT_CHUNK_SIZE, cachedAnswer.length());
+                sendEvent(emitter, "chunk", cachedAnswer.substring(i, end));
+            }
+        } catch (Exception ex) {
+            throw new RuntimeException("failed to emit cached stream chunks", ex);
+        }
     }
 
     private QaContext prepareQaContext(Long userId, Long documentId, String question, String sessionId) {
@@ -191,10 +304,30 @@ public class DocumentQaServiceImpl implements DocumentQaService {
 
         String documentContext = buildDocumentContext(rankedChunks, normalizedContent);
         String documentVersion = resolveDocumentVersion(document.getUpdateTime());
-        List<DocumentQaResponse.CitationItem> citations = buildCitations(rankedChunks);
+        List<DocumentQaResponse.CitationItem> citations = buildCitations(rankedChunks, terms);
         String normalizedSessionId = normalizeSessionId(sessionId);
 
-        return new QaContext(documentId, normalizedQuestion, documentContext, documentVersion, citations, normalizedSessionId);
+        return new QaContext(
+                documentId,
+                normalizedQuestion,
+                documentContext,
+                documentVersion,
+                citations,
+                normalizedSessionId,
+                chunks,
+                terms
+        );
+    }
+
+    private List<DocumentQaResponse.CitationItem> buildAnswerAwareCitations(QaContext context, String answer) {
+        List<String> answerTerms = extractQueryTerms(answer);
+        List<String> mergedTerms = mergeTerms(context.queryTerms(), answerTerms);
+        List<RankedChunk> answerAwareRanked = rankChunks(context.chunks(), mergedTerms);
+        List<DocumentQaResponse.CitationItem> answerAware = buildCitations(answerAwareRanked, mergedTerms);
+        if (answerAware.isEmpty()) {
+            return context.citations();
+        }
+        return answerAware;
     }
 
     private Document ensureOwnedDocument(Long userId, Long documentId) {
@@ -209,12 +342,7 @@ public class DocumentQaServiceImpl implements DocumentQaService {
     }
 
     private String getOrGenerateAnswer(Long userId, QaContext context, String promptQuestion) {
-        String cacheKey = CommonConstants.buildQaAnswerCacheKey(
-                userId,
-                context.documentId(),
-                context.documentVersion(),
-                hashQuestion(context.sessionId() + "|" + context.question())
-        );
+        String cacheKey = buildQaAnswerCacheKey(userId, context, promptQuestion);
 
         String cachedAnswer = getCachedAnswer(cacheKey);
         if (cachedAnswer != null) {
@@ -226,6 +354,16 @@ public class DocumentQaServiceImpl implements DocumentQaService {
         String generated = generateAnswer(context.documentContext(), promptQuestion);
         cacheAnswer(cacheKey, generated);
         return generated;
+    }
+
+    private String buildQaAnswerCacheKey(Long userId, QaContext context, String promptQuestion) {
+        String cacheQuestion = promptQuestion == null ? context.question() : promptQuestion;
+        return CommonConstants.buildQaAnswerCacheKey(
+                userId,
+                context.documentId(),
+                context.documentVersion(),
+                hashQuestion(cacheQuestion)
+        );
     }
 
     private String generateAnswer(String documentContext, String promptQuestion) {
@@ -396,17 +534,93 @@ public class DocumentQaServiceImpl implements DocumentQaService {
     }
 
     private List<String> extractQueryTerms(String question) {
+        String normalizedQuestion = question.toLowerCase(Locale.ROOT).trim();
         List<String> terms = new ArrayList<>();
-        String[] split = QUERY_SPLIT_PATTERN.split(question.toLowerCase(Locale.ROOT));
+        String[] split = QUERY_SPLIT_PATTERN.split(normalizedQuestion);
+        List<String> normalizedTokens = new ArrayList<>();
         for (String term : split) {
-            if (!term.isBlank()) {
+            if (!term.isBlank() && term.length() >= QUERY_TERM_MIN_LENGTH) {
                 terms.add(term);
+                normalizedTokens.add(term);
             }
         }
-        if (terms.isEmpty()) {
-            terms.add(question.toLowerCase(Locale.ROOT));
+
+        for (int i = 0; i < normalizedTokens.size() - 1; i++) {
+            terms.add(normalizedTokens.get(i) + " " + normalizedTokens.get(i + 1));
+            if (i + 2 < normalizedTokens.size()) {
+                terms.add(normalizedTokens.get(i) + " " + normalizedTokens.get(i + 1) + " " + normalizedTokens.get(i + 2));
+            }
         }
-        return terms;
+
+        terms.addAll(extractCjkNgrams(normalizedQuestion));
+        if (!normalizedQuestion.isBlank()) {
+            terms.add(normalizedQuestion);
+        }
+
+        List<String> deduplicated = new ArrayList<>();
+        for (String term : terms) {
+            if (term.isBlank()) {
+                continue;
+            }
+            if (!deduplicated.contains(term)) {
+                deduplicated.add(term);
+                if (deduplicated.size() >= QUERY_TERM_MAX_COUNT) {
+                    break;
+                }
+            }
+        }
+
+        if (!deduplicated.isEmpty()) {
+            return deduplicated;
+        }
+
+        if (normalizedQuestion.isBlank()) {
+            return List.of();
+        }
+        return List.of(normalizedQuestion);
+    }
+
+    private List<String> mergeTerms(List<String> left, List<String> right) {
+        List<String> merged = new ArrayList<>();
+        for (String term : left) {
+            if (term != null && !term.isBlank() && !merged.contains(term)) {
+                merged.add(term);
+            }
+        }
+        for (String term : right) {
+            if (term != null && !term.isBlank() && !merged.contains(term)) {
+                merged.add(term);
+            }
+        }
+        if (merged.size() <= QUERY_TERM_MAX_COUNT) {
+            return merged;
+        }
+        return merged.subList(0, QUERY_TERM_MAX_COUNT);
+    }
+
+    private List<String> extractCjkNgrams(String question) {
+        if (question == null || question.isBlank()) {
+            return List.of();
+        }
+
+        List<String> grams = new ArrayList<>();
+        java.util.regex.Matcher matcher = CJK_BLOCK_PATTERN.matcher(question);
+        while (matcher.find()) {
+            String block = matcher.group();
+            if (block == null || block.length() < QUERY_TERM_MIN_LENGTH) {
+                continue;
+            }
+            for (int i = 0; i + QUERY_TERM_MIN_LENGTH <= block.length(); i++) {
+                grams.add(block.substring(i, i + QUERY_TERM_MIN_LENGTH));
+                if (i + 3 <= block.length()) {
+                    grams.add(block.substring(i, i + 3));
+                }
+            }
+        }
+        if (grams.isEmpty()) {
+            return List.of();
+        }
+        return grams;
     }
 
     private List<RankedChunk> rankChunks(List<DocumentChunk> chunks, List<String> terms) {
@@ -424,34 +638,61 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                 .sorted(Comparator.comparingInt(RankedChunk::score)
                         .reversed()
                         .thenComparingInt(chunk -> chunk.chunk().chunkIndex()))
-                .limit(MAX_CITATION_COUNT)
+                .limit(MAX_RANKED_CHUNK_COUNT)
                 .toList();
 
         if (!positive.isEmpty()) {
-            return positive;
+            return positive.stream()
+                    .sorted(Comparator.comparingInt(chunk -> chunk.chunk().chunkIndex()))
+                    .toList();
         }
 
         return ranked.stream()
                 .sorted(Comparator.comparingInt(chunk -> chunk.chunk().chunkIndex()))
-                .limit(MAX_CITATION_COUNT)
+                .limit(MAX_RANKED_CHUNK_COUNT)
                 .toList();
     }
 
     private int scoreChunk(String text, List<String> terms) {
         String lowerText = text.toLowerCase(Locale.ROOT);
         int score = 0;
+        int matchedTerms = 0;
         for (String term : terms) {
             if (term.isBlank()) {
                 continue;
             }
-            if (lowerText.contains(term)) {
-                score += Math.min(term.length(), 8);
+            int occurrences = countOccurrences(lowerText, term);
+            if (occurrences > 0) {
+                matchedTerms++;
+                int termWeight = Math.min(term.length(), 8);
+                score += occurrences * termWeight;
             }
         }
+        if (!terms.isEmpty() && !terms.get(terms.size() - 1).isBlank() && lowerText.contains(terms.get(terms.size() - 1))) {
+            score += 10;
+        }
+        score += matchedTerms * 2;
         return score;
     }
 
-    private List<DocumentQaResponse.CitationItem> buildCitations(List<RankedChunk> rankedChunks) {
+    private int countOccurrences(String source, String target) {
+        if (source == null || target == null || source.isBlank() || target.isBlank()) {
+            return 0;
+        }
+        int count = 0;
+        int from = 0;
+        while (from < source.length()) {
+            int index = source.indexOf(target, from);
+            if (index < 0) {
+                break;
+            }
+            count++;
+            from = index + target.length();
+        }
+        return count;
+    }
+
+    private List<DocumentQaResponse.CitationItem> buildCitations(List<RankedChunk> rankedChunks, List<String> terms) {
         if (rankedChunks.isEmpty()) {
             return List.of();
         }
@@ -464,17 +705,51 @@ public class DocumentQaServiceImpl implements DocumentQaService {
             item.setCharStart(chunk.startOffset());
             item.setCharEnd(chunk.endOffset());
             item.setScore(ranked.score());
-            item.setSnippet(truncateSnippet(chunk.text()));
+            item.setSnippet(buildCitationSnippet(chunk.text(), terms));
             citations.add(item);
         }
         return citations;
     }
 
-    private String truncateSnippet(String text) {
-        if (text.length() <= MAX_CITATION_SNIPPET_LENGTH) {
-            return text;
+    private String buildCitationSnippet(String text, List<String> terms) {
+        if (text == null || text.isBlank()) {
+            return "";
         }
-        return text.substring(0, MAX_CITATION_SNIPPET_LENGTH) + "...";
+        if (text.length() <= MAX_CITATION_SNIPPET_LENGTH) {
+            return text.trim();
+        }
+
+        String lowerText = text.toLowerCase(Locale.ROOT);
+        int anchor = -1;
+        int bestTermLength = 0;
+        for (String term : terms) {
+            if (term == null || term.isBlank() || term.length() < QUERY_TERM_MIN_LENGTH) {
+                continue;
+            }
+            int idx = lowerText.indexOf(term.toLowerCase(Locale.ROOT));
+            if (idx >= 0 && term.length() > bestTermLength) {
+                anchor = idx;
+                bestTermLength = term.length();
+            }
+        }
+
+        int start = 0;
+        if (anchor >= 0) {
+            start = Math.max(0, anchor - CITATION_MATCH_FOCUS_OFFSET);
+        }
+        int end = Math.min(text.length(), start + MAX_CITATION_SNIPPET_LENGTH);
+        if (end - start < MAX_CITATION_SNIPPET_LENGTH && start > 0) {
+            start = Math.max(0, end - MAX_CITATION_SNIPPET_LENGTH);
+        }
+
+        String snippet = text.substring(start, end).trim();
+        if (start > 0) {
+            snippet = "..." + snippet;
+        }
+        if (end < text.length()) {
+            snippet = snippet + "...";
+        }
+        return snippet;
     }
 
     private int resolveMaxDocumentContextLength() {
@@ -564,9 +839,13 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                              String documentContext,
                              String documentVersion,
                              List<DocumentQaResponse.CitationItem> citations,
-                             String sessionId) {
+                             String sessionId,
+                             List<DocumentChunk> chunks,
+                             List<String> queryTerms) {
         private QaContext {
             citations = List.copyOf(Objects.requireNonNull(citations));
+            chunks = List.copyOf(Objects.requireNonNull(chunks));
+            queryTerms = List.copyOf(Objects.requireNonNull(queryTerms));
         }
     }
 }

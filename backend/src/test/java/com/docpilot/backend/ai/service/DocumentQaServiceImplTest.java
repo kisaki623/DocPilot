@@ -145,6 +145,7 @@ class DocumentQaServiceImplTest {
         assertTrue(citation.getCharEnd() > citation.getCharStart());
         assertNotNull(citation.getSnippet());
         assertFalse(citation.getSnippet().isBlank());
+        assertTrue(citation.getSnippet().contains("引用定位"));
     }
 
     @Test
@@ -314,13 +315,74 @@ class DocumentQaServiceImplTest {
     }
 
     @Test
-    void shouldThrowWhenStreamQuestionIsBlank() {
+    void shouldUseCachedAnswerWhenStreamCacheHit() {
         DocumentQaServiceImpl documentQaService = buildService();
 
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> documentQaService.streamAnswer(100L, 101L, "   "));
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("stream cached context");
+        LocalDateTime version = LocalDateTime.of(2026, 4, 8, 9, 0, 0);
+        document.setUpdateTime(version);
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
 
-        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+        String expectedKey = CommonConstants.buildQaAnswerCacheKey(
+                100L,
+                101L,
+                version.toString(),
+                sha256Hex("stream question")
+        );
+        when(valueOperations.get(expectedKey)).thenReturn("缓存流式答案");
+
+        documentQaService.streamAnswer(100L, 101L, "stream question");
+
+        verify(documentQaHistoryMapper, timeout(2000)).insert(any(DocumentQaHistory.class));
+        verify(aiAnswerService, never()).streamAnswer(any(), any(), any());
+    }
+
+    @Test
+    void shouldWriteAnswerToCacheAfterStreamGeneration() {
+        DocumentQaServiceImpl documentQaService = buildService();
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("stream cache miss context");
+        LocalDateTime version = LocalDateTime.of(2026, 4, 8, 10, 0, 0);
+        document.setUpdateTime(version);
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+
+        doAnswer(invocation -> {
+            Consumer<String> consumer = invocation.getArgument(2);
+            consumer.accept("stream");
+            consumer.accept(" answer");
+            return null;
+        }).when(aiAnswerService).streamAnswer(eq("stream cache miss context"), eq("stream cache miss question"), any());
+
+        documentQaService.streamAnswer(100L, 101L, "stream cache miss question");
+
+        String expectedKey = CommonConstants.buildQaAnswerCacheKey(
+                100L,
+                101L,
+                version.toString(),
+                sha256Hex("stream cache miss question")
+        );
+        verify(valueOperations, timeout(2000)).set(
+                eq(expectedKey),
+                eq("stream answer"),
+                eq(CommonConstants.QA_ANSWER_CACHE_TTL_SECONDS),
+                eq(TimeUnit.SECONDS)
+        );
+    }
+
+    @Test
+    void shouldThrowWhenStreamQuestionIsBlank() {
+        DocumentQaServiceImpl documentQaService = buildService();
+        SseEmitter emitter = documentQaService.streamAnswer(100L, 101L, "   ");
+        assertNotNull(emitter);
+        verify(aiAnswerService, never()).streamAnswer(any(), any(), any());
     }
 
     @Test
@@ -387,12 +449,9 @@ class DocumentQaServiceImplTest {
                 CommonConstants.AI_QA_TOKEN_BUCKET_REFILL_TOKENS,
                 CommonConstants.AI_QA_TOKEN_BUCKET_REFILL_INTERVAL_SECONDS
         )).thenReturn(false);
-
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> documentQaService.streamAnswer(100L, 101L, "question"));
-
-        assertEquals(ErrorCode.RATE_LIMIT_EXCEEDED, ex.getErrorCode());
-        assertEquals("问答请求过于频繁，请稍后再试", ex.getMessage());
+        SseEmitter emitter = documentQaService.streamAnswer(100L, 101L, "question");
+        assertNotNull(emitter);
+        verify(aiAnswerService, never()).streamAnswer(any(), any(), any());
     }
 
     @Test
@@ -516,7 +575,7 @@ class DocumentQaServiceImplTest {
                 100L,
                 101L,
                 version.toString(),
-                sha256Hex(CommonConstants.QA_DEFAULT_SESSION_ID + "|cache question")
+                sha256Hex("cache question")
         );
         when(valueOperations.get(expectedKey)).thenReturn("缓存答案");
 
@@ -547,7 +606,7 @@ class DocumentQaServiceImplTest {
                 100L,
                 101L,
                 version.toString(),
-                sha256Hex(CommonConstants.QA_DEFAULT_SESSION_ID + "|cache miss question")
+                sha256Hex("cache miss question")
         );
         verify(valueOperations).set(
                 eq(expectedKey),
@@ -563,13 +622,13 @@ class DocumentQaServiceImplTest {
                 100L,
                 101L,
                 "2026-04-07T12:00",
-                sha256Hex(CommonConstants.QA_DEFAULT_SESSION_ID + "|q")
+                sha256Hex("q")
         );
         String keyB = CommonConstants.buildQaAnswerCacheKey(
                 100L,
                 101L,
                 "2026-04-07T12:01",
-                sha256Hex(CommonConstants.QA_DEFAULT_SESSION_ID + "|q")
+                sha256Hex("q")
         );
 
         assertTrue(!keyA.equals(keyB));

@@ -110,6 +110,21 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 面试价值：体现工程项目可运行、可验证、可交接。
 - 下一步动作：按 README 运行最小验证，失败时只记录真实阻塞，不顺手改业务代码。
 
+### T002a
+
+- 状态：DONE
+- 优先级：P0
+- 任务目标：验证 AI 问答 / SSE 后端改进包的编译和测试结果。
+- 为什么要做：当前工作区存在一批历史业务改动，提交前需要先确认 AI 问答 / SSE 后端改进是否具备基础可合入性。
+- 涉及文件：`backend/src/main/java/com/docpilot/backend/ai/service/impl/DocumentQaServiceImpl.java`、`backend/src/main/java/com/docpilot/backend/ai/service/impl/MockAiAnswerService.java`、`backend/src/main/java/com/docpilot/backend/ai/service/impl/RealAiAnswerService.java`、`backend/src/main/java/com/docpilot/backend/common/config/MinioStorageConfig.java`、`backend/src/main/resources/application.yml`、`backend/src/test/java/com/docpilot/backend/ai/service/DocumentQaServiceImplTest.java`、`backend/src/test/java/com/docpilot/backend/ai/service/RealAiAnswerServiceTest.java`。
+- 前置依赖：本地 JDK 和 Maven 可用；不启动后端服务；不验证前端。
+- 验收标准：`mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过；测试数量和失败数被记录。
+- 验证命令：`cd backend; mvn -DskipTests compile; mvn test -DskipITs; cd ..; git status --short`。
+- 验证结果：2026-05-13 本地执行通过；compile `BUILD SUCCESS`；test `BUILD SUCCESS`；`Tests run: 141, Failures: 0, Errors: 0, Skipped: 0`。
+- 风险点：测试日志中包含限流、SSE 兜底、Redis 降级、解析失败等预期异常路径日志；这些日志未导致测试失败，但提交前仍建议做只读 diff 审查。
+- 面试价值：体现 AI 问答 / SSE 改进不仅停留在实现层面，也经过后端编译和测试验证。
+- 下一步动作：建议进入 Claude Code 只读提交前审查；该 AI 问答 / SSE 改进包适合作为独立提交候选。
+
 ### T003
 
 - 状态：TODO

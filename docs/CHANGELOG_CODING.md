@@ -89,6 +89,39 @@
 - 未修改 `backend/.env`。
 - 未执行 `git add` / `git commit` / `git push`。
 
+## 2026-05-13 - T002a AI 问答 / SSE 后端验证结果记录
+
+### 本轮目标
+
+只记录 T002a-verify 的真实验证结果，不修改业务代码、测试代码或配置文件，不执行 Git 暂存、提交或推送。
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过，Maven 输出 `BUILD SUCCESS`。
+- `cd backend; mvn test -DskipITs`：通过，Maven 输出 `BUILD SUCCESS`。
+- 测试统计：`Tests run: 141, Failures: 0, Errors: 0, Skipped: 0`。
+- 测试日志中出现 SSE 兜底、限流、Redis 降级、解析失败等异常路径日志，但均属于测试覆盖场景，未造成测试失败。
+
+### 结论
+
+- 当前 AI 问答 / SSE 后端改进包没有编译或测试阻塞。
+- 建议下一步进入 Claude Code 只读提交前审查。
+- 该改进包适合作为独立提交候选，但提交前仍需审查 diff 边界和敏感信息风险。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 明确未做事项
+
+- 未修改后端业务代码。
+- 未修改前端业务代码。
+- 未修改测试代码。
+- 未修改配置文件。
+- 未执行 `git add` / `git commit` / `git push`。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标
