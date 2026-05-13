@@ -70,6 +70,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=DocumentToolSelectorTest test` 通过；`mvn test -DskipITs` 通过（147 tests, 0 failures）。
 - 边界：未修改生产代码，未修改前端，未修改 DDL。
 
+### T005c
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：运行 Agent runtime smoke，确认 `ToolSelector` 接入后真实接口链路仍正常。
+- 验证结果：本地后端 8081 启动成功；`backend/scripts/agent/smoke-agent-min.ps1` 通过；summary run 返回 `summary_tool`；QA run 返回 `qa_tool`；run 响应包含有效 `taskId`；task / step 查询接口均通过。
+- 边界：未修改生产代码，未修改前端，未修改 DDL，未读取 `backend/.env`，未执行 `git add` / `git commit` / `git push`。
+
 ## 任务列表
 
 ### T000

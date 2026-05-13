@@ -396,6 +396,37 @@
 - 未修改 DDL。
 - 未接 MQ / RAG / MCP / Spring AI / LangChain4j。
 
+## 2026-05-13 - T005c Agent ToolSelector runtime smoke
+
+### 本轮目标
+
+运行 Agent runtime smoke，确认 T005a 接入 `ToolRegistry` / `ToolSelector` 后，真实接口链路的 summary / QA 路由、`taskId` 返回和 task / step 查询仍然正常。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- 本地后端以 `local` profile 启动，`/actuator/health` 可访问。
+- `cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1`：通过。
+- summary run 返回 `summary_tool`，包含 2 个步骤和有效 `taskId`。
+- QA run 返回 `qa_tool`，包含 2 个步骤、有效 `taskId` 和引用结果。
+- Agent task 查询接口返回对应 task 与 steps。
+- Agent step 查询接口返回对应 steps。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未修改前端。
+- 未修改 DDL。
+- 未修改 smoke 脚本。
+- 未读取 `backend/.env`。
+- 未执行 `git add` / `git commit` / `git push`。
+- 本轮结束前已停止本地后端，确认 8081 端口释放。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标
