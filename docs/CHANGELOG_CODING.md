@@ -462,6 +462,37 @@
 - 未修改 benchmark / docs-ai-dev。
 - 未新增依赖或修改 package / lock 文件。
 
+## 2026-05-13 - T006b 前端 Agent trace 运行时验证
+
+### 本轮目标
+
+真实运行前端 Agent 页面，确认 T006a 新增的持久化 task / step trace 展示在浏览器中可用。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- 本地后端 8081 启动成功，`/actuator/health` 可访问。
+- 本地前端 3000 启动成功，`/agent` 可访问。
+- `cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1`：通过，summary / QA run 均返回有效 `taskId`，task / step 查询接口通过。
+- Playwright 打开 `/agent`，通过合法注册、上传、建文档、解析和 Agent run 验证页面展示。
+- 页面展示“持久化执行轨迹”，包含 taskId、`SUCCESS` 状态、`qa_tool` 决策、2 条 step、`document_status_tool` / `document_qa_tool`、durationMs、inputSummary、outputSummary。
+- `cd frontend; npm run lint`：通过，无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建和类型检查完成。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改 DDL。
+- 未读取 `backend/.env`。
+- 未输出真实 token、密码、API Key。
+- 未执行 `git push`。
+- 本轮启动的后端 / 前端进程已停止，8081 / 3000 / 3001 端口已释放。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

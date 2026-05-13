@@ -86,6 +86,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`npm run lint` 通过；`npm run build` 通过。
 - 边界：未修改后端 Java，未修改 DDL，未修改 README / `.run` / benchmark / docs-ai-dev。
 
+### T006b-runtime-verify
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：真实运行前端 Agent 页面，验证持久化 task / step trace 展示可用。
+- 验证结果：后端 Agent smoke 通过；Playwright 打开 `/agent` 并完成临时用户、文档、Agent run 验证；页面展示 `taskId`、`SUCCESS` 状态、`qa_tool`、2 条 step、toolName 与 durationMs；`npm run lint` 通过；`npm run build` 通过。
+- 边界：未修改业务代码，未修改 DDL，未读取 `backend/.env`，未执行 `git push`；本轮启动的 8081 / 3000 服务已停止并释放端口。
+
 ## 任务列表
 
 ### T000
