@@ -53,6 +53,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：后端 test 通过；smoke 脚本命令可解析。
 - 边界：未实跑 smoke，未启动后端服务，未执行 DDL。
 
+### T004e
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：验证 AgentTask / AgentStep 远程 DDL 与运行时持久化闭环。
+- 验证结果：远程表已创建并结构匹配；Agent smoke 通过；`/api/ai/agent/run` 返回 `taskId`；task / step 查询接口通过；hk-ops 只读 SELECT 确认远程库存在本次 task / steps。
+- 边界：未修改 Java 业务代码，未修改前端，未执行除 T004e-2 授权建表外的远程写 SQL，未 git push。
+
 ## 任务列表
 
 ### T000

@@ -31,6 +31,14 @@ function Invoke-JsonPost {
   return Invoke-RestMethod -Method Post -Uri $Uri -Headers $Headers -ContentType "application/json" -Body $jsonBody -TimeoutSec 120
 }
 
+function Invoke-JsonGet {
+  param(
+    [string]$Uri,
+    [hashtable]$Headers = @{}
+  )
+  return Invoke-RestMethod -Method Get -Uri $Uri -Headers $Headers -TimeoutSec 60
+}
+
 function Invoke-FileUpload {
   param(
     [string]$Uri,
@@ -140,6 +148,22 @@ if (@($qaRun.data.citations).Count -lt 1) {
   throw "Agent qa run should return at least one citation."
 }
 
+$qaTaskId = [long]$qaRun.data.taskId
+$qaTaskResp = Invoke-JsonGet -Uri "$baseUrl/api/ai/agent/task/$qaTaskId" -Headers $headers
+Assert-ApiSuccess -Response $qaTaskResp -Step "agent task query"
+if ([long]$qaTaskResp.data.task.id -ne $qaTaskId) {
+  throw "Agent task query returned unexpected taskId: $($qaTaskResp.data.task.id)"
+}
+if (@($qaTaskResp.data.steps).Count -lt 1) {
+  throw "Agent task query returned no steps."
+}
+
+$qaStepResp = Invoke-JsonGet -Uri "$baseUrl/api/ai/agent/task/$qaTaskId/steps" -Headers $headers
+Assert-ApiSuccess -Response $qaStepResp -Step "agent step query"
+if (@($qaStepResp.data).Count -lt 1) {
+  throw "Agent step query returned no steps."
+}
+
 $result = [PSCustomObject]@{
   documentId = $documentId
   summaryTaskId = $summaryRun.data.taskId
@@ -148,6 +172,8 @@ $result = [PSCustomObject]@{
   qaTaskId = $qaRun.data.taskId
   qaDecision = $qaRun.data.decision
   qaStepCount = @($qaRun.data.steps).Count
+  qaTaskQueryStepCount = @($qaTaskResp.data.steps).Count
+  qaStepQueryCount = @($qaStepResp.data).Count
   qaCitationCount = @($qaRun.data.citations).Count
 }
 

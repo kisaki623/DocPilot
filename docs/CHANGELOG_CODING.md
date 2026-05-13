@@ -332,6 +332,35 @@
 - 未启动后端服务。
 - 未执行 DDL。
 
+## 2026-05-13 - T004e Agent 持久化运行时 smoke
+
+### 本轮目标
+
+连续完成 AgentTask / AgentStep 远程表检查、授权建表、运行时 smoke、接口查询和远程数据库只读核验。
+
+### 修改文件
+
+- `backend/scripts/agent/smoke-agent-min.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- T004e-1：hk-ops 只读检查确认远程 `docpilot` 数据库存在，目标表起初不存在。
+- T004e-2：经用户确认后，hk-ops 仅执行两条授权的 `CREATE TABLE IF NOT EXISTS`，随后确认 `tb_agent_task` / `tb_agent_step` 存在且结构与 DDL 大致一致。
+- T004e-3：本地后端启动后，`scripts/agent/smoke-agent-min.ps1` 通过；Agent run 返回 `taskId`；task 查询接口与 step 查询接口通过。
+- hk-ops 远程只读 SELECT 确认本次 smoke 的 task 与 steps 已写入远程 `tb_agent_task` / `tb_agent_step`。
+
+### 明确未做事项
+
+- 未修改 Java 业务代码。
+- 未修改前端业务代码。
+- 未修改 DDL。
+- 未读取或输出 `backend/.env`。
+- 未执行远程 `ALTER / DROP / DELETE / UPDATE / INSERT / TRUNCATE`。
+- 未执行 `git push`。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标
