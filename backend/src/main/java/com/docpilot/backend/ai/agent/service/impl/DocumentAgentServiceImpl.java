@@ -85,12 +85,16 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
             DocumentStatusTool.StatusResult detail = statusResult.value();
             if (!detail.parseReady()) {
                 response.setDecision("status_only");
+                response.setRoutingReason("\u6587\u6863\u5c1a\u672a\u89e3\u6790\u5b8c\u6210\uff0c\u8def\u7531\u5230\u72b6\u6001\u63d0\u793a\uff0c\u907f\u514d\u6267\u884c\u6458\u8981\u6216\u95ee\u7b54\u5de5\u5177");
+                response.setMatchedKeywords(List.of());
                 response.setFinalAnswer(buildPendingAnswer(detail));
                 response.setSteps(steps);
                 return completeSuccess(taskId, response, beginNanos);
             }
 
             ToolSelector.SelectResult selection = toolSelector.select(task);
+            response.setRoutingReason(selection.reason());
+            response.setMatchedKeywords(selection.matchedKeywords());
 
             if ("status_only".equals(selection.decision())) {
                 response.setDecision("status_only");

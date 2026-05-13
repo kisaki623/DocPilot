@@ -528,6 +528,44 @@
 - 未提交 benchmark / docs-ai-dev。
 - 未新增依赖或修改 package / lock 文件。
 
+## 2026-05-13 - T009a Agent ToolSelector 可解释性增强
+
+### 本轮目标
+
+让 Agent 工具路由结果从仅有 `decision` 扩展为同时返回 `routingReason` 和 `matchedKeywords`，便于前端展示和后续 smoke 验证。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/vo/DocumentAgentResponse.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `ToolSelector.SelectResult` 新增 `reason` 和 `matchedKeywords`，并保留 `of(decision, toolNames)` 兼容便捷方法。
+- `DocumentToolSelector` 改为收集命中关键词，summary + evidence 冲突时继续路由到 `qa_tool`。
+- `DocumentAgentServiceImpl` 将 selector reason / matched keywords 写入 `DocumentAgentResponse`；parseReady=false 短路路径仍不调用 selector，并返回固定路由原因。
+- `DocumentAgentServiceImplTest` 增加路由原因断言。
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过（147 tests, 0 failures）。
+
+### 明确未做事项
+
+- 未修改 DDL。
+- 未修改 Controller。
+- 未修改前端。
+- 未修改 smoke 脚本。
+- 未持久化 `routingReason` / `matchedKeywords` 到 AgentTask。
+- 未接 MQ / RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

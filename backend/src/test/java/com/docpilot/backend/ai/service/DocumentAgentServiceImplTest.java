@@ -103,7 +103,9 @@ class DocumentAgentServiceImplTest {
         when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
         when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
                 "summary_tool",
-                List.of("document_status_tool", "document_summary_tool")
+                List.of("document_status_tool", "document_summary_tool"),
+                "summary reason",
+                List.of("summary")
         ));
         when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
                 "Please summarize this document for interview showcase",
@@ -118,6 +120,8 @@ class DocumentAgentServiceImplTest {
 
         assertEquals(1001L, response.getTaskId());
         assertEquals("summary_tool", response.getDecision());
+        assertNotNull(response.getRoutingReason());
+        assertFalse(response.getRoutingReason().isBlank());
         assertEquals("This is the summary field.", response.getFinalAnswer());
         assertEquals(2, response.getSteps().size());
         assertTrue(response.isSuccess());
@@ -152,7 +156,9 @@ class DocumentAgentServiceImplTest {
         when(documentQaTool.getToolName()).thenReturn("document_qa_tool");
         when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
                 "qa_tool",
-                List.of("document_status_tool", "document_qa_tool")
+                List.of("document_status_tool", "document_qa_tool"),
+                "qa reason",
+                List.of("evidence", "cite")
         ));
 
         DocumentQaResponse qaResponse = new DocumentQaResponse();
@@ -170,6 +176,8 @@ class DocumentAgentServiceImplTest {
 
         assertEquals(1001L, response.getTaskId());
         assertEquals("qa_tool", response.getDecision());
+        assertNotNull(response.getRoutingReason());
+        assertFalse(response.getRoutingReason().isBlank());
         assertEquals("This is the answer backed by document evidence.", response.getFinalAnswer());
         assertEquals("sess-qa", response.getSessionId());
         assertNotNull(response.getCitations());
@@ -205,6 +213,9 @@ class DocumentAgentServiceImplTest {
 
         assertEquals(1001L, response.getTaskId());
         assertEquals("status_only", response.getDecision());
+        assertNotNull(response.getRoutingReason());
+        assertFalse(response.getRoutingReason().isBlank());
+        assertTrue(response.getMatchedKeywords().isEmpty());
         assertNull(response.getSessionId());
         assertTrue(response.getFinalAnswer().contains("PARSING"));
         verifyPersistenceSuccess();

@@ -102,6 +102,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`npm run lint` 通过；`npm run build` 通过。
 - 边界：未修改业务代码，未修改后端 Java，未修改 DDL，未提交 `.run` / benchmark / docs-ai-dev。
 
+### T009a
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：增强 Agent ToolSelector 可解释性，让 run 响应返回 `routingReason` 与 `matchedKeywords`。
+- 验证结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过（147 tests, 0 failures）。
+- 边界：未修改 DDL、Controller、前端、smoke 脚本或 AgentTask / AgentStep 持久化结构；未接 MQ / RAG / MCP / LLM Tool Calling。
+
 ## 任务列表
 
 ### T000

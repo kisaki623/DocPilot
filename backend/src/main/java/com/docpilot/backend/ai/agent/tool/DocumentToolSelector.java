@@ -20,27 +20,65 @@ public class DocumentToolSelector implements ToolSelector {
 
     @Override
     public SelectResult select(String task) {
-        boolean statusIntent = containsAnyKeyword(task, STATUS_KEYWORDS);
-        boolean summaryIntent = containsAnyKeyword(task, SUMMARY_KEYWORDS);
-        boolean evidenceIntent = containsAnyKeyword(task, EVIDENCE_KEYWORDS);
+        List<String> statusMatched = matchKeywords(task, STATUS_KEYWORDS);
+        List<String> summaryMatched = matchKeywords(task, SUMMARY_KEYWORDS);
+        List<String> evidenceMatched = matchKeywords(task, EVIDENCE_KEYWORDS);
+        boolean statusIntent = !statusMatched.isEmpty();
+        boolean summaryIntent = !summaryMatched.isEmpty();
+        boolean evidenceIntent = !evidenceMatched.isEmpty();
 
         if (statusIntent && !summaryIntent && !evidenceIntent) {
-            return new SelectResult("status_only", List.of("document_status_tool"));
+            return new SelectResult(
+                    "status_only",
+                    List.of("document_status_tool"),
+                    "\u547d\u4e2d\u72b6\u6001\u6216\u89e3\u6790\u8fdb\u5ea6\u5173\u952e\u8bcd\uff0c\u4ec5\u9700\u8fd4\u56de\u6587\u6863\u89e3\u6790\u72b6\u6001\uff0c\u56e0\u6b64\u8def\u7531\u5230\u72b6\u6001\u5de5\u5177\u3002",
+                    statusMatched
+            );
         }
         if (summaryIntent && !evidenceIntent) {
-            return new SelectResult("summary_tool", List.of("document_status_tool", "document_summary_tool"));
+            return new SelectResult(
+                    "summary_tool",
+                    List.of("document_status_tool", "document_summary_tool"),
+                    "\u547d\u4e2d\u6458\u8981\u6216\u6982\u62ec\u7c7b\u5173\u952e\u8bcd\uff0c\u9700\u5728\u786e\u8ba4\u6587\u6863\u53ef\u7528\u540e\u8c03\u7528\u6458\u8981\u5de5\u5177\u751f\u6210\u603b\u7ed3\u3002",
+                    summaryMatched
+            );
         }
-        return new SelectResult("qa_tool", List.of("document_status_tool", "document_qa_tool"));
+        return new SelectResult(
+                "qa_tool",
+                List.of("document_status_tool", "document_qa_tool"),
+                buildQaReason(evidenceIntent),
+                collectQaMatchedKeywords(statusMatched, summaryMatched, evidenceMatched)
+        );
     }
 
-    private boolean containsAnyKeyword(String task, List<String> keywords) {
+    private List<String> matchKeywords(String task, List<String> keywords) {
         String normalized = safeText(task).toLowerCase(Locale.ROOT);
+        java.util.ArrayList<String> matched = new java.util.ArrayList<>();
         for (String keyword : keywords) {
             if (normalized.contains(keyword.toLowerCase(Locale.ROOT))) {
-                return true;
+                matched.add(keyword);
             }
         }
-        return false;
+        return List.copyOf(matched);
+    }
+
+    private List<String> collectQaMatchedKeywords(List<String> statusMatched,
+                                                  List<String> summaryMatched,
+                                                  List<String> evidenceMatched) {
+        if (!evidenceMatched.isEmpty()) {
+            return evidenceMatched;
+        }
+        java.util.ArrayList<String> matched = new java.util.ArrayList<>();
+        matched.addAll(statusMatched);
+        matched.addAll(summaryMatched);
+        return List.copyOf(matched);
+    }
+
+    private String buildQaReason(boolean evidenceIntent) {
+        if (evidenceIntent) {
+            return "\u547d\u4e2d\u8bc1\u636e\u3001\u5f15\u7528\u6216\u539f\u6587\u7c7b\u9700\u6c42\uff0c\u9700\u4fdd\u7559\u5f15\u7528\u94fe\u8def\u5e76\u56de\u7b54\u5177\u4f53\u95ee\u9898\uff0c\u56e0\u6b64\u4f18\u5148\u8def\u7531\u5230 QA \u5de5\u5177\u3002";
+        }
+        return "\u672a\u547d\u4e2d\u4ec5\u67e5\u72b6\u6001\u6216\u6458\u8981\u7684\u660e\u786e\u610f\u56fe\uff0c\u9ed8\u8ba4\u6309\u6587\u6863\u95ee\u7b54\u5904\u7406\uff0c\u4ee5\u4fbf\u8fd4\u56de\u66f4\u5177\u4f53\u7684\u5185\u5bb9\u56de\u7b54\u3002";
     }
 
     private String safeText(String text) {

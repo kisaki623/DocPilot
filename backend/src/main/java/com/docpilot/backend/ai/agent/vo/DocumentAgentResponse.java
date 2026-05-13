@@ -17,6 +17,8 @@ public class DocumentAgentResponse {
     private String task;
     private String sessionId;
     private String decision;
+    private String routingReason;
+    private List<String> matchedKeywords = new ArrayList<>();
     private String finalAnswer;
     private List<DocumentQaResponse.CitationItem> citations = new ArrayList<>();
     private List<AgentStep> steps = new ArrayList<>();
@@ -99,6 +101,22 @@ public class DocumentAgentResponse {
 
     public void setDecision(String decision) {
         this.decision = decision;
+    }
+
+    public String getRoutingReason() {
+        return routingReason;
+    }
+
+    public void setRoutingReason(String routingReason) {
+        this.routingReason = routingReason;
+    }
+
+    public List<String> getMatchedKeywords() {
+        return matchedKeywords;
+    }
+
+    public void setMatchedKeywords(List<String> matchedKeywords) {
+        this.matchedKeywords = matchedKeywords;
     }
 
     public String getFinalAnswer() {
