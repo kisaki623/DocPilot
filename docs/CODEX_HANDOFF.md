@@ -53,6 +53,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T004d 已补充 Agent smoke 的 `taskId` 断言和协作文档收尾；smoke 脚本仅做语法/命令可解析检查，未实跑。
 - T004e 已完成远程 DDL 与运行时 smoke：远程 `docpilot` 库存在 `tb_agent_task` / `tb_agent_step`，Agent smoke 返回 `taskId`，task / step 查询接口可用，hk-ops 只读 SELECT 确认远程库写入了本次 task / steps。
 - T005a 已将 Agent 工具注册和工具选择逻辑抽出为 `ToolRegistry` / `ToolSelector` / `DocumentToolSelector`；T005b 已补充 `DocumentToolSelector` 独立规则测试，覆盖 status、summary、evidence、默认 QA 与 summary + evidence 冲突；T005c 已通过 Agent runtime smoke，确认 summary / QA 路由、`taskId` 返回和 task / step 查询接口仍正常；T006a 已让前端 Agent 页面根据 `taskId` 查询并展示持久化 task / step trace；T006b 已用 Playwright 真实验证 `/agent` 页面可展示持久化 trace。
+- T007 已收口 README / frontend README：同步当前 AI 问答、SSE、最小 Agent、AgentTask / AgentStep 落库、task / step 查询接口、前端持久化 trace 展示与真实验证结果，同时明确非成熟多 Agent、非 LLM Tool Calling、非完整向量 RAG。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

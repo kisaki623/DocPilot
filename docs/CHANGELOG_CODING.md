@@ -493,6 +493,41 @@
 - 未执行 `git push`。
 - 本轮启动的后端 / 前端进程已停止，8081 / 3000 / 3001 端口已释放。
 
+## 2026-05-13 - T007 项目文档收口
+
+### 本轮目标
+
+收口根 README 与 frontend README，让公开文档反映当前真实实现：AI 问答 / SSE、最小 Agent、AgentTask / AgentStep 执行轨迹、task / step 查询接口和前端持久化 trace 展示。
+
+### 修改文件
+
+- `README.md`
+- `frontend/README.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- README 补充最小 Agent 工具链闭环、执行轨迹落库、查询接口、前端 trace 展示和当前验证记录。
+- README 明确边界：当前不是成熟多 Agent 平台；ToolSelector 是规则 / 关键词选择，不是 LLM Tool Calling；未接 MQ 异步 Agent、完整 RAG、向量库、MCP、Spring AI 或 LangChain4j。
+- frontend README 补充 dashboard、document QA、Agent 页面和持久化 task / step trace 展示能力。
+- frontend README 保留启动、lint、build 和联调说明，不记录敏感信息。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建和类型检查完成。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改后端 Java。
+- 未修改 DDL。
+- 未提交 `.run`。
+- 未提交 benchmark / docs-ai-dev。
+- 未新增依赖或修改 package / lock 文件。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标
