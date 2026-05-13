@@ -118,6 +118,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=DocumentToolSelectorTest test` 通过（8 tests, 0 failures）；`mvn test -DskipITs` 通过（149 tests, 0 failures）。
 - 边界：未修改生产代码，未修改前端，未修改 DDL；测试生成的 Stage11 benchmark 产物已由精确 `.gitignore` 规则忽略。
 
+### T009c
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：前端 Agent 页面展示后端返回的 `routingReason` 和 `matchedKeywords`。
+- 验证结果：`npm run lint` 通过；`npm run build` 通过。
+- 边界：未修改后端 Java，未修改 DDL，未新增依赖，未修改 package / lock 文件。
+
 ## 任务列表
 
 ### T000

@@ -357,6 +357,22 @@ export default function AgentPage() {
                 <p className="mt-1">Finished: {formatDateTime(result.finishedAt)}</p>
               </div>
 
+              {result.routingReason ? (
+                <div className="dp-card-soft">
+                  <p className="text-sm font-semibold text-slate-700 mb-2">路由决策</p>
+                  <p className="text-sm text-slate-700">{result.routingReason}</p>
+                  {result.matchedKeywords && result.matchedKeywords.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {result.matchedKeywords.map((keyword) => (
+                        <span key={keyword} className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                          {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="dp-card-soft">
                 <p className="text-sm font-semibold text-slate-700 mb-2">最终回答</p>
                 <MarkdownViewer

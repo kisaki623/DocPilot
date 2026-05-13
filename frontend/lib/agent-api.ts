@@ -28,6 +28,8 @@ export interface DocumentAgentRunData {
   task: string;
   sessionId?: string;
   decision: string;
+  routingReason?: string;
+  matchedKeywords?: string[];
   finalAnswer: string;
   citations?: DocumentQaCitationItem[];
   steps?: DocumentAgentStep[];

@@ -601,6 +601,39 @@
 - 未修改 DDL。
 - 未接 MQ / RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling。
 
+## 2026-05-13 - T009c 前端展示 Agent 路由解释
+
+### 本轮目标
+
+让 Agent 页面展示后端返回的 `routingReason` 和 `matchedKeywords`，使工具路由结果对用户可见。
+
+### 修改文件
+
+- `frontend/lib/agent-api.ts`
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentRunData` 增加 `routingReason?: string` 和 `matchedKeywords?: string[]`。
+- Agent 运行结果区新增“路由决策”卡片，仅在 `routingReason` 存在时展示。
+- 命中关键词以轻量 badge 展示；关键词为空或字段缺失时不渲染标签。
+- 保留原有 decision、finalAnswer、citations、steps 和持久化 trace 展示。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建和类型检查完成。
+
+### 明确未做事项
+
+- 未修改后端 Java。
+- 未修改 DDL。
+- 未新增依赖。
+- 未修改 package / lock 文件。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

@@ -56,6 +56,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T007 已收口 README / frontend README：同步当前 AI 问答、SSE、最小 Agent、AgentTask / AgentStep 落库、task / step 查询接口、前端持久化 trace 展示与真实验证结果，同时明确非成熟多 Agent、非 LLM Tool Calling、非完整向量 RAG。
 - T009a 已增强 Agent 工具路由可解释性：`ToolSelector.SelectResult` 返回 `reason` 和 `matchedKeywords`，`DocumentAgentResponse` 透出 `routingReason` / `matchedKeywords`；parseReady=false 仍在 `DocumentAgentServiceImpl` 内短路，不调用 selector。
 - T009b 已补充 `DocumentToolSelector` 可解释性单元测试：覆盖状态、摘要、证据/引用、默认 QA、summary + evidence 冲突、英文大小写、空白和 null 输入。
+- T009c 已让前端 Agent 页面展示路由决策说明和命中关键词；无路由说明时页面保持兼容，不影响原始回答、引用、内存 trace 或持久化 trace 展示。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
