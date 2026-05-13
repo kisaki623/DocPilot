@@ -372,7 +372,7 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ### T010-runtime-verify
 
-- 状态：TODO
+- 状态：BLOCKED
 - 优先级：P0
 - 任务目标：完整验证 Agent 路由可解释性在浏览器端真实可用。
 - 为什么要做：T009a-d 已完成后端 `routingReason` / `matchedKeywords`、selector 测试、前端展示和 smoke 断言，但仍需要一次完整前后端 runtime 验证确认浏览器页面真实可用。
@@ -380,9 +380,23 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 前置依赖：T009e 已同步协作文档且 `git status --short` 干净；本地后端、前端和必要中间件可用。
 - 验收标准：后端 smoke 通过；真实浏览器验证通过；页面看到 `routingReason` / `matchedKeywords`；页面看到持久化 task / step trace；summary / QA 两类 Agent run 均正常；QA 场景返回 citations；后端 compile/test 通过；前端 lint/build 通过。
 - 验证命令：`cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1`；Playwright 打开 `/agent` 走 summary / QA；`cd backend; mvn -DskipTests compile; mvn test -DskipITs`；`cd frontend; npm run lint; npm run build`。
+- 阻塞原因：T010x 已复现后端 smoke 在上传文档后等待 `parseStatus` 超时，原始报错为 `Parse timeout after 120 seconds.`；后端日志显示 `NoopParseTaskMessageProducer` 跳过解析消息发送；当前 MQ disabled / no-op producer 模式下不会推进真实异步解析，因此完整 T010 需要可用 MQ / 解析消费环境后才能验证。
 - 风险点：本地端口占用、中间件不可用、解析超时或浏览器自动化失败；失败时停止并报告，不直接改业务代码。
 - 面试价值：证明 Agent 路由解释、持久化 trace 和引用展示不是只停留在代码层，而是浏览器端可真实演示。
-- 下一步动作：通过后进入 T011 面试向项目总结 / 架构图 / 简历亮点收口；暂不进入 MQ / RAG / MCP。
+- 下一步动作：先执行 T010m 本地只读检查 MQ / parse 配置入口；如需处理中间件环境，等待用户确认是否允许 hk-ops 做远程中间件只读检查；如果 MQ 可用，再重跑完整 T010；如果用户不想接 MQ，可单独定义 T010-lite，但必须标注不是完整上传解析链路验证。暂不进入 T011，除非用户明确接受 Agent-only 替代验证。
+
+### T010m-local-mq-readiness-check
+
+- 状态：TODO
+- 优先级：P0
+- 任务目标：本地只读检查 MQ / parse 配置入口，定位 no-op producer 生效条件和完整 T010 所需环境条件。
+- 为什么要做：T010 被解析链路阻塞，需要先厘清 producer / consumer / profile / property 条件，再决定是否由用户授权远程只读检查或定义替代验证。
+- 涉及文件：后端 MQ / parse 相关代码、`application*.yml`、`deploy/`、`docker-compose.demo.yml`、Agent smoke 脚本和协作文档；本任务只读。
+- 前置依赖：T010z 已记录 BLOCKED 并保持工作区干净。
+- 验收标准：说明 `NoopParseTaskMessageProducer` 与真实 producer / consumer 的生效条件；说明当前默认配置为什么导致 parse timeout；列出完整 T010 所需环境；给出完整 T010、T010-lite、脚本诊断增强三种方案。
+- 验证命令：`rg` / `Get-Content` 只读检查本地文件；不启动 MQ，不远程连接，不读取 `backend/.env`。
+- 风险点：不能把本地只读检查写成远程环境已可用；不能把 T010 BLOCKED 写成通过。
+- 面试价值：体现异步队列链路诊断、环境边界识别和验证口径治理。
 
 ### T011
 
@@ -398,4 +412,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐先做 `T010-runtime-verify`。理由：T009a-d 已完成 Agent 路由可解释性后端、测试、前端展示和 smoke 断言，下一步应真实启动前后端，用浏览器确认 `/agent` 页面可展示 `routingReason` / `matchedKeywords`、持久化 task / step trace、summary / QA 两类 run 和 QA citations。T010 通过后建议进入 `T011` 面试向项目总结 / 架构图 / 简历亮点收口，暂不进入 MQ / RAG / MCP。
+推荐先做 `T010m-local-mq-readiness-check`。理由：完整 T010 当前被解析队列阻塞，后端 smoke 在 parse 阶段超时；需要先只读确认 MQ / parse 配置入口和完整验证所需环境。T010 通过后才进入 `T011`，T010 未通过时不要进入 T011。

@@ -805,3 +805,37 @@
 ### 下一步
 
 进入 `T010-runtime-verify`，完整验证 Agent 路由可解释性在浏览器端真实可用。
+
+## 2026-05-14 - T010z 记录 runtime 验证阻塞状态
+
+### 本轮目标
+
+记录 T010-runtime-verify 当前 BLOCKED 状态，避免后续新会话误以为 Agent 路由解释浏览器端完整验证已经通过。
+
+### T010x 诊断结果
+
+- T010x 已复现后端 smoke 在文档解析阶段超时。
+- 原始失败信息：`Parse timeout after 120 seconds.`
+- 后端日志摘要显示 `NoopParseTaskMessageProducer` 跳过解析消息发送。
+- 当前 MQ disabled / no-op producer 模式下不会推进真实异步解析，worker 不会消费并更新 `parseStatus`。
+
+### 结论
+
+- T010 未通过。
+- 失败原因不是 Agent `routingReason` / `matchedKeywords` 代码问题，而是完整 smoke 依赖上传后真实异步解析链路。
+- 完整 T010 需要可用 MQ / 解析消费环境后再重跑；若用户不想接 MQ，只能单独定义 T010-lite，并明确它不是完整上传解析链路验证。
+
+### 本轮未做事项
+
+- 未修改业务代码。
+- 未修改后端 Java。
+- 未修改前端代码。
+- 未修改 DDL、README、`.run`、benchmark 或 `docs/ai-dev`。
+- 未使用 hk-ops。
+- 未远程连接服务器。
+- 未启动或修改 RocketMQ。
+- 未把 T010 写成通过。
+
+### 下一步
+
+执行 `T010m-local-mq-readiness-check`，只读检查本地 MQ / parse 配置入口和完整 T010 所需环境条件。

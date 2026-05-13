@@ -8,7 +8,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 项目仍处于作品展示与实习投递导向的持续打磨阶段。它可以展示工程化能力，但还不是生产级 SaaS，也不是完整向量 RAG / 多 Agent 平台。
 
-截至 2026-05-13 当前交接记录同步时，`git status --short` 为空，工作区干净；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
+截至 2026-05-14 当前交接记录同步时，`git status --short` 为空，工作区干净；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
 
 ## 2. 已经实现的功能
 
@@ -62,6 +62,8 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T009b 已补充 `DocumentToolSelector` 可解释性单元测试：覆盖状态、摘要、证据/引用、默认 QA、summary + evidence 冲突、英文大小写、空白和 null 输入。
 - T009c 已让前端 Agent 页面展示路由决策说明和命中关键词；无路由说明时页面保持兼容，不影响原始回答、引用、内存 trace 或持久化 trace 展示。
 - T009d 已增强 Agent smoke 对 `routingReason` / `matchedKeywords` 的断言，新增 `docs/AGENT_ASYNC_DESIGN.md` 记录异步 Agent 未来演进方案；该文档仅为设计，当前未实现异步 Agent，也未接 MQ。
+- T009e 已同步协作文档到当前真实 git / 代码状态。
+- T010 当前为 BLOCKED：T010x 已复现后端 smoke 在上传文档后等待 `parseStatus` 超时，原始报错为 `Parse timeout after 120 seconds.`；后端日志显示 `NoopParseTaskMessageProducer` 跳过解析消息发送；当前 MQ disabled / no-op producer 模式下不会推进真实异步解析，因此完整 T010 需要可用 MQ / 解析消费环境，或用户明确接受 Agent-only 替代验证。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -96,6 +98,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 ## 8. 当前代码风险
 
 - 当前工作区干净；风险主要来自运行环境、历史文档口径和后续任务边界，下一轮仍不能跳过 `git status` / `git diff`。
+- T010 不应被记录为通过；当前 blocker 是 MQ disabled / `NoopParseTaskMessageProducer` 导致 parse timeout。下一位接手者不要为了通过 smoke 改业务代码、硬编码 documentId 或绕过上传解析链路。
 - eval 指标已按 T001a/T001b 收敛到 `stagec_eval_latest.json`（90% / 100%，20 cases / 8 stream pairs）。后续风险不再是“三套指标冲突”，而是需要通过 T005 重新运行 eval，并补充实际运行时 `AI_MODE`、模型名、provider 记录。
 - AI 问答 / SSE 后端改进包已在 2026-05-13 完成 T002a 验证：`mvn -DskipTests compile` 通过，`mvn test -DskipITs` 通过，测试统计为 `Tests run: 141, Failures: 0, Errors: 0, Skipped: 0`。当前无编译或测试阻塞，适合作为独立提交候选进入 Claude Code 只读提交前审查。
 - 前端 QA / SSE 展示改进已在 2026-05-13 完成 T002b 验证：`npm run lint` 通过，`npm run build` 通过。当前前端流式事件解析、引用展示、Markdown inline 渲染和降级提示可作为独立提交候选；本轮不提交 Agent Demo、benchmark、`.run`、根 README 或 AGENTS。
@@ -106,9 +109,9 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 优先执行 `T010-runtime-verify`：完整验证 Agent 路由可解释性在浏览器端真实可用。
-2. T010 通过后进入 `T011`：面试向项目总结、架构图和简历亮点收口。
-3. 暂不直接进入 MQ / RAG / MCP / LLM Tool Calling，避免把当前最小 Agent 演示扩大成未验证的大改造。
+1. 优先执行 `T010m-local-mq-readiness-check`：本地只读检查 MQ / parse 配置入口，厘清 no-op producer 与真实 producer / consumer 的生效条件。
+2. 完整 T010 需要可用 MQ / 解析消费环境；如需处理中间件环境，应由用户确认后再通过 hk-ops 做远程只读检查。
+3. 不要直接进入 MQ 改造 / RAG / MCP / LLM Tool Calling，也不要直接进入 T011；T010 通过或用户明确接受替代验证口径后再收口面试材料。
 
 ## 10. 接手时优先阅读
 
@@ -174,6 +177,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T010-runtime-verify`。
+优先执行 `T010m-local-mq-readiness-check`。
 
-原因：T009a-d 已完成 Agent 路由可解释性后端、测试、前端展示和 smoke 断言；下一步应真实启动前后端并用浏览器验证 `/agent` 页面能展示 `routingReason` / `matchedKeywords`、持久化 task / step trace、summary / QA 两类 run 和 QA citations。
+原因：T010 当前被解析队列阻塞，后端 smoke 在 parse 阶段超时；需要先只读确认 MQ / parse 配置入口和完整验证所需环境。T010 通过前不要进入 T011。
