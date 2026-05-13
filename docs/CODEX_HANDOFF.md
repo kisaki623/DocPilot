@@ -55,6 +55,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T005a 已将 Agent 工具注册和工具选择逻辑抽出为 `ToolRegistry` / `ToolSelector` / `DocumentToolSelector`；T005b 已补充 `DocumentToolSelector` 独立规则测试，覆盖 status、summary、evidence、默认 QA 与 summary + evidence 冲突；T005c 已通过 Agent runtime smoke，确认 summary / QA 路由、`taskId` 返回和 task / step 查询接口仍正常；T006a 已让前端 Agent 页面根据 `taskId` 查询并展示持久化 task / step trace；T006b 已用 Playwright 真实验证 `/agent` 页面可展示持久化 trace。
 - T007 已收口 README / frontend README：同步当前 AI 问答、SSE、最小 Agent、AgentTask / AgentStep 落库、task / step 查询接口、前端持久化 trace 展示与真实验证结果，同时明确非成熟多 Agent、非 LLM Tool Calling、非完整向量 RAG。
 - T009a 已增强 Agent 工具路由可解释性：`ToolSelector.SelectResult` 返回 `reason` 和 `matchedKeywords`，`DocumentAgentResponse` 透出 `routingReason` / `matchedKeywords`；parseReady=false 仍在 `DocumentAgentServiceImpl` 内短路，不调用 selector。
+- T009b 已补充 `DocumentToolSelector` 可解释性单元测试：覆盖状态、摘要、证据/引用、默认 QA、summary + evidence 冲突、英文大小写、空白和 null 输入。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

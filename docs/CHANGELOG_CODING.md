@@ -566,6 +566,41 @@
 - 未持久化 `routingReason` / `matchedKeywords` 到 AgentTask。
 - 未接 MQ / RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling。
 
+## 2026-05-13 - T009b DocumentToolSelector 可解释性测试
+
+### 本轮目标
+
+补充 `DocumentToolSelector` 独立单元测试，锁定 `decision`、`reason`、`matchedKeywords` 的规则行为。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 覆盖范围
+
+- 状态查询路由到 `status_only`，并返回状态类命中关键词和 reason。
+- 摘要任务路由到 `summary_tool`，并返回摘要类命中关键词和 reason。
+- 证据 / 原文引用任务路由到 `qa_tool`，reason 体现证据或引用需求。
+- 默认 QA 在无关键词命中时返回空 matchedKeywords 和非空 reason。
+- summary + evidence 冲突时继续优先 `qa_tool`。
+- 英文关键词大小写不敏感。
+- 空字符串、空白字符串和 null 输入按当前实现默认进入 QA。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentToolSelectorTest test`：通过（8 tests, 0 failures）。
+- `cd backend; mvn test -DskipITs`：通过（149 tests, 0 failures）。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未修改前端。
+- 未修改 DDL。
+- 未接 MQ / RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标

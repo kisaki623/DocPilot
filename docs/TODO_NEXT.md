@@ -110,6 +110,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过（147 tests, 0 failures）。
 - 边界：未修改 DDL、Controller、前端、smoke 脚本或 AgentTask / AgentStep 持久化结构；未接 MQ / RAG / MCP / LLM Tool Calling。
 
+### T009b
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：补充 `DocumentToolSelector` 可解释性单元测试，覆盖 decision / reason / matchedKeywords。
+- 验证结果：`mvn -Dtest=DocumentToolSelectorTest test` 通过（8 tests, 0 failures）；`mvn test -DskipITs` 通过（149 tests, 0 failures）。
+- 边界：未修改生产代码，未修改前端，未修改 DDL；测试生成的 Stage11 benchmark 产物已由精确 `.gitignore` 规则忽略。
+
 ## 任务列表
 
 ### T000
