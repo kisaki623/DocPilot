@@ -35,6 +35,10 @@ frontend/.playwright-mcp/
 history-markdown-render.png
 stream-fix-final.png
 
+# Generated benchmark artifacts from local test runs
+docs/ai-dev/benchmarks/STAGE11_TASK11_6_RESULTS.md
+docs/ai-dev/benchmarks/artifacts/task11_6_latest.json
+
 # Logs and temp files
 *.log
 *.tmp
