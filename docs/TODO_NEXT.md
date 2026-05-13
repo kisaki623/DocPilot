@@ -126,6 +126,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`npm run lint` 通过；`npm run build` 通过。
 - 边界：未修改后端 Java，未修改 DDL，未新增依赖，未修改 package / lock 文件。
 
+### T009d
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：增强 Agent smoke 的路由解释断言，补充 AgentTool Javadoc，并新增异步 Agent 演进设计文档。
+- 验证结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过（149 tests, 0 failures）；`scripts/agent/smoke-agent-min.ps1` 通过；前端 `npm run lint` / `npm run build` 通过。
+- 边界：未实现异步 Agent，未接 MQ / RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling，未修改 DDL 或前端页面。
+
 ## 任务列表
 
 ### T000

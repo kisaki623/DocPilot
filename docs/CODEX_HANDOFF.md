@@ -57,6 +57,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T009a 已增强 Agent 工具路由可解释性：`ToolSelector.SelectResult` 返回 `reason` 和 `matchedKeywords`，`DocumentAgentResponse` 透出 `routingReason` / `matchedKeywords`；parseReady=false 仍在 `DocumentAgentServiceImpl` 内短路，不调用 selector。
 - T009b 已补充 `DocumentToolSelector` 可解释性单元测试：覆盖状态、摘要、证据/引用、默认 QA、summary + evidence 冲突、英文大小写、空白和 null 输入。
 - T009c 已让前端 Agent 页面展示路由决策说明和命中关键词；无路由说明时页面保持兼容，不影响原始回答、引用、内存 trace 或持久化 trace 展示。
+- T009d 已增强 Agent smoke 对 `routingReason` / `matchedKeywords` 的断言，新增 `docs/AGENT_ASYNC_DESIGN.md` 记录异步 Agent 未来演进方案；该文档仅为设计，当前未实现异步 Agent，也未接 MQ。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -85,6 +86,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - Agent runtime smoke 与远程 MySQL 只读核验闭环。
 - Agent ToolRegistry / ToolSelector 解耦工具路由，并用独立单元测试锁定规则行为。
 - Agent 路由可解释性：后端 run 响应可返回 routing reason 与 matched keywords，便于前端展示和 smoke 断言。
+- 异步 Agent 演进设计文档：明确当前同步流程、瓶颈、方案对比和未来 RocketMQ 方案边界。
 - Actuator / Prometheus 可观测性基础。
 
 ## 8. 当前代码风险

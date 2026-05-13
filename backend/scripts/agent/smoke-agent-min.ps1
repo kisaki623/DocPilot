@@ -122,6 +122,16 @@ Assert-ApiSuccess -Response $summaryRun -Step "agent summary run"
 if (-not $summaryRun.data.taskId -or $summaryRun.data.taskId -le 0) {
   throw "Agent summary run missing valid taskId."
 }
+$summaryDecision = [string]$summaryRun.data.decision
+if ($summaryDecision -ne "summary_tool") {
+  throw "Unexpected summary decision: $summaryDecision"
+}
+if ([string]::IsNullOrWhiteSpace([string]$summaryRun.data.routingReason)) {
+  throw "Agent summary run missing routingReason."
+}
+if (@($summaryRun.data.matchedKeywords).Count -lt 1) {
+  throw "Agent summary run missing matchedKeywords."
+}
 
 $qaRun = Invoke-JsonPost -Uri "$baseUrl/api/ai/agent/run" -Headers $headers -Body @{
   documentId = $documentId
@@ -131,18 +141,19 @@ Assert-ApiSuccess -Response $qaRun -Step "agent qa run"
 if (-not $qaRun.data.taskId -or $qaRun.data.taskId -le 0) {
   throw "Agent qa run missing valid taskId."
 }
+$qaDecision = [string]$qaRun.data.decision
+if ($qaDecision -ne "qa_tool") {
+  throw "Unexpected qa decision: $qaDecision"
+}
+if ([string]::IsNullOrWhiteSpace([string]$qaRun.data.routingReason)) {
+  throw "Agent qa run missing routingReason."
+}
 
 if (@($summaryRun.data.steps).Count -lt 2) {
   throw "Agent summary run has insufficient steps."
 }
 if (@($qaRun.data.steps).Count -lt 2) {
   throw "Agent qa run has insufficient steps."
-}
-if ([string]$summaryRun.data.decision -ne "summary_tool") {
-  throw "Unexpected summary decision: $($summaryRun.data.decision)"
-}
-if ([string]$qaRun.data.decision -ne "qa_tool") {
-  throw "Unexpected qa decision: $($qaRun.data.decision)"
 }
 if (@($qaRun.data.citations).Count -lt 1) {
   throw "Agent qa run should return at least one citation."
@@ -167,10 +178,14 @@ if (@($qaStepResp.data).Count -lt 1) {
 $result = [PSCustomObject]@{
   documentId = $documentId
   summaryTaskId = $summaryRun.data.taskId
-  summaryDecision = $summaryRun.data.decision
+  summaryDecision = $summaryDecision
+  summaryRoutingReason = $summaryRun.data.routingReason
+  summaryMatchedKeywords = @($summaryRun.data.matchedKeywords)
   summaryStepCount = @($summaryRun.data.steps).Count
   qaTaskId = $qaRun.data.taskId
-  qaDecision = $qaRun.data.decision
+  qaDecision = $qaDecision
+  qaRoutingReason = $qaRun.data.routingReason
+  qaMatchedKeywords = @($qaRun.data.matchedKeywords)
   qaStepCount = @($qaRun.data.steps).Count
   qaTaskQueryStepCount = @($qaTaskResp.data.steps).Count
   qaStepQueryCount = @($qaStepResp.data).Count

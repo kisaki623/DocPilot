@@ -634,6 +634,45 @@
 - 未新增依赖。
 - 未修改 package / lock 文件。
 
+## 2026-05-13 - T009d Agent 路由解释 smoke 与异步设计文档
+
+### 本轮目标
+
+验证 T009a-c 的路由解释全链路，并记录未来异步 Agent 演进方案。本轮不实现异步 Agent，不接 MQ。
+
+### 修改文件
+
+- `backend/scripts/agent/smoke-agent-min.ps1`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/AgentTool.java`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- smoke 脚本增加 summary run 的 `routingReason`、`matchedKeywords` 和 `summary_tool` 断言。
+- smoke 脚本增加 QA run 的 `routingReason`、`qa_tool` 和 citation 断言。
+- smoke 输出增加 summary / QA 的 routing reason 与 matched keywords。
+- `AgentTool` 补充 Javadoc，说明新增工具的最小接入路径。
+- 新增 `docs/AGENT_ASYNC_DESIGN.md`，对比 RocketMQ、Spring `@Async` 和 DB polling，并推荐未来基于 `AgentTask` 状态机和 RocketMQ 的异步演进路线。
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过（149 tests, 0 failures）。
+- `cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1`：通过，summary / QA 均返回 routing reason，summary 返回 matched keywords，QA 返回引用。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未实现异步 Agent。
+- 未新增 RocketMQ topic / consumer。
+- 未修改 DDL。
+- 未修改前端页面。
+- 未接 RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标
