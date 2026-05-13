@@ -61,6 +61,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：远程表已创建并结构匹配；Agent smoke 通过；`/api/ai/agent/run` 返回 `taskId`；task / step 查询接口通过；hk-ops 只读 SELECT 确认远程库存在本次 task / steps。
 - 边界：未修改 Java 业务代码，未修改前端，未执行除 T004e-2 授权建表外的远程写 SQL，未 git push。
 
+### T005b-fast-submit
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：补充 `DocumentToolSelector` 独立规则测试。
+- 覆盖范围：`status_only`、`summary_tool`、`qa_tool`、默认 QA、summary + evidence 冲突、空字符串 / 空白输入。
+- 验证结果：`mvn -Dtest=DocumentToolSelectorTest test` 通过；`mvn test -DskipITs` 通过（147 tests, 0 failures）。
+- 边界：未修改生产代码，未修改前端，未修改 DDL。
+
 ## 任务列表
 
 ### T000

@@ -361,6 +361,41 @@
 - 未执行远程 `ALTER / DROP / DELETE / UPDATE / INSERT / TRUNCATE`。
 - 未执行 `git push`。
 
+## 2026-05-13 - T005b DocumentToolSelector 独立规则测试
+
+### 本轮目标
+
+补充 `DocumentToolSelector` 的独立单元测试，锁定 status / summary / evidence / 默认 QA 路由逻辑，避免后续工具选择规则漂移。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 覆盖范围
+
+- `status_only`：状态 / 解析完成类任务仅选择 `document_status_tool`。
+- `summary_tool`：总结 / 摘要类任务选择 `document_status_tool` + `document_summary_tool`。
+- `qa_tool`：证据 / 引用类任务选择 `document_status_tool` + `document_qa_tool`。
+- 默认 QA：普通问题默认进入 QA 工具链。
+- summary + evidence 冲突：证据需求优先进入 QA，避免总结工具丢失引用诉求。
+- 空字符串 / 空白输入：默认进入 QA 工具链。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentToolSelectorTest test`：通过（6 tests, 0 failures）。
+- `cd backend; mvn test -DskipITs`：通过（147 tests, 0 failures）。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未修改 `DocumentAgentServiceImpl`。
+- 未修改前端。
+- 未修改 DDL。
+- 未接 MQ / RAG / MCP / Spring AI / LangChain4j。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标
