@@ -51,7 +51,7 @@
 
 ### 下一步建议
 
-优先执行 `T000：审计当前工作区未提交改动 + 敏感信息检查`。完成后再执行 T001a/T001b 收敛 eval 指标证据链，随后执行最小 smoke 验证，确认当前仓库在本地仍能构建、测试和演示。
+当时建议先执行 `T000：审计工作区改动 + 敏感信息检查`。完成后再执行 T001a/T001b 收敛 eval 指标证据链，随后执行最小 smoke 验证，确认当前仓库在本地仍能构建、测试和演示。
 
 ## 2026-05-12 - T000b 敏感信息脱敏与协作文档入库策略修正
 
@@ -776,3 +776,32 @@
 - 未修改前端业务代码。
 - 未修改 `backend/.env`。
 - 未执行 `git add` / `git commit` / `git push`。
+
+## 2026-05-13 - T009e 协作文档事实状态同步
+
+### 本轮目标
+
+同步协作文档中的当前状态描述，让 `docs/CODEX_HANDOFF.md`、`docs/TODO_NEXT.md` 和 `docs/CHANGELOG_CODING.md` 与当前 git / 代码状态一致。
+
+### 原因
+
+新会话恢复上下文时发现协作文档仍停留在旧的工作区风险口径、推荐先做 T000，但实际 `git status --short` 为空，且 `git log --oneline -20` 已显示 T009a-d 完成。
+
+### 修正内容
+
+- `docs/CODEX_HANDOFF.md` 改为记录当前工作区干净、T009a-d 已完成、`ToolSelector` 已支持 `routingReason` / `matchedKeywords`、前端 Agent 页面已展示路由决策、smoke 已增强路由解释断言。
+- `docs/TODO_NEXT.md` 新增 T009e 完成记录和 T010 runtime 验证任务，推荐下一步改为 T010，并补充 T011 面试向项目总结 / 架构图 / 简历亮点收口。
+- 协作文档明确暂不直接进入 MQ / RAG / MCP / LLM Tool Calling。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改后端 Java。
+- 未修改前端业务代码。
+- 未修改 DDL、README、`.run`、benchmark 或 `docs/ai-dev`。
+- 未执行 T010 runtime 验证。
+- 未读取或修改 `backend/.env`。
+
+### 下一步
+
+进入 `T010-runtime-verify`，完整验证 Agent 路由可解释性在浏览器端真实可用。

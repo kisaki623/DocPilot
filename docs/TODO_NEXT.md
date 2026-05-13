@@ -134,14 +134,22 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过（149 tests, 0 failures）；`scripts/agent/smoke-agent-min.ps1` 通过；前端 `npm run lint` / `npm run build` 通过。
 - 边界：未实现异步 Agent，未接 MQ / RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling，未修改 DDL 或前端页面。
 
+### T009e
+
+- 状态：DONE
+- 完成时间：2026-05-13
+- 任务目标：同步协作文档到当前真实 git / 代码状态。
+- 验证结果：`git status --short` 为空；`git log --oneline -20` 确认 T009a-d 已完成；协作文档不再把 T000 作为当前推荐任务，下一步指向 T010 runtime 验证。
+- 边界：未修改 README、前端业务代码、后端 Java、DDL、`.run`、benchmark 或 `docs/ai-dev`。
+
 ## 任务列表
 
 ### T000
 
 - 状态：TODO
 - 优先级：P0
-- 任务目标：审计当前工作区未提交改动 + 敏感信息检查。
-- 为什么要做：当前工作区存在较多 modified 和 untracked 文件，必须先明确哪些文件安全、哪些可能包含敏感信息、哪些属于历史残留，才能决定后续提交和开发顺序。
+- 任务目标：审计工作区改动 + 敏感信息检查。
+- 为什么要做：这是历史遗留审计项；截至 T009e 同步时工作区干净，但如果后续再次出现 modified / untracked 文件，仍需先明确哪些文件安全、哪些可能包含敏感信息、哪些属于历史残留。
 - 涉及文件：全仓库只读审计；重点包括 `git status`、`.env`、`.env.*`、`application-*.yml`、`*.example`、`README.md`、`docs/`。
 - 前置依赖：无；本任务只做审计，不修改文件。
 - 验收标准：列出所有 modified 文件；列出所有 untracked 文件；检查 `.env`、`.env.*`、`application-*.yml`、`*.example`、README、docs 是否包含 API Key、token、password、secret、真实云服务 IP；只输出审计报告，不自动提交，不删除文件，不修改业务代码。
@@ -225,7 +233,7 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 状态：TODO
 - 优先级：P0
 - 任务目标：完成一次最小本地 smoke 验证并记录真实结果。
-- 为什么要做：当前仓库有较多未提交改动，需要确认本地基础启动、构建、测试是否仍可用。
+- 为什么要做：需要周期性确认本地基础启动、构建、测试是否仍可用；当前 Agent 路由解释链路更具体的运行时验证由 T010 承接。
 - 涉及文件：`backend/README.md`、`frontend/README.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
 - 前置依赖：本地 JDK、Maven、Node、npm、Docker 或可用中间件；先完成 T000，避免在敏感信息不明时扩大改动。
 - 验收标准：后端 compile/test、前端 lint/build、基础健康检查或失败原因被真实记录。
@@ -260,7 +268,7 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验收标准：白名单 diff 自审无敏感信息；前端 lint/build 通过；暂存区只包含本任务允许文件；不提交 Agent Demo、benchmark、`.run`、根 README 或 AGENTS。
 - 验证命令：`cd frontend; npm run lint; npm run build`；`git diff --cached --name-only`；`git diff --cached --stat`。
 - 验证结果：2026-05-13 本地执行通过；`npm run lint` 无 warning/error；`npm run build` 编译、类型检查和静态生成通过。
-- 风险点：当前工作区仍有未提交 Agent 页面和 dashboard/layout Agent 入口改动；本任务不提交这些内容。
+- 风险点：当时工作区仍有未提交 Agent 页面和 dashboard/layout Agent 入口改动；本任务不提交这些内容。
 - 面试价值：体现 SSE 前端事件协议适配、流式降级、引用展示和 Markdown 稳定渲染的工程闭环。
 - 下一步动作：继续拆分剩余文档修复、Agent Demo、benchmark 和 `.run` 配置，不混提。
 
@@ -362,6 +370,32 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 面试价值：体现复杂中间件联调和问题定位能力。
 - 下一步动作：先基于 README 和 run config 梳理排障路径。
 
+### T010-runtime-verify
+
+- 状态：TODO
+- 优先级：P0
+- 任务目标：完整验证 Agent 路由可解释性在浏览器端真实可用。
+- 为什么要做：T009a-d 已完成后端 `routingReason` / `matchedKeywords`、selector 测试、前端展示和 smoke 断言，但仍需要一次完整前后端 runtime 验证确认浏览器页面真实可用。
+- 涉及文件：只读验证后端 Agent API、smoke 脚本和前端 `/agent` 页面；仅在全部验证通过后更新 `docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
+- 前置依赖：T009e 已同步协作文档且 `git status --short` 干净；本地后端、前端和必要中间件可用。
+- 验收标准：后端 smoke 通过；真实浏览器验证通过；页面看到 `routingReason` / `matchedKeywords`；页面看到持久化 task / step trace；summary / QA 两类 Agent run 均正常；QA 场景返回 citations；后端 compile/test 通过；前端 lint/build 通过。
+- 验证命令：`cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1`；Playwright 打开 `/agent` 走 summary / QA；`cd backend; mvn -DskipTests compile; mvn test -DskipITs`；`cd frontend; npm run lint; npm run build`。
+- 风险点：本地端口占用、中间件不可用、解析超时或浏览器自动化失败；失败时停止并报告，不直接改业务代码。
+- 面试价值：证明 Agent 路由解释、持久化 trace 和引用展示不是只停留在代码层，而是浏览器端可真实演示。
+- 下一步动作：通过后进入 T011 面试向项目总结 / 架构图 / 简历亮点收口；暂不进入 MQ / RAG / MCP。
+
+### T011
+
+- 状态：TODO
+- 优先级：P1
+- 任务目标：面试向项目总结、架构图和简历亮点收口。
+- 为什么要做：T010 通过后，项目需要把已验证能力整理成克制、可信、可讲清楚的展示材料。
+- 涉及文件：README、docs 展示材料或新增面试准备文档，具体范围进入任务前再限定。
+- 前置依赖：T010 runtime 验证通过。
+- 验收标准：总结不夸大为完整向量 RAG / 生产级多 Agent；突出 RocketMQ + Outbox、Agent trace、SSE、eval / smoke 证据链。
+- 风险点：不要把未实现的 MQ Agent、RAG、MCP、LLM Tool Calling 写成已实现。
+- 面试价值：把工程实现转成面试官能快速理解的项目叙事。
+
 ## 推荐第一个任务
 
-推荐先做 `T000`。理由：当前工作区有较多 modified 和 untracked 文件，必须先明确哪些文件安全、哪些包含敏感信息、哪些属于历史残留，才能决定后续提交和开发顺序。
+推荐先做 `T010-runtime-verify`。理由：T009a-d 已完成 Agent 路由可解释性后端、测试、前端展示和 smoke 断言，下一步应真实启动前后端，用浏览器确认 `/agent` 页面可展示 `routingReason` / `matchedKeywords`、持久化 task / step trace、summary / QA 两类 run 和 QA citations。T010 通过后建议进入 `T011` 面试向项目总结 / 架构图 / 简历亮点收口，暂不进入 MQ / RAG / MCP。

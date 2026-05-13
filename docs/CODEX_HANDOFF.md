@@ -8,6 +8,8 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 项目仍处于作品展示与实习投递导向的持续打磨阶段。它可以展示工程化能力，但还不是生产级 SaaS，也不是完整向量 RAG / 多 Agent 平台。
 
+截至 2026-05-13 当前交接记录同步时，`git status --short` 为空，工作区干净；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
+
 ## 2. 已经实现的功能
 
 - 账号密码注册 / 登录，旧短信登录逻辑保留兼容口径。
@@ -19,6 +21,8 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - Markdown 展示、历史问答、引用证据面板。
 - 最小 Agent 后端 / 前端演示入口，能展示输入、工具步骤、持久化执行轨迹与最终回答。
 - Agent 执行痕迹持久化与查询 API，Agent run 返回 `taskId`，支持按 `taskId` 查询 task / steps。
+- Agent 路由可解释性：`ToolSelector` 已支持 `routingReason` / `matchedKeywords`，后端 run 响应透出字段，前端 Agent 页面展示“路由决策”和命中关键词，smoke 脚本已增强对应断言。
+- `docs/AGENT_ASYNC_DESIGN.md` 已新增异步 Agent 演进设计草案；它仅记录未来方案，当前未实现异步 Agent。
 - eval / benchmark 脚本和 artifact 雏形，用于记录问答质量指标。
 - Docker Compose demo 中间件编排。
 
@@ -43,7 +47,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 ## 5. 不确定 / 需要用户确认的地方
 
 - 香港云中间件当前是否可稳定连通，需要实际联调时确认。
-- 当前未提交工作区里有较多历史改动和未跟踪文件，接手前必须看 `git status` / `git diff`，不要误覆盖。
+- 当前交接点 `git status --short` 为空；仍需按协作规则在每轮开始检查 `git status` / `git diff`。
 - `docs/ai-dev/HANDOFF.md` 等历史文档存在乱码和阶段漂移，是否继续保留旧阶段文档需要用户确认。
 - T001a 已定位当前权威 eval 基准为 `docs/ai-dev/benchmarks/artifacts/stagec_eval_latest.json`：`answerSuccessRate=90%`、`citationHitRate=100%`、`caseCount/streamPairs=20/8`、`generatedAt=2026-04-18T18:58:42.2763129+00:00`、`datasetVersion=2026-04-19-r2`。T001b 已将 README / STATE / docs 准备统一到该 artifact。保留不确定项：artifact 未记录实际运行时 `AI_MODE`、模型名或 provider，且本轮未重跑 eval。
 - Agent Demo 已通过 T003-fast-submit 提交：`25793ed feat(agent): add minimal document agent demo`，包含后端 `/api/ai/agent/run`、三类工具、前端 `/agent` 页面和 smoke 脚本。
@@ -91,7 +95,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 8. 当前代码风险
 
-- 工作区已有大量未提交改动，下一轮不能默认它们都属于当前任务。
+- 当前工作区干净；风险主要来自运行环境、历史文档口径和后续任务边界，下一轮仍不能跳过 `git status` / `git diff`。
 - eval 指标已按 T001a/T001b 收敛到 `stagec_eval_latest.json`（90% / 100%，20 cases / 8 stream pairs）。后续风险不再是“三套指标冲突”，而是需要通过 T005 重新运行 eval，并补充实际运行时 `AI_MODE`、模型名、provider 记录。
 - AI 问答 / SSE 后端改进包已在 2026-05-13 完成 T002a 验证：`mvn -DskipTests compile` 通过，`mvn test -DskipITs` 通过，测试统计为 `Tests run: 141, Failures: 0, Errors: 0, Skipped: 0`。当前无编译或测试阻塞，适合作为独立提交候选进入 Claude Code 只读提交前审查。
 - 前端 QA / SSE 展示改进已在 2026-05-13 完成 T002b 验证：`npm run lint` 通过，`npm run build` 通过。当前前端流式事件解析、引用展示、Markdown inline 渲染和降级提示可作为独立提交候选；本轮不提交 Agent Demo、benchmark、`.run`、根 README 或 AGENTS。
@@ -102,9 +106,9 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 对已拆分的 AI 问答 / SSE 后端和前端提交做最终只读审查，确认提交边界和文档记录一致。
-2. 做剩余最小可运行 smoke：核心页面 / API 路径验证，必要时用 Playwright 验证文档详情 QA/SSE 主链路。
-3. 修复历史文档乱码和协作看板漂移，让后续 Codex 每轮都能从同一事实源开始。
+1. 优先执行 `T010-runtime-verify`：完整验证 Agent 路由可解释性在浏览器端真实可用。
+2. T010 通过后进入 `T011`：面试向项目总结、架构图和简历亮点收口。
+3. 暂不直接进入 MQ / RAG / MCP / LLM Tool Calling，避免把当前最小 Agent 演示扩大成未验证的大改造。
 
 ## 10. 接手时优先阅读
 
@@ -170,6 +174,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T000：审计当前工作区未提交改动 + 敏感信息检查`。
+优先执行 `T010-runtime-verify`。
 
-原因：当前工作区有较多 modified 和 untracked 文件，必须先明确哪些文件安全、哪些包含敏感信息、哪些属于历史残留，才能决定后续提交和开发顺序。T000 只做审计，不下结论是否提交，不删除文件，不修改业务代码。
+原因：T009a-d 已完成 Agent 路由可解释性后端、测试、前端展示和 smoke 断言；下一步应真实启动前后端并用浏览器验证 `/agent` 页面能展示 `routingReason` / `matchedKeywords`、持久化 task / step trace、summary / QA 两类 run 和 QA citations。
