@@ -7,6 +7,8 @@ import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
+import com.docpilot.backend.ai.agent.tool.ToolRegistry;
+import com.docpilot.backend.ai.agent.tool.ToolSelector;
 import com.docpilot.backend.ai.agent.vo.DocumentAgentResponse;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.error.ErrorCode;
@@ -19,7 +21,6 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -29,28 +30,15 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
 
     private static final int STEP_OUTPUT_MAX_LENGTH = 200;
 
-    private static final List<String> STATUS_KEYWORDS = List.of(
-            "status", "progress", "state", "解析状态", "状态", "进度", "是否完成"
-    );
-    private static final List<String> SUMMARY_KEYWORDS = List.of(
-            "summary", "summarize", "overview", "brief", "摘要", "总结", "概览"
-    );
-    private static final List<String> EVIDENCE_KEYWORDS = List.of(
-            "evidence", "citation", "cite", "proof", "依据", "引用", "出处", "证据"
-    );
-
-    private final DocumentStatusTool documentStatusTool;
-    private final DocumentSummaryTool documentSummaryTool;
-    private final DocumentQaTool documentQaTool;
+    private final ToolRegistry toolRegistry;
+    private final ToolSelector toolSelector;
     private final AgentTaskPersistenceService persistenceService;
 
-    public DocumentAgentServiceImpl(DocumentStatusTool documentStatusTool,
-                                    DocumentSummaryTool documentSummaryTool,
-                                    DocumentQaTool documentQaTool,
+    public DocumentAgentServiceImpl(ToolRegistry toolRegistry,
+                                    ToolSelector toolSelector,
                                     AgentTaskPersistenceService persistenceService) {
-        this.documentStatusTool = documentStatusTool;
-        this.documentSummaryTool = documentSummaryTool;
-        this.documentQaTool = documentQaTool;
+        this.toolRegistry = toolRegistry;
+        this.toolSelector = toolSelector;
         this.persistenceService = persistenceService;
     }
 
@@ -81,75 +69,76 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         response.setTaskId(taskId);
 
         try {
-        TimedResult<DocumentStatusTool.StatusResult> statusResult = timedExecute(() ->
-                documentStatusTool.execute(new DocumentStatusTool.StatusInput(userId, request.getDocumentId())));
-        steps.add(buildStep(
-                1,
-                documentStatusTool.getToolName(),
-                "documentId=" + request.getDocumentId(),
-                String.format("parseStatus=%s, parseReady=%s", statusResult.value().parseStatus(), statusResult.value().parseReady()),
-                statusResult.durationMs(),
-                "success"
-        ));
-        persistLastStep(taskId, steps);
-
-        DocumentStatusTool.StatusResult detail = statusResult.value();
-        if (!detail.parseReady()) {
-            response.setDecision("status_only");
-            response.setFinalAnswer(buildPendingAnswer(detail));
-            response.setSteps(steps);
-            return completeSuccess(taskId, response, beginNanos);
-        }
-
-        boolean statusIntent = containsAnyKeyword(task, STATUS_KEYWORDS);
-        boolean summaryIntent = containsAnyKeyword(task, SUMMARY_KEYWORDS);
-        boolean evidenceIntent = containsAnyKeyword(task, EVIDENCE_KEYWORDS);
-
-        if (statusIntent && !summaryIntent && !evidenceIntent) {
-            response.setDecision("status_only");
-            response.setFinalAnswer(buildStatusAnswer(detail));
-            response.setSteps(steps);
-            return completeSuccess(taskId, response, beginNanos);
-        }
-
-        if (summaryIntent && !evidenceIntent) {
-            TimedResult<DocumentSummaryTool.SummaryResult> summaryResult = timedExecute(() ->
-                    documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(task, detail.summary(), detail.content())));
+            DocumentStatusTool documentStatusTool = toolRegistry.get("document_status_tool");
+            TimedResult<DocumentStatusTool.StatusResult> statusResult = timedExecute(() ->
+                    documentStatusTool.execute(new DocumentStatusTool.StatusInput(userId, request.getDocumentId())));
             steps.add(buildStep(
-                    2,
-                    documentSummaryTool.getToolName(),
-                    "task=" + summarize(task),
-                    "source=" + summaryResult.value().source(),
-                    summaryResult.durationMs(),
+                    1,
+                    documentStatusTool.getToolName(),
+                    "documentId=" + request.getDocumentId(),
+                    String.format("parseStatus=%s, parseReady=%s", statusResult.value().parseStatus(), statusResult.value().parseReady()),
+                    statusResult.durationMs(),
                     "success"
             ));
             persistLastStep(taskId, steps);
 
-            response.setDecision("summary_tool");
-            response.setFinalAnswer(summaryResult.value().output());
+            DocumentStatusTool.StatusResult detail = statusResult.value();
+            if (!detail.parseReady()) {
+                response.setDecision("status_only");
+                response.setFinalAnswer(buildPendingAnswer(detail));
+                response.setSteps(steps);
+                return completeSuccess(taskId, response, beginNanos);
+            }
+
+            ToolSelector.SelectResult selection = toolSelector.select(task);
+
+            if ("status_only".equals(selection.decision())) {
+                response.setDecision("status_only");
+                response.setFinalAnswer(buildStatusAnswer(detail));
+                response.setSteps(steps);
+                return completeSuccess(taskId, response, beginNanos);
+            }
+
+            if ("summary_tool".equals(selection.decision())) {
+                DocumentSummaryTool documentSummaryTool = toolRegistry.get("document_summary_tool");
+                TimedResult<DocumentSummaryTool.SummaryResult> summaryResult = timedExecute(() ->
+                        documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(task, detail.summary(), detail.content())));
+                steps.add(buildStep(
+                        2,
+                        documentSummaryTool.getToolName(),
+                        "task=" + summarize(task),
+                        "source=" + summaryResult.value().source(),
+                        summaryResult.durationMs(),
+                        "success"
+                ));
+                persistLastStep(taskId, steps);
+
+                response.setDecision("summary_tool");
+                response.setFinalAnswer(summaryResult.value().output());
+                response.setSteps(steps);
+                return completeSuccess(taskId, response, beginNanos);
+            }
+
+            DocumentQaTool documentQaTool = toolRegistry.get("document_qa_tool");
+            TimedResult<DocumentQaResponse> qaResult = timedExecute(() ->
+                    documentQaTool.execute(new DocumentQaTool.QaInput(userId, request.getDocumentId(), task, response.getSessionId())));
+            DocumentQaResponse qa = qaResult.value();
+            steps.add(buildStep(
+                    2,
+                    documentQaTool.getToolName(),
+                    "task=" + summarize(task),
+                    String.format("answerLength=%d, citations=%d", safeLength(qa.getAnswer()), safeCitationCount(qa.getCitations())),
+                    qaResult.durationMs(),
+                    "success"
+            ));
+            persistLastStep(taskId, steps);
+
+            response.setDecision("qa_tool");
+            response.setFinalAnswer(qa.getAnswer());
+            response.setSessionId(qa.getSessionId());
+            response.setCitations(qa.getCitations());
             response.setSteps(steps);
             return completeSuccess(taskId, response, beginNanos);
-        }
-
-        TimedResult<DocumentQaResponse> qaResult = timedExecute(() ->
-                documentQaTool.execute(new DocumentQaTool.QaInput(userId, request.getDocumentId(), task, response.getSessionId())));
-        DocumentQaResponse qa = qaResult.value();
-        steps.add(buildStep(
-                2,
-                documentQaTool.getToolName(),
-                "task=" + summarize(task),
-                String.format("answerLength=%d, citations=%d", safeLength(qa.getAnswer()), safeCitationCount(qa.getCitations())),
-                qaResult.durationMs(),
-                "success"
-        ));
-        persistLastStep(taskId, steps);
-
-        response.setDecision("qa_tool");
-        response.setFinalAnswer(qa.getAnswer());
-        response.setSessionId(qa.getSessionId());
-        response.setCitations(qa.getCitations());
-        response.setSteps(steps);
-        return completeSuccess(taskId, response, beginNanos);
         } catch (Exception ex) {
             updateTaskFailedSafely(taskId, ex);
             throw ex;
@@ -207,16 +196,6 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
             return null;
         }
         return sessionId.trim();
-    }
-
-    private boolean containsAnyKeyword(String task, List<String> keywords) {
-        String normalized = safeText(task).toLowerCase(Locale.ROOT);
-        for (String keyword : keywords) {
-            if (normalized.contains(keyword.toLowerCase(Locale.ROOT))) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private String buildPendingAnswer(DocumentStatusTool.StatusResult detail) {

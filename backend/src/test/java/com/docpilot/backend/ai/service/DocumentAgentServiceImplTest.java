@@ -7,6 +7,8 @@ import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
+import com.docpilot.backend.ai.agent.tool.ToolRegistry;
+import com.docpilot.backend.ai.agent.tool.ToolSelector;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
 import org.junit.jupiter.api.Test;
@@ -43,10 +45,28 @@ class DocumentAgentServiceImplTest {
     private DocumentQaTool documentQaTool;
 
     @Mock
+    private ToolRegistry toolRegistry;
+
+    @Mock
+    private ToolSelector toolSelector;
+
+    @Mock
     private AgentTaskPersistenceService persistenceService;
 
     private DocumentAgentServiceImpl buildService() {
-        return new DocumentAgentServiceImpl(documentStatusTool, documentSummaryTool, documentQaTool, persistenceService);
+        return new DocumentAgentServiceImpl(toolRegistry, toolSelector, persistenceService);
+    }
+
+    private void stubStatusTool() {
+        when(toolRegistry.<DocumentStatusTool>get("document_status_tool")).thenReturn(documentStatusTool);
+    }
+
+    private void stubSummaryTool() {
+        when(toolRegistry.<DocumentSummaryTool>get("document_summary_tool")).thenReturn(documentSummaryTool);
+    }
+
+    private void stubQaTool() {
+        when(toolRegistry.<DocumentQaTool>get("document_qa_tool")).thenReturn(documentQaTool);
     }
 
     private void stubPersistenceTask() {
@@ -81,11 +101,17 @@ class DocumentAgentServiceImplTest {
                 ));
         when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
         when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "summary_tool",
+                List.of("document_status_tool", "document_summary_tool")
+        ));
         when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
                 "Please summarize this document for interview showcase",
                 "This is the summary field.",
                 "This is the full content."
         ))).thenReturn(new DocumentSummaryTool.SummaryResult("This is the summary field.", "summary_field"));
+        stubStatusTool();
+        stubSummaryTool();
         stubPersistenceTask();
 
         var response = service.run(100L, request);
@@ -124,6 +150,10 @@ class DocumentAgentServiceImplTest {
                 ));
         when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
         when(documentQaTool.getToolName()).thenReturn("document_qa_tool");
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "qa_tool",
+                List.of("document_status_tool", "document_qa_tool")
+        ));
 
         DocumentQaResponse qaResponse = new DocumentQaResponse();
         qaResponse.setDocumentId(102L);
@@ -132,6 +162,8 @@ class DocumentAgentServiceImplTest {
         qaResponse.setCitations(List.of(new DocumentQaResponse.CitationItem()));
         when(documentQaTool.execute(new DocumentQaTool.QaInput(100L, 102L, "Please answer with evidence and cite the key points.", "sess-qa")))
                 .thenReturn(qaResponse);
+        stubStatusTool();
+        stubQaTool();
         stubPersistenceTask();
 
         var response = service.run(100L, request);
@@ -164,8 +196,9 @@ class DocumentAgentServiceImplTest {
                         "parsing now",
                         null,
                         null
-                ));
+        ));
         when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        stubStatusTool();
         stubPersistenceTask();
 
         var response = service.run(100L, request);
@@ -175,6 +208,7 @@ class DocumentAgentServiceImplTest {
         assertNull(response.getSessionId());
         assertTrue(response.getFinalAnswer().contains("PARSING"));
         verifyPersistenceSuccess();
+        verify(toolSelector, never()).select(anyString());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
     }
