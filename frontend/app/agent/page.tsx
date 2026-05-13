@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MarkdownViewer from "@/components/markdown-viewer";
 import { getToken } from "@/lib/auth";
-import { runDocumentAgent, type DocumentAgentRunData } from "@/lib/agent-api";
+import {
+  getAgentTask,
+  getAgentTaskSteps,
+  runDocumentAgent,
+  type AgentTaskTraceData,
+  type DocumentAgentRunData
+} from "@/lib/agent-api";
 import { listDocuments, type DocumentListItem } from "@/lib/document-api";
 
 const TASK_TEMPLATES = [
@@ -71,6 +77,9 @@ export default function AgentPage() {
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState("");
   const [result, setResult] = useState<DocumentAgentRunData | null>(null);
+  const [persistedTrace, setPersistedTrace] = useState<AgentTaskTraceData | null>(null);
+  const [loadingPersistedTrace, setLoadingPersistedTrace] = useState(false);
+  const [persistedTraceError, setPersistedTraceError] = useState("");
 
   const loadDocuments = useCallback(async () => {
     setLoadingDocuments(true);
@@ -114,13 +123,45 @@ export default function AgentPage() {
   useEffect(() => {
     if (result && String(result.documentId) !== selectedDocumentId) {
       setResult(null);
+      setPersistedTrace(null);
+      setPersistedTraceError("");
       setRunError("");
     }
   }, [result, selectedDocumentId]);
 
+  async function loadPersistedTrace(taskId: number) {
+    setLoadingPersistedTrace(true);
+    setPersistedTraceError("");
+    setPersistedTrace(null);
+
+    try {
+      const [taskResponse, stepsResponse] = await Promise.all([
+        getAgentTask(taskId),
+        getAgentTaskSteps(taskId)
+      ]);
+
+      if (!taskResponse.data?.task) {
+        setPersistedTraceError("持久化执行轨迹为空，请稍后重试。");
+        return;
+      }
+
+      setPersistedTrace({
+        task: taskResponse.data.task,
+        steps: stepsResponse.data || taskResponse.data.steps || []
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "持久化执行轨迹加载失败";
+      setPersistedTraceError(message);
+    } finally {
+      setLoadingPersistedTrace(false);
+    }
+  }
+
   async function handleRunAgent() {
     setRunError("");
     setResult(null);
+    setPersistedTrace(null);
+    setPersistedTraceError("");
 
     if (!hasToken) {
       setRunError("未登录，请先登录后再运行 Agent。");
@@ -153,6 +194,9 @@ export default function AgentPage() {
         return;
       }
       setResult(response.data);
+      if (response.data.taskId && response.data.taskId > 0) {
+        void loadPersistedTrace(response.data.taskId);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Agent 调用失败";
       setRunError(normalizeRunError(message));
@@ -269,6 +313,8 @@ export default function AgentPage() {
                 disabled={running}
                 onClick={() => {
                   setResult(null);
+                  setPersistedTrace(null);
+                  setPersistedTraceError("");
                   setRunError("");
                 }}
               >
@@ -299,6 +345,10 @@ export default function AgentPage() {
                   <p className="dp-kpi-label">Total Duration</p>
                   <p className="dp-kpi-value text-lg">{result.totalDurationMs ?? 0} ms</p>
                 </div>
+                <div className="dp-kpi-card">
+                  <p className="dp-kpi-label">Task ID</p>
+                  <p className="dp-kpi-value text-lg">{result.taskId ?? "-"}</p>
+                </div>
               </div>
 
               <div className="dp-card-soft text-xs text-slate-600">
@@ -316,6 +366,54 @@ export default function AgentPage() {
                   variant="history"
                   mode="inline"
                 />
+              </div>
+
+              <div className="dp-card-soft">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-sm font-semibold text-slate-700">持久化执行轨迹</p>
+                  {loadingPersistedTrace ? <span className="text-xs text-slate-500">加载中...</span> : null}
+                </div>
+
+                {persistedTraceError ? (
+                  <div className="dp-alert dp-alert-info mb-3">
+                    持久化 trace 暂时无法展示：{persistedTraceError}
+                  </div>
+                ) : null}
+
+                {persistedTrace ? (
+                  <div className="grid gap-3">
+                    <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-600">
+                      <p>Task ID: <span className="font-mono">{persistedTrace.task.id}</span></p>
+                      <p>Status: <span className="font-semibold">{persistedTrace.task.status || "-"}</span></p>
+                      <p>Decision: <span className="font-semibold">{persistedTrace.task.decision || "-"}</span></p>
+                      <p>Total Duration: {persistedTrace.task.totalDurationMs ?? "-"} ms</p>
+                      <p>Step Count: {persistedTrace.steps.length}</p>
+                      <p>Finished: {formatDateTime(persistedTrace.task.finishTime)}</p>
+                    </div>
+
+                    {persistedTrace.steps.length > 0 ? (
+                      <ol className="dp-list-clean">
+                        {persistedTrace.steps.map((step) => (
+                          <li key={`${step.taskId}-${step.stepIndex}-${step.toolName}`} className="rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <p className="text-sm font-semibold text-slate-800">#{step.stepIndex} {step.toolName}</p>
+                              <span className="text-xs text-slate-500">{step.durationMs ?? "-"} ms</span>
+                            </div>
+                            <p className="text-xs text-slate-600">Status: <span className="font-semibold">{step.status || "-"}</span></p>
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2"><span className="font-semibold">输入：</span>{step.inputSummary || "-"}</p>
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2"><span className="font-semibold">输出：</span>{step.outputSummary || "-"}</p>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : (
+                      <p className="text-sm text-slate-500">持久化 trace 暂无步骤。</p>
+                    )}
+                  </div>
+                ) : !loadingPersistedTrace && !persistedTraceError ? (
+                  <p className="text-sm text-slate-500">
+                    {result.taskId ? "等待持久化 trace 返回。" : "本次响应未返回 taskId，无法查询持久化 trace。"}
+                  </p>
+                ) : null}
               </div>
 
               <div className="dp-card-soft">

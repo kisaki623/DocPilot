@@ -23,6 +23,7 @@ export interface DocumentAgentRunData {
   finishedAt?: string;
   totalDurationMs?: number;
   success?: boolean;
+  taskId?: number;
   documentId: number;
   task: string;
   sessionId?: string;
@@ -30,6 +31,44 @@ export interface DocumentAgentRunData {
   finalAnswer: string;
   citations?: DocumentQaCitationItem[];
   steps?: DocumentAgentStep[];
+}
+
+export interface AgentTask {
+  id: number;
+  userId?: number;
+  documentId: number;
+  sessionId?: string;
+  taskInput?: string;
+  decision?: string;
+  finalAnswer?: string;
+  status?: string;
+  errorMsg?: string;
+  totalDurationMs?: number;
+  startTime?: string;
+  finishTime?: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface AgentPersistedStep {
+  id?: number;
+  taskId: number;
+  stepIndex: number;
+  toolName: string;
+  inputSummary?: string;
+  outputSummary?: string;
+  status?: string;
+  durationMs?: number;
+  errorMsg?: string;
+  startTime?: string;
+  finishTime?: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface AgentTaskTraceData {
+  task: AgentTask;
+  steps: AgentPersistedStep[];
 }
 
 export function runDocumentAgent(
@@ -41,5 +80,23 @@ export function runDocumentAgent(
       ...buildAuthorizationHeader()
     },
     body: JSON.stringify(payload)
+  });
+}
+
+export function getAgentTask(taskId: number): Promise<ApiResponse<AgentTaskTraceData>> {
+  return apiRequest<AgentTaskTraceData>(`/api/ai/agent/task/${taskId}`, {
+    method: "GET",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
+  });
+}
+
+export function getAgentTaskSteps(taskId: number): Promise<ApiResponse<AgentPersistedStep[]>> {
+  return apiRequest<AgentPersistedStep[]>(`/api/ai/agent/task/${taskId}/steps`, {
+    method: "GET",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
   });
 }

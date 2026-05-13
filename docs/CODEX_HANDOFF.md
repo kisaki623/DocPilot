@@ -17,7 +17,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - 文档内容轻量切分、关键词检索、上下文组装、引用返回。
 - 普通问答与 SSE 流式问答。
 - Markdown 展示、历史问答、引用证据面板。
-- 最小 Agent 后端 / 前端演示入口，能展示输入、工具步骤与最终回答。
+- 最小 Agent 后端 / 前端演示入口，能展示输入、工具步骤、持久化执行轨迹与最终回答。
 - Agent 执行痕迹持久化与查询 API，Agent run 返回 `taskId`，支持按 `taskId` 查询 task / steps。
 - eval / benchmark 脚本和 artifact 雏形，用于记录问答质量指标。
 - Docker Compose demo 中间件编排。
@@ -52,7 +52,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T004c 已新增 Agent task / step 查询 API：支持按 `taskId` 查询当前用户的 task 与 steps，未修改前端，未执行 DDL。
 - T004d 已补充 Agent smoke 的 `taskId` 断言和协作文档收尾；smoke 脚本仅做语法/命令可解析检查，未实跑。
 - T004e 已完成远程 DDL 与运行时 smoke：远程 `docpilot` 库存在 `tb_agent_task` / `tb_agent_step`，Agent smoke 返回 `taskId`，task / step 查询接口可用，hk-ops 只读 SELECT 确认远程库写入了本次 task / steps。
-- T005a 已将 Agent 工具注册和工具选择逻辑抽出为 `ToolRegistry` / `ToolSelector` / `DocumentToolSelector`；T005b 已补充 `DocumentToolSelector` 独立规则测试，覆盖 status、summary、evidence、默认 QA 与 summary + evidence 冲突；T005c 已通过 Agent runtime smoke，确认 summary / QA 路由、`taskId` 返回和 task / step 查询接口仍正常。
+- T005a 已将 Agent 工具注册和工具选择逻辑抽出为 `ToolRegistry` / `ToolSelector` / `DocumentToolSelector`；T005b 已补充 `DocumentToolSelector` 独立规则测试，覆盖 status、summary、evidence、默认 QA 与 summary + evidence 冲突；T005c 已通过 Agent runtime smoke，确认 summary / QA 路由、`taskId` 返回和 task / step 查询接口仍正常；T006a 已让前端 Agent 页面根据 `taskId` 查询并展示持久化 task / step trace。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -65,7 +65,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 6. 用户发起普通问答或 SSE 问答。
 7. 后端检索文档片段，组装上下文，调用 mock 或 real AI service 生成回答。
 8. 前端展示回答、引用、历史记录和流式输出过程。
-9. Agent 页面可基于文档业务工具展示任务输入、工具调用步骤和最终结果。
+9. Agent 页面可基于文档业务工具展示任务输入、工具调用步骤、持久化执行轨迹和最终结果。
 
 ## 7. 关键技术点
 
@@ -77,7 +77,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - SSE 流式输出与 Markdown 稳定渲染。
 - 轻量检索增强问答、引用映射和 eval artifact。
 - Agent 工具抽象与 trace 展示。
-- Agent task / step 持久化骨架、执行时记录接入与查询 API。
+- Agent task / step 持久化骨架、执行时记录接入、查询 API 与前端 trace 展示。
 - Agent runtime smoke 与远程 MySQL 只读核验闭环。
 - Agent ToolRegistry / ToolSelector 解耦工具路由，并用独立单元测试锁定规则行为。
 - Actuator / Prometheus 可观测性基础。

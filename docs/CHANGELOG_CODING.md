@@ -427,6 +427,41 @@
 - 未执行 `git add` / `git commit` / `git push`。
 - 本轮结束前已停止本地后端，确认 8081 端口释放。
 
+## 2026-05-13 - T006a 前端 Agent 持久化执行轨迹展示
+
+### 本轮目标
+
+让前端 Agent 页面在 `/api/ai/agent/run` 返回 `taskId` 后，调用后端 task / step 查询接口并展示持久化后的执行轨迹。
+
+### 修改文件
+
+- `frontend/lib/agent-api.ts`
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `frontend/lib/agent-api.ts` 新增 `getAgentTask(taskId)` 和 `getAgentTaskSteps(taskId)`，路径来自 `DocumentAgentController`。
+- `frontend/app/agent/page.tsx` 在 Agent run 成功且存在 `taskId` 时自动查询持久化 task / steps。
+- 页面新增“持久化执行轨迹”区域，展示 taskId、status、decision、totalDurationMs、step count，以及每个 step 的 stepIndex、toolName、status、durationMs、inputSummary、outputSummary。
+- task / step 查询失败时只显示友好提示，不影响原始 Agent 回答、内存 trace 和引用展示。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建、类型检查和静态页面生成完成。
+
+### 明确未做事项
+
+- 未修改后端 Java。
+- 未修改 DDL。
+- 未修改 README / frontend README。
+- 未修改 `.run`。
+- 未修改 benchmark / docs-ai-dev。
+- 未新增依赖或修改 package / lock 文件。
+
 ## 2026-05-12 - T001b 统一 eval 指标引用
 
 ### 本轮目标
