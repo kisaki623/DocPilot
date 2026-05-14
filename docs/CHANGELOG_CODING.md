@@ -1294,6 +1294,46 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T014a Disabled LLM Selection Client
+
+### 本轮目标
+
+新增真实 LLM tool selector 未来调用模型时使用的 client 抽象，同时提供 disabled client，确保当前不会误调用外部模型。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClient.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientResponse.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DisabledLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DisabledLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelectionClient` 接口，定义 `completeSelectionPrompt(String prompt)`。
+- 新增 `LlmToolSelectionClientResponse`，包含 rawText、provider、model、disabled 和 errorMessage。
+- 新增 `DisabledLlmToolSelectionClient`，调用时只返回 disabled response，不联网、不调用真实模型、不读取环境变量。
+- 单元测试覆盖 disabled=true、provider/model disabled 标识、errorMessage 非空，以及 blank / null prompt 不抛敏感异常。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DisabledLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未读取 `backend/.env`。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

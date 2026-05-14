@@ -254,6 +254,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`git status --short` 检查通过；`git diff -- docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
 - 边界：仅修改协作文档；未修改代码，未新增 API，未调用真实 LLM，未改变默认 routing。
 
+### T014a
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 LLM Tool Selection client 抽象、响应对象和 disabled client。
+- 验证结果：`mvn -Dtest=DisabledLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：`DisabledLlmToolSelectionClient` 不联网、不调用真实模型、不读取环境变量或 `backend/.env`；未接入生产 routing。
+
 ## 任务列表
 
 ### T000
