@@ -954,6 +954,42 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T011c Tool Selection Prompt Builder
+
+### 本轮目标
+
+新增未来 LLM Tool Selection 的 prompt builder，为后续真实 LLM selector 提供稳定提示词骨架。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionPromptBuilder.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionPromptBuilderTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelectionPromptBuilder`，输入 task、parseReady、hasSummary 和 `ToolDefinition` 列表，输出工具选择 prompt。
+- prompt 包含当前任务、文档解析状态、是否已有 summary、可用工具列表、每个工具的输入输出 schema、JSON 输出协议和安全限制。
+- prompt 明确 decision 只能从 `status_only`、`summary_tool`、`qa_tool` 中选择，并禁止生成 SQL、系统命令或调用未列出的工具。
+- 单元测试覆盖 toolName、JSON 输出格式、安全限制、task、parseReady、hasSummary 和 decision 值。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=LlmToolSelectionPromptBuilderTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011b LLM Tool Selection 输出协议和解析器
 
 ### 本轮目标
