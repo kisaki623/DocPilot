@@ -69,6 +69,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T011a 已完成：新增 `ToolDefinition` / `ToolDefinitionProvider`，为当前 3 个 AgentTool 提供 toolName、displayName、description、输入输出 schema 文本和 LLM 选择安全标记；该能力仅是 P3 LLM Tool Selection 基础设施，未调用真实 LLM，未改变默认 Agent 行为。
 - T011b 已完成：新增 `LlmToolSelectionResult` / `LlmToolSelectionParser`，可从 LLM 原始文本中提取第一个 JSON object，并校验 decision、toolNames、routingReason、matchedKeywords 和 confidence；该能力仍未调用真实 LLM，也未启用为默认 selector。
 - T011c 已完成：新增 `LlmToolSelectionPromptBuilder`，基于 task、parseReady、hasSummary 和 `ToolDefinition` 列表构建未来 LLM Tool Selection prompt；prompt 明确可选 decision、JSON 输出协议和安全限制。该能力仍未调用真实 LLM，也未改变默认 selector。
+- T011d 已完成：新增 `tool-selector-eval-cases.json` 与 `ToolSelectorEvaluationTest`，用 24 条状态、摘要、证据问答、英文大小写、中文、模糊输入、summary+evidence 冲突和空白输入样例跑当前 `DocumentToolSelector` 基线；该能力仍未调用真实 LLM，也未改变默认 selector。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -114,7 +115,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T011d`：新增 selector 评估样例集和离线测试，仍只使用当前 `DocumentToolSelector` 跑基线。
+1. 继续 P3 的下一步小任务：在不启用默认行为的前提下设计未来 LLM selector 的禁用态适配骨架或离线对比 runner。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入 MQ 改造 / RAG / MCP / 真实 LLM Tool Calling；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -182,6 +183,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T011d`。
+优先继续 P3 的下一步小任务。
 
-原因：T011c 已完成未来 LLM Tool Selection 的 prompt builder，下一步应补齐 selector 评估样例集和离线测试；当前默认 Agent 行为仍保持不变。
+原因：T011a-d 已补齐 Tool Definition、LLM 输出协议 parser、prompt builder 和关键词 selector 离线评估基线；下一步可以继续做禁用态适配或离线对比骨架，但仍不要真实调用 LLM，也不要改变默认 Agent 行为。

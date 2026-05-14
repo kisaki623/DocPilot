@@ -954,6 +954,41 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T011d Tool Selector Evaluation Cases
+
+### 本轮目标
+
+新增 selector 评估样例集和离线测试，为后续比较关键词 selector 与未来 LLM selector 建立基线。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/ToolSelectorEvaluationTest.java`
+- `backend/src/test/resources/agent/tool-selector-eval-cases.json`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 24 条 `tool-selector-eval-cases.json` 样例，覆盖状态查询、摘要查询、证据问答、英文大小写、中文表达、模糊表达、summary + evidence 冲突和空白输入。
+- 新增 `ToolSelectorEvaluationTest`，读取 JSON 样例并调用当前 `DocumentToolSelector`，断言 decision 符合 expectedDecision。
+- 测试输出 pass count / total count，当前基线为 24/24。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=ToolSelectorEvaluationTest test`：通过，24/24 cases。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

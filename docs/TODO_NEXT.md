@@ -182,6 +182,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=LlmToolSelectionPromptBuilderTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：仅构建 prompt 字符串；未调用真实 LLM，未接 function calling，未改变默认 Agent 行为。
 
+### T011d
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 selector 评估样例集和离线测试，为后续比较关键词 selector 与未来 LLM selector 建立基线。
+- 验证结果：`mvn -Dtest=ToolSelectorEvaluationTest test` 通过，24/24 cases；`mvn test -DskipITs` 通过。
+- 边界：仅使用当前 `DocumentToolSelector` 跑离线样例；未调用真实 LLM，未接 function calling，未改变默认 Agent 行为。
+
 ## 任务列表
 
 ### T000
@@ -452,4 +460,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T011d`。理由：T011c 已完成未来 LLM Tool Selection 的稳定 prompt builder，下一步应补齐 selector 评估样例集和离线测试；当前默认 Agent 行为仍保持不变。
+推荐继续 P3 的下一步小任务：在不启用默认行为的前提下设计未来 LLM selector 的禁用态适配骨架或离线对比 runner。当前仍不要接真实 LLM、function calling、MQ、RAG 或 MCP。
