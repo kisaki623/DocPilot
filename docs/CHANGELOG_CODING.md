@@ -1416,6 +1416,43 @@
 - 未记录 metrics。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-15 - T014d Real LLM Selector Adapter 文档状态
+
+### 本轮目标
+
+更新 Selector Shadow Mode 文档和协作文档，说明 real LLM selector adapter 已有，但当前默认 disabled、未真实调用、未接入生产 service、未接管 routing。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 在 `docs/AGENT_SELECTOR_SHADOW_MODE.md` 中补充 `LlmToolSelectionClient`、`DisabledLlmToolSelectionClient`、`RealLlmToolSelector` 和 `RealLlmSelectorShadowRunner` 的当前状态。
+- 明确 disabled client 不联网、不调用真实模型、不读取环境变量或 `backend/.env`，用于防止误调用真实 provider。
+- 明确 `RealLlmToolSelector` 只串联 prompt builder、client 和 parser，当前不是生产 Spring bean，未注入 `DocumentAgentServiceImpl`。
+- 明确 `RealLlmSelectorShadowRunner` 未来可用于 real selector shadow compare，当前只在单元测试中验证 disabled / fake client 行为。
+- 将协作文档下一步推荐更新为 T015：在 feature flag 严格关闭的前提下接入 runner 到 service shadow 路径，真实 provider 调用另开任务。
+
+### 验证结果
+
+- `git status --short`：已检查。
+- `git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未接入 `DocumentAgentServiceImpl`。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

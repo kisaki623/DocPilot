@@ -278,6 +278,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=RealLlmSelectorShadowRunnerTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：runner 仅在单元测试中验证 disabled / fake client 行为；未接入 `DocumentAgentServiceImpl`，未记录 metrics，未真实调用 LLM，未接管生产 routing。
 
+### T014d
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：更新 selector shadow mode 文档和协作文档，说明 real LLM selector adapter 已有但默认 disabled。
+- 验证结果：`git status --short` 检查通过；`git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
+- 边界：仅修改文档；未修改代码，未调用真实 LLM，未接 function calling，未接入生产 service，未改变默认 routing。
+
 ## 任务列表
 
 ### T000
@@ -548,4 +556,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T014`：real LLM selector disabled adapter。要求默认关闭，只建立禁用态 adapter / 配置 / 测试骨架，不接管生产 routing；仍不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T015`：在 feature flag 严格关闭的前提下，将 `RealLlmSelectorShadowRunner` 接入 service 的 shadow 路径；默认仍不启用，只允许 disabled / fake profile，真实 provider 调用必须另开任务。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
