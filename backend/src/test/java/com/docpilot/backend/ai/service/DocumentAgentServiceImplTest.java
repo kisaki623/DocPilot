@@ -9,6 +9,10 @@ import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClient;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClientResponse;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionPromptBuilder;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
 import com.docpilot.backend.ai.agent.tool.SelectorMetricsCollector;
@@ -69,6 +73,15 @@ class DocumentAgentServiceImplTest {
     @Mock
     private ToolDefinitionProvider toolDefinitionProvider;
 
+    @Mock
+    private LlmToolSelectionPromptBuilder realShadowPromptBuilder;
+
+    @Mock
+    private LlmToolSelectionClient realShadowClient;
+
+    @Mock
+    private LlmToolSelectionParser realShadowParser;
+
     private final AgentSelectorProperties selectorProperties = new AgentSelectorProperties();
     private SelectorMetricsCollector selectorMetricsCollector;
 
@@ -81,7 +94,10 @@ class DocumentAgentServiceImplTest {
                 selectorProperties,
                 shadowToolSelector,
                 toolDefinitionProvider,
-                selectorMetricsCollector
+                selectorMetricsCollector,
+                realShadowPromptBuilder,
+                realShadowClient,
+                realShadowParser
         );
     }
 
@@ -160,6 +176,7 @@ class DocumentAgentServiceImplTest {
         verifyPersistenceSuccess();
         verify(documentQaTool, never()).execute(any());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
+        verify(realShadowClient, never()).completeSelectionPrompt(any());
         assertEmptySelectorMetrics();
     }
 
@@ -215,6 +232,7 @@ class DocumentAgentServiceImplTest {
         assertEquals(2, response.getSteps().size());
         assertTrue(response.isSuccess());
         verifyPersistenceSuccess();
+        verify(realShadowClient, never()).completeSelectionPrompt(any());
         assertEmptySelectorMetrics();
     }
 
@@ -281,6 +299,7 @@ class DocumentAgentServiceImplTest {
         assertEquals(0L, snapshot.mismatchCount());
         assertEquals(1.0d, snapshot.matchRate());
         verify(shadowToolSelector).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
+        verify(realShadowClient, never()).completeSelectionPrompt(any());
         verify(documentSummaryTool).execute(any());
         verify(documentQaTool, never()).execute(any());
     }
@@ -324,7 +343,130 @@ class DocumentAgentServiceImplTest {
 
         assertEquals("summary_tool", response.getDecision());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
+        verify(realShadowClient, never()).completeSelectionPrompt(any());
         assertEmptySelectorMetrics();
+    }
+
+    @Test
+    void shouldKeepPrimaryFlowWhenRealShadowEnabledWithDisabledClient() {
+        selectorProperties.setShadowEnabled(true);
+        selectorProperties.setRealShadowEnabled(true);
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(106L);
+        request.setTask("Please summarize this document");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 106L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        106L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "content"
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "summary_tool",
+                List.of("document_status_tool", "document_summary_tool"),
+                "summary reason",
+                List.of("summary")
+        ));
+        stubToolDefinitions();
+        when(shadowToolSelector.selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn(new LlmToolSelectionResult(
+                        "summary_tool",
+                        List.of("document_status_tool", "document_summary_tool"),
+                        "fake shadow reason",
+                        List.of("summary"),
+                        0.9d
+                ));
+        when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn("disabled real shadow prompt");
+        when(realShadowClient.completeSelectionPrompt(any()))
+                .thenReturn(LlmToolSelectionClientResponse.disabled("disabled for test"));
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubStatusTool();
+        stubSummaryTool();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request);
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("summary", response.getFinalAnswer());
+        verify(realShadowClient).completeSelectionPrompt(any());
+        verify(realShadowParser, never()).parse(anyString());
+        verify(documentSummaryTool).execute(any());
+        verify(documentQaTool, never()).execute(any());
+        SelectorMetricsSnapshot snapshot = selectorMetricsCollector.snapshot();
+        assertEquals(1L, snapshot.totalComparisons());
+        assertEquals(1L, snapshot.matchedCount());
+    }
+
+    @Test
+    void shouldKeepPrimaryFlowWhenRealShadowThrows() {
+        selectorProperties.setShadowEnabled(true);
+        selectorProperties.setRealShadowEnabled(true);
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(107L);
+        request.setTask("Please summarize this document");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 107L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        107L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "content"
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "summary_tool",
+                List.of("document_status_tool", "document_summary_tool"),
+                "summary reason",
+                List.of("summary")
+        ));
+        stubToolDefinitions();
+        when(shadowToolSelector.selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn(new LlmToolSelectionResult(
+                        "summary_tool",
+                        List.of("document_status_tool", "document_summary_tool"),
+                        "fake shadow reason",
+                        List.of("summary"),
+                        0.9d
+                ));
+        when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenThrow(new IllegalStateException("real shadow unavailable"));
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubStatusTool();
+        stubSummaryTool();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request);
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("summary", response.getFinalAnswer());
+        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(documentSummaryTool).execute(any());
+        SelectorMetricsSnapshot snapshot = selectorMetricsCollector.snapshot();
+        assertEquals(1L, snapshot.totalComparisons());
+        assertEquals(1L, snapshot.matchedCount());
     }
 
     @Test
@@ -361,9 +503,18 @@ class DocumentAgentServiceImplTest {
         verifyPersistenceSuccess();
         verify(toolSelector, never()).select(anyString());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
+        verify(realShadowClient, never()).completeSelectionPrompt(any());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
         assertEmptySelectorMetrics();
+    }
+
+    private void stubToolDefinitions() {
+        when(toolDefinitionProvider.getAllDefinitions()).thenReturn(List.of(
+                new ToolDefinition("document_status_tool", "Document status", "Checks parse status.", "{}", "{}", true),
+                new ToolDefinition("document_summary_tool", "Document summary", "Returns summary.", "{}", "{}", true),
+                new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true)
+        ));
     }
 
     private void assertEmptySelectorMetrics() {

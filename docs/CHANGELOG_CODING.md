@@ -1453,6 +1453,44 @@
 - 未接入 `DocumentAgentServiceImpl`。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-15 - T015b Disabled Real Selector Shadow Path
+
+### 本轮目标
+
+把 `RealLlmSelectorShadowRunner` 接入 `DocumentAgentServiceImpl` 的 shadow 路径，但默认严格关闭，不让 real shadow 影响生产工具选择。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentServiceImpl` 在构造时基于 prompt builder、LLM selection client 和 parser 创建 `RealLlmSelectorShadowRunner`。
+- fake shadow compare 与 real shadow compare 分离执行，互相失败不影响 primary decision。
+- real shadow 仅在 `shadowEnabled=true` 且 `realShadowEnabled=true` 时执行。
+- real shadow 返回失败或抛出异常时 fail-open，主流程继续使用 primary `DocumentToolSelector` decision。
+- real shadow metrics 只有在 `realShadowRecordMetrics=true` 且 runner success 时才允许记录；默认不记录。
+- 单元测试覆盖默认不运行、fake shadow 不隐式启用 real shadow、disabled client 不影响主流程、real shadow 异常 fail-open、parseReady=false 跳过 shadow。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未修改 `application.yml`。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-15 - T015a Real Shadow Selector Safety Flags
 
 ### 本轮目标

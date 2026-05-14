@@ -294,6 +294,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：默认 `realShadowEnabled=false`、`realShadowRecordMetrics=false`、`realShadowFailOpen=true`；未修改 `application.yml`，未启用真实模型调用，未改变默认 routing。
 
+### T015b
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：将 `RealLlmSelectorShadowRunner` 接入 `DocumentAgentServiceImpl` 的禁用态 shadow 路径。
+- 验证结果：`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn test -DskipITs` 通过。
+- 边界：real shadow 仅在 `shadowEnabled=true` 且 `realShadowEnabled=true` 时旁路执行；默认不运行；失败 fail-open；真实执行工具仍只来自 primary `DocumentToolSelector` decision；未修改 API、前端、DDL 或默认 routing。
+
 ## 任务列表
 
 ### T000

@@ -8,9 +8,15 @@ import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClient;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionPromptBuilder;
 import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
+import com.docpilot.backend.ai.agent.tool.RealLlmSelectorShadowRunResult;
+import com.docpilot.backend.ai.agent.tool.RealLlmSelectorShadowRunner;
+import com.docpilot.backend.ai.agent.tool.RealLlmToolSelector;
 import com.docpilot.backend.ai.agent.tool.SelectorMetricsCollector;
 import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
@@ -44,6 +50,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
     private final LlmToolSelector shadowToolSelector;
     private final ToolDefinitionProvider toolDefinitionProvider;
     private final SelectorMetricsCollector selectorMetricsCollector;
+    private final RealLlmSelectorShadowRunner realShadowRunner;
 
     public DocumentAgentServiceImpl(ToolRegistry toolRegistry,
                                     ToolSelector toolSelector,
@@ -51,7 +58,10 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                                     AgentSelectorProperties selectorProperties,
                                     LlmToolSelector shadowToolSelector,
                                     ToolDefinitionProvider toolDefinitionProvider,
-                                    SelectorMetricsCollector selectorMetricsCollector) {
+                                    SelectorMetricsCollector selectorMetricsCollector,
+                                    LlmToolSelectionPromptBuilder realShadowPromptBuilder,
+                                    LlmToolSelectionClient realShadowClient,
+                                    LlmToolSelectionParser realShadowParser) {
         this.toolRegistry = toolRegistry;
         this.toolSelector = toolSelector;
         this.persistenceService = persistenceService;
@@ -59,6 +69,12 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         this.shadowToolSelector = shadowToolSelector;
         this.toolDefinitionProvider = toolDefinitionProvider;
         this.selectorMetricsCollector = selectorMetricsCollector;
+        RealLlmToolSelector realLlmToolSelector = new RealLlmToolSelector(
+                realShadowPromptBuilder,
+                realShadowClient,
+                realShadowParser
+        );
+        this.realShadowRunner = new RealLlmSelectorShadowRunner(realLlmToolSelector);
     }
 
     @Override
@@ -184,6 +200,19 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         try {
             boolean hasSummary = detail.summary() != null && !detail.summary().isBlank();
             List<ToolDefinition> toolDefinitions = toolDefinitionProvider.getAllDefinitions();
+            compareFakeShadowSelection(task, detail, primarySelection, hasSummary, toolDefinitions);
+            compareRealShadowSelection(task, primarySelection, hasSummary, toolDefinitions);
+        } catch (Exception ex) {
+            log.warn("Agent selector shadow preparation failed; primary decision remains active", ex);
+        }
+    }
+
+    private void compareFakeShadowSelection(String task,
+                                            DocumentStatusTool.StatusResult detail,
+                                            ToolSelector.SelectResult primarySelection,
+                                            boolean hasSummary,
+                                            List<ToolDefinition> toolDefinitions) {
+        try {
             LlmToolSelectionResult shadowSelection = shadowToolSelector.selectWithPrompt(
                     task,
                     detail.parseReady(),
@@ -196,6 +225,39 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                     shadowResult.primaryDecision(), shadowResult.shadowDecision(), shadowResult.matched());
         } catch (Exception ex) {
             log.warn("Agent selector shadow compare failed; primary decision remains active", ex);
+        }
+    }
+
+    private void compareRealShadowSelection(String task,
+                                            ToolSelector.SelectResult primarySelection,
+                                            boolean hasSummary,
+                                            List<ToolDefinition> toolDefinitions) {
+        if (!selectorProperties.isRealShadowEnabled()) {
+            return;
+        }
+        try {
+            RealLlmSelectorShadowRunResult result = realShadowRunner.run(
+                    primarySelection.decision(),
+                    task,
+                    true,
+                    hasSummary,
+                    toolDefinitions
+            );
+            if (!result.success()) {
+                log.info("Agent real selector shadow skipped: primaryDecision={}, error={}",
+                        result.primaryDecision(), result.errorMessage());
+                return;
+            }
+            if (selectorProperties.isRealShadowRecordMetrics() && result.shouldRecordMetrics()) {
+                selectorMetricsCollector.record(result.primaryDecision(), result.shadowDecision());
+            }
+            log.info("Agent real selector shadow compare: primaryDecision={}, shadowDecision={}, matched={}, metricsRecorded={}",
+                    result.primaryDecision(),
+                    result.shadowDecision(),
+                    result.matched(),
+                    selectorProperties.isRealShadowRecordMetrics() && result.shouldRecordMetrics());
+        } catch (Exception ex) {
+            log.warn("Agent real selector shadow failed; primary decision remains active", ex);
         }
     }
 
