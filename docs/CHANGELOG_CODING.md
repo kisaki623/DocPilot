@@ -1183,6 +1183,46 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T013b Shadow Selector 离线评估
+
+### 本轮目标
+
+新增 Shadow Selector 离线评估测试，复用现有 `tool-selector-eval-cases.json` 对比 primary `DocumentToolSelector` 与 `FakeLlmToolSelector`，统计 match rate。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/ShadowToolSelectorEvaluationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `ShadowToolSelectorEvaluationTest`，读取现有 24 条 tool selector eval cases。
+- 每条 case 执行 primary selector 与 fake shadow selector，并记录到 `SelectorMetricsCollector`。
+- 断言 shadow decision 非空，并断言 matchRate 不低于 0.95。
+- mismatch 时输出 task、primary decision 与 shadow decision，便于后续排查。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=ShadowToolSelectorEvaluationTest test`：通过。
+- 离线结果：24 cases，23 matched，1 mismatch，matchRate=0.9583。
+- 唯一 mismatch：空白 task 且 parseReady=false 时，primary 当前默认 `qa_tool`，fake shadow 根据 parse-not-ready 返回 `status_only`。
+- `cd backend; mvn test -DskipITs`：通过，180 tests，0 failures，0 errors。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未修改 eval cases。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

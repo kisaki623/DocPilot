@@ -230,6 +230,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn test -DskipITs` 通过，179 tests，0 failures，0 errors。
 - 边界：仅在 shadow compare 成功执行后记录 primary / shadow decision；shadow 关闭、parseReady=false 或 shadow selector 失败时不记录；真实工具执行仍只由 primary decision 决定，API 返回、前端、DDL 和持久化 schema 均未改变。
 
+### T013b
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 Shadow Selector 离线评估测试，复用现有 selector eval cases 对比 primary 与 fake shadow。
+- 验证结果：`mvn -Dtest=ShadowToolSelectorEvaluationTest test` 通过；24 cases，23 matched，1 mismatch，matchRate=0.9583；`mvn test -DskipITs` 通过，180 tests，0 failures，0 errors。
+- 边界：仅测试 primary `DocumentToolSelector` 与 `FakeLlmToolSelector` 的离线对比；未修改生产代码，未修改 eval cases，未调用真实 LLM，shadow decision 不接管生产 routing。
+
 ## 任务列表
 
 ### T000
