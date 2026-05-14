@@ -953,3 +953,40 @@
 - 未修改 DDL。
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T011b LLM Tool Selection 输出协议和解析器
+
+### 本轮目标
+
+定义未来 LLM Tool Selection 的 JSON 输出协议，并实现离线 parser。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionResult.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionParser.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionParserTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelectionResult`，包含 decision、toolNames、routingReason、matchedKeywords、confidence。
+- 新增 `LlmToolSelectionParser`，可从原始文本中提取第一个 JSON object，并校验 decision、已注册工具名、confidence 范围和 toolNames 非空。
+- 解析失败时抛出明确异常，不做静默 fallback。
+- 单元测试覆盖标准 JSON、前后带自然语言、非法 decision、未知 toolName、confidence 越界、空输入和空 toolNames。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=LlmToolSelectionParserTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。

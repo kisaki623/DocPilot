@@ -166,6 +166,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=ToolDefinitionProviderTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：未调用真实 LLM，未接 function calling，未改变默认 `DocumentToolSelector` 关键词规则和 `/api/ai/agent/run` 行为。
 
+### T011b
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增未来 LLM Tool Selection 的 JSON 输出协议和 parser。
+- 验证结果：`mvn -Dtest=LlmToolSelectionParserTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：仅解析和校验未来 LLM 输出文本；未调用真实 LLM，未接 function calling，未改变默认 Agent 行为。
+
 ## 任务列表
 
 ### T000
@@ -436,4 +444,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T011b`。理由：T011a 已完成工具定义元数据，下一步应补齐未来 LLM Tool Selection 的 JSON 输出协议和 parser；当前默认 Agent 行为仍保持不变。
+推荐继续 `T011c`。理由：T011b 已完成未来 LLM Tool Selection 输出协议和 parser，下一步应补齐稳定 prompt builder；当前默认 Agent 行为仍保持不变。
