@@ -246,6 +246,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`git status --short` 检查通过；新增 `docs/AGENT_SELECTOR_SHADOW_MODE.md`。
 - 边界：仅修改文档；未修改代码，未新增 API，未调用真实 LLM，未改变默认 routing。
 
+### T013d
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：更新协作文档当前阶段，把 T013 收口并将下一步推荐切换到 T014。
+- 验证结果：`git status --short` 检查通过；`git diff -- docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
+- 边界：仅修改协作文档；未修改代码，未新增 API，未调用真实 LLM，未改变默认 routing。
+
 ## 任务列表
 
 ### T000
@@ -516,4 +524,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 P3 的下一步小任务：把 shadow compare metrics 以只读内部方式接入 `DocumentAgentServiceImpl`，或新增离线对比 runner；当前仍不要接真实 LLM、function calling、MQ、RAG 或 MCP。
+推荐继续 `T014`：real LLM selector disabled adapter。要求默认关闭，只建立禁用态 adapter / 配置 / 测试骨架，不接管生产 routing；仍不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

@@ -1258,6 +1258,42 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T013d Selector Shadow Roadmap 状态更新
+
+### 本轮目标
+
+更新协作文档当前阶段，把 T013 Selector Shadow Observability 闭环收口，并将下一步推荐切换到 T014。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录 T013a-c 已完成：selector shadow metrics 已接入、shadow offline evaluation 已完成、shadow mode 文档已新增。
+- 明确当前默认行为仍是 keyword selector。
+- 明确当前没有真实 LLM 调用，shadow decision 不接管生产 routing。
+- 明确完整 T010 仍为 BLOCKED，原因仍是 MQ disabled / `NoopParseTaskMessageProducer`。
+- 下一步推荐 T014：real LLM selector disabled adapter，默认关闭，不接管生产。
+- 明确不建议直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+
+### 验证结果
+
+- `git status --short`：检查通过。
+- `git diff -- docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标
