@@ -302,6 +302,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn test -DskipITs` 通过。
 - 边界：real shadow 仅在 `shadowEnabled=true` 且 `realShadowEnabled=true` 时旁路执行；默认不运行；失败 fail-open；真实执行工具仍只来自 primary `DocumentToolSelector` decision；未修改 API、前端、DDL 或默认 routing。
 
+### T015c
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：新增聚焦 real shadow path 的 service 单元测试。
+- 验证结果：`mvn -Dtest=DocumentAgentRealShadowPathTest test` 通过；`mvn test -DskipITs` 通过。
+- 边界：仅新增测试；覆盖默认关闭、fake shadow 不隐式启用 real shadow、disabled / exception fail-open、parseReady=false 跳过 real shadow、real metrics 默认不记录和显式开启后记录；未修改生产代码。
+
 ## 任务列表
 
 ### T000

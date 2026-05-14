@@ -1453,6 +1453,45 @@
 - 未接入 `DocumentAgentServiceImpl`。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-15 - T015c Real Shadow Path Tests
+
+### 本轮目标
+
+新增聚焦 real shadow path 的 service 单元测试，避免 `DocumentAgentServiceImplTest` 继续膨胀，同时锁定 real shadow 接入边界。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentRealShadowPathTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `DocumentAgentRealShadowPathTest`。
+- 覆盖默认配置下不运行 real shadow。
+- 覆盖开启 fake shadow 不会隐式开启 real shadow。
+- 覆盖 real shadow 使用 disabled client 时 agent run 仍成功。
+- 覆盖 real shadow 异常时 fail-open。
+- 覆盖 parseReady=false 时跳过 fake shadow 和 real shadow。
+- 覆盖 `realShadowRecordMetrics=false` 时 real shadow success 不记录 metrics。
+- 覆盖 `realShadowRecordMetrics=true` 且 real shadow success 时记录 metrics。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentRealShadowPathTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-15 - T015b Disabled Real Selector Shadow Path
 
 ### 本轮目标
