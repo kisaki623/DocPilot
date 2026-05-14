@@ -286,6 +286,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`git status --short` 检查通过；`git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
 - 边界：仅修改文档；未修改代码，未调用真实 LLM，未接 function calling，未接入生产 service，未改变默认 routing。
 
+### T015a
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：补充 real LLM selector shadow runner 的安全开关。
+- 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：默认 `realShadowEnabled=false`、`realShadowRecordMetrics=false`、`realShadowFailOpen=true`；未修改 `application.yml`，未启用真实模型调用，未改变默认 routing。
+
 ## 任务列表
 
 ### T000

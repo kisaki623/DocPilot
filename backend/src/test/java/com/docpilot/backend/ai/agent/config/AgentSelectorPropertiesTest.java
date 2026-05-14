@@ -20,6 +20,9 @@ class AgentSelectorPropertiesTest {
 
             assertThat(properties.getMode()).isEqualTo("keyword");
             assertThat(properties.isShadowEnabled()).isFalse();
+            assertThat(properties.isRealShadowEnabled()).isFalse();
+            assertThat(properties.isRealShadowRecordMetrics()).isFalse();
+            assertThat(properties.isRealShadowFailOpen()).isTrue();
             assertThat(properties.isShadowLlmMode()).isFalse();
         });
     }
@@ -28,13 +31,19 @@ class AgentSelectorPropertiesTest {
     void shouldBindShadowLlmModeAndShadowEnabledFlag() {
         contextRunner.withPropertyValues(
                         "app.agent.selector.mode=shadow_llm",
-                        "app.agent.selector.shadow-enabled=true"
+                        "app.agent.selector.shadow-enabled=true",
+                        "app.agent.selector.real-shadow-enabled=true",
+                        "app.agent.selector.real-shadow-record-metrics=true",
+                        "app.agent.selector.real-shadow-fail-open=false"
                 )
                 .run(context -> {
                     AgentSelectorProperties properties = context.getBean(AgentSelectorProperties.class);
 
                     assertThat(properties.getMode()).isEqualTo("shadow_llm");
                     assertThat(properties.isShadowEnabled()).isTrue();
+                    assertThat(properties.isRealShadowEnabled()).isTrue();
+                    assertThat(properties.isRealShadowRecordMetrics()).isTrue();
+                    assertThat(properties.isRealShadowFailOpen()).isFalse();
                     assertThat(properties.isShadowLlmMode()).isTrue();
                 });
     }

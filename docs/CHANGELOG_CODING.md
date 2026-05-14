@@ -1453,6 +1453,42 @@
 - 未接入 `DocumentAgentServiceImpl`。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-15 - T015a Real Shadow Selector Safety Flags
+
+### 本轮目标
+
+为 real LLM selector shadow runner 补充更细粒度安全开关，默认严格关闭，避免真实 selector shadow 路径被误启用。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `realShadowEnabled`，默认 `false`，用于控制是否允许执行 `RealLlmSelectorShadowRunner`。
+- 新增 `realShadowRecordMetrics`，默认 `false`，避免 real shadow metrics 与现有 fake shadow metrics 混淆。
+- 新增 `realShadowFailOpen`，默认 `true`，确保 real shadow 失败时主流程继续使用 primary decision。
+- 配置测试覆盖默认值和显式绑定值。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

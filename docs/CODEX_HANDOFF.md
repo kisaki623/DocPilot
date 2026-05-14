@@ -82,6 +82,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T014b 已完成：新增 `RealLlmToolSelector` adapter，串联 `LlmToolSelectionPromptBuilder`、`LlmToolSelectionClient` 和 `LlmToolSelectionParser`；该类当前不是 Spring 生产 bean，未注入 `DocumentAgentServiceImpl`，测试仅用 fake client 验证 JSON 解析和失败路径。
 - T014c 已完成：新增 `RealLlmSelectorShadowRunner` / `RealLlmSelectorShadowRunResult`；runner 可在测试中调用 `RealLlmToolSelector`，disabled 或解析失败时返回 success=false / shouldRecordMetrics=false，成功时返回 shadowDecision / matched / shouldRecordMetrics=true。当前未接入 `DocumentAgentServiceImpl`。
 - T014d 已完成：`docs/AGENT_SELECTOR_SHADOW_MODE.md` 和协作文档已更新，明确 real LLM selector adapter 已存在，但默认 disabled，未真实调用 LLM，未接 function calling，未接入生产 service，未接管 routing。
+- T015a 已完成：`AgentSelectorProperties` 新增 real shadow 安全开关，默认 `realShadowEnabled=false`、`realShadowRecordMetrics=false`、`realShadowFailOpen=true`；未修改 `application.yml`，未启用真实模型调用。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

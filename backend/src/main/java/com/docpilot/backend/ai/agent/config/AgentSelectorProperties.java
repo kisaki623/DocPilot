@@ -15,6 +15,9 @@ public class AgentSelectorProperties {
 
     private String mode = MODE_KEYWORD;
     private boolean shadowEnabled = false;
+    private boolean realShadowEnabled = false;
+    private boolean realShadowRecordMetrics = false;
+    private boolean realShadowFailOpen = true;
 
     public String getMode() {
         return mode;
@@ -35,6 +38,30 @@ public class AgentSelectorProperties {
 
     public void setShadowEnabled(boolean shadowEnabled) {
         this.shadowEnabled = shadowEnabled;
+    }
+
+    public boolean isRealShadowEnabled() {
+        return realShadowEnabled;
+    }
+
+    public void setRealShadowEnabled(boolean realShadowEnabled) {
+        this.realShadowEnabled = realShadowEnabled;
+    }
+
+    public boolean isRealShadowRecordMetrics() {
+        return realShadowRecordMetrics;
+    }
+
+    public void setRealShadowRecordMetrics(boolean realShadowRecordMetrics) {
+        this.realShadowRecordMetrics = realShadowRecordMetrics;
+    }
+
+    public boolean isRealShadowFailOpen() {
+        return realShadowFailOpen;
+    }
+
+    public void setRealShadowFailOpen(boolean realShadowFailOpen) {
+        this.realShadowFailOpen = realShadowFailOpen;
     }
 
     public boolean isShadowLlmMode() {
