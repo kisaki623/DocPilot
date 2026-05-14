@@ -238,6 +238,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=ShadowToolSelectorEvaluationTest test` 通过；24 cases，23 matched，1 mismatch，matchRate=0.9583；`mvn test -DskipITs` 通过，180 tests，0 failures，0 errors。
 - 边界：仅测试 primary `DocumentToolSelector` 与 `FakeLlmToolSelector` 的离线对比；未修改生产代码，未修改 eval cases，未调用真实 LLM，shadow decision 不接管生产 routing。
 
+### T013c
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 Selector Shadow Mode 设计说明，明确 shadow selector 架构、feature flag、metrics、验证结果和边界。
+- 验证结果：`git status --short` 检查通过；新增 `docs/AGENT_SELECTOR_SHADOW_MODE.md`。
+- 边界：仅修改文档；未修改代码，未新增 API，未调用真实 LLM，未改变默认 routing。
+
 ## 任务列表
 
 ### T000

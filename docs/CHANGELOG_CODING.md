@@ -1223,6 +1223,41 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T013c Selector Shadow Mode 设计说明
+
+### 本轮目标
+
+新增 selector shadow mode 设计说明，避免后续接手者误以为 LLM selector 已接管生产。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录当前 selector 架构：primary 为 `DocumentToolSelector`，shadow 为 `FakeLlmToolSelector`。
+- 说明 `ToolDefinitionProvider`、`LlmToolSelectionPromptBuilder` 和 `LlmToolSelectionParser` 的边界。
+- 记录 feature flag、内存态 metrics、当前已验证内容、完整 T010 BLOCKED 原因和不能硬吹的边界。
+- 给出后续 T014-T017 路线：disabled real adapter、shadow-only real call、人工审核 eval、达到阈值后再考虑小流量接管。
+
+### 验证结果
+
+- `git status --short`：检查通过。
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md` 已新增。
+
+### 明确未做事项
+
+- 未修改代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标
