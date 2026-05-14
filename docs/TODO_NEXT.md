@@ -198,6 +198,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=FakeLlmToolSelectorTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：`FakeLlmToolSelector` 不联网、不调用真实 LLM，仅复用当前关键词规则或 parse-not-ready 状态决策；未改变默认 Agent routing。
 
+### T012b
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 Agent selector feature flags，为 shadow compare 提供显式开关。
+- 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：默认 `app.agent.selector.mode=keyword` 且 `shadow-enabled=false`；即使配置 shadow，本轮仍未改变生产 routing。
+
 ## 任务列表
 
 ### T000

@@ -66,6 +66,10 @@ app:
       initial-backoff-ms: ${AI_RETRY_INITIAL_BACKOFF_MS:120}
       backoff-multiplier: ${AI_RETRY_BACKOFF_MULTIPLIER:2.0}
       max-backoff-ms: ${AI_RETRY_MAX_BACKOFF_MS:800}
+  agent:
+    selector:
+      mode: ${AGENT_SELECTOR_MODE:keyword}
+      shadow-enabled: ${AGENT_SELECTOR_SHADOW_ENABLED:false}
   rocketmq:
     enabled: ${ROCKETMQ_ENABLED:false}
     parse-topic: ${DOCPILOT_PARSE_TOPIC:docpilot-parse-topic}

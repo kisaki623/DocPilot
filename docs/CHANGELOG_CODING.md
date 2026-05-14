@@ -1027,6 +1027,43 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T012b Selector Feature Flags
+
+### 本轮目标
+
+新增 Agent selector feature flags，为后续 shadow compare 提供显式配置。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/main/resources/application.yml`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `AgentSelectorProperties`，绑定 `app.agent.selector` 配置。
+- 新增 `app.agent.selector.mode`，允许 `keyword` / `shadow_llm`，默认 `keyword`。
+- 新增 `app.agent.selector.shadow-enabled`，默认 `false`。
+- 配置测试覆盖默认值、shadow 配置绑定和非法 mode 拒绝。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标
