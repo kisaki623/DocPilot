@@ -1334,6 +1334,46 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T014b Real LLM Tool Selector Adapter
+
+### 本轮目标
+
+新增 `RealLlmToolSelector` adapter，把 prompt builder、client、parser 串起来。本轮不接入生产 service，不真实调用外部模型。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelector.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `RealLlmToolSelector`，实现 `LlmToolSelector`。
+- `selectWithPrompt` 先构建 prompt，再调用 `LlmToolSelectionClient`，最后用 `LlmToolSelectionParser` 解析 rawText。
+- client disabled 时抛出明确异常。
+- client 返回非法 JSON 或 client 失败时抛出异常，不静默 fallback 到 keyword selector。
+- 单元测试使用 fake client 覆盖 summary、QA、disabled、非法 JSON 和不 fallback 路径。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealLlmToolSelectorTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未读取 `backend/.env`。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未接入 `DocumentAgentServiceImpl`。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

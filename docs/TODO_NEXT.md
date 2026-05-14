@@ -262,6 +262,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=DisabledLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：`DisabledLlmToolSelectionClient` 不联网、不调用真实模型、不读取环境变量或 `backend/.env`；未接入生产 routing。
 
+### T014b
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 `RealLlmToolSelector` adapter，串联 prompt builder、client 和 parser。
+- 验证结果：`mvn -Dtest=RealLlmToolSelectorTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：`RealLlmToolSelector` 是普通类，未注入 `DocumentAgentServiceImpl`，未接入生产 routing；测试仅用 fake client 模拟 JSON 返回，未真实调用 LLM。
+
 ## 任务列表
 
 ### T000

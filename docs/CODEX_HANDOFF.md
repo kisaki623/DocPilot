@@ -79,6 +79,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T013c 已完成：新增 `docs/AGENT_SELECTOR_SHADOW_MODE.md`，明确当前 primary / shadow selector 架构、feature flag、内存态 metrics、已验证内容、不能硬吹的边界和后续 T014-T017 路线。
 - T013d 已完成：协作文档已更新到 Selector Shadow Observability 收口状态；当前默认行为仍是 keyword selector，当前没有真实 LLM 调用，完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` 保持 BLOCKED，下一步推荐 T014 disabled real LLM selector adapter。
 - T014a 已完成：新增 `LlmToolSelectionClient`、`LlmToolSelectionClientResponse` 和 `DisabledLlmToolSelectionClient`；disabled client 不联网、不调用真实模型、不读取环境变量或 `backend/.env`，仅返回 disabled response，尚未接入生产 routing。
+- T014b 已完成：新增 `RealLlmToolSelector` adapter，串联 `LlmToolSelectionPromptBuilder`、`LlmToolSelectionClient` 和 `LlmToolSelectionParser`；该类当前不是 Spring 生产 bean，未注入 `DocumentAgentServiceImpl`，测试仅用 fake client 验证 JSON 解析和失败路径。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -124,7 +125,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T014b`：新增 `RealLlmToolSelector` adapter，串联 prompt builder、client、parser；仍不接入生产 service。
+1. 继续 `T014c`：新增 disabled real LLM selector shadow runner，仍不接入 `DocumentAgentServiceImpl`。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -192,6 +193,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T014b`。
+优先执行 `T014c`。
 
-原因：T014a 已新增 disabled LLM selection client 抽象，下一步可以搭 `RealLlmToolSelector` adapter；必须默认关闭，不接入生产 service，不接管 production routing。
+原因：T014b 已新增 `RealLlmToolSelector` adapter，下一步可以搭 disabled shadow runner；必须默认关闭，不接入生产 service，不接管 production routing。
