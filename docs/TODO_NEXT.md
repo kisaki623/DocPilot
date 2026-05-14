@@ -214,6 +214,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn test -DskipITs` 通过。
 - 边界：shadow compare 只在 `shadow-enabled=true` 且文档 parseReady 后旁路执行；真实工具执行仍只使用 primary `DocumentToolSelector` decision；未修改 API 返回、前端、DDL 或 AgentTask schema。
 
+### T012d
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 selector shadow metrics 的内存态 collector 和 snapshot。
+- 验证结果：`mvn -Dtest=SelectorMetricsCollectorTest test` 通过；`mvn test -DskipITs` 通过。
+- 边界：metrics 仅内存态记录 totalComparisons、matchedCount、mismatchCount、matchRate 和 lastUpdatedTime；未落库，未接 Micrometer / Prometheus，未新增 API。
+
 ## 任务列表
 
 ### T000
@@ -484,4 +492,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 P3 的下一步小任务：在不启用默认行为的前提下设计未来 LLM selector 的禁用态适配骨架或离线对比 runner。当前仍不要接真实 LLM、function calling、MQ、RAG 或 MCP。
+推荐继续 P3 的下一步小任务：把 shadow compare metrics 以只读内部方式接入 `DocumentAgentServiceImpl`，或新增离线对比 runner；当前仍不要接真实 LLM、function calling、MQ、RAG 或 MCP。

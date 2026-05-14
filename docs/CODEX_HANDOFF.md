@@ -73,6 +73,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T012a 已完成：新增 `LlmToolSelector` 接口、`FakeLlmToolSelector` 和 `LlmSelectorShadowResult`，用于未来 shadow LLM selector adapter；fake 实现不联网、不调用真实 LLM，只复用当前关键词规则或 parse-not-ready 状态决策，未改变默认 Agent routing。
 - T012b 已完成：新增 `AgentSelectorProperties` 和 `app.agent.selector.mode` / `app.agent.selector.shadow-enabled` 配置；默认 mode 为 `keyword`，shadow 默认关闭。该配置仅为 shadow compare 基础设施，未改变当前生产 routing。
 - T012c 已完成：`DocumentAgentServiceImpl` 在 shadow 开启且文档 parseReady 后可旁路执行 `LlmToolSelector` 并生成 `LlmSelectorShadowResult` compare 日志；真实执行工具仍只由 primary `DocumentToolSelector` decision 决定，API 返回、前端、DDL 和 AgentTask schema 均未改变。
+- T012d 已完成：新增 `SelectorMetricsCollector` 和 `SelectorMetricsSnapshot`，内存态记录 totalComparisons、matchedCount、mismatchCount、matchRate 与 lastUpdatedTime；未落库，未接 Micrometer / Prometheus，未新增 API。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -118,7 +119,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T012d`：新增 selector shadow metrics 的内存态 collector 和 snapshot。
+1. 继续 P3 的下一步小任务：把 shadow compare metrics 以只读内部方式接入 `DocumentAgentServiceImpl`，或新增离线对比 runner。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入 MQ 改造 / RAG / MCP / 真实 LLM Tool Calling；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -186,6 +187,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T012d`。
+优先继续 P3 的下一步小任务。
 
-原因：T012c 已接入 shadow compare 旁路逻辑，下一步应补齐 selector compare metrics；默认仍必须保持 keyword selector，不真实调用 LLM，也不改变 `/api/ai/agent/run` 行为。
+原因：T012a-d 已补齐 shadow selector adapter、feature flags、shadow compare 和内存态 metrics；下一步仍应保持默认 keyword selector，不真实调用 LLM，也不改变 `/api/ai/agent/run` 行为。

@@ -1104,6 +1104,46 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T012d Selector Shadow Metrics
+
+### 本轮目标
+
+新增 selector compare metrics 的内存态 collector 和 snapshot，为后续 shadow compare 观测打基础。本轮不接 Micrometer / Prometheus，不新增 API，不落库。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsSnapshot.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsCollector.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsCollectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `SelectorMetricsSnapshot`，包含 totalComparisons、matchedCount、mismatchCount、matchRate 和 lastUpdatedTime。
+- 新增 `SelectorMetricsCollector`，通过 `record(primaryDecision, shadowDecision)` 线程安全记录 match / mismatch。
+- collector 仅内存态保存数据，不落库、不接外部指标系统、不暴露接口。
+- 单元测试覆盖全 match、部分 mismatch、matchRate 正确、空 snapshot 和并发 record。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=SelectorMetricsCollectorTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，179 tests，0 failures，0 errors。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未落库。
+- 未接 Micrometer / Prometheus。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标
