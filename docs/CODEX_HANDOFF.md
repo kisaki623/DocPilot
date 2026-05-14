@@ -64,6 +64,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T009d 已增强 Agent smoke 对 `routingReason` / `matchedKeywords` 的断言，新增 `docs/AGENT_ASYNC_DESIGN.md` 记录异步 Agent 未来演进方案；该文档仅为设计，当前未实现异步 Agent，也未接 MQ。
 - T009e 已同步协作文档到当前真实 git / 代码状态。
 - T010 当前为 BLOCKED：T010x 已复现后端 smoke 在上传文档后等待 `parseStatus` 超时，原始报错为 `Parse timeout after 120 seconds.`；后端日志显示 `NoopParseTaskMessageProducer` 跳过解析消息发送；当前 MQ disabled / no-op producer 模式下不会推进真实异步解析，因此完整 T010 需要可用 MQ / 解析消费环境，或用户明确接受 Agent-only 替代验证。
+- T010-lite-ui 已完成：`/agent` 页面支持从当前用户文档列表选择文档，也支持手动输入当前账号可访问的 `documentId`，并明确展示 Lite 验证模式说明。该入口仅用于已解析文档上的 Agent-only 验证，不代表完整上传解析链路已通过。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -109,8 +110,8 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 优先执行 `T010m-local-mq-readiness-check`：本地只读检查 MQ / parse 配置入口，厘清 no-op producer 与真实 producer / consumer 的生效条件。
-2. 完整 T010 需要可用 MQ / 解析消费环境；如需处理中间件环境，应由用户确认后再通过 hk-ops 做远程只读检查。
+1. 优先执行 `T010-lite-run`：使用当前账号可访问且已解析成功的 `documentId`，验证 Agent run、路由解释、matched keywords、持久化 trace 和前端展示。
+2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入 MQ 改造 / RAG / MCP / LLM Tool Calling，也不要直接进入 T011；T010 通过或用户明确接受替代验证口径后再收口面试材料。
 
 ## 10. 接手时优先阅读
@@ -177,6 +178,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T010m-local-mq-readiness-check`。
+优先执行 `T010-lite-run`。
 
-原因：T010 当前被解析队列阻塞，后端 smoke 在 parse 阶段超时；需要先只读确认 MQ / parse 配置入口和完整验证所需环境。T010 通过前不要进入 T011。
+原因：T010-lite-ui 已提供 `/agent` 页面手动输入或选择 documentId 的入口；下一步可使用当前账号可访问的已解析文档完成 Agent-only lite 验证。完整 T010 仍被解析队列阻塞，上传解析链路需等 MQ / parse 消费环境可用后再验证。

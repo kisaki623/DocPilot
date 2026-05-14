@@ -142,6 +142,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`git status --short` 为空；`git log --oneline -20` 确认 T009a-d 已完成；协作文档不再把 T000 作为当前推荐任务，下一步指向 T010 runtime 验证。
 - 边界：未修改 README、前端业务代码、后端 Java、DDL、`.run`、benchmark 或 `docs/ai-dev`。
 
+### T010-lite-ui
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：让 `/agent` 页面支持手动输入当前账号可访问的 `documentId`，用于后续 Agent-only lite 验证。
+- 验证结果：前端 `npm run lint` 通过；`npm run build` 通过。
+- 边界：仅解决已解析文档上的 Agent lite 验证入口；不验证上传、解析、MQ 或 `ParseTaskMessageConsumer`；完整 T010 仍为 BLOCKED。
+
 ## 任务列表
 
 ### T000
@@ -398,6 +406,19 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 风险点：不能把本地只读检查写成远程环境已可用；不能把 T010 BLOCKED 写成通过。
 - 面试价值：体现异步队列链路诊断、环境边界识别和验证口径治理。
 
+### T010-lite-run
+
+- 状态：TODO
+- 优先级：P0
+- 任务目标：使用当前账号可访问的已解析文档，完成 Agent-only lite runtime 验证。
+- 为什么要做：完整 T010 仍被 MQ disabled / no-op parser queue 阻塞，但 T010-lite 可以验证已解析文档上的 Agent run、`routingReason` / `matchedKeywords`、task / step trace 和前端展示。
+- 涉及文件：只读验证 `backend/scripts/agent/smoke-agent-min.ps1`、前端 `/agent` 页面和协作文档；只有验证全部通过后再更新 docs。
+- 前置依赖：T010-lite-ui 已完成；用户需要在前端选择当前账号已有文档，或提供当前账号可访问且 `parseStatus=SUCCESS` 的 documentId。
+- 验收标准：lite smoke 通过；浏览器 `/agent` 页面使用同一 documentId 展示 Agent 回答、decision、路由决策、matchedKeywords、持久化 trace、taskId、steps 和 citations；前端 lint/build 通过；明确标注不是完整上传解析链路验证。
+- 验证命令：`cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1 -ExistingDocumentId <documentId>`；Playwright 打开 `/agent`；`cd frontend; npm run lint; npm run build`。
+- 风险点：documentId 可能不属于当前用户或未解析成功；失败时不能硬编码 documentId、不能伪造通过、不能把 lite 验证写成完整 T010。
+- 面试价值：在完整 MQ 解析链路不可用时，仍可证明 Agent 路由解释和持久化 trace 的运行时展示能力。
+
 ### T011
 
 - 状态：TODO
@@ -412,4 +433,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐先做 `T010m-local-mq-readiness-check`。理由：完整 T010 当前被解析队列阻塞，后端 smoke 在 parse 阶段超时；需要先只读确认 MQ / parse 配置入口和完整验证所需环境。T010 通过后才进入 `T011`，T010 未通过时不要进入 T011。
+推荐先做 `T010-lite-run`。理由：`T010-lite-ui` 已支持在 `/agent` 页面输入或选择当前账号可访问的 `documentId`，下一步可用已解析文档验证 Agent routing explainability 运行链路。完整 T010 仍保持 BLOCKED，后续若要验证上传解析链路，再回到 `T010m-local-mq-readiness-check` 和 MQ / parse 环境确认。

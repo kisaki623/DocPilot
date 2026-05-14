@@ -57,6 +57,9 @@ function resolveStatusBadge(status: string | undefined): string {
 
 function normalizeRunError(message: string): string {
   const normalized = message.toLowerCase();
+  if (normalized.includes("code=1010") || message.includes("无权") || message.includes("不存在")) {
+    return "文档不存在或当前账号无权访问，请确认 documentId 来自当前用户的可访问文档。";
+  }
   if (normalized.includes("task too short")) {
     return "任务描述太短，请补充更多细节后再试。";
   }
@@ -64,6 +67,10 @@ function normalizeRunError(message: string): string {
     return "请求过于频繁，请稍后再试。";
   }
   return message;
+}
+
+function normalizeDocumentIdInput(value: string): string {
+  return value.replace(/\D/g, "");
 }
 
 export default function AgentPage() {
@@ -170,7 +177,7 @@ export default function AgentPage() {
 
     const documentId = Number(selectedDocumentId);
     if (!selectedDocumentId || Number.isNaN(documentId) || documentId <= 0) {
-      setRunError("请先选择一个文档。");
+      setRunError("请先选择文档，或手动输入当前账号可访问的 documentId。");
       return;
     }
     const previousSessionId = result?.documentId === documentId ? result.sessionId : undefined;
@@ -231,6 +238,9 @@ export default function AgentPage() {
           ) : null}
 
           {documentsError ? <div className="dp-alert dp-alert-error mb-4">{documentsError}</div> : null}
+          <div className="dp-alert dp-alert-info mb-4">
+            Lite 验证模式：仅验证已解析文档上的 Agent 运行，不验证上传和解析链路。
+          </div>
           {hasToken && !loadingDocuments && documents.length === 0 ? (
             <div className="dp-alert dp-alert-info mb-4">
               你还没有可用文档，先去 <Link href="/upload" className="underline font-bold">上传页</Link> 完成上传与解析。
@@ -238,23 +248,39 @@ export default function AgentPage() {
           ) : null}
 
           <div className="grid gap-4">
-            <label htmlFor="agent-document-select" className="grid gap-2">
-              <span className="text-sm font-semibold text-slate-700">选择文档</span>
-              <select
-                id="agent-document-select"
-                className="dp-select"
-                value={selectedDocumentId}
-                onChange={(event) => setSelectedDocumentId(event.target.value)}
-                disabled={loadingDocuments || documents.length === 0}
-              >
-                {documents.length === 0 ? <option value="">暂无可选文档</option> : null}
-                {documents.map((item) => (
-                  <option key={item.documentId} value={item.documentId}>
-                    #{item.documentId} {item.fileName} ({item.parseStatusLabel || item.parseStatus})
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+              <label htmlFor="agent-document-select" className="grid gap-2">
+                <span className="text-sm font-semibold text-slate-700">选择文档</span>
+                <select
+                  id="agent-document-select"
+                  className="dp-select"
+                  value={selectedDocument ? selectedDocumentId : ""}
+                  onChange={(event) => setSelectedDocumentId(event.target.value)}
+                  disabled={loadingDocuments || documents.length === 0}
+                >
+                  {documents.length === 0 ? <option value="">暂无可选文档</option> : <option value="">手动输入 documentId</option>}
+                  {documents.map((item) => (
+                    <option key={item.documentId} value={item.documentId}>
+                      #{item.documentId} {item.fileName} ({item.parseStatusLabel || item.parseStatus})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label htmlFor="agent-document-id-input" className="grid gap-2">
+                <span className="text-sm font-semibold text-slate-700">Document ID</span>
+                <input
+                  id="agent-document-id-input"
+                  className="dp-input"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={selectedDocumentId}
+                  onChange={(event) => setSelectedDocumentId(normalizeDocumentIdInput(event.target.value))}
+                  placeholder="输入当前账号可访问的 ID"
+                  disabled={hasToken === false}
+                />
+              </label>
+            </div>
 
             {selectedDocument ? (
               <div className="dp-card-soft">
@@ -266,6 +292,13 @@ export default function AgentPage() {
                 </div>
                 <p className="text-xs text-slate-500 mt-2">文档 ID: {selectedDocument.documentId}</p>
                 <p className="text-xs text-slate-500 mt-1 line-clamp-2">{selectedDocument.summary || "暂无摘要"}</p>
+              </div>
+            ) : selectedDocumentId ? (
+              <div className="dp-card-soft">
+                <p className="font-semibold text-slate-800">手动指定文档 ID: {selectedDocumentId}</p>
+                <p className="text-xs text-slate-500 mt-2">
+                  请确认该文档属于当前登录用户，且已经解析成功；无权限或不存在时会在运行结果中提示。
+                </p>
               </div>
             ) : null}
 

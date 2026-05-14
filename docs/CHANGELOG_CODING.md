@@ -839,3 +839,39 @@
 ### 下一步
 
 执行 `T010m-local-mq-readiness-check`，只读检查本地 MQ / parse 配置入口和完整 T010 所需环境条件。
+
+## 2026-05-14 - T010-lite-ui 前端 Agent lite 验证入口
+
+### 本轮目标
+
+在完整 T010 仍被 MQ disabled / no-op parser queue 阻塞的前提下，只为 `/agent` 页面增加当前用户可访问 `documentId` 的选择 / 输入入口，方便后续执行 Agent-only lite 验证。
+
+### 修改文件
+
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 保留 `/agent` 页面已有当前用户文档列表下拉框。
+- 新增手动输入 `documentId` 的输入框，不硬编码任何文档 ID。
+- 页面展示 Lite 验证模式说明：仅验证已解析文档上的 Agent 运行，不验证上传和解析链路。
+- 文档不存在或当前账号无权访问时，页面显示友好错误，不影响原有 Agent run、decision、routingReason、matchedKeywords、持久化 trace 和 citations 展示逻辑。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未修改后端 Java。
+- 未修改 DDL。
+- 未修改 `package.json` 或 lock 文件。
+- 未修改 smoke 脚本。
+- 未启动或修改 RocketMQ。
+- 未使用 hk-ops 或远程连接。
+- 未验证上传解析链路。
+- 未把 T010-lite 写成完整 T010 通过。
