@@ -989,6 +989,44 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T012a Shadow LLM Selector Adapter
+
+### 本轮目标
+
+进入 P3 Shadow LLM Selector 基础设施阶段，新增未来 LLM selector 的适配接口、fake shadow implementation 和 compare result。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmSelectorShadowResult.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelector` 接口，定义 `selectWithPrompt` 输入 task、parseReady、hasSummary 和工具定义列表，返回 `LlmToolSelectionResult`。
+- 新增 `FakeLlmToolSelector`，不联网、不调用真实 LLM，仅复用 `DocumentToolSelector` 或在 parseReady=false 时返回状态工具决策。
+- 新增 `LlmSelectorShadowResult`，记录 primaryDecision、shadowDecision、matched、primaryReason 和 shadowReason。
+- 单元测试覆盖 summary、QA、status、parseReady=false、matched=true 和 shadowDecision 非空。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=FakeLlmToolSelectorTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

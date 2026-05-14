@@ -190,6 +190,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=ToolSelectorEvaluationTest test` 通过，24/24 cases；`mvn test -DskipITs` 通过。
 - 边界：仅使用当前 `DocumentToolSelector` 跑离线样例；未调用真实 LLM，未接 function calling，未改变默认 Agent 行为。
 
+### T012a
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 LLM selector 接口、fake shadow adapter 和 shadow compare result，为 P3 影子模式打基础。
+- 验证结果：`mvn -Dtest=FakeLlmToolSelectorTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：`FakeLlmToolSelector` 不联网、不调用真实 LLM，仅复用当前关键词规则或 parse-not-ready 状态决策；未改变默认 Agent routing。
+
 ## 任务列表
 
 ### T000
