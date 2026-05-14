@@ -1531,6 +1531,42 @@
 - 未接入 production service。
 - 未改变 production routing。
 
+## 2026-05-15 - T016e Provider Client Skeleton 文档状态
+
+### 本轮目标
+
+更新 selector shadow 文档和协作状态，说明 provider-specific skeleton 已有，但当前仍未真实调用任何外部模型。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录 T016 新增的 provider settings、`FakeLlmToolSelectionClient`、`OpenAiCompatibleLlmToolSelectionClient` skeleton 和 `LlmToolSelectionClientFactory`。
+- 明确 provider 当前状态：`disabled` 为默认；`fake` 仅用于测试和未来 shadow-only 验证；`openai_compatible` 只有 dry-run 骨架，不联网。
+- 明确当前没有 DeepSeek / OpenAI / 硅基流动真实调用，没有读取 API Key，没有读取 `backend/.env`，没有真实 HTTP 请求。
+- 将下一步推荐更新为 T017：以默认 disabled 的方式把 factory 接入 real shadow client 构造路径。
+
+### 验证结果
+
+- `git status --short`：已检查。
+- `git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未调用真实 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP 请求。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
 ## 2026-05-15 - T016d LLM Selection Client Factory
 
 ### 本轮目标

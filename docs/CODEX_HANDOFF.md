@@ -90,6 +90,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T016b 已完成：新增 `FakeLlmToolSelectionClient`，不联网、不读取环境变量或 `backend/.env`，按 prompt 中当前任务返回可被 `LlmToolSelectionParser` 解析的 JSON；仅用于测试和未来 shadow-only smoke，不影响生产 routing。
 - T016c 已完成：新增 OpenAI-compatible request / response 和 `OpenAiCompatibleLlmToolSelectionClient` skeleton；当前 client 是 dry-run disabled 行为，不发 HTTP，不读取 API Key、环境变量或 `backend/.env`，未接入生产 service。
 - T016d 已完成：新增 `LlmToolSelectionClientFactory`，可根据 provider 返回 disabled / fake / openai-compatible client；默认返回 disabled，factory 尚未接入 production service，不改变当前 Agent 行为。
+- T016e 已完成：selector shadow 文档和协作文档已更新；provider skeleton 当前默认 disabled，fake 仅用于测试，openai-compatible 不联网、不读 API Key、不读 `backend/.env`，下一步推荐 T017 默认 disabled factory 接入。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -135,7 +136,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T016`：新增 provider-specific client disabled / fake adapter，例如 DeepSeek 或 OpenAI-compatible client skeleton，但默认不注入真实 provider，真实 provider 调用必须另开任务。
+1. 继续 `T017`：把 `LlmToolSelectionClientFactory` 以默认 disabled 的方式接入 real shadow client 构造路径，仍不启用真实 provider；真实 provider 调用必须另开任务。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -203,6 +204,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T016`。
+优先执行 `T017`。
 
-原因：T015 已将 `RealLlmSelectorShadowRunner` 接入 service 的 real shadow 分支，并用安全开关保持默认关闭；下一步可以先做 provider-specific disabled / fake client skeleton，但仍不能真实调用外部模型、不能接管生产 routing，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T016 已新增 provider settings、fake client、OpenAI-compatible dry-run skeleton 和 client factory；下一步可以把 factory 以默认 disabled 的方式接入 real shadow client 构造路径，但仍不能真实调用外部模型、不能接管 production routing，也不能改变 `/api/ai/agent/run` 返回协议。

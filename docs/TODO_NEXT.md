@@ -350,6 +350,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=LlmToolSelectionClientFactoryTest test` 通过；`mvn test -DskipITs` 通过。
 - 边界：factory 未接入 production service；默认 provider 返回 disabled client；openai-compatible 当前仍是 disabled/dry-run，不联网、不读取 API Key 或 `backend/.env`。
 
+### T016e
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：更新 selector shadow 文档和协作状态，说明 provider-specific skeleton 已有但仍未真实调用。
+- 验证结果：`git status --short` 检查通过；`git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
+- 边界：仅修改文档；provider 默认 disabled，fake 仅用于测试，openai-compatible 仅为 dry-run skeleton；未真实调用 LLM，未读取 API Key 或 `backend/.env`，未新增 API，未改变 production routing。
+
 ## 任务列表
 
 ### T000
@@ -620,4 +628,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T016`：新增 provider-specific client disabled / fake adapter，例如 DeepSeek 或 OpenAI-compatible client skeleton，但默认不注入真实 provider。完整 T010 仍为 BLOCKED；不要直接进入真实 provider 调用、生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T017`：把 `LlmToolSelectionClientFactory` 以默认 disabled 的方式接入 real shadow client 构造路径，仍不启用真实 provider。完整 T010 仍为 BLOCKED；不要直接进入真实 provider 调用、生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
