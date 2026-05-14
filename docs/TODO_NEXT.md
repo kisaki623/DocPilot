@@ -342,6 +342,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：仅提供 request / response 和 dry-run client 骨架；`completeSelectionPrompt` 返回 disabled，不发 HTTP、不读取 API Key、不读取环境变量或 `backend/.env`，未接入生产 service。
 
+### T016d
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：新增 LLM selection client factory，根据 provider 选择 disabled / fake / openai-compatible client。
+- 验证结果：`mvn -Dtest=LlmToolSelectionClientFactoryTest test` 通过；`mvn test -DskipITs` 通过。
+- 边界：factory 未接入 production service；默认 provider 返回 disabled client；openai-compatible 当前仍是 disabled/dry-run，不联网、不读取 API Key 或 `backend/.env`。
+
 ## 任务列表
 
 ### T000

@@ -1531,6 +1531,47 @@
 - 未接入 production service。
 - 未改变 production routing。
 
+## 2026-05-15 - T016d LLM Selection Client Factory
+
+### 本轮目标
+
+新增 LLM selection client factory，根据 provider 配置选择 disabled / fake / OpenAI-compatible client，但默认必须返回 disabled client。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactory.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelectionClientFactory`。
+- provider=`disabled` 或 null properties 时返回 `DisabledLlmToolSelectionClient`。
+- provider=`fake` 时返回 `FakeLlmToolSelectionClient`。
+- provider=`openai_compatible` 时返回 `OpenAiCompatibleLlmToolSelectionClient` skeleton。
+- unknown provider fallback disabled，不返回真实联网 client。
+- 本轮不把 factory 接入 production service，不改变现有 bean 注入结构。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=LlmToolSelectionClientFactoryTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未接入 `DocumentAgentServiceImpl`。
+- 未调用真实 LLM。
+- 未发 HTTP 请求。
+- 未读取 API Key。
+- 未读取环境变量。
+- 未读取 `backend/.env`。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
 ## 2026-05-15 - T016a LLM Selector Provider Settings
 
 ### 本轮目标

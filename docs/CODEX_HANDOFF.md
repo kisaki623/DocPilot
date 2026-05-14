@@ -89,6 +89,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T016a 已完成：`AgentSelectorProperties` 新增 provider 配置模型，默认 `llmProvider=disabled`、`llmModel` / `llmBaseUrl` 为空、`llmRequestTimeoutMs=3000`；未修改 `application.yml`，未读取环境变量或 `backend/.env`，不会自动启用真实 provider。
 - T016b 已完成：新增 `FakeLlmToolSelectionClient`，不联网、不读取环境变量或 `backend/.env`，按 prompt 中当前任务返回可被 `LlmToolSelectionParser` 解析的 JSON；仅用于测试和未来 shadow-only smoke，不影响生产 routing。
 - T016c 已完成：新增 OpenAI-compatible request / response 和 `OpenAiCompatibleLlmToolSelectionClient` skeleton；当前 client 是 dry-run disabled 行为，不发 HTTP，不读取 API Key、环境变量或 `backend/.env`，未接入生产 service。
+- T016d 已完成：新增 `LlmToolSelectionClientFactory`，可根据 provider 返回 disabled / fake / openai-compatible client；默认返回 disabled，factory 尚未接入 production service，不改变当前 Agent 行为。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
