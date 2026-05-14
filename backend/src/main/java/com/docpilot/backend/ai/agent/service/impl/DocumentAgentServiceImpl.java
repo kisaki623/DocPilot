@@ -2,11 +2,17 @@ package com.docpilot.backend.ai.agent.service.impl;
 
 import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
 import com.docpilot.backend.ai.agent.entity.AgentTask;
+import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.DocumentAgentService;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
+import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
+import com.docpilot.backend.ai.agent.tool.ToolDefinition;
+import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
 import com.docpilot.backend.ai.agent.vo.DocumentAgentResponse;
@@ -33,13 +39,22 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
     private final ToolRegistry toolRegistry;
     private final ToolSelector toolSelector;
     private final AgentTaskPersistenceService persistenceService;
+    private final AgentSelectorProperties selectorProperties;
+    private final LlmToolSelector shadowToolSelector;
+    private final ToolDefinitionProvider toolDefinitionProvider;
 
     public DocumentAgentServiceImpl(ToolRegistry toolRegistry,
                                     ToolSelector toolSelector,
-                                    AgentTaskPersistenceService persistenceService) {
+                                    AgentTaskPersistenceService persistenceService,
+                                    AgentSelectorProperties selectorProperties,
+                                    LlmToolSelector shadowToolSelector,
+                                    ToolDefinitionProvider toolDefinitionProvider) {
         this.toolRegistry = toolRegistry;
         this.toolSelector = toolSelector;
         this.persistenceService = persistenceService;
+        this.selectorProperties = selectorProperties;
+        this.shadowToolSelector = shadowToolSelector;
+        this.toolDefinitionProvider = toolDefinitionProvider;
     }
 
     @Override
@@ -95,6 +110,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
             ToolSelector.SelectResult selection = toolSelector.select(task);
             response.setRoutingReason(selection.reason());
             response.setMatchedKeywords(selection.matchedKeywords());
+            compareShadowSelection(task, detail, selection);
 
             if ("status_only".equals(selection.decision())) {
                 response.setDecision("status_only");
@@ -153,6 +169,29 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         DocumentAgentResponse finalized = finalizeResponse(response, beginNanos);
         updateTaskSuccessSafely(taskId, finalized);
         return finalized;
+    }
+
+    private void compareShadowSelection(String task,
+                                        DocumentStatusTool.StatusResult detail,
+                                        ToolSelector.SelectResult primarySelection) {
+        if (selectorProperties == null || !selectorProperties.isShadowEnabled()) {
+            return;
+        }
+        try {
+            boolean hasSummary = detail.summary() != null && !detail.summary().isBlank();
+            List<ToolDefinition> toolDefinitions = toolDefinitionProvider.getAllDefinitions();
+            LlmToolSelectionResult shadowSelection = shadowToolSelector.selectWithPrompt(
+                    task,
+                    detail.parseReady(),
+                    hasSummary,
+                    toolDefinitions
+            );
+            LlmSelectorShadowResult shadowResult = LlmSelectorShadowResult.from(primarySelection, shadowSelection);
+            log.info("Agent selector shadow compare: primaryDecision={}, shadowDecision={}, matched={}",
+                    shadowResult.primaryDecision(), shadowResult.shadowDecision(), shadowResult.matched());
+        } catch (Exception ex) {
+            log.warn("Agent selector shadow compare failed; primary decision remains active", ex);
+        }
     }
 
     private Long createTaskSafely(Long userId, Long documentId, String task, String sessionId) {

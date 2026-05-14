@@ -27,4 +27,20 @@ public record LlmSelectorShadowResult(String primaryDecision,
                 shadowReason
         );
     }
+
+    public static LlmSelectorShadowResult from(ToolSelector.SelectResult primarySelection,
+                                               LlmToolSelectionResult shadowSelection) {
+        if (primarySelection == null) {
+            throw new IllegalArgumentException("primarySelection must not be null");
+        }
+        if (shadowSelection == null) {
+            throw new IllegalArgumentException("shadowSelection must not be null");
+        }
+        return compare(
+                primarySelection.decision(),
+                shadowSelection.decision(),
+                primarySelection.reason(),
+                shadowSelection.routingReason()
+        );
+    }
 }

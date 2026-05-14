@@ -1064,6 +1064,46 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T012c Selector Shadow Comparison
+
+### 本轮目标
+
+在 `DocumentAgentServiceImpl` 中接入 primary selector + shadow selector compare，但 primary decision 仍唯一生效。本轮不调用真实 LLM，不接 function calling，不改变 API 返回或默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmSelectorShadowResult.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentServiceImpl` 在文档 parseReady 后仍先使用 primary `ToolSelector` 得到真实 decision。
+- 当 `app.agent.selector.shadow-enabled=true` 时，旁路调用 `LlmToolSelector`，生成 `LlmSelectorShadowResult` 并记录 compare 日志。
+- shadow selector 异常只记录 warn，primary decision 和真实工具执行不受影响。
+- parseReady=false 时仍直接返回状态提示，不运行 primary selector 或 shadow compare。
+- 单元测试覆盖 shadow compare 不影响真实工具执行、matched=true、开关关闭不运行、parseReady=false 不运行。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，175 tests，0 failures，0 errors。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 API 返回协议。
+- 未修改 AgentTask / AgentStep schema。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

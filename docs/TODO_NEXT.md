@@ -206,6 +206,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：默认 `app.agent.selector.mode=keyword` 且 `shadow-enabled=false`；即使配置 shadow，本轮仍未改变生产 routing。
 
+### T012c
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：在 `DocumentAgentServiceImpl` 中接入 primary selector + shadow selector compare。
+- 验证结果：`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn test -DskipITs` 通过。
+- 边界：shadow compare 只在 `shadow-enabled=true` 且文档 parseReady 后旁路执行；真实工具执行仍只使用 primary `DocumentToolSelector` decision；未修改 API 返回、前端、DDL 或 AgentTask schema。
+
 ## 任务列表
 
 ### T000

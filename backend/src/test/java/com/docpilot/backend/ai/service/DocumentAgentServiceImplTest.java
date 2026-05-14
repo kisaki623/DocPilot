@@ -2,11 +2,17 @@ package com.docpilot.backend.ai.service;
 
 import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
 import com.docpilot.backend.ai.agent.entity.AgentTask;
+import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
+import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
+import com.docpilot.backend.ai.agent.tool.ToolDefinition;
+import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
@@ -24,7 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
@@ -53,8 +61,23 @@ class DocumentAgentServiceImplTest {
     @Mock
     private AgentTaskPersistenceService persistenceService;
 
+    @Mock
+    private LlmToolSelector shadowToolSelector;
+
+    @Mock
+    private ToolDefinitionProvider toolDefinitionProvider;
+
+    private final AgentSelectorProperties selectorProperties = new AgentSelectorProperties();
+
     private DocumentAgentServiceImpl buildService() {
-        return new DocumentAgentServiceImpl(toolRegistry, toolSelector, persistenceService);
+        return new DocumentAgentServiceImpl(
+                toolRegistry,
+                toolSelector,
+                persistenceService,
+                selectorProperties,
+                shadowToolSelector,
+                toolDefinitionProvider
+        );
     }
 
     private void stubStatusTool() {
@@ -131,6 +154,7 @@ class DocumentAgentServiceImplTest {
         assertTrue(response.getTotalDurationMs() >= 0);
         verifyPersistenceSuccess();
         verify(documentQaTool, never()).execute(any());
+        verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
     }
 
     @Test
@@ -188,6 +212,109 @@ class DocumentAgentServiceImplTest {
     }
 
     @Test
+    void shouldRunShadowCompareWithoutChangingRealToolExecution() {
+        selectorProperties.setShadowEnabled(true);
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(104L);
+        request.setTask("Please summarize this document");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 104L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        104L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "content"
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
+        ToolSelector.SelectResult primarySelection = new ToolSelector.SelectResult(
+                "summary_tool",
+                List.of("document_status_tool", "document_summary_tool"),
+                "summary reason",
+                List.of("summary")
+        );
+        when(toolSelector.select(anyString())).thenReturn(primarySelection);
+        when(toolDefinitionProvider.getAllDefinitions()).thenReturn(List.of(
+                new ToolDefinition("document_status_tool", "Document status", "Checks parse status.", "{}", "{}", true),
+                new ToolDefinition("document_summary_tool", "Document summary", "Returns summary.", "{}", "{}", true),
+                new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true)
+        ));
+        LlmToolSelectionResult shadowSelection = new LlmToolSelectionResult(
+                "summary_tool",
+                List.of("document_status_tool", "document_summary_tool"),
+                "shadow summary reason",
+                List.of("summary"),
+                0.86d
+        );
+        when(shadowToolSelector.selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn(shadowSelection);
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubStatusTool();
+        stubSummaryTool();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request);
+        LlmSelectorShadowResult compare = LlmSelectorShadowResult.from(primarySelection, shadowSelection);
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("summary", response.getFinalAnswer());
+        assertTrue(compare.matched());
+        verify(shadowToolSelector).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
+        verify(documentSummaryTool).execute(any());
+        verify(documentQaTool, never()).execute(any());
+    }
+
+    @Test
+    void shouldNotRunShadowCompareWhenSwitchDisabled() {
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(105L);
+        request.setTask("Please summarize this document");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 105L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        105L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "content"
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "summary_tool",
+                List.of("document_status_tool", "document_summary_tool"),
+                "summary reason",
+                List.of("summary")
+        ));
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubStatusTool();
+        stubSummaryTool();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request);
+
+        assertEquals("summary_tool", response.getDecision());
+        verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
+    }
+
+    @Test
     void shouldReturnPendingHintWhenParseNotReady() {
         DocumentAgentServiceImpl service = buildService();
 
@@ -220,6 +347,7 @@ class DocumentAgentServiceImplTest {
         assertTrue(response.getFinalAnswer().contains("PARSING"));
         verifyPersistenceSuccess();
         verify(toolSelector, never()).select(anyString());
+        verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
     }
