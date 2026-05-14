@@ -875,3 +875,45 @@
 - 未使用 hk-ops 或远程连接。
 - 未验证上传解析链路。
 - 未把 T010-lite 写成完整 T010 通过。
+
+## 2026-05-14 - T010-lite-run Agent-only runtime 验证
+
+### 本轮目标
+
+在完整 T010 仍被 MQ disabled / no-op parser queue 阻塞的前提下，只验证已解析文档上的 Agent routing explainability 运行链路：已解析文档 -> Agent run -> routingReason / matchedKeywords -> task / step trace -> 前端展示。
+
+### 验证对象
+
+- 使用 `documentId=61`，该文档来自当前浏览器登录账号的 `/agent` 文档下拉列表，页面显示为解析成功。
+- 本轮不使用 `documentId=58`，不硬编码 documentId，不验证上传解析链路。
+
+### 浏览器验证结果
+
+- Playwright 打开 `/agent` 并使用 `documentId=61`。
+- summary 任务“总结一下这篇文档”通过，页面显示 `decision=summary_tool`、路由决策、`routingReason`、matched keyword、持久化执行轨迹、`taskId`、`SUCCESS`、2 条 step、toolName、durationMs、inputSummary、outputSummary。
+- QA 任务“根据原文证据回答这篇文档的核心内容是什么”通过，页面显示 `decision=qa_tool`、路由决策、`routingReason`、matched keyword、持久化执行轨迹、`taskId`、`SUCCESS`、2 条 step、toolName、durationMs、inputSummary、outputSummary，并展示 citations。
+
+### CLI lite smoke
+
+- 未执行。
+- 原因：当前 smoke 脚本会注册新的临时账号，无法保证该账号有权访问浏览器当前账号下的 `documentId=61`；本轮不把 CLI 账号不一致误判为浏览器 lite 验证失败。
+
+### 构建验证
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，测试统计为 149 tests，0 failures，0 errors。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改后端 Java。
+- 未修改前端业务代码。
+- 未修改 DDL。
+- 未启动或修改 RocketMQ。
+- 未使用 hk-ops。
+- 未远程连接服务器。
+- 未读取或输出 `backend/.env`。
+- 未执行 `git push`。
+- 未把 T010-lite 写成完整 T010 通过；完整 T010 仍为 BLOCKED。
