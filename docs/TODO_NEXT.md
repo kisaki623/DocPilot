@@ -222,6 +222,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=SelectorMetricsCollectorTest test` 通过；`mvn test -DskipITs` 通过。
 - 边界：metrics 仅内存态记录 totalComparisons、matchedCount、mismatchCount、matchRate 和 lastUpdatedTime；未落库，未接 Micrometer / Prometheus，未新增 API。
 
+### T013a
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：将 `SelectorMetricsCollector` 接入 `DocumentAgentServiceImpl` 的 shadow compare 路径。
+- 验证结果：`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn test -DskipITs` 通过，179 tests，0 failures，0 errors。
+- 边界：仅在 shadow compare 成功执行后记录 primary / shadow decision；shadow 关闭、parseReady=false 或 shadow selector 失败时不记录；真实工具执行仍只由 primary decision 决定，API 返回、前端、DDL 和持久化 schema 均未改变。
+
 ## 任务列表
 
 ### T000

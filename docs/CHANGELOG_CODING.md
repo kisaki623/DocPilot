@@ -1144,6 +1144,45 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T013a Selector Shadow Metrics 接入
+
+### 本轮目标
+
+将 `SelectorMetricsCollector` 接入 `DocumentAgentServiceImpl` 的 shadow compare 路径，让 shadow compare 成功执行后能记录 primary / shadow decision 的 match 情况。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentServiceImpl` 构造函数注入 `SelectorMetricsCollector`。
+- shadow compare 成功生成 `LlmSelectorShadowResult` 后调用 `record(primaryDecision, shadowDecision)`。
+- shadow 关闭、parseReady=false、shadow selector 未执行或 shadow selector 异常时不记录 comparison。
+- 单元测试补充 metrics 断言：关闭时不增加、开启且 matched 时 totalComparisons / matchedCount 增加、parseReady=false 不增加、真实 decision 和工具执行仍由 primary selector 决定。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，179 tests，0 failures，0 errors。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 API 返回协议。
+- 未修改 AgentTask / AgentStep schema。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

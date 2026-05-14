@@ -11,6 +11,8 @@ import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
+import com.docpilot.backend.ai.agent.tool.SelectorMetricsCollector;
+import com.docpilot.backend.ai.agent.tool.SelectorMetricsSnapshot;
 import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
@@ -68,15 +70,18 @@ class DocumentAgentServiceImplTest {
     private ToolDefinitionProvider toolDefinitionProvider;
 
     private final AgentSelectorProperties selectorProperties = new AgentSelectorProperties();
+    private SelectorMetricsCollector selectorMetricsCollector;
 
     private DocumentAgentServiceImpl buildService() {
+        selectorMetricsCollector = new SelectorMetricsCollector();
         return new DocumentAgentServiceImpl(
                 toolRegistry,
                 toolSelector,
                 persistenceService,
                 selectorProperties,
                 shadowToolSelector,
-                toolDefinitionProvider
+                toolDefinitionProvider,
+                selectorMetricsCollector
         );
     }
 
@@ -155,6 +160,7 @@ class DocumentAgentServiceImplTest {
         verifyPersistenceSuccess();
         verify(documentQaTool, never()).execute(any());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
+        assertEmptySelectorMetrics();
     }
 
     @Test
@@ -209,6 +215,7 @@ class DocumentAgentServiceImplTest {
         assertEquals(2, response.getSteps().size());
         assertTrue(response.isSuccess());
         verifyPersistenceSuccess();
+        assertEmptySelectorMetrics();
     }
 
     @Test
@@ -268,6 +275,11 @@ class DocumentAgentServiceImplTest {
         assertEquals("summary_tool", response.getDecision());
         assertEquals("summary", response.getFinalAnswer());
         assertTrue(compare.matched());
+        SelectorMetricsSnapshot snapshot = selectorMetricsCollector.snapshot();
+        assertEquals(1L, snapshot.totalComparisons());
+        assertEquals(1L, snapshot.matchedCount());
+        assertEquals(0L, snapshot.mismatchCount());
+        assertEquals(1.0d, snapshot.matchRate());
         verify(shadowToolSelector).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(documentSummaryTool).execute(any());
         verify(documentQaTool, never()).execute(any());
@@ -312,6 +324,7 @@ class DocumentAgentServiceImplTest {
 
         assertEquals("summary_tool", response.getDecision());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
+        assertEmptySelectorMetrics();
     }
 
     @Test
@@ -350,5 +363,14 @@ class DocumentAgentServiceImplTest {
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
+        assertEmptySelectorMetrics();
+    }
+
+    private void assertEmptySelectorMetrics() {
+        SelectorMetricsSnapshot snapshot = selectorMetricsCollector.snapshot();
+        assertEquals(0L, snapshot.totalComparisons());
+        assertEquals(0L, snapshot.matchedCount());
+        assertEquals(0L, snapshot.mismatchCount());
+        assertEquals(0.0d, snapshot.matchRate());
     }
 }

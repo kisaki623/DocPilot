@@ -11,6 +11,7 @@ import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
+import com.docpilot.backend.ai.agent.tool.SelectorMetricsCollector;
 import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
@@ -42,19 +43,22 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
     private final AgentSelectorProperties selectorProperties;
     private final LlmToolSelector shadowToolSelector;
     private final ToolDefinitionProvider toolDefinitionProvider;
+    private final SelectorMetricsCollector selectorMetricsCollector;
 
     public DocumentAgentServiceImpl(ToolRegistry toolRegistry,
                                     ToolSelector toolSelector,
                                     AgentTaskPersistenceService persistenceService,
                                     AgentSelectorProperties selectorProperties,
                                     LlmToolSelector shadowToolSelector,
-                                    ToolDefinitionProvider toolDefinitionProvider) {
+                                    ToolDefinitionProvider toolDefinitionProvider,
+                                    SelectorMetricsCollector selectorMetricsCollector) {
         this.toolRegistry = toolRegistry;
         this.toolSelector = toolSelector;
         this.persistenceService = persistenceService;
         this.selectorProperties = selectorProperties;
         this.shadowToolSelector = shadowToolSelector;
         this.toolDefinitionProvider = toolDefinitionProvider;
+        this.selectorMetricsCollector = selectorMetricsCollector;
     }
 
     @Override
@@ -187,6 +191,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                     toolDefinitions
             );
             LlmSelectorShadowResult shadowResult = LlmSelectorShadowResult.from(primarySelection, shadowSelection);
+            selectorMetricsCollector.record(shadowResult.primaryDecision(), shadowResult.shadowDecision());
             log.info("Agent selector shadow compare: primaryDecision={}, shadowDecision={}, matched={}",
                     shadowResult.primaryDecision(), shadowResult.shadowDecision(), shadowResult.matched());
         } catch (Exception ex) {
