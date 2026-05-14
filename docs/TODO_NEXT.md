@@ -158,6 +158,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：Playwright 真实打开 `/agent`，使用 `documentId=61` 完成 summary 与 QA 两类 Agent run；页面展示 `routingReason`、`matchedKeywords`、持久化 task / step trace、`taskId`、`SUCCESS`、2 条 step、toolName、durationMs、inputSummary、outputSummary，QA 场景展示 citations；后端 compile/test 通过；前端 lint/build 通过。
 - 边界：仅验证“已解析文档 -> Agent run -> 路由解释 -> 持久化 trace -> 前端展示”；不验证上传、解析、MQ 或 `ParseTaskMessageConsumer`；完整 T010 仍为 BLOCKED。
 
+### T011a
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 Agent Tool Schema / Tool Metadata，为后续 LLM Tool Selection 做基础设施准备。
+- 验证结果：`mvn -Dtest=ToolDefinitionProviderTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：未调用真实 LLM，未接 function calling，未改变默认 `DocumentToolSelector` 关键词规则和 `/api/ai/agent/run` 行为。
+
 ## 任务列表
 
 ### T000
@@ -428,4 +436,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐进入 `T011`。理由：`T010-lite-run` 已完成 Agent-only runtime 验证，可以收口面试向项目总结 / 架构图 / 简历亮点；但完整 T010 仍保持 BLOCKED，后续若要验证上传解析链路，需要先回到 `T010m-local-mq-readiness-check` 和 MQ / parse 环境确认。
+推荐继续 `T011b`。理由：T011a 已完成工具定义元数据，下一步应补齐未来 LLM Tool Selection 的 JSON 输出协议和 parser；当前默认 Agent 行为仍保持不变。

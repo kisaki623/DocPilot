@@ -917,3 +917,39 @@
 - 未读取或输出 `backend/.env`。
 - 未执行 `git push`。
 - 未把 T010-lite 写成完整 T010 通过；完整 T010 仍为 BLOCKED。
+
+## 2026-05-14 - T011a Tool Schema / Tool Metadata
+
+### 本轮目标
+
+进入 P3 LLM Tool Selection 的基础设施阶段，先为当前 Agent 工具建立稳定 Tool Definition，不调用真实 LLM、不接 function calling、不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolDefinition.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolDefinitionProvider.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/ToolDefinitionProviderTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `ToolDefinition` record，包含 toolName、displayName、description、inputSchemaText、outputSchemaText 和 safeForLlmSelection。
+- 新增 `ToolDefinitionProvider`，基于当前 `ToolRegistry` 注册工具返回 `document_status_tool`、`document_summary_tool`、`document_qa_tool` 三个工具定义。
+- 单元测试覆盖 3 个工具定义存在、toolName 不重复、description / schema 非空，以及 QA 工具描述不声明危险能力。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=ToolDefinitionProviderTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
