@@ -1453,6 +1453,43 @@
 - 未接入 `DocumentAgentServiceImpl`。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-15 - T016b Fake LLM Selection Client
+
+### 本轮目标
+
+新增可测试的 fake provider client，用于后续 shadow-only smoke。本 client 不联网、不读取密钥、不读取环境变量。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `FakeLlmToolSelectionClient`，实现 `LlmToolSelectionClient`。
+- 根据 prompt 中 `Current task` 内容返回 `summary_tool`、`qa_tool` 或 `status_only` 的合法 JSON。
+- 返回 provider=`fake`、model=`fake-selector`、disabled=false。
+- 测试使用 `LlmToolSelectionParser` 解析 fake client 的 rawText，验证输出协议可用。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=FakeLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未联网。
+- 未读取 API Key。
+- 未读取环境变量。
+- 未读取 `backend/.env`。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未改变 disabled client。
+- 未改变 production routing。
+
 ## 2026-05-15 - T016a LLM Selector Provider Settings
 
 ### 本轮目标

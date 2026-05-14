@@ -326,6 +326,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：默认 `llmProvider=disabled`、`llmModel` / `llmBaseUrl` 为空、`llmRequestTimeoutMs=3000`；未修改 `application.yml`，未读取环境变量或 `backend/.env`，未启用真实模型调用。
 
+### T016b
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：新增 `FakeLlmToolSelectionClient`，为后续 shadow-only smoke 提供不联网的 provider client。
+- 验证结果：`mvn -Dtest=FakeLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：fake client 不联网、不读取环境变量或 `backend/.env`、不需要 API Key；仅按 prompt 中 task 生成可被 parser 解析的 JSON，不影响 disabled client 或生产 routing。
+
 ## 任务列表
 
 ### T000
