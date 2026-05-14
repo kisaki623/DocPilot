@@ -1374,6 +1374,48 @@
 - 未接入 `DocumentAgentServiceImpl`。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-14 - T014c Real LLM Selector Shadow Runner
+
+### 本轮目标
+
+新增 Real LLM selector disabled shadow runner，用于未来把 `RealLlmToolSelector` 接入 shadow compare。本轮仍不接入生产 service，不记录 metrics，不真实调用模型。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunner.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunResult.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunnerTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `RealLlmSelectorShadowRunner`，输入 primary decision、task、parseReady、hasSummary 和工具定义列表。
+- runner 内部调用 `RealLlmToolSelector`。
+- disabled client 或解析异常失败时返回 success=false、shouldRecordMetrics=false，不影响 primary decision。
+- 成功时返回 shadowDecision、matched 和 shouldRecordMetrics=true。
+- 单元测试覆盖 disabled、valid fake client、matched、mismatch、失败不记录 metrics 和成功可记录 metrics。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealLlmSelectorShadowRunnerTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未读取 `backend/.env`。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未接入 `DocumentAgentServiceImpl`。
+- 未记录 metrics。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-14 - T011c Tool Selection Prompt Builder
 
 ### 本轮目标

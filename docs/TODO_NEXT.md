@@ -270,6 +270,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=RealLlmToolSelectorTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：`RealLlmToolSelector` 是普通类，未注入 `DocumentAgentServiceImpl`，未接入生产 routing；测试仅用 fake client 模拟 JSON 返回，未真实调用 LLM。
 
+### T014c
+
+- 状态：DONE
+- 完成时间：2026-05-14
+- 任务目标：新增 Real LLM selector disabled shadow runner 和运行结果对象。
+- 验证结果：`mvn -Dtest=RealLlmSelectorShadowRunnerTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：runner 仅在单元测试中验证 disabled / fake client 行为；未接入 `DocumentAgentServiceImpl`，未记录 metrics，未真实调用 LLM，未接管生产 routing。
+
 ## 任务列表
 
 ### T000
