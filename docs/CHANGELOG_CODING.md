@@ -1453,6 +1453,44 @@
 - 未接入 `DocumentAgentServiceImpl`。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-15 - T016a LLM Selector Provider Settings
+
+### 本轮目标
+
+新增 LLM selector provider 配置模型，为后续 disabled / fake / OpenAI-compatible client skeleton 选择做准备，但默认仍为 disabled。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `llmProvider`，允许 `disabled`、`fake`、`openai_compatible`，默认 `disabled`。
+- 新增 `llmModel`，默认空字符串。
+- 新增 `llmBaseUrl`，默认空字符串。
+- 新增 `llmRequestTimeoutMs`，默认 `3000`，并校验必须为正数。
+- 配置测试覆盖默认安全值、显式绑定、非法 provider 和非法 timeout。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未读取环境变量。
+- 未读取 `backend/.env`。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-15 - T015d Real Shadow Selector Integration 文档状态
 
 ### 本轮目标

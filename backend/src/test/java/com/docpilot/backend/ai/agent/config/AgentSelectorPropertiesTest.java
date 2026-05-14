@@ -23,6 +23,10 @@ class AgentSelectorPropertiesTest {
             assertThat(properties.isRealShadowEnabled()).isFalse();
             assertThat(properties.isRealShadowRecordMetrics()).isFalse();
             assertThat(properties.isRealShadowFailOpen()).isTrue();
+            assertThat(properties.getLlmProvider()).isEqualTo("disabled");
+            assertThat(properties.getLlmModel()).isEmpty();
+            assertThat(properties.getLlmBaseUrl()).isEmpty();
+            assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(3000);
             assertThat(properties.isShadowLlmMode()).isFalse();
         });
     }
@@ -34,7 +38,11 @@ class AgentSelectorPropertiesTest {
                         "app.agent.selector.shadow-enabled=true",
                         "app.agent.selector.real-shadow-enabled=true",
                         "app.agent.selector.real-shadow-record-metrics=true",
-                        "app.agent.selector.real-shadow-fail-open=false"
+                        "app.agent.selector.real-shadow-fail-open=false",
+                        "app.agent.selector.llm-provider=fake",
+                        "app.agent.selector.llm-model=fake-selector",
+                        "app.agent.selector.llm-base-url=https://example.invalid/v1",
+                        "app.agent.selector.llm-request-timeout-ms=5000"
                 )
                 .run(context -> {
                     AgentSelectorProperties properties = context.getBean(AgentSelectorProperties.class);
@@ -44,6 +52,10 @@ class AgentSelectorPropertiesTest {
                     assertThat(properties.isRealShadowEnabled()).isTrue();
                     assertThat(properties.isRealShadowRecordMetrics()).isTrue();
                     assertThat(properties.isRealShadowFailOpen()).isFalse();
+                    assertThat(properties.getLlmProvider()).isEqualTo("fake");
+                    assertThat(properties.getLlmModel()).isEqualTo("fake-selector");
+                    assertThat(properties.getLlmBaseUrl()).isEqualTo("https://example.invalid/v1");
+                    assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(5000);
                     assertThat(properties.isShadowLlmMode()).isTrue();
                 });
     }
@@ -55,6 +67,26 @@ class AgentSelectorPropertiesTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseMessage("Unsupported app.agent.selector.mode='real_llm'. Allowed values: keyword, shadow_llm.");
+                });
+    }
+
+    @Test
+    void shouldRejectUnsupportedProvider() {
+        contextRunner.withPropertyValues("app.agent.selector.llm-provider=real_network")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("Unsupported app.agent.selector.llm-provider='real_network'. Allowed values: disabled, fake, openai_compatible.");
+                });
+    }
+
+    @Test
+    void shouldRejectNonPositiveTimeout() {
+        contextRunner.withPropertyValues("app.agent.selector.llm-request-timeout-ms=0")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("app.agent.selector.llm-request-timeout-ms must be positive.");
                 });
     }
 }

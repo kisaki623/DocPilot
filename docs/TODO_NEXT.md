@@ -318,6 +318,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`git status --short` 检查通过；`git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
 - 边界：仅修改文档；未调用真实 LLM，未接 function calling，未新增 API，未修改前端，未改变默认 routing；完整 T010 仍 BLOCKED。
 
+### T016a
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：新增 LLM selector provider 配置模型。
+- 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：默认 `llmProvider=disabled`、`llmModel` / `llmBaseUrl` 为空、`llmRequestTimeoutMs=3000`；未修改 `application.yml`，未读取环境变量或 `backend/.env`，未启用真实模型调用。
+
 ## 任务列表
 
 ### T000
