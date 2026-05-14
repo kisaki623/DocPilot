@@ -310,6 +310,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=DocumentAgentRealShadowPathTest test` 通过；`mvn test -DskipITs` 通过。
 - 边界：仅新增测试；覆盖默认关闭、fake shadow 不隐式启用 real shadow、disabled / exception fail-open、parseReady=false 跳过 real shadow、real metrics 默认不记录和显式开启后记录；未修改生产代码。
 
+### T015d
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：更新 selector shadow 文档和协作状态，说明 real shadow runner 已接入 service 但默认关闭。
+- 验证结果：`git status --short` 检查通过；`git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
+- 边界：仅修改文档；未调用真实 LLM，未接 function calling，未新增 API，未修改前端，未改变默认 routing；完整 T010 仍 BLOCKED。
+
 ## 任务列表
 
 ### T000
@@ -580,4 +588,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T015`：在 feature flag 严格关闭的前提下，将 `RealLlmSelectorShadowRunner` 接入 service 的 shadow 路径；默认仍不启用，只允许 disabled / fake profile，真实 provider 调用必须另开任务。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T016`：新增 provider-specific client disabled / fake adapter，例如 DeepSeek 或 OpenAI-compatible client skeleton，但默认不注入真实 provider。完整 T010 仍为 BLOCKED；不要直接进入真实 provider 调用、生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

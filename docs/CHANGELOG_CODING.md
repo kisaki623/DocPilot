@@ -1453,6 +1453,42 @@
 - 未接入 `DocumentAgentServiceImpl`。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-15 - T015d Real Shadow Selector Integration 文档状态
+
+### 本轮目标
+
+更新 selector shadow mode 文档和协作状态，说明 `RealLlmSelectorShadowRunner` 已接入 service 的 real shadow 分支，但默认关闭，且 disabled client 防止真实模型调用。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 更新 real shadow path 当前状态：runner 已接入 `DocumentAgentServiceImpl`，默认 `realShadowEnabled=false`，默认不运行。
+- 明确即使开启 real shadow，当前 client 仍为 `DisabledLlmToolSelectionClient`，不会真实调用模型。
+- 明确 selector 决策顺序：primary `DocumentToolSelector` 唯一决定真实工具执行；fake shadow 与 real shadow 都只用于旁路 compare。
+- 明确 fake shadow metrics 已可记录，real shadow metrics 默认不记录，只有 `realShadowRecordMetrics=true` 且 real shadow success 时才允许记录。
+- 更新后续路线到 T016：provider-specific disabled / fake client skeleton，真实 provider 调用另开任务。
+
+### 验证结果
+
+- `git status --short`：已检查。
+- `git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
 ## 2026-05-15 - T015c Real Shadow Path Tests
 
 ### 本轮目标

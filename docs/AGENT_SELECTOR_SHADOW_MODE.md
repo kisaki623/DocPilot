@@ -18,9 +18,9 @@ T014 已补齐真实 LLM selector 的禁用态适配层，但它仍然不参与�
 - `LlmToolSelectionClient` 是未来调用模型的 client 抽象。
 - `DisabledLlmToolSelectionClient` 是当前默认安全实现：不联网、不调用真实模型、不读取环境变量或 `backend/.env`，只返回 disabled response。
 - `RealLlmToolSelector` 已能串联 `LlmToolSelectionPromptBuilder`、`LlmToolSelectionClient` 和 `LlmToolSelectionParser`。
-- `RealLlmToolSelector` 当前不是生产 Spring bean，未注入 `DocumentAgentServiceImpl`，未接管任何真实工具选择。
-- `RealLlmSelectorShadowRunner` 已存在，用于未来把 real selector 接入 shadow compare；当前只在单元测试中验证 disabled / fake client 行为。
-- runner 当前未接入 service，未记录 metrics，未改变 API 返回。
+- `RealLlmToolSelector` 当前不是生产 Spring bean，不直接接管任何真实工具选择。
+- `RealLlmSelectorShadowRunner` 已接入 `DocumentAgentServiceImpl` 的 real shadow 分支，但默认 `realShadowEnabled=false`，因此默认不运行。
+- 即使开启 real shadow，由于当前 client 是 `DisabledLlmToolSelectionClient`，也不会真实调用模型；失败按 fail-open 处理，不影响 primary routing、真实工具执行或 API 返回。
 
 这些类的目标是先固定 prompt、client、parser、runner 的边界，防止后续接真实 provider 时把失败静默 fallback 成 keyword selector，或误让 LLM selector 接管生产。
 
@@ -33,7 +33,14 @@ Shadow mode 的目标是安全比较未来 LLM selector 与当前 keyword select
 - 记录 primary decision 与 shadow decision 的 match / mismatch。
 - 为后续真实 LLM selector 做离线评估、灰度观察和阈值治理。
 
-当前真实执行仍只使用 `DocumentToolSelector` 的 primary decision。Shadow decision 只用于 compare、日志和内存态 metrics。
+当前 selector 决策顺序：
+
+1. Primary：`DocumentToolSelector`，唯一决定真实执行工具。
+2. Fake shadow：可选，用于 compare / metrics。
+3. Real shadow：可选，默认关闭，用于未来真实 LLM selector shadow。
+4. 真实执行：永远使用 primary decision。
+
+Shadow decision 只用于 compare、日志和内存态 metrics，不会写入 API 返回。
 
 ## 4. Feature Flag
 
@@ -49,6 +56,9 @@ app:
 
 - `app.agent.selector.mode=keyword|shadow_llm`。
 - `app.agent.selector.shadow-enabled=false` 默认关闭。
+- `app.agent.selector.real-shadow-enabled=false` 默认关闭。
+- `app.agent.selector.real-shadow-record-metrics=false` 默认关闭。
+- `app.agent.selector.real-shadow-fail-open=true` 默认 fail-open。
 - 即使配置为 `shadow_llm`，当前真实执行仍以 primary decision 为准。
 - 不要把 `shadow_llm` 理解成 LLM 接管生产 routing。
 
@@ -69,13 +79,16 @@ app:
 - 未接 Micrometer。
 - 未接 Prometheus。
 - 未新增对外 API。
+- fake shadow metrics 已可记录。
+- real shadow metrics 默认不记录；只有 `realShadowRecordMetrics=true` 且 real shadow success 时才允许记录。
 
 ## 6. 当前已验证内容
 
-- 后端 180 tests 通过。
+- 后端 201 tests 通过。
 - `ToolSelectorEvaluationTest` 已用 24 条离线样例验证当前 keyword selector 基线。
 - `ShadowToolSelectorEvaluationTest` 已验证 primary `DocumentToolSelector` 与 fake shadow selector 的离线对比：24 cases，23 matched，1 mismatch，matchRate=0.9583。
 - `DocumentAgentServiceImplTest` 已验证 shadow compare metrics 只在 shadow compare 成功执行时记录，且不影响真实 decision 和工具执行。
+- `DocumentAgentRealShadowPathTest` 已验证 real shadow 默认关闭、fake shadow 不隐式启用 real shadow、disabled / exception fail-open、parseReady=false 跳过和 real metrics 开关边界。
 - `DisabledLlmToolSelectionClientTest`、`RealLlmToolSelectorTest` 和 `RealLlmSelectorShadowRunnerTest` 已验证 disabled client、adapter 串联、fake JSON 解析、disabled 失败和 runner 成功 / 失败边界。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
@@ -87,7 +100,7 @@ app:
 - 真实调用 LLM。
 - function calling。
 - LLM 接管生产 routing。
-- Real LLM selector 接入生产 service。
+- Real LLM selector 接管生产 service 的真实决策。
 - LangChain4j / Spring AI。
 - MCP。
 - 完整向量 RAG。
@@ -100,8 +113,8 @@ app:
 
 建议后续拆小推进：
 
-1. T015：在 feature flag 严格关闭的前提下，将 `RealLlmSelectorShadowRunner` 接入 service 的 shadow 路径；默认仍不启用，只允许 disabled / fake profile。
-2. 真实 provider 调用必须另开任务，且只能先 shadow compare，不接管生产。
-3. T016：增加人工审核 eval，记录 task、primary decision、shadow decision、reason 和人工判定。
-4. T017：达到稳定阈值后再考虑小流量接管。
+1. T016：新增 provider-specific client disabled / fake adapter，例如 DeepSeek 或 OpenAI-compatible client skeleton，但默认不注入真实 provider。
+2. T017：在本地 fake provider 上做 shadow-only smoke，不接管生产。
+3. T018：用户确认后才考虑真实 provider shadow-only 调用，仍不接管生产。
+4. 后续再增加人工审核 eval，记录 task、primary decision、shadow decision、reason 和人工判定；达到稳定阈值后再考虑小流量接管。
 5. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。

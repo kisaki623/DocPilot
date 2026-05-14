@@ -85,6 +85,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T015a 已完成：`AgentSelectorProperties` 新增 real shadow 安全开关，默认 `realShadowEnabled=false`、`realShadowRecordMetrics=false`、`realShadowFailOpen=true`；未修改 `application.yml`，未启用真实模型调用。
 - T015b 已完成：`DocumentAgentServiceImpl` 已接入 `RealLlmSelectorShadowRunner` 禁用态 shadow 路径；只有 `shadowEnabled=true` 且 `realShadowEnabled=true` 时才会旁路执行，默认不运行。real shadow 失败 fail-open，不影响 primary routing、真实工具执行或 API 返回。
 - T015c 已完成：新增 `DocumentAgentRealShadowPathTest`，聚焦验证 real shadow path 默认关闭、fake shadow 不隐式启用 real shadow、disabled / exception fail-open、parseReady=false 跳过、real metrics 默认不记录和显式开启后记录。
+- T015d 已完成：`docs/AGENT_SELECTOR_SHADOW_MODE.md` 和协作文档已更新，明确 real shadow runner 已接入 service 但默认关闭；当前仍未真实调用 LLM，未接 function calling，未新增 API，未改变 production routing。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -130,7 +131,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T015`：在 feature flag 严格关闭的前提下，将 `RealLlmSelectorShadowRunner` 接入 service 的 shadow 路径；默认仍不启用，只允许 disabled / fake profile，真实 provider 调用必须另开任务。
+1. 继续 `T016`：新增 provider-specific client disabled / fake adapter，例如 DeepSeek 或 OpenAI-compatible client skeleton，但默认不注入真实 provider，真实 provider 调用必须另开任务。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -198,6 +199,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T015`。
+优先执行 `T016`。
 
-原因：T014 已完成 disabled client、`RealLlmToolSelector` adapter 和 `RealLlmSelectorShadowRunner`；下一步可以在默认关闭的前提下把 runner 接入 service shadow 路径，但仍不能真实调用外部模型、不能接管生产 routing，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T015 已将 `RealLlmSelectorShadowRunner` 接入 service 的 real shadow 分支，并用安全开关保持默认关闭；下一步可以先做 provider-specific disabled / fake client skeleton，但仍不能真实调用外部模型、不能接管生产 routing，也不能改变 `/api/ai/agent/run` 返回协议。
