@@ -1490,6 +1490,47 @@
 - 未改变 disabled client。
 - 未改变 production routing。
 
+## 2026-05-15 - T016c OpenAI-compatible Selector Client Skeleton
+
+### 本轮目标
+
+新增 OpenAI-compatible LLM selection client 结构骨架，但本轮不发 HTTP 请求、不联网、不读取密钥。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleToolSelectionRequest.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleToolSelectionResponse.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 OpenAI-compatible request record，包含 model、messages、temperature 和 maxTokens。
+- 新增 OpenAI-compatible response record，包含 rawText、provider、model 和 finishReason。
+- 新增 `OpenAiCompatibleLlmToolSelectionClient`，实现 `LlmToolSelectionClient`。
+- 当前 `completeSelectionPrompt` 只返回 provider=`openai_compatible` 的 disabled response，不发起网络请求。
+- 提供 `buildRequest(prompt)` 纯构造方法，为未来真实 provider 接入做结构准备。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未引入 HTTP client。
+- 未发 HTTP 请求。
+- 未读取 API Key。
+- 未读取环境变量。
+- 未读取 `backend/.env`。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未接入 production service。
+- 未改变 production routing。
+
 ## 2026-05-15 - T016a LLM Selector Provider Settings
 
 ### 本轮目标

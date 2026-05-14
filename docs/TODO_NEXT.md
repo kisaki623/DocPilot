@@ -334,6 +334,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=FakeLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：fake client 不联网、不读取环境变量或 `backend/.env`、不需要 API Key；仅按 prompt 中 task 生成可被 parser 解析的 JSON，不影响 disabled client 或生产 routing。
 
+### T016c
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：新增 OpenAI-compatible LLM selection client skeleton。
+- 验证结果：`mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：仅提供 request / response 和 dry-run client 骨架；`completeSelectionPrompt` 返回 disabled，不发 HTTP、不读取 API Key、不读取环境变量或 `backend/.env`，未接入生产 service。
+
 ## 任务列表
 
 ### T000
