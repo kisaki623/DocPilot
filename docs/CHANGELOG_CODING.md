@@ -1531,6 +1531,44 @@
 - 未接入 production service。
 - 未改变 production routing。
 
+## 2026-05-15 - T017a Factory-backed Real Selector Builder
+
+### 本轮目标
+
+新增小型构造器，将 provider settings、LLM selection client factory、prompt builder 和 parser 串成 `RealLlmToolSelector`。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelectorFactory.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelectorFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `RealLlmToolSelectorFactory`。
+- 默认 properties 下通过 `LlmToolSelectionClientFactory` 创建 disabled client，selector 调用明确失败。
+- provider=`fake` 时 selector 可返回合法 decision。
+- provider=`openai_compatible` 时 selector 仍使用 dry-run disabled client，不联网。
+- unknown provider fallback disabled。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealLlmToolSelectorFactoryTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未接入 `DocumentAgentServiceImpl`。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP 请求。
+- 未调用真实 LLM。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
 ## 2026-05-15 - T016e Provider Client Skeleton 文档状态
 
 ### 本轮目标
