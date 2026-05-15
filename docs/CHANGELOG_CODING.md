@@ -995,6 +995,50 @@
 - 未修改 DDL。
 - 未改变 production routing。
 
+## 2026-05-15 - T017x Fake Provider Routing Alignment
+
+### 本轮目标
+
+修正 `FakeLlmToolSelectionClient` 的本地规则，使 provider=fake 更稳定模拟未来 LLM selector 的 JSON 输出，并尽量对齐当前 `DocumentToolSelector` 的 routing 基线。
+
+### 诊断结论
+
+- fake provider 已优先从 prompt 的 `Current task:` 提取真实 task，没有直接扫描整个 prompt。
+- T017d failures 主要来自 blank task 被 `LlmToolSelectionPromptBuilder` 拒绝，属于 real shadow runner 输入边界。
+- mismatch 主要来自 fake provider 规则缺口：`progress` / `state` 状态词、中文摘要词、evidence / 引用 / 根据原文词，以及 summary + evidence 冲突优先级。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- fake provider 增强 status / summary / evidence 关键词集合。
+- routing 优先级调整为 evidence 优先，其次 summary，其次 status，最后默认 QA。
+- 保留从 `Current task:` 提取真实 task 的行为，避免可用工具描述污染 decision。
+- 单元测试覆盖 summary、QA/evidence、status、summary + evidence 冲突、中文摘要、中文证据、英文大小写、空白输入、JSON 可解析性、合法 toolNames 和 confidence 范围。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=FakeLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未修改 `DocumentToolSelector`。
+- 未修改 `tool-selector-eval-cases.json`。
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

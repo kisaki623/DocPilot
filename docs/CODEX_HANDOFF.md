@@ -94,6 +94,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T017a 已完成：新增 `RealLlmToolSelectorFactory`，将 `AgentSelectorProperties`、`LlmToolSelectionClientFactory`、prompt builder 和 parser 串起来创建 `RealLlmToolSelector`；默认 disabled，fake provider 可在测试中返回合法 decision，openai-compatible 仍 dry-run disabled。
 - T017b 已完成：`RealLlmSelectorShadowRunner` 支持 factory-backed selector；默认 disabled provider 返回 success=false，provider=fake 可在测试中 success=true，openai-compatible 仍 dry-run disabled。未修改 service 或 production routing。
 - T017c 已完成：`DocumentAgentServiceImpl` 的 real shadow runner 已改为 factory-backed 构造路径；默认 provider 仍 disabled，`realShadowEnabled=false` 时不运行；service 测试覆盖 provider=fake real shadow success、primary decision 仍决定真实工具执行、real metrics 默认不记录且显式开启后才记录。
+- T017x 已完成：`FakeLlmToolSelectionClient` 已增强 task 提取和本地规则，覆盖 status / summary / evidence、中文关键词、英文大小写、summary + evidence 冲突和空白 fallback；未修改 primary selector 或 eval cases。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

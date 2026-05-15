@@ -382,6 +382,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=DocumentAgentRealShadowPathTest test` 通过；`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn test -DskipITs` 通过，223 tests。
 - 边界：`DocumentAgentServiceImpl` 的 real shadow runner 现在通过 `RealLlmToolSelectorFactory` 和 provider 配置构造 selector；默认 provider 仍 disabled，provider=fake 仅用于测试验证 real shadow success；未真实调用 LLM，未读取 API Key 或 `backend/.env`，未新增 API，未修改前端，未改变 production routing。
 
+### T017x
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：修正 `FakeLlmToolSelectionClient` 的本地规则，使 fake provider 更稳定模拟未来 LLM selector 输出。
+- 验证结果：`mvn -Dtest=FakeLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：仅增强 fake provider 的 prompt task 提取与本地规则；未修改 `DocumentToolSelector`，未修改 eval cases，未真实调用 LLM，未读取 API Key 或 `backend/.env`，未改变 production routing。
+
 ## 任务列表
 
 ### T000
