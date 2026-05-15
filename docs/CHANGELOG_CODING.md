@@ -1399,6 +1399,18 @@
 - T024 才可能进入候选实现，且应先安全审查。
 - 完整 T010 仍为 BLOCKED，等待 MQ / 解析消费链路。
 
+### T023e 自检结果
+
+- `git status --short` 干净后进入 T023e。
+- `git diff --name-only HEAD~4..HEAD` 仅包含允许文档。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端。
+- 未新增 HTTP API / Controller。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未读取或输出 secret。
+
 ### 明确未做事项
 
 - 未新增 HTTP API。
