@@ -23,10 +23,14 @@ class SelectorMetricsCollectorTest {
         collector.record("qa_tool", "qa_tool");
 
         SelectorMetricsSnapshot snapshot = collector.snapshot();
+        assertEquals(2L, snapshot.totalCount());
         assertEquals(2L, snapshot.totalComparisons());
+        assertEquals(2L, snapshot.successCount());
+        assertEquals(0L, snapshot.failureCount());
         assertEquals(2L, snapshot.matchedCount());
         assertEquals(0L, snapshot.mismatchCount());
         assertEquals(1.0d, snapshot.matchRate());
+        assertEquals(0.0d, snapshot.failureRate());
         assertNotNull(snapshot.lastUpdatedTime());
     }
 
@@ -40,20 +44,118 @@ class SelectorMetricsCollectorTest {
         collector.record("qa_tool", "qa_tool");
 
         SelectorMetricsSnapshot snapshot = collector.snapshot();
+        assertEquals(4L, snapshot.totalCount());
         assertEquals(4L, snapshot.totalComparisons());
+        assertEquals(4L, snapshot.successCount());
+        assertEquals(0L, snapshot.failureCount());
         assertEquals(2L, snapshot.matchedCount());
         assertEquals(2L, snapshot.mismatchCount());
         assertEquals(0.5d, snapshot.matchRate());
+        assertEquals(0.0d, snapshot.failureRate());
+    }
+
+    @Test
+    void shouldRecordFailures() {
+        SelectorMetricsCollector collector = new SelectorMetricsCollector();
+
+        collector.recordSuccess("openai_compatible", "summary_tool", "summary_tool");
+        collector.recordFailure("openai_compatible", "summary_tool");
+
+        SelectorMetricsSnapshot snapshot = collector.snapshot();
+        assertEquals(2L, snapshot.totalCount());
+        assertEquals(1L, snapshot.successCount());
+        assertEquals(1L, snapshot.failureCount());
+        assertEquals(1L, snapshot.matchedCount());
+        assertEquals(0L, snapshot.mismatchCount());
+        assertEquals(1.0d, snapshot.matchRate());
+        assertEquals(0.5d, snapshot.failureRate());
     }
 
     @Test
     void shouldReturnZeroRateWhenEmpty() {
         SelectorMetricsSnapshot snapshot = new SelectorMetricsCollector().snapshot();
 
+        assertEquals(0L, snapshot.totalCount());
         assertEquals(0L, snapshot.totalComparisons());
+        assertEquals(0L, snapshot.successCount());
+        assertEquals(0L, snapshot.failureCount());
         assertEquals(0L, snapshot.matchedCount());
         assertEquals(0L, snapshot.mismatchCount());
         assertEquals(0.0d, snapshot.matchRate());
+        assertEquals(0.0d, snapshot.failureRate());
+        assertTrue(snapshot.providerMetrics().isEmpty());
+        assertTrue(snapshot.decisionPairMetrics().isEmpty());
+    }
+
+    @Test
+    void shouldAggregateByProvider() {
+        SelectorMetricsCollector collector = new SelectorMetricsCollector();
+
+        collector.recordSuccess("fake", "summary_tool", "summary_tool");
+        collector.recordSuccess("openai_compatible", "summary_tool", "qa_tool");
+        collector.recordFailure("openai_compatible", "summary_tool");
+
+        SelectorMetricsSnapshot snapshot = collector.snapshot();
+        SelectorMetricsSnapshot.ProviderMetrics fakeMetrics = snapshot.providerMetrics().get("fake");
+        SelectorMetricsSnapshot.ProviderMetrics openAiMetrics = snapshot.providerMetrics().get("openai_compatible");
+
+        assertEquals(1L, fakeMetrics.totalCount());
+        assertEquals(1L, fakeMetrics.successCount());
+        assertEquals(0L, fakeMetrics.failureCount());
+        assertEquals(1L, fakeMetrics.matchedCount());
+        assertEquals(1.0d, fakeMetrics.matchRate());
+
+        assertEquals(2L, openAiMetrics.totalCount());
+        assertEquals(1L, openAiMetrics.successCount());
+        assertEquals(1L, openAiMetrics.failureCount());
+        assertEquals(0L, openAiMetrics.matchedCount());
+        assertEquals(1L, openAiMetrics.mismatchCount());
+        assertEquals(0.0d, openAiMetrics.matchRate());
+        assertEquals(0.5d, openAiMetrics.failureRate());
+    }
+
+    @Test
+    void shouldAggregateByDecisionPair() {
+        SelectorMetricsCollector collector = new SelectorMetricsCollector();
+
+        collector.recordSuccess("fake", "summary_tool", "summary_tool");
+        collector.recordSuccess("fake", "summary_tool", "qa_tool");
+        collector.recordSuccess("openai_compatible", "summary_tool", "qa_tool");
+
+        SelectorMetricsSnapshot snapshot = collector.snapshot();
+        SelectorMetricsSnapshot.DecisionPairMetrics matchedPair =
+                snapshot.decisionPairMetrics().get("summary_tool->summary_tool");
+        SelectorMetricsSnapshot.DecisionPairMetrics mismatchPair =
+                snapshot.decisionPairMetrics().get("summary_tool->qa_tool");
+
+        assertEquals("summary_tool", matchedPair.primaryDecision());
+        assertEquals("summary_tool", matchedPair.shadowDecision());
+        assertEquals(1L, matchedPair.totalCount());
+        assertEquals(1L, matchedPair.matchedCount());
+        assertEquals(0L, matchedPair.mismatchCount());
+
+        assertEquals("summary_tool", mismatchPair.primaryDecision());
+        assertEquals("qa_tool", mismatchPair.shadowDecision());
+        assertEquals(2L, mismatchPair.totalCount());
+        assertEquals(0L, mismatchPair.matchedCount());
+        assertEquals(2L, mismatchPair.mismatchCount());
+    }
+
+    @Test
+    void shouldNotExposeSensitiveFields() {
+        SelectorMetricsCollector collector = new SelectorMetricsCollector();
+
+        collector.recordSuccess("openai_compatible", "summary_tool", "summary_tool");
+
+        SelectorMetricsSnapshot snapshot = collector.snapshot();
+        assertTrue(snapshot.toString().contains("openai_compatible"));
+        assertTrue(snapshot.toString().contains("summary_tool"));
+        assertTrue(snapshot.toString().contains("providerMetrics"));
+        assertTrue(snapshot.toString().contains("decisionPairMetrics"));
+        assertTrue(!snapshot.toString().contains("apiKey"));
+        assertTrue(!snapshot.toString().contains("baseUrl"));
+        assertTrue(!snapshot.toString().contains("prompt"));
+        assertTrue(!snapshot.toString().contains("documentContent"));
     }
 
     @Test
@@ -79,10 +181,14 @@ class SelectorMetricsCollectorTest {
         assertTrue(executorService.awaitTermination(5, TimeUnit.SECONDS));
 
         SelectorMetricsSnapshot snapshot = collector.snapshot();
+        assertEquals(200L, snapshot.totalCount());
         assertEquals(200L, snapshot.totalComparisons());
+        assertEquals(200L, snapshot.successCount());
+        assertEquals(0L, snapshot.failureCount());
         assertEquals(100L, snapshot.matchedCount());
         assertEquals(100L, snapshot.mismatchCount());
         assertEquals(0.5d, snapshot.matchRate());
+        assertEquals(0.0d, snapshot.failureRate());
         assertNotNull(snapshot.lastUpdatedTime());
     }
 }
