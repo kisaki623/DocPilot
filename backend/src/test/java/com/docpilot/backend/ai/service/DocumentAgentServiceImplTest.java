@@ -15,6 +15,8 @@ import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
 import com.docpilot.backend.ai.agent.tool.SelectorMetricsCollector;
 import com.docpilot.backend.ai.agent.tool.SelectorMetricsSnapshot;
+import com.docpilot.backend.ai.agent.tool.SelectorShadowThresholdDecision;
+import com.docpilot.backend.ai.agent.tool.SelectorShadowThresholdPolicy;
 import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
@@ -339,6 +341,67 @@ class DocumentAgentServiceImplTest {
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertEmptySelectorMetrics();
+    }
+
+    @Test
+    void shouldKeepPrimaryDecisionWhenThresholdAllowsPromotionCandidate() {
+        SelectorMetricsCollector thresholdMetrics = new SelectorMetricsCollector();
+        for (int i = 0; i < 20; i++) {
+            thresholdMetrics.recordSuccess("fake", "summary_tool", "summary_tool");
+        }
+        SelectorShadowThresholdDecision thresholdDecision = new SelectorShadowThresholdPolicy()
+                .evaluate(thresholdMetrics.snapshot());
+        assertTrue(thresholdDecision.allowPromotionCandidate());
+
+        selectorProperties.setShadowEnabled(true);
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(108L);
+        request.setTask("Please summarize this document");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 108L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        108L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "content"
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "summary_tool",
+                List.of("document_status_tool", "document_summary_tool"),
+                "summary reason",
+                List.of("summary")
+        ));
+        stubToolDefinitions();
+        when(shadowToolSelector.selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn(new LlmToolSelectionResult(
+                        "qa_tool",
+                        List.of("document_status_tool", "document_qa_tool"),
+                        "fake shadow reason",
+                        List.of("evidence"),
+                        0.9d
+                ));
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubStatusTool();
+        stubSummaryTool();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request);
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("summary", response.getFinalAnswer());
+        verify(documentSummaryTool).execute(any());
+        verify(documentQaTool, never()).execute(any());
     }
 
     @Test
