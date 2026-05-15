@@ -149,6 +149,81 @@
 - 不暴露 provider raw error。
 - 只输出聚合数据和安全枚举值。
 
+## 安全威胁模型
+
+### 可能泄露的信息
+
+允许被谨慎观察的内部信息：
+
+- provider 名称，例如 `disabled` / `fake` / `openai_compatible`。
+- primaryDecision / shadowDecision 分布。
+- failureRate。
+- mismatchRate 或由 matched / mismatch 推导的差异率。
+- provider 调用延迟的聚合值。
+- 归类后的 errorType。
+- threshold 的 `promotionCandidate` 和 reason。
+
+不应该泄露的信息：
+
+- prompt。
+- 用户 task。
+- 文档内容。
+- 模型完整返回原文。
+- API Key。
+- provider baseUrl。
+- Authorization header。
+- provider raw error。
+- 用户私有内容。
+
+### 攻击面
+
+- 公网暴露 API：如果把 metrics 暴露成普通业务 API，可能被非管理员访问。
+- 未鉴权 Actuator：Actuator endpoint 若默认开启或公网可达，会泄露内部 selector 运行状态。
+- 日志误输出：debug dump 或 provider error 如果直接写入日志，可能把内部信息扩散到日志系统。
+- metrics label 维度过高：将 task、documentId、userId、errorMessage 等放入 label 会造成隐私和稳定性风险。
+- provider error 原样透出：上游错误可能包含请求路径、模型名、额度信息或诊断文本。
+- 用户文档内容进入观测数据：任何 raw sample 都可能包含用户私有内容。
+
+### 防护策略
+
+- 默认关闭网络观测入口。
+- 仅允许本地或内网访问。
+- 所有网络入口必须鉴权。
+- 需要时增加 IP allowlist。
+- 只输出聚合数据。
+- 不输出 raw sample。
+- 不输出 prompt。
+- 不输出 model response。
+- errorType 归类，不输出 provider raw error。
+- metrics label 只使用低基数枚举值。
+- Actuator / API 返回字段必须使用白名单。
+
+### 最小安全字段白名单
+
+- `totalCount`
+- `successCount`
+- `failureCount`
+- `matchedCount`
+- `mismatchCount`
+- `matchRate`
+- `failureRate`
+- provider 枚举值
+- primaryDecision / shadowDecision 枚举值
+- `promotionCandidate`
+- threshold reason
+
+### 禁止字段黑名单
+
+- API Key
+- baseUrl
+- Authorization
+- prompt
+- task
+- document content
+- model raw response
+- real IP
+- user private content
+
 ## 推荐路线
 
 短期：
