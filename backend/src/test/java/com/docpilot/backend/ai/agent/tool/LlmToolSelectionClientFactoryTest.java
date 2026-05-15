@@ -41,6 +41,8 @@ class LlmToolSelectionClientFactoryTest {
         properties.setLlmModel("selector-model");
         properties.setLlmBaseUrl("https://example.invalid/v1");
         properties.setLlmRequestTimeoutMs(5000);
+        properties.setLlmMaxTokens(128);
+        properties.setLlmTemperature(0.1d);
 
         LlmToolSelectionClient client = factory.create(properties);
         LlmToolSelectionClientResponse response = client.completeSelectionPrompt("select");
@@ -49,6 +51,8 @@ class LlmToolSelectionClientFactoryTest {
         assertThat(response.disabled()).isTrue();
         assertThat(response.provider()).isEqualTo("openai_compatible");
         assertThat(response.model()).isEqualTo("selector-model");
+        assertThat(((OpenAiCompatibleLlmToolSelectionClient) client).getMaxTokens()).isEqualTo(128);
+        assertThat(((OpenAiCompatibleLlmToolSelectionClient) client).getTemperature()).isEqualTo(0.1d);
     }
 
     @Test

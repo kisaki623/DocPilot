@@ -448,6 +448,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：默认 provider 仍为 disabled，默认 `realShadowEnabled=false`、`realShadowRecordMetrics=false`；新增 `llmApiKey`、`llmMaxTokens`、`llmTemperature` 仅作为配置字段，不读取或输出真实 API Key，未修改 `application.yml`，未改变 production routing。
 
+### T019b
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：实现 OpenAI-compatible selector client 的真实 HTTP 能力。
+- 验证结果：`mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test` 通过；`mvn -Dtest=LlmToolSelectionClientFactoryTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：只有 apiKey、baseUrl、model 都存在时才会发 HTTP；测试使用本地 stub server，不需要真实 API Key；client 不打印 request body、prompt、Authorization、完整 baseUrl 或模型完整返回；未修改 `application.yml`，未新增 API，未改变 production routing。
+
 ## 任务列表
 
 ### T000

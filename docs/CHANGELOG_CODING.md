@@ -1242,6 +1242,46 @@
 - 未真实调用 provider。
 - 未改变 production routing。
 
+## 2026-05-15 - T019b OpenAI-compatible Selector Client
+
+### 本轮目标
+
+将 `OpenAiCompatibleLlmToolSelectionClient` 从 dry-run skeleton 升级为可真实调用 OpenAI-compatible chat completions 的 client，同时保持缺配置时不联网。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClient.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleToolSelectionRequest.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactory.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClientTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 使用 JDK `HttpClient` 调用 `{baseUrl}/chat/completions`。
+- 请求 body 使用 OpenAI-compatible chat completions 格式，包含 system / user messages、`temperature`、`max_tokens` 和 `stream=false`。
+- 缺少 apiKey / baseUrl / model 时直接返回 disabled response，不发 HTTP。
+- 响应只提取 `choices[0].message.content` 作为 rawText，后续仍由 `LlmToolSelectionParser` 校验。
+- 非 2xx、provider JSON 解析失败、空 content、IO / timeout / interrupted 均返回 disabled/failure，不影响 primary routing。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -Dtest=LlmToolSelectionClientFactoryTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 单元测试未使用真实 API Key，仅使用本地 stub server。
+- 未读取 `backend/.env`。
+- 未输出 API Key、Authorization header、prompt、文档内容或完整 baseUrl。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未新增 API。
+- 未改变 production routing。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

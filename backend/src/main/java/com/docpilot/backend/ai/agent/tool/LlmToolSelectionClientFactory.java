@@ -16,7 +16,10 @@ public class LlmToolSelectionClientFactory {
             return new OpenAiCompatibleLlmToolSelectionClient(
                     properties.getLlmModel(),
                     properties.getLlmBaseUrl(),
-                    properties.getLlmRequestTimeoutMs()
+                    properties.getLlmApiKey(),
+                    properties.getLlmRequestTimeoutMs(),
+                    properties.getLlmMaxTokens(),
+                    properties.getLlmTemperature()
             );
         }
         return new DisabledLlmToolSelectionClient();

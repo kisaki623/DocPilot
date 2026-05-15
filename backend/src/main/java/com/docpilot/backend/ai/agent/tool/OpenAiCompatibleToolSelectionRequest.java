@@ -5,7 +5,8 @@ import java.util.List;
 public record OpenAiCompatibleToolSelectionRequest(String model,
                                                    List<Message> messages,
                                                    double temperature,
-                                                   int maxTokens) {
+                                                   int maxTokens,
+                                                   boolean stream) {
 
     public OpenAiCompatibleToolSelectionRequest {
         model = model == null ? "" : model.trim();
