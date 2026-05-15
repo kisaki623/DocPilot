@@ -1365,6 +1365,53 @@
 - 未修改前端代码。
 - 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
 
+## 2026-05-15 - T021 Selector Metrics Debug Boundary
+
+### 本轮目标
+
+为 selector shadow metrics 提供内部只读 debug dump / reporter，并说明为什么当前暂不开放 HTTP API / Actuator / Prometheus 观测入口。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugSnapshot.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugReporter.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugSnapshotTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugReporterTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugEvaluationTest.java`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `SelectorMetricsDebugSnapshot`，将 metrics snapshot 和 threshold decision 格式化为安全 view。
+- 新增 `SelectorMetricsDebugReporter`，只读组合 `SelectorMetricsCollector` 与 `SelectorShadowThresholdPolicy`，不清空 metrics，不改变状态。
+- 新增离线 debug evaluation 测试，验证 dump 可展示 total / success / failure / matched / mismatch、matchRate、failureRate、provider 聚合、decision pair 聚合和 threshold decision。
+- 文档说明暂不开放 API / Actuator：避免在管理端鉴权、内网边界和脱敏策略未设计前暴露 provider / decision metrics。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=SelectorMetricsDebug*Test test`：通过。
+- `cd backend; mvn -Dtest=SelectorMetricsDebugEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=ShadowToolSelectorEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=RealShadowProviderEvaluationTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未真实调用 provider。
+- 未读取或输出 API Key、完整 baseUrl、Authorization header、prompt、用户 task、文档内容或模型完整返回。
+- 未读取 `backend/.env`。
+- 未改变 production routing。
+- 未新增 HTTP API。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未落库。
+- 未修改前端。
+- 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
+
 ## 2026-05-15 - T020 Selector Shadow Threshold Metrics
 
 ### 本轮目标

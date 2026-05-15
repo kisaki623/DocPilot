@@ -111,6 +111,8 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T020 已完成：selector shadow metrics 增强为 total / success / failure / matched / mismatch、matchRate、failureRate、provider 聚合和 decision pair 聚合；新增 `SelectorShadowThresholdPolicy` / `SelectorShadowThresholdDecision`，默认阈值为 minimumSamples=20、minMatchRate=0.95、maxFailureRate=0.05。
 - T020 边界：threshold policy 只输出 `allowPromotionCandidate` 和 reason，不自动接管 routing，不修改配置，不新增 API，不落库，不接 Prometheus，不修改前端；production routing 仍由 `DocumentToolSelector` 决定。
 - T020 验证：`SelectorMetricsCollectorTest`、`SelectorShadowThresholdPolicyTest`、`SelectorShadowThresholdEvaluationTest`、`ShadowToolSelectorEvaluationTest`、`RealShadowProviderEvaluationTest`、`DocumentAgentServiceImplTest` 与后端全量测试通过；T020e 也完成前端 lint/build。
+- T021a-c 已完成：新增 `SelectorMetricsDebugSnapshot` / `SelectorMetricsDebugReporter` 和离线 debug evaluation 测试；内部 dump 只展示安全字段和 threshold decision，不输出 prompt、task、文档内容、模型完整返回、API Key、baseUrl 或 Authorization。
+- T021d 已补充文档边界：当前不新增 HTTP API，不新增 Actuator endpoint，不接 Prometheus，不落库；这么做是为了避免在管理端鉴权、内网边界和脱敏策略未设计前暴露 provider / decision metrics。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -156,7 +158,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 下一步推荐 `T021`：shadow metrics 只读内部观测入口或本地 debug dump；开始前先确认是否需要新增 API、Actuator endpoint，还是仅测试内导出。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
+1. 下一步先完成 `T021e`：全量验证并收口协作文档。T021 完成后推荐 `T022`：Actuator / 管理 API / Prometheus 观测入口设计决策；先确认是否允许新增 API / Actuator endpoint，或继续仅保留本地 debug dump。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -224,6 +226,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T021`：shadow metrics 只读内部观测入口或本地 debug dump。
+优先完成 `T021e`：shadow metrics 内部 debug dump 的全量验证和状态收口。
 
-原因：T020 已完成 shadow metrics 与 threshold policy 基础设施；下一步如需观测，应先决定是否允许新增 API / Actuator endpoint，或仅保留本地 debug dump。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T021a-d 已完成内部 debug dump / reporter 与边界文档；还需要一次后端 compile/test 和前端 lint/build 后再标记 T021 DONE。T021 完成后再进入 T022 观测入口设计，默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。

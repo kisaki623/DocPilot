@@ -104,3 +104,17 @@
 1. 先把当前同步执行逻辑抽成可复用 executor，保持 Controller 不感知工具细节。
 2. 再新增异步提交接口或参数，返回 taskId 后立即结束请求。
 3. 最后接入 RocketMQ consumer，并用 task / step 查询接口完成前端轮询验证。
+
+## Selector Metrics Debug 边界
+
+T021 新增 selector shadow metrics 的内部只读 debug dump / reporter，但它不改变本文档的异步 Agent 设计边界：
+
+- 不新增 HTTP API。
+- 不新增 Actuator endpoint。
+- 不接 Prometheus。
+- 不落库。
+- 不接 RocketMQ Agent。
+- 不改变 `/api/ai/agent/run` 的同步执行语义。
+- 不让 shadow decision 接管 primary routing。
+
+当前选择内部 debug dump 的原因是：selector shadow metrics 包含 provider / decision 聚合等运行信息，在管理端鉴权、内网暴露范围和脱敏策略未设计前，不应直接对外开放。后续如需观测入口，建议先做 T022 设计文档，在本地 CLI / debug dump、Actuator endpoint、管理端 API 或 Prometheus 之间做明确取舍。

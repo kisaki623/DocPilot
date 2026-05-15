@@ -458,6 +458,17 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 回归结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过；前端 `npm run lint` 通过；`npm run build` 通过。
 - 边界：threshold policy 只产生 `allowPromotionCandidate` 和 reason，不自动接管 routing，不修改配置，不落库，不接 Prometheus，不新增 API，不改前端，不真实调用 provider；完整 T010 仍为 BLOCKED。
 
+### T021
+
+- 状态：REVIEW
+- 完成时间：2026-05-15
+- 任务目标：为 selector shadow metrics 提供内部只读 debug dump / reporter。
+- 当前结果：已新增 `SelectorMetricsDebugSnapshot` 和 `SelectorMetricsDebugReporter`，并用离线 evaluation 测试验证 dump 可展示 total / success / failure / matched / mismatch、matchRate、failureRate、provider 聚合、decision pair 聚合和 threshold decision。
+- 设计边界：T021 不新增 HTTP API，不新增 Actuator endpoint，不接 Prometheus，不落库，不改变 production routing，不让 `promotionCandidate` 接管真实工具执行。
+- 暂不开放 API / Actuator 原因：selector metrics 可能包含 provider / decision 等运行信息，管理端鉴权、内网暴露范围和脱敏策略尚未单独设计。
+- 后续观测入口选择：A. 本地 CLI / debug dump；B. Actuator endpoint，仅限内网和认证；C. 管理端 API，需要鉴权和脱敏。
+- 下一步：T021e 完成全量验证和状态收口；之后推荐 T022 先写 Actuator / 管理 API / Prometheus 观测入口设计文档，不直接写接口。
+
 ### T019a
 
 - 状态：DONE
@@ -752,4 +763,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T021`：shadow metrics 只读内部观测入口或本地 debug dump。T021 前必须先确认是否需要新增 API、Actuator endpoint，还是仅测试内导出；默认不新增对外 API。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐先完成 `T021e`：shadow metrics 内部 debug dump 的全量验证和状态收口。T021 完成后，下一步建议 `T022`：Actuator / 管理 API / Prometheus 观测入口设计决策；先写设计文档，不直接新增接口。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
