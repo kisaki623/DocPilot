@@ -954,6 +954,47 @@
 - 未修改前端。
 - 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
 
+## 2026-05-15 - T017c Fake Provider Real Shadow Service Path
+
+### 本轮目标
+
+在 service 测试中验证 `realShadowEnabled=true + provider=fake` 时 real shadow 可以成功执行，但真实工具仍由 primary `DocumentToolSelector` decision 决定。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentRealShadowPathTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentServiceImpl` 的 real shadow runner 改为通过 `RealLlmToolSelectorFactory` 和 `AgentSelectorProperties` 创建 selector。
+- 默认 provider 仍是 `disabled`，默认 `realShadowEnabled=false`，默认不运行 real shadow。
+- provider=fake 只在测试中用于验证 real shadow success path。
+- 测试覆盖 provider=fake 成功时真实执行仍来自 primary decision。
+- 测试覆盖 `realShadowRecordMetrics=false` 时不记录 real metrics，显式开启后才记录。
+- 保留 real shadow fail-open 边界，失败不影响 Agent 主流程。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentRealShadowPathTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，223 tests。
+
+### 明确未做事项
+
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未改变 production routing。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

@@ -8,8 +8,6 @@ import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
-import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClient;
-import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClientResponse;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionPromptBuilder;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
@@ -70,9 +68,6 @@ class DocumentAgentRealShadowPathTest {
     private LlmToolSelectionPromptBuilder realShadowPromptBuilder;
 
     @Mock
-    private LlmToolSelectionClient realShadowClient;
-
-    @Mock
     private LlmToolSelectionParser realShadowParser;
 
     private SelectorMetricsCollector metricsCollector;
@@ -86,7 +81,7 @@ class DocumentAgentRealShadowPathTest {
         var response = service.run(100L, request(201L));
 
         assertEquals("summary_tool", response.getDecision());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertMetrics(0L, 0L, 0L);
     }
 
@@ -102,7 +97,7 @@ class DocumentAgentRealShadowPathTest {
 
         assertEquals("summary_tool", response.getDecision());
         verify(fakeShadowSelector).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertMetrics(1L, 1L, 0L);
     }
 
@@ -114,13 +109,11 @@ class DocumentAgentRealShadowPathTest {
         stubFakeShadowSummary();
         when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
                 .thenReturn("prompt");
-        when(realShadowClient.completeSelectionPrompt(any()))
-                .thenReturn(LlmToolSelectionClientResponse.disabled("disabled for test"));
 
         var response = service.run(100L, request(203L));
 
         assertEquals("summary_tool", response.getDecision());
-        verify(realShadowClient).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(realShadowParser, never()).parse(anyString());
         assertMetrics(1L, 1L, 0L);
     }
@@ -137,7 +130,7 @@ class DocumentAgentRealShadowPathTest {
         var response = service.run(100L, request(204L));
 
         assertEquals("summary_tool", response.getDecision());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowParser, never()).parse(anyString());
         assertMetrics(1L, 1L, 0L);
     }
 
@@ -151,13 +144,13 @@ class DocumentAgentRealShadowPathTest {
 
         assertEquals("status_only", response.getDecision());
         verify(fakeShadowSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertMetrics(0L, 0L, 0L);
     }
 
     @Test
     void shouldNotRecordRealMetricsWhenRealShadowRecordMetricsDisabled() {
-        AgentSelectorProperties properties = realShadowEnabledProperties(false);
+        AgentSelectorProperties properties = realShadowEnabledProperties(false, "fake");
         DocumentAgentServiceImpl service = buildService(properties);
         stubReadySummaryFlow(206L);
         stubFakeShadowSummary();
@@ -172,7 +165,7 @@ class DocumentAgentRealShadowPathTest {
 
     @Test
     void shouldRecordRealMetricsWhenFlagEnabledAndRealShadowSucceeds() {
-        AgentSelectorProperties properties = realShadowEnabledProperties(true);
+        AgentSelectorProperties properties = realShadowEnabledProperties(true, "fake");
         DocumentAgentServiceImpl service = buildService(properties);
         stubReadySummaryFlow(207L);
         stubFakeShadowSummary();
@@ -196,7 +189,6 @@ class DocumentAgentRealShadowPathTest {
                 toolDefinitionProvider,
                 metricsCollector,
                 realShadowPromptBuilder,
-                realShadowClient,
                 realShadowParser
         );
     }
@@ -209,10 +201,15 @@ class DocumentAgentRealShadowPathTest {
     }
 
     private AgentSelectorProperties realShadowEnabledProperties(boolean recordMetrics) {
+        return realShadowEnabledProperties(recordMetrics, "disabled");
+    }
+
+    private AgentSelectorProperties realShadowEnabledProperties(boolean recordMetrics, String provider) {
         AgentSelectorProperties properties = new AgentSelectorProperties();
         properties.setShadowEnabled(true);
         properties.setRealShadowEnabled(true);
         properties.setRealShadowRecordMetrics(recordMetrics);
+        properties.setLlmProvider(provider);
         return properties;
     }
 
@@ -275,15 +272,7 @@ class DocumentAgentRealShadowPathTest {
 
     private void stubSuccessfulRealShadow(String decision) {
         when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
-                .thenReturn("prompt");
-        when(realShadowClient.completeSelectionPrompt(any()))
-                .thenReturn(new LlmToolSelectionClientResponse(
-                        "{\"decision\":\"" + decision + "\"}",
-                        "fake",
-                        "fake",
-                        false,
-                        ""
-                ));
+                .thenReturn("Current task: Please summarize this document");
         when(realShadowParser.parse(anyString())).thenReturn(new LlmToolSelectionResult(
                 decision,
                 List.of("document_status_tool", "document_qa_tool"),

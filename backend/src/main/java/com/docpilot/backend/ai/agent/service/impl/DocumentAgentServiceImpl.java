@@ -8,7 +8,6 @@ import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
-import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClient;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionPromptBuilder;
 import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
@@ -16,7 +15,8 @@ import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
 import com.docpilot.backend.ai.agent.tool.RealLlmSelectorShadowRunResult;
 import com.docpilot.backend.ai.agent.tool.RealLlmSelectorShadowRunner;
-import com.docpilot.backend.ai.agent.tool.RealLlmToolSelector;
+import com.docpilot.backend.ai.agent.tool.RealLlmToolSelectorFactory;
+import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClientFactory;
 import com.docpilot.backend.ai.agent.tool.SelectorMetricsCollector;
 import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
@@ -60,7 +60,6 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                                     ToolDefinitionProvider toolDefinitionProvider,
                                     SelectorMetricsCollector selectorMetricsCollector,
                                     LlmToolSelectionPromptBuilder realShadowPromptBuilder,
-                                    LlmToolSelectionClient realShadowClient,
                                     LlmToolSelectionParser realShadowParser) {
         this.toolRegistry = toolRegistry;
         this.toolSelector = toolSelector;
@@ -69,12 +68,12 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         this.shadowToolSelector = shadowToolSelector;
         this.toolDefinitionProvider = toolDefinitionProvider;
         this.selectorMetricsCollector = selectorMetricsCollector;
-        RealLlmToolSelector realLlmToolSelector = new RealLlmToolSelector(
+        RealLlmToolSelectorFactory realLlmToolSelectorFactory = new RealLlmToolSelectorFactory(
+                new LlmToolSelectionClientFactory(),
                 realShadowPromptBuilder,
-                realShadowClient,
                 realShadowParser
         );
-        this.realShadowRunner = new RealLlmSelectorShadowRunner(realLlmToolSelector);
+        this.realShadowRunner = new RealLlmSelectorShadowRunner(realLlmToolSelectorFactory, selectorProperties);
     }
 
     @Override

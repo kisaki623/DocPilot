@@ -9,8 +9,6 @@ import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
-import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClient;
-import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClientResponse;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionPromptBuilder;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
@@ -77,9 +75,6 @@ class DocumentAgentServiceImplTest {
     private LlmToolSelectionPromptBuilder realShadowPromptBuilder;
 
     @Mock
-    private LlmToolSelectionClient realShadowClient;
-
-    @Mock
     private LlmToolSelectionParser realShadowParser;
 
     private final AgentSelectorProperties selectorProperties = new AgentSelectorProperties();
@@ -96,7 +91,6 @@ class DocumentAgentServiceImplTest {
                 toolDefinitionProvider,
                 selectorMetricsCollector,
                 realShadowPromptBuilder,
-                realShadowClient,
                 realShadowParser
         );
     }
@@ -176,7 +170,7 @@ class DocumentAgentServiceImplTest {
         verifyPersistenceSuccess();
         verify(documentQaTool, never()).execute(any());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertEmptySelectorMetrics();
     }
 
@@ -232,7 +226,7 @@ class DocumentAgentServiceImplTest {
         assertEquals(2, response.getSteps().size());
         assertTrue(response.isSuccess());
         verifyPersistenceSuccess();
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertEmptySelectorMetrics();
     }
 
@@ -299,7 +293,7 @@ class DocumentAgentServiceImplTest {
         assertEquals(0L, snapshot.mismatchCount());
         assertEquals(1.0d, snapshot.matchRate());
         verify(shadowToolSelector).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(documentSummaryTool).execute(any());
         verify(documentQaTool, never()).execute(any());
     }
@@ -343,7 +337,7 @@ class DocumentAgentServiceImplTest {
 
         assertEquals("summary_tool", response.getDecision());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertEmptySelectorMetrics();
     }
 
@@ -386,8 +380,6 @@ class DocumentAgentServiceImplTest {
                 ));
         when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
                 .thenReturn("disabled real shadow prompt");
-        when(realShadowClient.completeSelectionPrompt(any()))
-                .thenReturn(LlmToolSelectionClientResponse.disabled("disabled for test"));
         when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
                 "Please summarize this document",
                 "summary",
@@ -401,7 +393,7 @@ class DocumentAgentServiceImplTest {
 
         assertEquals("summary_tool", response.getDecision());
         assertEquals("summary", response.getFinalAnswer());
-        verify(realShadowClient).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(realShadowParser, never()).parse(anyString());
         verify(documentSummaryTool).execute(any());
         verify(documentQaTool, never()).execute(any());
@@ -462,7 +454,7 @@ class DocumentAgentServiceImplTest {
 
         assertEquals("summary_tool", response.getDecision());
         assertEquals("summary", response.getFinalAnswer());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowParser, never()).parse(anyString());
         verify(documentSummaryTool).execute(any());
         SelectorMetricsSnapshot snapshot = selectorMetricsCollector.snapshot();
         assertEquals(1L, snapshot.totalComparisons());
@@ -503,7 +495,7 @@ class DocumentAgentServiceImplTest {
         verifyPersistenceSuccess();
         verify(toolSelector, never()).select(anyString());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
-        verify(realShadowClient, never()).completeSelectionPrompt(any());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
         assertEmptySelectorMetrics();

@@ -374,6 +374,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=RealLlmSelectorShadowRunnerTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：默认 disabled provider 返回 success=false；provider=fake 可返回 success=true / matched；openai-compatible 仍 dry-run disabled；未修改 service、API、前端或 production routing。
 
+### T017c
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：在 service 测试中验证 factory-backed real shadow success path。
+- 验证结果：`mvn -Dtest=DocumentAgentRealShadowPathTest test` 通过；`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn test -DskipITs` 通过，223 tests。
+- 边界：`DocumentAgentServiceImpl` 的 real shadow runner 现在通过 `RealLlmToolSelectorFactory` 和 provider 配置构造 selector；默认 provider 仍 disabled，provider=fake 仅用于测试验证 real shadow success；未真实调用 LLM，未读取 API Key 或 `backend/.env`，未新增 API，未修改前端，未改变 production routing。
+
 ## 任务列表
 
 ### T000
@@ -644,4 +652,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T017`：把 `LlmToolSelectionClientFactory` 以默认 disabled 的方式接入 real shadow client 构造路径，仍不启用真实 provider。完整 T010 仍为 BLOCKED；不要直接进入真实 provider 调用、生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T017d`：新增 fake provider shadow-only 离线评估，使用现有 eval cases 验证 `RealLlmSelectorShadowRunner + provider=fake` 的 match rate。完整 T010 仍为 BLOCKED；不要直接进入真实 provider 调用、生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

@@ -93,6 +93,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T016e 已完成：selector shadow 文档和协作文档已更新；provider skeleton 当前默认 disabled，fake 仅用于测试，openai-compatible 不联网、不读 API Key、不读 `backend/.env`，下一步推荐 T017 默认 disabled factory 接入。
 - T017a 已完成：新增 `RealLlmToolSelectorFactory`，将 `AgentSelectorProperties`、`LlmToolSelectionClientFactory`、prompt builder 和 parser 串起来创建 `RealLlmToolSelector`；默认 disabled，fake provider 可在测试中返回合法 decision，openai-compatible 仍 dry-run disabled。
 - T017b 已完成：`RealLlmSelectorShadowRunner` 支持 factory-backed selector；默认 disabled provider 返回 success=false，provider=fake 可在测试中 success=true，openai-compatible 仍 dry-run disabled。未修改 service 或 production routing。
+- T017c 已完成：`DocumentAgentServiceImpl` 的 real shadow runner 已改为 factory-backed 构造路径；默认 provider 仍 disabled，`realShadowEnabled=false` 时不运行；service 测试覆盖 provider=fake real shadow success、primary decision 仍决定真实工具执行、real metrics 默认不记录且显式开启后才记录。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -138,7 +139,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T017`：把 `LlmToolSelectionClientFactory` 以默认 disabled 的方式接入 real shadow client 构造路径，仍不启用真实 provider；真实 provider 调用必须另开任务。
+1. 继续 `T017d`：新增 fake provider shadow-only 离线评估，使用现有 eval cases 验证 `RealLlmSelectorShadowRunner + provider=fake` 的 match rate；真实 provider 调用必须另开任务。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -206,6 +207,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T017`。
+优先执行 `T017d`。
 
-原因：T016 已新增 provider settings、fake client、OpenAI-compatible dry-run skeleton 和 client factory；下一步可以把 factory 以默认 disabled 的方式接入 real shadow client 构造路径，但仍不能真实调用外部模型、不能接管 production routing，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：factory-backed real shadow 已接入 service 测试路径，下一步需要用现有 eval cases 做 provider=fake 的 shadow-only 离线评估；仍不能真实调用外部模型、不能接管 production routing，也不能改变 `/api/ai/agent/run` 返回协议。
