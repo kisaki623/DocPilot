@@ -188,6 +188,7 @@ T021 已新增内部只读 debug dump / reporter：
 建议后续拆小推进：
 
 1. T023：Actuator endpoint 设计草案；继续只写设计，默认不实现接口。
-2. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
-3. 后续达到稳定阈值后再考虑小流量接管。
-4. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。
+2. T024：如要实现 Actuator endpoint，必须先完成 Claude Code / 人工安全审查，确认默认关闭、白名单字段、黑名单字段和鉴权边界。
+3. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
+4. 后续达到稳定阈值后再考虑小流量接管。
+5. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。

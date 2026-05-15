@@ -283,6 +283,6 @@
 
 1. 保留 T021 本地 debug dump 作为短期观测方式。
 2. T023 先写 Actuator endpoint 设计草案，明确开关、鉴权、字段白名单和测试策略。
-3. T024 或之后再决定是否实现 Actuator endpoint。
+3. T024 才可能进入 Actuator endpoint 候选实现；T024 前建议先做 Claude Code / 人工安全审查。
 4. Prometheus 放到中期，等 Actuator 和指标口径稳定后再接。
 5. 管理端 API 暂缓，等后台权限体系和审计策略更清楚后再评估。

@@ -481,6 +481,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 自检结果：`git diff --name-only HEAD~4..HEAD` 仅包含允许文档；未修改 Java 生产代码、测试代码、前端、配置、DDL 或 API 层。
 - 下一步：进入 T023，但 T023 也应先写 Actuator endpoint 设计草案，不直接实现接口。
 
+### T023
+
+- 状态：REVIEW
+- 完成时间：2026-05-16
+- 任务目标：完成 Agent selector shadow metrics Actuator endpoint 设计草案。
+- 当前结果：已新增 `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`，设计候选 endpoint `agentSelectorShadow` / `/actuator/agentSelectorShadow` / GET / readOnly，补充字段白名单、字段黑名单、默认开关、安全鉴权、审计、候选实现类、依赖关系和测试策略。
+- 设计边界：T023 只写设计文档；尚未实现 Actuator endpoint，未新增 API / Controller，未接 Prometheus，未落库，未修改 Java / 测试 / 前端 / 配置，未改变 production routing。
+- 下一步：T023e 做最终自检和状态收口；若后续进入 T024 候选实现，建议先做 Claude Code / 人工安全审查，确认默认关闭、白名单字段、黑名单字段和鉴权边界。
+
 ### T019a
 
 - 状态：DONE
@@ -775,4 +784,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐进入 `T023`：Actuator endpoint 设计草案；继续只写设计，不直接新增接口。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐先完成 `T023e`：Actuator endpoint 设计草案最终自检和状态收口。T023 完成后，如进入 T024 候选实现，应先做 Claude Code / 人工安全审查；不要直接新增 endpoint。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

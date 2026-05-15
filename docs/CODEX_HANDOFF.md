@@ -117,6 +117,8 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T022a-c 已完成：新增 `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`，对本地 debug dump、Actuator endpoint、管理端 API、Prometheus metrics 做方案对比和安全威胁模型；T022 只做设计文档，没有新增接口、Actuator endpoint 或 Prometheus。
 - T022d 已同步 shadow mode / async design / TODO / changelog / handoff，当前推荐路线改为 T023：Actuator endpoint 设计草案，不直接实现。
 - T022e 已完成：最终自检确认 T022 只修改允许文档；未修改 Java 生产代码、测试代码、前端、配置、DDL 或 API 层；未读取或输出 secret。
+- T023a-c 已完成：新增 `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`，仅设计候选 Actuator endpoint `agentSelectorShadow` / `/actuator/agentSelectorShadow` / GET / readOnly；补充字段白名单、黑名单、默认关闭策略、安全鉴权、审计、未来候选实现类和测试策略。
+- T023d 已同步观测路线文档：T023 仍只是设计草案，尚未实现 endpoint；T024 才可能进入候选实现，且 T024 前建议先做 Claude Code / 人工安全审查。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -162,7 +164,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 下一步推荐 `T023`：Actuator endpoint 设计草案；继续只写设计，不直接新增接口。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
+1. 下一步先完成 `T023e`：最终自检并收口文档。T023 完成后，如进入 T024 候选实现，应先做 Claude Code / 人工安全审查，确认默认关闭、白名单字段、黑名单字段和鉴权边界；不要直接新增 endpoint。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -230,6 +232,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T023`：Actuator endpoint 设计草案。
+优先完成 `T023e`：Actuator endpoint 设计草案最终自检和状态收口。
 
-原因：T022 已完成观测入口设计文档、方案对比、安全威胁模型、路线同步和最终自检；下一步仍应先设计 Actuator endpoint 的开关、鉴权、字段白名单和测试策略。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T023a-d 已完成 Actuator endpoint 设计草案和路线同步；还需要一次只读自检确认没有代码 / API / Actuator / Prometheus 改动后再标记 DONE。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。

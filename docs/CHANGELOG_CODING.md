@@ -1365,6 +1365,52 @@
 - 未修改前端代码。
 - 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
 
+## 2026-05-16 - T023 Selector Actuator Endpoint Design
+
+### 本轮目标
+
+只写 Agent selector shadow metrics Actuator endpoint 设计草案，不新增 endpoint、不改 Java 生产代码、不改配置、不接 Prometheus。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 设计内容
+
+- 新增 Actuator endpoint 设计草案，候选 id 为 `agentSelectorShadow`，候选 path 为 `/actuator/agentSelectorShadow`，候选方法为 GET，只读。
+- 明确目标：给开发者和运维查看 selector shadow metrics，只输出聚合指标，不影响 production routing。
+- 明确非目标：不做管理端 API、前端页面、Prometheus export、metrics 落库、用户 / 文档维度查询、raw sample、阈值修改或 production routing 切换。
+- 补充返回字段白名单和禁止字段黑名单。
+- 补充访问控制、Actuator exposure、脱敏、审计和风险。
+- 补充未来 T024 候选实现类、依赖关系、测试策略和验收标准。
+- 同步路线文档，说明 T024 前建议先做 Claude Code / 人工安全审查。
+
+### 当前结论
+
+- T023 只是设计文档任务。
+- 尚未实现 Actuator endpoint。
+- 短期仍使用 T021 内部 debug dump。
+- T024 才可能进入候选实现，且应先安全审查。
+- 完整 T010 仍为 BLOCKED，等待 MQ / 解析消费链路。
+
+### 明确未做事项
+
+- 未新增 HTTP API。
+- 未新增 Controller。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未落库。
+- 未修改 Java 生产代码或测试代码。
+- 未修改前端。
+- 未读取或输出 API Key、baseUrl、Authorization、prompt、用户 task、文档内容或模型完整返回。
+- 未改变 production routing。
+
 ## 2026-05-16 - T022 Selector Observability Decision
 
 ### 本轮目标
