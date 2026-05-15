@@ -180,3 +180,34 @@
 - 先做 shadow，再做 metrics，再做 threshold，再设计观测入口，是为了让 LLM selector 的演进有安全过渡和可量化基线。
 - `promotionCandidate` 只是候选判断，不会自动改变 production routing，体现了“可观察先于接管”的工程策略。
 - 短期保留 debug dump，避免未设计鉴权时误暴露；中期再考虑 Actuator / Prometheus，是更稳健的生产化路径。
+
+## 决策矩阵
+
+| 维度 | 本地 debug dump | Actuator endpoint | 管理端 API | Prometheus metrics |
+| --- | --- | --- | --- | --- |
+| 实现成本 | 低，T021 已具备 Java 内部对象 | 中，需要 endpoint、配置和测试 | 高，需要权限、审计和前端/后台协作 | 中，需要 Micrometer 指标、label 设计和部署验证 |
+| 安全风险 | 低，不网络暴露 | 中，取决于 Actuator 暴露范围和鉴权 | 高，可能成为公网业务接口 | 中，风险集中在 label 和 scrape 暴露范围 |
+| 是否适合本地开发 | 是 | 是 | 一般 | 一般 |
+| 是否适合线上运维 | 否 | 是，适合只读诊断 | 是，但依赖管理端权限体系 | 是，适合趋势和告警 |
+| 是否需要鉴权 | 不需要网络鉴权 | 需要，至少内网 / profile / 认证控制 | 必须需要 | 需要依赖 Prometheus 网络与访问控制 |
+| 是否需要网络暴露 | 否 | 需要内部端点 | 需要 API 路由 | 需要 scrape endpoint |
+| 是否适合面试展示 | 是，展示工程边界和测试证据 | 是，展示运维设计 | 一般，容易引出权限体系问题 | 是，展示生产化观测意识 |
+| 是否适合生产环境 | 只适合辅助调试 | 可作为短期生产只读观测候选 | 暂不适合当前阶段 | 中期适合，需控制 label 和告警 |
+| 是否支持趋势观察 | 否 | 有限，只看当前进程状态 | 有限，除非额外落库 | 是 |
+| 是否支持告警 | 否 | 有限，可人工检查 | 有限，需额外告警系统 | 是 |
+
+## 推荐结论
+
+1. 当前阶段不直接新增 API。
+2. 当前阶段不直接接 Prometheus。
+3. T023 推荐做 Actuator endpoint 设计，而不是马上实现。
+4. 如果后续实现 Actuator endpoint，必须默认关闭或仅在 local / internal profile 开启。
+5. 如果后续接 Prometheus，只暴露数值指标和安全枚举 label，不暴露 prompt、task、文档内容或模型输出。
+
+当前推荐路径是：
+
+1. 保留 T021 本地 debug dump 作为短期观测方式。
+2. T023 先写 Actuator endpoint 设计草案，明确开关、鉴权、字段白名单和测试策略。
+3. T024 或之后再决定是否实现 Actuator endpoint。
+4. Prometheus 放到中期，等 Actuator 和指标口径稳定后再接。
+5. 管理端 API 暂缓，等后台权限体系和审计策略更清楚后再评估。
