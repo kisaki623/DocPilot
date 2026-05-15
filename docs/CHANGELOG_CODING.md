@@ -1365,6 +1365,49 @@
 - 未修改前端代码。
 - 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
 
+## 2026-05-16 - T022 Selector Observability Decision
+
+### 本轮目标
+
+只做 Agent selector shadow metrics 观测入口设计决策，不新增接口、不新增 Actuator endpoint、不接 Prometheus、不修改生产代码。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 设计内容
+
+- 新增 selector observability 决策文档，记录 T019 / T020 / T021 后的观测入口选择。
+- 比较本地 debug dump、Actuator endpoint、管理端 API、Prometheus metrics 四种方案。
+- 补充决策矩阵，覆盖实现成本、安全风险、本地开发、线上运维、鉴权、网络暴露、面试展示、生产环境、趋势观察和告警。
+- 补充安全威胁模型，明确可能泄露的信息、攻击面、防护策略、字段白名单和字段黑名单。
+- 同步现有 shadow mode / async design / TODO / handoff，当前推荐下一步为 T023 Actuator endpoint 设计草案，不直接实现接口。
+
+### 当前结论
+
+- 短期继续使用 T021 的内部 debug dump。
+- T023 优先做 Actuator endpoint 设计草案，默认不实现。
+- Prometheus 作为中期路线，只暴露数值指标和安全枚举 label。
+- 管理端 API 暂缓，等待权限体系、管理员角色和审计策略明确。
+
+### 明确未做事项
+
+- 未新增 HTTP API。
+- 未新增 Controller。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未落库。
+- 未修改 Java 生产代码。
+- 未修改前端。
+- 未读取或输出 API Key、baseUrl、Authorization、prompt、用户 task、文档内容或模型完整返回。
+- 未改变 production routing。
+- 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
+
 ## 2026-05-15 - T021 Selector Metrics Debug Boundary
 
 ### 本轮目标

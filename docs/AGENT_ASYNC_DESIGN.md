@@ -117,4 +117,13 @@ T021 新增 selector shadow metrics 的内部只读 debug dump / reporter，但�
 - 不改变 `/api/ai/agent/run` 的同步执行语义。
 - 不让 shadow decision 接管 primary routing。
 
-当前选择内部 debug dump 的原因是：selector shadow metrics 包含 provider / decision 聚合等运行信息，在管理端鉴权、内网暴露范围和脱敏策略未设计前，不应直接对外开放。后续如需观测入口，建议先做 T022 设计文档，在本地 CLI / debug dump、Actuator endpoint、管理端 API 或 Prometheus 之间做明确取舍。
+当前选择内部 debug dump 的原因是：selector shadow metrics 包含 provider / decision 聚合等运行信息，在管理端鉴权、内网暴露范围和脱敏策略未设计前，不应直接对外开放。
+
+T022 已完成观测入口设计决策文档，结论是：
+
+- 短期继续使用本地 debug dump。
+- 下一步优先做 Actuator endpoint 设计草案，但不直接实现。
+- Prometheus 作为中期路线，只暴露数值指标和安全枚举 label。
+- 管理端 API 暂缓，等待权限体系和审计策略更明确。
+
+这些观测设计不改变 Agent 同步 / 异步执行路线，也不改变 production routing。

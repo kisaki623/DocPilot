@@ -125,8 +125,9 @@ T021 已新增内部只读 debug dump / reporter：
 - `SelectorMetricsDebugReporter` 只读组合 `SelectorMetricsCollector` 与 `SelectorShadowThresholdPolicy`，不会清空 metrics，也不会改变 runtime 状态。
 - 当前没有新增 HTTP API，没有新增 Actuator endpoint，没有接 Prometheus，没有落库。
 - 暂不开放 API / Actuator 的原因是 metrics 可能包含 provider 与 decision 运行信息，管理端鉴权、内网边界和脱敏策略尚未单独设计。
-- 后续观测入口可选三种路线：A. 本地 CLI / debug dump；B. Actuator endpoint，仅限内网和认证；C. 管理端 API，需要鉴权和脱敏。
-- 下一步建议先做 T022：Actuator / 管理 API / Prometheus 观测入口设计文档，不直接写接口。
+- T022 已补充观测入口设计决策：短期继续本地 debug dump；下一步优先做 Actuator endpoint 设计草案；中期再考虑 Prometheus；管理端 API 暂缓。
+- 后续观测入口可选四种路线：A. 本地 CLI / debug dump；B. Actuator endpoint，仅限内网和认证；C. 管理端 API，需要鉴权和脱敏；D. Prometheus metrics，仅暴露数值指标。
+- T023 推荐继续写 Actuator endpoint 设计草案，不直接实现接口。
 
 禁止日志输出：
 
@@ -156,6 +157,7 @@ T021 已新增内部只读 debug dump / reporter：
 - T020 已完成 selector shadow metrics 与 threshold policy：metrics 支持 total / success / failure / matched / mismatch、matchRate、failureRate、provider 聚合和 decision pair 聚合；threshold policy 默认 `minimumSamples=20`、`minMatchRate=0.95`、`maxFailureRate=0.05`，只输出 `allowPromotionCandidate` 和 reason，不接管 routing。
 - T020 测试已验证 threshold policy 与 offline eval 组合；即使 `allowPromotionCandidate=true`，`DocumentAgentServiceImpl` 的真实响应仍由 primary `DocumentToolSelector` decision 决定。
 - T021a-c 已完成内部只读 debug dump / reporter 和离线 evaluation dump 测试；未新增 API / Actuator / Prometheus / 落库。
+- T022 已创建 `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`，完成本地 debug dump、Actuator endpoint、管理端 API、Prometheus metrics 四种观测入口的方案对比和安全威胁模型；T022 只做设计文档，未实现接口。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
 
@@ -185,7 +187,7 @@ T021 已新增内部只读 debug dump / reporter：
 
 建议后续拆小推进：
 
-1. T022：Actuator / 管理 API / Prometheus 观测入口设计决策；先明确是否需要 API、Actuator endpoint、Prometheus，还是继续保持本地 debug dump。
+1. T023：Actuator endpoint 设计草案；继续只写设计，默认不实现接口。
 2. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
 3. 后续达到稳定阈值后再考虑小流量接管。
 4. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。

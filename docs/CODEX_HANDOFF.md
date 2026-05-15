@@ -114,6 +114,8 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T021a-c 已完成：新增 `SelectorMetricsDebugSnapshot` / `SelectorMetricsDebugReporter` 和离线 debug evaluation 测试；内部 dump 只展示安全字段和 threshold decision，不输出 prompt、task、文档内容、模型完整返回、API Key、baseUrl 或 Authorization。
 - T021d 已补充文档边界：当前不新增 HTTP API，不新增 Actuator endpoint，不接 Prometheus，不落库；这么做是为了避免在管理端鉴权、内网边界和脱敏策略未设计前暴露 provider / decision metrics。
 - T021e 已完成：后端 `mvn -DskipTests compile`、`mvn test -DskipITs`、前端 `npm run lint`、`npm run build` 均通过；T021 已收口为内部 debug dump 能力，不新增 API / Actuator / Prometheus。
+- T022a-c 已完成：新增 `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`，对本地 debug dump、Actuator endpoint、管理端 API、Prometheus metrics 做方案对比和安全威胁模型；T022 只做设计文档，没有新增接口、Actuator endpoint 或 Prometheus。
+- T022d 已同步 shadow mode / async design / TODO / changelog / handoff，当前推荐路线改为 T023：Actuator endpoint 设计草案，不直接实现。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -159,7 +161,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 下一步推荐 `T022`：Actuator / 管理 API / Prometheus 观测入口设计决策；先确认是否允许新增 API / Actuator endpoint，或继续仅保留本地 debug dump。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
+1. 下一步先完成 `T022e`：最终自检并收口文档。T022 完成后推荐 `T023`：Actuator endpoint 设计草案；继续只写设计，不直接新增接口。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -227,6 +229,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T022`：Actuator / 管理 API / Prometheus 观测入口设计决策。
+优先完成 `T022e`：selector observability 设计决策最终自检和状态收口。
 
-原因：T021 已完成内部 debug dump / reporter、离线 evaluation dump 测试和全量验证；下一步如需对外或运维观测，必须先设计暴露方式、鉴权、内网边界和脱敏策略。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T022a-d 已完成观测入口设计文档、方案对比、安全威胁模型和路线同步；还需要一次只读自检确认没有代码 / API / Actuator / Prometheus 改动后再标记 DONE。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。

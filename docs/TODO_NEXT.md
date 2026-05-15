@@ -470,6 +470,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 回归结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过；前端 `npm run lint` 通过；`npm run build` 通过。
 - 下一步：推荐 T022 先写 Actuator / 管理 API / Prometheus 观测入口设计文档，不直接写接口。
 
+### T022
+
+- 状态：REVIEW
+- 完成时间：2026-05-16
+- 任务目标：完成 Agent selector shadow metrics 观测入口设计决策。
+- 当前结果：已新增 `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`，覆盖本地 debug dump、Actuator endpoint、管理端 API、Prometheus metrics 四种方案；已补充决策矩阵和安全威胁模型。
+- 推荐路线：短期继续本地 debug dump；T023 优先写 Actuator endpoint 设计草案；中期再考虑 Prometheus 数值指标；管理端 API 暂缓。
+- 边界：T022 只做设计文档；不新增 API，不新增 Actuator endpoint，不接 Prometheus，不落库，不修改 Java / 前端 / 配置，不改变 production routing；完整 T010 仍为 BLOCKED。
+- 下一步：T022e 做最终自检和状态收口；随后进入 T023，但 T023 也应先写设计草案，不直接实现接口。
+
 ### T019a
 
 - 状态：DONE
@@ -764,4 +774,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐进入 `T022`：Actuator / 管理 API / Prometheus 观测入口设计决策；先写设计文档，不直接新增接口。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐先完成 `T022e`：selector observability 设计决策的最终自检和状态收口。T022 完成后进入 `T023`：Actuator endpoint 设计草案；继续只写设计，不直接新增接口。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
