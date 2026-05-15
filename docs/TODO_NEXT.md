@@ -390,6 +390,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=FakeLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：仅增强 fake provider 的 prompt task 提取与本地规则；未修改 `DocumentToolSelector`，未修改 eval cases，未真实调用 LLM，未读取 API Key 或 `backend/.env`，未改变 production routing。
 
+### T017d
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：新增 fake provider real shadow 离线评估。
+- 验证结果：`mvn -Dtest=RealShadowProviderEvaluationTest test` 通过；`mvn test -DskipITs` 通过，229 tests。评估结果：total=24，success=22，failures=2，matched=22，mismatch=0，matchRate=0.9167。
+- 边界：仅使用 `RealLlmSelectorShadowRunner + provider=fake` 跑离线对比；两个 failure 来自 blank task 被 prompt builder 拒绝；未修改 eval cases，未真实调用 LLM，未读取 API Key 或 `backend/.env`，未改变 production routing。
+
 ## 任务列表
 
 ### T000

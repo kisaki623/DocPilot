@@ -1039,6 +1039,56 @@
 - 未修改前端。
 - 未改变 production routing。
 
+## 2026-05-15 - T017d Fake Provider Real Shadow Evaluation
+
+### 本轮目标
+
+新增 provider=fake 的 real shadow 离线评估，验证 `RealLlmSelectorShadowRunner` 通过 factory-backed selector 路径运行时能达到 shadow compare 阈值。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealShadowProviderEvaluationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `RealShadowProviderEvaluationTest`。
+- 复用 `tool-selector-eval-cases.json` 的 24 条样例。
+- primary 使用 `DocumentToolSelector`。
+- shadow 使用 `RealLlmSelectorShadowRunner + provider=fake`。
+- 输出 total、success、failures、matched、mismatch、matchRate 和 successRate。
+
+### 评估结果
+
+- total=24
+- success=22
+- failures=2
+- matched=22
+- mismatch=0
+- matchRate=0.9167
+- successRate=0.9167
+
+两个 failure 来自 blank task 被 `LlmToolSelectionPromptBuilder` 拒绝，属于 real shadow prompt 输入边界；非空样例均成功且无 mismatch。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealShadowProviderEvaluationTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，229 tests。
+
+### 明确未做事项
+
+- 未修改 `tool-selector-eval-cases.json`。
+- 未修改 `DocumentToolSelector`。
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标
