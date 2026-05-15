@@ -26,7 +26,10 @@ class AgentSelectorPropertiesTest {
             assertThat(properties.getLlmProvider()).isEqualTo("disabled");
             assertThat(properties.getLlmModel()).isEmpty();
             assertThat(properties.getLlmBaseUrl()).isEmpty();
+            assertThat(properties.getLlmApiKey()).isEmpty();
             assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(3000);
+            assertThat(properties.getLlmMaxTokens()).isEqualTo(256);
+            assertThat(properties.getLlmTemperature()).isZero();
             assertThat(properties.isShadowLlmMode()).isFalse();
         });
     }
@@ -42,7 +45,10 @@ class AgentSelectorPropertiesTest {
                         "app.agent.selector.llm-provider=fake",
                         "app.agent.selector.llm-model=fake-selector",
                         "app.agent.selector.llm-base-url=https://example.invalid/v1",
-                        "app.agent.selector.llm-request-timeout-ms=5000"
+                        "app.agent.selector.llm-api-key=test-key-not-used",
+                        "app.agent.selector.llm-request-timeout-ms=5000",
+                        "app.agent.selector.llm-max-tokens=128",
+                        "app.agent.selector.llm-temperature=0.1"
                 )
                 .run(context -> {
                     AgentSelectorProperties properties = context.getBean(AgentSelectorProperties.class);
@@ -55,8 +61,27 @@ class AgentSelectorPropertiesTest {
                     assertThat(properties.getLlmProvider()).isEqualTo("fake");
                     assertThat(properties.getLlmModel()).isEqualTo("fake-selector");
                     assertThat(properties.getLlmBaseUrl()).isEqualTo("https://example.invalid/v1");
+                    assertThat(properties.getLlmApiKey()).isEqualTo("test-key-not-used");
                     assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(5000);
+                    assertThat(properties.getLlmMaxTokens()).isEqualTo(128);
+                    assertThat(properties.getLlmTemperature()).isEqualTo(0.1);
                     assertThat(properties.isShadowLlmMode()).isTrue();
+                });
+    }
+
+    @Test
+    void shouldBindOpenAiCompatibleProviderWithoutEnablingRealShadowByDefault() {
+        contextRunner.withPropertyValues(
+                        "app.agent.selector.llm-provider=openai_compatible",
+                        "app.agent.selector.llm-api-key=test-key-not-used"
+                )
+                .run(context -> {
+                    AgentSelectorProperties properties = context.getBean(AgentSelectorProperties.class);
+
+                    assertThat(properties.getLlmProvider()).isEqualTo("openai_compatible");
+                    assertThat(properties.getLlmApiKey()).isEqualTo("test-key-not-used");
+                    assertThat(properties.isRealShadowEnabled()).isFalse();
+                    assertThat(properties.isRealShadowRecordMetrics()).isFalse();
                 });
     }
 
@@ -87,6 +112,26 @@ class AgentSelectorPropertiesTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseMessage("app.agent.selector.llm-request-timeout-ms must be positive.");
+                });
+    }
+
+    @Test
+    void shouldRejectNonPositiveMaxTokens() {
+        contextRunner.withPropertyValues("app.agent.selector.llm-max-tokens=0")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("app.agent.selector.llm-max-tokens must be positive.");
+                });
+    }
+
+    @Test
+    void shouldRejectOutOfRangeTemperature() {
+        contextRunner.withPropertyValues("app.agent.selector.llm-temperature=2.1")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("app.agent.selector.llm-temperature must be between 0.0 and 2.0.");
                 });
     }
 }

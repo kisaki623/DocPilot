@@ -1208,6 +1208,40 @@
 - 未修改数据库。
 - 未改变 production routing。
 
+## 2026-05-15 - T019a Real Selector Provider Credentials Config
+
+### 本轮目标
+
+补齐 selector real provider 需要的最小配置字段，但保持默认安全关闭，不修改配置文件。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `llmApiKey` 字段，默认空字符串。
+- 新增 `llmMaxTokens` 字段，默认 256，并校验必须为正数。
+- 新增 `llmTemperature` 字段，默认 0，并校验范围为 0.0 到 2.0。
+- 测试覆盖默认 provider disabled、默认 real shadow 关闭、openai-compatible provider 绑定不会自动启用 real shadow，以及新增字段校验。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未读取真实 API Key。
+- 未读取 `backend/.env`。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未真实调用 provider。
+- 未改变 production routing。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

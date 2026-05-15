@@ -29,7 +29,10 @@ public class AgentSelectorProperties {
     private String llmProvider = PROVIDER_DISABLED;
     private String llmModel = "";
     private String llmBaseUrl = "";
+    private String llmApiKey = "";
     private int llmRequestTimeoutMs = 3000;
+    private int llmMaxTokens = 256;
+    private double llmTemperature = 0.0d;
 
     public String getMode() {
         return mode;
@@ -105,6 +108,14 @@ public class AgentSelectorProperties {
         this.llmBaseUrl = llmBaseUrl == null ? "" : llmBaseUrl.trim();
     }
 
+    public String getLlmApiKey() {
+        return llmApiKey;
+    }
+
+    public void setLlmApiKey(String llmApiKey) {
+        this.llmApiKey = llmApiKey == null ? "" : llmApiKey.trim();
+    }
+
     public int getLlmRequestTimeoutMs() {
         return llmRequestTimeoutMs;
     }
@@ -114,6 +125,28 @@ public class AgentSelectorProperties {
             throw new IllegalArgumentException("app.agent.selector.llm-request-timeout-ms must be positive.");
         }
         this.llmRequestTimeoutMs = llmRequestTimeoutMs;
+    }
+
+    public int getLlmMaxTokens() {
+        return llmMaxTokens;
+    }
+
+    public void setLlmMaxTokens(int llmMaxTokens) {
+        if (llmMaxTokens <= 0) {
+            throw new IllegalArgumentException("app.agent.selector.llm-max-tokens must be positive.");
+        }
+        this.llmMaxTokens = llmMaxTokens;
+    }
+
+    public double getLlmTemperature() {
+        return llmTemperature;
+    }
+
+    public void setLlmTemperature(double llmTemperature) {
+        if (llmTemperature < 0.0d || llmTemperature > 2.0d) {
+            throw new IllegalArgumentException("app.agent.selector.llm-temperature must be between 0.0 and 2.0.");
+        }
+        this.llmTemperature = llmTemperature;
     }
 
     public boolean isShadowLlmMode() {

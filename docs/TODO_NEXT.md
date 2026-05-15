@@ -440,6 +440,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验收边界：真实执行工具仍必须由 `DocumentToolSelector` 决定；real provider 只产生 shadowDecision；失败必须 fail-open；不得改变 Agent API、前端、数据库或 production routing。
 - 停止条件：需要读取 `backend/.env`、需要用户把 API Key 粘贴到聊天、需要提交密钥、需要修改 `application.yml`、parser 无法稳定解析、日志有泄露风险、真实调用失败超过 3 次或费用不明确。
 
+### T019a
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：补齐 selector real provider 最小配置字段。
+- 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：默认 provider 仍为 disabled，默认 `realShadowEnabled=false`、`realShadowRecordMetrics=false`；新增 `llmApiKey`、`llmMaxTokens`、`llmTemperature` 仅作为配置字段，不读取或输出真实 API Key，未修改 `application.yml`，未改变 production routing。
+
 ## 任务列表
 
 ### T000

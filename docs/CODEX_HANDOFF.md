@@ -101,6 +101,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T018b-retry / T018c 已完成：本地后端在用户授权下连接远程中间件，使用 `shadowEnabled=true`、`realShadowEnabled=true`、`realShadowRecordMetrics=true`、`llmProvider=fake` 完成浏览器 runtime 验证；已解析文档 `documentId=61` 的 summary / QA 均成功，primary decision 分别为 `summary_tool` / `qa_tool`，页面可见 routingReason、matchedKeywords、持久化 trace 和 QA citations；后端安全日志可见 `provider=fake` real shadow compare matched。后端 compile/test 与前端 lint/build 均通过。
 - T018d 已完成：协作文档记录 fake provider shadow-only runtime 结果；本轮未使用 hk-ops，未执行远程 DB 只读 SELECT，未真实调用 LLM，未读取 API Key 或 `backend/.env`，未向模型 provider 发真实 HTTP，未新增 API，未修改前端，未改变 production routing。
 - T019-preflight 已完成：新增 `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`，记录真实 provider shadow-only 前置安全方案、日志脱敏原则、HTTP 调用边界、验证方案、停止条件和用户确认项；本轮没有真实调用 provider，没有读取 API Key 或 `backend/.env`，也没有改变 production routing。
+- T019a 已完成：`AgentSelectorProperties` 新增 `llmApiKey`、`llmMaxTokens`、`llmTemperature` 配置字段；默认 provider 仍 disabled，real shadow 默认关闭，真实 key 只能由运行环境注入，本轮未读取或输出 API Key。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
