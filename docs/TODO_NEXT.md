@@ -491,6 +491,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 自检结果：`git diff --name-only HEAD~4..HEAD` 仅包含允许文档；未修改 Java 生产代码、测试代码、前端、配置、DDL 或 API 层。
 - 下一步：若后续进入 T024 候选实现，建议先做 Claude Code / 人工安全审查，确认默认关闭、白名单字段、黑名单字段和鉴权边界。
 
+### T024
+
+- 状态：REVIEW
+- 完成时间：2026-05-16
+- 任务目标：实现默认关闭的 Agent selector shadow metrics Actuator endpoint。
+- 实现边界：必须使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`；这是项目中第一个自定义 Actuator endpoint，没有既有模式可复用，因此只做最小实现。
+- 配置边界：不修改 `application.yml` / `application-local.yml`，不加入 `management.endpoints.web.exposure.include`，不接 Prometheus；现有 Prometheus endpoint 与 selector-specific Prometheus metrics 是两回事，本轮不修改现有 Prometheus 配置。
+- 测试边界：T024 只做默认关闭 endpoint、单元测试和 context 默认 404 测试；暂不测试“未授权访问被拒绝”，因为当前没有专门的 Actuator Spring Security 配置，该项留到 T025。
+- 当前进度：T024a 已补充实现边界文档；后续 T024b 才新增 endpoint 类。
+
 ### T019a
 
 - 状态：DONE

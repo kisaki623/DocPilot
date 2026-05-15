@@ -50,6 +50,7 @@ Actuator endpoint 的目标是提供一个内部只读观测入口：
 
 - 这只是设计草案，当前未实现。
 - 如果未来实现，endpoint 应只依赖 `SelectorMetricsDebugReporter`。
+- T024 如实现，必须显式使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`。
 - endpoint 不应调用真实 provider，不应触发工具选择，不应访问数据库。
 - endpoint 不应返回任何用户维度、文档维度或请求样本维度数据。
 
@@ -106,6 +107,17 @@ provider aggregation 只能包含 provider 枚举名和聚合计数 / rate。dec
 6. 不允许默认公网暴露。
 
 未来如果实现，不能通过默认 `application.yml` 把 endpoint 暴露出去；应由 profile、环境变量或部署侧配置显式开启。
+
+T024 实现边界补充：
+
+- 这是项目中第一个自定义 Actuator endpoint，没有既有项目内模式可复用，因此必须最小实现。
+- T024 不修改 `application.yml`。
+- T024 不修改 `application-local.yml`。
+- T024 不加入 `management.endpoints.web.exposure.include`。
+- T024 只做默认关闭 endpoint、单元测试和 context 默认 404 测试。
+- T024 暂不测试“未授权访问被拒绝”，因为当前项目还没有专门的 Actuator Spring Security 配置；该项留到 T025 安全体系任务。
+- T024 不接 Prometheus。
+- 项目现有 Prometheus endpoint 和 selector-specific Prometheus metrics 是两回事；T024 不修改现有 Prometheus 配置。
 
 ## 安全与鉴权设计
 

@@ -120,6 +120,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T023a-c 已完成：新增 `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`，仅设计候选 Actuator endpoint `agentSelectorShadow` / `/actuator/agentSelectorShadow` / GET / readOnly；补充字段白名单、黑名单、默认关闭策略、安全鉴权、审计、未来候选实现类和测试策略。
 - T023d 已同步观测路线文档：T023 仍只是设计草案，尚未实现 endpoint；T024 才可能进入候选实现，且 T024 前建议先做 Claude Code / 人工安全审查。
 - T023e 已完成：最终自检确认 T023 只修改允许文档；未修改 Java 生产代码、测试代码、前端、配置、DDL 或 API 层；未读取或输出 secret。
+- T024a 已完成：根据安全审查补充 T024 实现边界；未来 endpoint 必须使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`，本轮不修改 `application.yml` / `application-local.yml`，不加入 exposure include，不接 Prometheus，不测试未授权访问，该项留到 T025。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

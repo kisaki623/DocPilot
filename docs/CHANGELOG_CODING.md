@@ -1365,6 +1365,38 @@
 - 未修改前端代码。
 - 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
 
+## 2026-05-16 - T024 Selector Actuator Endpoint Implementation Boundary
+
+### 本轮目标
+
+先补充 T024 实现前的安全边界文档，再进入默认关闭 Actuator endpoint 最小实现。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 补充内容
+
+- T024 实现必须使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`。
+- 这是项目中第一个自定义 Actuator endpoint，没有既有模式可复用，因此必须最小实现。
+- T024 不修改 `application.yml` / `application-local.yml`。
+- T024 不加入 `management.endpoints.web.exposure.include`。
+- T024 只做默认关闭 endpoint、单元测试和 context 默认 404 测试。
+- T024 暂不测试“未授权访问被拒绝”，因为当前项目没有专门的 Actuator Spring Security 配置；该项留到 T025。
+- T024 不接 Prometheus；项目现有 Prometheus endpoint 和 selector-specific Prometheus metrics 是两回事，本轮不修改现有 Prometheus 配置。
+
+### 明确未做事项
+
+- 未新增 Actuator endpoint 代码。
+- 未修改 Java 生产代码。
+- 未修改配置文件。
+- 未修改前端。
+- 未接 Prometheus。
+- 未读取或输出 secret。
+
 ## 2026-05-16 - T023 Selector Actuator Endpoint Design
 
 ### 本轮目标
