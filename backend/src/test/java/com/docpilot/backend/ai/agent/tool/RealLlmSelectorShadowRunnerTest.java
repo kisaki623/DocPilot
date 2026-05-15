@@ -1,5 +1,6 @@
 package com.docpilot.backend.ai.agent.tool;
 
+import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -98,8 +99,96 @@ class RealLlmSelectorShadowRunnerTest {
         assertFalse(result.errorMessage().isBlank());
     }
 
+    @Test
+    void shouldReturnFailedResultForDisabledProvider() {
+        RealLlmSelectorShadowRunner runner = runnerWithProperties(new AgentSelectorProperties());
+
+        RealLlmSelectorShadowRunResult result = runner.run(
+                "summary_tool",
+                "summarize this document",
+                true,
+                true,
+                toolDefinitions
+        );
+
+        assertFalse(result.success());
+        assertFalse(result.shouldRecordMetrics());
+        assertFalse(result.errorMessage().isBlank());
+    }
+
+    @Test
+    void shouldReturnSuccessForFakeProviderMatch() {
+        AgentSelectorProperties properties = new AgentSelectorProperties();
+        properties.setLlmProvider("fake");
+        RealLlmSelectorShadowRunner runner = runnerWithProperties(properties);
+
+        RealLlmSelectorShadowRunResult result = runner.run(
+                "summary_tool",
+                "summarize this document",
+                true,
+                true,
+                toolDefinitions
+        );
+
+        assertTrue(result.success());
+        assertTrue(result.matched());
+        assertTrue(result.shouldRecordMetrics());
+        assertEquals("summary_tool", result.shadowDecision());
+    }
+
+    @Test
+    void shouldReturnSuccessForFakeProviderMismatch() {
+        AgentSelectorProperties properties = new AgentSelectorProperties();
+        properties.setLlmProvider("fake");
+        RealLlmSelectorShadowRunner runner = runnerWithProperties(properties);
+
+        RealLlmSelectorShadowRunResult result = runner.run(
+                "summary_tool",
+                "answer with evidence",
+                true,
+                true,
+                toolDefinitions
+        );
+
+        assertTrue(result.success());
+        assertFalse(result.matched());
+        assertTrue(result.shouldRecordMetrics());
+        assertEquals("qa_tool", result.shadowDecision());
+    }
+
+    @Test
+    void shouldReturnFailedResultForOpenAiCompatibleProvider() {
+        AgentSelectorProperties properties = new AgentSelectorProperties();
+        properties.setLlmProvider("openai_compatible");
+        properties.setLlmModel("selector-model");
+        RealLlmSelectorShadowRunner runner = runnerWithProperties(properties);
+
+        RealLlmSelectorShadowRunResult result = runner.run(
+                "summary_tool",
+                "summarize this document",
+                true,
+                true,
+                toolDefinitions
+        );
+
+        assertFalse(result.success());
+        assertFalse(result.shouldRecordMetrics());
+        assertFalse(result.errorMessage().isBlank());
+    }
+
     private RealLlmSelectorShadowRunner runnerWithClient(LlmToolSelectionClient client) {
         return new RealLlmSelectorShadowRunner(new RealLlmToolSelector(promptBuilder, client, parser));
+    }
+
+    private RealLlmSelectorShadowRunner runnerWithProperties(AgentSelectorProperties properties) {
+        return new RealLlmSelectorShadowRunner(
+                new RealLlmToolSelectorFactory(
+                        new LlmToolSelectionClientFactory(),
+                        promptBuilder,
+                        parser
+                ),
+                properties
+        );
     }
 
     private LlmToolSelectionClientResponse response(String rawText) {

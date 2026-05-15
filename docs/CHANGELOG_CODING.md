@@ -1531,6 +1531,44 @@
 - 未接入 production service。
 - 未改变 production routing。
 
+## 2026-05-15 - T017b Factory-backed Real Shadow Runner
+
+### 本轮目标
+
+让 `RealLlmSelectorShadowRunner` 支持通过 `RealLlmToolSelectorFactory` 和 `AgentSelectorProperties` 创建 factory-backed selector。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunner.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunnerTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `RealLlmSelectorShadowRunner` 保留原有直接注入 `RealLlmToolSelector` 的构造方式。
+- 新增 factory-backed 构造方式：`RealLlmToolSelectorFactory` + `AgentSelectorProperties`。
+- 默认 disabled provider 返回 success=false / shouldRecordMetrics=false。
+- provider=`fake` 可返回 success=true，并根据 primary / shadow decision 判断 matched。
+- provider=`openai_compatible` 仍 dry-run disabled，不联网。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealLlmSelectorShadowRunnerTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未修改 `DocumentAgentServiceImpl`。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP 请求。
+- 未调用真实 LLM。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
 ## 2026-05-15 - T017a Factory-backed Real Selector Builder
 
 ### 本轮目标

@@ -366,6 +366,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=RealLlmToolSelectorFactoryTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：默认 provider=disabled 时 selector 调用明确失败；provider=fake 可返回合法 decision；openai-compatible 仍 dry-run disabled；未接入 service，未读取 API Key 或 `backend/.env`。
 
+### T017b
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：让 `RealLlmSelectorShadowRunner` 支持 factory-backed selector。
+- 验证结果：`mvn -Dtest=RealLlmSelectorShadowRunnerTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：默认 disabled provider 返回 success=false；provider=fake 可返回 success=true / matched；openai-compatible 仍 dry-run disabled；未修改 service、API、前端或 production routing。
+
 ## 任务列表
 
 ### T000

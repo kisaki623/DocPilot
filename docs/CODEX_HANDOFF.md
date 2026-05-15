@@ -92,6 +92,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T016d 已完成：新增 `LlmToolSelectionClientFactory`，可根据 provider 返回 disabled / fake / openai-compatible client；默认返回 disabled，factory 尚未接入 production service，不改变当前 Agent 行为。
 - T016e 已完成：selector shadow 文档和协作文档已更新；provider skeleton 当前默认 disabled，fake 仅用于测试，openai-compatible 不联网、不读 API Key、不读 `backend/.env`，下一步推荐 T017 默认 disabled factory 接入。
 - T017a 已完成：新增 `RealLlmToolSelectorFactory`，将 `AgentSelectorProperties`、`LlmToolSelectionClientFactory`、prompt builder 和 parser 串起来创建 `RealLlmToolSelector`；默认 disabled，fake provider 可在测试中返回合法 decision，openai-compatible 仍 dry-run disabled。
+- T017b 已完成：`RealLlmSelectorShadowRunner` 支持 factory-backed selector；默认 disabled provider 返回 success=false，provider=fake 可在测试中 success=true，openai-compatible 仍 dry-run disabled。未修改 service 或 production routing。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
