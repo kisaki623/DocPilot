@@ -107,6 +107,69 @@ provider aggregation 只能包含 provider 枚举名和聚合计数 / rate。dec
 
 未来如果实现，不能通过默认 `application.yml` 把 endpoint 暴露出去；应由 profile、环境变量或部署侧配置显式开启。
 
+## 安全与鉴权设计
+
+### 访问控制
+
+建议策略：
+
+1. local / dev 默认可以显式开启，便于本地排障。
+2. prod 默认关闭。
+3. prod 如需开启，必须同时满足：
+   - 仅内网访问；
+   - Spring Security 鉴权；
+   - 运维角色权限；
+   - IP allowlist 或网关限制；
+   - 不走公网域名。
+4. 不允许匿名访问。
+5. 不允许前端普通用户访问。
+
+该 endpoint 面向内部运维与开发者，不是面向业务用户的功能。
+
+### Actuator 暴露策略
+
+设计说明：
+
+1. `management.endpoints.web.exposure.include` 不应该默认包含该 endpoint。
+2. 如果引入，应通过 profile 或环境变量显式开启。
+3. 不能为了方便把所有 Actuator endpoints 暴露出去。
+4. 本轮不修改 `application.yml`；这里只记录未来实现时的设计要求。
+5. 如未来新增 endpoint，应在部署文档中说明暴露范围和访问边界。
+
+### 脱敏策略
+
+返回内容必须满足：
+
+1. 只输出聚合指标。
+2. provider 只能输出枚举名。
+3. error 只能输出分类，不输出 provider raw error。
+4. reason 只能是阈值判断原因，不能包含 task / prompt。
+5. 不输出 sample。
+6. 不输出文档相关字段。
+7. 不输出用户相关字段。
+8. 不输出请求上下文。
+
+### 审计策略
+
+如果未来实现 endpoint，应记录访问日志：
+
+1. 记录访问时间、访问身份和 endpoint id。
+2. 不记录响应 body。
+3. 不记录用户文档内容。
+4. 不记录 prompt / task / 模型响应。
+5. 访问异常可以记录 warning，但不能输出 secret。
+
+### 风险
+
+需要重点防范：
+
+1. 误暴露 Actuator 的风险。
+2. metrics label 维度过高的风险。
+3. provider 错误信息泄露风险。
+4. 被用于推断系统行为的风险。
+5. 与 Prometheus / 管理端 API 的边界混淆风险。
+6. 为了调试而临时扩大 Actuator 暴露范围后忘记回收的风险。
+
 ## 当前状态
 
 - 未新增 Actuator endpoint。
