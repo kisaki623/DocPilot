@@ -100,6 +100,26 @@ class RealLlmSelectorShadowRunnerTest {
     }
 
     @Test
+    void shouldReturnFailedResultWhenClientThrows() {
+        RealLlmSelectorShadowRunner runner = runnerWithClient(prompt -> {
+            throw new IllegalStateException("client failed");
+        });
+
+        RealLlmSelectorShadowRunResult result = runner.run(
+                "summary_tool",
+                "summarize this document",
+                true,
+                false,
+                toolDefinitions
+        );
+
+        assertFalse(result.success());
+        assertFalse(result.shouldRecordMetrics());
+        assertFalse(result.errorMessage().isBlank());
+        assertEquals("summary_tool", result.primaryDecision());
+    }
+
+    @Test
     void shouldReturnFailedResultForDisabledProvider() {
         RealLlmSelectorShadowRunner runner = runnerWithProperties(new AgentSelectorProperties());
 
@@ -161,6 +181,27 @@ class RealLlmSelectorShadowRunnerTest {
         AgentSelectorProperties properties = new AgentSelectorProperties();
         properties.setLlmProvider("openai_compatible");
         properties.setLlmModel("selector-model");
+        RealLlmSelectorShadowRunner runner = runnerWithProperties(properties);
+
+        RealLlmSelectorShadowRunResult result = runner.run(
+                "summary_tool",
+                "summarize this document",
+                true,
+                true,
+                toolDefinitions
+        );
+
+        assertFalse(result.success());
+        assertFalse(result.shouldRecordMetrics());
+        assertFalse(result.errorMessage().isBlank());
+    }
+
+    @Test
+    void shouldReturnFailedResultForOpenAiCompatibleProviderWithoutBaseUrl() {
+        AgentSelectorProperties properties = new AgentSelectorProperties();
+        properties.setLlmProvider("openai_compatible");
+        properties.setLlmModel("selector-model");
+        properties.setLlmApiKey("test-key-not-used");
         RealLlmSelectorShadowRunner runner = runnerWithProperties(properties);
 
         RealLlmSelectorShadowRunResult result = runner.run(

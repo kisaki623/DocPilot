@@ -135,6 +135,59 @@ class DocumentAgentRealShadowPathTest {
     }
 
     @Test
+    void shouldFailOpenWhenOpenAiCompatibleApiKeyBlank() {
+        AgentSelectorProperties properties = realShadowEnabledProperties(false, "openai_compatible");
+        properties.setLlmModel("selector-model");
+        properties.setLlmBaseUrl("https://example.invalid/v1");
+        DocumentAgentServiceImpl service = buildService(properties);
+        stubReadySummaryFlow(214L);
+        stubFakeShadowSummary();
+        when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn("prompt");
+
+        var response = service.run(100L, request(214L));
+
+        assertEquals("summary_tool", response.getDecision());
+        verify(realShadowParser, never()).parse(anyString());
+        assertMetrics(1L, 1L, 0L);
+    }
+
+    @Test
+    void shouldFailOpenWhenOpenAiCompatibleBaseUrlBlank() {
+        AgentSelectorProperties properties = realShadowEnabledProperties(false, "openai_compatible");
+        properties.setLlmModel("selector-model");
+        properties.setLlmApiKey("test-key-not-used");
+        DocumentAgentServiceImpl service = buildService(properties);
+        stubReadySummaryFlow(215L);
+        stubFakeShadowSummary();
+        when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn("prompt");
+
+        var response = service.run(100L, request(215L));
+
+        assertEquals("summary_tool", response.getDecision());
+        verify(realShadowParser, never()).parse(anyString());
+        assertMetrics(1L, 1L, 0L);
+    }
+
+    @Test
+    void shouldFailOpenWhenRealShadowParserFails() {
+        AgentSelectorProperties properties = realShadowEnabledProperties(true, "fake");
+        DocumentAgentServiceImpl service = buildService(properties);
+        stubReadySummaryFlow(216L);
+        stubFakeShadowSummary();
+        when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn("Current task: Please summarize this document");
+        when(realShadowParser.parse(anyString())).thenThrow(new IllegalArgumentException("bad shadow json"));
+
+        var response = service.run(100L, request(216L));
+
+        assertEquals("summary_tool", response.getDecision());
+        verify(realShadowParser).parse(anyString());
+        assertMetrics(1L, 1L, 0L);
+    }
+
+    @Test
     void shouldSkipRealShadowWhenParseNotReady() {
         AgentSelectorProperties properties = realShadowEnabledProperties(true);
         DocumentAgentServiceImpl service = buildService(properties);

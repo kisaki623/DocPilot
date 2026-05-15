@@ -1282,6 +1282,44 @@
 - 未新增 API。
 - 未改变 production routing。
 
+## 2026-05-15 - T019c Real Provider Shadow Fail-open Tests
+
+### 本轮目标
+
+补充真实 provider shadow fail-open 测试，确保 openai-compatible 配置缺失、client failure 或 parser failure 不影响 primary Agent run。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentRealShadowPathTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunnerTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelectorFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- service 测试覆盖 openai-compatible provider 缺 apiKey / 缺 baseUrl 时 real shadow fail-open，primary decision 仍为 `summary_tool`。
+- service 测试覆盖 real shadow parser failure 不影响 Agent run，且不记录 real shadow 成功 metrics。
+- runner 测试覆盖 client exception 和 openai-compatible 缺 baseUrl failure。
+- factory 测试覆盖 openai-compatible apiKey 为空时仍为 disabled failure。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentRealShadowPathTest test`：通过。
+- `cd backend; mvn -Dtest=RealLlmSelectorShadowRunnerTest test`：通过。
+- `cd backend; mvn -Dtest=RealLlmToolSelectorFactoryTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未真实调用外部模型。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未新增 API。
+- 未改变 production routing。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

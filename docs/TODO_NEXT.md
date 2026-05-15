@@ -456,6 +456,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test` 通过；`mvn -Dtest=LlmToolSelectionClientFactoryTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：只有 apiKey、baseUrl、model 都存在时才会发 HTTP；测试使用本地 stub server，不需要真实 API Key；client 不打印 request body、prompt、Authorization、完整 baseUrl 或模型完整返回；未修改 `application.yml`，未新增 API，未改变 production routing。
 
+### T019c
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：补充 real provider shadow fail-open 后端测试。
+- 验证结果：`mvn -Dtest=DocumentAgentRealShadowPathTest test` 通过；`mvn -Dtest=RealLlmSelectorShadowRunnerTest test` 通过；`mvn -Dtest=RealLlmToolSelectorFactoryTest test` 通过；`mvn test -DskipITs` 通过。
+- 边界：测试覆盖 openai-compatible 缺 apiKey / 缺 baseUrl、client failure、parser failure、shadow failure 不记录成功 metrics、primary decision 不变；未真实调用外部模型，未读取 API Key 或 `backend/.env`，未改变 production routing。
+
 ## 任务列表
 
 ### T000

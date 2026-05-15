@@ -76,6 +76,25 @@ class RealLlmToolSelectorFactoryTest {
     }
 
     @Test
+    void shouldKeepOpenAiCompatibleSelectorDisabledWhenApiKeyBlank() {
+        AgentSelectorProperties properties = new AgentSelectorProperties();
+        properties.setLlmProvider("openai_compatible");
+        properties.setLlmModel("selector-model");
+        properties.setLlmBaseUrl("https://example.invalid/v1");
+
+        RealLlmToolSelector selector = factory.create(properties);
+
+        assertThatThrownBy(() -> selector.selectWithPrompt(
+                "summarize this document",
+                true,
+                true,
+                toolDefinitions
+        ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("disabled");
+    }
+
+    @Test
     void shouldFallbackDisabledForUnknownProvider() {
         AgentSelectorProperties properties = new AgentSelectorProperties() {
             @Override

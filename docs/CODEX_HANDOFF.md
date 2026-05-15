@@ -103,6 +103,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T019-preflight 已完成：新增 `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`，记录真实 provider shadow-only 前置安全方案、日志脱敏原则、HTTP 调用边界、验证方案、停止条件和用户确认项；本轮没有真实调用 provider，没有读取 API Key 或 `backend/.env`，也没有改变 production routing。
 - T019a 已完成：`AgentSelectorProperties` 新增 `llmApiKey`、`llmMaxTokens`、`llmTemperature` 配置字段；默认 provider 仍 disabled，real shadow 默认关闭，真实 key 只能由运行环境注入，本轮未读取或输出 API Key。
 - T019b 已完成：`OpenAiCompatibleLlmToolSelectionClient` 可在 apiKey / baseUrl / model 齐全时调用 OpenAI-compatible `/chat/completions`；缺配置时返回 disabled，不联网。测试仅用本地 stub server；未读取真实 API Key，未修改配置文件，未改变 production routing。
+- T019c 已完成：后端测试覆盖 openai-compatible 缺 apiKey / 缺 baseUrl、client failure、parser failure 和 fail-open；shadow failure 不记录成功 metrics，primary decision 和 API 返回仍保持不变。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
