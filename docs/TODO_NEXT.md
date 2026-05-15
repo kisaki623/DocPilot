@@ -423,6 +423,23 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 回归结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过，229 tests；前端 `npm run lint` 通过；`npm run build` 通过。
 - 边界：只验证已解析文档上的 Agent runtime 和 fake provider shadow compare；未验证上传 / 解析 / MQ 全链路；未真实调用 LLM，未读取 API Key 或 `backend/.env`，未向模型 provider 发真实 HTTP，未使用 hk-ops，未新增 API，未修改前端，未改变 production routing。完整 T010 仍为 BLOCKED。
 
+### T019-preflight
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：为真实 provider shadow-only 调用制定前置安全方案和代码检查清单。
+- 验证结果：新增 `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`；复核 openai-compatible client、client factory、real selector、shadow runner、selector properties 和 service 当前边界；`git diff` 已复核。
+- 边界：仅修改文档；未真实调用 provider，未读取 API Key 或 `backend/.env`，未发真实 HTTP，未修改 application 配置，未新增 API，未修改前端，未改变 production routing。
+
+### T019-real-shadow-only
+
+- 状态：BLOCKED
+- 优先级：P3
+- 任务目标：在用户明确授权后，用真实 provider 做 shadow-only runtime 验证。
+- 阻塞原因：需要用户确认 provider、baseUrl 注入方式、model、API Key 注入方式、是否允许真实 HTTP、是否允许少量费用、是否只验证 `documentId=61`、是否允许本地后端连接远程中间件，以及日志脱敏策略。
+- 验收边界：真实执行工具仍必须由 `DocumentToolSelector` 决定；real provider 只产生 shadowDecision；失败必须 fail-open；不得改变 Agent API、前端、数据库或 production routing。
+- 停止条件：需要读取 `backend/.env`、需要用户把 API Key 粘贴到聊天、需要提交密钥、需要修改 `application.yml`、parser 无法稳定解析、日志有泄露风险、真实调用失败超过 3 次或费用不明确。
+
 ## 任务列表
 
 ### T000
@@ -693,4 +710,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T019`：只有在用户明确确认 provider、API Key、费用和日志脱敏策略后，才做真实 provider shadow-only 验证；默认仍不启用真实 provider、不接管 production routing。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T019-real-shadow-only`，但当前为 BLOCKED：只有在用户明确确认 provider、baseUrl、model、API Key 注入方式、费用、真实 HTTP 授权、`documentId=61` 范围和日志脱敏策略后，才做真实 provider shadow-only 验证。默认仍不启用真实 provider、不接管 production routing。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

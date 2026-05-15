@@ -1165,6 +1165,49 @@
 - 未新增 API。
 - 未修改前端。
 
+## 2026-05-15 - T019-preflight Real Provider Shadow Safety Plan
+
+### 本轮目标
+
+只做真实 provider shadow-only 调用前置检查与安全方案，不真实调用 provider，不读取 API Key，不改变当前 Agent 行为。
+
+### 检查范围
+
+- `OpenAiCompatibleLlmToolSelectionClient`：当前仍返回 disabled response，不发 HTTP。
+- `LlmToolSelectionClientFactory`：默认 provider=disabled，默认返回 `DisabledLlmToolSelectionClient`。
+- `RealLlmToolSelector`：只串联 prompt builder、client 和 parser；client disabled 或 blank response 会失败，不 fallback 成 keyword selector。
+- `RealLlmSelectorShadowRunner`：捕获 selector 失败并返回 `success=false` / `shouldRecordMetrics=false`。
+- `AgentSelectorProperties`：默认 `realShadowEnabled=false`、`realShadowRecordMetrics=false`、`llmProvider=disabled`。
+- `DocumentAgentServiceImpl`：真实执行仍以 primary `DocumentToolSelector` decision 为准，real shadow 只在开关打开后旁路执行。
+
+### 修改文件
+
+- `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增真实 provider shadow-only 前置安全文档。
+- 明确 T019 只能 shadow-only，不能接管 production routing，不能影响 Agent API 返回。
+- 明确 API Key 注入和日志脱敏原则。
+- 明确真实 HTTP 调用边界、验证方案、停止条件和用户确认项。
+- 将 `T019-real-shadow-only` 标记为 BLOCKED，等待用户确认 provider、baseUrl、model、API Key 注入方式、真实 HTTP、费用和日志脱敏策略。
+
+### 明确未做事项
+
+- 未真实调用 DeepSeek / OpenAI / 硅基流动或其他 provider。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发真实 HTTP。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未新增 API。
+- 未修改前端。
+- 未修改数据库。
+- 未改变 production routing。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标
