@@ -121,6 +121,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T023d 已同步观测路线文档：T023 仍只是设计草案，尚未实现 endpoint；T024 才可能进入候选实现，且 T024 前建议先做 Claude Code / 人工安全审查。
 - T023e 已完成：最终自检确认 T023 只修改允许文档；未修改 Java 生产代码、测试代码、前端、配置、DDL 或 API 层；未读取或输出 secret。
 - T024a 已完成：根据安全审查补充 T024 实现边界；未来 endpoint 必须使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`，本轮不修改 `application.yml` / `application-local.yml`，不加入 exposure include，不接 Prometheus，不测试未授权访问，该项留到 T025。
+- T024 已完成：新增默认关闭的 `AgentSelectorShadowEndpoint` 和对应单元 / context 默认 404 测试；endpoint id 为 `agentSelectorShadow`，候选 path 为 `/actuator/agentSelectorShadow`，只读返回 `SelectorMetricsDebugSnapshot`。本轮未修改配置文件，未加入 exposure include，未新增普通 REST API，未接 Prometheus，未改前端，未真实调用 provider，production routing 未改变。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -166,7 +167,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 下一步建议先做 T024 前安全审查：请 Claude Code / 人工复核 `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md` 的默认关闭、白名单字段、黑名单字段、鉴权边界和测试策略，再决定是否实现 Actuator endpoint。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
+1. 下一步建议进入 T025：Actuator endpoint 安全配置 / 显式开启策略设计。T024 endpoint 已默认关闭，但尚未设计生产显式开启、鉴权和访问边界；不要直接把 endpoint 暴露到生产。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -234,6 +235,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先做 T024 前安全审查，不要直接实现 Actuator endpoint。
+优先做 T025：Actuator endpoint 安全配置 / 显式开启策略设计，不要直接生产暴露 endpoint。
 
-原因：T023 已完成 Actuator endpoint 设计草案、路线同步和最终自检；下一步如果进入实现，风险点是 Actuator 暴露范围、鉴权和字段脱敏。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T024 已完成默认关闭的 selector shadow Actuator endpoint 最小实现和测试；下一步风险点是显式开启策略、Actuator 暴露范围、鉴权和字段脱敏。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。

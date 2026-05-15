@@ -282,7 +282,8 @@
 当前推荐路径是：
 
 1. 保留 T021 本地 debug dump 作为短期观测方式。
-2. T023 先写 Actuator endpoint 设计草案，明确开关、鉴权、字段白名单和测试策略。
-3. T024 才可能进入 Actuator endpoint 候选实现；T024 前建议先做 Claude Code / 人工安全审查。
-4. Prometheus 放到中期，等 Actuator 和指标口径稳定后再接。
-5. 管理端 API 暂缓，等后台权限体系和审计策略更清楚后再评估。
+2. T023 已完成 Actuator endpoint 设计草案，明确开关、鉴权、字段白名单和测试策略。
+3. T024 已完成默认关闭的 Actuator endpoint 最小实现，使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`，不修改配置文件，也不加入 exposure include。
+4. T025 推荐继续做 Actuator endpoint 安全配置 / 显式开启策略设计，不要直接暴露到生产环境。
+5. Prometheus 放到中期，等 Actuator 和指标口径稳定后再接。
+6. 管理端 API 暂缓，等后台权限体系和审计策略更清楚后再评估。

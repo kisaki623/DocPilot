@@ -248,12 +248,37 @@ T024 实现边界补充：
 8. endpoint 默认关闭或仅在明确 profile / exposure 配置下可见。
 9. 返回字段必须只来自 `SelectorMetricsDebugSnapshot` 安全 view。
 
+## T024 实现结果
+
+T024 已按本设计完成最小实现：
+
+- 新增 `AgentSelectorShadowEndpoint`。
+- endpoint 使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`。
+- endpoint id 为 `agentSelectorShadow`，候选访问路径为 `/actuator/agentSelectorShadow`，只读 GET 语义由 `@ReadOperation` 提供。
+- endpoint 默认关闭。
+- endpoint 只依赖 `SelectorMetricsDebugReporter`，返回 `SelectorMetricsDebugSnapshot` 安全 view。
+- 已新增直接单元测试，验证空 metrics、字段黑名单和只读行为。
+- 已新增 Spring context 测试，验证未显式开启 / 未加入 exposure 时默认返回 404。
+
+T024 明确未做：
+
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未加入 `management.endpoints.web.exposure.include`。
+- 未新增普通 REST API 或 Controller。
+- 未接 Prometheus。
+- 未落库。
+- 未修改前端。
+- 未真实调用 provider。
+- 未读取或输出 secret。
+- 未改变 production routing，真实工具执行仍由 `DocumentToolSelector` 决定。
+- 未做未授权访问测试；当前项目没有专门的 Actuator Spring Security 配置，该项留到 T025。
+
 ## 当前状态
 
-- 未新增 Actuator endpoint。
+- 已新增默认关闭的自定义 Actuator endpoint。
 - 未新增 Controller。
 - 未修改 `application.yml` 或 `application-local.yml`。
-- 未修改 Java 生产代码。
 - 未修改前端。
 - 未接 Prometheus。
 - 未落库。

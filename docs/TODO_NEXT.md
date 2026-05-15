@@ -493,13 +493,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ### T024
 
-- 状态：REVIEW
+- 状态：DONE
 - 完成时间：2026-05-16
 - 任务目标：实现默认关闭的 Agent selector shadow metrics Actuator endpoint。
 - 实现边界：必须使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`；这是项目中第一个自定义 Actuator endpoint，没有既有模式可复用，因此只做最小实现。
 - 配置边界：不修改 `application.yml` / `application-local.yml`，不加入 `management.endpoints.web.exposure.include`，不接 Prometheus；现有 Prometheus endpoint 与 selector-specific Prometheus metrics 是两回事，本轮不修改现有 Prometheus 配置。
 - 测试边界：T024 只做默认关闭 endpoint、单元测试和 context 默认 404 测试；暂不测试“未授权访问被拒绝”，因为当前没有专门的 Actuator Spring Security 配置，该项留到 T025。
-- 当前进度：T024a 已补充实现边界文档；后续 T024b 才新增 endpoint 类。
+- 当前结果：已新增 `AgentSelectorShadowEndpoint`，endpoint id 为 `agentSelectorShadow`，候选 path 为 `/actuator/agentSelectorShadow`，通过 `@ReadOperation` 提供只读 GET 语义，默认关闭且不加入 exposure include。
+- 验证结果：`mvn -Dtest=AgentSelectorShadowEndpointTest test`、`mvn -Dtest=AgentSelectorShadowEndpointExposureTest test`、`mvn -DskipTests compile`、`mvn test -DskipITs`、`npm run lint`、`npm run build` 均通过。
+- 边界：未新增普通 REST API / Controller，未修改配置文件、前端、DDL 或 production routing，未接 Prometheus，未落库，未真实调用 provider，未读取或输出 secret。
 
 ### T019a
 
@@ -795,4 +797,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐先做 T024 前安全审查：请 Claude Code / 人工复核 `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md` 的默认关闭、字段白名单、黑名单、鉴权边界和测试策略，再决定是否实现 Actuator endpoint。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐进入 T025：Actuator endpoint 安全配置 / 显式开启策略设计。T024 已完成默认关闭 endpoint 的最小实现，但还没有 Actuator 安全配置或生产暴露策略；不要直接把 endpoint 暴露到生产。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

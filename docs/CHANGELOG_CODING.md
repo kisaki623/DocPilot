@@ -1365,6 +1365,56 @@
 - 未修改前端代码。
 - 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
 
+## 2026-05-16 - T024 Selector Actuator Endpoint Implementation
+
+### 本轮目标
+
+实现默认关闭、只读、安全字段白名单的 Agent selector shadow metrics Actuator endpoint。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/AgentSelectorShadowEndpoint.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/AgentSelectorShadowEndpointTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/AgentSelectorShadowEndpointExposureTest.java`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `AgentSelectorShadowEndpoint`。
+- endpoint 使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`。
+- endpoint id 为 `agentSelectorShadow`，候选 path 为 `/actuator/agentSelectorShadow`，通过 `@ReadOperation` 提供只读 GET 语义。
+- endpoint 只依赖 `SelectorMetricsDebugReporter`，返回 `SelectorMetricsDebugSnapshot`。
+- 新增单元测试验证空 metrics、字段黑名单和只读行为。
+- 新增 Spring context 测试验证默认未开启 / 未加入 exposure 时返回 404。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorShadowEndpointTest test`：通过。
+- `cd backend; mvn -Dtest=AgentSelectorShadowEndpointExposureTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，286 tests，0 failures，0 errors。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未加入 `management.endpoints.web.exposure.include`。
+- 未新增普通 REST API 或 Controller。
+- 未接 Prometheus。
+- 未落库。
+- 未修改前端。
+- 未真实调用 provider。
+- 未读取或输出 secret。
+- 未改变 production routing，真实工具执行仍由 `DocumentToolSelector` 决定。
+- 未测试未授权访问；当前没有专门的 Actuator Spring Security 配置，该项留到 T025。
+
 ## 2026-05-16 - T024 Selector Actuator Endpoint Implementation Boundary
 
 ### 本轮目标

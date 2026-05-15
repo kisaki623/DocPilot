@@ -158,6 +158,8 @@ T021 已新增内部只读 debug dump / reporter：
 - T020 测试已验证 threshold policy 与 offline eval 组合；即使 `allowPromotionCandidate=true`，`DocumentAgentServiceImpl` 的真实响应仍由 primary `DocumentToolSelector` decision 决定。
 - T021a-c 已完成内部只读 debug dump / reporter 和离线 evaluation dump 测试；未新增 API / Actuator / Prometheus / 落库。
 - T022 已创建 `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`，完成本地 debug dump、Actuator endpoint、管理端 API、Prometheus metrics 四种观测入口的方案对比和安全威胁模型；T022 只做设计文档，未实现接口。
+- T023 已完成 Actuator endpoint 设计草案。
+- T024 已新增默认关闭的 `AgentSelectorShadowEndpoint`：endpoint 使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`，只读返回 `SelectorMetricsDebugSnapshot`，默认未暴露，未修改 `application.yml` / `application-local.yml`，未加入 exposure include，未接 Prometheus，未新增普通 REST API。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
 
@@ -176,7 +178,7 @@ T021 已新增内部只读 debug dump / reporter：
 - 未接 MCP。
 - 未实现完整向量 RAG。
 - 未对外暴露 metrics API。
-- 未新增 Actuator metrics endpoint。
+- 已新增默认关闭的 Actuator endpoint；未加入 exposure include，默认不可访问，未接 Prometheus。
 - 未接 Prometheus。
 - 未将 selector metrics 落库。
 - 未验证完整上传 -> 解析 -> Agent run 链路。
@@ -187,8 +189,8 @@ T021 已新增内部只读 debug dump / reporter：
 
 建议后续拆小推进：
 
-1. T023：Actuator endpoint 设计草案；继续只写设计，默认不实现接口。
-2. T024：如要实现 Actuator endpoint，必须先完成 Claude Code / 人工安全审查，确认默认关闭、白名单字段、黑名单字段和鉴权边界。
+1. T025：Actuator endpoint 安全配置 / 显式开启策略设计；不要直接把 endpoint 暴露到生产。
+2. 后续如果实现开启策略，必须默认关闭、字段白名单、字段黑名单、鉴权边界和内网限制同时成立。
 3. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
 4. 后续达到稳定阈值后再考虑小流量接管。
 5. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。
