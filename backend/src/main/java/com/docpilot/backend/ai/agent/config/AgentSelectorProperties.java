@@ -164,6 +164,13 @@ public class AgentSelectorProperties {
         if (provider == null || provider.isBlank()) {
             return PROVIDER_DISABLED;
         }
-        return provider.trim().toLowerCase(java.util.Locale.ROOT);
+        String normalized = provider.trim().toLowerCase(java.util.Locale.ROOT)
+                .replace("-", "_");
+        if ("openaicompatible".equals(normalized)
+                || "deepseek".equals(normalized)
+                || "siliconflow".equals(normalized)) {
+            return PROVIDER_OPENAI_COMPATIBLE;
+        }
+        return normalized;
     }
 }

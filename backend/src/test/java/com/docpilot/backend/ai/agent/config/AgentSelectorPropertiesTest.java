@@ -11,7 +11,19 @@ class AgentSelectorPropertiesTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(ConfigurationPropertiesAutoConfiguration.class))
-            .withUserConfiguration(AgentSelectorProperties.class);
+            .withUserConfiguration(AgentSelectorProperties.class)
+            .withPropertyValues(
+                    "app.agent.selector.llm-provider=disabled",
+                    "app.agent.selector.llm-model=",
+                    "app.agent.selector.llm-base-url=",
+                    "app.agent.selector.llm-api-key=",
+                    "app.agent.selector.llm-request-timeout-ms=3000",
+                    "app.agent.selector.llm-max-tokens=256",
+                    "app.agent.selector.llm-temperature=0.0",
+                    "app.agent.selector.shadow-enabled=false",
+                    "app.agent.selector.real-shadow-enabled=false",
+                    "app.agent.selector.real-shadow-record-metrics=false"
+            );
 
     @Test
     void shouldUseKeywordModeByDefault() {
@@ -86,6 +98,15 @@ class AgentSelectorPropertiesTest {
     }
 
     @Test
+    void shouldNormalizeOpenAiCompatibleProviderAliases() {
+        assertProviderAlias("openai-compatible");
+        assertProviderAlias("OPENAI_COMPATIBLE");
+        assertProviderAlias("openaiCompatible");
+        assertProviderAlias("deepseek");
+        assertProviderAlias("siliconflow");
+    }
+
+    @Test
     void shouldRejectUnsupportedMode() {
         contextRunner.withPropertyValues("app.agent.selector.mode=real_llm")
                 .run(context -> {
@@ -132,6 +153,17 @@ class AgentSelectorPropertiesTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseMessage("app.agent.selector.llm-temperature must be between 0.0 and 2.0.");
+                });
+    }
+
+    private void assertProviderAlias(String provider) {
+        contextRunner.withPropertyValues("app.agent.selector.llm-provider=" + provider)
+                .run(context -> {
+                    AgentSelectorProperties properties = context.getBean(AgentSelectorProperties.class);
+
+                    assertThat(properties.getLlmProvider()).isEqualTo("openai_compatible");
+                    assertThat(properties.isRealShadowEnabled()).isFalse();
+                    assertThat(properties.isRealShadowRecordMetrics()).isFalse();
                 });
     }
 }
