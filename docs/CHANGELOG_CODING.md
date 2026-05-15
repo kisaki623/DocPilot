@@ -1398,6 +1398,16 @@
 - `cd backend; mvn -Dtest=ShadowToolSelectorEvaluationTest test`：通过。
 - `cd backend; mvn -Dtest=RealShadowProviderEvaluationTest test`：通过。
 - `cd backend; mvn test -DskipITs`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### T021e 状态收口
+
+- `docs/TODO_NEXT.md` 已将 T021 标记为 DONE。
+- `docs/CODEX_HANDOFF.md` 已更新下一步为 T022：Actuator / 管理 API / Prometheus 观测入口设计决策。
+- 当前仍仅提供内部 debug dump / reporter，不新增 API / Actuator / Prometheus。
+- 完整 T010 仍为 BLOCKED，等待 MQ / 解析消费链路。
 
 ### 明确未做事项
 
