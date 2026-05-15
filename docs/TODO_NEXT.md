@@ -448,6 +448,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`AgentSelectorProperties` 支持 OpenAI-compatible 常见 provider alias；`AgentSelectorPropertiesTest` 与 `DocPilotApplicationTests` 显式隔离 selector provider 默认值；targeted tests 通过；后端全量测试通过。
 - 边界：未读取或输出真实环境变量值，未读取 `backend/.env`，未改变 production routing，未新增 API，未修改前端代码。
 
+### T020
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：补齐真实 provider shadow mismatch / metrics 记录与阈值策略基础设施。
+- 验证结果：`SelectorMetricsCollector` / `SelectorMetricsSnapshot` 已支持 total / success / failure / matched / mismatch、matchRate、failureRate、provider 聚合和 decision pair 聚合；新增 `SelectorShadowThresholdPolicy` / `SelectorShadowThresholdDecision`；新增阈值评估测试，确认 `promotionCandidate` 不会改变 `DocumentAgentServiceImpl` 的 primary decision。
+- 默认阈值：`minimumSamples=20`，`minMatchRate=0.95`，`maxFailureRate=0.05`。
+- 回归结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过；前端 `npm run lint` 通过；`npm run build` 通过。
+- 边界：threshold policy 只产生 `allowPromotionCandidate` 和 reason，不自动接管 routing，不修改配置，不落库，不接 Prometheus，不新增 API，不改前端，不真实调用 provider；完整 T010 仍为 BLOCKED。
+
 ### T019a
 
 - 状态：DONE
@@ -742,4 +752,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T020`：真实 provider shadow mismatch / metrics 记录与阈值策略。T019-real-shadow-only 已完成，但默认仍不启用真实 provider、不接管 production routing；后续再次真实调用 provider 必须重新获得用户确认。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T021`：shadow metrics 只读内部观测入口或本地 debug dump。T021 前必须先确认是否需要新增 API、Actuator endpoint，还是仅测试内导出；默认不新增对外 API。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

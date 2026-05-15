@@ -1365,6 +1365,61 @@
 - 未修改前端代码。
 - 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
 
+## 2026-05-15 - T020 Selector Shadow Threshold Metrics
+
+### 本轮目标
+
+把 T019 的真实 provider shadow-only 能力升级为可观测、可评估、可设置阈值的 shadow 评估基础设施，但不让 shadow decision 接管 production routing。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsCollector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsSnapshot.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorShadowThresholdDecision.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorShadowThresholdPolicy.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsCollectorTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorShadowThresholdPolicyTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorShadowThresholdEvaluationTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `SelectorMetricsCollector` / `SelectorMetricsSnapshot` 增强为记录 totalCount、successCount、failureCount、matchedCount、mismatchCount、matchRate、failureRate、lastUpdatedTime。
+- metrics 支持 provider 维度聚合和 primaryDecision / shadowDecision 的安全 decision pair 聚合。
+- 新增 `SelectorShadowThresholdPolicy` / `SelectorShadowThresholdDecision`，默认 `minimumSamples=20`、`minMatchRate=0.95`、`maxFailureRate=0.05`。
+- 阈值策略只返回 `allowPromotionCandidate` 和 reason，不修改配置，不改变 production routing。
+- 新增离线 threshold evaluation 测试，确认 promotion candidate 不会改变 `DocumentAgentServiceImpl` 的 primary decision。
+- 文档补充 metrics 字段、threshold policy、日志脱敏边界和下一步 T021。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=SelectorMetricsCollectorTest test`：通过。
+- `cd backend; mvn -Dtest=SelectorShadowThresholdPolicyTest test`：通过。
+- `cd backend; mvn -Dtest=SelectorShadowThresholdEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=ShadowToolSelectorEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=RealShadowProviderEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未真实调用 provider。
+- 未读取或输出 API Key、完整 baseUrl、Authorization header、prompt、用户 task、文档内容或模型完整返回。
+- 未读取 `backend/.env`。
+- 未改变 production routing，真实工具执行仍由 `DocumentToolSelector` primary decision 决定。
+- 未新增 API，未改前端。
+- 未落库，未接 Prometheus。
+- 未接 function calling / RAG / MCP / Spring AI / LangChain4j。
+- 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

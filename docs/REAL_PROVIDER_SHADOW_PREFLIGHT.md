@@ -167,3 +167,12 @@ T019 只允许做真实 provider 的 shadow-only 调用。
 - 敏感信息：协作代理未读取或输出 API Key；未输出完整 baseUrl、Authorization header、prompt、文档内容或模型完整返回。
 - 回归验证：后端 `mvn -DskipTests compile` 通过；后端 `mvn test -DskipITs` 通过；前端 `npm run lint` 通过；前端 `npm run build` 通过。
 - 完整 T010：仍为 BLOCKED，原因仍是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进。
+
+## 9. T020 阈值策略边界
+
+- T020 已新增 selector shadow metrics 聚合和 threshold policy。
+- threshold policy 默认 `minimumSamples=20`、`minMatchRate=0.95`、`maxFailureRate=0.05`。
+- `allowPromotionCandidate=true` 只表示候选，不会自动修改配置，也不会接管 production routing。
+- production routing 仍由 `DocumentToolSelector` 决定。
+- metrics 仍为内存态，不落库，不接 Prometheus，不新增 API。
+- 后续如需观测入口，优先进入 T021，并先确认是否需要 API、Actuator endpoint 或仅本地 debug dump。

@@ -108,6 +108,9 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T019e 已完成：后端 `mvn -DskipTests compile` 通过；后端 `mvn test -DskipITs` 通过，244 tests；前端 `npm run lint` 与 `npm run build` 均通过。
 - T019-recovery 已完成：修复测试进程继承本机真实 provider 环境导致的配置绑定 / 测试隔离问题；`AgentSelectorProperties` 支持 OpenAI-compatible 常见 provider alias，配置测试和 Spring context test 显式隔离 selector provider 默认值。
 - T019f 已完成：协作文档记录真实 provider shadow-only 验证结果；默认行为仍不启用真实 provider，不改变 production routing，不新增 API，不修改前端。
+- T020 已完成：selector shadow metrics 增强为 total / success / failure / matched / mismatch、matchRate、failureRate、provider 聚合和 decision pair 聚合；新增 `SelectorShadowThresholdPolicy` / `SelectorShadowThresholdDecision`，默认阈值为 minimumSamples=20、minMatchRate=0.95、maxFailureRate=0.05。
+- T020 边界：threshold policy 只输出 `allowPromotionCandidate` 和 reason，不自动接管 routing，不修改配置，不新增 API，不落库，不接 Prometheus，不修改前端；production routing 仍由 `DocumentToolSelector` 决定。
+- T020 验证：`SelectorMetricsCollectorTest`、`SelectorShadowThresholdPolicyTest`、`SelectorShadowThresholdEvaluationTest`、`ShadowToolSelectorEvaluationTest`、`RealShadowProviderEvaluationTest`、`DocumentAgentServiceImplTest` 与后端全量测试通过；T020e 也完成前端 lint/build。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -153,7 +156,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 下一步推荐 `T020`：真实 provider shadow mismatch / metrics 记录与阈值策略；后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
+1. 下一步推荐 `T021`：shadow metrics 只读内部观测入口或本地 debug dump；开始前先确认是否需要新增 API、Actuator endpoint，还是仅测试内导出。后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -221,6 +224,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T020`：真实 provider shadow mismatch / metrics 记录与阈值策略。
+优先执行 `T021`：shadow metrics 只读内部观测入口或本地 debug dump。
 
-原因：T019-real-shadow-only 已完成一次用户授权下的真实 provider shadow-only 验证；下一步应把 shadow mismatch、metrics 和阈值治理收口，而不是让 shadow decision 接管 production routing。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T020 已完成 shadow metrics 与 threshold policy 基础设施；下一步如需观测，应先决定是否允许新增 API / Actuator endpoint，或仅保留本地 debug dump。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。

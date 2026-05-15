@@ -144,6 +144,8 @@ app:
 - T019-preflight 已新增 `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`，明确真实 provider shadow-only 前的配置原则、日志脱敏原则、HTTP 调用边界、验证方案、停止条件和用户确认项；该文档不代表真实 provider 已启用。
 - T019-real-shadow-only 已在用户授权下完成：provider=`openai_compatible`，真实 HTTP 调用 2 次，基于 `documentId=61` 验证 summary / QA；summary primary / shadow 均为 `summary_tool`，QA primary / shadow 均为 `qa_tool`，shadow parse success=true，mismatch=false，QA citations 正常。
 - T019 回归验证已通过：后端 `mvn -DskipTests compile`、`mvn test -DskipITs`，前端 `npm run lint`、`npm run build` 均通过；协作代理未读取或输出 API Key，未输出完整 baseUrl、prompt、文档内容或模型完整返回。
+- T020 已完成 selector shadow metrics 与 threshold policy：metrics 支持 total / success / failure / matched / mismatch、matchRate、failureRate、provider 聚合和 decision pair 聚合；threshold policy 默认 `minimumSamples=20`、`minMatchRate=0.95`、`maxFailureRate=0.05`，只输出 `allowPromotionCandidate` 和 reason，不接管 routing。
+- T020 测试已验证 threshold policy 与 offline eval 组合；即使 `allowPromotionCandidate=true`，`DocumentAgentServiceImpl` 的真实响应仍由 primary `DocumentToolSelector` decision 决定。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
 
@@ -170,7 +172,7 @@ app:
 
 建议后续拆小推进：
 
-1. T020：记录真实 provider shadow mismatch / metrics，补充人工审核 eval 和阈值策略。
+1. T021：shadow metrics 只读内部观测入口或本地 debug dump；开始前先确认是否需要新增 API、Actuator endpoint，还是仅测试内导出。
 2. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
 3. 后续达到稳定阈值后再考虑小流量接管。
 4. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。
