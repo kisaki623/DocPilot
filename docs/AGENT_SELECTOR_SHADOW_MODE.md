@@ -109,6 +109,9 @@ app:
 - `FakeLlmToolSelectionClientTest` 已验证 fake provider client 输出可被 parser 解析，并覆盖 status / summary / evidence、summary + evidence 冲突、中文关键词、英文大小写和空白 fallback。
 - `OpenAiCompatibleLlmToolSelectionClientTest` 已验证 OpenAI-compatible skeleton 只构造 request 并返回 disabled response，不联网。
 - `LlmToolSelectionClientFactoryTest` 已验证默认返回 disabled、fake 返回 fake、openai-compatible 返回 dry-run skeleton，unknown provider fallback disabled。
+- T018 fake provider shadow-only runtime 已通过：本地后端连接用户授权的远程中间件，使用命令行参数开启 `shadowEnabled=true`、`realShadowEnabled=true`、`realShadowRecordMetrics=true`、`llmProvider=fake`，基于已解析文档 `documentId=61` 完成 summary / QA 浏览器验证。
+- T018 runtime 验证中，summary primary decision 仍为 `summary_tool`，QA primary decision 仍为 `qa_tool`；后端安全日志可见 `provider=fake` 的 real shadow compare，shadow decision 与 primary matched，且只用于 shadow compare / metrics。
+- T018 runtime 验证未修改 API、前端、production routing 或配置文件；未真实调用 LLM，未读取 API Key / `backend/.env`，未向模型 provider 发真实 HTTP；本轮未使用 hk-ops，未执行远程 DB 只读 SELECT。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
 
@@ -138,8 +141,7 @@ app:
 
 建议后续拆小推进：
 
-1. T018：使用 fake provider 做 shadow-only runtime / smoke，不接管生产。
-2. T019：用户确认后才考虑真实 provider shadow-only 调用，仍不接管生产。
-3. T020：记录真实 provider shadow mismatch，补充人工审核 eval。
-4. 后续达到稳定阈值后再考虑小流量接管。
-5. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。
+1. T019：用户确认 API Key、费用、provider 和日志脱敏策略后，才考虑真实 provider shadow-only 调用，仍不接管生产。
+2. T020：记录真实 provider shadow mismatch，补充人工审核 eval。
+3. 后续达到稳定阈值后再考虑小流量接管。
+4. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。

@@ -406,6 +406,23 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`git status --short` 检查通过；`git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
 - 边界：仅修改文档；provider=disabled 仍是默认，provider=fake 仅用于测试 / 后续 shadow-only runtime，openai-compatible 仍不联网；未真实调用 LLM，未读取 API Key 或 `backend/.env`，未新增 API，未改变 production routing。
 
+### T018a
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：补充 real shadow runtime 安全日志，便于 fake provider shadow-only runtime 验证。
+- 验证结果：`mvn -Dtest=DocumentAgentRealShadowPathTest test` 通过；`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：日志只记录 provider、primary / shadow decision、matched、metricsRecorded 等安全摘要；不输出 prompt、task 全文、文档内容、密钥、token 或真实连接信息；未改变 production routing、API 或前端。
+
+### T018b-retry / T018c / T018d
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：使用 provider=fake 完成 real shadow selector 的 shadow-only runtime / smoke 验证，并记录结果。
+- 验证结果：本地后端连接用户授权的远程中间件运行；使用已解析文档 `documentId=61` 完成浏览器 summary / QA 验证；后端安全日志可见 `provider=fake` real shadow compare；summary primary decision=`summary_tool`，QA primary decision=`qa_tool`；页面展示 routingReason、matchedKeywords、持久化 trace 和 QA citations。
+- 回归结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过，229 tests；前端 `npm run lint` 通过；`npm run build` 通过。
+- 边界：只验证已解析文档上的 Agent runtime 和 fake provider shadow compare；未验证上传 / 解析 / MQ 全链路；未真实调用 LLM，未读取 API Key 或 `backend/.env`，未向模型 provider 发真实 HTTP，未使用 hk-ops，未新增 API，未修改前端，未改变 production routing。完整 T010 仍为 BLOCKED。
+
 ## 任务列表
 
 ### T000
@@ -676,4 +693,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T018`：使用 fake provider 做 shadow-only runtime / smoke，不接管生产。完整 T010 仍为 BLOCKED；不要直接进入真实 provider 调用、生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T019`：只有在用户明确确认 provider、API Key、费用和日志脱敏策略后，才做真实 provider shadow-only 验证；默认仍不启用真实 provider、不接管 production routing。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

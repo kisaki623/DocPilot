@@ -1126,6 +1126,45 @@
 - 未修改前端。
 - 未改变 production routing。
 
+## 2026-05-15 - T018 Fake Provider Shadow Runtime Verification
+
+### 本轮目标
+
+使用 provider=fake 完成 real shadow selector 的 shadow-only runtime / smoke 验证，确认运行时 real shadow 分支可观察，但 production routing 仍由 primary `DocumentToolSelector` 决定。
+
+### 验证方式
+
+- 本地后端在用户授权下连接远程中间件运行。
+- 启动时使用命令行参数开启 `shadowEnabled=true`、`realShadowEnabled=true`、`realShadowRecordMetrics=true`、`llmProvider=fake`，未修改配置文件。
+- 前端浏览器打开 `/agent`，选择当前账号可访问的已解析文档 `documentId=61`。
+- 未使用 hk-ops，未执行远程 DB 只读 SELECT。
+
+### Runtime 结果
+
+- summary 验证通过：primary decision=`summary_tool`，页面正常返回回答，展示 routingReason、matchedKeywords 和持久化 trace；后端安全日志可见 `provider=fake` real shadow compare，shadow decision=`summary_tool`，matched=true，metricsRecorded=true。
+- QA 验证通过：primary decision=`qa_tool`，页面正常返回回答并展示 citations，展示 routingReason、matchedKeywords 和持久化 trace；后端安全日志可见 `provider=fake` real shadow compare，shadow decision=`qa_tool`，matched=true，metricsRecorded=true。
+- 真实执行工具仍由 primary decision 决定；fake provider 只用于 shadow compare / metrics。
+
+### 回归验证
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，229 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+- 本轮启动的后端 / 前端进程已清理，端口已释放。
+
+### 明确未做事项
+
+- 未验证完整上传 / 解析 / MQ 链路；完整 T010 仍为 BLOCKED。
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未向模型 provider 发真实 HTTP。
+- 未使用 hk-ops。
+- 未修改 production routing。
+- 未新增 API。
+- 未修改前端。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

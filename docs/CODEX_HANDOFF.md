@@ -97,6 +97,9 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T017x 已完成：`FakeLlmToolSelectionClient` 已增强 task 提取和本地规则，覆盖 status / summary / evidence、中文关键词、英文大小写、summary + evidence 冲突和空白 fallback；未修改 primary selector 或 eval cases。
 - T017d 已完成：新增 `RealShadowProviderEvaluationTest`，使用 24 条 eval cases 对比 primary `DocumentToolSelector` 与 `RealLlmSelectorShadowRunner + provider=fake`；结果 total=24、success=22、failures=2、matched=22、mismatch=0、matchRate=0.9167。两个 failure 来自 blank task 被 prompt builder 拒绝，未修改 eval cases。
 - T017e 已完成：`docs/AGENT_SELECTOR_SHADOW_MODE.md` 和协作文档已更新，明确 factory-backed real shadow 路径具备 provider=fake 离线验证，但仍没有真实 provider 调用、没有 API 变化、没有 production routing 接管。
+- T018a 已完成：`DocumentAgentServiceImpl` 增加 real shadow runtime 安全日志字段 `provider`，用于观察 fake provider shadow-only runtime；日志不输出 prompt、task 全文、文档内容、密钥、token 或真实连接信息，production routing 未改变。
+- T018b-retry / T018c 已完成：本地后端在用户授权下连接远程中间件，使用 `shadowEnabled=true`、`realShadowEnabled=true`、`realShadowRecordMetrics=true`、`llmProvider=fake` 完成浏览器 runtime 验证；已解析文档 `documentId=61` 的 summary / QA 均成功，primary decision 分别为 `summary_tool` / `qa_tool`，页面可见 routingReason、matchedKeywords、持久化 trace 和 QA citations；后端安全日志可见 `provider=fake` real shadow compare matched。后端 compile/test 与前端 lint/build 均通过。
+- T018d 已完成：协作文档记录 fake provider shadow-only runtime 结果；本轮未使用 hk-ops，未执行远程 DB 只读 SELECT，未真实调用 LLM，未读取 API Key 或 `backend/.env`，未向模型 provider 发真实 HTTP，未新增 API，未修改前端，未改变 production routing。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -142,7 +145,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T018`：使用 provider=fake 做 shadow-only runtime / smoke，不接管生产；真实 provider 调用必须另开任务。
+1. 继续 `T019`：只有在用户明确确认 provider、API Key、费用和日志脱敏策略后，才做真实 provider shadow-only 验证；默认不启用真实 provider，也不接管生产 routing。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -210,6 +213,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T018`。
+优先执行 `T019`。
 
-原因：factory-backed real shadow 路径已经具备 provider=fake 离线评估证据；下一步可做 fake provider shadow-only runtime / smoke，但仍不能真实调用外部模型、不能接管 production routing，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：factory-backed real shadow 路径已经具备 provider=fake 离线评估和 runtime 验证证据；下一步如要进入真实 provider shadow-only，必须先由用户确认 API Key、费用、provider 和日志脱敏策略。默认仍不能真实调用外部模型、不能接管 production routing，也不能改变 `/api/ai/agent/run` 返回协议。
