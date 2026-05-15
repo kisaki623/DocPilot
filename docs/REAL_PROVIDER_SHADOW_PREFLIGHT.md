@@ -62,6 +62,9 @@ T019 只允许做真实 provider 的 shadow-only 调用。
 - latencyMs。
 - errorType。
 - errorCode。
+- metricsRecorded。
+- promotionCandidate。
+- threshold reason。
 - 脱敏后的错误摘要。
 
 错误摘要必须避免包含请求头、密钥、完整 prompt、文档片段或模型完整原文。

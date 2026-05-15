@@ -81,11 +81,16 @@ app:
 
 `SelectorMetricsCollector` 当前记录：
 
-- `totalComparisons`
+- `totalCount`
+- `successCount`
+- `failureCount`
 - `matchedCount`
 - `mismatchCount`
 - `matchRate`
+- `failureRate`
 - `lastUpdatedTime`
+- provider 维度聚合，例如 `disabled` / `fake` / `openai_compatible`
+- primaryDecision / shadowDecision 的安全 decision pair 聚合
 
 当前边界：
 
@@ -96,8 +101,32 @@ app:
 - 未新增对外 API。
 - fake shadow metrics 已可记录。
 - real shadow metrics 默认不记录；只有 `realShadowRecordMetrics=true` 且 real shadow success 时才允许记录。
+- metrics 不记录 prompt、用户原始 task、文档内容、模型完整返回、API Key、完整 baseUrl 或 Authorization header。
 
-## 6. 当前已验证内容
+## 6. Threshold Policy 与安全日志
+
+`SelectorShadowThresholdPolicy` 当前只用于评估，不用于自动接管 routing：
+
+- 默认 `minimumSamples=20`。
+- 默认 `minMatchRate=0.95`。
+- 默认 `maxFailureRate=0.05`。
+- 输出 `allowPromotionCandidate` 和可读 `reason`。
+- `allowPromotionCandidate=true` 只表示“候选”，不修改配置，不改变 production routing。
+
+当前 runtime 安全日志已可观察：
+
+- fake shadow compare：`primaryDecision`、`shadowDecision`、`matched`。
+- real shadow compare：`provider`、`primaryDecision`、`shadowDecision`、`matched`、`metricsRecorded`。
+- real shadow skip / failure：`provider`、`primaryDecision` 和脱敏错误摘要。
+
+禁止日志输出：
+
+- API Key、Authorization header、完整 baseUrl。
+- prompt 全文、用户原始 task、文档内容。
+- 模型完整返回原文。
+- 真实 IP、token、password 或 `backend/.env` 内容。
+
+## 7. 当前已验证内容
 
 - 后端 244 tests 通过。
 - `ToolSelectorEvaluationTest` 已用 24 条离线样例验证当前 keyword selector 基线。
@@ -118,7 +147,7 @@ app:
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
 
-## 7. 不能硬吹的边界
+## 8. 不能硬吹的边界
 
 当前边界：
 
@@ -137,7 +166,7 @@ app:
 
 当前能力应表述为：已建立 selector shadow mode 基础设施，可在不改变生产 decision 的前提下记录 primary / shadow 对比结果。
 
-## 8. 后续路线
+## 9. 后续路线
 
 建议后续拆小推进：
 
