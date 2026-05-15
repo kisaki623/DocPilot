@@ -1395,6 +1395,18 @@
 - Prometheus 作为中期路线，只暴露数值指标和安全枚举 label。
 - 管理端 API 暂缓，等待权限体系、管理员角色和审计策略明确。
 
+### T022e 自检结果
+
+- `git status --short` 干净后进入 T022e。
+- `git diff --name-only HEAD~4..HEAD` 仅包含允许文档。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端。
+- 未新增 HTTP API / Controller。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未读取或输出 secret。
+
 ### 明确未做事项
 
 - 未新增 HTTP API。
