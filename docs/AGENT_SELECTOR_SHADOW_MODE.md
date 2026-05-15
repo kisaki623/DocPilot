@@ -24,12 +24,15 @@ T014 已补齐真实 LLM selector 的禁用态适配层，但它仍然不参与�
 
 这些类的目标是先固定 prompt、client、parser、runner 的边界，防止后续接真实 provider 时把失败静默 fallback 成 keyword selector，或误让 LLM selector 接管生产。
 
-T016 已新增 provider-specific client skeleton，但仍未接入生产 service：
+T016 / T017 已新增 provider-specific client skeleton 和 factory-backed real shadow 路径：
 
 - Provider settings：`llmProvider=disabled|fake|openai_compatible`，默认 `disabled`；`llmModel` / `llmBaseUrl` 默认空，`llmRequestTimeoutMs=3000`。
-- `FakeLlmToolSelectionClient`：不联网，不读取密钥，只用于测试和未来 shadow-only smoke。
+- `FakeLlmToolSelectionClient`：不联网，不读取密钥，只用于测试和未来 shadow-only smoke；T017x 已增强其本地规则，使其更贴近 `DocumentToolSelector` 当前 eval routing。
 - `OpenAiCompatibleLlmToolSelectionClient`：只有 request / response 和 dry-run skeleton，`completeSelectionPrompt` 返回 disabled，不发 HTTP 请求。
-- `LlmToolSelectionClientFactory`：可按 provider 返回 disabled / fake / openai-compatible client，但当前未接入 `DocumentAgentServiceImpl`。
+- `LlmToolSelectionClientFactory`：可按 provider 返回 disabled / fake / openai-compatible client。
+- `RealLlmToolSelectorFactory`：把 `AgentSelectorProperties`、client factory、prompt builder 和 parser 串起来创建 `RealLlmToolSelector`。
+- `RealLlmSelectorShadowRunner` 支持 factory-backed selector；`DocumentAgentServiceImpl` 的 real shadow 分支已使用该路径，但默认 `realShadowEnabled=false` 且默认 provider 为 `disabled`。
+- provider=fake 已完成离线 shadow evaluation；provider=openai_compatible 仍 dry-run disabled，不联网。
 
 ## 3. Shadow Mode 的目的
 
@@ -96,13 +99,14 @@ app:
 
 ## 6. 当前已验证内容
 
-- 后端 215 tests 通过。
+- 后端 229 tests 通过。
 - `ToolSelectorEvaluationTest` 已用 24 条离线样例验证当前 keyword selector 基线。
 - `ShadowToolSelectorEvaluationTest` 已验证 primary `DocumentToolSelector` 与 fake shadow selector 的离线对比：24 cases，23 matched，1 mismatch，matchRate=0.9583。
+- `RealShadowProviderEvaluationTest` 已验证 primary `DocumentToolSelector` 与 `RealLlmSelectorShadowRunner + provider=fake` 的离线对比：total=24，success=22，failures=2，matched=22，mismatch=0，matchRate=0.9167。两个 failure 来自 blank task 被 prompt builder 拒绝，非空样例均成功且无 mismatch。
 - `DocumentAgentServiceImplTest` 已验证 shadow compare metrics 只在 shadow compare 成功执行时记录，且不影响真实 decision 和工具执行。
 - `DocumentAgentRealShadowPathTest` 已验证 real shadow 默认关闭、fake shadow 不隐式启用 real shadow、disabled / exception fail-open、parseReady=false 跳过和 real metrics 开关边界。
 - `DisabledLlmToolSelectionClientTest`、`RealLlmToolSelectorTest` 和 `RealLlmSelectorShadowRunnerTest` 已验证 disabled client、adapter 串联、fake JSON 解析、disabled 失败和 runner 成功 / 失败边界。
-- `FakeLlmToolSelectionClientTest` 已验证 fake provider client 输出可被 parser 解析。
+- `FakeLlmToolSelectionClientTest` 已验证 fake provider client 输出可被 parser 解析，并覆盖 status / summary / evidence、summary + evidence 冲突、中文关键词、英文大小写和空白 fallback。
 - `OpenAiCompatibleLlmToolSelectionClientTest` 已验证 OpenAI-compatible skeleton 只构造 request 并返回 disabled response，不联网。
 - `LlmToolSelectionClientFactoryTest` 已验证默认返回 disabled、fake 返回 fake、openai-compatible 返回 dry-run skeleton，unknown provider fallback disabled。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
@@ -134,8 +138,8 @@ app:
 
 建议后续拆小推进：
 
-1. T017：把 `LlmToolSelectionClientFactory` 以默认 disabled 的方式接入 real shadow client 构造路径，仍不启用真实 provider。
-2. T018：使用 fake provider 做 shadow-only smoke，不接管生产。
-3. T019：用户确认后才考虑真实 provider shadow-only 调用，仍不接管生产。
-4. 后续再增加人工审核 eval，记录 task、primary decision、shadow decision、reason 和人工判定；达到稳定阈值后再考虑小流量接管。
+1. T018：使用 fake provider 做 shadow-only runtime / smoke，不接管生产。
+2. T019：用户确认后才考虑真实 provider shadow-only 调用，仍不接管生产。
+3. T020：记录真实 provider shadow mismatch，补充人工审核 eval。
+4. 后续达到稳定阈值后再考虑小流量接管。
 5. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。

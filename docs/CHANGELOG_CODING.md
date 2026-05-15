@@ -1089,6 +1089,43 @@
 - 未修改前端。
 - 未改变 production routing。
 
+## 2026-05-15 - T017e Fake Provider Shadow Validation 文档状态
+
+### 本轮目标
+
+更新 selector shadow 文档和协作状态，说明 factory-backed real shadow 路径已具备 provider=fake 离线评估证据，但仍没有真实 provider 调用。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录 `RealLlmToolSelectorFactory` 已有，`RealLlmSelectorShadowRunner` 支持 factory-backed selector。
+- 记录 provider=fake 已完成离线 shadow evaluation。
+- 记录 T017d 评估结果：total=24、success=22、failures=2、matched=22、mismatch=0、matchRate=0.9167。
+- 明确 provider=disabled 仍是默认，openai-compatible 仍 dry-run disabled 且不联网。
+- 将下一步推荐更新为 T018：fake provider shadow-only runtime / smoke。
+
+### 验证结果
+
+- `git status --short`：已检查。
+- `git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改代码。
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

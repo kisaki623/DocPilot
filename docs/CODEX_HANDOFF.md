@@ -96,6 +96,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T017c 已完成：`DocumentAgentServiceImpl` 的 real shadow runner 已改为 factory-backed 构造路径；默认 provider 仍 disabled，`realShadowEnabled=false` 时不运行；service 测试覆盖 provider=fake real shadow success、primary decision 仍决定真实工具执行、real metrics 默认不记录且显式开启后才记录。
 - T017x 已完成：`FakeLlmToolSelectionClient` 已增强 task 提取和本地规则，覆盖 status / summary / evidence、中文关键词、英文大小写、summary + evidence 冲突和空白 fallback；未修改 primary selector 或 eval cases。
 - T017d 已完成：新增 `RealShadowProviderEvaluationTest`，使用 24 条 eval cases 对比 primary `DocumentToolSelector` 与 `RealLlmSelectorShadowRunner + provider=fake`；结果 total=24、success=22、failures=2、matched=22、mismatch=0、matchRate=0.9167。两个 failure 来自 blank task 被 prompt builder 拒绝，未修改 eval cases。
+- T017e 已完成：`docs/AGENT_SELECTOR_SHADOW_MODE.md` 和协作文档已更新，明确 factory-backed real shadow 路径具备 provider=fake 离线验证，但仍没有真实 provider 调用、没有 API 变化、没有 production routing 接管。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -141,7 +142,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T017e`：更新 selector shadow 文档和协作状态，记录 provider=fake 离线评估结果和仍未真实调用 LLM 的边界；真实 provider 调用必须另开任务。
+1. 继续 `T018`：使用 provider=fake 做 shadow-only runtime / smoke，不接管生产；真实 provider 调用必须另开任务。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -209,6 +210,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T017e`。
+优先执行 `T018`。
 
-原因：provider=fake 的 real shadow 离线评估已经通过，需要把 T017 收口到 shadow mode 文档和协作文档；仍不能真实调用外部模型、不能接管 production routing，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：factory-backed real shadow 路径已经具备 provider=fake 离线评估证据；下一步可做 fake provider shadow-only runtime / smoke，但仍不能真实调用外部模型、不能接管 production routing，也不能改变 `/api/ai/agent/run` 返回协议。

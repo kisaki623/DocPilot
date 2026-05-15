@@ -398,6 +398,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=RealShadowProviderEvaluationTest test` 通过；`mvn test -DskipITs` 通过，229 tests。评估结果：total=24，success=22，failures=2，matched=22，mismatch=0，matchRate=0.9167。
 - 边界：仅使用 `RealLlmSelectorShadowRunner + provider=fake` 跑离线对比；两个 failure 来自 blank task 被 prompt builder 拒绝；未修改 eval cases，未真实调用 LLM，未读取 API Key 或 `backend/.env`，未改变 production routing。
 
+### T017e
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：更新 selector shadow 文档和协作状态，收口 T017。
+- 验证结果：`git status --short` 检查通过；`git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md` 已复核。
+- 边界：仅修改文档；provider=disabled 仍是默认，provider=fake 仅用于测试 / 后续 shadow-only runtime，openai-compatible 仍不联网；未真实调用 LLM，未读取 API Key 或 `backend/.env`，未新增 API，未改变 production routing。
+
 ## 任务列表
 
 ### T000
@@ -668,4 +676,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T017d`：新增 fake provider shadow-only 离线评估，使用现有 eval cases 验证 `RealLlmSelectorShadowRunner + provider=fake` 的 match rate。完整 T010 仍为 BLOCKED；不要直接进入真实 provider 调用、生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T018`：使用 fake provider 做 shadow-only runtime / smoke，不接管生产。完整 T010 仍为 BLOCKED；不要直接进入真实 provider 调用、生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
