@@ -451,6 +451,12 @@ class DocumentQaServiceImplTest {
         )).thenReturn(false);
         SseEmitter emitter = documentQaService.streamAnswer(100L, 101L, "question");
         assertNotNull(emitter);
+        verify(redisTokenBucketRateLimiter, timeout(2000)).tryConsume(
+                CommonConstants.buildAiQaRateLimitKey(100L),
+                CommonConstants.AI_QA_TOKEN_BUCKET_CAPACITY,
+                CommonConstants.AI_QA_TOKEN_BUCKET_REFILL_TOKENS,
+                CommonConstants.AI_QA_TOKEN_BUCKET_REFILL_INTERVAL_SECONDS
+        );
         verify(aiAnswerService, never()).streamAnswer(any(), any(), any());
     }
 
