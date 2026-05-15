@@ -1,6 +1,6 @@
 # Real Provider Shadow Preflight
 
-本文记录 T019-real-shadow-only 前置检查与安全方案。当前阶段只允许制定方案和检查清单，不代表真实 provider 已启用。
+本文记录 T019-real-shadow-only 前置检查与安全方案，以及真实 provider shadow-only 验证后的事实边界。
 
 ## 1. T019 目标
 
@@ -15,9 +15,9 @@ T019 只允许做真实 provider 的 shadow-only 调用。
 
 当前代码边界：
 
-- `OpenAiCompatibleLlmToolSelectionClient` 当前仍是 disabled / dry-run skeleton，调用 `completeSelectionPrompt` 不发 HTTP。
+- `OpenAiCompatibleLlmToolSelectionClient` 已支持 OpenAI-compatible `/chat/completions`，但只有 provider、apiKey、baseUrl、model 等运行时配置齐全时才会发起真实 HTTP。
 - `LlmToolSelectionClientFactory` 默认 provider 为 `disabled`，默认返回 `DisabledLlmToolSelectionClient`。
-- `RealLlmToolSelector` 只负责 prompt -> client -> parser 串联，client disabled 或返回空文本时会失败，不会 fallback 为 keyword selector。
+- `RealLlmToolSelector` 只负责 prompt -> client -> parser 串联，client disabled、HTTP 失败、返回空文本或 parser 失败时会失败，不会 fallback 为 keyword selector。
 - `RealLlmSelectorShadowRunner` 捕获 selector 失败并返回 `success=false` / `shouldRecordMetrics=false`。
 - `DocumentAgentServiceImpl` 的真实执行仍以 primary `DocumentToolSelector` decision 为准。
 
@@ -148,4 +148,19 @@ T019 只允许做真实 provider 的 shadow-only 调用。
 - 是否允许本地后端连接远程中间件。
 - 是否允许记录脱敏后的 provider / model / latency / decision / errorCode。
 
-未完成上述确认前，真实 provider shadow-only 任务保持 BLOCKED。
+上述确认已在 T019-real-shadow-only 执行前完成；后续再次运行真实 provider 仍需要重新确认。
+
+## 8. T019 实际执行结果
+
+- 执行时间：2026-05-15。
+- provider：`openai_compatible`。
+- 真实 HTTP：true。
+- provider 调用次数：2。
+- 验证文档：`documentId=61`。
+- summary 验证：primary decision=`summary_tool`，shadow decision=`summary_tool`，shadow parse success=true，mismatch=false。
+- QA 验证：primary decision=`qa_tool`，shadow decision=`qa_tool`，shadow parse success=true，mismatch=false，citations ok=true。
+- production routing：未改变，真实执行仍由 `DocumentToolSelector` primary decision 决定。
+- API / 前端：未新增 API，未修改前端。
+- 敏感信息：协作代理未读取或输出 API Key；未输出完整 baseUrl、Authorization header、prompt、文档内容或模型完整返回。
+- 回归验证：后端 `mvn -DskipTests compile` 通过；后端 `mvn test -DskipITs` 通过；前端 `npm run lint` 通过；前端 `npm run build` 通过。
+- 完整 T010：仍为 BLOCKED，原因仍是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进。

@@ -1320,6 +1320,51 @@
 - 未新增 API。
 - 未改变 production routing。
 
+## 2026-05-15 - T019 Recovery and Real Provider Shadow Validation
+
+### 本轮目标
+
+修复 T019e 全量测试受本机真实 provider 环境变量影响的问题，并在回归全部通过后记录真实 provider shadow-only 验证结果。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/test/java/com/docpilot/backend/DocPilotApplicationTests.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `AgentSelectorProperties` 增加 OpenAI-compatible 常见 provider alias 归一化，避免兼容接口 provider 命名差异导致配置绑定失败。
+- `AgentSelectorPropertiesTest` 显式隔离 selector provider、model、baseUrl、apiKey、timeout、maxTokens、temperature 和 shadow flags 默认值，避免继承本机真实 provider 环境。
+- `DocPilotApplicationTests` 显式隔离 selector provider 默认值，避免 contextLoads 受真实 provider 环境污染。
+- 记录 T019 真实 provider shadow-only 运行结果：provider=`openai_compatible`，真实 HTTP 调用 2 次，summary primary / shadow 均为 `summary_tool`，QA primary / shadow 均为 `qa_tool`，mismatch=false，QA citations 正常。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -Dtest=LlmToolSelectionClientFactoryTest test`：通过。
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentRealShadowPathTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，244 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 协作代理未读取或输出 API Key；未输出完整 baseUrl、Authorization header、prompt、文档内容或模型完整返回。
+- 未读取 `backend/.env`。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未改变 production routing，真实工具执行仍由 `DocumentToolSelector` primary decision 决定。
+- 未新增 API。
+- 未修改前端代码。
+- 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
+
 ## 2026-05-14 - T011d Tool Selector Evaluation Cases
 
 ### 本轮目标

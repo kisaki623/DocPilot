@@ -433,12 +433,20 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ### T019-real-shadow-only
 
-- 状态：BLOCKED
+- 状态：DONE
 - 优先级：P3
 - 任务目标：在用户明确授权后，用真实 provider 做 shadow-only runtime 验证。
-- 阻塞原因：需要用户确认 provider、baseUrl 注入方式、model、API Key 注入方式、是否允许真实 HTTP、是否允许少量费用、是否只验证 `documentId=61`、是否允许本地后端连接远程中间件，以及日志脱敏策略。
-- 验收边界：真实执行工具仍必须由 `DocumentToolSelector` 决定；real provider 只产生 shadowDecision；失败必须 fail-open；不得改变 Agent API、前端、数据库或 production routing。
-- 停止条件：需要读取 `backend/.env`、需要用户把 API Key 粘贴到聊天、需要提交密钥、需要修改 `application.yml`、parser 无法稳定解析、日志有泄露风险、真实调用失败超过 3 次或费用不明确。
+- 验证结果：用户授权后使用 provider=`openai_compatible` 完成真实 provider shadow-only runtime；真实 HTTP 调用 2 次；summary primary / shadow 均为 `summary_tool`，QA primary / shadow 均为 `qa_tool`，shadow parse success=true，mismatch=false，QA citations 正常。
+- 回归结果：后端 `mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过，244 tests；前端 `npm run lint` 通过；`npm run build` 通过。
+- 边界：真实执行工具仍由 `DocumentToolSelector` 决定；real provider 只产生 shadowDecision；协作代理未读取或输出 API Key，未输出完整 baseUrl、prompt、文档内容或模型完整返回；未改变 Agent API、前端、数据库或 production routing；完整 T010 仍为 BLOCKED。
+
+### T019-recovery
+
+- 状态：DONE
+- 完成时间：2026-05-15
+- 任务目标：修复 T019e 全量测试因本机真实 provider 环境变量继承导致的配置绑定 / 测试隔离问题。
+- 验证结果：`AgentSelectorProperties` 支持 OpenAI-compatible 常见 provider alias；`AgentSelectorPropertiesTest` 与 `DocPilotApplicationTests` 显式隔离 selector provider 默认值；targeted tests 通过；后端全量测试通过。
+- 边界：未读取或输出真实环境变量值，未读取 `backend/.env`，未改变 production routing，未新增 API，未修改前端代码。
 
 ### T019a
 
@@ -734,4 +742,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐继续 `T019-real-shadow-only`，但当前为 BLOCKED：只有在用户明确确认 provider、baseUrl、model、API Key 注入方式、费用、真实 HTTP 授权、`documentId=61` 范围和日志脱敏策略后，才做真实 provider shadow-only 验证。默认仍不启用真实 provider、不接管 production routing。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐继续 `T020`：真实 provider shadow mismatch / metrics 记录与阈值策略。T019-real-shadow-only 已完成，但默认仍不启用真实 provider、不接管 production routing；后续再次真实调用 provider 必须重新获得用户确认。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

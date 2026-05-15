@@ -9,7 +9,7 @@
 - Tool metadata：`ToolDefinitionProvider` 为 `document_status_tool`、`document_summary_tool`、`document_qa_tool` 提供稳定工具定义。
 - Prompt builder：`LlmToolSelectionPromptBuilder` 只构建未来 LLM Tool Selection prompt，不调用模型。
 - Parser：`LlmToolSelectionParser` 只解析未来 LLM 输出 JSON，不调用模型。
-- 当前没有真实 LLM 调用，没有 function calling，也没有让 shadow decision 接管生产 routing。
+- 默认没有真实 LLM 调用；T019 已在用户明确授权下完成一次真实 provider shadow-only 验证。当前没有 function calling，也没有让 shadow decision 接管生产 routing。
 
 ## 2. Real LLM Selector Adapter 当前状态
 
@@ -28,11 +28,11 @@ T016 / T017 已新增 provider-specific client skeleton 和 factory-backed real 
 
 - Provider settings：`llmProvider=disabled|fake|openai_compatible`，默认 `disabled`；`llmModel` / `llmBaseUrl` 默认空，`llmRequestTimeoutMs=3000`。
 - `FakeLlmToolSelectionClient`：不联网，不读取密钥，只用于测试和未来 shadow-only smoke；T017x 已增强其本地规则，使其更贴近 `DocumentToolSelector` 当前 eval routing。
-- `OpenAiCompatibleLlmToolSelectionClient`：只有 request / response 和 dry-run skeleton，`completeSelectionPrompt` 返回 disabled，不发 HTTP 请求。
+- `OpenAiCompatibleLlmToolSelectionClient`：已支持 OpenAI-compatible `/chat/completions`；缺少 apiKey / baseUrl / model 时返回 disabled，不发 HTTP 请求；配置齐全且 real shadow 被显式开启时可用于 shadow-only 调用。
 - `LlmToolSelectionClientFactory`：可按 provider 返回 disabled / fake / openai-compatible client。
 - `RealLlmToolSelectorFactory`：把 `AgentSelectorProperties`、client factory、prompt builder 和 parser 串起来创建 `RealLlmToolSelector`。
 - `RealLlmSelectorShadowRunner` 支持 factory-backed selector；`DocumentAgentServiceImpl` 的 real shadow 分支已使用该路径，但默认 `realShadowEnabled=false` 且默认 provider 为 `disabled`。
-- provider=fake 已完成离线 shadow evaluation；provider=openai_compatible 仍 dry-run disabled，不联网。
+- provider=fake 已完成离线 shadow evaluation 和 runtime 验证；provider=openai_compatible 已完成一次真实 provider shadow-only runtime 验证，但默认仍不启用。
 
 ## 3. Shadow Mode 的目的
 
@@ -99,7 +99,7 @@ app:
 
 ## 6. 当前已验证内容
 
-- 后端 229 tests 通过。
+- 后端 244 tests 通过。
 - `ToolSelectorEvaluationTest` 已用 24 条离线样例验证当前 keyword selector 基线。
 - `ShadowToolSelectorEvaluationTest` 已验证 primary `DocumentToolSelector` 与 fake shadow selector 的离线对比：24 cases，23 matched，1 mismatch，matchRate=0.9583。
 - `RealShadowProviderEvaluationTest` 已验证 primary `DocumentToolSelector` 与 `RealLlmSelectorShadowRunner + provider=fake` 的离线对比：total=24，success=22，failures=2，matched=22，mismatch=0，matchRate=0.9167。两个 failure 来自 blank task 被 prompt builder 拒绝，非空样例均成功且无 mismatch。
@@ -113,28 +113,27 @@ app:
 - T018 runtime 验证中，summary primary decision 仍为 `summary_tool`，QA primary decision 仍为 `qa_tool`；后端安全日志可见 `provider=fake` 的 real shadow compare，shadow decision 与 primary matched，且只用于 shadow compare / metrics。
 - T018 runtime 验证未修改 API、前端、production routing 或配置文件；未真实调用 LLM，未读取 API Key / `backend/.env`，未向模型 provider 发真实 HTTP；本轮未使用 hk-ops，未执行远程 DB 只读 SELECT。
 - T019-preflight 已新增 `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`，明确真实 provider shadow-only 前的配置原则、日志脱敏原则、HTTP 调用边界、验证方案、停止条件和用户确认项；该文档不代表真实 provider 已启用。
+- T019-real-shadow-only 已在用户授权下完成：provider=`openai_compatible`，真实 HTTP 调用 2 次，基于 `documentId=61` 验证 summary / QA；summary primary / shadow 均为 `summary_tool`，QA primary / shadow 均为 `qa_tool`，shadow parse success=true，mismatch=false，QA citations 正常。
+- T019 回归验证已通过：后端 `mvn -DskipTests compile`、`mvn test -DskipITs`，前端 `npm run lint`、`npm run build` 均通过；协作代理未读取或输出 API Key，未输出完整 baseUrl、prompt、文档内容或模型完整返回。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
 
 ## 7. 不能硬吹的边界
 
-当前没有：
+当前边界：
 
-- 真实调用 LLM。
-- DeepSeek 真实调用。
-- OpenAI 真实调用。
-- 硅基流动真实调用。
-- API Key 读取。
-- `backend/.env` 读取。
-- 真实 HTTP 请求。
-- function calling。
-- LLM 接管生产 routing。
-- Real LLM selector 接管生产 service 的真实决策。
-- LangChain4j / Spring AI。
-- MCP。
-- 完整向量 RAG。
-- 对外暴露 metrics API。
-- 完整上传 -> 解析 -> Agent run 链路验证。
+- 已完成一次真实 provider shadow-only HTTP 验证，但默认配置仍为 disabled，后续再次运行真实 provider 必须重新获得用户确认。
+- 协作代理未读取 API Key；应用只通过用户环境变量在运行时使用。
+- 未读取 `backend/.env`。
+- 未输出 API Key、完整 baseUrl、Authorization header、prompt、文档内容或模型完整返回。
+- 未接 function calling。
+- 未让 LLM 接管生产 routing。
+- 未让 Real LLM selector 接管生产 service 的真实决策。
+- 未接 LangChain4j / Spring AI。
+- 未接 MCP。
+- 未实现完整向量 RAG。
+- 未对外暴露 metrics API。
+- 未验证完整上传 -> 解析 -> Agent run 链路。
 
 当前能力应表述为：已建立 selector shadow mode 基础设施，可在不改变生产 decision 的前提下记录 primary / shadow 对比结果。
 
@@ -142,7 +141,7 @@ app:
 
 建议后续拆小推进：
 
-1. T019-real-shadow-only：用户确认 API Key、费用、provider 和日志脱敏策略后，才考虑真实 provider shadow-only 调用，仍不接管生产。
-2. T020：记录真实 provider shadow mismatch，补充人工审核 eval。
+1. T020：记录真实 provider shadow mismatch / metrics，补充人工审核 eval 和阈值策略。
+2. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
 3. 后续达到稳定阈值后再考虑小流量接管。
 4. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。

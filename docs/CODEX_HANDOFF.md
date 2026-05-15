@@ -104,6 +104,10 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T019a 已完成：`AgentSelectorProperties` 新增 `llmApiKey`、`llmMaxTokens`、`llmTemperature` 配置字段；默认 provider 仍 disabled，real shadow 默认关闭，真实 key 只能由运行环境注入，本轮未读取或输出 API Key。
 - T019b 已完成：`OpenAiCompatibleLlmToolSelectionClient` 可在 apiKey / baseUrl / model 齐全时调用 OpenAI-compatible `/chat/completions`；缺配置时返回 disabled，不联网。测试仅用本地 stub server；未读取真实 API Key，未修改配置文件，未改变 production routing。
 - T019c 已完成：后端测试覆盖 openai-compatible 缺 apiKey / 缺 baseUrl、client failure、parser failure 和 fail-open；shadow failure 不记录成功 metrics，primary decision 和 API 返回仍保持不变。
+- T019d 已完成：用户授权后执行真实 provider shadow-only runtime，provider=`openai_compatible`，真实 HTTP 调用 2 次；使用 `documentId=61` 验证 summary / QA，primary 与 shadow decision 分别均为 `summary_tool` / `qa_tool`，无 mismatch，QA citations 正常；未输出 API Key、完整 baseUrl、prompt、文档内容或模型完整返回。
+- T019e 已完成：后端 `mvn -DskipTests compile` 通过；后端 `mvn test -DskipITs` 通过，244 tests；前端 `npm run lint` 与 `npm run build` 均通过。
+- T019-recovery 已完成：修复测试进程继承本机真实 provider 环境导致的配置绑定 / 测试隔离问题；`AgentSelectorProperties` 支持 OpenAI-compatible 常见 provider alias，配置测试和 Spring context test 显式隔离 selector provider 默认值。
+- T019f 已完成：协作文档记录真实 provider shadow-only 验证结果；默认行为仍不启用真实 provider，不改变 production routing，不新增 API，不修改前端。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -149,7 +153,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 继续 `T019-real-shadow-only` 前必须等待用户确认 provider、baseUrl、model、API Key 注入方式、是否允许真实 HTTP、是否允许少量费用、是否只验证 `documentId=61`、是否允许本地后端连接远程中间件和日志脱敏策略；默认不启用真实 provider，也不接管生产 routing。
+1. 下一步推荐 `T020`：真实 provider shadow mismatch / metrics 记录与阈值策略；后续再次真实调用 provider 必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -217,6 +221,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先执行 `T019-real-shadow-only`，但当前必须保持 BLOCKED，直到用户完成真实 provider 授权确认。
+优先执行 `T020`：真实 provider shadow mismatch / metrics 记录与阈值策略。
 
-原因：factory-backed real shadow 路径已经具备 provider=fake 离线评估和 runtime 验证证据；下一步如要进入真实 provider shadow-only，必须先由用户确认 provider、baseUrl、model、API Key 注入方式、费用、真实 HTTP 授权和日志脱敏策略。默认仍不能真实调用外部模型、不能接管 production routing，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T019-real-shadow-only 已完成一次用户授权下的真实 provider shadow-only 验证；下一步应把 shadow mismatch、metrics 和阈值治理收口，而不是让 shadow decision 接管 production routing。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。
