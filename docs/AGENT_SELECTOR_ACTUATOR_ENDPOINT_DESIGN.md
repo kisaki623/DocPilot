@@ -170,6 +170,72 @@ provider aggregation 只能包含 provider 枚举名和聚合计数 / rate。dec
 5. 与 Prometheus / 管理端 API 的边界混淆风险。
 6. 为了调试而临时扩大 Actuator 暴露范围后忘记回收的风险。
 
+## 未来实现草案
+
+本节只描述未来 T024 可能的实现方式，不代表当前已经写代码。
+
+### 候选实现类
+
+未来如实现，可以新增：
+
+1. `AgentSelectorShadowEndpoint`
+2. 复用 `SelectorMetricsDebugReporter`
+3. 复用 `SelectorMetricsDebugSnapshot`
+
+候选注解形态可参考 Spring Boot Actuator 自定义 endpoint 方式，但 T023 不新增任何 Java 类。
+
+### 依赖关系
+
+设计依赖方向：
+
+1. endpoint 只依赖 `SelectorMetricsDebugReporter`。
+2. reporter 只读 `SelectorMetricsCollector`。
+3. reporter 只读 `SelectorShadowThresholdPolicy`。
+4. endpoint 不依赖 `DocumentAgentServiceImpl`。
+5. endpoint 不调用真实 provider。
+6. endpoint 不触发工具选择。
+7. endpoint 不访问数据库。
+8. endpoint 不读取环境变量。
+9. endpoint 不读取 `backend/.env`。
+
+### 测试策略
+
+未来 T024 如实现，必须测试：
+
+1. endpoint 默认不开启。
+2. endpoint 开启后返回白名单字段。
+3. endpoint 不包含黑名单字段。
+4. endpoint 不触发真实 provider。
+5. endpoint 不改变 metrics 计数。
+6. endpoint 不改变 production routing。
+7. 空 metrics 返回安全默认值。
+8. 有 mismatch 时返回聚合统计。
+9. 有 failure 时返回聚合统计。
+10. threshold decision 正确返回。
+11. 未授权访问被拒绝，如项目已有安全体系可测。
+12. Actuator exposure 未配置时不可访问。
+
+建议测试层次：
+
+- 单元测试：直接调用 endpoint 对象，验证字段白名单和只读行为。
+- Spring context 测试：验证默认配置下 endpoint 不暴露。
+- 安全测试：若接入 Spring Security，验证匿名访问被拒绝。
+- 回归测试：验证 `DocumentAgentServiceImpl` primary decision 不受 endpoint 调用影响。
+
+### 验收标准
+
+未来 T024 实现前必须满足：
+
+1. 仍不改前端。
+2. 仍不接 Prometheus。
+3. 仍不落库。
+4. 仍不暴露 raw sample。
+5. 仍不输出 secret。
+6. 后端全量 test 通过。
+7. T010 完整上传解析链路是否通过不影响该 endpoint 设计，但文档里必须继续标记 T010 BLOCKED。
+8. endpoint 默认关闭或仅在明确 profile / exposure 配置下可见。
+9. 返回字段必须只来自 `SelectorMetricsDebugSnapshot` 安全 view。
+
 ## 当前状态
 
 - 未新增 Actuator endpoint。
