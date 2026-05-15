@@ -243,14 +243,15 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                     toolDefinitions
             );
             if (!result.success()) {
-                log.info("Agent real selector shadow skipped: primaryDecision={}, error={}",
-                        result.primaryDecision(), result.errorMessage());
+                log.info("Agent real selector shadow skipped: provider={}, primaryDecision={}, error={}",
+                        selectorProperties.getLlmProvider(), result.primaryDecision(), result.errorMessage());
                 return;
             }
             if (selectorProperties.isRealShadowRecordMetrics() && result.shouldRecordMetrics()) {
                 selectorMetricsCollector.record(result.primaryDecision(), result.shadowDecision());
             }
-            log.info("Agent real selector shadow compare: primaryDecision={}, shadowDecision={}, matched={}, metricsRecorded={}",
+            log.info("Agent real selector shadow compare: provider={}, primaryDecision={}, shadowDecision={}, matched={}, metricsRecorded={}",
+                    selectorProperties.getLlmProvider(),
                     result.primaryDecision(),
                     result.shadowDecision(),
                     result.matched(),
