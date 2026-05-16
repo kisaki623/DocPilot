@@ -525,6 +525,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 验证结果：`mvn -Dtest=AgentSelectorShadowEndpointEnabledTest test` 通过；`mvn "-Dtest=AgentSelectorShadowEndpointTest,AgentSelectorShadowEndpointExposureTest,AgentSelectorShadowEndpointEnabledTest" test` 通过；`mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过，292 tests；前端 `npm run lint` / `npm run build` 通过。
 - 边界：T027 只修改测试代码，不修改生产代码、`application.yml`、`application-local.yml`、前端或文档；未新增 Spring Security，未接 Prometheus，未真实调用 provider，未读取或输出 secret；默认状态仍关闭，生产环境仍未开启；完整 T010 仍为 BLOCKED。
 
+### T028
+
+- 状态：REVIEW
+- 完成时间：2026-05-16
+- 任务目标：补充 dev profile / local enablement proposal，避免后续直接上生产开启。
+- 当前结果：`docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md` 已补充 local 临时环境变量开启草案、dev 部署环境变量开启草案、dev 开启前置条件，以及 T029-T032 后续拆分。
+- 后续拆分：T029-security-integration-design 只做 Spring Security / Actuator 安全方案设计；T030-test-security-integration 只在测试中验证鉴权策略；T031-dev-profile-example 只提供 example 配置或文档；T032-prometheus-metrics-design 只设计 Prometheus 数值指标。
+- 边界：T028 是设计文档任务，未修改 Java 生产代码、测试代码、前端、`application.yml`、`application-local.yml` 或 profile 配置；未真正开启 endpoint，未新增 Spring Security，未接 Prometheus，未真实调用 provider，未读取或输出 secret；完整 T010 仍为 BLOCKED。
+
 ### T019a
 
 - 状态：DONE

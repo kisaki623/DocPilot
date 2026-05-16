@@ -211,28 +211,52 @@ dev 环境开启前必须同时确认：
 
 如果上述任一条件无法确认，dev 环境不应开启 `agentSelectorShadow` endpoint。
 
-### T029-security-integration
+### T029-security-integration-design
 
-目标：研究 Spring Security / Actuator 安全保护，再决定是否真正开启。
+目标：只做 Spring Security / Actuator 安全方案设计，不直接实现。
 
 范围：
 
 - 研究 `EndpointRequest`、Actuator endpoint matcher 和专用 `SecurityFilterChain`。
-- 明确运维角色。
+- 明确 actuator 访问角色。
 - 明确匿名 / 未授权访问行为。
-- 明确审计日志字段。
+- 明确是否需要单独 management port。
+- 明确是否需要 IP allowlist。
+- 明确是否需要审计日志。
 - 再决定是否真正开启 endpoint。
 
-### T030-prometheus-design
+### T030-test-security-integration
 
-目标：只做 Prometheus 数值指标设计，不替代 Actuator endpoint。
+目标：只在测试中验证鉴权策略。
 
 范围：
 
-- 只暴露数值指标。
-- 不输出高维 label。
-- 不输出 prompt、用户 task、文档内容或模型完整返回。
-- 不输出用户 ID、文档 ID、sessionId 或 provider raw error。
-- 不直接替代 actuator endpoint。
+- 不接真实生产配置。
+- 不暴露公网。
+- 不改前端。
+- 不真实调用 provider。
+- 不改变 production routing。
 
-T026-T030 均不能暗示线上 SLA，不能让 shadow decision 接管 production routing，也不能把完整 T010 写成通过。
+### T031-dev-profile-example
+
+目标：只提供 example 配置或文档，不默认启用。
+
+范围：
+
+- 不提交真实 dev secret。
+- 不使用 `management.endpoints.web.exposure.include=*`。
+- 不修改默认 `application.yml`。
+- 不让 prod 默认开启。
+
+### T032-prometheus-metrics-design
+
+目标：只设计 selector metrics 的 Prometheus 数值指标，不替代 Actuator endpoint。
+
+范围：
+
+- 不输出高维 label。
+- 不输出 userId / documentId / prompt / task / provider raw error。
+- 不输出模型完整返回。
+- 不直接替代 Actuator endpoint。
+
+T029-T032 均是未来任务，不代表已经完成，也不代表 endpoint 已在 dev / prod 开启。不要暗示线上 SLA，不要让 shadow decision 接管 production routing，也不要把完整 T010 写成通过。
