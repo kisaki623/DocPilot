@@ -192,6 +192,25 @@ dev 使用约束：
 - 不改变 production routing。
 - 不触发真实 provider。
 
+### dev 开启前置条件
+
+dev 环境开启前必须同时确认：
+
+- 只能在内网 dev 环境开启。
+- 必须经过人工确认。
+- 必须具备网关、反向代理或基础鉴权中的至少一种访问保护。
+- 必须限制访问来源。
+- 必须记录谁开启、何时开启、为什么开启。
+- 必须确认响应只包含聚合 metrics。
+- 必须确认不输出 prompt、用户 task、document content 或 model raw response。
+- 必须确认不输出 provider baseUrl、API Key 或 Authorization。
+- 必须确认不会触发真实 provider。
+- 必须确认不改变 production routing。
+- 不允许暴露到公网。
+- 不允许对普通用户开放。
+
+如果上述任一条件无法确认，dev 环境不应开启 `agentSelectorShadow` endpoint。
+
 ### T029-security-integration
 
 目标：研究 Spring Security / Actuator 安全保护，再决定是否真正开启。
