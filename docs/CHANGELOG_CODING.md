@@ -35,6 +35,33 @@
 - T010 仍 BLOCKED。
 - T030 仍 BLOCKED。
 
+## 2026-05-17 - T040b Project Architecture Overview
+
+### 本轮目标
+
+创建项目架构说明，帮助面试时讲清整体系统、核心链路和边界。
+
+### 修改文件
+
+- `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增总体架构说明，覆盖 Next.js、Spring Boot、MySQL、Redis、RocketMQ、MinIO 和 OpenAI-compatible provider。
+- 补充文档上传、解析任务、问答、SSE、Agent run、AgentTask / AgentStep、selector shadow、metrics debug dump 和默认关闭 Actuator endpoint 的链路说明。
+- 新增系统总体架构图和 Agent 执行链路图。
+- 明确完整 MQ 解析链路当前验证 BLOCKED、Actuator endpoint 默认关闭、Prometheus 只是设计未接入。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改代码、测试、前端或配置。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+
 ## 2026-05-17 - T031/T032 Actuator Enablement And Metrics Planning
 
 ### 本轮目标

@@ -579,6 +579,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 当前结果：新增 `docs/PROJECT_INTERVIEW_BRIEF.md`，记录一句话定位、真实已实现能力、半实现能力、T010 / T030 BLOCKED、不能写成已完成的能力、5 个简历亮点和高风险追问的诚实回答。
 - 边界：仅修改面试向文档和协作文档；未修改 Java、测试、前端或配置；未读取 `backend/.env`；未输出 secret。
 
+### T040b
+
+- 状态：DONE
+- 完成时间：2026-05-17
+- 任务目标：新增项目架构说明，面向投递和面试讲解。
+- 当前结果：新增 `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`，包含总体架构、核心链路、系统总体架构 Mermaid 图和 Agent 执行链路 Mermaid 图，并标注 T010 / Actuator / Prometheus 边界。
+- 边界：仅修改文档；未修改 Java、测试、前端或配置；未读取 `backend/.env`；未输出 secret。
+
 ### T019a
 
 - 状态：DONE
