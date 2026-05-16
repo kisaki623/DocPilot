@@ -2,6 +2,50 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-16 - T028 Selector Actuator Local Enablement Plan
+
+### 本轮目标
+
+同步 T027 完成状态，并完成 T028 dev profile / local enablement proposal。本轮只写文档，不修改 Java、测试、配置、前端，不真正开启 endpoint。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录 T027 已完成：`AgentSelectorShadowEndpointEnabledTest` 在测试 properties 中显式开启 endpoint，返回 200，字段白名单 / 黑名单、空 metrics 和 metrics 不变检查通过。
+- 补充配置命名坑：`management.endpoint.agent-selector-shadow.enabled=true` 使用单数 endpoint 和 relaxed binding；`management.endpoints.web.exposure.include=agentSelectorShadow` 使用复数 endpoints，值必须是 endpoint id；禁止 `management.endpoints.web.exposure.include=*`。
+- 补充 local 临时环境变量开启草案，明确只是本地临时示例，不是仓库默认配置。
+- 补充 dev 部署环境变量开启草案和 dev 开启前置条件。
+- 拆分后续 T029-T032，避免后续直接上生产开启。
+
+### 当前边界
+
+- T028 是设计文档任务。
+- endpoint 当前仍默认关闭。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有真正开启 dev / local / prod endpoint。
+- 没有新增 Spring Security。
+- 没有接 Prometheus。
+- 没有修改 Java 生产代码。
+- 没有修改测试代码。
+- 没有修改前端。
+- 没有读取或输出 secret。
+- 没有修改 production routing。
+- 完整 T010 仍为 BLOCKED。
+
+### 下一步
+
+建议进入 T029-security-integration-design，或先让 CC / 人工审查 T028 的 local / dev 开启方案。
+
 ## 2026-05-16 - T027 Selector Actuator Enabled Test
 
 ### 本轮目标

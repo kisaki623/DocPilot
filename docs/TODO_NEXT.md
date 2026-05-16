@@ -527,12 +527,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ### T028
 
-- 状态：REVIEW
+- 状态：DONE
 - 完成时间：2026-05-16
 - 任务目标：补充 dev profile / local enablement proposal，避免后续直接上生产开启。
 - 当前结果：`docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md` 已补充 local 临时环境变量开启草案、dev 部署环境变量开启草案、dev 开启前置条件，以及 T029-T032 后续拆分。
 - 后续拆分：T029-security-integration-design 只做 Spring Security / Actuator 安全方案设计；T030-test-security-integration 只在测试中验证鉴权策略；T031-dev-profile-example 只提供 example 配置或文档；T032-prometheus-metrics-design 只设计 Prometheus 数值指标。
-- 边界：T028 是设计文档任务，未修改 Java 生产代码、测试代码、前端、`application.yml`、`application-local.yml` 或 profile 配置；未真正开启 endpoint，未新增 Spring Security，未接 Prometheus，未真实调用 provider，未读取或输出 secret；完整 T010 仍为 BLOCKED。
+- 自检结果：`git diff --name-only a9d0ffc^..HEAD` 仅包含允许文档；未修改 Java 生产代码、测试代码、前端、`application.yml`、`application-local.yml` 或 profile 配置。
+- 边界：T028 是设计文档任务，未真正开启 endpoint，未新增 Spring Security，未接 Prometheus，未真实调用 provider，未读取或输出 secret；完整 T010 仍为 BLOCKED。
+- 下一步：建议进入 T029-security-integration-design，或先让 CC / 人工审查 T028 的 local / dev 开启方案。
 
 ### T019a
 
@@ -828,4 +830,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐进入 T028：dev profile / local enablement proposal。T027 已完成测试内显式开启验证，但 endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未接 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐进入 T029-security-integration-design，或先让 CC / 人工审查 T028 的 local / dev 开启方案。T028 只是设计文档任务，endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未接 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
