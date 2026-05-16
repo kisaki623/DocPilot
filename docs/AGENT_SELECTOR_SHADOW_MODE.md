@@ -161,6 +161,7 @@ T021 已新增内部只读 debug dump / reporter：
 - T023 已完成 Actuator endpoint 设计草案。
 - T024 已新增默认关闭的 `AgentSelectorShadowEndpoint`：endpoint 使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`，只读返回 `SelectorMetricsDebugSnapshot`，默认未暴露，未修改 `application.yml` / `application-local.yml`，未加入 exposure include，未接 Prometheus，未新增普通 REST API。
 - T025 已新增 `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`，只设计安全开启策略；endpoint 当前仍默认关闭，尚未修改配置，尚未接 Spring Security，尚未接 Prometheus，尚未开启 dev / prod 访问。
+- T027 已新增 `AgentSelectorShadowEndpointEnabledTest`，只在测试 properties 中显式开启 endpoint；`GET /actuator/agentSelectorShadow` 返回 200，字段白名单 / 黑名单、空 metrics 和 metrics 不变检查均通过。T027 未修改生产代码、配置文件、前端、Spring Security 或 Prometheus，未真实调用 provider，未读取或输出 secret。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
 
@@ -181,6 +182,7 @@ T021 已新增内部只读 debug dump / reporter：
 - 未对外暴露 metrics API。
 - 已新增默认关闭的 Actuator endpoint；未加入 exposure include，默认不可访问，未接 Prometheus。
 - 已有 Actuator endpoint 安全开启策略设计；但尚未执行开启，尚未加入 exposure include，尚未新增 Spring Security 配置，尚未开启 dev / prod 访问。
+- 已完成测试内显式开启验证；该验证只使用测试 properties，不代表 local / dev / prod 已开启。
 - 未接 Prometheus。
 - 未将 selector metrics 落库。
 - 未验证完整上传 -> 解析 -> Agent run 链路。
@@ -191,9 +193,8 @@ T021 已新增内部只读 debug dump / reporter：
 
 建议后续拆小推进：
 
-1. T026：先做 CC / 人工安全审查 T025 策略，不直接开启 endpoint。
-2. T027：如审查通过，只在测试 properties 中显式开启 endpoint，验证 200 和字段白名单 / 黑名单。
-3. 后续如果实现开启策略，必须默认关闭、字段白名单、字段黑名单、鉴权边界和内网限制同时成立。
-4. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
-5. 后续达到稳定阈值后再考虑小流量接管。
-6. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。
+1. T028：继续补充 local / dev 显式开启方案草案，不真正开启 endpoint。
+2. 后续如果实现开启策略，必须默认关闭、字段白名单、字段黑名单、鉴权边界和内网限制同时成立。
+3. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
+4. 后续达到稳定阈值后再考虑小流量接管。
+5. 完整 T010 需要等待可用 MQ / `ParseTaskMessageConsumer` 环境后再验证。

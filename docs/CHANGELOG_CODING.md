@@ -2,6 +2,40 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-16 - T027 Selector Actuator Enabled Test
+
+### 本轮目标
+
+同步 T027 测试内显式开启验证结果。本轮只更新文档，不修改代码、测试、配置或前端。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 记录内容
+
+- T027 已完成，commit 为 `71db1cd test(agent): verify selector actuator endpoint enabled in test`。
+- T027 新增 `AgentSelectorShadowEndpointEnabledTest`。
+- T027 只在测试 properties 中显式开启 endpoint。
+- 显式开启后 `GET /actuator/agentSelectorShadow` 返回 200。
+- 白名单字段检查、黑名单字段检查、空 metrics 检查和 metrics 不变检查均通过。
+- T027 未修改 `application.yml`、`application-local.yml`、生产代码、前端、Spring Security 或 Prometheus。
+- T027 未真实调用 provider，未读取或输出 secret。
+- 默认状态仍关闭，生产环境仍未开启。
+- 完整 T010 仍为 BLOCKED。
+
+### 配置命名注意
+
+- `management.endpoint.agent-selector-shadow.enabled=true`：`endpoint` 是单数，`agent-selector-shadow` 是 endpoint id `agentSelectorShadow` 的 relaxed binding 写法。
+- `management.endpoints.web.exposure.include=agentSelectorShadow`：`endpoints` 是复数，`exposure.include` 的值使用 endpoint id `agentSelectorShadow`，不要写成 `agent-selector-shadow`。
+- 禁止使用 `management.endpoints.web.exposure.include=*`。
+
 ## 2026-05-16 - T025 Selector Actuator Security Plan
 
 ### 本轮目标

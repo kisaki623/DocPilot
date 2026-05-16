@@ -303,3 +303,22 @@ T025 明确：
 - 尚未开启 dev / prod 访问。
 - 后续需要先做 CC / 人工安全审查，再考虑测试内显式开启验证。
 - 完整 T010 仍为 BLOCKED。
+
+## T027 测试内显式开启验证
+
+T027 已完成测试内显式开启验证，新增 `AgentSelectorShadowEndpointEnabledTest`。
+
+T027 只在测试 properties 中显式开启 endpoint：
+
+- `management.endpoint.agent-selector-shadow.enabled=true`
+- `management.endpoints.web.exposure.include=agentSelectorShadow`
+
+命名注意：
+
+- `management.endpoint.agent-selector-shadow.enabled` 中的 `endpoint` 是单数；`agent-selector-shadow` 是 endpoint id `agentSelectorShadow` 的 relaxed binding 写法。
+- `management.endpoints.web.exposure.include` 中的 `endpoints` 是复数；值必须使用 endpoint id `agentSelectorShadow`，不要写成 `agent-selector-shadow`。
+- 禁止使用 `management.endpoints.web.exposure.include=*`。
+
+T027 验证结果：显式开启后 `GET /actuator/agentSelectorShadow` 返回 200；白名单字段检查、黑名单字段检查、空 metrics 检查和 metrics 不变检查均通过。T027 没有修改 `application.yml`、`application-local.yml`、生产代码、前端、Spring Security 或 Prometheus；没有真实调用 provider，没有读取或输出 secret。
+
+默认状态仍关闭，生产环境仍未开启。完整 T010 仍为 BLOCKED。

@@ -120,6 +120,8 @@ prod 开启前必须先经过 CC / 人工安全审查，确认访问链路、鉴
 
 ### T027-local-enable-test
 
+状态：已完成。
+
 目标：只在测试内显式开启 endpoint，验证开启后的最小访问行为。
 
 范围：
@@ -129,6 +131,14 @@ prod 开启前必须先经过 CC / 人工安全审查，确认访问链路、鉴
 - 验证响应只包含白名单字段。
 - 验证响应不包含黑名单字段。
 - 不修改生产配置。
+
+T027 新增 `AgentSelectorShadowEndpointEnabledTest`，只在测试 properties 中显式开启 endpoint。显式开启后 `GET /actuator/agentSelectorShadow` 返回 200；白名单字段检查、黑名单字段检查、空 metrics 检查和 metrics 不变检查均通过。T027 未修改 `application.yml`、`application-local.yml`、生产代码、前端、Spring Security 或 Prometheus；未真实调用 provider，未读取或输出 secret。默认状态仍关闭，生产环境仍未开启。完整 T010 仍为 BLOCKED。
+
+配置命名注意：
+
+- `management.endpoint.agent-selector-shadow.enabled=true` 使用单数 `endpoint`；`agentSelectorShadow` 对应 relaxed binding 写法 `agent-selector-shadow`。
+- `management.endpoints.web.exposure.include=agentSelectorShadow` 使用复数 `endpoints`；`exposure.include` 的值使用 endpoint id `agentSelectorShadow`，不要写成 `agent-selector-shadow`。
+- 禁止使用 `management.endpoints.web.exposure.include=*`。
 
 ### T028-dev-profile-proposal
 

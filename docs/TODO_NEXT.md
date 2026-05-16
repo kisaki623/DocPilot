@@ -514,6 +514,17 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 下一步：先做 T026 CC / 人工安全审查 T025 策略，再考虑 T027 测试内显式开启验证；不要直接暴露到生产。
 - 边界：未修改 Java 生产代码、测试代码、前端、配置文件、DDL 或 production routing；未真实调用 provider，未读取或输出 secret；完整 T010 仍为 BLOCKED。
 
+### T027
+
+- 状态：DONE
+- 完成时间：2026-05-16
+- 任务目标：只在测试内显式开启 Agent selector shadow Actuator endpoint，验证访问和安全字段。
+- commit：71db1cd test(agent): verify selector actuator endpoint enabled in test
+- 当前结果：新增 `AgentSelectorShadowEndpointEnabledTest`；显式开启后 `GET /actuator/agentSelectorShadow` 返回 200；白名单字段检查、黑名单字段检查、空 metrics 检查和 metrics 不变检查均通过。
+- 配置命名：开启开关使用单数 `management.endpoint.agent-selector-shadow.enabled=true`，其中 `agent-selector-shadow` 是 endpoint id `agentSelectorShadow` 的 relaxed binding 写法；web 暴露使用复数 `management.endpoints.web.exposure.include=agentSelectorShadow`，值使用 endpoint id，不要写成 `agent-selector-shadow`；禁止 `management.endpoints.web.exposure.include=*`。
+- 验证结果：`mvn -Dtest=AgentSelectorShadowEndpointEnabledTest test` 通过；`mvn "-Dtest=AgentSelectorShadowEndpointTest,AgentSelectorShadowEndpointExposureTest,AgentSelectorShadowEndpointEnabledTest" test` 通过；`mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过，292 tests；前端 `npm run lint` / `npm run build` 通过。
+- 边界：T027 只修改测试代码，不修改生产代码、`application.yml`、`application-local.yml`、前端或文档；未新增 Spring Security，未接 Prometheus，未真实调用 provider，未读取或输出 secret；默认状态仍关闭，生产环境仍未开启；完整 T010 仍为 BLOCKED。
+
 ### T019a
 
 - 状态：DONE
@@ -808,4 +819,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐进入 T026：CC / 人工审查 T025 的 Actuator endpoint 安全开启策略。T025 已新增安全计划文档，但 endpoint 仍默认关闭，尚未修改配置、尚未加入 exposure include、尚未接 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐进入 T028：dev profile / local enablement proposal。T027 已完成测试内显式开启验证，但 endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未接 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
