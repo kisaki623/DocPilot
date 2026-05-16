@@ -87,3 +87,67 @@ T029 明确不做以下事项：
 prod 如必须开启，应叠加内网、VPN、IP allowlist 或网关限制。仅依赖 Spring Security 不是充分条件，反向代理层也应限制来源。
 
 任何环境都不允许公网匿名访问 `/actuator/agentSelectorShadow`。dev 环境也应限制来源，只允许开发者 / 运维在受控网络内访问。
+
+## 五、未来 T030 测试策略
+
+T030 的目标应限制为测试内鉴权策略验证，不接真实生产配置，不开放 dev / prod endpoint。
+
+### 默认关闭测试
+
+- endpoint 默认关闭时返回 404。
+- 不需要鉴权即可确认默认不暴露。
+- 不修改 `application.yml`。
+
+该测试应继续保护 T024 的默认关闭边界，确保新增安全配置设计不会让 endpoint 意外进入默认暴露状态。
+
+### 显式开启但未认证测试
+
+- 只在测试内 properties 显式开启 endpoint。
+- 模拟未认证请求访问 `/actuator/agentSelectorShadow`。
+- 期望返回 401 或 403，具体取决于 Spring Security 测试配置。
+- 不使用真实用户数据。
+
+该测试用于确认 endpoint 即使被测试环境显式暴露，也不会被匿名访问。
+
+### 无权限角色测试
+
+- 模拟普通业务用户。
+- 访问 `/actuator/agentSelectorShadow`。
+- 期望返回 403。
+- 不返回 metrics body。
+
+普通用户访问失败时，错误响应不应包含 selector metrics、threshold decision、provider 信息或内部实现类名。
+
+### 有权限角色测试
+
+- 模拟 `ROLE_OPS` 或 `ROLE_ACTUATOR_ADMIN`。
+- 访问 `/actuator/agentSelectorShadow`。
+- 期望返回 200。
+- 响应仍需检查白名单和黑名单字段。
+- 不触发 provider。
+- 不访问数据库。
+- 不读取 `backend/.env`。
+
+有权限场景只验证安全字段和只读观测，不调用 Agent run，不改变 metrics 计数，不改变 production routing。
+
+### 测试隔离策略
+
+- 测试内 properties 开启 endpoint。
+- 测试内 security 配置隔离，不影响生产配置。
+- 不依赖真实 MySQL、Redis 或 RocketMQ。
+- 不依赖远程中间件。
+- 不启动前端。
+- 不真实调用 provider。
+- 不输出 secret。
+
+如果未来 T030 需要 mock 用户或角色，应在测试上下文内完成，不应接入真实账号体系、真实数据库或真实网关。
+
+### T030 停止条件
+
+T030 如遇到以下条件，应停止并回到设计 / 审查：
+
+- 如果必须修改生产 `application.yml`，停止。
+- 如果必须接真实中间件，停止。
+- 如果必须读取 `backend/.env`，停止。
+- 如果必须输出 secret，停止。
+- 如果必须改 production routing，停止。
