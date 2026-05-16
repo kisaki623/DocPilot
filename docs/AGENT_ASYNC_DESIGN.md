@@ -122,9 +122,11 @@ T021 新增 selector shadow metrics 的内部只读 debug dump / reporter，但�
 T022 已完成观测入口设计决策文档，结论是：
 
 - 短期继续使用本地 debug dump。
-- 下一步优先做 Actuator endpoint 设计草案，但不直接实现。
+- T023 已完成 Actuator endpoint 设计草案。
+- T024 已实现默认关闭的 `agentSelectorShadow` Actuator endpoint，但未修改配置文件，未加入 exposure include，未接 Spring Security，未接 Prometheus，也未开启 dev / prod 访问。
+- T025 已新增 Actuator endpoint 安全开启策略设计，只描述未来 local / dev / test / prod 如何安全开启，不真正开启 endpoint。
+- 下一步需要先做安全审查，再考虑测试内显式开启验证。
 - Prometheus 作为中期路线，只暴露数值指标和安全枚举 label。
 - 管理端 API 暂缓，等待权限体系和审计策略更明确。
-- 如后续进入 Actuator endpoint 实现，建议先做 Claude Code / 人工安全审查，确认默认关闭、鉴权边界和字段白名单。
 
 这些观测设计不改变 Agent 同步 / 异步执行路线，也不改变 production routing。

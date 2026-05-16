@@ -284,6 +284,8 @@
 1. 保留 T021 本地 debug dump 作为短期观测方式。
 2. T023 已完成 Actuator endpoint 设计草案，明确开关、鉴权、字段白名单和测试策略。
 3. T024 已完成默认关闭的 Actuator endpoint 最小实现，使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`，不修改配置文件，也不加入 exposure include。
-4. T025 推荐继续做 Actuator endpoint 安全配置 / 显式开启策略设计，不要直接暴露到生产环境。
-5. Prometheus 放到中期，等 Actuator 和指标口径稳定后再接。
-6. 管理端 API 暂缓，等后台权限体系和审计策略更清楚后再评估。
+4. T025 已新增 Actuator endpoint 安全开启策略设计文档；该任务只做设计，不真正开启 endpoint。
+5. 当前仍未修改 `application.yml` / `application-local.yml`，未加入 exposure include，未接 Spring Security，未接 Prometheus，也未开启 dev / prod 访问。
+6. 下一步需要先做 CC / 人工安全审查，再考虑测试内显式开启验证。
+7. Prometheus 放到中期，等 Actuator 和指标口径稳定后再接。
+8. 管理端 API 暂缓，等后台权限体系和审计策略更清楚后再评估。

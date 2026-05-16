@@ -2,6 +2,57 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-16 - T025 Selector Actuator Security Plan
+
+### 本轮目标
+
+完成 Agent selector shadow Actuator endpoint 安全配置 / 显式开启策略设计。本轮只写设计文档，不真正开启 endpoint。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`。
+- 记录 T024 已实现默认关闭的 `AgentSelectorShadowEndpoint`，endpoint id 为 `agentSelectorShadow`，并使用 `enableByDefault=false`。
+- 明确 T025 只设计如何安全开启，不真正开启 endpoint。
+- 补充 local / dev / test / prod 分环境策略。
+- 明确禁止 `management.endpoints.web.exposure.include=*`、公网匿名访问、普通用户访问、前端直接调用和日志打印完整响应。
+- 明确禁止输出 API Key、Authorization、baseUrl、prompt、用户 task、文档内容、模型完整返回、provider raw error、用户 ID、文档 ID、sessionId 或最终回答。
+- 拆分未来 T026-T030：安全审查、测试内显式开启验证、dev profile 方案、Spring Security / Actuator 安全集成、Prometheus 数值指标设计。
+- 同步现有 selector shadow / observability / actuator / async 设计文档和协作文档。
+
+### 当前边界
+
+- endpoint 当前仍默认关闭。
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未加入 `management.endpoints.web.exposure.include`。
+- 未新增 Spring Security 配置。
+- 未接 Prometheus。
+- 未开启 dev / prod 访问。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端。
+- 未真实调用 provider。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+- 未修改 production routing。
+- 未让 shadow decision 接管 primary decision。
+- 完整 T010 仍为 BLOCKED，等待 MQ / 解析消费链路。
+
+### 下一步
+
+建议进入 T026：CC / 人工审查 T025 安全开启策略。审查通过后，再考虑 T027 只在测试 properties 中显式开启 endpoint，验证 200 和字段白名单 / 黑名单。
+
 ## 2026-05-12 - 初始化 Codex 协作文档与 TODO 看板
 
 ### 本轮目标

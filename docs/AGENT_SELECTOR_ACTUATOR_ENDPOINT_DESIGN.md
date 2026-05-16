@@ -279,8 +279,27 @@ T024 明确未做：
 - 已新增默认关闭的自定义 Actuator endpoint。
 - 未新增 Controller。
 - 未修改 `application.yml` 或 `application-local.yml`。
+- 未加入 `management.endpoints.web.exposure.include`。
+- 未新增 Spring Security 配置。
 - 未修改前端。
 - 未接 Prometheus。
 - 未落库。
+- 未开启 dev / prod 访问。
 - production routing 仍由 `DocumentToolSelector` 决定。
 - 完整 T010 仍为 BLOCKED，等待 MQ / 解析消费链路。
+
+## T025 安全开启策略
+
+T025 新增 `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`，只设计未来如何安全开启 `agentSelectorShadow`，不真正开启 endpoint。
+
+T025 明确：
+
+- endpoint 当前仍默认关闭。
+- 尚未修改 `application.yml`。
+- 尚未修改 `application-local.yml`。
+- 尚未加入 `management.endpoints.web.exposure.include`。
+- 尚未接 Spring Security。
+- 尚未接 Prometheus。
+- 尚未开启 dev / prod 访问。
+- 后续需要先做 CC / 人工安全审查，再考虑测试内显式开启验证。
+- 完整 T010 仍为 BLOCKED。
