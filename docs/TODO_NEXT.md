@@ -505,11 +505,12 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ### T025
 
-- 状态：REVIEW
+- 状态：DONE
 - 完成时间：2026-05-16
 - 任务目标：完成 Agent selector shadow Actuator endpoint 安全配置 / 显式开启策略设计。
 - 当前结果：已新增 `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`，记录 T024 默认关闭 endpoint 的安全开启目标、默认关闭策略、local / dev / test / prod 分环境策略、禁止策略和 T026-T030 后续拆分。
 - 设计边界：T025 只写设计文档，不真正开启 endpoint；endpoint 当前仍默认关闭，尚未修改 `application.yml` / `application-local.yml`，尚未加入 `management.endpoints.web.exposure.include`，尚未接 Spring Security，尚未接 Prometheus，尚未开启 dev / prod 访问。
+- 自检结果：`git diff --name-only cc7dd7f^..HEAD` 仅包含允许文档；未修改 Java 生产代码、测试代码、前端、`application.yml`、`application-local.yml` 或 profile 配置；未新增 exposure include、Spring Security 或 Prometheus；未读取或输出 secret；未改变 production routing。
 - 下一步：先做 T026 CC / 人工安全审查 T025 策略，再考虑 T027 测试内显式开启验证；不要直接暴露到生产。
 - 边界：未修改 Java 生产代码、测试代码、前端、配置文件、DDL 或 production routing；未真实调用 provider，未读取或输出 secret；完整 T010 仍为 BLOCKED。
 

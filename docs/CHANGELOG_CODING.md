@@ -53,6 +53,25 @@
 
 建议进入 T026：CC / 人工审查 T025 安全开启策略。审查通过后，再考虑 T027 只在测试 properties 中显式开启 endpoint，验证 200 和字段白名单 / 黑名单。
 
+### T025e 最终自检
+
+- T025a-e 已完成。
+- T025 是设计文档任务。
+- endpoint 仍默认关闭。
+- 没有开启 actuator exposure。
+- 没有新增 Spring Security 配置。
+- 没有接 Prometheus。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端。
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未新增 `management.endpoints.web.exposure.include`。
+- 未读取或输出 secret。
+- 未修改 production routing。
+- 下一步建议 T026：CC / 人工审查 T025 安全开启策略。
+- 完整 T010 仍为 BLOCKED。
+
 ## 2026-05-12 - 初始化 Codex 协作文档与 TODO 看板
 
 ### 本轮目标
