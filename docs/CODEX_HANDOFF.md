@@ -126,6 +126,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T027 已完成：新增 `AgentSelectorShadowEndpointEnabledTest`，只在测试 properties 中显式开启 endpoint；`GET /actuator/agentSelectorShadow` 返回 200，字段白名单 / 黑名单、空 metrics 和 metrics 不变检查均通过。配置命名已确认：`management.endpoint.agent-selector-shadow.enabled=true` 使用单数 endpoint 和 relaxed binding；`management.endpoints.web.exposure.include=agentSelectorShadow` 使用复数 endpoints，值必须是 endpoint id，不是 `agent-selector-shadow`，且禁止 `*`。T027 未修改生产代码、配置文件、前端、文档、Spring Security 或 Prometheus，未真实调用 provider，未读取或输出 secret；默认状态仍关闭，生产环境仍未开启。
 - T028 已完成：`docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md` 已补充 local 临时环境变量开启草案、dev 部署环境变量开启草案、dev 开启前置条件，并拆分后续 T029-T032。T028 未修改 Java / 测试 / 前端 / 配置，未真正开启 endpoint，未新增 Spring Security，未接 Prometheus。
 - T029 已完成：新增 `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`，完成 Spring Security / Actuator 安全集成设计；设计内容覆盖 `ROLE_ACTUATOR_ADMIN`、`ROLE_OPS`、`ROLE_DEVELOPER_DEBUG`、`/actuator/agentSelectorShadow` 单独保护、401 / 403 / 404 行为、内网 / VPN / IP allowlist / 网关限制、T030 测试策略、dev / prod 开启前 checklist 和回滚策略。T029 只写文档，没有实现 Spring Security，没有新增 `SecurityFilterChain`，没有修改 `application.yml` / `application-local.yml`，没有真正开启 endpoint，没有接 Prometheus，没有修改 Java / 测试 / 前端代码。
+- T030 当前 BLOCKED：T030a preflight 发现当前后端只包含 `spring-security-crypto`，没有 `spring-boot-starter-security`、`spring-security-test`、`SecurityFilterChain` 或现有 Web 鉴权测试配置。本轮边界不允许新增 Maven 依赖或生产 Spring Security 配置，因此没有新增测试类，未验证未认证 / 普通用户 / OPS / ACTUATOR_ADMIN 的访问行为。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -171,7 +172,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 下一步建议进入 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029。不要真正开启 endpoint，不要修改 `application.yml` / `application-local.yml`；如后续再次真实调用 provider，必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
+1. T030 当前为 BLOCKED。下一步需要用户确认是否允许新增测试所需的 Spring Security 依赖，或先开 T030-design-review 重新收窄鉴权验证方案。不要真正开启 endpoint，不要修改 `application.yml` / `application-local.yml`；如后续再次真实调用 provider，必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -239,6 +240,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先做 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029，不要直接生产暴露 endpoint。
+优先处理 T030 BLOCKED：确认是否允许新增测试所需 Spring Security 依赖，或先开 T030-design-review 重新收窄鉴权验证方案，不要直接生产暴露 endpoint。
 
-原因：T024 已完成默认关闭 endpoint，T025 已完成安全开启策略设计，T027 已完成测试内显式开启验证，T028 已完成 local / dev 显式开启方案草案，T029 已完成 Spring Security / Actuator 安全集成设计；下一步只适合做测试内鉴权策略验证设计审查或人工安全审查，不应修改真实配置或开启生产访问。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T024 已完成默认关闭 endpoint，T025 已完成安全开启策略设计，T027 已完成测试内显式开启验证，T028 已完成 local / dev 显式开启方案草案，T029 已完成 Spring Security / Actuator 安全集成设计；但当前仓库缺少可支撑 Web 鉴权测试的 Spring Security 依赖和配置。本轮不应修改真实配置或开启生产访问。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。

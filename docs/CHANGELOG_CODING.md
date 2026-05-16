@@ -2,6 +2,45 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-17 - T030 Selector Actuator Security Test Preflight
+
+### 本轮目标
+
+测试内验证 `agentSelectorShadow` Actuator endpoint 的鉴权策略，包括未认证、普通用户、运维 / 管理角色访问行为。
+
+### 当前结果
+
+T030a preflight 已完成，但 T030 进入 BLOCKED。当前后端只发现 `spring-security-crypto`，没有发现 `spring-boot-starter-security`、`spring-security-test`、`SecurityFilterChain` 或现有 Web 鉴权测试配置。
+
+### 阻塞原因
+
+本轮边界不允许新增 Maven 依赖，不允许修改生产配置，也不允许新增生产 Spring Security 配置。因此无法在测试内可靠验证未认证 401 / 403、普通用户 403、OPS / ACTUATOR_ADMIN 200 的访问策略。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 当前边界
+
+- 未新增测试类。
+- 未修改 Java 生产代码。
+- 未修改现有测试代码。
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未修改前端。
+- 未接 Prometheus。
+- 未操作远程中间件。
+- 未真实调用 provider。
+- 未读取或输出 secret。
+- 未修改 production routing。
+- 完整 T010 仍为 BLOCKED。
+
+### 下一步
+
+需要用户确认是否允许新增测试所需的 Spring Security 依赖，或先开 T030-design-review 重新收窄鉴权验证方案。
+
 ## 2026-05-17 - T029 Actuator Security Integration Design
 
 ### 本轮目标

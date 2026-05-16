@@ -545,6 +545,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 边界：T029 只写设计文档，没有实现 Spring Security，没有新增 `SecurityFilterChain`，没有修改 `application.yml` / `application-local.yml`，没有真正开启 endpoint，没有接 Prometheus，没有修改 Java / 测试 / 前端代码，没有读取或输出 secret；endpoint 当前仍默认关闭。
 - 下一步：建议进入 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029；不建议直接进入生产开启。
 
+### T030
+
+- 状态：BLOCKED
+- 完成时间：2026-05-17
+- 任务目标：测试内验证 `agentSelectorShadow` Actuator endpoint 的鉴权策略。
+- 当前结果：T030a preflight 已完成；当前后端只发现 `spring-security-crypto`，没有发现 `spring-boot-starter-security`、`spring-security-test`、`SecurityFilterChain` 或现有 Web 鉴权测试配置。
+- 阻塞原因：按本轮边界不允许新增 Maven 依赖，不允许修改生产配置或新增生产 Spring Security；因此无法在测试内可靠验证未认证 401 / 403、普通用户 403、OPS / ACTUATOR_ADMIN 200 的访问策略。
+- 边界：未新增测试类，未修改 Java 生产代码，未修改现有测试，未修改 `application.yml` / `application-local.yml`，未修改前端，未接 Prometheus，未操作远程中间件，未真实调用 provider，未修改 production routing。
+- 下一步：需要用户确认是否允许新增测试所需的 Spring Security 依赖，或先开 T030-design-review 重新收窄鉴权验证方案；完整 T010 仍为 BLOCKED。
+
 ### T019a
 
 - 状态：DONE
@@ -839,4 +849,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐进入 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029。T029 只是设计文档任务，endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未实现 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+T030 当前为 BLOCKED：仓库缺少 Spring Security web / test 鉴权依赖和现有 `SecurityFilterChain`，本轮边界又不允许新增依赖或生产安全配置。下一步建议由用户确认是否允许新增测试所需 Spring Security 依赖，或先开 T030-design-review 重新收窄鉴权验证方案。endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未实现 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
