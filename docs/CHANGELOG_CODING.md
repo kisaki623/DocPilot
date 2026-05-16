@@ -2,6 +2,51 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-17 - T031/T032 Actuator Enablement And Metrics Planning
+
+### 本轮目标
+
+连续完成 T031 local / dev 临时开启示例文档和 T032 selector shadow Prometheus metrics 设计。本轮只写文档，不修改代码、测试、配置或前端。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- T031 已完成：补充 local PowerShell 临时环境变量示例、dev 运维侧显式开启边界、配置命名注意和禁止策略。
+- T032 已完成：新增 `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`，设计候选数值指标、低风险 label、禁止字段、风险和 T033-T036 后续拆分。
+- 同步 TODO / HANDOFF / observability / shadow mode，标记 T031 / T032 完成。
+
+### 当前边界
+
+- T031 只是文档示例，没有真正开启 endpoint。
+- T032 只是 Prometheus 设计，没有接入 Prometheus。
+- T030 仍 BLOCKED，原因是项目缺少 Spring Security Web 鉴权体系。
+- 不建议现在为了 T030 引入 Spring Security 依赖。
+- endpoint 当前仍默认关闭。
+- 没有修改 Java 生产代码。
+- 没有修改测试代码。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有修改任何 profile 配置文件。
+- 没有新增 Maven 依赖。
+- 没有修改前端。
+- 没有读取或输出 secret。
+- 没有修改 production routing。
+- 完整 T010 仍为 BLOCKED。
+
+### 下一步
+
+建议进入 T033 Prometheus metrics 设计审查，或先开 T030-design-review 重新收窄鉴权验证方案。
+
 ## 2026-05-17 - T030 Selector Actuator Security Test Preflight
 
 ### 本轮目标

@@ -164,6 +164,9 @@ T021 已新增内部只读 debug dump / reporter：
 - T027 已新增 `AgentSelectorShadowEndpointEnabledTest`，只在测试 properties 中显式开启 endpoint；`GET /actuator/agentSelectorShadow` 返回 200，字段白名单 / 黑名单、空 metrics 和 metrics 不变检查均通过。T027 未修改生产代码、配置文件、前端、Spring Security 或 Prometheus，未真实调用 provider，未读取或输出 secret。
 - T028 已完成 local / dev 显式开启方案草案和后续路线拆分；该任务只写文档，未真正开启 endpoint。
 - T029 已新增 `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`，完成 Spring Security / Actuator 安全集成设计；该任务只写文档，没有实现 Spring Security，没有新增 `SecurityFilterChain`，没有修改配置，也没有真正开启 endpoint。
+- T030 当前仍为 BLOCKED，原因是项目缺少 Spring Security Web 鉴权体系；不建议现在为了 T030 直接引入 Spring Security 依赖。
+- T031 已完成 local / dev 临时开启文档示例；未修改配置文件，未真正开启 endpoint。
+- T032 已新增 `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`；只设计 Prometheus 数值指标和安全 label，未接 Prometheus。
 - T010-lite-run 已通过，浏览器端已验证 `/agent` 页面展示 `routingReason`、`matchedKeywords`、持久化 trace 和 citations。
 - 完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路不推进；该 blocker 与 selector shadow mode 无关。
 
@@ -185,7 +188,7 @@ T021 已新增内部只读 debug dump / reporter：
 - 已新增默认关闭的 Actuator endpoint；未加入 exposure include，默认不可访问，未接 Prometheus。
 - 已有 Actuator endpoint 安全开启策略设计和 Spring Security / Actuator 安全集成设计；但尚未执行开启，尚未加入 exposure include，尚未新增 Spring Security 配置，尚未开启 dev / prod 访问。
 - 已完成测试内显式开启验证；该验证只使用测试 properties，不代表 local / dev / prod 已开启。
-- 未接 Prometheus。
+- 未接 Prometheus；T032 只是 Prometheus metrics 设计文档。
 - 未将 selector metrics 落库。
 - 未验证完整上传 -> 解析 -> Agent run 链路。
 
@@ -195,7 +198,7 @@ T021 已新增内部只读 debug dump / reporter：
 
 建议后续拆小推进：
 
-1. T030：先做测试内鉴权策略验证设计审查，或让 CC / 人工审查 T029，不直接生产开启 endpoint。
+1. T033：Prometheus metrics 设计审查，或先回到 T030-design-review 重新收窄鉴权验证方案。
 2. 后续如果实现开启策略，必须默认关闭、字段白名单、字段黑名单、鉴权边界和内网限制同时成立。
 3. 后续再次真实 provider shadow-only：必须由用户重新确认 API Key 注入、费用、provider、日志脱敏策略和调用次数上限，仍不接管生产。
 4. 后续达到稳定阈值后再考虑小流量接管。

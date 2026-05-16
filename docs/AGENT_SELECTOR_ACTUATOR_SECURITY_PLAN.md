@@ -260,6 +260,8 @@ dev 环境开启前必须同时确认：
 
 ### T032-prometheus-metrics-design
 
+状态：DONE。
+
 目标：只设计 selector metrics 的 Prometheus 数值指标，不替代 Actuator endpoint。
 
 范围：
@@ -269,7 +271,9 @@ dev 环境开启前必须同时确认：
 - 不输出模型完整返回。
 - 不直接替代 Actuator endpoint。
 
-T032 是未来任务，不代表已经完成，也不代表 endpoint 已在 dev / prod 开启。T029 只完成安全集成设计，不代表已实现 Spring Security 或已开启 endpoint。T031 只完成 local / dev 临时开启文档示例，不代表仓库配置或任何环境已经开启。不要暗示线上 SLA，不要让 shadow decision 接管 production routing，也不要把完整 T010 写成通过。
+当前结果：T032 已新增 `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`，只设计未来 Prometheus 数值指标、低风险 label、禁止字段、风险和 T033-T036 后续拆分；没有接入 Prometheus，没有修改代码、依赖或配置。
+
+T031 / T032 均已完成，但都只是文档任务，不代表 endpoint 已在 dev / prod 开启，也不代表 Prometheus 已接入。T029 只完成安全集成设计，不代表已实现 Spring Security 或已开启 endpoint。T031 只完成 local / dev 临时开启文档示例，不代表仓库配置或任何环境已经开启。不要暗示线上 SLA，不要让 shadow decision 接管 production routing，也不要把完整 T010 写成通过。
 
 ## 九、T031 local / dev profile example
 

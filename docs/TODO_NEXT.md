@@ -555,6 +555,22 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 边界：未新增测试类，未修改 Java 生产代码，未修改现有测试，未修改 `application.yml` / `application-local.yml`，未修改前端，未接 Prometheus，未操作远程中间件，未真实调用 provider，未修改 production routing。
 - 下一步：需要用户确认是否允许新增测试所需的 Spring Security 依赖，或先开 T030-design-review 重新收窄鉴权验证方案；完整 T010 仍为 BLOCKED。
 
+### T031
+
+- 状态：DONE
+- 完成时间：2026-05-17
+- 任务目标：补充 dev / local 如何临时开启 `agentSelectorShadow` endpoint 的文档示例。
+- 当前结果：`docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md` 和 `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md` 已补充 PowerShell local 临时环境变量示例、dev 运维侧显式开启边界、配置命名说明和禁止策略。
+- 边界：T031 只是文档示例，没有修改 `application.yml`、`application-local.yml` 或任何 profile 配置文件，没有真正开启 endpoint，没有新增 Spring Security，没有接 Prometheus，没有修改 Java / 测试 / 前端代码。
+
+### T032
+
+- 状态：DONE
+- 完成时间：2026-05-17
+- 任务目标：设计 selector shadow metrics 未来接 Prometheus 的方案。
+- 当前结果：新增 `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`，记录候选数值指标、允许的低风险 label、禁止字段、cardinality 风险和 T033-T036 后续拆分。
+- 边界：T032 只是 Prometheus 设计文档，没有接入 Prometheus，没有修改 `pom.xml`，没有修改代码、测试、配置或前端，没有新增依赖，没有改变 production routing。
+
 ### T019a
 
 - 状态：DONE
@@ -849,4 +865,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-T030 当前为 BLOCKED：仓库缺少 Spring Security web / test 鉴权依赖和现有 `SecurityFilterChain`，本轮边界又不允许新增依赖或生产安全配置。下一步建议由用户确认是否允许新增测试所需 Spring Security 依赖，或先开 T030-design-review 重新收窄鉴权验证方案。endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未实现 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+T031 / T032 已完成，均为文档任务：local / dev 临时开启示例已补充，Prometheus metrics 设计文档已新增。T030 仍 BLOCKED：仓库缺少 Spring Security Web 鉴权体系，本轮不建议为了 T030 直接引入 Spring Security 依赖。endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未实现 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；下一步可进入 T033 Prometheus metrics 设计审查，或先开 T030-design-review 重新收窄鉴权验证方案。
