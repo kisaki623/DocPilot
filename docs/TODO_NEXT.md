@@ -571,6 +571,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 当前结果：新增 `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`，记录候选数值指标、允许的低风险 label、禁止字段、cardinality 风险和 T033-T036 后续拆分。
 - 边界：T032 只是 Prometheus 设计文档，没有接入 Prometheus，没有修改 `pom.xml`，没有修改代码、测试、配置或前端，没有新增依赖，没有改变 production routing。
 
+### T040a
+
+- 状态：DONE
+- 完成时间：2026-05-17
+- 任务目标：审计 DocPilot 当前真实能力、半实现能力、BLOCKED 能力和面试风险。
+- 当前结果：新增 `docs/PROJECT_INTERVIEW_BRIEF.md`，记录一句话定位、真实已实现能力、半实现能力、T010 / T030 BLOCKED、不能写成已完成的能力、5 个简历亮点和高风险追问的诚实回答。
+- 边界：仅修改面试向文档和协作文档；未修改 Java、测试、前端或配置；未读取 `backend/.env`；未输出 secret。
+
 ### T019a
 
 - 状态：DONE

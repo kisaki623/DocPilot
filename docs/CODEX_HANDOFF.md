@@ -129,6 +129,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T030 当前 BLOCKED：T030a preflight 发现当前后端只包含 `spring-security-crypto`，没有 `spring-boot-starter-security`、`spring-security-test`、`SecurityFilterChain` 或现有 Web 鉴权测试配置。本轮边界不允许新增 Maven 依赖或生产 Spring Security 配置，因此没有新增测试类，未验证未认证 / 普通用户 / OPS / ACTUATOR_ADMIN 的访问行为。
 - T031 已完成：补充 local / dev 临时开启文档示例，包含 PowerShell 环境变量示例、`endpoint` / `endpoints` 命名注意、enabled 使用 `agent-selector-shadow`、`exposure.include` 使用 `agentSelectorShadow`、禁止 `*`、禁止公网匿名和普通用户访问。T031 没有修改任何配置文件，也没有真正开启 endpoint。
 - T032 已完成：新增 `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`，只设计 selector shadow Prometheus 数值指标、低风险 label、禁止字段、cardinality 风险和 T033-T036 后续拆分。T032 没有接 Prometheus，没有修改 `pom.xml`，没有修改代码、测试、配置或前端。
+- T040a 已完成：新增 `docs/PROJECT_INTERVIEW_BRIEF.md`，面向 Java 后端实习 / AI 应用工程化面试整理项目一句话定位、真实能力、半实现能力、T010 / T030 BLOCKED、不能硬吹的能力、5 个简历亮点和风险追问回答。该文档只做投递材料收口，不修改代码或配置。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

@@ -2,6 +2,39 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-17 - T040a Project Interview Brief
+
+### 本轮目标
+
+进入 T040 项目投递和面试向收口，先完成当前真实能力审计。
+
+### 修改文件
+
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增项目一句话定位。
+- 梳理当前真实已实现能力、半实现能力和 BLOCKED 能力。
+- 明确不能写成已完成的能力：Prometheus 未接入、Spring Security 未接入、Actuator endpoint 默认关闭、shadow decision 未接管 production routing。
+- 整理 5 个适合简历展示的工程亮点。
+- 补充面试高风险追问和诚实回答。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端代码。
+- 未修改配置文件。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+- T010 仍 BLOCKED。
+- T030 仍 BLOCKED。
+
 ## 2026-05-17 - T031/T032 Actuator Enablement And Metrics Planning
 
 ### 本轮目标
