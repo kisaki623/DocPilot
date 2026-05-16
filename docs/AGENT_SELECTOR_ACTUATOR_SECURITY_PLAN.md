@@ -152,6 +152,46 @@ T027 新增 `AgentSelectorShadowEndpointEnabledTest`，只在测试 properties �
 - 不影响 prod。
 - 明确 dev 仍需要内网、鉴权或网关限制。
 
+## 八、T028 local / dev 显式开启方案草案
+
+T028 只提出 local / dev 显式开启方案，不修改 `application.yml`，不修改 `application-local.yml`，不新增 profile 配置文件，也不真正开启 endpoint。
+
+### local 临时开启草案
+
+local 可以使用临时环境变量开启，适合开发者在本机排查 selector shadow metrics dump。以下示例仅表示本地临时环境变量，不是仓库默认配置，也不应提交到任何配置文件：
+
+```powershell
+$env:MANAGEMENT_ENDPOINT_AGENT_SELECTOR_SHADOW_ENABLED="true"
+$env:MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE="health,info,agentSelectorShadow"
+```
+
+local 使用约束：
+
+- 只允许本机访问。
+- 不建议把开启配置提交到 `application.yml`。
+- 不建议把开启配置提交到 `application-local.yml`。
+- 不允许 `management.endpoints.web.exposure.include=*`。
+- 不允许公网匿名访问。
+- 不允许前端页面直接调用。
+- 不允许普通用户访问。
+- 不允许把该 endpoint 当成业务 API。
+- 只用于开发者 / 运维只读观测。
+
+### dev 显式开启草案
+
+dev 可以通过部署环境变量或运维侧配置显式开启，但不应提交真实开启配置。dev 开启只适用于内网开发环境的只读观测，不代表 prod 已开启，也不代表 endpoint 可以作为业务 API 使用。
+
+dev 使用约束：
+
+- 只允许开发者 / 运维只读观测。
+- 不允许公网匿名访问。
+- 不允许普通用户访问。
+- 不允许前端页面直接调用。
+- 不允许把该 endpoint 当成业务 API。
+- 不允许使用 `management.endpoints.web.exposure.include=*`。
+- 不改变 production routing。
+- 不触发真实 provider。
+
 ### T029-security-integration
 
 目标：研究 Spring Security / Actuator 安全保护，再决定是否真正开启。
