@@ -151,3 +151,53 @@ T030 如遇到以下条件，应停止并回到设计 / 审查：
 - 如果必须读取 `backend/.env`，停止。
 - 如果必须输出 secret，停止。
 - 如果必须改 production routing，停止。
+
+## 六、dev / prod 开启前人工审查清单
+
+### dev 开启前 checklist
+
+dev 环境开启前应逐项确认：
+
+- 是否确认 endpoint 默认关闭？
+- 是否确认只在 dev 环境变量中开启？
+- 是否确认 `exposure.include` 不使用 `*`？
+- 是否确认访问来源限制？
+- 是否确认只有开发者 / 运维可访问？
+- 是否确认响应字段通过白名单 / 黑名单测试？
+- 是否确认不输出 secret？
+- 是否确认不触发 provider？
+- 是否确认不影响 production routing？
+- 是否确认开启和关闭都有记录？
+
+dev 开启仍应视为临时观测动作，不应把开启配置提交为仓库默认配置，也不应暴露给普通业务用户。
+
+### prod 开启前 checklist
+
+prod 当前阶段不建议开启。如未来必须开启，应先完成以下人工审查：
+
+- 是否真的需要 prod 开启？
+- 是否有替代方案，例如本地 debug dump 或 Prometheus 数值指标？
+- 是否完成 Spring Security 保护？
+- 是否完成网关、VPN 或 IP allowlist？
+- 是否完成访问审计？
+- 是否完成未授权访问测试？
+- 是否完成字段黑名单测试？
+- 是否确认不返回 raw sample？
+- 是否确认不返回 provider 错误原文？
+- 是否经过 CC / 人工安全审查？
+- 是否有回滚方案？
+- 是否有关闭开关？
+- 是否明确负责人？
+- 是否明确观察窗口？
+
+prod 开启必须保持最小暴露面，只允许受控网络、受控角色和只读聚合响应。若审查中任一项无法确认，应保持关闭。
+
+### 回滚策略
+
+如需关闭已开启的 endpoint，推荐回滚步骤如下：
+
+- 删除相关环境变量或关闭 endpoint enabled 配置。
+- 从 `exposure.include` 移除 `agentSelectorShadow`。
+- 重启服务后确认 `/actuator/agentSelectorShadow` 返回 404。
+- 保留开启、访问和关闭审计记录。
+- 不需要回滚代码，因为 endpoint 默认关闭。
