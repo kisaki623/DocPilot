@@ -45,3 +45,45 @@ T029 明确不做以下事项：
 - 不做权限系统改造。
 
 后续如需进入实现，应先完成安全审查和测试内鉴权策略验证，再决定是否允许修改配置示例或新增安全配置。
+
+## 四、鉴权边界和访问角色
+
+### 推荐角色
+
+未来如果接入 Spring Security，建议为 Actuator 观测入口区分独立角色：
+
+- `ROLE_ACTUATOR_ADMIN`：权限最高，可访问管理类 actuator endpoint。
+- `ROLE_OPS`：可访问只读观测 endpoint，包括候选的 `agentSelectorShadow`。
+- `ROLE_DEVELOPER_DEBUG`：仅 local / dev 可用，不应用于 prod。
+
+普通业务用户不允许访问 `/actuator/agentSelectorShadow`。该 endpoint 不应复用普通文档问答、Agent run 或 dashboard 页面权限，也不应对终端用户开放。
+
+### 推荐路径规则
+
+路径规则建议保持分层处理：
+
+- `/actuator/health` 可以按现有策略处理。
+- `/actuator/info` 可以按现有策略处理。
+- `/actuator/agentSelectorShadow` 未来必须单独保护。
+- 不建议把所有 `/actuator/**` 一刀切公网暴露。
+- 不建议把 `agentSelectorShadow` 混入普通业务 API 权限体系。
+
+如果未来管理端还需要其他 Actuator endpoint，应逐个评估暴露必要性、访问角色和响应字段，不应因为开启一个只读观测 endpoint 而扩大整个 Actuator 面。
+
+### 未授权访问行为
+
+未来推荐的未授权访问行为如下：
+
+- 未登录：返回 401。
+- 已登录但无访问角色：返回 403。
+- endpoint 未开启：返回 404。
+- prod 默认关闭时应保持 404。
+- 错误响应不能泄露 endpoint 内部结构、metrics 内容或 provider 信息。
+
+当 endpoint 未暴露或未启用时，404 是期望行为；这可以降低外部探测者判断内部观测入口存在性的概率。开启后的 401 / 403 行为应由安全测试固定下来，避免不同环境出现意外匿名访问。
+
+### 访问来源限制
+
+prod 如必须开启，应叠加内网、VPN、IP allowlist 或网关限制。仅依赖 Spring Security 不是充分条件，反向代理层也应限制来源。
+
+任何环境都不允许公网匿名访问 `/actuator/agentSelectorShadow`。dev 环境也应限制来源，只允许开发者 / 运维在受控网络内访问。
