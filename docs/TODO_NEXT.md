@@ -534,7 +534,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 后续拆分：T029-security-integration-design 只做 Spring Security / Actuator 安全方案设计；T030-test-security-integration 只在测试中验证鉴权策略；T031-dev-profile-example 只提供 example 配置或文档；T032-prometheus-metrics-design 只设计 Prometheus 数值指标。
 - 自检结果：`git diff --name-only a9d0ffc^..HEAD` 仅包含允许文档；未修改 Java 生产代码、测试代码、前端、`application.yml`、`application-local.yml` 或 profile 配置。
 - 边界：T028 是设计文档任务，未真正开启 endpoint，未新增 Spring Security，未接 Prometheus，未真实调用 provider，未读取或输出 secret；完整 T010 仍为 BLOCKED。
-- 下一步：建议进入 T029-security-integration-design，或先让 CC / 人工审查 T028 的 local / dev 开启方案。
+- 下一步：T029 已完成，建议进入 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029。
+
+### T029
+
+- 状态：DONE
+- 完成时间：2026-05-17
+- 任务目标：完成 Spring Security / Actuator 安全集成设计。
+- 当前结果：新增 `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`，并同步 selector actuator / observability / shadow mode 协作文档；设计内容覆盖访问角色、路径边界、未授权访问行为、访问来源限制、未来 T030 测试策略、dev / prod 开启前 checklist 和回滚策略。
+- 边界：T029 只写设计文档，没有实现 Spring Security，没有新增 `SecurityFilterChain`，没有修改 `application.yml` / `application-local.yml`，没有真正开启 endpoint，没有接 Prometheus，没有修改 Java / 测试 / 前端代码，没有读取或输出 secret；endpoint 当前仍默认关闭。
+- 下一步：建议进入 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029；不建议直接进入生产开启。
 
 ### T019a
 
@@ -830,4 +839,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-推荐进入 T029-security-integration-design，或先让 CC / 人工审查 T028 的 local / dev 开启方案。T028 只是设计文档任务，endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未接 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+推荐进入 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029。T029 只是设计文档任务，endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未实现 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；不要直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。

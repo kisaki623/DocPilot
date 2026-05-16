@@ -288,6 +288,8 @@
 5. 当前仍未修改 `application.yml` / `application-local.yml`，未加入 exposure include，未接 Spring Security，未接 Prometheus，也未开启 dev / prod 访问。
 6. T027 已完成测试内显式开启验证：新增 `AgentSelectorShadowEndpointEnabledTest`，只在测试 properties 中开启 `agentSelectorShadow`，验证 200、字段白名单 / 黑名单、空 metrics 和 metrics 不变；未修改配置文件、生产代码、前端、Spring Security 或 Prometheus。
 7. T027 配置命名已确认：开启开关使用单数 `management.endpoint.agent-selector-shadow.enabled=true`；web 暴露使用复数 `management.endpoints.web.exposure.include=agentSelectorShadow`，值使用 endpoint id，不能写成 `agent-selector-shadow`，也不能使用 `*`。
-8. 默认状态仍关闭，生产环境仍未开启，完整 T010 仍为 BLOCKED。
-9. Prometheus 放到中期，等 Actuator 和指标口径稳定后再接。
-10. 管理端 API 暂缓，等后台权限体系和审计策略更清楚后再评估。
+8. T028 已完成 local / dev 显式开启方案草案，但没有真正开启 endpoint。
+9. T029 已完成 Spring Security / Actuator 安全集成设计，新增 `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`；该任务只写设计，没有实现 Spring Security，没有新增 `SecurityFilterChain`，没有修改配置，也没有开启 endpoint。
+10. 默认状态仍关闭，生产环境仍未开启，完整 T010 仍为 BLOCKED。
+11. Prometheus 放到中期，等 Actuator 和指标口径稳定后再接。
+12. 管理端 API 暂缓，等后台权限体系和审计策略更清楚后再评估。

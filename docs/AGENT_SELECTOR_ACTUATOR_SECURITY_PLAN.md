@@ -213,7 +213,11 @@ dev 环境开启前必须同时确认：
 
 ### T029-security-integration-design
 
+状态：DONE。
+
 目标：只做 Spring Security / Actuator 安全方案设计，不直接实现。
+
+当前结果：T029 已新增 `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`，设计 Actuator 访问角色、路径边界、未授权访问行为、访问来源限制、未来 T030 测试策略、dev / prod 开启前 checklist 和回滚策略。
 
 范围：
 
@@ -224,6 +228,8 @@ dev 环境开启前必须同时确认：
 - 明确是否需要 IP allowlist。
 - 明确是否需要审计日志。
 - 再决定是否真正开启 endpoint。
+
+边界：T029 只写设计文档，没有实现 Spring Security，没有新增 `SecurityFilterChain`，没有修改 `application.yml` / `application-local.yml`，没有真正开启 endpoint，没有接 Prometheus，没有修改 Java / 测试 / 前端代码。
 
 ### T030-test-security-integration
 
@@ -259,4 +265,4 @@ dev 环境开启前必须同时确认：
 - 不输出模型完整返回。
 - 不直接替代 Actuator endpoint。
 
-T029-T032 均是未来任务，不代表已经完成，也不代表 endpoint 已在 dev / prod 开启。不要暗示线上 SLA，不要让 shadow decision 接管 production routing，也不要把完整 T010 写成通过。
+T030-T032 均是未来任务，不代表已经完成，也不代表 endpoint 已在 dev / prod 开启。T029 只完成安全集成设计，不代表已实现 Spring Security 或已开启 endpoint。不要暗示线上 SLA，不要让 shadow decision 接管 production routing，也不要把完整 T010 写成通过。

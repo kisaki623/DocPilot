@@ -2,6 +2,52 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-17 - T029 Actuator Security Integration Design
+
+### 本轮目标
+
+完成 Spring Security / Actuator 安全集成设计。本轮只写文档，不修改 Java、测试、配置、前端，不真正开启 endpoint。
+
+### 修改文件
+
+- `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`。
+- 设计未来 `agentSelectorShadow` Actuator endpoint 的访问角色、路径边界、未授权访问行为和访问来源限制。
+- 设计未来 T030 测试内鉴权策略验证范围。
+- 补充 dev / prod 开启前人工 checklist 和回滚策略。
+- 同步 TODO / HANDOFF / selector actuator / observability / shadow mode 文档，将 T029 标记为完成的设计任务。
+
+### 当前边界
+
+- T029 只写设计文档。
+- endpoint 当前仍默认关闭。
+- 没有实现 Spring Security。
+- 没有新增 `SecurityFilterChain`。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有真正开启 endpoint。
+- 没有接 Prometheus。
+- 没有修改 Java 生产代码。
+- 没有修改测试代码。
+- 没有修改前端。
+- 没有读取或输出 secret。
+- 没有修改 production routing。
+- 完整 T010 仍为 BLOCKED。
+
+### 下一步
+
+建议进入 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029；不建议直接进入生产开启。
+
 ## 2026-05-16 - T028 Selector Actuator Local Enablement Plan
 
 ### 本轮目标
@@ -44,7 +90,7 @@
 
 ### 下一步
 
-建议进入 T029-security-integration-design，或先让 CC / 人工审查 T028 的 local / dev 开启方案。
+当时下一步指向 T029-security-integration-design，或先让 CC / 人工审查 T028 的 local / dev 开启方案；该设计任务现已由 T029 完成。
 
 ## 2026-05-16 - T027 Selector Actuator Enabled Test
 

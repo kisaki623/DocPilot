@@ -322,3 +322,22 @@ T027 只在测试 properties 中显式开启 endpoint：
 T027 验证结果：显式开启后 `GET /actuator/agentSelectorShadow` 返回 200；白名单字段检查、黑名单字段检查、空 metrics 检查和 metrics 不变检查均通过。T027 没有修改 `application.yml`、`application-local.yml`、生产代码、前端、Spring Security 或 Prometheus；没有真实调用 provider，没有读取或输出 secret。
 
 默认状态仍关闭，生产环境仍未开启。完整 T010 仍为 BLOCKED。
+
+## T029 Spring Security / Actuator 安全集成设计
+
+T029 已完成 Spring Security / Actuator 安全集成设计，新增 `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`。
+
+T029 只写设计文档，明确未来访问角色、路径边界、未授权访问行为、访问来源限制、T030 测试策略、dev / prod 开启前 checklist 和回滚策略。
+
+当前边界仍然不变：
+
+- endpoint 当前仍默认关闭。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有真正开启 endpoint。
+- 没有新增 Spring Security 实现。
+- 没有新增 `SecurityFilterChain`。
+- 没有接 Prometheus。
+- 没有修改 Java / 测试 / 前端代码。
+
+下一步建议先让 CC / 人工审查 T029，或进入 T030 测试内鉴权策略验证设计审查；不建议直接进入生产开启。

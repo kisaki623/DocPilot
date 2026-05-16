@@ -201,3 +201,24 @@ prod 开启必须保持最小暴露面，只允许受控网络、受控角色和
 - 重启服务后确认 `/actuator/agentSelectorShadow` 返回 404。
 - 保留开启、访问和关闭审计记录。
 - 不需要回滚代码，因为 endpoint 默认关闭。
+
+## 七、T029 收口状态
+
+T029 已完成 Spring Security / Actuator 安全集成设计。本文档只记录未来安全集成方案，不代表已经实现安全配置。
+
+当前收口状态：
+
+- 没有实现 Spring Security。
+- 没有新增 `SecurityFilterChain`。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有真正开启 endpoint。
+- 没有接 Prometheus。
+- 没有修改 Java 生产代码。
+- 没有修改测试代码。
+- 没有修改前端代码。
+- endpoint 当前仍默认关闭。
+
+下一步建议先进入 T030 测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029。当前不建议直接进入生产开启。
+
+完整 T010 仍为 BLOCKED，原因是 MQ disabled / `NoopParseTaskMessageProducer`。
