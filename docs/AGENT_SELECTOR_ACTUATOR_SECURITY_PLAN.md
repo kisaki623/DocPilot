@@ -102,3 +102,68 @@ prod 开启前必须先经过 CC / 人工安全审查，确认访问链路、鉴
 - 输出 prompt、document content 或 model response。
 - 输出 API Key、Authorization、baseUrl、用户 ID、文档 ID、sessionId 或最终回答。
 - 将 shadow decision 接管 primary decision。
+
+## 七、未来任务拆分
+
+以下任务是未来候选路线，不代表已经完成，也不代表 endpoint 已在 dev / prod 开启。完整 T010 仍为 BLOCKED，原因仍是 MQ disabled / `NoopParseTaskMessageProducer` 导致上传解析链路无法推进。
+
+### T026-design-security-check
+
+目标：对 T025 安全开启策略做 CC / 人工审查，确认是否允许进入实现。
+
+范围：
+
+- 审查默认关闭、字段白名单、黑名单字段、访问边界和审计策略。
+- 确认是否允许后续修改配置示例或仅允许测试 properties。
+- 明确是否允许改 `application-local.yml`，或者只允许文档 / example 记录。
+- 确认仍不允许生产默认开启。
+
+### T027-local-enable-test
+
+目标：只在测试内显式开启 endpoint，验证开启后的最小访问行为。
+
+范围：
+
+- 使用测试 properties 显式开启 endpoint。
+- 验证开启后返回 200。
+- 验证响应只包含白名单字段。
+- 验证响应不包含黑名单字段。
+- 不修改生产配置。
+
+### T028-dev-profile-proposal
+
+目标：设计 dev profile 或运维侧开启方式，但不提交真实开启配置。
+
+范围：
+
+- 设计 dev profile 开启方式。
+- 默认不提交真实开启配置。
+- 只写 example 或文档。
+- 不影响 prod。
+- 明确 dev 仍需要内网、鉴权或网关限制。
+
+### T029-security-integration
+
+目标：研究 Spring Security / Actuator 安全保护，再决定是否真正开启。
+
+范围：
+
+- 研究 `EndpointRequest`、Actuator endpoint matcher 和专用 `SecurityFilterChain`。
+- 明确运维角色。
+- 明确匿名 / 未授权访问行为。
+- 明确审计日志字段。
+- 再决定是否真正开启 endpoint。
+
+### T030-prometheus-design
+
+目标：只做 Prometheus 数值指标设计，不替代 Actuator endpoint。
+
+范围：
+
+- 只暴露数值指标。
+- 不输出高维 label。
+- 不输出 prompt、用户 task、文档内容或模型完整返回。
+- 不输出用户 ID、文档 ID、sessionId 或 provider raw error。
+- 不直接替代 actuator endpoint。
+
+T026-T030 均不能暗示线上 SLA，不能让 shadow decision 接管 production routing，也不能把完整 T010 写成通过。
