@@ -88,6 +88,31 @@
 - 未读取 `backend/.env`。
 - 未输出 secret。
 
+## 2026-05-17 - T040d Interview QA
+
+### 本轮目标
+
+生成面向 Java 后端实习面试的 DocPilot 问答稿。
+
+### 修改文件
+
+- `docs/INTERVIEW_QA.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 30 个高频面试问题，覆盖项目介绍、上传解析、RocketMQ、SSE、Agent、selector shadow、真实 provider、metrics / Actuator、BLOCKED 点和后续优化。
+- 每题包含面试可背版回答、面试官追问、诚实边界和项目对应位置。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改代码、测试、前端或配置。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+
 ## 2026-05-17 - T031/T032 Actuator Enablement And Metrics Planning
 
 ### 本轮目标

@@ -132,6 +132,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T040a 已完成：新增 `docs/PROJECT_INTERVIEW_BRIEF.md`，面向 Java 后端实习 / AI 应用工程化面试整理项目一句话定位、真实能力、半实现能力、T010 / T030 BLOCKED、不能硬吹的能力、5 个简历亮点和风险追问回答。该文档只做投递材料收口，不修改代码或配置。
 - T040b 已完成：新增 `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`，包含总体架构、核心链路、系统总体架构 Mermaid 图和 Agent 执行链路 Mermaid 图；明确完整 MQ 解析链路当前验证 BLOCKED、Actuator endpoint 默认关闭、Prometheus 只是设计未接入。
 - T040c 已完成：新增 `docs/RESUME_BULLETS.md`，提供保守版、标准后端实习版和 AI 应用工程化版三套简历 bullet，并明确 Prometheus、Spring Security、生产 Actuator 暴露、shadow 接管 routing 等能力不能写成已完成。
+- T040d 已完成：新增 `docs/INTERVIEW_QA.md`，按项目整体、上传解析、RocketMQ、SSE、Agent、selector shadow、真实 provider、metrics / Actuator、BLOCKED 点和后续优化整理 30 个高频面试问题及诚实回答。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
