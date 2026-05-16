@@ -587,6 +587,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 当前结果：新增 `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`，包含总体架构、核心链路、系统总体架构 Mermaid 图和 Agent 执行链路 Mermaid 图，并标注 T010 / Actuator / Prometheus 边界。
 - 边界：仅修改文档；未修改 Java、测试、前端或配置；未读取 `backend/.env`；未输出 secret。
 
+### T040c
+
+- 状态：DONE
+- 完成时间：2026-05-17
+- 任务目标：整理适合 Java 后端实习 / AI 应用工程化投递的简历 bullet。
+- 当前结果：新增 `docs/RESUME_BULLETS.md`，包含保守版、标准后端实习版和 AI 应用工程化版三套写法，并标注禁止写成已完成的能力。
+- 边界：仅修改文档；未修改 Java、测试、前端或配置；未读取 `backend/.env`；未输出 secret。
+
 ### T019a
 
 - 状态：DONE

@@ -62,6 +62,32 @@
 - 未读取 `backend/.env`。
 - 未输出 secret。
 
+## 2026-05-17 - T040c Resume Bullets
+
+### 本轮目标
+
+整理 DocPilot 面向 Java 后端实习、AI 应用开发和 AI 全栈投递的简历 bullet。
+
+### 修改文件
+
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增保守版、标准后端实习版和 AI 应用工程化版三套简历写法。
+- 每套包含项目名称、一句话描述和 3-5 条 bullet。
+- 明确哪些能力只能写成设计或预留，不能写成已完成。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改代码、测试、前端或配置。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+
 ## 2026-05-17 - T031/T032 Actuator Enablement And Metrics Planning
 
 ### 本轮目标
