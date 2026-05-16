@@ -2,6 +2,39 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-17 - T040e README Interview Showcase
+
+### 本轮目标
+
+更新 README 对外展示口径，让 GitHub 主页更适合投递，同时避免把设计中、BLOCKED 或默认关闭的能力写成已完成。
+
+### 修改文件
+
+- `README.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- README 补充 AI 文档问答、SSE 流式响应、Agent 最小闭环、AgentTask / AgentStep 持久化、ToolSelector、selector shadow compare、真实 provider shadow-only、metrics debug dump 和默认关闭 Actuator endpoint。
+- 调整 Prometheus / Actuator 表述：selector Prometheus metrics 仍是设计，`agentSelectorShadow` endpoint 默认关闭，未生产开启。
+- 调整面试演示建议：优先展示已解析文档上的 QA / SSE 和 Agent trace；完整上传解析链路需先确认 RocketMQ / consumer 环境。
+- 明确 T010 与 T030 仍为 BLOCKED，shadow decision 不接管 production routing。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端代码。
+- 未修改配置文件。
+- 未新增 Spring Security。
+- 未接 Prometheus。
+- 未真正开启 Actuator endpoint。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+
 ## 2026-05-17 - T040a Project Interview Brief
 
 ### 本轮目标

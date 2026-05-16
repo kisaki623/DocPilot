@@ -603,6 +603,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 当前结果：新增 `docs/INTERVIEW_QA.md`，按 10 个模块整理 30 个高频问题，每题包含面试可背版回答、追问、诚实边界和对应文件或模块位置。
 - 边界：仅修改文档；未修改 Java、测试、前端或配置；未读取 `backend/.env`；未输出 secret。
 
+### T040e
+
+- 状态：DONE
+- 完成时间：2026-05-17
+- 任务目标：更新 README 对外展示口径，让 GitHub 主页更适合投递且不夸大能力。
+- 当前结果：README 已补充 AI 文档问答、SSE、Agent 最小闭环、AgentTask / AgentStep 持久化、ToolSelector、selector shadow compare、真实 provider shadow-only、metrics debug dump 和默认关闭 Actuator endpoint；同时明确完整上传解析链路 T010 BLOCKED、Actuator endpoint 默认关闭、Spring Security 未接入、selector Prometheus metrics 未接入、shadow decision 不接管 production routing。
+- 边界：仅修改 README 和协作文档；未修改 Java、测试、前端或配置；未读取 `backend/.env`；未输出 secret；未真正开启 endpoint；未接 Prometheus；未新增 Spring Security。
+
 ### T019a
 
 - 状态：DONE
@@ -897,4 +905,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-T031 / T032 已完成，均为文档任务：local / dev 临时开启示例已补充，Prometheus metrics 设计文档已新增。T030 仍 BLOCKED：仓库缺少 Spring Security Web 鉴权体系，本轮不建议为了 T030 直接引入 Spring Security 依赖。endpoint 默认状态仍关闭，尚未修改配置、尚未加入生产 exposure include、尚未实现 Spring Security、尚未接 Prometheus，也未开启 dev / prod 访问。完整 T010 仍为 BLOCKED；下一步可进入 T033 Prometheus metrics 设计审查，或先开 T030-design-review 重新收窄鉴权验证方案。
+T040 已完成项目投递和面试向收口：新增真实能力审计、架构说明、简历 bullet、面试问答稿，并更新 README 对外展示口径。下一步建议优先做 T041 README / 面试材料只读审查，检查是否还有过度宣传、过时测试数字或 PDF / RAG / Prometheus / Spring Security 口径风险；也可以回到 T010m 本地 MQ readiness 只读检查，继续处理完整上传解析链路 BLOCKED。暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。

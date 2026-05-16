@@ -133,6 +133,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T040b 已完成：新增 `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`，包含总体架构、核心链路、系统总体架构 Mermaid 图和 Agent 执行链路 Mermaid 图；明确完整 MQ 解析链路当前验证 BLOCKED、Actuator endpoint 默认关闭、Prometheus 只是设计未接入。
 - T040c 已完成：新增 `docs/RESUME_BULLETS.md`，提供保守版、标准后端实习版和 AI 应用工程化版三套简历 bullet，并明确 Prometheus、Spring Security、生产 Actuator 暴露、shadow 接管 routing 等能力不能写成已完成。
 - T040d 已完成：新增 `docs/INTERVIEW_QA.md`，按项目整体、上传解析、RocketMQ、SSE、Agent、selector shadow、真实 provider、metrics / Actuator、BLOCKED 点和后续优化整理 30 个高频面试问题及诚实回答。
+- T040e 已完成：更新 `README.md` 对外展示口径，补充 AI 文档问答、SSE、Agent 最小闭环、AgentTask / AgentStep 持久化、ToolSelector、selector shadow compare、真实 provider shadow-only、metrics debug dump 和默认关闭 Actuator endpoint；同时明确完整上传解析链路 T010 BLOCKED、T030 鉴权测试 BLOCKED、Spring Security 未接入、selector Prometheus metrics 未接入、Actuator endpoint 未生产开启、shadow decision 不接管 production routing。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -162,7 +163,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - Agent ToolRegistry / ToolSelector 解耦工具路由，并用独立单元测试锁定规则行为。
 - Agent 路由可解释性：后端 run 响应可返回 routing reason 与 matched keywords，便于前端展示和 smoke 断言。
 - 异步 Agent 演进设计文档：明确当前同步流程、瓶颈、方案对比和未来 RocketMQ 方案边界。
-- Actuator / Prometheus 可观测性基础。
+- Actuator health、selector metrics debug dump 和默认关闭的 selector Actuator endpoint；selector Prometheus metrics 目前仅设计，未接入。
 
 ## 8. 当前代码风险
 
@@ -178,7 +179,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. T031 / T032 已完成，下一步建议进入 T033 Prometheus metrics 设计审查，或先开 T030-design-review 重新收窄鉴权验证方案。不要真正开启 endpoint，不要修改 `application.yml` / `application-local.yml`；如后续再次真实调用 provider，必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
+1. T040 已完成项目投递和面试向收口。下一步建议优先做 T041 README / 面试材料只读审查，检查是否还有过度宣传、过时测试数字或 PDF / RAG / Prometheus / Spring Security 口径风险；也可以回到 T010m 本地 MQ readiness 只读检查。不要真正开启 endpoint，不要修改 `application.yml` / `application-local.yml`；如后续再次真实调用 provider，必须重新获得用户确认 provider、baseUrl、model、API Key 注入方式、费用、调用次数上限和日志脱敏策略。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / RAG / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -246,6 +247,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先进入 T033 Prometheus metrics 设计审查，或先开 T030-design-review 重新收窄鉴权验证方案，不要直接生产暴露 endpoint。
+优先进入 T041 README / 面试材料只读审查，或回到 T010m 本地 MQ readiness 只读检查，不要直接生产暴露 endpoint，也不要继续堆 Prometheus / Spring Security 实现。
 
-原因：T024 已完成默认关闭 endpoint，T025 已完成安全开启策略设计，T027 已完成测试内显式开启验证，T028 已完成 local / dev 显式开启方案草案，T029 已完成 Spring Security / Actuator 安全集成设计，T031 已完成 local / dev 临时开启示例，T032 已完成 Prometheus metrics 设计；但当前仓库仍缺少可支撑 Web 鉴权测试的 Spring Security 依赖和配置。本轮不应修改真实配置或开启生产访问。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T040 已完成真实能力审计、架构说明、简历 bullet、面试 QA 和 README 展示口径收口；但完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED，T030 仍因缺少 Spring Security Web 鉴权体系 BLOCKED。本轮不应修改真实配置或开启生产访问。默认仍不能启用真实 provider，也不能改变 `/api/ai/agent/run` 返回协议。

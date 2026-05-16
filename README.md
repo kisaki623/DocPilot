@@ -2,25 +2,27 @@
 
 > 面向 AI 文档问答场景的全栈工程项目：覆盖账号认证、文件上传、异步解析、文档检索与问答（含 SSE 流式输出）和最小 Agent 工具链演示。
 >
-> 项目重点不在“堆功能页”，而在可验证的工程链路：Outbox + RocketMQ 异步可靠投递、Redis/Redisson 幂等与限流、MinIO 分片上传、Prometheus 指标可观测。
+> 项目重点不在“堆功能页”，而在可验证的工程链路：Outbox + RocketMQ 异步投递设计、Redis/Redisson 幂等与限流、MinIO 分片上传、AI 问答与 Agent trace，以及 selector metrics debug dump / 默认关闭的 Actuator 观测入口。
 
 ## Why This Project
 
 DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
-- 业务链路完整：注册/登录 -> 上传 -> 创建解析任务 -> 文档详情 -> AI 问答
+- 业务模块覆盖：注册/登录 -> 上传 -> 创建解析任务 -> 文档详情 -> AI 问答；完整上传解析运行时依赖 RocketMQ 配置，边界见“已知限制”
 - 关键中间件可切换：本地 demo 可一键拉起，云环境可按配置切换
 - 面向真实约束：限流、幂等、异步补偿、可观测性、错误降级都在主链路内可见
 
 ## 核心亮点
 
-- **Outbox + RocketMQ 异步解析链路**：`task/parse/create` 返回后，解析通过消息链路异步推进；含补偿扫描与重投，避免事务与消息不一致。
+- **Outbox + RocketMQ 异步解析链路**：`task/parse/create` 返回后，解析按消息链路异步推进；含补偿扫描与重投设计，完整运行依赖可用 MQ / consumer 环境。
 - **消费幂等 + 分布式锁**：解析消费端用消费记录去重，解析任务创建侧用 Redisson 锁防重复创建。
 - **MinIO + 分片上传/断点续传**：支持普通上传与分片上传会话，含上传状态查询与合并完成。
 - **AI 问答 + SSE 流式输出**：详情页支持普通问答与流式问答切换，流式失败自动降级普通问答。
-- **最小 Agent 工具链闭环**：`/api/ai/agent/run` 先检查文档状态，再按规则选择 summary / QA 工具；前端 `/agent` 展示决策、步骤 trace、最终回答和引用。
+- **最小 Agent 工具链闭环**：`/api/ai/agent/run` 先检查文档状态，再按 ToolSelector 规则选择 summary / QA 工具；前端 `/agent` 展示决策、步骤 trace、最终回答和引用。
 - **Agent 执行轨迹落库**：`tb_agent_task` / `tb_agent_step` 记录每次 Agent run 和工具步骤，后端提供 task / step 查询接口，前端可按 `taskId` 展示持久化执行轨迹。
+- **Selector shadow compare**：支持 primary / shadow selector 对比、真实 provider shadow-only 验证和阈值策略；shadow decision 只观测，不接管 production routing。
+- **Selector metrics debug dump**：提供内部 metrics snapshot / reporter，并实现默认关闭的 `agentSelectorShadow` Actuator endpoint；当前未生产开启、未接 Spring Security、未接 selector Prometheus metrics。
 - **Redis 缓存 + 令牌桶限流 + 会话上下文**：文档详情缓存、问答答案缓存、问答限流、短期会话上下文全部可见。
-- **可观测性与压测基线**：内置 Actuator/Prometheus 指标，并提供 benchmark harness 与 smoke 脚本用于复现。
+- **验证与压测基线**：保留 benchmark harness、eval artifact、smoke 脚本和多轮 compile/test/lint/build 记录，便于复现和回归。
 
 ## 系统主链路
 
@@ -38,7 +40,7 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 - **Backend**: Java 17, Spring Boot 3, MyBatis-Plus, MySQL, Redis, RocketMQ, MinIO, Redisson, Micrometer
 - **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS
 - **Infra / Middleware**: Docker Compose, MySQL, Redis, RocketMQ, MinIO
-- **Observability**: Spring Boot Actuator, Prometheus
+- **Observability**: Spring Boot Actuator health, selector metrics debug dump; selector Prometheus metrics currently remain design-only
 
 ## 页面预览
 
@@ -151,19 +153,24 @@ DocPilot/
 - **性能与稳定性（Redis 缓存 + 限流）**
   热路径走缓存，问答入口做令牌桶限流，降低高并发下的抖动和雪崩风险。
 
-- **可观测性（Actuator + Prometheus）**
-  通过指标查看健康状态与关键业务计数，便于演示和定位问题。
+- **可观测性（Actuator health + selector debug dump）**
+  保留 Actuator health、selector metrics debug dump / reporter，并实现默认关闭的 `agentSelectorShadow` Actuator endpoint。selector Prometheus metrics 目前只有设计文档，尚未接入。
 
 - **最小 Agent 工程化闭环**
   当前 Agent 是基于已有文档业务工具的最小闭环：状态检查、摘要、问答三类工具由 `ToolRegistry` 注册，`DocumentToolSelector` 按关键词规则选择工具链。执行结果会写入 `tb_agent_task` / `tb_agent_step`，并通过查询接口和前端页面展示持久化 trace。
 
+- **Tool selector / shadow-only 观测**
+  selector shadow 路径可以对比 primary decision 与 shadow decision，已覆盖 fake provider 和真实 provider shadow-only 验证；结果仅用于观测、metrics 和调试，不改变真实工具执行。
+
 ## 当前验证记录
 
-- 后端 AI / SSE 改进提交已通过 Maven 测试基线：`mvn test -DskipITs` 通过，记录为 141 tests passed；后续加入 Agent selector 独立测试后，全量后端测试记录为 147 tests passed。
+- 后端 AI / SSE 改进提交已通过 Maven 测试基线；后续 Agent selector、shadow metrics 和 Actuator endpoint 相关测试也有独立提交记录，详见 `docs/CHANGELOG_CODING.md`。
 - Agent runtime smoke 已通过：`/api/ai/agent/run` 返回有效 `taskId`，summary / QA 决策正常，task / step 查询接口可用。
 - 前端 Agent trace 页面已通过 Playwright 运行时验证：`/agent` 可展示 taskId、status、decision、step count、toolName、durationMs、inputSummary、outputSummary。
 - 前端质量检查已通过：`npm run lint` 与 `npm run build` 均通过。
 - 远程开发库中 `tb_agent_task` / `tb_agent_step` 已通过 hk-ops 只读核验，可查到 runtime smoke 产生的真实记录。
+- T019 已完成真实 provider shadow-only 验证；T020/T021 已完成 selector metrics / debug dump；T024 已实现默认关闭的 `agentSelectorShadow` endpoint；T027 已验证测试内显式开启返回 200。
+- T030 鉴权测试当前 BLOCKED：项目尚未接入 Spring Security Web 鉴权体系，不建议为了测试直接新增依赖。
 
 ## 量化结果（可复现边界）
 
@@ -179,18 +186,22 @@ DocPilot/
 - `streamVsNonStreamConsistency`: `87.5%`
 - Gate: `passed=true`
 
-> 边界说明：以上是仓库内当前 artifact 记录，不是本轮重新运行结果；artifact 未记录实际运行时 `AI_MODE`、模型名或 provider；该结果用于本地版本证据链，不代表线上 SLA。后续需通过 T005 重新运行 eval，并补充运行时配置记录。
+> 边界说明：以上是仓库内当前 artifact 记录，不是本轮重新运行结果；artifact 未记录实际运行时 `AI_MODE`、模型名或 provider；该结果用于本地版本证据链，不代表服务承诺。后续需通过 T005 重新运行 eval，并补充运行时配置记录。
 
 ## 已知限制
 
 - `pdf` 解析目前为占位逻辑；真实文本解析能力主要针对 `txt/md`。
 - AI 默认 `AI_MODE=mock`；切换 `real` 模式需配置 `AI_REAL_*` 参数与可用模型服务。
-- RocketMQ 异步链路依赖 `ROCKETMQ_ENABLED=true` 与可用 NameServer；关闭后会走 Noop Producer。
+- 完整上传解析链路当前验证为 T010 BLOCKED：RocketMQ 异步链路依赖 `ROCKETMQ_ENABLED=true` 与可用 NameServer / consumer；关闭后会走 `NoopParseTaskMessageProducer`，不会推进真实异步解析。
 - 当前 Agent 是规则 / 关键词 ToolSelector，不是 LLM Tool Calling，也不是成熟多 Agent 编排平台。
 - 当前 Agent 执行仍是同步 API 链路，尚未接 MQ 异步 Agent、Outbox 或复杂任务调度。
+- `agentSelectorShadow` Actuator endpoint 默认关闭，未在 dev / prod 真正开启，未加入默认 exposure include。
+- Spring Security Web 鉴权体系尚未接入；`agentSelectorShadow` 未完成未认证 / 普通用户 / 运维角色访问验证。
+- selector Prometheus metrics 目前只有设计文档，尚未接入 Micrometer / Prometheus；compose 中的 Prometheus 基础设施不等同于 selector metrics 已接入。
+- shadow decision 不接管 production routing，真实 Agent 工具执行仍由 primary selector 决定。
 - 当前未接向量库 / 完整 RAG / MCP / Spring AI / LangChain4j；文档问答仍是轻量检索增强。
 - 短信验证码接口保留为兼容联调能力，不代表已接入生产短信网关。
-- Prometheus 默认抓取 `host.docker.internal:8081`；Linux 环境需要改为宿主机可达地址。
+- Prometheus demo 抓取配置如需运行仍要按宿主机网络调整；这不代表 selector shadow 指标已经接入 Prometheus。
 
 ## 运行与配置补充
 
@@ -207,4 +218,6 @@ DocPilot/
 ---
 
 如果你在准备面试演示，建议优先展示这条 5 分钟链路：
-`注册/登录 -> 上传 -> 自动创建解析任务 -> 详情页 SSE 问答 -> Agent 页面查看工具决策与持久化执行轨迹`。
+`已解析文档 -> 详情页普通/SSE 问答 -> Agent 页面查看工具决策与持久化执行轨迹 -> 说明 selector shadow-only 和默认关闭 Actuator endpoint 的边界`。
+
+如要展示“上传 -> 自动解析 -> 问答”的完整链路，请先确认 RocketMQ / consumer 环境可用；当前 T010 完整上传解析 runtime 验证仍为 BLOCKED。
