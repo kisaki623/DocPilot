@@ -245,7 +245,9 @@ dev 环境开启前必须同时确认：
 
 ### T031-dev-profile-example
 
-目标：只提供 example 配置或文档，不默认启用。
+状态：DONE。
+
+目标：只提供 local / dev 临时开启 example 配置或文档，不默认启用。
 
 范围：
 
@@ -253,6 +255,8 @@ dev 环境开启前必须同时确认：
 - 不使用 `management.endpoints.web.exposure.include=*`。
 - 不修改默认 `application.yml`。
 - 不让 prod 默认开启。
+
+当前结果：T031 只补充文档示例，没有修改任何配置文件，没有真正开启 endpoint。
 
 ### T032-prometheus-metrics-design
 
@@ -265,4 +269,52 @@ dev 环境开启前必须同时确认：
 - 不输出模型完整返回。
 - 不直接替代 Actuator endpoint。
 
-T030-T032 均是未来任务，不代表已经完成，也不代表 endpoint 已在 dev / prod 开启。T029 只完成安全集成设计，不代表已实现 Spring Security 或已开启 endpoint。不要暗示线上 SLA，不要让 shadow decision 接管 production routing，也不要把完整 T010 写成通过。
+T032 是未来任务，不代表已经完成，也不代表 endpoint 已在 dev / prod 开启。T029 只完成安全集成设计，不代表已实现 Spring Security 或已开启 endpoint。T031 只完成 local / dev 临时开启文档示例，不代表仓库配置或任何环境已经开启。不要暗示线上 SLA，不要让 shadow decision 接管 production routing，也不要把完整 T010 写成通过。
+
+## 九、T031 local / dev profile example
+
+T031 只记录 local / dev 如何临时开启 `agentSelectorShadow` endpoint 的文档示例，不修改 `application.yml`，不修改 `application-local.yml`，不修改任何 profile 配置文件，也不真正开启 endpoint。
+
+当前事实：
+
+- endpoint 当前仍默认关闭。
+- 当前不提交 `application.yml` 开启配置。
+- 当前不提交 `application-local.yml` 开启配置。
+- local 只能用临时环境变量开启。
+- dev 只能通过部署环境变量或运维配置显式开启。
+- prod 当前阶段不允许开启。
+- T030 因项目没有 Spring Security Web 鉴权体系已 BLOCKED；dev / prod 真正开启前必须先补安全体系设计和验证能力。
+
+### local PowerShell 临时示例
+
+以下示例只适用于开发者本机临时调试，不是仓库默认配置，不应写入任何配置文件：
+
+```powershell
+$env:MANAGEMENT_ENDPOINT_AGENT_SELECTOR_SHADOW_ENABLED="true"
+$env:MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE="health,info,agentSelectorShadow"
+```
+
+命名注意：
+
+- `management.endpoint.agent-selector-shadow.enabled` 中的 `endpoint` 是单数。
+- `management.endpoints.web.exposure.include` 中的 `endpoints` 是复数。
+- enabled 配置使用 `agent-selector-shadow`，这是 endpoint id `agentSelectorShadow` 的 relaxed binding 写法。
+- `exposure.include` 的值使用 endpoint id `agentSelectorShadow`。
+- 不要写成 `management.endpoints.web.exposure.include=*`。
+
+### dev 运维侧显式开启示例
+
+dev 如需开启，只能由部署环境变量或运维侧配置显式控制，不允许提交真实开启配置到仓库。dev 开启前必须确认访问来源限制、内网 / 网关 / 反向代理边界、可访问角色和审计记录。
+
+dev 仍需遵守：
+
+- 不允许 `management.endpoints.web.exposure.include=*`。
+- 不允许公网匿名访问。
+- 不允许前端普通用户直接访问。
+- 不允许把该 endpoint 当业务 API。
+- 不允许在 prod 当前阶段开启。
+- 不允许绕过 T030 的 BLOCKED 状态直接上线开启。
+- 不允许改变 production routing。
+- 不允许触发真实 provider。
+
+T031 示例只服务于未来受控 local / dev 调试；在 Spring Security Web 鉴权体系补齐前，不应把该 endpoint 暴露到 dev / prod 可被普通用户访问的网络路径上。

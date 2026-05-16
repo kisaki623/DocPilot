@@ -341,3 +341,34 @@ T029 只写设计文档，明确未来访问角色、路径边界、未授权访
 - 没有修改 Java / 测试 / 前端代码。
 
 下一步建议先让 CC / 人工审查 T029，或进入 T030 测试内鉴权策略验证设计审查；不建议直接进入生产开启。
+
+## T031 local / dev 临时开启示例
+
+T031 已补充 local / dev 临时开启文档示例，但没有修改任何配置文件，也没有真正开启 endpoint。
+
+当前状态仍然是：
+
+- endpoint 当前默认关闭。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有修改任何 profile 配置文件。
+- 没有加入默认 `management.endpoints.web.exposure.include`。
+- 没有新增 Spring Security。
+- 没有接 Prometheus。
+
+local 临时开启示例只允许通过当前终端环境变量完成：
+
+```powershell
+$env:MANAGEMENT_ENDPOINT_AGENT_SELECTOR_SHADOW_ENABLED="true"
+$env:MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE="health,info,agentSelectorShadow"
+```
+
+配置命名必须保持：
+
+- `endpoint` 是单数，用于 `management.endpoint.agent-selector-shadow.enabled`。
+- `endpoints` 是复数，用于 `management.endpoints.web.exposure.include`。
+- enabled 配置使用 `agent-selector-shadow`。
+- `exposure.include` 的值使用 endpoint id `agentSelectorShadow`。
+- 禁止使用 `management.endpoints.web.exposure.include=*`。
+
+dev 只能通过部署环境变量或运维配置显式开启，不允许提交真实开启配置。T030 因当前项目缺少 Spring Security Web 鉴权体系仍为 BLOCKED；dev / prod 真正开启前必须先补安全体系设计和验证能力。
