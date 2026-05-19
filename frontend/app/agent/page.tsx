@@ -31,6 +31,12 @@ const TASK_TEMPLATES = [
     label: "证据问答",
     helper: "触发 qa_tool，展示引用证据和 citations。",
     task: "请根据原文证据回答：这篇文档的核心技术亮点是什么？"
+  },
+  {
+    key: "rag-retrieval",
+    label: "RAG 召回",
+    helper: "触发 rag_tool，展示 fake embedding 召回片段、score 和 metadata。",
+    task: "请做 RAG 检索召回，返回 topK 片段、相似度 score 和 citation metadata。"
   }
 ] as const;
 
@@ -38,11 +44,14 @@ const SHOWCASE_POINTS = [
   "ToolRegistry 注册文档状态、摘要、问答三类工具",
   "DocumentToolSelector 返回 decision、routingReason 和 matchedKeywords",
   "AgentTask / AgentStep 持久化记录 taskId、步骤状态和耗时",
-  "QA 场景返回 citations，页面展示引用证据"
+  "QA 场景返回 citations，页面展示引用证据",
+  "RAG Demo 场景返回 retrieved chunks、similarity score 和 citation metadata"
 ];
 
 const BOUNDARY_POINTS = [
   "当前页面验证已解析文档上的 Agent 运行，不验证上传解析链路",
+  "当前 RAG Demo 使用 fake embedding + in-memory vector store，仅用于求职展示",
+  "尚未接入真实 embedding、Qdrant、Redis Vector 或 LangChain4j",
   "real provider 目前只做 shadow-only 观测，不接管生产工具选择",
   "完整上传解析 runtime 仍受 MQ disabled / NoopParseTaskMessageProducer 阻塞"
 ];
@@ -87,6 +96,20 @@ function normalizeRunError(message: string): string {
 
 function normalizeDocumentIdInput(value: string): string {
   return value.replace(/\D/g, "");
+}
+
+function formatScore(score: number | undefined): string {
+  if (typeof score !== "number" || Number.isNaN(score)) {
+    return "-";
+  }
+  return score.toFixed(4);
+}
+
+function metadataEntries(metadata?: Record<string, string>): Array<[string, string]> {
+  if (!metadata) {
+    return [];
+  }
+  return Object.entries(metadata).filter(([key, value]) => key && value);
 }
 
 export default function AgentPage() {
@@ -361,7 +384,7 @@ export default function AgentPage() {
 
             <div className="grid gap-2">
               <span className="text-sm font-semibold text-slate-700">演示模板</span>
-              <div className="grid gap-2 sm:grid-cols-3">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {TASK_TEMPLATES.map((template) => (
                   <button
                     key={template.key}
@@ -444,6 +467,10 @@ export default function AgentPage() {
                   <p className="dp-kpi-label">Citations</p>
                   <p className="dp-kpi-value text-lg">{result.citations?.length ?? 0}</p>
                 </div>
+                <div className="dp-kpi-card">
+                  <p className="dp-kpi-label">RAG Chunks</p>
+                  <p className="dp-kpi-value text-lg">{result.ragResults?.length ?? 0}</p>
+                </div>
               </div>
 
               <div className="dp-card-soft text-xs text-slate-600">
@@ -480,6 +507,55 @@ export default function AgentPage() {
                   variant="history"
                   mode="inline"
                 />
+              </div>
+
+              <div className="dp-card-soft">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <p className="text-sm font-semibold text-slate-700">RAG 召回片段</p>
+                  <span className="dp-badge dp-badge-warning">Fake Embedding</span>
+                </div>
+                <p className="text-xs leading-5 text-slate-500 mb-3">
+                  当前展示的是后端内部 RAG demo：fake embedding + in-memory vector store，不代表已接入真实 embedding 或专用向量库。
+                </p>
+                {result.ragResults && result.ragResults.length > 0 ? (
+                  <ol className="dp-list-clean">
+                    {result.ragResults.map((item) => {
+                      const entries = metadataEntries(item.metadata);
+                      return (
+                        <li key={`${item.rank}-${item.chunkIndex}`} className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <p className="text-sm font-semibold text-slate-800">
+                              #{item.rank} chunk {item.chunkIndex}
+                            </p>
+                            <span className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                              score {formatScore(item.score)}
+                            </span>
+                          </div>
+                          <p className="text-xs leading-5 text-slate-700">{item.snippet || "-"}</p>
+                          {entries.length > 0 ? (
+                            <div className="mt-3 grid gap-1 text-[11px] text-slate-500 sm:grid-cols-2">
+                              {entries.map(([key, value]) => (
+                                <p key={key} className="truncate">
+                                  <span className="font-semibold text-slate-600">{key}:</span> {value}
+                                </p>
+                              ))}
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-slate-500">本次结果未返回 RAG 召回片段。请选择 RAG 召回模板触发 rag_tool。</p>
+                )}
+                {result.ragAnswerContext ? (
+                  <details className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <summary className="cursor-pointer text-xs font-semibold text-slate-700">查看 answer context 摘要</summary>
+                    <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-600">
+                      {result.ragAnswerContext}
+                    </pre>
+                  </details>
+                ) : null}
               </div>
 
               <div className="dp-card-soft">

@@ -17,6 +17,14 @@ export interface DocumentAgentStep {
   durationMs: number;
 }
 
+export interface DocumentAgentRagResult {
+  rank: number;
+  chunkIndex: number;
+  score: number;
+  snippet: string;
+  metadata?: Record<string, string>;
+}
+
 export interface DocumentAgentRunData {
   traceId?: string;
   startedAt?: string;
@@ -32,6 +40,8 @@ export interface DocumentAgentRunData {
   matchedKeywords?: string[];
   finalAnswer: string;
   citations?: DocumentQaCitationItem[];
+  ragResults?: DocumentAgentRagResult[];
+  ragAnswerContext?: string;
   steps?: DocumentAgentStep[];
 }
 
