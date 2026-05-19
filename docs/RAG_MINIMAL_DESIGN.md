@@ -13,7 +13,7 @@ parsed text -> chunk -> embedding -> vector store -> retrieve topK -> prompt ass
 当前边界：
 
 - 已有 Agent QA tool、普通问答、SSE 问答、citations 和前端引用展示。
-- 当前不是完整向量 RAG；还没有 embedding、向量库、向量召回、rerank 或 RAG 召回片段展示。
+- 当前不是完整生产向量 RAG；T054 / T055 已有 fake embedding + in-memory vector store + Agent Showcase 召回展示，但还没有真实 embedding provider、Qdrant / Redis Vector、chunk 持久化、rerank 或生产级 RAG routing。
 - 完整上传 -> 解析 -> Agent run 的 T010 runtime 仍因 MQ disabled / NoopParseTaskMessageProducer 保持 BLOCKED。
 - 本设计不修改代码，不修改配置，不新增公开 API。
 
@@ -133,7 +133,7 @@ Agent 接入时，`document_qa_tool` 可以先保持当前逻辑；待 RAG 链�
 可以这样讲：
 
 - “当前项目已经实现轻量检索增强问答和 citations，Agent QA tool 可以复用这条链路，并展示执行轨迹。”
-- “下一步最小 RAG 会把当前临时文本检索替换为 chunk 持久化、embedding 和向量 topK 召回。”
+- “当前已经先用 fake embedding 和 in-memory vector store 打通了最小 RAG demo，下一步会把测试替身替换为真实 embedding、chunk 持久化和专用向量库。”
 - “我没有直接上 LangChain / LangGraph，是因为这个项目重点展示 Java 后端工程能力：鉴权、异步解析、幂等、trace、service 边界、fallback 和测试可控性。”
 - “RAG 尚未实现时，我会明确说当前是轻量检索增强，不会把它包装成完整向量 RAG。”
 
@@ -180,3 +180,30 @@ T054 已按求职冲刺优先方案落地第一阶段内部闭环。T054x 先稳
 - 未接入当前 Document QA / Agent production routing。
 
 这一步的价值是先把 RAG 的 Java 内部边界、测试替身和 citation mapping 打通，为后续 T055 前端展示召回片段和 T054 后续真实向量库接入打基础。
+
+## 12. T055 Agent Showcase 接入状态
+
+T055 已将 T054 的内部 RAG 能力接到 Agent Showcase demo 路径：
+
+- 新增实验性 `document_rag_tool`，每次运行基于已解析文档正文临时构建 fake embedding + in-memory vector store。
+- `DocumentToolSelector` 仅在明确 RAG / 检索 / 召回 / 相似度 / 片段 / 找依据类任务中路由到 `rag_tool`，原有 summary / QA / status 行为保持不变。
+- `DocumentAgentResponse` 向后兼容扩展 `ragResults` 与 `ragAnswerContext`，用于前端展示 retrieved chunks、score / similarity 和 citation metadata。
+- `/agent` 页面新增 RAG 召回模板和展示区，保留 decision、routingReason、matchedKeywords、taskId、persisted steps、citations 和 finalAnswer。
+
+验证结果：
+
+- `cd backend; mvn -Dtest=*Rag* test` 通过。
+- `mvn -Dtest=DocumentAgentServiceImplTest test` 通过。
+- `mvn -Dtest=DocumentToolSelectorTest test` 通过。
+- `mvn -DskipTests compile` 通过。
+- `mvn test -DskipITs` 通过。
+- `cd frontend; npm run lint` 通过。
+- `npm run build` 通过。
+
+T055 仍明确未做：
+
+- 未接真实 embedding provider。
+- 未接 Qdrant / Redis Vector。
+- 未接 LangChain4j。
+- 未新增数据库表或 docker-compose 服务。
+- 未将 RAG 写成 production routing；当前只是求职展示用的 Agent/RAG demo 路径。

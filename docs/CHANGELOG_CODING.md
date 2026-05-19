@@ -2,6 +2,59 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T055 RAG Agent Showcase Demo
+
+### 本轮目标
+
+把 T054 的 fake embedding + in-memory vector store 内部 RAG 能力接到 Agent Showcase demo 路径，并让 `/agent` 页面展示 RAG 召回片段、score / similarity、citation metadata 和 Agent trace。本轮不接真实 embedding provider，不接 Qdrant / Redis Vector，不接 LangChain4j，不新增数据库表，不新增公开 REST API，不修改 production routing。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolDefinitionProvider.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionParser.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionPromptBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClient.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/vo/DocumentAgentResponse.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelectorTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `frontend/app/agent/page.tsx`
+- `frontend/lib/agent-api.ts`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增实验性 `document_rag_tool`，从已解析文档正文构建 fake embedding + in-memory vector store，并返回 topK retrieved chunks、score、metadata 和 answer context。
+- `DocumentToolSelector` 只在明确 RAG / 检索 / 召回 / 相似度 / 片段 / 找依据类任务中路由到 `rag_tool`，避免影响原有 summary / QA / status 行为。
+- `DocumentAgentResponse` 向后兼容新增 `ragResults` / `ragAnswerContext` 字段；没有删除或改变原字段。
+- `/agent` 页面新增 RAG 召回任务模板和展示区，展示 retrieved chunks、score / similarity、citation metadata、RAG demo 边界说明、finalAnswer 和 trace。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `mvn -Dtest=DocumentToolSelectorTest test`：通过。
+- `mvn -DskipTests compile`：通过。
+- `mvn test -DskipITs`：通过，302 tests passed。
+- `cd frontend; npm run lint`：通过。
+- `npm run build`：通过。
+
+### 明确未做事项
+
+- 未读取 `backend/.env`，未输出 secret。
+- 未接真实 embedding provider、Qdrant、Redis Vector 或 LangChain4j。
+- 未新增数据库表、DDL、docker-compose 服务或公开 REST API。
+- 未修改 `application.yml` / `application-local.yml`。
+- 未改变 production routing；RAG 是求职展示用的实验性 Agent demo 路径。
+- 未处理完整 T010 / MQ blocked；完整上传解析链路仍为 BLOCKED。
+
 ## 2026-05-19 - T054 RAG Minimal Internal Service
 
 ### 本轮目标

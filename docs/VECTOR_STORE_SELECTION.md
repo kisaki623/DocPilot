@@ -86,7 +86,7 @@ DocPilot 当前已有轻量文档问答、citations、Agent QA tool 和执行轨
 - 不能作为生产方案。
 - 必须在文档和面试中标注 fake / demo / test boundary。
 
-适合：T054 第一阶段，先把接口、测试、citation mapping 和 Agent QA tool 兼容性打通。
+适合：T054 第一阶段，先把接口、测试、citation mapping 和 Agent QA tool 兼容性打通；T055 已将该方案用于 Agent Showcase 的 RAG 召回展示。
 
 ## 4. 推荐路线
 
@@ -137,6 +137,7 @@ Redis Vector 可作为备选：如果用户已经有 Redis Stack 环境并希望
 可以这样讲：
 
 - “当前项目已经有轻量检索增强和 citations；下一步 RAG 我会先用 fake embedding 和 in-memory vector store 打通链路，再接 Qdrant。”
+- “当前 Agent Showcase 已能展示 fake embedding + in-memory vector store 的 retrieved chunks、score 和 citation metadata，但我会明确说明这不是生产级向量库方案。”
 - “我不会一上来引入复杂框架，因为先把 chunk、embedding、retrieve、citation mapping 和测试边界拆清楚更重要。”
 - “MySQL 适合保存 chunk metadata，但不把它包装成专业向量库。”
 - “Redis Vector 需要 Redis Stack 支持，不等同于普通 Redis。”

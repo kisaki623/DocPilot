@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T055-RAG-Agent-Showcase
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：把 T054 的 fake embedding + in-memory vector store 内部 RAG 能力接入 Agent Showcase demo 路径，并在 `/agent` 页面展示 RAG 召回结果。
+- 当前结果：新增实验性 `document_rag_tool` / `rag_tool` route；`/api/ai/agent/run` 返回向后兼容的 `ragResults` / `ragAnswerContext` 字段；`/agent` 页面新增 RAG 召回模板，展示 retrieved chunks、score / similarity、citation metadata、Agent step trace、routingReason 和 matchedKeywords。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过；`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn -Dtest=DocumentToolSelectorTest test` 通过；`mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过；`cd frontend; npm run lint` 通过；`npm run build` 通过。
+- 边界：未读取 `backend/.env`；未新增依赖；未新增公开 REST API；未新增数据库表；未修改 `application.yml` / `application-local.yml` 或 docker-compose；未接真实 embedding provider、Qdrant、Redis Vector、LangChain4j；未改变原有 summary / QA / status 行为；RAG demo 仍是求职展示用的 fake embedding + in-memory 检索路径，不是生产完整 RAG。
+
 ### T054-RAG-Minimal-Internal-Service
 
 - 状态：DONE
@@ -38,7 +47,7 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 任务目标：设计 DocPilot 从当前轻量文档问答升级到最小 RAG 的最短路径。
 - 当前结果：新增 `docs/RAG_MINIMAL_DESIGN.md`，明确当前已有上传 / 解析状态、文档问答、citations 和 Agent QA tool；设计 `parsed text -> chunk -> embedding -> vector store -> retrieve topK -> prompt assemble -> answer -> citations / score display` 链路；补充 `document_chunk`、`chunk_embedding` / vector payload、内部 service 草案、fallback 和测试策略。
 - 验证结果：文档 diff 自查；未运行代码测试，因为本任务只做设计。
-- 边界：未实现 RAG，未新增 API，未修改后端代码、前端代码、配置、DDL 或 production routing；embedding provider、向量库和前端召回片段展示仍待 T054 / T055。
+- 边界：T052 本身未实现 RAG，未新增 API，未修改后端代码、前端代码、配置、DDL 或 production routing；后续 T054 / T055 已分别完成内部 fake RAG service 和 Agent Showcase 展示，但真实 embedding、Qdrant / Redis Vector 和生产 RAG routing 仍未接入。
 
 ### T056-Job-Materials
 
@@ -950,4 +959,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054。下一步建议进入 T055-RAG-Showcase-UI，先展示内部 RAG 召回片段、score 和 citation metadata；也可以做 T054+，以默认关闭方式接入真实文档文本实验路径。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
+求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055。下一步建议进入 T057：截图包 / 演示验证，或 T054+：接真实 embedding / Qdrant 前的默认关闭实验路径；也可以进入 T051：Function Calling takeover 可开关模式。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
