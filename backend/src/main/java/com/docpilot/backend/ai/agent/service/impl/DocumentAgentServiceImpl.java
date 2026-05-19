@@ -16,10 +16,12 @@ import com.docpilot.backend.ai.agent.tool.LlmToolSelectionResult;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelector;
 import com.docpilot.backend.ai.agent.tool.RealLlmSelectorShadowRunResult;
 import com.docpilot.backend.ai.agent.tool.RealLlmSelectorShadowRunner;
+import com.docpilot.backend.ai.agent.tool.RealLlmToolSelector;
 import com.docpilot.backend.ai.agent.tool.RealLlmToolSelectorFactory;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionClientFactory;
 import com.docpilot.backend.ai.agent.tool.SelectorMetricsCollector;
 import com.docpilot.backend.ai.agent.tool.ToolDefinition;
+import com.docpilot.backend.ai.agent.tool.ToolExecutionDecision;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
@@ -52,6 +54,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
     private final ToolDefinitionProvider toolDefinitionProvider;
     private final SelectorMetricsCollector selectorMetricsCollector;
     private final RealLlmSelectorShadowRunner realShadowRunner;
+    private final RealLlmToolSelectorFactory realLlmToolSelectorFactory;
 
     public DocumentAgentServiceImpl(ToolRegistry toolRegistry,
                                     ToolSelector toolSelector,
@@ -69,12 +72,12 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         this.shadowToolSelector = shadowToolSelector;
         this.toolDefinitionProvider = toolDefinitionProvider;
         this.selectorMetricsCollector = selectorMetricsCollector;
-        RealLlmToolSelectorFactory realLlmToolSelectorFactory = new RealLlmToolSelectorFactory(
+        this.realLlmToolSelectorFactory = new RealLlmToolSelectorFactory(
                 new LlmToolSelectionClientFactory(),
                 realShadowPromptBuilder,
                 realShadowParser
         );
-        this.realShadowRunner = new RealLlmSelectorShadowRunner(realLlmToolSelectorFactory, selectorProperties);
+        this.realShadowRunner = new RealLlmSelectorShadowRunner(this.realLlmToolSelectorFactory, selectorProperties);
     }
 
     @Override
@@ -120,6 +123,13 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
             DocumentStatusTool.StatusResult detail = statusResult.value();
             if (!detail.parseReady()) {
                 response.setDecision("status_only");
+                response.setPrimaryDecision("status_only");
+                response.setLlmDecision("");
+                response.setFinalDecision("status_only");
+                response.setFallbackUsed(false);
+                response.setFallbackReason("");
+                response.setExecutionMode(selectorProperties == null ? AgentSelectorProperties.MODE_KEYWORD : selectorProperties.getMode());
+                response.setToolSelectionSource(ToolExecutionDecision.SOURCE_KEYWORD);
                 response.setRoutingReason("\u6587\u6863\u5c1a\u672a\u89e3\u6790\u5b8c\u6210\uff0c\u8def\u7531\u5230\u72b6\u6001\u63d0\u793a\uff0c\u907f\u514d\u6267\u884c\u6458\u8981\u6216\u95ee\u7b54\u5de5\u5177");
                 response.setMatchedKeywords(List.of());
                 response.setFinalAnswer(buildPendingAnswer(detail));
@@ -127,19 +137,27 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                 return completeSuccess(taskId, response, beginNanos);
             }
 
-            ToolSelector.SelectResult selection = toolSelector.select(task);
-            response.setRoutingReason(selection.reason());
-            response.setMatchedKeywords(selection.matchedKeywords());
-            compareShadowSelection(task, detail, selection);
+            ToolSelector.SelectResult primarySelection = toolSelector.select(task);
+            ToolExecutionDecision executionDecision = selectExecutionDecision(task, detail, primarySelection);
+            response.setPrimaryDecision(executionDecision.primaryDecision());
+            response.setLlmDecision(executionDecision.llmDecision());
+            response.setFinalDecision(executionDecision.finalDecision());
+            response.setFallbackUsed(executionDecision.fallbackUsed());
+            response.setFallbackReason(executionDecision.fallbackReason());
+            response.setExecutionMode(selectorProperties == null ? AgentSelectorProperties.MODE_KEYWORD : selectorProperties.getMode());
+            response.setToolSelectionSource(executionDecision.toolSelectionSource());
+            response.setRoutingReason(executionDecision.routingReason());
+            response.setMatchedKeywords(executionDecision.matchedKeywords());
+            compareShadowSelection(task, detail, primarySelection);
 
-            if ("status_only".equals(selection.decision())) {
+            if ("status_only".equals(executionDecision.finalDecision())) {
                 response.setDecision("status_only");
                 response.setFinalAnswer(buildStatusAnswer(detail));
                 response.setSteps(steps);
                 return completeSuccess(taskId, response, beginNanos);
             }
 
-            if ("summary_tool".equals(selection.decision())) {
+            if ("summary_tool".equals(executionDecision.finalDecision())) {
                 DocumentSummaryTool documentSummaryTool = toolRegistry.get("document_summary_tool");
                 TimedResult<DocumentSummaryTool.SummaryResult> summaryResult = timedExecute(() ->
                         documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(task, detail.summary(), detail.content())));
@@ -159,7 +177,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                 return completeSuccess(taskId, response, beginNanos);
             }
 
-            if ("rag_tool".equals(selection.decision())) {
+            if ("rag_tool".equals(executionDecision.finalDecision())) {
                 DocumentRagTool documentRagTool = toolRegistry.get(DocumentRagTool.TOOL_NAME);
                 TimedResult<DocumentRagTool.RagResult> ragResult = timedExecute(() ->
                         documentRagTool.execute(new DocumentRagTool.RagInput(request.getDocumentId(), task, detail.content(), 3)));
@@ -212,6 +230,69 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         DocumentAgentResponse finalized = finalizeResponse(response, beginNanos);
         updateTaskSuccessSafely(taskId, finalized);
         return finalized;
+    }
+
+    private ToolExecutionDecision selectExecutionDecision(String task,
+                                                          DocumentStatusTool.StatusResult detail,
+                                                          ToolSelector.SelectResult primarySelection) {
+        if (selectorProperties == null || !selectorProperties.isLlmExecuteMode()) {
+            return ToolExecutionDecision.keyword(primarySelection);
+        }
+        String provider = selectorProperties.getLlmProvider();
+        String llmDecision = "";
+        try {
+            boolean hasSummary = detail.summary() != null && !detail.summary().isBlank();
+            List<ToolDefinition> toolDefinitions = toolDefinitionProvider.getAllDefinitions();
+            RealLlmToolSelector realLlmToolSelector = realLlmToolSelectorFactory.create(selectorProperties);
+            LlmToolSelectionResult llmSelection = realLlmToolSelector.selectWithPrompt(
+                    task,
+                    detail.parseReady(),
+                    hasSummary,
+                    toolDefinitions
+            );
+            llmDecision = llmSelection.decision();
+            validateExecutableLlmSelection(llmSelection);
+            log.info("Agent LLM execute selection accepted: provider={}, primaryDecision={}, llmDecision={}",
+                    provider, primarySelection.decision(), llmSelection.decision());
+            return ToolExecutionDecision.llmExecute(primarySelection, llmSelection, provider);
+        } catch (Exception ex) {
+            String fallbackReason = buildSafeFallbackReason(ex);
+            log.info("Agent LLM execute selection fallback: provider={}, primaryDecision={}, reason={}",
+                    provider, primarySelection.decision(), fallbackReason);
+            return ToolExecutionDecision.fallback(primarySelection, llmDecision, provider, fallbackReason);
+        }
+    }
+
+    private void validateExecutableLlmSelection(LlmToolSelectionResult llmSelection) {
+        String expectedToolName = expectedToolNameForDecision(llmSelection.decision());
+        if (!toolRegistry.getToolNames().contains(expectedToolName)) {
+            throw new IllegalArgumentException("Expected tool is not registered for decision");
+        }
+        if (!llmSelection.toolNames().contains(expectedToolName)) {
+            throw new IllegalArgumentException("LLM selection did not include the required registered tool");
+        }
+        for (String toolName : llmSelection.toolNames()) {
+            if (!toolRegistry.getToolNames().contains(toolName)) {
+                throw new IllegalArgumentException("LLM selection referenced an unregistered tool");
+            }
+        }
+    }
+
+    private String expectedToolNameForDecision(String decision) {
+        return switch (decision) {
+            case "status_only" -> "document_status_tool";
+            case "summary_tool" -> "document_summary_tool";
+            case "rag_tool" -> DocumentRagTool.TOOL_NAME;
+            case "qa_tool" -> "document_qa_tool";
+            default -> throw new IllegalArgumentException("Unsupported LLM tool decision");
+        };
+    }
+
+    private String buildSafeFallbackReason(Exception ex) {
+        if (ex == null) {
+            return "LLM selector failed";
+        }
+        return "LLM selector failed: " + ex.getClass().getSimpleName();
     }
 
     private void compareShadowSelection(String task,

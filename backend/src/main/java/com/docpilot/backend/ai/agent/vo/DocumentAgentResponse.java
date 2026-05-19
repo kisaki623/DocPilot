@@ -18,6 +18,13 @@ public class DocumentAgentResponse {
     private String task;
     private String sessionId;
     private String decision;
+    private String primaryDecision;
+    private String llmDecision;
+    private String finalDecision;
+    private boolean fallbackUsed;
+    private String fallbackReason;
+    private String executionMode;
+    private String toolSelectionSource;
     private String routingReason;
     private List<String> matchedKeywords = new ArrayList<>();
     private String finalAnswer;
@@ -104,6 +111,62 @@ public class DocumentAgentResponse {
 
     public void setDecision(String decision) {
         this.decision = decision;
+    }
+
+    public String getPrimaryDecision() {
+        return primaryDecision;
+    }
+
+    public void setPrimaryDecision(String primaryDecision) {
+        this.primaryDecision = primaryDecision;
+    }
+
+    public String getLlmDecision() {
+        return llmDecision;
+    }
+
+    public void setLlmDecision(String llmDecision) {
+        this.llmDecision = llmDecision;
+    }
+
+    public String getFinalDecision() {
+        return finalDecision;
+    }
+
+    public void setFinalDecision(String finalDecision) {
+        this.finalDecision = finalDecision;
+    }
+
+    public boolean isFallbackUsed() {
+        return fallbackUsed;
+    }
+
+    public void setFallbackUsed(boolean fallbackUsed) {
+        this.fallbackUsed = fallbackUsed;
+    }
+
+    public String getFallbackReason() {
+        return fallbackReason;
+    }
+
+    public void setFallbackReason(String fallbackReason) {
+        this.fallbackReason = fallbackReason;
+    }
+
+    public String getExecutionMode() {
+        return executionMode;
+    }
+
+    public void setExecutionMode(String executionMode) {
+        this.executionMode = executionMode;
+    }
+
+    public String getToolSelectionSource() {
+        return toolSelectionSource;
+    }
+
+    public void setToolSelectionSource(String toolSelectionSource) {
+        this.toolSelectionSource = toolSelectionSource;
     }
 
     public String getRoutingReason() {

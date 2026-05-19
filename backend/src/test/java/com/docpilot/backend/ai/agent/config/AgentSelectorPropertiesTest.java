@@ -43,6 +43,7 @@ class AgentSelectorPropertiesTest {
             assertThat(properties.getLlmMaxTokens()).isEqualTo(256);
             assertThat(properties.getLlmTemperature()).isZero();
             assertThat(properties.isShadowLlmMode()).isFalse();
+            assertThat(properties.isLlmExecuteMode()).isFalse();
         });
     }
 
@@ -78,6 +79,34 @@ class AgentSelectorPropertiesTest {
                     assertThat(properties.getLlmMaxTokens()).isEqualTo(128);
                     assertThat(properties.getLlmTemperature()).isEqualTo(0.1);
                     assertThat(properties.isShadowLlmMode()).isTrue();
+                    assertThat(properties.isLlmExecuteMode()).isFalse();
+                });
+    }
+
+    @Test
+    void shouldBindLlmExecuteMode() {
+        contextRunner.withPropertyValues(
+                        "app.agent.selector.mode=llm_execute",
+                        "app.agent.selector.llm-provider=fake"
+                )
+                .run(context -> {
+                    AgentSelectorProperties properties = context.getBean(AgentSelectorProperties.class);
+
+                    assertThat(properties.getMode()).isEqualTo("llm_execute");
+                    assertThat(properties.isLlmExecuteMode()).isTrue();
+                    assertThat(properties.isShadowLlmMode()).isFalse();
+                    assertThat(properties.getLlmProvider()).isEqualTo("fake");
+                });
+    }
+
+    @Test
+    void shouldNormalizeRealLlmExecuteModeAlias() {
+        contextRunner.withPropertyValues("app.agent.selector.mode=real-llm-execute")
+                .run(context -> {
+                    AgentSelectorProperties properties = context.getBean(AgentSelectorProperties.class);
+
+                    assertThat(properties.getMode()).isEqualTo("llm_execute");
+                    assertThat(properties.isLlmExecuteMode()).isTrue();
                 });
     }
 
@@ -112,7 +141,7 @@ class AgentSelectorPropertiesTest {
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
-                            .hasRootCauseMessage("Unsupported app.agent.selector.mode='real_llm'. Allowed values: keyword, shadow_llm.");
+                            .hasRootCauseMessage("Unsupported app.agent.selector.mode='real_llm'. Allowed values: keyword, shadow_llm, llm_execute.");
                 });
     }
 

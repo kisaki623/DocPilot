@@ -11,7 +11,8 @@ public class AgentSelectorProperties {
 
     public static final String MODE_KEYWORD = "keyword";
     public static final String MODE_SHADOW_LLM = "shadow_llm";
-    private static final Set<String> ALLOWED_MODES = Set.of(MODE_KEYWORD, MODE_SHADOW_LLM);
+    public static final String MODE_LLM_EXECUTE = "llm_execute";
+    private static final Set<String> ALLOWED_MODES = Set.of(MODE_KEYWORD, MODE_SHADOW_LLM, MODE_LLM_EXECUTE);
     public static final String PROVIDER_DISABLED = "disabled";
     public static final String PROVIDER_FAKE = "fake";
     public static final String PROVIDER_OPENAI_COMPATIBLE = "openai_compatible";
@@ -42,7 +43,7 @@ public class AgentSelectorProperties {
         String normalizedMode = normalizeMode(mode);
         if (!ALLOWED_MODES.contains(normalizedMode)) {
             throw new IllegalArgumentException("Unsupported app.agent.selector.mode='" + mode
-                    + "'. Allowed values: keyword, shadow_llm.");
+                    + "'. Allowed values: keyword, shadow_llm, llm_execute.");
         }
         this.mode = normalizedMode;
     }
@@ -153,11 +154,20 @@ public class AgentSelectorProperties {
         return MODE_SHADOW_LLM.equals(mode);
     }
 
+    public boolean isLlmExecuteMode() {
+        return MODE_LLM_EXECUTE.equals(mode);
+    }
+
     private String normalizeMode(String mode) {
         if (mode == null || mode.isBlank()) {
             return MODE_KEYWORD;
         }
-        return mode.trim().toLowerCase(java.util.Locale.ROOT);
+        String normalized = mode.trim().toLowerCase(java.util.Locale.ROOT)
+                .replace("-", "_");
+        if ("real_llm_execute".equals(normalized)) {
+            return MODE_LLM_EXECUTE;
+        }
+        return normalized;
     }
 
     private String normalizeProvider(String provider) {
