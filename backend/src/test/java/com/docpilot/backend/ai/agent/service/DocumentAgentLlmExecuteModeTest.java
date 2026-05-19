@@ -30,6 +30,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -111,6 +112,7 @@ class DocumentAgentLlmExecuteModeTest {
                 "summary",
                 "content"
         ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubToolNames();
         stubRegistryForSummary();
         stubPersistenceTask();
 
@@ -247,6 +249,136 @@ class DocumentAgentLlmExecuteModeTest {
         verify(documentQaTool, never()).execute(any());
     }
 
+    @Test
+    void shouldFallbackToKeywordWhenLlmReturnsUnregisteredToolName() {
+        enableFakeLlmExecuteMode();
+        DocumentAgentServiceImpl service = buildService();
+
+        stubReadyStatus(114L, "summary", "content");
+        stubKeywordSelection("summary_tool", "keyword summary reason", "summary");
+        stubLlmSelection(new LlmToolSelectionResult(
+                "summary_tool",
+                List.of("document_status_tool", "unknown_generated_tool"),
+                "llm attempted an unknown tool",
+                List.of("summary"),
+                0.8d
+        ));
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubToolNames();
+        stubRegistryForSummary();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request(114L, "Please summarize this document"));
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("summary_tool", response.getPrimaryDecision());
+        assertEquals("summary_tool", response.getLlmDecision());
+        assertTrue(response.isFallbackUsed());
+        assertEquals("llm_execute_fallback", response.getToolSelectionSource());
+        assertTrue(response.getFallbackReason().contains("IllegalArgumentException"));
+        verify(documentSummaryTool).execute(any());
+        verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
+    }
+
+    @Test
+    void shouldFallbackToKeywordWhenLlmResponseCannotBeParsed() {
+        enableFakeLlmExecuteMode();
+        DocumentAgentServiceImpl service = buildService();
+
+        stubReadyStatus(115L, "summary", "content");
+        stubKeywordSelection("summary_tool", "keyword summary reason", "summary");
+        stubToolDefinitions();
+        when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn("Current task: safe test task");
+        when(realShadowParser.parse(anyString()))
+                .thenThrow(new IllegalArgumentException("not valid JSON"));
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubRegistryForSummary();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request(115L, "Please summarize this document"));
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("", response.getLlmDecision());
+        assertTrue(response.isFallbackUsed());
+        assertEquals("llm_execute_fallback", response.getToolSelectionSource());
+        assertTrue(response.getFallbackReason().contains("IllegalArgumentException"));
+        verify(documentSummaryTool).execute(any());
+    }
+
+    @Test
+    void shouldNotEnterSuccessfulLlmExecutePathWhenProviderDisabled() {
+        selectorProperties.setMode(AgentSelectorProperties.MODE_LLM_EXECUTE);
+        selectorProperties.setLlmProvider(AgentSelectorProperties.PROVIDER_DISABLED);
+        DocumentAgentServiceImpl service = buildService();
+
+        stubReadyStatus(116L, "summary", "content");
+        stubKeywordSelection("summary_tool", "keyword summary reason", "summary");
+        stubToolDefinitions();
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubRegistryForSummary();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request(116L, "Please summarize this document"));
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("", response.getLlmDecision());
+        assertTrue(response.isFallbackUsed());
+        assertEquals("llm_execute_fallback", response.getToolSelectionSource());
+        assertTrue(response.getFallbackReason().contains("IllegalStateException"));
+        verify(realShadowParser, never()).parse(anyString());
+        verify(documentSummaryTool).execute(any());
+    }
+
+    @Test
+    void responseShouldNotExposePromptDocumentContentOrSecretsOnFallback() {
+        enableFakeLlmExecuteMode();
+        DocumentAgentServiceImpl service = buildService();
+
+        String privateContent = "PRIVATE_DOC_CONTENT_SHOULD_NOT_LEAK";
+        String privatePrompt = "Current task: prompt text SHOULD_NOT_LEAK";
+        String secretMarker = "sk-test-secret-should-not-leak";
+        stubReadyStatus(117L, "safe summary", privateContent);
+        stubKeywordSelection("summary_tool", "keyword summary reason", "summary");
+        stubToolDefinitions();
+        when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                .thenReturn(privatePrompt + " " + secretMarker);
+        when(realShadowParser.parse(anyString()))
+                .thenThrow(new IllegalArgumentException("parser failed without sensitive text"));
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "safe summary",
+                privateContent
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("safe summary", "summary_field"));
+        stubRegistryForSummary();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request(117L, "Please summarize this document"));
+
+        assertTrue(response.isFallbackUsed());
+        assertEquals("llm_execute_fallback", response.getToolSelectionSource());
+        assertNotContainsSensitiveText(response.getRoutingReason(), privateContent, privatePrompt, secretMarker);
+        assertNotContainsSensitiveText(response.getFallbackReason(), privateContent, privatePrompt, secretMarker);
+        assertNotContainsSensitiveText(response.getFinalAnswer(), privateContent, privatePrompt, secretMarker);
+        for (var step : response.getSteps()) {
+            assertNotContainsSensitiveText(step.getInputSummary(), privateContent, privatePrompt, secretMarker);
+            assertNotContainsSensitiveText(step.getOutputSummary(), privateContent, privatePrompt, secretMarker);
+        }
+    }
+
     private void enableFakeLlmExecuteMode() {
         selectorProperties.setMode(AgentSelectorProperties.MODE_LLM_EXECUTE);
         selectorProperties.setLlmProvider(AgentSelectorProperties.PROVIDER_FAKE);
@@ -290,7 +422,6 @@ class DocumentAgentLlmExecuteModeTest {
     }
 
     private void stubRegistryForSummary() {
-        stubToolNames();
         when(toolRegistry.<DocumentStatusTool>get("document_status_tool")).thenReturn(documentStatusTool);
         when(toolRegistry.<DocumentSummaryTool>get("document_summary_tool")).thenReturn(documentSummaryTool);
         when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
@@ -341,5 +472,12 @@ class DocumentAgentLlmExecuteModeTest {
         AgentTask mockTask = new AgentTask();
         mockTask.setId(1001L);
         when(persistenceService.createTask(anyLong(), anyLong(), anyString(), any())).thenReturn(mockTask);
+    }
+
+    private void assertNotContainsSensitiveText(String value, String... sensitiveValues) {
+        assertNotNull(value);
+        for (String sensitiveValue : sensitiveValues) {
+            assertFalse(value.contains(sensitiveValue), "Unexpected sensitive text in response field");
+        }
     }
 }
