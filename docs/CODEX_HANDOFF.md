@@ -141,6 +141,8 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T054 已完成：新增 `backend/src/main/java/com/docpilot/backend/ai/rag/` 内部包，用 fake embedding + in-memory fake vector store 打通最小 RAG 内部闭环；`RagMinimalInternalServiceTest` 覆盖 chunk split、embedding deterministic、topK search、retrieval 和 context / citations。T054x 先稳定了既有 benchmark timing 脆弱断言，随后 targeted test、compile 和后端全量测试均通过。未新增公开 API，未接真实 embedding / Qdrant / Redis Vector，未新增表，未接入现有 QA / Agent production routing。
 - T055 已完成：新增实验性 `document_rag_tool` / `rag_tool` Agent demo 路径，并扩展 `/api/ai/agent/run` 的向后兼容 response 字段 `ragResults` / `ragAnswerContext`；前端 `/agent` 页面新增 RAG 召回模板，展示 retrieved chunks、score / similarity、citation metadata、routingReason、matchedKeywords 和 Agent step trace。后端 targeted tests、后端全量 `mvn test -DskipITs`、前端 `npm run lint` / `npm run build` 均通过。仍未接真实 embedding、Qdrant / Redis Vector、LangChain4j、数据库表或生产 RAG routing。
 - T057 已完成：使用本轮独立后端 `8082` 和前端 `3001` 对 `/agent` 做真实浏览器验证；`documentId=61` 的 `rag_tool` run 可展示 retrieved chunk、score、metadata、answer context 入口、routingReason、matchedKeywords、taskId 和 persisted steps；普通 QA run 仍展示 citations。截图包已提交到 `docs/assets/screenshots/` 并在 README 引用。后端 `mvn test -DskipITs`、前端 `npm run lint` / `npm run build` 均通过。本轮未新增 API，未接真实 embedding / Qdrant / LangChain4j，未改变 production routing。
+- T051a-c 已完成：新增默认关闭的 `app.agent.selector.mode=llm_execute`，用于显式开启 LLM tool execution；默认仍为 `keyword`。执行模式会调用 real LLM selector，校验模型返回 decision / toolName 必须匹配 `ToolRegistry` allowlist，再由服务端使用当前 `userId / documentId / task / sessionId / content` 上下文执行 summary / QA / RAG / status 工具；不执行模型生成代码，不信任模型生成任意参数。provider disabled、异常、解析失败、非法 toolName 或 required toolName 缺失时 fail-open 回退 keyword selector。新增响应字段 `primaryDecision`、`llmDecision`、`finalDecision`、`fallbackUsed`、`fallbackReason`、`executionMode`、`toolSelectionSource`。测试覆盖 fake provider 执行 summary / QA / RAG、非法 toolName fallback、解析失败 fallback、disabled provider fallback 和响应不泄露 prompt / 文档正文 / secret marker。
+- T051d 当前 BLOCKED：当前 shell 未注入 OpenAI-compatible provider 和本地 / 远程中间件环境变量；本轮未读取 `backend/.env`，未输出 API Key / baseUrl / Authorization / prompt / 文档内容，未启动服务，也未做真实 provider execute runtime。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -186,7 +188,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057。下一步建议优先做 T051 Function Calling takeover 可开关模式，或做 T054+ 接真实 embedding / Qdrant 前的默认关闭实验路径。
+1. 求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c。下一步建议在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime，或做 T054+ 接真实 embedding / Qdrant 前的默认关闭实验路径。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -254,6 +256,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先进入 T051 Function Calling takeover 可开关模式，或继续做 T054+ “默认关闭方式接真实 embedding / Qdrant 前的实验路径”。不要直接生产暴露 endpoint，也不要继续堆 Prometheus / Spring Security 实现。
+优先补 T051d 真实 provider execute runtime 验证，或继续做 T054+ “默认关闭方式接真实 embedding / Qdrant 前的实验路径”。不要直接生产暴露 endpoint，也不要继续堆 Prometheus / Spring Security 实现。
 
-原因：T050 / T056 已把 Agent Showcase 和求职材料收口，T052 / T053 已给出最小 RAG 设计与向量库选型，T054 已实现 fake embedding + in-memory fake vector store 的内部 service 和测试闭环，T055 已把 RAG 召回片段、score 和 citation metadata 展示到 `/agent`，T057 已补齐 runtime 验证和截图证据。下一步更有求职展示价值的是 Function Calling takeover 可开关模式，或在用户确认后接真实 embedding / Qdrant。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED。本轮不应修改真实配置或开启生产访问。
+原因：T050 / T056 已把 Agent Showcase 和求职材料收口，T052 / T053 已给出最小 RAG 设计与向量库选型，T054 已实现 fake embedding + in-memory fake vector store 的内部 service 和测试闭环，T055 已把 RAG 召回片段、score 和 citation metadata 展示到 `/agent`，T057 已补齐 runtime 验证和截图证据，T051a-c 已实现默认关闭的 LLM tool execution mode 和 fallback 测试。下一步更有求职展示价值的是补真实 provider execute runtime 证据，或在用户确认后接真实 embedding / Qdrant。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED。本轮不应修改真实配置或开启生产访问。

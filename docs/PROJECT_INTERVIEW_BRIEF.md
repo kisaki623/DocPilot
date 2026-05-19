@@ -8,7 +8,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 更克制的面试讲法：这是一个展示后端工程链路和 AI 应用工程化意识的项目，不是生产级 SaaS、完整向量 RAG 平台或成熟多 Agent 系统。
 
-面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、执行轨迹、引用证据和 RAG 召回展示；真实 embedding / 向量库、真实 Function Calling takeover 和 Workflow 增强是接下来的求职展示冲刺方向。
+面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。真实 embedding / 向量库和 Workflow 增强仍是后续方向。
 
 ## 2. 当前真实已实现能力
 
@@ -21,6 +21,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 - AgentTask / AgentStep 持久化：记录 Agent run 和工具步骤，支持按 taskId 查询并在前端展示 trace。
 - Tool selector shadow mode：primary selector 与 fake / real shadow selector 可旁路比较，不改变生产 routing。
 - 真实 provider shadow-only 验证：在用户授权下完成 OpenAI-compatible provider 的 summary / QA shadow 调用验证，shadow decision 未接管 production routing。
+- 默认关闭的 LLM tool execution mode：显式设置 `app.agent.selector.mode=llm_execute` 后，可用 LLM selector 选择 allowlist 内工具，服务端仍使用已有 `userId / documentId / task / sessionId` 上下文执行 summary / QA / RAG 等工具；provider 失败、解析失败或非法 toolName 会回退 keyword selector。
 - selector shadow metrics、threshold policy、内部 debug dump / reporter。
 - 默认关闭的 `agentSelectorShadow` Actuator endpoint，测试内显式开启已验证 200、字段白名单 / 黑名单和只读边界。
 - Agent + RAG Showcase：`/agent` 页面已通过 runtime 验证，`rag_tool` 能展示 retrieved chunk、score / similarity、citation metadata、routingReason、matchedKeywords 和 persisted steps；普通 QA 路径仍展示 citations。
@@ -30,7 +31,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 - RAG Showcase 当前使用 fake embedding + in-memory vector store，不是向量数据库 + 真实 embedding + rerank 的完整生产 RAG。
 - PDF 支持偏占位，主能力更适合 txt / md 文档。
 - Agent 是同步 API 下的最小工具链闭环，不是异步多 Agent 编排。
-- LLM selector / real provider 路径只用于 shadow-only 观察，尚未接管生产工具选择。
+- LLM execute mode 只在显式配置时启用；默认仍是 keyword selector。本轮 fake provider 测试已覆盖执行和 fallback，真实 provider execute runtime 因当前 shell 未注入 provider / 中间件环境变量而 BLOCKED。
 - selector metrics 当前主要是内存态和 debug dump；Actuator endpoint 默认关闭，Prometheus 仅有设计文档。
 - eval / benchmark 有 artifact 和脚本基础，但仍需补运行时配置记录和重跑验证。
 
@@ -38,13 +39,14 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 - T010 完整上传解析链路：BLOCKED，原因是当前 MQ disabled / `NoopParseTaskMessageProducer` 模式下不会推进真实异步解析，完整上传 -> 解析 -> Agent run 链路需要可用 MQ / 解析消费环境。
 - T030 鉴权测试：BLOCKED，原因是项目当前只有 `spring-security-crypto`，缺少 Spring Security Web 鉴权体系、`spring-security-test` 和 `SecurityFilterChain`。
+- T051d 真实 provider execute runtime：BLOCKED，原因是当前 shell 未注入 OpenAI-compatible provider 和本地 / 远程中间件环境变量；本轮未读取 `backend/.env`，未启动服务验证。
 
 ## 5. 不能写成已完成的能力
 
 - Prometheus 未接入；T032 只是 selector shadow Prometheus metrics 设计文档。
 - Spring Security 未接入；T029 只是 Spring Security / Actuator 安全集成设计。
 - Actuator endpoint 默认关闭，未生产开启，未加入默认 exposure include。
-- shadow decision 未接管 production routing，真实工具执行仍由 primary `DocumentToolSelector` 决定。
+- 默认 production routing 仍由 primary `DocumentToolSelector` 决定；`llm_execute` 需要显式开启，且不能写成生产环境已启用 Function Calling。
 - 没有完整向量 RAG、MCP、LangChain4j / Spring AI function calling 或成熟多 Agent 编排。
 - 没有线上 SLA、生产权限体系或生产短信网关。
 
@@ -54,14 +56,14 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 2. 实现普通问答与 SSE 流式问答链路，支持引用片段展示、历史问答和流式失败降级，提升 AI 文档问答体验。
 3. 实现最小 Agent 工具链闭环，抽象 ToolRegistry / ToolSelector，并将 AgentTask / AgentStep 落库，支持可解释路由和持久化 trace。
 4. 构建 selector shadow mode：在不改变生产 routing 的前提下，对比 primary / shadow decision，记录 match / mismatch、provider 聚合和 threshold policy。
-5. 完成真实 provider shadow-only 验证和安全观测设计，包含脱敏日志、debug dump、默认关闭 Actuator endpoint 和 Prometheus metrics 设计边界。
+5. 实现默认关闭的 LLM 工具选择执行模式，通过 allowlist 校验模型返回的 toolName，并由服务端执行 summary / QA / RAG 等工具；支持 provider 失败回退规则路由。
 
 ## 7. 求职展示优先级
 
 1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
 2. 再展示详情页普通问答 / SSE 流式问答：说明 citations 如何来自轻量检索增强。
 3. 对 RAG 保持诚实：当前已能展示 fake embedding + in-memory vector store 的 topK 召回、score 和 metadata；下一步才是接真实 embedding、chunk 持久化和 Qdrant / Redis Vector。
-4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only；生产工具执行仍未交给 LLM decision。
+4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only，以及默认关闭的 `llm_execute` 执行模式；默认生产行为仍是 keyword selector，真实 provider execute runtime 待验证。
 5. 面试时不要优先讲 Actuator / Prometheus / Spring Security，除非面试官追问可观测性或安全边界。
 
 ## 8. 面试高风险追问与诚实回答
@@ -76,7 +78,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 ### LLM selector 是否已经接管生产路由？
 
-没有。生产真实工具执行仍由 primary `DocumentToolSelector` 决定。fake / real shadow selector 只做旁路比较、日志和 metrics，不改变 API 返回和 production routing。
+默认没有。生产默认真实工具执行仍由 primary `DocumentToolSelector` 决定。现在新增了显式开关 `llm_execute`，开启后 LLM 只能选择 allowlist 内工具，服务端执行已有工具输入；失败会回退 keyword selector。
 
 ### 真实 provider 调用是否会泄露敏感信息？
 

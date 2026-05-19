@@ -37,6 +37,7 @@
 - 构建轻量检索增强问答链路：文档内容切分、关键词检索、上下文组装、模型回答和 citations 引用展示，并支持 mock / OpenAI-compatible 风格 provider。
 - 实现 SSE 流式问答和前端事件解析，覆盖 meta / chunk / done / error 等事件，支持流式失败降级普通问答。
 - 实现最小 Agent 工具链：ToolRegistry 注册文档状态、摘要、问答工具，DocumentToolSelector 根据任务选择工具，并返回 routingReason / matchedKeywords。
+- 实现默认关闭的 LLM 工具选择执行模式，通过 allowlist 校验模型返回的 toolName，并由服务端执行 summary / QA / RAG 等工具；支持 provider 失败回退规则路由，避免模型输出直接影响默认链路。
 - 设计 selector shadow mode，在不改变生产 routing 的前提下旁路比较 primary / shadow decision，记录 match / mismatch、provider 聚合和 threshold policy。
 - 完成真实 provider shadow-only 验证和安全观测方案：默认 disabled，真实调用需显式授权；debug dump 和默认关闭 Actuator endpoint 只输出聚合指标，不输出 prompt、文档内容、模型原文或敏感凭据。
 
@@ -48,7 +49,7 @@
 
 - 实现 Agent Showcase 页面，支持选择已解析文档并展示工具决策、routingReason、matchedKeywords、taskId、持久化 steps、最终回答和 citations。
 - 抽象 ToolRegistry / ToolSelector / ToolDefinition，为文档状态、摘要、问答工具提供统一注册、规则路由和未来 Function Calling 输出协议。
-- 设计并验证 real provider shadow-only 路径，在不改变 production routing 的前提下比较 primary / shadow decision，降低 LLM 决策直接接管风险。
+- 设计并验证 real provider shadow-only 路径，并实现默认关闭的 `llm_execute` 模式；LLM 只能选择 ToolRegistry allowlist 内工具，服务端负责实际执行和失败回退。
 - 实现最小 RAG 检索展示链路，支持文档切块、fake embedding、内存向量召回、topK 片段、相似度分数和引用元数据展示；后续可替换为 Qdrant 与真实 embedding。
 - 构建轻量检索增强问答链路，支持 chunk、关键词检索、上下文组装、AI 回答和引用片段展示；下一阶段计划升级为 embedding + vector store 的最小 RAG。
 - 通过 Maven 测试、前端 lint/build、Agent smoke 和 Playwright runtime 记录沉淀验证证据，明确 MQ disabled、RAG 未完成和 Function Calling 未接管的边界。
@@ -65,10 +66,10 @@
 - Spring Security 已保护 Actuator endpoint。
 - Actuator endpoint 已在生产暴露。
 - shadow decision 已接管 production routing。
-- 完整向量 RAG、多 Agent 编排、MCP 或 LLM function calling 已落地。
+- 完整向量 RAG、多 Agent 编排、MCP 或生产环境已启用 LLM function calling。
 
 面试可讲但简历不建议硬写：
 
-- 可以讲“已完成 Function Calling 风格工具抽象和输出协议”，但不要写“真实 Function Calling 已接管生产工具选择”。
+- 可以讲“已完成 Function Calling 风格工具抽象、输出协议和默认关闭的 LLM 工具执行模式”，但不要写“真实 Function Calling 已在生产启用”。
 - 可以讲“已有 fake embedding + in-memory vector store 的 RAG demo 展示”，但不要写“已接入真实向量库 / 完整生产 RAG”。
 - 可以讲“Actuator / Prometheus 有设计和默认关闭 endpoint”，但不要写“生产可观测体系已上线”。

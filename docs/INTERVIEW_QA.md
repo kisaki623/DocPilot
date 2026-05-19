@@ -176,11 +176,11 @@
 
 ### Q16：Tool selector 怎么选工具？
 
-面试可背版回答：primary selector 是 `DocumentToolSelector`，基于任务关键词和文档状态选择 status、summary 或 QA 工具，并返回 routingReason 和 matchedKeywords。
+面试可背版回答：默认 primary selector 是 `DocumentToolSelector`，基于任务关键词和文档状态选择 status、summary、QA 或 RAG 召回工具，并返回 routingReason 和 matchedKeywords。显式开启 `llm_execute` 后，LLM selector 可以选择 allowlist 内工具，但服务端仍负责执行已有工具。
 
 面试官追问：规则会不会太简单？
 
-诚实边界：是的，它是可解释、可测试的基线；后续 LLM selector 只在 shadow mode 里比较，不直接接管生产。
+诚实边界：是的，它是可解释、可测试的默认基线。`llm_execute` 只是显式开关模式，不是默认生产行为；provider 或解析失败会回退 keyword selector。
 
 对应位置：`DocumentToolSelector`、`ToolSelectorEvaluationTest`。
 
@@ -196,23 +196,23 @@
 
 ### Q18：shadow decision 会不会影响真实回答？
 
-面试可背版回答：不会。真实工具执行永远使用 primary `DocumentToolSelector` 的 decision，shadow decision 只用于 compare、日志和 metrics。
+面试可背版回答：shadow decision 不会。真实工具执行默认使用 primary `DocumentToolSelector` 的 decision，shadow decision 只用于 compare、日志和 metrics。只有显式开启 `llm_execute` 时，LLM decision 才可能作为最终工具选择。
 
 面试官追问：代码里怎么保证？
 
-诚实边界：`DocumentAgentServiceImpl` 的真实工具执行路径仍读取 primary decision；相关测试覆盖了 production routing 不变。
+诚实边界：默认路径仍读取 primary decision；`llm_execute` 路径会先校验 LLM 返回的 decision / toolName 是否在 `ToolRegistry` allowlist 内，再由服务端用已有上下文执行工具，失败则回退 keyword。
 
 对应位置：`DocumentAgentServiceImpl`、`DocumentAgentServiceImplTest`。
 
 ### Q18-1：这是真 Function Calling 吗？
 
-面试可背版回答：当前还不是生产 takeover 的真实 Function Calling。项目已经有工具定义、prompt builder、LLM 输出 parser 和 real provider shadow-only 验证，形态上是 Function Calling / Tool Calling 的前置层；但真实执行工具仍由 primary `DocumentToolSelector` 决定，LLM 只在 shadow 路径里给出候选 decision。
+面试可背版回答：它已经具备默认关闭的 Function Calling / Tool Execution 工程形态：工具定义、prompt builder、LLM 输出 parser、OpenAI-compatible provider client、allowlist 校验和服务端工具执行都已打通。默认仍是 keyword selector，`llm_execute` 需要显式开启；本轮真实 provider execute runtime 因环境变量未注入而 BLOCKED。
 
 面试官追问：为什么不直接让 LLM 决定工具？
 
-诚实边界：因为 LLM tool selection 可能解析失败、选错工具或受 prompt 波动影响。我先用 shadow-only 比较 primary / shadow decision，等有足够 matchRate 和失败率数据后再考虑开关式 takeover。
+诚实边界：因为 LLM tool selection 可能解析失败、选错工具或受 prompt 波动影响。所以 execute mode 默认关闭，并且只允许已注册工具名；模型不能生成代码，不能决定任意参数，provider 失败会 fail-open 回到 keyword selector。
 
-对应位置：`ToolDefinitionProvider`、`LlmToolSelectionPromptBuilder`、`LlmToolSelectionParser`、`RealLlmSelectorShadowRunner`。
+对应位置：`ToolDefinitionProvider`、`LlmToolSelectionPromptBuilder`、`LlmToolSelectionParser`、`ToolExecutionDecision`、`DocumentAgentLlmExecuteModeTest`。
 
 ### Q18-2：RAG 还没做，怎么解释？
 
@@ -228,17 +228,17 @@
 
 ### Q19：真实 provider 接入到什么程度？
 
-面试可背版回答：项目支持 OpenAI-compatible 风格 provider client，并在用户授权下做过 summary / QA 的 shadow-only 验证。默认配置仍是 disabled。
+面试可背版回答：项目支持 OpenAI-compatible 风格 provider client，并在用户授权下做过 summary / QA 的 shadow-only 验证。当前也实现了默认关闭的 `llm_execute` 模式，但真实 provider execute runtime 尚未完成。
 
 面试官追问：是不是生产默认会调用真实模型？
 
-诚实边界：不是。真实 provider 调用需要显式配置和授权，默认不会调用。
+诚实边界：不是。真实 provider 调用需要显式配置和授权，默认不会调用。本轮检查当前 shell 未注入 provider / 中间件环境变量，因此没有启动服务做 execute runtime。
 
 对应位置：`OpenAiCompatibleLlmToolSelectionClient`、`RealLlmToolSelectorFactory`。
 
 ### Q20：真实调用有没有安全风险？
 
-面试可背版回答：有，所以文档明确要求不输出 API Key、完整连接地址、prompt、文档内容或模型完整返回。真实 provider shadow-only 也不改变 production routing。
+面试可背版回答：有，所以文档明确要求不输出 API Key、完整连接地址、prompt、文档内容或模型完整返回。`llm_execute` 测试也覆盖了 fallback 响应不泄露 prompt、文档正文或 secret marker。
 
 面试官追问：如果日志泄露怎么办？
 
@@ -316,7 +316,7 @@
 
 面试官追问：哪些不能写？
 
-诚实边界：不能写完整向量 RAG、多 Agent、生产级权限、Prometheus 已接入、LLM selector 已接管路由。
+诚实边界：不能写完整向量 RAG、多 Agent、生产级权限、Prometheus 已接入、LLM selector 已在生产启用。
 
 对应位置：`docs/RESUME_BULLETS.md`、`docs/PROJECT_INTERVIEW_BRIEF.md`。
 

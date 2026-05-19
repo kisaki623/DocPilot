@@ -2,6 +2,64 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T051 LLM Tool Execution Mode
+
+### 本轮目标
+
+新增默认关闭的 Function Calling / Tool Execution 可开关模式：默认仍用 keyword selector；只有显式设置 `app.agent.selector.mode=llm_execute` 时，才允许 LLM selector 的结果作为实际执行工具。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolExecutionDecision.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/vo/DocumentAgentResponse.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/service/DocumentAgentLlmExecuteModeTest.java`
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/INTERVIEW_QA.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `AgentSelectorProperties` 新增 `MODE_LLM_EXECUTE`，默认仍为 `keyword`，并兼容 `real-llm-execute` alias。
+- 新增 `ToolExecutionDecision`，记录 primaryDecision、llmDecision、finalDecision、fallbackUsed、fallbackReason、provider、matched、routingReason、matchedKeywords 和 toolSelectionSource。
+- `DocumentAgentServiceImpl` 在文档 parseReady 后先计算 keyword primary decision；仅当 `mode=llm_execute` 时调用 real LLM selector，并校验 LLM 返回 decision / toolName 必须匹配 `ToolRegistry` allowlist。
+- 工具执行仍由服务端按现有上下文构造输入：`userId`、`documentId`、`task`、`sessionId` 和已解析文档内容；不执行模型生成代码，不信任模型生成任意参数。
+- provider disabled、provider 异常、parser 失败、非法 toolName 或 required toolName 缺失时 fail-open 回退 keyword selector。
+- `DocumentAgentResponse` 向后兼容新增 selection debug 字段：`primaryDecision`、`llmDecision`、`finalDecision`、`fallbackUsed`、`fallbackReason`、`executionMode`、`toolSelectionSource`。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn -Dtest=*ToolSelector* test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过，8 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，312 tests。
+
+### T051d runtime 状态
+
+- T051d 真实 provider execute runtime：BLOCKED。
+- 当前 shell 未注入 OpenAI-compatible provider 和本地 / 远程中间件环境变量。
+- 本轮未读取 `backend/.env`，未输出 API Key、完整 baseUrl、Authorization、prompt 或文档内容。
+- 本轮未启动后端 / 前端服务，未调用真实 provider，未连接远程 SQL / DDL。
+
+### 当前边界
+
+- 默认 production routing 仍是 keyword selector。
+- `llm_execute` 必须显式开启。
+- 未新增公开 API。
+- 未修改前端页面。
+- 未接 LangChain4j、Spring AI、MCP、Qdrant、Redis Vector 或真实 embedding。
+- 未新增数据库表或 DDL。
+- 未处理完整 T010 / MQ blocked。
+- 不能写成生产环境已启用 Function Calling。
+
 ## 2026-05-20 - T057 Agent + RAG Showcase Runtime Evidence
 
 ### 本轮目标
