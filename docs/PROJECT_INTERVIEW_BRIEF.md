@@ -8,7 +8,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 更克制的面试讲法：这是一个展示后端工程链路和 AI 应用工程化意识的项目，不是生产级 SaaS、完整向量 RAG 平台或成熟多 Agent 系统。
 
-面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、执行轨迹和引用证据展示；RAG 向量化、真实 Function Calling takeover 和 Workflow 增强是接下来的求职展示冲刺方向。
+面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、执行轨迹、引用证据和 RAG 召回展示；真实 embedding / 向量库、真实 Function Calling takeover 和 Workflow 增强是接下来的求职展示冲刺方向。
 
 ## 2. 当前真实已实现能力
 
@@ -23,10 +23,11 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 - 真实 provider shadow-only 验证：在用户授权下完成 OpenAI-compatible provider 的 summary / QA shadow 调用验证，shadow decision 未接管 production routing。
 - selector shadow metrics、threshold policy、内部 debug dump / reporter。
 - 默认关闭的 `agentSelectorShadow` Actuator endpoint，测试内显式开启已验证 200、字段白名单 / 黑名单和只读边界。
+- Agent + RAG Showcase：`/agent` 页面已通过 runtime 验证，`rag_tool` 能展示 retrieved chunk、score / similarity、citation metadata、routingReason、matchedKeywords 和 persisted steps；普通 QA 路径仍展示 citations。
 
 ## 3. 当前半实现能力
 
-- RAG 是轻量检索增强，不是向量数据库 + embedding + rerank 的完整 RAG。
+- RAG Showcase 当前使用 fake embedding + in-memory vector store，不是向量数据库 + 真实 embedding + rerank 的完整生产 RAG。
 - PDF 支持偏占位，主能力更适合 txt / md 文档。
 - Agent 是同步 API 下的最小工具链闭环，不是异步多 Agent 编排。
 - LLM selector / real provider 路径只用于 shadow-only 观察，尚未接管生产工具选择。
@@ -59,7 +60,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
 2. 再展示详情页普通问答 / SSE 流式问答：说明 citations 如何来自轻量检索增强。
-3. 对 RAG 保持诚实：当前是关键词检索增强，下一步计划做 chunk / embedding / vector store / retrieve / answer 最小闭环。
+3. 对 RAG 保持诚实：当前已能展示 fake embedding + in-memory vector store 的 topK 召回、score 和 metadata；下一步才是接真实 embedding、chunk 持久化和 Qdrant / Redis Vector。
 4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only；生产工具执行仍未交给 LLM decision。
 5. 面试时不要优先讲 Actuator / Prometheus / Spring Security，除非面试官追问可观测性或安全边界。
 
@@ -67,7 +68,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 ### 你这个是完整 RAG 吗？
 
-不是。当前是轻量检索增强问答，主要基于文本切分、关键词检索、上下文组装和引用展示。还没有接向量数据库、embedding 存储和 rerank。我会把它描述为 RAG-like 或轻量检索增强，而不是完整向量 RAG。
+不是。当前已做出求职展示用的最小 RAG demo：fake embedding、in-memory vector store、topK 召回、score 和 metadata 展示；但还没有真实 embedding provider、Qdrant / Redis Vector、chunk 持久化和 rerank。我会把它描述为 RAG demo 或轻量检索增强演进，不会包装成生产完整向量 RAG。
 
 ### Agent 是多 Agent 吗？
 

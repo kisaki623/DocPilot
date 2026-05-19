@@ -2,6 +2,26 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T057 Agent + RAG Showcase Runtime Evidence
+
+### 本轮目标
+
+为求职投递准备 Agent + RAG Showcase 的 runtime 证据：真实打开 `/agent` 页面，使用当前账号可访问的已解析文档验证 `rag_tool` 和普通 QA 路径，并生成可引用截图。
+
+### 当前已完成
+
+- 使用本轮独立后端 `8082` 和前端 `3001` 完成浏览器验证，未误杀既有 `8081` / `3000` 服务。
+- 使用 `documentId=61` 触发 `rag_tool`，页面展示 `routingReason`、`matchedKeywords`、retrieved chunk、score、metadata、answer context 入口、`taskId` 和 persisted steps。
+- 使用同一文档触发普通 QA，页面展示 `qa_tool`、citations 和 persisted steps，确认原有 QA 路径未被 RAG demo 破坏。
+- 新增截图包：`docs/assets/screenshots/agent-showcase-overview.png`、`agent-rag-retrieval-results.png`、`agent-routing-explanation.png`、`agent-persisted-steps.png`、`agent-citations.png`。
+- README、项目面试 brief 和简历 bullet 已引用或描述 Agent + RAG Showcase 证据。
+
+### 当前边界
+
+- 截图来自测试文档 `documentId=61`，不包含 API Key、token、真实公网 IP、环境变量或私密用户文档。
+- RAG 仍是 fake embedding + in-memory vector store demo；未接真实 embedding、Qdrant / Redis Vector、LangChain4j、数据库表或公开 REST API。
+- 本节记录 runtime / 截图 / 文档证据；T057d 仍需执行后端 full test 与前端 lint/build 后再最终收口。
+
 ## 2026-05-20 - T055 RAG Agent Showcase Demo
 
 ### 本轮目标

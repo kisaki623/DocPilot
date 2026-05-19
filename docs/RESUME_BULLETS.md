@@ -49,6 +49,7 @@
 - 实现 Agent Showcase 页面，支持选择已解析文档并展示工具决策、routingReason、matchedKeywords、taskId、持久化 steps、最终回答和 citations。
 - 抽象 ToolRegistry / ToolSelector / ToolDefinition，为文档状态、摘要、问答工具提供统一注册、规则路由和未来 Function Calling 输出协议。
 - 设计并验证 real provider shadow-only 路径，在不改变 production routing 的前提下比较 primary / shadow decision，降低 LLM 决策直接接管风险。
+- 实现最小 RAG 检索展示链路，支持文档切块、fake embedding、内存向量召回、topK 片段、相似度分数和引用元数据展示；后续可替换为 Qdrant 与真实 embedding。
 - 构建轻量检索增强问答链路，支持 chunk、关键词检索、上下文组装、AI 回答和引用片段展示；下一阶段计划升级为 embedding + vector store 的最小 RAG。
 - 通过 Maven 测试、前端 lint/build、Agent smoke 和 Playwright runtime 记录沉淀验证证据，明确 MQ disabled、RAG 未完成和 Function Calling 未接管的边界。
 
@@ -69,5 +70,5 @@
 面试可讲但简历不建议硬写：
 
 - 可以讲“已完成 Function Calling 风格工具抽象和输出协议”，但不要写“真实 Function Calling 已接管生产工具选择”。
-- 可以讲“已有 RAG 最小闭环设计和轻量检索增强基础”，但不要写“已接入向量库 / 完整 RAG”。
+- 可以讲“已有 fake embedding + in-memory vector store 的 RAG demo 展示”，但不要写“已接入真实向量库 / 完整生产 RAG”。
 - 可以讲“Actuator / Prometheus 有设计和默认关闭 endpoint”，但不要写“生产可观测体系已上线”。

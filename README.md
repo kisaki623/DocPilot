@@ -15,12 +15,12 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 
 如果你只想快速判断这个项目是否和 AI Agent / RAG / Function Calling 岗位相关，建议先看这 4 点：
 
-1. **可展示 Demo**：`/agent` 页面已收口为 Agent Showcase，可以选择当前账号已解析文档，展示工具选择、`routingReason`、`matchedKeywords`、`taskId`、持久化 steps、最终回答和 citations。
+1. **可展示 Demo**：`/agent` 页面已收口为 Agent + RAG Showcase，可以选择当前账号已解析文档，展示工具选择、`routingReason`、`matchedKeywords`、`taskId`、持久化 steps、最终回答、citations，以及 RAG 召回片段、score 和 metadata。
 2. **Agent 工具链**：后端已有 `ToolRegistry`、`DocumentToolSelector`、文档状态 / 摘要 / 问答三类工具，形态接近 Tool Calling / Function Calling 的工程化前置层。
 3. **执行轨迹**：每次 Agent run 会写入 `AgentTask` / `AgentStep`，前端能展示 stepIndex、toolName、status、durationMs、inputSummary、outputSummary。
 4. **真实边界**：当前不是完整向量 RAG，也不是 LLM function calling takeover；真实 provider 已做 shadow-only 验证，但 production routing 仍由规则 selector 决定。
 
-下一阶段求职展示优先级：先补最小 RAG 设计与向量库选型，再决定是否实现真实 Function Calling takeover 和 RAG runtime。
+下一阶段求职展示优先级：先沉淀截图和演示话术，再决定是否实现真实 Function Calling takeover，或把当前 fake embedding / in-memory RAG demo 替换为真实 embedding + Qdrant / Redis Vector。
 
 ## 核心亮点
 
@@ -29,6 +29,7 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 - **MinIO + 分片上传/断点续传**：支持普通上传与分片上传会话，含上传状态查询与合并完成。
 - **AI 问答 + SSE 流式输出**：详情页支持普通问答与流式问答切换，流式失败自动降级普通问答。
 - **最小 Agent 工具链闭环**：`/api/ai/agent/run` 先检查文档状态，再按 ToolSelector 规则选择 summary / QA 工具；前端 `/agent` 展示决策、步骤 trace、最终回答和引用。
+- **Agent + RAG Showcase**：`rag_tool` demo 使用 fake embedding + in-memory vector store 返回 topK retrieved chunks、similarity score 和 citation metadata，适合展示 RAG 工程拆分，但不等同于生产向量 RAG。
 - **Agent 执行轨迹落库**：`tb_agent_task` / `tb_agent_step` 记录每次 Agent run 和工具步骤，后端提供 task / step 查询接口，前端可按 `taskId` 展示持久化执行轨迹。
 - **Selector shadow compare**：支持 primary / shadow selector 对比、真实 provider shadow-only 验证和阈值策略；shadow decision 只观测，不接管 production routing。
 - **Selector metrics debug dump**：提供内部 metrics snapshot / reporter，并实现默认关闭的 `agentSelectorShadow` Actuator endpoint；当前未生产开启、未接 Spring Security、未接 selector Prometheus metrics。
@@ -55,15 +56,15 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 
 ## 页面预览
 
-当前仓库未提交可公开截图文件（避免误传本地调试产物）。
+以下截图来自本地 runtime 验证，使用当前账号可访问的已解析测试文档 `documentId=61`。截图只展示 Agent / RAG demo 页面，不包含 API Key、token、真实公网 IP 或环境变量。
 
-建议补充到 `assets/screenshots/` 后在此处引用（推荐顺序）：
-1. `01-login-register-and-password-YYYYMMDD.png`（注册/登录双模式）
-2. `02-upload-workflow-success-YYYYMMDD.png`（上传 + 自动建文档/建任务）
-3. `03-documents-list-filter-status-YYYYMMDD.png`（搜索/筛选/状态）
-4. `04-detail-qa-citations-YYYYMMDD.png`（详情 + 回答 + 引用）
-5. `05-detail-sse-streaming-in-progress-YYYYMMDD.png`（流式输出过程态）
-6. `06-agent-showcase-routing-trace-citations-YYYYMMDD.png`（Agent Showcase：工具决策 + 持久化执行轨迹 + 引用证据）
+| 截图 | 展示内容 |
+| --- | --- |
+| ![Agent Showcase Overview](docs/assets/screenshots/agent-showcase-overview.png) | Agent Showcase 总览、Lite 边界、文档选择和任务模板 |
+| ![Agent RAG Retrieval Results](docs/assets/screenshots/agent-rag-retrieval-results.png) | `rag_tool` 决策、RAG retrieved chunk、score / similarity 和 metadata |
+| ![Agent Routing Explanation](docs/assets/screenshots/agent-routing-explanation.png) | ToolSelector 的 routingReason 与 matchedKeywords |
+| ![Agent Persisted Steps](docs/assets/screenshots/agent-persisted-steps.png) | AgentTask / AgentStep 持久化执行轨迹、toolName、status 和 duration |
+| ![Agent Citations](docs/assets/screenshots/agent-citations.png) | 普通 QA 路径的 citations 与 trace，确认原有能力未被 RAG demo 破坏 |
 
 ## 快速开始（本地演示）
 
@@ -181,6 +182,7 @@ DocPilot/
 - 前端质量检查已通过：`npm run lint` 与 `npm run build` 均通过。
 - 远程开发库中 `tb_agent_task` / `tb_agent_step` 已通过 hk-ops 只读核验，可查到 runtime smoke 产生的真实记录。
 - T019 已完成真实 provider shadow-only 验证；T020/T021 已完成 selector metrics / debug dump；T024 已实现默认关闭的 `agentSelectorShadow` endpoint；T027 已验证测试内显式开启返回 200。
+- T057 已完成 Agent + RAG Showcase runtime 验证：`documentId=61` 的 `rag_tool` 可展示 retrieved chunks、score、metadata、routingReason、matchedKeywords、taskId 和持久化 steps；普通 QA 路径仍返回 citations。
 - T030 鉴权测试当前 BLOCKED：项目尚未接入 Spring Security Web 鉴权体系，不建议为了测试直接新增依赖。
 
 ## 量化结果（可复现边界）
@@ -210,7 +212,7 @@ DocPilot/
 - Spring Security Web 鉴权体系尚未接入；`agentSelectorShadow` 未完成未认证 / 普通用户 / 运维角色访问验证。
 - selector Prometheus metrics 目前只有设计文档，尚未接入 Micrometer / Prometheus；compose 中的 Prometheus 基础设施不等同于 selector metrics 已接入。
 - shadow decision 不接管 production routing，真实 Agent 工具执行仍由 primary selector 决定。
-- 当前未接向量库 / 完整 RAG / MCP / Spring AI / LangChain4j；文档问答仍是轻量检索增强。
+- 当前未接真实 embedding、Qdrant / Redis Vector、完整生产 RAG、MCP、Spring AI 或 LangChain4j；RAG Showcase 是 fake embedding + in-memory vector store 的 demo 路径。
 - 短信验证码接口保留为兼容联调能力，不代表已接入生产短信网关。
 - Prometheus demo 抓取配置如需运行仍要按宿主机网络调整；这不代表 selector shadow 指标已经接入 Prometheus。
 
@@ -229,6 +231,6 @@ DocPilot/
 ---
 
 如果你在准备面试演示，建议优先展示这条 5 分钟链路：
-`已解析文档 -> 详情页普通/SSE 问答 -> Agent Showcase 页面查看工具决策、持久化执行轨迹和 citations -> 说明真实 Function Calling takeover / 完整向量 RAG 仍是下一阶段规划`。
+`已解析文档 -> 详情页普通/SSE 问答 -> Agent Showcase 页面查看工具决策、RAG 召回片段、持久化执行轨迹和 citations -> 说明真实 Function Calling takeover / 真实向量库 RAG 仍是下一阶段规划`。
 
 如要展示“上传 -> 自动解析 -> 问答”的完整链路，请先确认 RocketMQ / consumer 环境可用；当前 T010 完整上传解析 runtime 验证仍为 BLOCKED。
