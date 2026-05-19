@@ -2,6 +2,44 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-19 - T050 Agent Showcase Page
+
+### 本轮目标
+
+把 `/agent` 页面打磨成适合发给招聘方截图的 Agent Showcase 页面。
+
+### 修改文件
+
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 页面标题调整为 Java AI Agent 文档问答 Demo。
+- 新增招聘方可读说明，概括 ToolRegistry、DocumentToolSelector、AgentTask / AgentStep 和 citations。
+- 新增 Lite 验证边界，明确只验证已解析文档上的 Agent 运行，不验证上传解析链路；real provider 当前只做 shadow-only。
+- 任务模板改为摘要、状态 + 总结、证据问答三类截图友好入口。
+- 结果区强化展示 decision、routingReason、matchedKeywords、taskId、citations 和持久化 steps。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 当前边界
+
+- 未修改后端 Java。
+- 未修改后端配置。
+- 未修改 DDL。
+- 未修改 package / lock 文件。
+- 未新增 API。
+- 未接 RAG。
+- 未接真实 Function Calling takeover。
+- 未改变 production routing。
+- 本轮未做浏览器 runtime 验证；后续可用当前账号已解析文档复测。
+
 ## 2026-05-17 - T040e README Interview Showcase
 
 ### 本轮目标

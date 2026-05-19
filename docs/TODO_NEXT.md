@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T050-Agent-Showcase
+
+- 状态：DONE
+- 完成时间：2026-05-19
+- 任务目标：把 `/agent` 页面收口为适合求职投递截图的 Agent Showcase 页面。
+- 当前结果：页面标题调整为 Java AI Agent 文档问答 Demo；新增招聘方可读说明、Lite 验证边界、Tool Calling / Function Calling 风格说明、三类任务模板说明；结果区强化 decision、routingReason、matchedKeywords、taskId、citations 和持久化 steps 展示。
+- 验证结果：`cd frontend; npm run lint` 通过；`cd frontend; npm run build` 通过。
+- 边界：未修改后端 Java、后端配置、DDL、package / lock 文件或 production routing；未接 RAG，未接真实 Function Calling takeover，未新增后端 API。本轮未做浏览器 runtime 验证，后续可用当前账号已解析文档复测。
+
 ### T003-fast-submit
 
 - 状态：DONE

@@ -134,6 +134,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T040c 已完成：新增 `docs/RESUME_BULLETS.md`，提供保守版、标准后端实习版和 AI 应用工程化版三套简历 bullet，并明确 Prometheus、Spring Security、生产 Actuator 暴露、shadow 接管 routing 等能力不能写成已完成。
 - T040d 已完成：新增 `docs/INTERVIEW_QA.md`，按项目整体、上传解析、RocketMQ、SSE、Agent、selector shadow、真实 provider、metrics / Actuator、BLOCKED 点和后续优化整理 30 个高频面试问题及诚实回答。
 - T040e 已完成：更新 `README.md` 对外展示口径，补充 AI 文档问答、SSE、Agent 最小闭环、AgentTask / AgentStep 持久化、ToolSelector、selector shadow compare、真实 provider shadow-only、metrics debug dump 和默认关闭 Actuator endpoint；同时明确完整上传解析链路 T010 BLOCKED、T030 鉴权测试 BLOCKED、Spring Security 未接入、selector Prometheus metrics 未接入、Actuator endpoint 未生产开启、shadow decision 不接管 production routing。
+- T050 已完成：`/agent` 页面已收口为 Agent Showcase 展示页，强调 Java AI Agent 文档问答 Demo、Tool Calling / Function Calling 风格工具选择、Agent 执行轨迹、引用证据和 Lite 验证边界；前端 lint/build 通过。本轮未做浏览器 runtime 验证，后续可用当前账号已解析文档复测。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

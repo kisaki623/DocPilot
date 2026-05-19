@@ -16,20 +16,36 @@ import { listDocuments, type DocumentListItem } from "@/lib/document-api";
 const TASK_TEMPLATES = [
   {
     key: "summary",
-    label: "场景1：文档总结",
-    task: "Please summarize this document for interview demo, including key capabilities and known boundaries."
+    label: "摘要 Demo",
+    helper: "触发 summary_tool，展示摘要工具与执行轨迹。",
+    task: "请总结这篇文档，提炼 3 个核心能力和 2 个当前边界，适合面试演示。"
   },
   {
     key: "status-summary",
-    label: "场景2：状态+总结",
-    task: "Please check the parse status first, then provide an overview and next-step suggestion for this document."
+    label: "状态 + 总结",
+    helper: "先检查解析状态，再进入文档摘要。",
+    task: "请先检查文档解析状态，再给出这篇文档的概览和下一步建议。"
   },
   {
     key: "evidence-qa",
-    label: "场景3：证据问答",
-    task: "Please answer with evidence: what are the core technical highlights in this document?"
+    label: "证据问答",
+    helper: "触发 qa_tool，展示引用证据和 citations。",
+    task: "请根据原文证据回答：这篇文档的核心技术亮点是什么？"
   }
 ] as const;
+
+const SHOWCASE_POINTS = [
+  "ToolRegistry 注册文档状态、摘要、问答三类工具",
+  "DocumentToolSelector 返回 decision、routingReason 和 matchedKeywords",
+  "AgentTask / AgentStep 持久化记录 taskId、步骤状态和耗时",
+  "QA 场景返回 citations，页面展示引用证据"
+];
+
+const BOUNDARY_POINTS = [
+  "当前页面验证已解析文档上的 Agent 运行，不验证上传解析链路",
+  "real provider 目前只做 shadow-only 观测，不接管生产工具选择",
+  "完整上传解析 runtime 仍受 MQ disabled / NoopParseTaskMessageProducer 阻塞"
+];
 
 function formatDateTime(input?: string): string {
   if (!input) {
@@ -215,11 +231,52 @@ export default function AgentPage() {
   return (
     <main className="dp-page max-w-7xl mx-auto py-8 px-4">
       <section className="dp-hero">
-        <p className="dp-eyebrow">Agent Studio</p>
-        <h1 className="dp-title">Agent 工具链演示</h1>
+        <p className="dp-eyebrow">Agent Showcase</p>
+        <h1 className="dp-title">Java AI Agent 文档问答 Demo</h1>
         <p className="dp-subtitle">
-          这里可以直接体验 <code>/api/ai/agent/run</code>：输入任务后查看工具决策、步骤 trace 与最终回答，适合录屏演示与面试讲解。
+          选择当前账号可访问的已解析文档，运行 Tool Calling / Function Calling 风格的文档工具链，
+          一屏展示工具选择、执行轨迹、最终回答和引用证据，适合截图发给招聘方。
         </p>
+      </section>
+
+      <section className="grid gap-4 mb-6 lg:grid-cols-[1fr_1fr]">
+        <article className="dp-card">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="dp-section-title">招聘方可读说明</h2>
+            <span className="dp-badge dp-badge-info">Agent Demo</span>
+          </div>
+          <p className="text-sm text-slate-600 leading-6">
+            当前已实现最小 Agent 工具链闭环：后端按任务选择文档状态、摘要或问答工具，返回可解释路由信息，
+            并将 AgentTask / AgentStep 落库，前端按 taskId 展示持久化执行轨迹。
+          </p>
+          <ul className="mt-4 grid gap-2 text-sm text-slate-700">
+            {SHOWCASE_POINTS.map((point) => (
+              <li key={point} className="flex gap-2">
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
+
+        <article className="dp-card">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="dp-section-title">Lite 验证边界</h2>
+            <span className="dp-badge dp-badge-warning">Not Full T010</span>
+          </div>
+          <p className="text-sm text-slate-600 leading-6">
+            这里展示的是“已解析文档 -&gt; Agent run -&gt; trace / citations”的 Agent-only 链路，
+            不是完整上传、解析、MQ 消费链路验证。
+          </p>
+          <ul className="mt-4 grid gap-2 text-sm text-slate-700">
+            {BOUNDARY_POINTS.map((point) => (
+              <li key={point} className="flex gap-2">
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+        </article>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
@@ -239,7 +296,7 @@ export default function AgentPage() {
 
           {documentsError ? <div className="dp-alert dp-alert-error mb-4">{documentsError}</div> : null}
           <div className="dp-alert dp-alert-info mb-4">
-            Lite 验证模式：仅验证已解析文档上的 Agent 运行，不验证上传和解析链路。
+            Lite 验证模式：仅验证已解析文档上的 Agent 运行，不验证上传和解析链路。建议截图时选择已解析成功文档。
           </div>
           {hasToken && !loadingDocuments && documents.length === 0 ? (
             <div className="dp-alert dp-alert-info mb-4">
@@ -304,16 +361,17 @@ export default function AgentPage() {
 
             <div className="grid gap-2">
               <span className="text-sm font-semibold text-slate-700">演示模板</span>
-              <div className="flex flex-wrap gap-2">
+              <div className="grid gap-2 sm:grid-cols-3">
                 {TASK_TEMPLATES.map((template) => (
                   <button
                     key={template.key}
                     type="button"
-                    className="dp-btn dp-btn-ghost"
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-60"
                     onClick={() => setTask(template.task)}
                     disabled={running}
                   >
-                    {template.label}
+                    <span className="block text-sm font-semibold text-slate-800">{template.label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">{template.helper}</span>
                   </button>
                 ))}
               </div>
@@ -365,7 +423,7 @@ export default function AgentPage() {
           {!result ? (
             <div className="dp-card-soft text-sm text-slate-600">
               <p className="font-semibold mb-2">等待运行</p>
-              <p>执行后会展示：决策工具、每一步输入输出摘要、最终回答与引用片段。</p>
+              <p>执行后会展示：decision、routingReason、matchedKeywords、taskId、持久化 steps、最终回答与 citations。</p>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -382,6 +440,10 @@ export default function AgentPage() {
                   <p className="dp-kpi-label">Task ID</p>
                   <p className="dp-kpi-value text-lg">{result.taskId ?? "-"}</p>
                 </div>
+                <div className="dp-kpi-card">
+                  <p className="dp-kpi-label">Citations</p>
+                  <p className="dp-kpi-value text-lg">{result.citations?.length ?? 0}</p>
+                </div>
               </div>
 
               <div className="dp-card-soft text-xs text-slate-600">
@@ -392,7 +454,10 @@ export default function AgentPage() {
 
               {result.routingReason ? (
                 <div className="dp-card-soft">
-                  <p className="text-sm font-semibold text-slate-700 mb-2">路由决策</p>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-sm font-semibold text-slate-700">路由决策</p>
+                    <span className="dp-badge dp-badge-info">Tool Selection</span>
+                  </div>
                   <p className="text-sm text-slate-700">{result.routingReason}</p>
                   {result.matchedKeywords && result.matchedKeywords.length > 0 ? (
                     <div className="flex flex-wrap gap-2 mt-3">
@@ -420,6 +485,7 @@ export default function AgentPage() {
               <div className="dp-card-soft">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <p className="text-sm font-semibold text-slate-700">持久化执行轨迹</p>
+                  {persistedTrace ? <span className={resolveStatusBadge(persistedTrace.task.status)}>{persistedTrace.task.status || "-"}</span> : null}
                   {loadingPersistedTrace ? <span className="text-xs text-slate-500">加载中...</span> : null}
                 </div>
 
