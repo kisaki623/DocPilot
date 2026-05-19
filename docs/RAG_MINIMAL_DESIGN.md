@@ -158,3 +158,25 @@ T053 已新增 `docs/VECTOR_STORE_SELECTION.md`。当前推荐路线是：
 - Redis Vector / Redis Stack 作为备选，前提是用户确认运行环境确实支持 RediSearch / vector index。
 
 进入 T054 前仍需用户确认是否允许新增 docker-compose 服务、是否允许新增表、embedding 使用 fake 还是真实 provider，以及是否继续保持公开 API 不变。
+
+## 11. T054 内部闭环实现状态
+
+T054 已按求职冲刺优先方案落地第一阶段内部闭环。T054x 先稳定了既有 benchmark timing 脆弱断言后，targeted test、compile 和后端全量测试均已通过。
+
+- 新增 `backend/src/main/java/com/docpilot/backend/ai/rag/` 包。
+- 使用 `FakeEmbeddingModel` 生成稳定、可重复 embedding。
+- 使用 `InMemoryVectorStore` 支持 `add` 和 `searchTopK`。
+- `RagIndexService` 支持把文档文本切成 `DocumentChunk`，并写入内存向量库。
+- `RagRetrievalService` 支持按 question 检索指定 documentId 的 topK chunks。
+- `RagAnswerContextBuilder` 支持组装可注入 prompt 的上下文，并保留 citation metadata。
+
+当前仍未做：
+
+- 未接真实 embedding provider。
+- 未接 Qdrant / Redis Vector / MySQL vector fallback。
+- 未新增数据库表。
+- 未新增 docker-compose 服务。
+- 未新增公开 REST API。
+- 未接入当前 Document QA / Agent production routing。
+
+这一步的价值是先把 RAG 的 Java 内部边界、测试替身和 citation mapping 打通，为后续 T055 前端展示召回片段和 T054 后续真实向量库接入打基础。

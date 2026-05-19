@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T054-RAG-Minimal-Internal-Service
+
+- 状态：DONE
+- 完成时间：2026-05-19
+- 任务目标：用 fake embedding + in-memory fake vector store 打通最小 RAG 内部 service 闭环。
+- 当前结果：新增 `backend/src/main/java/com/docpilot/backend/ai/rag/` 包，包含 `DocumentChunk`、`EmbeddingVector`、`EmbeddingModel`、`FakeEmbeddingModel`、`VectorStore`、`InMemoryVectorStore`、`RagIndexService`、`RagRetrievalService`、`RagAnswerContextBuilder` 等内部对象；新增 `RagMinimalInternalServiceTest` 覆盖 chunk split、fake embedding deterministic、vector store topK、retrieval by query 和 answer context with citations。
+- 验证结果：`cd backend; mvn -Dtest=RagMinimalInternalServiceTest test` 通过；`mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过。全量测试前已通过 T054x 稳定既有 benchmark timing 断言。
+- 边界：未读取 `backend/.env`；未新增依赖；未新增公开 REST API；未新增数据库表；未修改 `application.yml` / `application-local.yml`；未接真实 embedding provider、Qdrant、Redis Vector、LangChain4j 或 RAG production routing；未修改现有 QA / Agent 主流程。
+
 ### T053-Vector-Store-Selection
 
 - 状态：DONE
@@ -941,4 +950,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-求职展示冲刺路线已完成 T050 / T056 / T052 / T053。下一步建议进入 T054-RAG-Minimal-Implementation，但开始前需要用户确认：是否允许新增表、是否允许新增 docker-compose 服务、embedding 使用 fake 还是真实 provider、是否保持公开 API 不变。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
+求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054。下一步建议进入 T055-RAG-Showcase-UI，先展示内部 RAG 召回片段、score 和 citation metadata；也可以做 T054+，以默认关闭方式接入真实文档文本实验路径。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。

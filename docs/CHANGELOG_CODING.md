@@ -2,6 +2,63 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-19 - T054 RAG Minimal Internal Service
+
+### 本轮目标
+
+用 fake embedding + in-memory fake vector store 打通最小 RAG 内部闭环。本轮不接真实 embedding provider，不接 Qdrant，不接 LangChain4j，不新增数据库表，不新增公开 REST API，不修改 production Agent routing。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/DocumentChunk.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/EmbeddingVector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/EmbeddingModel.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/FakeEmbeddingModel.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/InMemoryVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorSearchResult.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagRetrievalService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagAnswerContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagAnswerContext.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagCitation.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagMinimalInternalServiceTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `DocumentChunk` 和 `EmbeddingVector` 等 RAG 内部值对象。
+- 新增 `EmbeddingModel` 接口和 `FakeEmbeddingModel`，用稳定 hash bag-of-terms 生成可重复 embedding。
+- 新增 `VectorStore` 接口和 `InMemoryVectorStore`，支持 add / searchTopK，按 documentId 过滤并以 cosine similarity 排序。
+- 新增 `RagIndexService`，支持把文档文本按 chunkSize / overlap 切分为 chunks，并写入内存向量库。
+- 新增 `RagRetrievalService`，支持根据 question 生成 query embedding 并检索 topK chunks。
+- 新增 `RagAnswerContextBuilder`，将检索结果组装成可注入 prompt 的上下文，并保留 citation metadata。
+- 新增单元测试覆盖 chunk split、fake embedding deterministic、vector store topK、retrieval by query 和 answer context with citations。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RagMinimalInternalServiceTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，297 tests。
+- 全量测试前已通过 T054x 稳定既有 `Task11_6BenchmarkTest.shouldGenerateStage11Task11_6BenchmarkArtifacts` 的 cache hit timing 脆弱断言；该修复独立提交，未跳过测试或降低业务断言。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未新增依赖。
+- 未修改 `pom.xml`。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未新增数据库表或 DDL。
+- 未新增公开 REST API。
+- 未接真实 embedding provider。
+- 未接 Qdrant / Redis Vector。
+- 未接 LangChain4j。
+- 未修改现有 QA / Agent 主流程。
+- 未改变 production routing。
+
 ## 2026-05-19 - T053 Vector Store Selection
 
 ### 本轮目标

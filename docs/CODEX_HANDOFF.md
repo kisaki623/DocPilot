@@ -138,6 +138,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T056 已完成：README、项目 brief、架构说明、简历 bullet 和面试 QA 已转向 AI Agent / RAG / Function Calling 求职展示口径；仍明确 RAG、向量库和真实 Function Calling takeover 未完成，完整 T010 仍 BLOCKED。
 - T052 已完成：新增 `docs/RAG_MINIMAL_DESIGN.md`，设计从当前轻量文档问答到最小 RAG 的路径，包括 parsed text、chunk、embedding、vector store、retrieve topK、prompt assemble、answer、citations / score 展示；本任务只写设计，未实现 RAG、未新增 API、未改代码或配置。
 - T053 已完成：新增 `docs/VECTOR_STORE_SELECTION.md`，比较 Qdrant、Redis Vector / Redis Stack、MySQL fallback 和 in-memory fake vector store；求职冲刺推荐先用 fake embedding + in-memory fake vector store 打通可测闭环，后续工程化推荐 Qdrant + MySQL chunk metadata。
+- T054 已完成：新增 `backend/src/main/java/com/docpilot/backend/ai/rag/` 内部包，用 fake embedding + in-memory fake vector store 打通最小 RAG 内部闭环；`RagMinimalInternalServiceTest` 覆盖 chunk split、embedding deterministic、topK search、retrieval 和 context / citations。T054x 先稳定了既有 benchmark timing 脆弱断言，随后 targeted test、compile 和后端全量测试均通过。未新增公开 API，未接真实 embedding / Qdrant / Redis Vector，未新增表，未接入现有 QA / Agent production routing。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -183,7 +184,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 求职展示冲刺路线已完成 T050 / T056 / T052 / T053。下一步建议做 T054-RAG-Minimal-Implementation，但先让用户确认是否允许新增表、是否允许新增 docker-compose 服务、embedding 用 fake 还是真实 provider、是否保持公开 API 不变。
+1. 求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054。下一步建议做 T055-RAG-Showcase-UI，展示内部 RAG 召回片段、score 和 citation metadata；或做 T054+ 默认关闭实验路径接入真实文档文本。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -251,6 +252,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先进入 T054-RAG-Minimal-Implementation 的前置确认与最小代码任务；不要直接生产暴露 endpoint，也不要继续堆 Prometheus / Spring Security 实现。
+优先进入 T055-RAG-Showcase-UI 的前置确认，或继续做 T054+ “默认关闭方式接入真实文档文本但仍不接真实向量库”的小步任务；不要直接生产暴露 endpoint，也不要继续堆 Prometheus / Spring Security 实现。
 
-原因：T050 / T056 已把 Agent Showcase 和求职材料收口，T052 / T053 已给出最小 RAG 设计与向量库选型。T054 建议先用 fake embedding + in-memory fake vector store 打通内部 service 和测试闭环；是否新增 Qdrant、Redis Stack、DDL 或真实 embedding 仍需用户确认。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED。本轮不应修改真实配置或开启生产访问，也不能改变 `/api/ai/agent/run` 返回协议。
+原因：T050 / T056 已把 Agent Showcase 和求职材料收口，T052 / T053 已给出最小 RAG 设计与向量库选型，T054 已实现 fake embedding + in-memory fake vector store 的内部 service 和测试闭环。下一步更有求职展示价值的是把召回片段、score 和 citation metadata 展示出来；是否新增 Qdrant、Redis Stack、DDL 或真实 embedding 仍需用户确认。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED。本轮不应修改真实配置或开启生产访问，也不能改变 `/api/ai/agent/run` 返回协议。
