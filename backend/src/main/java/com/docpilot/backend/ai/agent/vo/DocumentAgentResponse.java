@@ -4,6 +4,7 @@ import com.docpilot.backend.ai.vo.DocumentQaResponse;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class DocumentAgentResponse {
 
@@ -21,6 +22,8 @@ public class DocumentAgentResponse {
     private List<String> matchedKeywords = new ArrayList<>();
     private String finalAnswer;
     private List<DocumentQaResponse.CitationItem> citations = new ArrayList<>();
+    private List<RagRetrievedChunk> ragResults = new ArrayList<>();
+    private String ragAnswerContext;
     private List<AgentStep> steps = new ArrayList<>();
 
     public String getTraceId() {
@@ -135,6 +138,22 @@ public class DocumentAgentResponse {
         this.citations = citations;
     }
 
+    public List<RagRetrievedChunk> getRagResults() {
+        return ragResults;
+    }
+
+    public void setRagResults(List<RagRetrievedChunk> ragResults) {
+        this.ragResults = ragResults;
+    }
+
+    public String getRagAnswerContext() {
+        return ragAnswerContext;
+    }
+
+    public void setRagAnswerContext(String ragAnswerContext) {
+        this.ragAnswerContext = ragAnswerContext;
+    }
+
     public List<AgentStep> getSteps() {
         return steps;
     }
@@ -197,6 +216,54 @@ public class DocumentAgentResponse {
 
         public void setDurationMs(long durationMs) {
             this.durationMs = durationMs;
+        }
+    }
+
+    public static class RagRetrievedChunk {
+        private int rank;
+        private int chunkIndex;
+        private double score;
+        private String snippet;
+        private Map<String, String> metadata;
+
+        public int getRank() {
+            return rank;
+        }
+
+        public void setRank(int rank) {
+            this.rank = rank;
+        }
+
+        public int getChunkIndex() {
+            return chunkIndex;
+        }
+
+        public void setChunkIndex(int chunkIndex) {
+            this.chunkIndex = chunkIndex;
+        }
+
+        public double getScore() {
+            return score;
+        }
+
+        public void setScore(double score) {
+            this.score = score;
+        }
+
+        public String getSnippet() {
+            return snippet;
+        }
+
+        public void setSnippet(String snippet) {
+            this.snippet = snippet;
+        }
+
+        public Map<String, String> getMetadata() {
+            return metadata;
+        }
+
+        public void setMetadata(Map<String, String> metadata) {
+            this.metadata = metadata;
         }
     }
 }

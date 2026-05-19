@@ -14,7 +14,7 @@ import java.util.Set;
 @Component
 public class LlmToolSelectionParser {
 
-    private static final Set<String> ALLOWED_DECISIONS = Set.of("status_only", "summary_tool", "qa_tool");
+    private static final Set<String> ALLOWED_DECISIONS = Set.of("status_only", "summary_tool", "qa_tool", "rag_tool");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Set<String> allowedToolNames;

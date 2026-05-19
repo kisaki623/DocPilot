@@ -35,12 +35,12 @@ public class LlmToolSelectionPromptBuilder {
             prompt.append("  safeForLlmSelection: ").append(definition.safeForLlmSelection()).append("\n");
         }
 
-        prompt.append("\nSelect exactly one decision from: status_only, summary_tool, qa_tool.\n");
+        prompt.append("\nSelect exactly one decision from: status_only, summary_tool, qa_tool, rag_tool.\n");
         prompt.append("Only select toolNames from the available tools list. ");
         prompt.append("Do not generate SQL. Do not generate system commands. Do not call tools that are not listed.\n");
         prompt.append("Return only one JSON object using this exact shape:\n");
         prompt.append("{\n");
-        prompt.append("  \"decision\": \"status_only|summary_tool|qa_tool\",\n");
+        prompt.append("  \"decision\": \"status_only|summary_tool|qa_tool|rag_tool\",\n");
         prompt.append("  \"toolNames\": [\"document_status_tool\"],\n");
         prompt.append("  \"routingReason\": \"short reason for the route\",\n");
         prompt.append("  \"matchedKeywords\": [\"keyword\"],\n");

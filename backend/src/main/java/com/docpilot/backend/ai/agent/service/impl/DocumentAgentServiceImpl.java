@@ -6,6 +6,7 @@ import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.DocumentAgentService;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
@@ -154,6 +155,29 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
 
                 response.setDecision("summary_tool");
                 response.setFinalAnswer(summaryResult.value().output());
+                response.setSteps(steps);
+                return completeSuccess(taskId, response, beginNanos);
+            }
+
+            if ("rag_tool".equals(selection.decision())) {
+                DocumentRagTool documentRagTool = toolRegistry.get(DocumentRagTool.TOOL_NAME);
+                TimedResult<DocumentRagTool.RagResult> ragResult = timedExecute(() ->
+                        documentRagTool.execute(new DocumentRagTool.RagInput(request.getDocumentId(), task, detail.content(), 3)));
+                DocumentRagTool.RagResult rag = ragResult.value();
+                steps.add(buildStep(
+                        2,
+                        documentRagTool.getToolName(),
+                        "documentId=" + request.getDocumentId() + ", topK=" + rag.topK(),
+                        String.format("chunks=%d, retrieved=%d", rag.chunkCount(), rag.retrievedChunks().size()),
+                        ragResult.durationMs(),
+                        "success"
+                ));
+                persistLastStep(taskId, steps);
+
+                response.setDecision("rag_tool");
+                response.setFinalAnswer(buildRagAnswer(rag));
+                response.setRagResults(toResponseRagResults(rag.retrievedChunks()));
+                response.setRagAnswerContext(rag.answerContext());
                 response.setSteps(steps);
                 return completeSuccess(taskId, response, beginNanos);
             }
@@ -326,6 +350,29 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         return "文档标题：" + safeText(detail.title())
                 + "；解析状态：" + detail.parseStatus()
                 + "；状态说明：" + desc;
+    }
+
+    private String buildRagAnswer(DocumentRagTool.RagResult rag) {
+        if (rag.retrievedChunks().isEmpty()) {
+            return "RAG demo did not retrieve chunks. The document may not contain parsed text yet.";
+        }
+        return "RAG demo retrieved " + rag.retrievedChunks().size()
+                + " chunk(s) from " + rag.chunkCount()
+                + " indexed chunk(s) using fake embeddings and an in-memory vector store.";
+    }
+
+    private List<DocumentAgentResponse.RagRetrievedChunk> toResponseRagResults(List<DocumentRagTool.RetrievedChunk> chunks) {
+        List<DocumentAgentResponse.RagRetrievedChunk> results = new ArrayList<>();
+        for (DocumentRagTool.RetrievedChunk chunk : chunks) {
+            DocumentAgentResponse.RagRetrievedChunk item = new DocumentAgentResponse.RagRetrievedChunk();
+            item.setRank(chunk.rank());
+            item.setChunkIndex(chunk.chunkIndex());
+            item.setScore(chunk.score());
+            item.setSnippet(chunk.snippet());
+            item.setMetadata(chunk.metadata());
+            results.add(item);
+        }
+        return results;
     }
 
     private String summarize(String text) {

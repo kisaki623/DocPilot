@@ -13,6 +13,7 @@ class DocumentToolSelectorTest {
     private static final List<String> STATUS_ONLY = List.of("document_status_tool");
     private static final List<String> SUMMARY_CHAIN = List.of("document_status_tool", "document_summary_tool");
     private static final List<String> QA_CHAIN = List.of("document_status_tool", "document_qa_tool");
+    private static final List<String> RAG_CHAIN = List.of("document_status_tool", "document_rag_tool");
 
     private final DocumentToolSelector selector = new DocumentToolSelector();
 
@@ -44,6 +45,16 @@ class DocumentToolSelectorTest {
         assertEquals(QA_CHAIN, result.toolNames());
         assertFalse(result.matchedKeywords().isEmpty());
         assertTrue(result.reason().contains("\u8bc1\u636e") || result.reason().contains("\u5f15\u7528"));
+    }
+
+    @Test
+    void shouldRouteExplicitRagRetrievalToRagTool() {
+        ToolSelector.SelectResult result = selector.select("RAG retrieve topK chunks and show similarity score");
+
+        assertEquals("rag_tool", result.decision());
+        assertEquals(RAG_CHAIN, result.toolNames());
+        assertFalse(result.matchedKeywords().isEmpty());
+        assertTrue(result.reason().contains("RAG") || result.reason().contains("score"));
     }
 
     @Test

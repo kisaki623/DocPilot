@@ -1,0 +1,123 @@
+package com.docpilot.backend.ai.agent.tool;
+
+import com.docpilot.backend.ai.rag.FakeEmbeddingModel;
+import com.docpilot.backend.ai.rag.InMemoryVectorStore;
+import com.docpilot.backend.ai.rag.RagAnswerContext;
+import com.docpilot.backend.ai.rag.RagAnswerContextBuilder;
+import com.docpilot.backend.ai.rag.RagIndexService;
+import com.docpilot.backend.ai.rag.RagRetrievalService;
+import com.docpilot.backend.ai.rag.VectorSearchResult;
+import com.docpilot.backend.common.util.ValidationUtils;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+
+@Component
+public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, DocumentRagTool.RagResult> {
+
+    public static final String TOOL_NAME = "document_rag_tool";
+    private static final int DEFAULT_TOP_K = 3;
+    private static final int MAX_TOP_K = 5;
+    private static final int SNIPPET_MAX_LENGTH = 280;
+    private static final int CONTEXT_MAX_LENGTH = 900;
+
+    @Override
+    public String getToolName() {
+        return TOOL_NAME;
+    }
+
+    @Override
+    public RagResult execute(RagInput input) {
+        ValidationUtils.requireNonNull(input, "input");
+        ValidationUtils.requireNonNull(input.documentId(), "documentId");
+        ValidationUtils.requireNonBlank(input.task(), "task");
+
+        String documentText = normalize(input.documentText());
+        int topK = resolveTopK(input.topK());
+        if (documentText.isEmpty()) {
+            return new RagResult(
+                    input.documentId(),
+                    0,
+                    topK,
+                    List.of(),
+                    List.of(),
+                    "",
+                    "No parsed document text is available for the RAG demo."
+            );
+        }
+
+        FakeEmbeddingModel embeddingModel = new FakeEmbeddingModel();
+        InMemoryVectorStore vectorStore = new InMemoryVectorStore();
+        RagIndexService indexService = new RagIndexService(embeddingModel, vectorStore);
+        RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, vectorStore);
+        RagAnswerContextBuilder contextBuilder = new RagAnswerContextBuilder();
+
+        int chunkCount = indexService.indexDocument(input.documentId(), documentText).size();
+        List<VectorSearchResult> hits = retrievalService.retrieveForQuestion(input.documentId(), input.task(), topK);
+        RagAnswerContext answerContext = contextBuilder.build(hits);
+        List<RetrievedChunk> retrievedChunks = toRetrievedChunks(hits);
+
+        return new RagResult(
+                input.documentId(),
+                chunkCount,
+                topK,
+                retrievedChunks,
+                answerContext.citations(),
+                truncate(answerContext.contextText(), CONTEXT_MAX_LENGTH),
+                "Retrieved " + retrievedChunks.size() + " chunk(s) from " + chunkCount + " indexed chunk(s)."
+        );
+    }
+
+    private List<RetrievedChunk> toRetrievedChunks(List<VectorSearchResult> hits) {
+        java.util.ArrayList<RetrievedChunk> chunks = new java.util.ArrayList<>();
+        for (int i = 0; i < hits.size(); i++) {
+            VectorSearchResult hit = hits.get(i);
+            chunks.add(new RetrievedChunk(
+                    i + 1,
+                    hit.chunk().chunkIndex(),
+                    hit.score(),
+                    truncate(hit.chunk().text().trim(), SNIPPET_MAX_LENGTH),
+                    hit.chunk().metadata()
+            ));
+        }
+        return List.copyOf(chunks);
+    }
+
+    private int resolveTopK(Integer topK) {
+        if (topK == null || topK <= 0) {
+            return DEFAULT_TOP_K;
+        }
+        return Math.min(topK, MAX_TOP_K);
+    }
+
+    private String normalize(String text) {
+        return text == null ? "" : text.trim();
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) {
+            return text == null ? "" : text;
+        }
+        return text.substring(0, maxLength) + "...";
+    }
+
+    public record RagInput(Long documentId, String task, String documentText, Integer topK) {
+    }
+
+    public record RagResult(Long documentId,
+                            int chunkCount,
+                            int topK,
+                            List<RetrievedChunk> retrievedChunks,
+                            List<com.docpilot.backend.ai.rag.RagCitation> citations,
+                            String answerContext,
+                            String outputSummary) {
+    }
+
+    public record RetrievedChunk(int rank,
+                                 int chunkIndex,
+                                 double score,
+                                 String snippet,
+                                 Map<String, String> metadata) {
+    }
+}

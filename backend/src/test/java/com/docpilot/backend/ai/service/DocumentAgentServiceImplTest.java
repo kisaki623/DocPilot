@@ -6,6 +6,7 @@ import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
@@ -59,6 +60,9 @@ class DocumentAgentServiceImplTest {
     private DocumentQaTool documentQaTool;
 
     @Mock
+    private DocumentRagTool documentRagTool;
+
+    @Mock
     private ToolRegistry toolRegistry;
 
     @Mock
@@ -107,6 +111,10 @@ class DocumentAgentServiceImplTest {
 
     private void stubQaTool() {
         when(toolRegistry.<DocumentQaTool>get("document_qa_tool")).thenReturn(documentQaTool);
+    }
+
+    private void stubRagTool() {
+        when(toolRegistry.<DocumentRagTool>get(DocumentRagTool.TOOL_NAME)).thenReturn(documentRagTool);
     }
 
     private void stubPersistenceTask() {
@@ -229,6 +237,73 @@ class DocumentAgentServiceImplTest {
         assertTrue(response.isSuccess());
         verifyPersistenceSuccess();
         verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
+        assertEmptySelectorMetrics();
+    }
+
+    @Test
+    void shouldUseRagToolForExplicitRetrievalTask() {
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(109L);
+        request.setTask("RAG retrieve topK chunks and show similarity score");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 109L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        109L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "Payment clause content. Delivery clause content."
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentRagTool.getToolName()).thenReturn(DocumentRagTool.TOOL_NAME);
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "rag_tool",
+                List.of("document_status_tool", DocumentRagTool.TOOL_NAME),
+                "rag reason",
+                List.of("RAG", "retrieve")
+        ));
+        DocumentRagTool.RetrievedChunk chunk = new DocumentRagTool.RetrievedChunk(
+                1,
+                0,
+                0.91d,
+                "Payment clause content.",
+                java.util.Map.of("contentHash", "hash", "chunkVersion", "fake-rag-v1")
+        );
+        DocumentRagTool.RagResult ragResult = new DocumentRagTool.RagResult(
+                109L,
+                1,
+                3,
+                List.of(chunk),
+                List.of(),
+                "[1] Payment clause content.",
+                "Retrieved 1 chunk(s) from 1 indexed chunk(s)."
+        );
+        when(documentRagTool.execute(new DocumentRagTool.RagInput(
+                109L,
+                "RAG retrieve topK chunks and show similarity score",
+                "Payment clause content. Delivery clause content.",
+                3
+        ))).thenReturn(ragResult);
+        stubStatusTool();
+        stubRagTool();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request);
+
+        assertEquals("rag_tool", response.getDecision());
+        assertTrue(response.getFinalAnswer().contains("RAG demo retrieved"));
+        assertEquals(1, response.getRagResults().size());
+        assertEquals(0.91d, response.getRagResults().get(0).getScore());
+        assertEquals("[1] Payment clause content.", response.getRagAnswerContext());
+        assertEquals(2, response.getSteps().size());
+        verifyPersistenceSuccess();
+        verify(documentRagTool).execute(any());
+        verify(documentSummaryTool, never()).execute(any());
+        verify(documentQaTool, never()).execute(any());
         assertEmptySelectorMetrics();
     }
 

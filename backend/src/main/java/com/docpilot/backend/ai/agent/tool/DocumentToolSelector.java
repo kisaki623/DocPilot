@@ -17,15 +17,21 @@ public class DocumentToolSelector implements ToolSelector {
     private static final List<String> EVIDENCE_KEYWORDS = List.of(
             "evidence", "citation", "cite", "proof", "\u4f9d\u636e", "\u5f15\u7528", "\u51fa\u5904", "\u8bc1\u636e"
     );
+    private static final List<String> RAG_KEYWORDS = List.of(
+            "rag", "retrieval", "retrieve", "topk", "top k", "similarity",
+            "\u68c0\u7d22", "\u53ec\u56de", "\u76f8\u4f3c\u5ea6", "\u7247\u6bb5", "\u627e\u4f9d\u636e"
+    );
 
     @Override
     public SelectResult select(String task) {
         List<String> statusMatched = matchKeywords(task, STATUS_KEYWORDS);
         List<String> summaryMatched = matchKeywords(task, SUMMARY_KEYWORDS);
         List<String> evidenceMatched = matchKeywords(task, EVIDENCE_KEYWORDS);
+        List<String> ragMatched = matchKeywords(task, RAG_KEYWORDS);
         boolean statusIntent = !statusMatched.isEmpty();
         boolean summaryIntent = !summaryMatched.isEmpty();
         boolean evidenceIntent = !evidenceMatched.isEmpty();
+        boolean ragIntent = !ragMatched.isEmpty();
 
         if (statusIntent && !summaryIntent && !evidenceIntent) {
             return new SelectResult(
@@ -33,6 +39,14 @@ public class DocumentToolSelector implements ToolSelector {
                     List.of("document_status_tool"),
                     "\u547d\u4e2d\u72b6\u6001\u6216\u89e3\u6790\u8fdb\u5ea6\u5173\u952e\u8bcd\uff0c\u4ec5\u9700\u8fd4\u56de\u6587\u6863\u89e3\u6790\u72b6\u6001\uff0c\u56e0\u6b64\u8def\u7531\u5230\u72b6\u6001\u5de5\u5177\u3002",
                     statusMatched
+            );
+        }
+        if (ragIntent) {
+            return new SelectResult(
+                    "rag_tool",
+                    List.of("document_status_tool", DocumentRagTool.TOOL_NAME),
+                    "\u547d\u4e2d RAG\u3001\u68c0\u7d22\u6216\u53ec\u56de\u7c7b\u5173\u952e\u8bcd\uff0c\u9700\u5c55\u793a\u6587\u6863\u5206\u7247\u53ec\u56de\u3001score \u548c citation metadata\uff0c\u56e0\u6b64\u8def\u7531\u5230 RAG \u5de5\u5177\u3002",
+                    ragMatched
             );
         }
         if (summaryIntent && !evidenceIntent) {

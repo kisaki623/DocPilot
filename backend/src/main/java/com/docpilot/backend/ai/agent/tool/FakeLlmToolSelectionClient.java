@@ -7,6 +7,7 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
     private static final String DECISION_STATUS = "status_only";
     private static final String DECISION_SUMMARY = "summary_tool";
     private static final String DECISION_QA = "qa_tool";
+    private static final String DECISION_RAG = "rag_tool";
 
     private static final String[] STATUS_KEYWORDS = {
             "status",
@@ -46,6 +47,20 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
             "\u539f\u6587\u8bc1\u636e"
     };
 
+    private static final String[] RAG_KEYWORDS = {
+            "rag",
+            "retrieval",
+            "retrieve",
+            "topk",
+            "top k",
+            "similarity",
+            "\u68c0\u7d22",
+            "\u53ec\u56de",
+            "\u76f8\u4f3c\u5ea6",
+            "\u7247\u6bb5",
+            "\u627e\u4f9d\u636e"
+    };
+
     @Override
     public LlmToolSelectionClientResponse completeSelectionPrompt(String prompt) {
         String task = extractCurrentTask(prompt);
@@ -81,9 +96,13 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
         boolean evidenceIntent = containsAny(normalizedTask, EVIDENCE_KEYWORDS);
         boolean summaryIntent = containsAny(normalizedTask, SUMMARY_KEYWORDS);
         boolean statusIntent = containsAny(normalizedTask, STATUS_KEYWORDS);
+        boolean ragIntent = containsAny(normalizedTask, RAG_KEYWORDS);
 
         if (evidenceIntent) {
             return DECISION_QA;
+        }
+        if (ragIntent) {
+            return DECISION_RAG;
         }
         if (summaryIntent) {
             return DECISION_SUMMARY;
@@ -120,6 +139,15 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
                       "toolNames": ["document_status_tool", "document_summary_tool"],
                       "routingReason": "Fake selector routed to summary for summary-related task.",
                       "matchedKeywords": ["summary"],
+                      "confidence": 0.8
+                    }
+                    """;
+            case DECISION_RAG -> """
+                    {
+                      "decision": "rag_tool",
+                      "toolNames": ["document_status_tool", "document_rag_tool"],
+                      "routingReason": "Fake selector routed to RAG retrieval for retrieval-related task.",
+                      "matchedKeywords": ["retrieval"],
                       "confidence": 0.8
                     }
                     """;
