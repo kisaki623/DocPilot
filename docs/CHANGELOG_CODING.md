@@ -16,11 +16,18 @@
 - 新增截图包：`docs/assets/screenshots/agent-showcase-overview.png`、`agent-rag-retrieval-results.png`、`agent-routing-explanation.png`、`agent-persisted-steps.png`、`agent-citations.png`。
 - README、项目面试 brief 和简历 bullet 已引用或描述 Agent + RAG Showcase 证据。
 
+### T057d 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，302 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+- 本轮启动的独立后端 / 前端进程已在收尾阶段清理；既有 `8081` / `3000` 进程不是本轮启动，未误杀。
+
 ### 当前边界
 
 - 截图来自测试文档 `documentId=61`，不包含 API Key、token、真实公网 IP、环境变量或私密用户文档。
 - RAG 仍是 fake embedding + in-memory vector store demo；未接真实 embedding、Qdrant / Redis Vector、LangChain4j、数据库表或公开 REST API。
-- 本节记录 runtime / 截图 / 文档证据；T057d 仍需执行后端 full test 与前端 lint/build 后再最终收口。
+- 本轮未改变 production routing；未处理完整 T010 / MQ blocked。
 
 ## 2026-05-20 - T055 RAG Agent Showcase Demo
 

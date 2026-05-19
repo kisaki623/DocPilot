@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T057-Agent-RAG-Showcase-Runtime-Evidence
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：真实验证 `/agent` 页面可展示 Agent + RAG Showcase，并生成可用于 README / BOSS / 面试的截图证据。
+- 当前结果：使用本轮独立后端 `8082` 与前端 `3001`，在浏览器中用 `documentId=61` 完成 runtime 验证；`rag_tool` 可展示 `routingReason`、`matchedKeywords`、retrieved chunk、score / similarity、metadata、answer context 入口、`taskId`、persisted steps 和 `document_rag_tool`；普通 QA 路径仍展示 `qa_tool`、citations 和 persisted steps。
+- 截图结果：已提交 `docs/assets/screenshots/agent-showcase-overview.png`、`agent-rag-retrieval-results.png`、`agent-routing-explanation.png`、`agent-persisted-steps.png`、`agent-citations.png`，README 已引用截图。
+- 验证结果：`cd backend; mvn test -DskipITs` 通过，302 tests；`cd frontend; npm run lint` 通过；`npm run build` 通过。
+- 边界：未读取 `backend/.env`；未输出 secret；未新增公开 REST API；未修改 production routing；未接真实 embedding、Qdrant、Redis Vector 或 LangChain4j；未处理完整 T010 / MQ blocked。
+
 ### T055-RAG-Agent-Showcase
 
 - 状态：DONE
@@ -959,4 +969,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055。下一步建议进入 T057：截图包 / 演示验证，或 T054+：接真实 embedding / Qdrant 前的默认关闭实验路径；也可以进入 T051：Function Calling takeover 可开关模式。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
+求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057。下一步建议进入 T051：Function Calling takeover 可开关模式，或 T054+：接真实 embedding / Qdrant 前的默认关闭实验路径。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
