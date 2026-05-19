@@ -1,0 +1,153 @@
+# Vector Store Selection for Minimal RAG
+
+本文档记录 DocPilot 最小 RAG 的向量库选型。T053 只做方案比较和落地建议，不修改 docker-compose、不修改配置、不实现代码。
+
+## 1. 选型目标
+
+DocPilot 当前已有轻量文档问答、citations、Agent QA tool 和执行轨迹。下一阶段最小 RAG 需要一个可测试、可解释、可展示的向量召回层。
+
+选型目标按优先级排序：
+
+1. 快速支撑求职展示，能在 30-90 分钟任务粒度内逐步落地。
+2. Java / Spring Boot 接入简单，测试可控。
+3. 不把 demo 能力误写成生产能力。
+4. 后续可以自然演进到更完整的 RAG 工程化方案。
+
+## 2. 方案对比
+
+| 方案 | 接入成本 | 本地 / 远程中间件成本 | Java / Spring Boot 复杂度 | 快速求职展示 | 后续生产化 | 测试难度 | 面试解释难度 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Qdrant | 中等，需要新增服务和 client 封装 | 需要新增 Docker 服务或远程实例 | 中等，HTTP API 简洁但要写 client / DTO | 强，向量库故事清晰 | 强，适合专用向量检索 | 中等，可用 test container 或 fake client | 低，面试官容易理解 |
+| Redis Vector / Redis Stack | 中等，前提是 Redis Stack 可用 | 如果当前 Redis 不是 Stack，需要替换或新增服务 | 中等，需要 RediSearch / vector index 语义 | 中等，复用 Redis 叙事好 | 中等，适合轻量场景 | 中等，环境差异要控制 | 中等，要解释 Redis 与 Redis Stack 差异 |
+| MySQL fallback | 低到中等，不需要新中间件 | 无新增中间件 | 低，可先存 chunk 和 embedding metadata；真实向量相似度较弱 | 中等，适合先证明数据闭环 | 弱到中等，不适合作为最终向量检索核心 | 低，最容易写集成测试 | 中等，要诚实说明不是专业向量检索 |
+| in-memory fake vector store | 低，无外部依赖 | 无中间件 | 低，纯 Java 接口和测试替身 | 强，最快证明链路和截图 | 弱，仅限测试 / demo | 低，最稳定 | 低，但必须说明是 fake，不是生产方案 |
+
+## 3. 方案分析
+
+### Qdrant
+
+优点：
+
+- 专用向量数据库，RAG 面试叙事最直接。
+- HTTP API 清晰，payload 可以保存 documentId、userId、chunkIndex、score 所需信息。
+- 后续可以扩展 collection、filter、payload schema 和 distance metric。
+
+缺点：
+
+- 需要新增 Docker / 远程服务和运行配置。
+- 需要新增 client 封装、错误处理、健康检查和测试替身。
+- 当前用户未确认是否允许改 docker-compose 或引入远程向量库。
+
+适合：T054 后半段或 T055 前，用户确认可新增服务后接入。
+
+### Redis Vector / Redis Stack
+
+优点：
+
+- DocPilot 已经使用 Redis / Redisson，概念上容易复用现有中间件叙事。
+- 对轻量 demo 和小规模检索够用。
+- 可以把缓存、限流和向量索引放在同一中间件族里讲。
+
+缺点：
+
+- Redis Vector 依赖 Redis Stack / RediSearch，不能假设当前普通 Redis 已支持。
+- 本地、远程和 CI 环境容易出现版本差异。
+- Java 侧 vector index 建模和查询语法比 in-memory fake 更重。
+
+适合：如果用户确认远程或本地 Redis Stack 已可用，可作为求职展示加速方案。
+
+### MySQL fallback
+
+优点：
+
+- 不新增中间件，最符合当前稳定性要求。
+- 适合先持久化 `document_chunk`、metadata、hash、version 和 embedding 状态。
+- 可以支撑“chunk 管理 + citation mapping + 重建索引”的工程化基础。
+
+缺点：
+
+- MySQL 不适合作为真正向量相似度检索核心。
+- 如果只做关键词 / LIKE / 简单 score，不能写成完整向量 RAG。
+- 后续接 Qdrant / Redis Vector 时仍需要迁移检索层。
+
+适合：T054 先落 chunk 表和可解释 fallback 时使用。
+
+### in-memory fake vector store
+
+优点：
+
+- 最快，纯 Java 实现即可。
+- 不需要配置、不需要远程中间件、不需要真实 embedding。
+- 非常适合单元测试、演示链路、前端截图前的稳定验证。
+
+缺点：
+
+- 不能跨进程持久化。
+- 不能作为生产方案。
+- 必须在文档和面试中标注 fake / demo / test boundary。
+
+适合：T054 第一阶段，先把接口、测试、citation mapping 和 Agent QA tool 兼容性打通。
+
+## 4. 推荐路线
+
+### 求职冲刺优先方案
+
+推荐先采用：
+
+```text
+fake embedding + in-memory fake vector store + document_chunk 设计草案
+```
+
+理由：
+
+- 最快形成可测闭环，不依赖新中间件。
+- 能证明 RAG 工程拆分：chunk、embedding、retrieve、answer、citations。
+- 适合先让后端测试和前端展示稳定，再决定真实向量库。
+- 不会因为 Qdrant / Redis Stack 环境问题拖慢投递节奏。
+
+### 后续工程化方案
+
+推荐后续采用：
+
+```text
+Qdrant as primary vector store + MySQL document_chunk metadata + fake store for tests
+```
+
+理由：
+
+- Qdrant 是专用向量数据库，面试表达清晰。
+- MySQL 继续负责 chunk 元数据、hash、版本和重建记录。
+- in-memory fake 保留为单元测试替身，避免测试依赖真实服务。
+
+Redis Vector 可作为备选：如果用户已经有 Redis Stack 环境并希望减少中间件数量，可优先评估 Redis Vector；否则不要把普通 Redis 误写成已支持向量检索。
+
+## 5. T054 前置确认项
+
+进入 T054 代码实现前需要用户确认：
+
+1. 是否允许新增 docker-compose 服务，例如 Qdrant。
+2. 是否允许使用远程中间件，还是只做本地 fake。
+3. embedding provider 使用 fake 还是真实模型。
+4. 是否允许新增 `document_chunk` / `chunk_embedding` 表或迁移脚本。
+5. 是否允许新增后端内部 service 和测试资源。
+6. 是否先不改公开 API，只在 service / test 层打通链路。
+
+## 6. 面试口径
+
+可以这样讲：
+
+- “当前项目已经有轻量检索增强和 citations；下一步 RAG 我会先用 fake embedding 和 in-memory vector store 打通链路，再接 Qdrant。”
+- “我不会一上来引入复杂框架，因为先把 chunk、embedding、retrieve、citation mapping 和测试边界拆清楚更重要。”
+- “MySQL 适合保存 chunk metadata，但不把它包装成专业向量库。”
+- “Redis Vector 需要 Redis Stack 支持，不等同于普通 Redis。”
+- “Qdrant 是后续工程化的推荐方案，但需要用户确认新增服务和部署方式。”
+
+## 7. 本任务明确未做
+
+- 未修改 docker-compose。
+- 未修改配置文件。
+- 未新增后端 API。
+- 未实现 embedding。
+- 未实现向量库。
+- 未修改数据库 DDL。
+- 未修改 production routing。

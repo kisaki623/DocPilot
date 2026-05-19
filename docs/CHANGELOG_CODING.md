@@ -2,6 +2,43 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-19 - T053 Vector Store Selection
+
+### 本轮目标
+
+比较 Qdrant、Redis Vector / Redis Stack、MySQL fallback 和 in-memory fake vector store，给 DocPilot 最小 RAG 选出求职冲刺优先方案和后续工程化方案。本轮只写选型，不实现代码。
+
+### 修改文件
+
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/VECTOR_STORE_SELECTION.md`，按接入成本、本地 / 远程中间件成本、Java / Spring Boot 复杂度、求职展示价值、生产化潜力、测试难度和面试解释难度比较四类方案。
+- 明确求职冲刺优先方案：fake embedding + in-memory fake vector store，先打通 service、retrieve、citations 和测试闭环。
+- 明确后续工程化方案：Qdrant 作为 primary vector store，MySQL 保存 chunk metadata，in-memory fake 保留为测试替身。
+- 说明 Redis Vector / Redis Stack 只在运行环境确实支持 RediSearch / vector index 时作为备选。
+- 补充 T054 前置确认项：是否允许新增 docker-compose 服务、是否使用远程中间件、embedding 使用 fake 还是真实模型、是否需要新表。
+
+### 验证结果
+
+- 文档 diff 自查。
+- 未运行后端 / 前端测试；本轮未修改代码。
+
+### 当前边界
+
+- 未修改 docker-compose。
+- 未修改配置文件。
+- 未新增后端 API。
+- 未实现 embedding。
+- 未实现向量库。
+- 未修改 DDL。
+- 未修改 production routing。
+
 ## 2026-05-19 - T052 RAG Minimal Design
 
 ### 本轮目标

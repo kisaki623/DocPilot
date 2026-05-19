@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T053-Vector-Store-Selection
+
+- 状态：DONE
+- 完成时间：2026-05-19
+- 任务目标：比较 Qdrant、Redis Vector / Redis Stack、MySQL fallback 和 in-memory fake vector store，确定 DocPilot 最小 RAG 的最快落地方案。
+- 当前结果：新增 `docs/VECTOR_STORE_SELECTION.md`，从接入成本、中间件成本、Java / Spring Boot 复杂度、求职展示价值、生产化潜力、测试难度和面试解释难度对比四类方案；推荐求职冲刺先用 fake embedding + in-memory fake vector store，后续工程化再接 Qdrant + MySQL chunk metadata。
+- 验证结果：文档 diff 自查；未运行代码测试，因为本任务只做选型。
+- 边界：未修改 docker-compose、配置、DDL、后端代码、前端代码或 production routing；未实现 embedding、向量库或 RAG。
+
 ### T052-RAG-Minimal-Design
 
 - 状态：DONE
@@ -932,4 +941,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-求职展示冲刺路线已完成 T050 / T056 / T052。下一步建议进入 T053-Vector-Store-Selection，只做向量库最小接入选型，不写代码、不改配置、不接 embedding。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
+求职展示冲刺路线已完成 T050 / T056 / T052 / T053。下一步建议进入 T054-RAG-Minimal-Implementation，但开始前需要用户确认：是否允许新增表、是否允许新增 docker-compose 服务、embedding 使用 fake 还是真实 provider、是否保持公开 API 不变。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。

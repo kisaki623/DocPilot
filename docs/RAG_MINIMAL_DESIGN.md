@@ -148,3 +148,13 @@ T054 建议先做最小可测实现：
 5. 再根据 T053 选型决定是否引入 Qdrant / Redis Vector / MySQL fallback。
 
 进入 T054 前需要用户确认：是否允许新增表、是否允许新增 docker-compose 服务、embedding 使用 fake 还是真实 provider、是否允许连接远程中间件。
+
+## 10. T053 向量库选型结论
+
+T053 已新增 `docs/VECTOR_STORE_SELECTION.md`。当前推荐路线是：
+
+- 求职冲刺优先：fake embedding + in-memory fake vector store，先打通 service、retrieve、citations 和测试闭环。
+- 后续工程化：Qdrant 作为 primary vector store，MySQL 保存 chunk metadata，in-memory fake 保留为测试替身。
+- Redis Vector / Redis Stack 作为备选，前提是用户确认运行环境确实支持 RediSearch / vector index。
+
+进入 T054 前仍需用户确认是否允许新增 docker-compose 服务、是否允许新增表、embedding 使用 fake 还是真实 provider，以及是否继续保持公开 API 不变。
