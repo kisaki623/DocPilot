@@ -2,6 +2,37 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T051-T060 Overnight Closeout
+
+### 本轮目标
+
+按夜间队列完成 T051、T058、T059、T060 后执行全局验证，并更新协作文档收口。
+
+### 完成范围
+
+- T051：默认关闭的 LLM tool execution mode，显式 `llm_execute` 才允许 LLM decision 进入工具选择；ToolRegistry allowlist 校验；失败 fallback keyword。
+- T058：`/agent` 页面新增 Agent Workflow timeline，基于已有 run response 和 persisted trace 派生展示。
+- T059：新增 `docs/PROMPT_ENGINEERING_NOTES.md`，补齐 prompt、JSON 输出协议、parser、allowlist、fallback 和 bad case 证据链。
+- T060：新增 `backend/scripts/agent/demo-agent-showcase.ps1` 和 `docs/DEMO_SCRIPT.md`，提供安全 demo 脚本。
+
+### 最终验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，312 tests。
+- `cd frontend; npm run lint`：通过，无 ESLint warning / error。
+- `cd frontend; npm run build`：通过，Next.js production build 成功。
+
+### 当前边界
+
+- T051d 真实 provider execute runtime 仍为 BLOCKED：当前 shell 未注入 provider / 中间件环境变量。
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、prompt、文档正文或完整 answer。
+- 未新增公开 API。
+- 未修改默认 production routing。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+- 未新增数据库表、DDL 或 docker-compose 服务。
+- 未处理 T010 / MQ blocked。
+- 本轮未启动长期后端 / 前端服务，无本轮需清理的服务进程。
+
 ## 2026-05-20 - T060 Agent Showcase Demo Script
 
 ### 本轮目标

@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T051-T060-Overnight-Agent-Showcase-Closeout
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：按夜间队列完成 T051、T058、T059、T060，并做最终全局验证与协作文档收口。
+- 当前结果：T051 默认关闭 LLM tool execution mode、T058 Agent Workflow timeline、T059 Prompt Engineering 证据链、T060 安全 demo script 均已完成并单独提交；未新增公开 API，未修改默认 production routing。
+- 全局验证：`cd backend; mvn test -DskipITs` 通过，312 tests；`cd frontend; npm run lint` 通过；`cd frontend; npm run build` 通过。
+- 边界：T051d 真实 provider execute runtime 仍为 BLOCKED，原因是当前 shell 未注入 provider / 中间件环境变量；本轮未读取 `backend/.env`，未输出 API Key / baseUrl / Authorization / prompt / 文档内容，未接 LangChain4j / Qdrant / Redis Vector / 真实 embedding，未新增数据库表或 docker-compose 服务，未处理 T010 / MQ blocked。
+
 ### T060-Agent-Showcase-Demo-Script
 
 - 状态：DONE
@@ -1008,4 +1017,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058 / T059 / T060。下一步建议做夜间收口全局验证，或在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
+求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058 / T059 / T060，并完成夜间全局验证收口。下一步建议先做人工 / CC 只读审查 T051-T060 的代码与文档 diff；如用户确认并注入 provider / 中间件环境变量，再重跑 T051d 真实 provider execute runtime。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。

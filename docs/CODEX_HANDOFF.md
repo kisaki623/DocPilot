@@ -146,6 +146,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T058 已完成：`/agent` 页面结果区新增 Agent Workflow timeline，按已有响应和持久化 trace 派生展示接收任务、选择工具、执行工具、生成结果和持久化 trace；未新增 API、未改后端 routing、未伪造后端步骤。验证：前端 `npm run lint` / `npm run build` 通过，后端 `mvn test -DskipITs` 通过 312 tests。
 - T059 已完成：新增 `docs/PROMPT_ENGINEERING_NOTES.md`，记录 Tool Selection prompt 模板结构、JSON 输出协议、parser 校验、ToolRegistry allowlist、服务端工具执行、fallback 策略、shadow-only 到 execute mode 演进和 bad cases；未输出真实 prompt、文档正文、API Key、baseUrl 或 Authorization，未真实调用 provider。
 - T060 已完成：新增 `backend/scripts/agent/demo-agent-showcase.ps1` 和 `docs/DEMO_SCRIPT.md`；脚本要求显式传入 `DocumentId`，支持 `qa / rag / summary`，默认只连接已有后端服务，token 只通过 `-Token` 或 `DOCPILOT_AUTH_TOKEN` 注入且不会打印。输出仅包含 taskId、decision、routingReason 是否存在和 counts 等脱敏摘要。PowerShell 语法检查通过；当前 shell 未提供 token，未执行 runtime 调用，未启动服务。
+- 夜间收口已完成：T051 / T058 / T059 / T060 均已单独提交；最终全局验证 `cd backend; mvn test -DskipITs` 通过 312 tests，`cd frontend; npm run lint` 通过，`cd frontend; npm run build` 通过。T051d 真实 provider execute runtime 仍因当前 shell 缺 provider / 中间件环境变量保持 BLOCKED。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路
@@ -191,7 +192,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 9. 后续最应该做的 3 个方向
 
-1. 求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058 / T059 / T060。下一步建议做夜间收口全局验证，或在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime。
+1. 求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058 / T059 / T060，并已完成夜间全局验证收口。下一步建议先做人工 / CC 只读审查 T051-T060 的代码与文档 diff；如用户确认并注入 provider / 中间件环境变量，再重跑 T051d 真实 provider execute runtime。
 2. 完整 T010 仍需要可用 MQ / 解析消费环境；如要验证上传解析链路，应回到 `T010m-local-mq-readiness-check` 和环境确认。
 3. 不要直接进入生产 LLM tool calling / MCP / 多 Agent / MQ 异步 Agent；如后续做完整 T010，需用户确认是否通过 hk-ops 检查远程 MQ / Redis / MinIO / MySQL。
 
@@ -259,6 +260,6 @@ npm run build
 
 ## 14. 当前最建议优先做的一个最小任务
 
-优先做夜间收口全局验证，或补 T051d 真实 provider execute runtime 验证。不要直接生产暴露 endpoint，也不要继续堆 Prometheus / Spring Security 实现。
+优先做人工 / CC 只读审查 T051-T060 的代码与文档 diff，或在用户确认环境变量后补 T051d 真实 provider execute runtime 验证。不要直接生产暴露 endpoint，也不要继续堆 Prometheus / Spring Security 实现。
 
-原因：T050 / T056 已把 Agent Showcase 和求职材料收口，T052 / T053 已给出最小 RAG 设计与向量库选型，T054 已实现 fake embedding + in-memory fake vector store 的内部 service 和测试闭环，T055 已把 RAG 召回片段、score 和 citation metadata 展示到 `/agent`，T057 已补齐 runtime 验证和截图证据，T051a-c 已实现默认关闭的 LLM tool execution mode 和 fallback 测试，T058 已补强 workflow timeline 展示，T059 已补 Prompt Engineering / Tool Selection Engineering 证据链，T060 已补安全 demo script。下一步应先做全局验证和文档收口。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED。本轮不应修改真实配置或开启生产访问。
+原因：T050 / T056 已把 Agent Showcase 和求职材料收口，T052 / T053 已给出最小 RAG 设计与向量库选型，T054 已实现 fake embedding + in-memory fake vector store 的内部 service 和测试闭环，T055 已把 RAG 召回片段、score 和 citation metadata 展示到 `/agent`，T057 已补齐 runtime 验证和截图证据，T051a-c 已实现默认关闭的 LLM tool execution mode 和 fallback 测试，T058 已补强 workflow timeline 展示，T059 已补 Prompt Engineering / Tool Selection Engineering 证据链，T060 已补安全 demo script，最终全局验证已通过。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED。本轮不应修改真实配置或开启生产访问。
