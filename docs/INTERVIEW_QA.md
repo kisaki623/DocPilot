@@ -142,6 +142,16 @@
 
 对应位置：`DocumentAgentController`、`DocumentAgentServiceImpl`、`AgentTool`。
 
+### Q13-1：这和 LangChain / LangGraph / Dify 有什么区别？
+
+面试可背版回答：我没有一开始接框架，而是先把 Agent 的基础设施自己做出来：ToolRegistry、ToolSelector、ToolDefinition、AgentTask / AgentStep trace、前端 Showcase。这样可以看清楚工具选择、执行轨迹、引用证据和失败边界，后续再接 LangChain / LangGraph 时也能判断它们的 tracing 和 tool abstraction 是否满足项目需求。
+
+面试官追问：是不是重复造轮子？
+
+诚实边界：是有取舍的。我的目标不是替代框架，而是通过一个小项目理解 Agent 工程的底层问题；真正生产化时可以引入成熟框架，但要保留自己的业务工具、权限、trace 和降级边界。
+
+对应位置：`ToolRegistry`、`ToolDefinitionProvider`、`AgentTaskPersistenceService`、`frontend/app/agent/page.tsx`。
+
 ### Q14：AgentTask / AgentStep 为什么要落库？
 
 面试可背版回答：落库可以保留每次 Agent run 的状态、工具步骤和耗时，便于前端展示 trace，也便于后续排障。
@@ -193,6 +203,26 @@
 诚实边界：`DocumentAgentServiceImpl` 的真实工具执行路径仍读取 primary decision；相关测试覆盖了 production routing 不变。
 
 对应位置：`DocumentAgentServiceImpl`、`DocumentAgentServiceImplTest`。
+
+### Q18-1：这是真 Function Calling 吗？
+
+面试可背版回答：当前还不是生产 takeover 的真实 Function Calling。项目已经有工具定义、prompt builder、LLM 输出 parser 和 real provider shadow-only 验证，形态上是 Function Calling / Tool Calling 的前置层；但真实执行工具仍由 primary `DocumentToolSelector` 决定，LLM 只在 shadow 路径里给出候选 decision。
+
+面试官追问：为什么不直接让 LLM 决定工具？
+
+诚实边界：因为 LLM tool selection 可能解析失败、选错工具或受 prompt 波动影响。我先用 shadow-only 比较 primary / shadow decision，等有足够 matchRate 和失败率数据后再考虑开关式 takeover。
+
+对应位置：`ToolDefinitionProvider`、`LlmToolSelectionPromptBuilder`、`LlmToolSelectionParser`、`RealLlmSelectorShadowRunner`。
+
+### Q18-2：RAG 还没做，怎么解释？
+
+面试可背版回答：当前是轻量检索增强：文档内容切分、关键词检索、上下文组装、回答和 citations。它不是完整向量 RAG。下一步最小 RAG 会补 chunk 持久化、embedding、vector store、topK retrieve、prompt assemble 和 score/citation 展示。
+
+面试官追问：为什么不直接上向量库？
+
+诚实边界：求职展示要控制复杂度。先把现有 QA / Agent / citations 跑通，再选择 Qdrant 或 Redis Vector 做最小闭环，避免为了“有 RAG”而引入不可验证的中间件。
+
+对应位置：`DocumentQaServiceImpl`、`docs/RAG_MINIMAL_DESIGN.md`（规划中）。
 
 ## 7. 真实 LLM provider shadow-only
 

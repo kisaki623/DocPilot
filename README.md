@@ -11,6 +11,17 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 - 关键中间件可切换：本地 demo 可一键拉起，云环境可按配置切换
 - 面向真实约束：限流、幂等、异步补偿、可观测性、错误降级都在主链路内可见
 
+## For AI Agent Internship Reviewers
+
+如果你只想快速判断这个项目是否和 AI Agent / RAG / Function Calling 岗位相关，建议先看这 4 点：
+
+1. **可展示 Demo**：`/agent` 页面已收口为 Agent Showcase，可以选择当前账号已解析文档，展示工具选择、`routingReason`、`matchedKeywords`、`taskId`、持久化 steps、最终回答和 citations。
+2. **Agent 工具链**：后端已有 `ToolRegistry`、`DocumentToolSelector`、文档状态 / 摘要 / 问答三类工具，形态接近 Tool Calling / Function Calling 的工程化前置层。
+3. **执行轨迹**：每次 Agent run 会写入 `AgentTask` / `AgentStep`，前端能展示 stepIndex、toolName、status、durationMs、inputSummary、outputSummary。
+4. **真实边界**：当前不是完整向量 RAG，也不是 LLM function calling takeover；真实 provider 已做 shadow-only 验证，但 production routing 仍由规则 selector 决定。
+
+下一阶段求职展示优先级：先补最小 RAG 设计与向量库选型，再决定是否实现真实 Function Calling takeover 和 RAG runtime。
+
 ## 核心亮点
 
 - **Outbox + RocketMQ 异步解析链路**：`task/parse/create` 返回后，解析按消息链路异步推进；含补偿扫描与重投设计，完整运行依赖可用 MQ / consumer 环境。
@@ -52,7 +63,7 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 3. `03-documents-list-filter-status-YYYYMMDD.png`（搜索/筛选/状态）
 4. `04-detail-qa-citations-YYYYMMDD.png`（详情 + 回答 + 引用）
 5. `05-detail-sse-streaming-in-progress-YYYYMMDD.png`（流式输出过程态）
-6. `06-agent-persisted-trace-YYYYMMDD.png`（Agent 决策 + 持久化执行轨迹）
+6. `06-agent-showcase-routing-trace-citations-YYYYMMDD.png`（Agent Showcase：工具决策 + 持久化执行轨迹 + 引用证据）
 
 ## 快速开始（本地演示）
 
@@ -218,6 +229,6 @@ DocPilot/
 ---
 
 如果你在准备面试演示，建议优先展示这条 5 分钟链路：
-`已解析文档 -> 详情页普通/SSE 问答 -> Agent 页面查看工具决策与持久化执行轨迹 -> 说明 selector shadow-only 和默认关闭 Actuator endpoint 的边界`。
+`已解析文档 -> 详情页普通/SSE 问答 -> Agent Showcase 页面查看工具决策、持久化执行轨迹和 citations -> 说明真实 Function Calling takeover / 完整向量 RAG 仍是下一阶段规划`。
 
 如要展示“上传 -> 自动解析 -> 问答”的完整链路，请先确认 RocketMQ / consumer 环境可用；当前 T010 完整上传解析 runtime 验证仍为 BLOCKED。

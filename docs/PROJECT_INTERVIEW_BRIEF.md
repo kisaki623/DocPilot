@@ -8,6 +8,8 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 更克制的面试讲法：这是一个展示后端工程链路和 AI 应用工程化意识的项目，不是生产级 SaaS、完整向量 RAG 平台或成熟多 Agent 系统。
 
+面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、执行轨迹和引用证据展示；RAG 向量化、真实 Function Calling takeover 和 Workflow 增强是接下来的求职展示冲刺方向。
+
 ## 2. 当前真实已实现能力
 
 - 账号密码注册 / 登录、文档上传、文档创建、文档列表和详情页。
@@ -53,7 +55,15 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 4. 构建 selector shadow mode：在不改变生产 routing 的前提下，对比 primary / shadow decision，记录 match / mismatch、provider 聚合和 threshold policy。
 5. 完成真实 provider shadow-only 验证和安全观测设计，包含脱敏日志、debug dump、默认关闭 Actuator endpoint 和 Prometheus metrics 设计边界。
 
-## 7. 面试高风险追问与诚实回答
+## 7. 求职展示优先级
+
+1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
+2. 再展示详情页普通问答 / SSE 流式问答：说明 citations 如何来自轻量检索增强。
+3. 对 RAG 保持诚实：当前是关键词检索增强，下一步计划做 chunk / embedding / vector store / retrieve / answer 最小闭环。
+4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only；生产工具执行仍未交给 LLM decision。
+5. 面试时不要优先讲 Actuator / Prometheus / Spring Security，除非面试官追问可观测性或安全边界。
+
+## 8. 面试高风险追问与诚实回答
 
 ### 你这个是完整 RAG 吗？
 

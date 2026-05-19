@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T056-Job-Materials
+
+- 状态：DONE
+- 完成时间：2026-05-19
+- 任务目标：把 README 和面试材料切换到 AI Agent / RAG / Function Calling 求职展示口径。
+- 当前结果：README 新增面向 AI Agent Internship Reviewers 的快速说明；项目 brief、架构说明、简历 bullet 和面试 QA 补充 Agent Showcase、Function Calling 风格工具抽象、RAG 未完成边界和下一阶段规划。
+- 验证结果：已执行文档 diff 自查；已检查过度宣传关键词，命中均处于否定、边界或规划语境。
+- 边界：仅修改文档；未修改代码、配置、DDL 或 production routing；未把 RAG / Function Calling takeover / Prometheus / Spring Security 写成已完成。
+
 ### T050-Agent-Showcase
 
 - 状态：DONE

@@ -2,6 +2,43 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-19 - T056 Job Materials Refocus
+
+### 本轮目标
+
+把 README 和 docs 中的项目介绍切换到 AI Agent / RAG / Function Calling 求职展示口径。
+
+### 修改文件
+
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/INTERVIEW_QA.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- README 新增面向 AI Agent Internship Reviewers 的快速说明，突出 Agent Showcase、ToolRegistry / ToolSelector、执行轨迹和真实边界。
+- 项目 brief 增加求职展示优先级，建议优先展示 Agent Showcase 和 SSE / citations，再诚实解释 RAG 与 Function Calling 下一阶段规划。
+- 架构说明补充 `/agent` Showcase 页面在展示链路中的位置。
+- 简历 bullet 新增 AI Agent / RAG 实习投递版本。
+- 面试 QA 补充 LangChain / LangGraph / Dify 区别、是否是真 Function Calling、RAG 还没做如何解释等问题。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改 Java 生产代码。
+- 未修改前端代码。
+- 未修改配置文件。
+- 未新增 API。
+- 未接 RAG。
+- 未接真实 Function Calling takeover。
+- 未改变 production routing。
+- 未把 RAG、Prometheus、Spring Security 或 Function Calling takeover 写成已完成。
+
 ## 2026-05-19 - T050 Agent Showcase Page
 
 ### 本轮目标

@@ -40,6 +40,18 @@
 - 设计 selector shadow mode，在不改变生产 routing 的前提下旁路比较 primary / shadow decision，记录 match / mismatch、provider 聚合和 threshold policy。
 - 完成真实 provider shadow-only 验证和安全观测方案：默认 disabled，真实调用需显式授权；debug dump 和默认关闭 Actuator endpoint 只输出聚合指标，不输出 prompt、文档内容、模型原文或敏感凭据。
 
+## 版本四：AI Agent / RAG 实习投递版
+
+项目名称：DocPilot AI Agent 文档问答 Demo
+
+项目描述：面向文档问答场景的 Java + Next.js AI Agent 展示项目，已实现工具选择、执行轨迹和引用证据展示，并规划最小向量 RAG 演进路线。
+
+- 实现 Agent Showcase 页面，支持选择已解析文档并展示工具决策、routingReason、matchedKeywords、taskId、持久化 steps、最终回答和 citations。
+- 抽象 ToolRegistry / ToolSelector / ToolDefinition，为文档状态、摘要、问答工具提供统一注册、规则路由和未来 Function Calling 输出协议。
+- 设计并验证 real provider shadow-only 路径，在不改变 production routing 的前提下比较 primary / shadow decision，降低 LLM 决策直接接管风险。
+- 构建轻量检索增强问答链路，支持 chunk、关键词检索、上下文组装、AI 回答和引用片段展示；下一阶段计划升级为 embedding + vector store 的最小 RAG。
+- 通过 Maven 测试、前端 lint/build、Agent smoke 和 Playwright runtime 记录沉淀验证证据，明确 MQ disabled、RAG 未完成和 Function Calling 未接管的边界。
+
 可写成“设计了”的能力：
 
 - 设计了 Spring Security / Actuator 安全集成方案，但当前未实现 Spring Security。
@@ -53,3 +65,9 @@
 - Actuator endpoint 已在生产暴露。
 - shadow decision 已接管 production routing。
 - 完整向量 RAG、多 Agent 编排、MCP 或 LLM function calling 已落地。
+
+面试可讲但简历不建议硬写：
+
+- 可以讲“已完成 Function Calling 风格工具抽象和输出协议”，但不要写“真实 Function Calling 已接管生产工具选择”。
+- 可以讲“已有 RAG 最小闭环设计和轻量检索增强基础”，但不要写“已接入向量库 / 完整 RAG”。
+- 可以讲“Actuator / Prometheus 有设计和默认关闭 endpoint”，但不要写“生产可观测体系已上线”。

@@ -69,6 +69,8 @@ flowchart LR
 
 Agent run 入口为 `/api/ai/agent/run`。后端先检查文档状态，再通过 `DocumentToolSelector` 选择状态、摘要或问答工具。执行过程会记录内存 trace 和持久化 AgentTask / AgentStep。
 
+前端 `/agent` 已收口为 Agent Showcase 页面，用于求职展示：页面可展示文档选择 / documentId 输入、摘要 / 问答任务模板、decision、routingReason、matchedKeywords、taskId、持久化 steps、最终回答和 citations。
+
 ### AgentTask / AgentStep 持久化
 
 Agent run 会 best-effort 写入 `tb_agent_task` 和 `tb_agent_step`。后端提供按 taskId 查询 task / steps 的接口，前端 `/agent` 页面展示持久化执行轨迹。
@@ -123,6 +125,8 @@ sequenceDiagram
 ## 4. 面试讲解建议
 
 推荐先讲主链路：上传 -> 文档创建 -> 解析任务 -> 问答 -> SSE -> Agent run -> 持久化 trace。然后再讲工程化增强：Outbox + MQ、幂等锁、缓存限流、selector shadow mode、debug dump 和默认关闭 Actuator endpoint。
+
+如果面向 AI Agent / RAG 实习岗位，建议把讲解顺序调整为：Agent Showcase -> ToolRegistry / ToolSelector -> AgentTask / AgentStep trace -> 轻量检索增强与 citations -> RAG / Function Calling 下一阶段规划。
 
 不要把以下内容讲成已完成：
 
