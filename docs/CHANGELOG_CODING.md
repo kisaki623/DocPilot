@@ -2,6 +2,42 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-19 - T052 RAG Minimal Design
+
+### 本轮目标
+
+设计 DocPilot 从当前轻量文档问答升级到最小 RAG 的最短路径。本轮只写设计，不实现 RAG，不新增 API，不接 embedding provider，不接向量库。
+
+### 修改文件
+
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/RAG_MINIMAL_DESIGN.md`，明确当前已有链路：文档上传 / 解析状态、文档问答、citations 和 Agent QA tool。
+- 设计最小 RAG 目标链路：parsed text、chunk、embedding、vector store、retrieve topK、prompt assemble、answer、citations / score 展示。
+- 补充 `document_chunk`、`chunk_embedding` 或 vector store payload 的数据模型草案。
+- 补充内部 service 草案、fallback 策略、fake embedding / deterministic retrieve / citation mapping 测试策略和面试说法。
+- 架构说明同步加入最小 RAG 演进路径，避免把当前轻量检索增强误写成完整向量 RAG。
+
+### 验证结果
+
+- 文档 diff 自查。
+- 未运行后端 / 前端测试；本轮未修改代码。
+
+### 当前边界
+
+- 未实现 RAG。
+- 未新增后端 API。
+- 未修改后端 Java、前端代码、配置、DDL 或 production routing。
+- 未接 embedding provider。
+- 未接向量库。
+- 完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED。
+
 ## 2026-05-19 - T056 Job Materials Refocus
 
 ### 本轮目标

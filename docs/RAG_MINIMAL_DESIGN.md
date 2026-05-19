@@ -1,0 +1,150 @@
+# RAG Minimal Design
+
+本文档记录 DocPilot 从当前轻量文档问答升级到最小 RAG 的最短路径。T052 只做设计，不实现代码、不新增 API、不接 embedding provider、不接向量库。
+
+## 1. 目标与边界
+
+目标是把现有“文档内容切分 + 关键词检索 + citations”的问答链路，升级为可解释的最小 Retrieval Augmented Generation 闭环：
+
+```text
+parsed text -> chunk -> embedding -> vector store -> retrieve topK -> prompt assemble -> answer -> citations / score display
+```
+
+当前边界：
+
+- 已有 Agent QA tool、普通问答、SSE 问答、citations 和前端引用展示。
+- 当前不是完整向量 RAG；还没有 embedding、向量库、向量召回、rerank 或 RAG 召回片段展示。
+- 完整上传 -> 解析 -> Agent run 的 T010 runtime 仍因 MQ disabled / NoopParseTaskMessageProducer 保持 BLOCKED。
+- 本设计不修改代码，不修改配置，不新增公开 API。
+
+## 2. 当前已有链路
+
+当前可复用能力：
+
+- 文档上传 / 创建 / 状态查询：已有文件和文档记录，解析成功后可读取文档正文。
+- 文档问答：`DocumentQaServiceImpl` 已负责读取文档内容、切分文本、选择上下文、调用 mock 或 real answer service。
+- citations：问答结果可返回 chunkIndex、charStart、charEnd、snippet、score 等引用信息，前端文档详情页和 Agent 页面可展示引用证据。
+- Agent QA tool：Agent 路由到 `document_qa_tool` 后复用文档问答能力，并记录 AgentTask / AgentStep trace。
+
+这意味着最小 RAG 不需要重做上传、鉴权、Agent trace 或 citations UI，优先补齐 chunk 持久化、embedding 与 retrieve 服务即可。
+
+## 3. 最小 RAG 目标链路
+
+建议最小闭环拆为 6 步：
+
+1. `parsed text`：从已解析文档正文生成稳定文本版本。
+2. `chunk`：按固定窗口和 overlap 生成 chunks，记录 chunkIndex、hash、metadata。
+3. `embedding`：通过 fake embedding 或真实 embedding provider 生成向量。
+4. `vector store`：写入向量库或测试用 in-memory store，并保留 documentId / userId payload。
+5. `retrieve topK`：按问题向量检索 topK chunks，返回 score 与 citation mapping。
+6. `answer`：把 topK chunks 组装进 prompt，调用现有 answer service，返回答案与 citations。
+
+优先实现内部 service 链路，等链路稳定后再考虑公开 API 或前端交互增强。
+
+## 4. 数据模型草案
+
+### document_chunk
+
+建议用于保存 chunk 元数据和可读文本，便于重建索引、排障和 citations 对齐。
+
+| 字段 | 说明 |
+| --- | --- |
+| id | chunk 主键 |
+| document_id | 所属文档 |
+| user_id | 所属用户，用于鉴权和隔离 |
+| chunk_index | 文档内 chunk 顺序 |
+| content | chunk 文本 |
+| char_start | 原文起始字符位置 |
+| char_end | 原文结束字符位置 |
+| metadata_json | 页码、标题、段落路径、解析版本等扩展信息 |
+| content_hash | chunk 内容 hash，用于幂等重建 |
+| chunk_version | chunk 策略版本 |
+| created_at / updated_at | 审计时间 |
+
+### chunk_embedding / vector payload
+
+如果使用数据库保存 embedding，可设计 `chunk_embedding`：
+
+| 字段 | 说明 |
+| --- | --- |
+| id | embedding 主键 |
+| chunk_id | 对应 document_chunk |
+| document_id | 冗余字段，便于过滤 |
+| user_id | 冗余字段，便于鉴权过滤 |
+| provider | embedding provider |
+| model | embedding model |
+| dimension | 向量维度 |
+| vector_ref | 外部向量库 point id 或本地引用 |
+| embedding_hash | embedding 输入和模型版本 hash |
+| created_at / updated_at | 审计时间 |
+
+如果使用 Qdrant / Redis Vector，则向量库 payload 至少包含：
+
+- `documentId`
+- `userId`
+- `chunkIndex`
+- `contentHash`
+- `chunkVersion`
+- `charStart`
+- `charEnd`
+- `metadata`
+
+## 5. 内部 API / Service 草案
+
+短期不新增公开 API，优先新增内部 service：
+
+```java
+List<RagChunkHit> retrieveForQuestion(Long documentId, String question, int topK);
+
+RagAnswerResult answerWithRetrievedContext(Long documentId, String question, List<RagChunkHit> hits);
+```
+
+建议模块：
+
+- `DocumentChunkingService`：从解析文本生成 chunks。
+- `EmbeddingService`：统一 fake / real embedding provider。
+- `VectorStoreService`：统一 upsert / search / delete。
+- `RagRetrieveService`：封装鉴权、embedding、topK 检索和 fallback。
+- `RagAnswerService`：封装 prompt assemble、answer service 调用和 citations 映射。
+
+Agent 接入时，`document_qa_tool` 可以先保持当前逻辑；待 RAG 链路稳定后，再通过 feature flag 切换 QA tool 的 context provider。
+
+## 6. Fallback 策略
+
+- embedding provider 不可用：返回可解释错误，或在 demo 模式使用 fake embedding；不能静默把失败写成 RAG 成功。
+- vector store 不可用：降级到当前关键词 / chunk 检索，并在响应或日志中标注 fallback 来源。
+- 文档未解析：返回 status_only 或 parse-not-ready，不进入 retrieve。
+- chunk 索引不存在：触发只读提示或后台重建任务；不要在用户请求路径里无限等待。
+- topK 为空：回答“未找到足够依据”，并返回空 citations。
+
+## 7. 测试策略
+
+最小测试应先覆盖 deterministic 行为：
+
+- fake embedding：同一输入返回稳定向量，不需要真实 provider。
+- deterministic retrieve：固定 chunks 和 question，topK 顺序稳定。
+- topK order：断言 score 排序和过滤条件。
+- citation mapping：断言 chunkIndex / charStart / charEnd / snippet 能映射回原文。
+- fallback：embedding 不可用、vector store 不可用、文档未解析、topK 为空。
+- Agent QA tool 兼容：RAG context provider 开关关闭时，当前 production routing 和 QA 行为不变。
+
+## 8. 面试说法
+
+可以这样讲：
+
+- “当前项目已经实现轻量检索增强问答和 citations，Agent QA tool 可以复用这条链路，并展示执行轨迹。”
+- “下一步最小 RAG 会把当前临时文本检索替换为 chunk 持久化、embedding 和向量 topK 召回。”
+- “我没有直接上 LangChain / LangGraph，是因为这个项目重点展示 Java 后端工程能力：鉴权、异步解析、幂等、trace、service 边界、fallback 和测试可控性。”
+- “RAG 尚未实现时，我会明确说当前是轻量检索增强，不会把它包装成完整向量 RAG。”
+
+## 9. T054 落地建议
+
+T054 建议先做最小可测实现：
+
+1. 新增 chunk service 和 fake embedding。
+2. 新增 in-memory fake vector store 测试替身。
+3. 用固定文档样例验证 retrieve topK 和 citations。
+4. 保持公开 API 和前端不变。
+5. 再根据 T053 选型决定是否引入 Qdrant / Redis Vector / MySQL fallback。
+
+进入 T054 前需要用户确认：是否允许新增表、是否允许新增 docker-compose 服务、embedding 使用 fake 还是真实 provider、是否允许连接远程中间件。
