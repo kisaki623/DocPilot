@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T060-Agent-Showcase-Demo-Script
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：新增安全版 Agent Showcase demo 脚本，降低面试 / 投递演示翻车概率。
+- 当前结果：新增 `backend/scripts/agent/demo-agent-showcase.ps1` 和 `docs/DEMO_SCRIPT.md`；脚本要求显式传入 `DocumentId`，默认连接已有 `BackendBaseUrl=http://localhost:8081`，支持 `qa / rag / summary` 模式，token 只通过 `-Token` 或当前 shell `DOCPILOT_AUTH_TOKEN` 注入且不会打印。
+- 输出边界：只输出脱敏摘要，包括 `taskId`、`decision`、`routingReasonPresent`、`matchedKeywordsCount`、`citationsCount`、`ragResultsCount`、`stepsCount`、`fallbackUsed`、`toolSelectionSource`；不输出完整 answer、文档正文、prompt、Authorization 或 secret。
+- 验证结果：PowerShell 语法检查通过。当前 shell 未提供 `DOCPILOT_AUTH_TOKEN`，因此未执行真实 runtime 调用；未启动后端 / 前端服务，未连接远程环境。
+- 边界：未读取 `backend/.env`；未硬编码 API Key / baseUrl / token；未新增 API；未修改默认 production routing；未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+
 ### T059-Prompt-Engineering-Evidence
 
 - 状态：DONE
@@ -998,4 +1008,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058 / T059。下一步建议进入 T060 Demo Script，或在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
+求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058 / T059 / T060。下一步建议做夜间收口全局验证，或在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。

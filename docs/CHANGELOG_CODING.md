@@ -2,6 +2,42 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T060 Agent Showcase Demo Script
+
+### 本轮目标
+
+新增一个安全版 Agent Showcase demo 脚本，默认只验证当前已有后端服务，不读取 `backend/.env`，不输出 secret，不硬编码 API Key 或 token。
+
+### 修改文件
+
+- `backend/scripts/agent/demo-agent-showcase.ps1`
+- `docs/DEMO_SCRIPT.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `demo-agent-showcase.ps1`，参数包括 `BackendBaseUrl`、`DocumentId`、`Mode=qa|rag|summary` 和可选 `Token`。
+- `DocumentId` 必须显式传入；脚本不会硬编码 `documentId=61`。
+- token 只通过 `-Token` 或当前 shell 的 `DOCPILOT_AUTH_TOKEN` 注入，脚本不会打印 token。
+- 调用 `/api/ai/agent/run` 后只输出脱敏摘要：taskId、decision、routingReason 是否存在、matchedKeywords / citations / ragResults / steps 计数、fallbackUsed 和 toolSelectionSource。
+- 新增 `docs/DEMO_SCRIPT.md` 记录使用方式、输出字段和安全边界。
+
+### 验证结果
+
+- PowerShell 语法检查通过。
+- 当前 shell 未提供 `DOCPILOT_AUTH_TOKEN`，因此未执行真实 runtime 调用。
+- 本轮未启动后端 / 前端服务，未连接远程环境。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl 敏感值、Authorization、prompt、文档正文或完整 answer。
+- 未新增公开 API。
+- 未修改默认 production routing。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+
 ## 2026-05-20 - T059 Prompt Engineering Evidence Notes
 
 ### 本轮目标
