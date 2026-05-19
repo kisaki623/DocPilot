@@ -41,6 +41,8 @@
 - `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过，8 tests。
 - `cd backend; mvn -DskipTests compile`：通过。
 - `cd backend; mvn test -DskipITs`：通过，312 tests。
+- `cd frontend; npm run lint`：通过，无 ESLint warning / error。
+- `cd frontend; npm run build`：通过，Next.js production build 成功。
 
 ### T051d runtime 状态
 
@@ -59,6 +61,13 @@
 - 未新增数据库表或 DDL。
 - 未处理完整 T010 / MQ blocked。
 - 不能写成生产环境已启用 Function Calling。
+
+### 最终收口
+
+- T051a-c 和 T051e 已完成并提交。
+- T051d 因当前 shell 未注入 provider / 中间件环境变量保持 BLOCKED，未做真实 provider execute runtime。
+- 全局验证已完成：后端全量测试、前端 lint 和前端 build 均通过。
+- 本轮未启动长期后端 / 前端服务，无本轮需清理的服务进程。
 
 ## 2026-05-20 - T057 Agent + RAG Showcase Runtime Evidence
 

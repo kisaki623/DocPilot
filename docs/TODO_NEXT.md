@@ -20,7 +20,7 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - 任务目标：新增默认关闭的 Function Calling / Tool Execution 可开关模式，让 LLM selector 在显式开启时可选择并执行已注册工具。
 - 当前结果：新增 `app.agent.selector.mode=llm_execute`，默认仍为 `keyword`；`llm_execute` 路径调用 real LLM selector，校验模型返回的 decision / toolName 必须匹配 `ToolRegistry` allowlist，再由服务端使用现有 `userId / documentId / task / sessionId / content` 上下文执行 summary / QA / RAG / status 工具；不执行模型生成代码，不信任模型生成任意参数。
 - fallback：provider disabled、provider 异常、解析失败、非法 toolName 或 required toolName 缺失时 fail-open 回退 keyword selector；响应新增向后兼容字段 `primaryDecision`、`llmDecision`、`finalDecision`、`fallbackUsed`、`fallbackReason`、`executionMode`、`toolSelectionSource`。
-- 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn -Dtest=*ToolSelector* test` 通过；`mvn -Dtest=DocumentAgentLlmExecuteModeTest test` 通过；`mvn -DskipTests compile` 通过；`mvn test -DskipITs` 通过，312 tests。
+- 验证结果：`mvn -Dtest=AgentSelectorPropertiesTest test` 通过；`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn -Dtest=*ToolSelector* test` 通过；`mvn -Dtest=DocumentAgentLlmExecuteModeTest test` 通过；`mvn -DskipTests compile` 通过；最终全局验证 `cd backend; mvn test -DskipITs` 通过，312 tests；`cd frontend; npm run lint` 通过；`cd frontend; npm run build` 通过。
 - T051d：BLOCKED。当前 shell 未注入 OpenAI-compatible provider 和本地 / 远程中间件环境变量；本轮未读取 `backend/.env`，未输出 API Key / baseUrl / Authorization / prompt / 文档内容，未启动后端 / 前端服务，未做真实 provider execute runtime。
 - 边界：未新增公开 API；未修改前端；未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding；未处理完整 T010 / MQ blocked；未改变默认 production routing。
 
