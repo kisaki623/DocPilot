@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T059-Prompt-Engineering-Evidence
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：补齐 Prompt Engineering / Tool Selection Engineering 证据链，说明 prompt 模板结构、输出 JSON 协议、parser、allowlist、fallback 和 bad cases。
+- 当前结果：新增 `docs/PROMPT_ENGINEERING_NOTES.md`，记录 tool selection prompt 的结构约束、JSON 输出协议、`ToolRegistry` allowlist 校验、server-side tool execution、shadow-only 到 execute mode 的演进，以及非法 JSON / 未知工具 / provider timeout / 工具冲突等 bad cases。
+- 验证结果：文档 diff 自查；`rg` 过度宣传关键词扫描通过，命中均为否定或边界说明；中文 Markdown 乱码特征扫描未发现新增乱码。
+- 边界：未改生产代码；未真实调用 provider；未输出真实 prompt、文档正文、API Key、baseUrl 或 Authorization；未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+
 ### T058-Agent-Workflow-Showcase
 
 - 状态：DONE
@@ -989,4 +998,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058。下一步建议进入 T059 Prompt Engineering 证据链，或在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
+求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058 / T059。下一步建议进入 T060 Demo Script，或在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。

@@ -51,6 +51,7 @@
 - 增强 Agent Workflow 展示：基于已有 run response 和 persisted trace 生成“接收任务、选择工具、执行工具、生成结果、持久化 trace”的 timeline，便于面试演示 Agent 执行链路。
 - 抽象 ToolRegistry / ToolSelector / ToolDefinition，为文档状态、摘要、问答工具提供统一注册、规则路由和未来 Function Calling 输出协议。
 - 设计并验证 real provider shadow-only 路径，并实现默认关闭的 `llm_execute` 模式；LLM 只能选择 ToolRegistry allowlist 内工具，服务端负责实际执行和失败回退。
+- 沉淀 Tool Selection Engineering 证据链，覆盖 prompt 模板结构、JSON 输出协议、parser 校验、allowlist、fallback 和非法 JSON / 未知工具 / provider timeout 等 bad cases。
 - 实现最小 RAG 检索展示链路，支持文档切块、fake embedding、内存向量召回、topK 片段、相似度分数和引用元数据展示；后续可替换为 Qdrant 与真实 embedding。
 - 构建轻量检索增强问答链路，支持 chunk、关键词检索、上下文组装、AI 回答和引用片段展示；下一阶段计划升级为 embedding + vector store 的最小 RAG。
 - 通过 Maven 测试、前端 lint/build、Agent smoke 和 Playwright runtime 记录沉淀验证证据，明确 MQ disabled、RAG 未完成和 Function Calling 未接管的边界。

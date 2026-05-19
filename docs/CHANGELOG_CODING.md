@@ -2,6 +2,45 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T059 Prompt Engineering Evidence Notes
+
+### 本轮目标
+
+补齐 Prompt Engineering / Tool Selection Engineering 证据链，让面试时能讲清楚 prompt、输出协议、解析、allowlist、fallback 和 bad cases。
+
+### 修改文件
+
+- `docs/PROMPT_ENGINEERING_NOTES.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/INTERVIEW_QA.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/PROMPT_ENGINEERING_NOTES.md`。
+- 记录 tool selection prompt 的结构：task、document state、tool definitions、decision enum、安全限制和 JSON 输出协议。
+- 记录 parser 校验：JSON object、decision enum、toolNames 非空数组、ToolRegistry allowlist、confidence 范围。
+- 记录 execute mode 的服务端二次校验：decision required tool、registered tool、server-side 工具输入构造。
+- 记录 fallback 策略：provider disabled / timeout / client 异常、非法 JSON、未知 toolName、decision 与 toolNames 冲突时回退 keyword selector。
+- 记录 shadow-only 到 execute mode 的演进路径和 bad cases。
+
+### 验证结果
+
+- 文档 diff 自查。
+- 中文 Markdown 乱码特征扫描：未发现新增乱码。
+- 过度宣传关键词扫描：命中均处于否定或边界说明语境。
+
+### 当前边界
+
+- 未修改 Java 生产代码。
+- 未新增测试。
+- 未真实调用 provider。
+- 未输出真实 prompt、文档正文、API Key、baseUrl、Authorization 或模型完整返回。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+
 ## 2026-05-20 - T058 Agent Workflow Showcase
 
 ### 本轮目标

@@ -214,6 +214,16 @@
 
 对应位置：`ToolDefinitionProvider`、`LlmToolSelectionPromptBuilder`、`LlmToolSelectionParser`、`ToolExecutionDecision`、`DocumentAgentLlmExecuteModeTest`。
 
+### Q18-1-1：Prompt Engineering 怎么做的？
+
+面试可背版回答：selector prompt 不让模型回答业务内容，只让它在已注册工具中选择一个 decision，并返回固定 JSON。后端 parser 校验 JSON、decision、toolNames 和 confidence，service 再用 ToolRegistry allowlist 做二次校验，最后由服务端使用已有上下文执行工具。
+
+面试官追问：为什么还要 fallback？
+
+诚实边界：模型可能返回非法 JSON、未知工具、decision 和 toolNames 冲突，provider 也可能 timeout。任何这类失败都会 fail-open 回退 keyword selector，不影响 Agent API 可用性。
+
+对应位置：`docs/PROMPT_ENGINEERING_NOTES.md`、`LlmToolSelectionPromptBuilder`、`LlmToolSelectionParser`。
+
 ### Q18-2：RAG 还没做，怎么解释？
 
 面试可背版回答：当前是轻量检索增强：文档内容切分、关键词检索、上下文组装、回答和 citations。它不是完整向量 RAG。下一步最小 RAG 会补 chunk 持久化、embedding、vector store、topK retrieve、prompt assemble 和 score/citation 展示。
