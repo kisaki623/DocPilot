@@ -112,6 +112,11 @@ function metadataEntries(metadata?: Record<string, string>): Array<[string, stri
   return Object.entries(metadata).filter(([key, value]) => key && value);
 }
 
+function summarizeToolNames(steps?: Array<{ toolName?: string }>): string {
+  const names = Array.from(new Set((steps || []).map((step) => step.toolName).filter(Boolean)));
+  return names.length > 0 ? names.join(" / ") : "-";
+}
+
 export default function AgentPage() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
@@ -165,6 +170,56 @@ export default function AgentPage() {
     () => documents.find((item) => String(item.documentId) === selectedDocumentId) || null,
     [documents, selectedDocumentId]
   );
+
+  const workflowItems = useMemo(() => {
+    if (!result) {
+      return [];
+    }
+
+    const persistedSteps = persistedTrace?.steps || [];
+    const runtimeSteps = result.steps || [];
+    const visibleSteps = persistedSteps.length > 0 ? persistedSteps : runtimeSteps;
+    const persistedStatus = persistedTrace
+      ? `${persistedTrace.steps.length} step(s) persisted`
+      : result.taskId
+        ? loadingPersistedTrace
+          ? "loading persisted trace"
+          : "taskId returned"
+        : "no taskId";
+
+    return [
+      {
+        label: "接收任务",
+        status: "done",
+        detail: `documentId=${result.documentId}`,
+        evidence: result.task ? "task accepted" : "task payload accepted"
+      },
+      {
+        label: "选择工具",
+        status: result.decision ? "done" : "waiting",
+        detail: result.decision || "-",
+        evidence: result.routingReason || "routing reason not returned"
+      },
+      {
+        label: "执行工具",
+        status: visibleSteps.length > 0 ? "done" : "waiting",
+        detail: summarizeToolNames(visibleSteps),
+        evidence: `${visibleSteps.length} step(s)`
+      },
+      {
+        label: "生成结果",
+        status: result.finalAnswer ? "done" : "waiting",
+        detail: result.success === false ? "failed" : "answer ready",
+        evidence: `${result.totalDurationMs ?? 0} ms`
+      },
+      {
+        label: "持久化 trace",
+        status: persistedTrace ? "done" : result.taskId ? "waiting" : "waiting",
+        detail: persistedStatus,
+        evidence: persistedTrace?.task.status || (result.taskId ? `taskId=${result.taskId}` : "not available")
+      }
+    ];
+  }, [loadingPersistedTrace, persistedTrace, result]);
 
   useEffect(() => {
     if (result && String(result.documentId) !== selectedDocumentId) {
@@ -497,6 +552,41 @@ export default function AgentPage() {
                   ) : null}
                 </div>
               ) : null}
+
+              <div className="dp-card-soft">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <p className="text-sm font-semibold text-slate-700">Agent Workflow</p>
+                  <span className="dp-badge dp-badge-info">Trace View</span>
+                </div>
+                <ol className="grid gap-3">
+                  {workflowItems.map((item, index) => (
+                    <li key={item.label} className="grid grid-cols-[2rem_1fr] gap-3">
+                      <div className="flex flex-col items-center">
+                        <span
+                          className={
+                            item.status === "done"
+                              ? "flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white"
+                              : "flex h-8 w-8 items-center justify-center rounded-full bg-slate-300 text-xs font-bold text-white"
+                          }
+                        >
+                          {index + 1}
+                        </span>
+                        {index < workflowItems.length - 1 ? <span className="mt-2 h-full min-h-5 w-px bg-slate-200" /> : null}
+                      </div>
+                      <div className="rounded-lg border border-slate-200 bg-white p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-sm font-semibold text-slate-800">{item.label}</p>
+                          <span className={item.status === "done" ? "dp-badge dp-badge-success" : "dp-badge dp-badge-warning"}>
+                            {item.status === "done" ? "done" : "waiting"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs font-semibold text-slate-600">{item.detail}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">{item.evidence}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
 
               <div className="dp-card-soft">
                 <p className="text-sm font-semibold text-slate-700 mb-2">最终回答</p>

@@ -2,6 +2,43 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T058 Agent Workflow Showcase
+
+### 本轮目标
+
+增强 `/agent` Showcase 页面 workflow 感知，让招聘方能看出当前 Agent 链路是“接收任务 -> 选择工具 -> 执行工具 -> 生成结果 -> 持久化 trace”，而不是普通接口调用。
+
+### 修改文件
+
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+
+### 实现内容
+
+- 在结果区新增 Agent Workflow timeline。
+- timeline 只基于已有响应字段和持久化 trace 派生：`documentId`、`decision`、`routingReason`、runtime steps、`taskId`、persisted steps 和 task status。
+- 执行工具阶段优先展示 persisted steps，未加载到 persisted trace 时展示本次 runtime steps。
+- 持久化 trace 阶段区分 `taskId returned`、`loading persisted trace` 和 persisted task status。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，无 ESLint warning / error。
+- `cd frontend; npm run build`：通过，Next.js production build 成功。
+- `cd backend; mvn test -DskipITs`：通过，312 tests。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未修改后端 response VO。
+- 未修改 Agent 默认 routing。
+- 未新增数据库表、中间件或 docker-compose 服务。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+- 未伪造不存在的后端步骤；页面只展示已有数据的 workflow 视图。
+
 ## 2026-05-20 - T051 LLM Tool Execution Mode
 
 ### 本轮目标

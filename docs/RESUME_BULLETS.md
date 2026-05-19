@@ -48,6 +48,7 @@
 项目描述：面向文档问答场景的 Java + Next.js AI Agent 展示项目，已实现工具选择、执行轨迹和引用证据展示，并规划最小向量 RAG 演进路线。
 
 - 实现 Agent Showcase 页面，支持选择已解析文档并展示工具决策、routingReason、matchedKeywords、taskId、持久化 steps、最终回答和 citations。
+- 增强 Agent Workflow 展示：基于已有 run response 和 persisted trace 生成“接收任务、选择工具、执行工具、生成结果、持久化 trace”的 timeline，便于面试演示 Agent 执行链路。
 - 抽象 ToolRegistry / ToolSelector / ToolDefinition，为文档状态、摘要、问答工具提供统一注册、规则路由和未来 Function Calling 输出协议。
 - 设计并验证 real provider shadow-only 路径，并实现默认关闭的 `llm_execute` 模式；LLM 只能选择 ToolRegistry allowlist 内工具，服务端负责实际执行和失败回退。
 - 实现最小 RAG 检索展示链路，支持文档切块、fake embedding、内存向量召回、topK 片段、相似度分数和引用元数据展示；后续可替换为 Qdrant 与真实 embedding。

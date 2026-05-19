@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T058-Agent-Workflow-Showcase
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：增强 Agent Showcase 的 workflow 感知，让页面更清楚展示“接收任务 -> 选择工具 -> 执行工具 -> 生成结果 -> 持久化 trace”的执行链路。
+- 当前结果：`/agent` 结果区新增 Agent Workflow timeline，完全基于已有 `result`、runtime steps、`taskId` 和 persisted trace 派生展示；不新增公开 API，不改后端 routing，不伪造不存在的后端步骤。
+- 验证结果：`cd frontend; npm run lint` 通过；`cd frontend; npm run build` 通过；`cd backend; mvn test -DskipITs` 通过，312 tests。
+- 边界：未修改 Agent 默认 routing；未新增后端字段、数据库表、中间件或公开 API；未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding；未处理完整 T010 / MQ blocked。
+
 ### T051-LLM-Tool-Execution-Mode
 
 - 状态：REVIEW
@@ -980,4 +989,4 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 推荐第一个任务
 
-求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c。下一步建议在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime，或进入 T054+：接真实 embedding / Qdrant 前的默认关闭实验路径。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。
+求职展示冲刺路线已完成 T050 / T056 / T052 / T053 / T054 / T055 / T057 / T051a-c / T058。下一步建议进入 T059 Prompt Engineering 证据链，或在用户确认并注入 provider / 中间件环境变量后重跑 T051d 真实 provider execute runtime。完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED；暂不建议继续推进 Prometheus / Spring Security / 生产 Actuator 暴露。

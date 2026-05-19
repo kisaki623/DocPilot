@@ -8,7 +8,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 更克制的面试讲法：这是一个展示后端工程链路和 AI 应用工程化意识的项目，不是生产级 SaaS、完整向量 RAG 平台或成熟多 Agent 系统。
 
-面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。真实 embedding / 向量库和 Workflow 增强仍是后续方向。
+面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、workflow timeline、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。真实 embedding / 向量库仍是后续方向。
 
 ## 2. 当前真实已实现能力
 
@@ -25,6 +25,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 - selector shadow metrics、threshold policy、内部 debug dump / reporter。
 - 默认关闭的 `agentSelectorShadow` Actuator endpoint，测试内显式开启已验证 200、字段白名单 / 黑名单和只读边界。
 - Agent + RAG Showcase：`/agent` 页面已通过 runtime 验证，`rag_tool` 能展示 retrieved chunk、score / similarity、citation metadata、routingReason、matchedKeywords 和 persisted steps；普通 QA 路径仍展示 citations。
+- Agent Workflow 展示：`/agent` 页面基于已有响应和 persisted trace 展示接收任务、选择工具、执行工具、生成结果和持久化 trace，不新增 API 或后端路由逻辑。
 
 ## 3. 当前半实现能力
 
@@ -60,7 +61,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 ## 7. 求职展示优先级
 
-1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
+1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、workflow timeline、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
 2. 再展示详情页普通问答 / SSE 流式问答：说明 citations 如何来自轻量检索增强。
 3. 对 RAG 保持诚实：当前已能展示 fake embedding + in-memory vector store 的 topK 召回、score 和 metadata；下一步才是接真实 embedding、chunk 持久化和 Qdrant / Redis Vector。
 4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only，以及默认关闭的 `llm_execute` 执行模式；默认生产行为仍是 keyword selector，真实 provider execute runtime 待验证。
