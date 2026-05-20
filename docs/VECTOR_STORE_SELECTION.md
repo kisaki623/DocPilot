@@ -171,10 +171,14 @@ T071 新增 `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`，仅设计下一步 adapt
 
 T071 未新增依赖、未改 docker-compose、未新增数据库表、未接 Qdrant / Redis Vector、未接 LangChain4j。
 
-## 10. 2026-05-21 T072-T075 更新
+## 10. 2026-05-21 T072-T080 更新
 
 - T072 已新增脱敏 RAG QA demo 脚本，便于在显式开启 `app.rag.qa.enabled=true` 的后端上展示 fake embedding + in-memory vector store 的 RAG QA trace 摘要。
 - T073 已让 Agent RAG step / smoke 输出脱敏 trace 摘要，避免只看到 retrieved chunks 而看不到 RAG 过程证据。
 - T074 已新增 in-memory index lifecycle tracking：同一 documentId / documentVersion / contentHash 可跳过重复 index，版本或内容变化会重建，不同 documentId 隔离。
 - T075 已新增 Qdrant vector store disabled skeleton：`app.rag.vector-store.provider` 默认仍为 `in_memory`，可选 `qdrant_disabled`；该模式不发 HTTP，只用于配置边界和 factory 选择测试。
-- 选型结论保持克制：当前可以讲“已有 fake embedding + in-memory vector store 的 RAG demo、QA RAG feature flag、RAG trace、index lifecycle、Qdrant adapter skeleton”；不能写成真实 embedding / 真实 Qdrant / 生产完整 RAG 已完成。
+- T077 已补 VectorStore contract tests，锁定默认 `in_memory`、in-memory 检索隔离、`qdrant_disabled` 本地失败和未知 provider fail-fast。
+- T078 已新增 Qdrant payload mapping，覆盖 upsert / search JSON、userId + documentId filter 和 response parser；该层不发 HTTP。
+- T079 已新增默认关闭的 Qdrant HTTP adapter：显式 `provider=qdrant` 且 endpoint 配置齐全时才会发请求，默认仍为 `in_memory`；测试只使用 JDK 本地 fake HTTP server，未启动真实 Qdrant。
+- T080 已新增脱敏 preflight 脚本，缺环境时 SKIPPED / BLOCKED，不输出 endpoint 原文、API key、Authorization 或响应体。
+- 选型结论保持克制：当前可以讲“已有 fake embedding + in-memory vector store 的 RAG demo、QA RAG feature flag、RAG trace、index lifecycle、默认关闭的 Qdrant HTTP adapter 和 preflight”；不能写成真实 embedding / 真实 Qdrant runtime / 生产完整 RAG 已完成。

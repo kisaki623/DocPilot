@@ -1,6 +1,6 @@
 # RAG Vector Store Adapter Boundary
 
-本文记录 DocPilot 接入真实向量库的最小边界。T071 只做设计；T075 已新增 Qdrant disabled skeleton 和配置边界，但仍不是真实 Qdrant runtime，不新增依赖，不修改 docker-compose，不新增数据库表。
+本文记录 DocPilot 接入真实向量库的最小边界。T071 只做设计；T075 已新增 Qdrant disabled skeleton 和配置边界；T079 已新增默认关闭的 Qdrant HTTP adapter 和本地 fake server 测试。但当前仍未启动真实 Qdrant runtime，不新增依赖，不修改 docker-compose，不新增数据库表。
 
 ## 1. 当前状态
 
@@ -10,9 +10,10 @@
 - QA RAG：`app.rag.qa.enabled=false` 默认关闭；开启后可用 fake embedding + in-memory vector store 注入受限 RAG context。
 - Trace：已有内部 `RagQaTrace` / `RagQaTraceFormatter`，可脱敏展示 retrievedCount、contextHash、fallback、indexReused 等摘要。
 - Demo / lifecycle：T072 已新增脱敏 RAG QA demo 脚本；T073 已让 Agent step 输出 RAG trace 摘要；T074 已新增 in-memory index lifecycle tracking。
-- Vector store skeleton：T075 已新增 `app.rag.vector-store.provider=in_memory|qdrant_disabled`、`RagVectorStoreProperties`、`VectorStoreFactory` 和 `DisabledQdrantVectorStore`。默认仍为 `in_memory`；`qdrant_disabled` 只返回本地 disabled 行为，不发 HTTP。
+- Vector store adapter：T075 已新增 `app.rag.vector-store.provider=in_memory|qdrant_disabled`、`RagVectorStoreProperties`、`VectorStoreFactory` 和 `DisabledQdrantVectorStore`；T079 已新增显式 `provider=qdrant` 的 `QdrantVectorStore` HTTP adapter。默认仍为 `in_memory`；`qdrant_disabled` 只返回本地 disabled 行为；`qdrant` 只有显式配置且 endpoint 齐全时才发 HTTP。
+- Qdrant 测试与 preflight：T077 已补 VectorStore contract tests，T078 已补 payload builder / parser，T079 使用 JDK 本地 fake HTTP server 验证 adapter，不依赖真实 Qdrant；T080 已新增脱敏 preflight 脚本，缺环境时 SKIPPED / BLOCKED。
 
-当前仍未真实接 Qdrant / Redis Vector、LangChain4j / Spring AI、数据库表或 docker-compose 服务。
+当前仍未启动真实 Qdrant / Redis Vector、LangChain4j / Spring AI、数据库表或 docker-compose 服务。
 
 ## 2. 下一步推荐
 
@@ -110,15 +111,16 @@ adapter 返回的 hit 应保持：
 
 最小测试分层：
 
-- adapter contract test：fake adapter 与未来真实 Qdrant adapter 共享用例，验证 upsert、search、deleteByDocument、filter、topK order；当前 T075 只覆盖 disabled skeleton 的配置选择与明确失败行为。
-- request builder / parser test：如 Qdrant HTTP adapter，先测 request payload 和 response parser，不真实联网。
+- adapter contract test：fake adapter 与 Qdrant adapter 共享用例，验证 upsert、search、deleteByDocument、filter、topK order；T077 已覆盖 in-memory / qdrant_disabled / factory 行为。
+- request builder / parser test：T078 已覆盖 Qdrant request payload 和 response parser，不真实联网。
+- HTTP adapter test：T079 已使用 JDK 本地 fake HTTP server 验证 path / method / body shape / parser topK；不依赖真实 Qdrant。
 - service test：`RagIndexService` / `RagRetrievalService` 使用 fake adapter 验证 citation metadata。
 - QA test：`app.rag.qa.enabled=true` 时验证 context 注入、maxContextChars、fallback、cache key。
 - preflight smoke：只有环境变量齐全时才做一次真实健康检查；缺环境标记 BLOCKED，不硬刷。
 
 ## 9. 本轮明确不做
 
-- 不真实接 Qdrant runtime；T075 仅有 `qdrant_disabled` skeleton。
+- 不启动真实 Qdrant runtime；T079 仅实现默认关闭的 HTTP adapter 和本地 fake server 测试。
 - 不接 Redis Vector / Redis Stack。
 - 不新增 Maven 依赖。
 - 不修改 docker-compose。

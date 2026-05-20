@@ -13,7 +13,7 @@ parsed text -> chunk -> embedding -> vector store -> retrieve topK -> prompt ass
 当前边界：
 
 - 已有 Agent QA tool、普通问答、SSE 问答、citations 和前端引用展示。
-- 当前不是完整生产向量 RAG；T054 / T055 已有 fake embedding + in-memory vector store + Agent Showcase 召回展示，T063 已新增真实 embedding adapter 代码路径但真实 runtime 尚未验证，T067 已新增默认关闭的 QA RAG context feature flag，T072-T075 已补脱敏 demo 脚本、Agent step trace 摘要、in-memory index lifecycle 和 Qdrant disabled skeleton；仍未真实接 Qdrant / Redis Vector、chunk 持久化、rerank 或默认生产级 RAG routing。
+- 当前不是完整生产向量 RAG；T054 / T055 已有 fake embedding + in-memory vector store + Agent Showcase 召回展示，T063 已新增真实 embedding adapter 代码路径但真实 runtime 尚未验证，T067 已新增默认关闭的 QA RAG context feature flag，T072-T080 已补脱敏 demo 脚本、Agent step trace 摘要、in-memory index lifecycle、Qdrant payload mapping、默认关闭的 Qdrant HTTP adapter 和脱敏 preflight 脚本；仍未启动真实 Qdrant / Redis Vector、chunk 持久化、rerank 或默认生产级 RAG routing。
 - 完整上传 -> 解析 -> Agent run 的 T010 runtime 仍因 MQ disabled / NoopParseTaskMessageProducer 保持 BLOCKED。
 - 本设计不修改代码，不修改配置，不新增公开 API。
 
@@ -133,7 +133,7 @@ Agent 接入时，`document_qa_tool` 可以先保持当前逻辑；T067 已先�
 可以这样讲：
 
 - “当前项目已经实现轻量检索增强问答和 citations，Agent QA tool 可以复用这条链路，并展示执行轨迹。”
-- “当前已经先用 fake embedding 和 in-memory vector store 打通了最小 RAG demo，并新增了默认关闭的 QA RAG context 注入开关、脱敏 trace、index lifecycle 和 Qdrant adapter skeleton；真实 embedding runtime 和真实 Qdrant runtime 还没有完成。”
+- “当前已经先用 fake embedding 和 in-memory vector store 打通了最小 RAG demo，并新增了默认关闭的 QA RAG context 注入开关、脱敏 trace、index lifecycle、Qdrant payload mapping 和默认关闭的 Qdrant HTTP adapter；真实 embedding runtime 和真实 Qdrant runtime 还没有完成。”
 - “我没有直接上 LangChain / LangGraph，是因为这个项目重点展示 Java 后端工程能力：鉴权、异步解析、幂等、trace、service 边界、fallback 和测试可控性。”
 - “RAG 尚未实现时，我会明确说当前是轻量检索增强，不会把它包装成完整向量 RAG。”
 
@@ -173,7 +173,7 @@ T054 已按求职冲刺优先方案落地第一阶段内部闭环。T054x 先稳
 当前仍未做：
 
 - 已新增真实 embedding adapter 代码路径，但真实 embedding provider runtime 仍 BLOCKED，未验证。
-- 未真实接 Qdrant / Redis Vector / MySQL vector fallback；T075 只新增了 `qdrant_disabled` skeleton 和配置边界，不发 HTTP。
+- 未启动真实 Qdrant / Redis Vector / MySQL vector fallback；T079 只新增了默认关闭的 Qdrant HTTP adapter，测试使用 JDK 本地 fake server，不依赖真实 Qdrant 服务。
 - 未新增数据库表。
 - 未新增 docker-compose 服务。
 - 未新增公开 REST API。
@@ -203,7 +203,7 @@ T055 已将 T054 的内部 RAG 能力接到 Agent Showcase demo 路径：
 T055 仍明确未做：
 
 - 未接真实 embedding provider。
-- 未真实接 Qdrant / Redis Vector；T075 仅有 disabled skeleton。
+- 未启动真实 Qdrant / Redis Vector；T079 仅完成默认关闭的 Qdrant HTTP adapter 和本地 fake server 测试。
 - 未接 LangChain4j。
 - 未新增数据库表或 docker-compose 服务。
 - 未将 RAG 写成 production routing；当前只是求职展示用的 Agent/RAG demo 路径。
@@ -234,4 +234,8 @@ T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_R
 - T073 已让 Agent RAG step / smoke 输出脱敏 trace-style 摘要，覆盖 embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、fallbackUsed、fallbackReason 和 citationCount。
 - T074 已新增 in-memory index lifecycle tracking：同一 documentId / documentVersion / contentHash 可跳过重复 index，版本或内容变化会重建，不同 documentId 隔离；trace 可展示 `indexReused=true/false`。
 - T075 已新增 `app.rag.vector-store.provider=in_memory|qdrant_disabled`、`RagVectorStoreProperties`、`VectorStoreFactory` 和 `DisabledQdrantVectorStore`。默认仍为 in-memory，`qdrant_disabled` 不发 HTTP，只用于 adapter 边界和配置选择测试。
-- 当前没有新增公开 API、数据库表、Maven 依赖或 docker-compose 服务；未接 LangChain4j / Spring AI；真实 embedding runtime 仍因 `APP_RAG_EMBEDDING_*` 缺失保持 BLOCKED；T010 / MQ 仍 BLOCKED。
+- T077 已补 VectorStore contract tests，覆盖默认 provider、in-memory 检索隔离、`qdrant_disabled` 本地 disabled 语义和未知 provider fail-fast。
+- T078 已新增 Qdrant payload mapping，覆盖 upsert / search JSON、userId + documentId filter 和 response parser，不发 HTTP。
+- T079 已新增默认关闭的 `QdrantVectorStore` HTTP adapter；只有显式 `app.rag.vector-store.provider=qdrant` 且 endpoint 配置齐全时才会发请求，默认仍为 `in_memory`。测试只使用 JDK 本地 fake HTTP server。
+- T080 已新增 `backend/scripts/rag/preflight-qdrant-vector-store.ps1`，用于脱敏检查 Qdrant 环境是否齐全；缺环境时 SKIPPED / BLOCKED，不读取 `.env`，不输出 endpoint / API key / response body。
+- 当前没有新增公开 API、数据库表、Maven 依赖或 docker-compose 服务；未接 LangChain4j / Spring AI；未启动真实 Qdrant；真实 embedding runtime 仍因 `APP_RAG_EMBEDDING_*` 缺失保持 BLOCKED；T010 / MQ 仍 BLOCKED。

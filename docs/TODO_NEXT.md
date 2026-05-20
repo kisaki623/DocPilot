@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T081-Qdrant-Adapter-Boundary-Docs
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：收口 T077-T080 文档，明确当前已实现默认关闭的 Qdrant HTTP adapter，但未启动真实 Qdrant / 未改 docker-compose / 未新增依赖。
+- 当前结果：更新 `RAG_MINIMAL_DESIGN`、`VECTOR_STORE_SELECTION`、`RAG_VECTOR_STORE_ADAPTER_DESIGN`、README、项目面试 brief 和简历 bullet；准确记录 T077 VectorStore contract tests、T078 Qdrant payload mapping、T079 默认关闭 Qdrant HTTP adapter、T080 脱敏 preflight 脚本。
+- 验证结果：指定文档 mojibake 关键词扫描通过；`cd backend; mvn test -DskipITs` 通过，386 tests。
+- 边界：未修改前端；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未启动真实 Qdrant；未接 Redis Vector、LangChain4j 或 Spring AI；真实 Qdrant runtime 仍需要用户提供环境和服务；T010 / MQ 仍 BLOCKED。
+
 ### T080-Qdrant-Vector-Store-Preflight-Script
 
 - 状态：DONE

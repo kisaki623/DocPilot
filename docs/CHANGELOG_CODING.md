@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T081 Qdrant Adapter Boundary Docs
+
+### 本轮目标
+
+收口 T077-T080 文档，明确当前已实现默认关闭的 Qdrant HTTP adapter，但未启动真实 Qdrant / 未改 docker-compose / 未新增依赖。
+
+### 修改文件
+
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T077 VectorStore contract tests。
+- 记录 T078 Qdrant payload mapping。
+- 记录 T079 默认关闭的 Qdrant HTTP adapter 和本地 fake server 测试。
+- 记录 T080 脱敏 Qdrant preflight 脚本。
+- 明确默认 vector store provider 仍是 `in_memory`。
+- 明确真实 Qdrant runtime 仍需要用户提供环境和服务，当前未启动真实 Qdrant。
+
+### 验证结果
+
+- 指定文档 mojibake 关键词扫描：通过。
+- `cd backend; mvn test -DskipITs`：通过，386 tests。
+
+### 当前边界
+
+- 未修改前端。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未启动真实 Qdrant。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T080 Qdrant Vector Store Preflight Script
 
 ### 本轮目标

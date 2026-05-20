@@ -20,7 +20,7 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 3. **执行轨迹**：每次 Agent run 会写入 `AgentTask` / `AgentStep`，前端能展示 stepIndex、toolName、status、durationMs、inputSummary、outputSummary。
 4. **真实边界**：当前不是完整向量 RAG；默认 production routing 仍由规则 selector 决定。`llm_execute` 必须显式开启，真实 provider runtime 已验证 summary / QA / RAG，但它不是 OpenAI 官方 tools/function_call API。
 
-下一阶段求职展示优先级：先确认真实 embedding provider 是否可用，再把当前 fake embedding / in-memory RAG demo 和 Qdrant disabled skeleton 迁移到真实 Qdrant runtime。
+下一阶段求职展示优先级：先确认真实 embedding provider 与 Qdrant 服务是否可用，再把当前 fake embedding / in-memory RAG demo 和默认关闭的 Qdrant HTTP adapter 做真实 runtime 验证。
 
 ## 核心亮点
 
@@ -30,7 +30,7 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 - **AI 问答 + SSE 流式输出**：详情页支持普通问答与流式问答切换，流式失败自动降级普通问答。
 - **最小 Agent 工具链闭环**：`/api/ai/agent/run` 先检查文档状态，再按 ToolSelector 规则选择 summary / QA 工具；前端 `/agent` 展示决策、步骤 trace、最终回答和引用。
 - **默认关闭的 LLM Tool Execution**：`app.agent.selector.mode=llm_execute` 显式开启后，后端可调用 LLM selector 选择 `ToolRegistry` allowlist 内工具；服务端仍使用当前 `userId / documentId / task / sessionId` 构造工具输入，不执行模型生成代码或任意参数。provider 失败、解析失败或非法 toolName 会 fail-open 回退 keyword selector。
-- **Agent + RAG Showcase**：`rag_tool` demo 使用 fake embedding + in-memory vector store 返回 topK retrieved chunks、similarity score 和 citation metadata，并带有脱敏 trace / index lifecycle 摘要；适合展示 RAG 工程拆分，但不等同于生产向量 RAG。
+- **Agent + RAG Showcase**：`rag_tool` demo 使用 fake embedding + in-memory vector store 返回 topK retrieved chunks、similarity score 和 citation metadata，并带有脱敏 trace / index lifecycle 摘要；后端已有默认关闭的 Qdrant HTTP adapter 和本地 fake server 测试，但未启动真实 Qdrant，不等同于生产向量 RAG。
 - **默认关闭的 QA RAG Context**：后端已有 feature flag，可在显式开启时把受限 RAG context 注入 QA execute path；默认 QA 行为不变，RAG 异常或空召回会回退普通 QA。
 - **Agent 执行轨迹落库**：`tb_agent_task` / `tb_agent_step` 记录每次 Agent run 和工具步骤，后端提供 task / step 查询接口，前端可按 `taskId` 展示持久化执行轨迹。
 - **Selector shadow compare**：支持 primary / shadow selector 对比、真实 provider shadow-only 验证和阈值策略；shadow decision 只观测，不接管 production routing。
