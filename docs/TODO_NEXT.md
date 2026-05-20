@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T073-Agent-RAG-Trace-Step-Summary
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：让 Agent RAG 工具步骤能展示脱敏 RAG trace 摘要，便于 smoke / demo 看到 RAG 过程证据。
+- 当前结果：`DocumentRagTool` 的 `outputSummary` 改为输出白名单 trace-style 字段，Agent step 使用该摘要展示 `embeddingProvider`、`vectorStoreType`、`topK`、`retrievedCount`、`contextHashPresent`、`fallbackUsed`、`fallbackReason` 和 `citationCount`。
+- 验证结果：`cd backend; mvn -Dtest=*Agent* test` 通过，53 tests；`cd backend; mvn -Dtest=*Rag* test` 通过，25 tests；`cd backend; mvn test -DskipITs` 通过，354 tests。
+- 边界：未新增公开 API、前端、数据库表、依赖或 docker-compose；未输出文档正文、chunk 全文、prompt、provider response 或 secret；未接 LangChain4j、Qdrant 或 Redis Vector；未处理 T010 / MQ blocked。
+
 ### T072-RAG-QA-Demo-Script
 
 - 状态：DONE

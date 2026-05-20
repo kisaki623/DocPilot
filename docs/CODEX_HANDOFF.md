@@ -158,6 +158,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T071 已新增 `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`，只设计下一步真实向量库 adapter 边界；推荐后续优先 Qdrant，Redis Vector 仅在 Redis Stack / RediSearch 可用时作为备选。设计覆盖最小 adapter 接口、collection / payload metadata、userId / documentId / documentVersion 隔离、topK / score / citation metadata、fallback 和测试策略。本轮未接 Qdrant / Redis Vector、未新增依赖、未改 docker-compose、未新增数据库表、未处理 T010 / MQ blocked。
 - T071x 已完成 RAG 文档 UTF-8 阻塞复核：`docs/RAG_MINIMAL_DESIGN.md`、`docs/VECTOR_STORE_SELECTION.md`、`docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md` 按 UTF-8 读取和关键词扫描均未命中 mojibake；普通 PowerShell `Get-Content` 的乱码显示不是文件内容损坏。未回滚正文，未修改 Java / TS / 配置 / docker-compose。
 - T072 已新增 `backend/scripts/rag/demo-rag-qa-fake.ps1`，用于已启动且显式开启 `app.rag.qa.enabled=true` 的后端 RAG QA demo。脚本通过 `DOCPILOT_AUTH_TOKEN` 或参数传入 token 但不打印，只输出 `isLocalhost`、rag / embedding / vector store 类型、topK、retrievedCount、contextHashPresent、fallback 和 citation count 等脱敏摘要；不输出 answer、citation snippet、文档正文、prompt、provider response 或 secret。验证：PowerShell 语法检查通过，`RagQaDemoScriptSafetyTest` 通过，`mvn -Dtest=*Rag* test` 通过 25 tests。
+- T073 已让 Agent RAG 工具步骤输出脱敏 RAG trace-style 摘要：`DocumentRagTool.outputSummary` 和 Agent step `outputSummary` 可展示 embedding provider、vector store type、topK、retrievedCount、contextHashPresent、fallbackUsed、fallbackReason 和 citationCount；不输出 chunk 正文、prompt、provider response 或 secret。验证：`*Agent*` 53 tests、`*Rag*` 25 tests、后端 full test 354 tests 通过。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

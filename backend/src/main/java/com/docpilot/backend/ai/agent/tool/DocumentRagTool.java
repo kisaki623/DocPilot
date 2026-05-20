@@ -59,7 +59,7 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                     List.of(),
                     List.of(),
                     "",
-                    "No parsed document text is available for the RAG demo."
+                    buildTraceSummary(topK, 0, false, true, "no_document_text", 0)
             );
         }
 
@@ -81,8 +81,31 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                 retrievedChunks,
                 answerContext.citations(),
                 truncate(answerContext.contextText(), CONTEXT_MAX_LENGTH),
-                "Retrieved " + retrievedChunks.size() + " chunk(s) from " + chunkCount + " indexed chunk(s)."
+                buildTraceSummary(
+                        topK,
+                        retrievedChunks.size(),
+                        !answerContext.contextText().isBlank(),
+                        false,
+                        "",
+                        answerContext.citations().size()
+                )
         );
+    }
+
+    private String buildTraceSummary(int topK,
+                                     int retrievedCount,
+                                     boolean contextHashPresent,
+                                     boolean fallbackUsed,
+                                     String fallbackReason,
+                                     int citationCount) {
+        return "embeddingProvider=" + embeddingProperties.getProvider()
+                + ", vectorStoreType=in_memory"
+                + ", topK=" + topK
+                + ", retrievedCount=" + retrievedCount
+                + ", contextHashPresent=" + contextHashPresent
+                + ", fallbackUsed=" + fallbackUsed
+                + ", fallbackReason=" + safeSummaryValue(fallbackReason)
+                + ", citationCount=" + Math.max(0, citationCount);
     }
 
     private List<RetrievedChunk> toRetrievedChunks(List<VectorSearchResult> hits) {
@@ -116,6 +139,13 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
             return text == null ? "" : text;
         }
         return text.substring(0, maxLength) + "...";
+    }
+
+    private String safeSummaryValue(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return value.replaceAll("[\\r\\n\\t]+", " ").trim();
     }
 
     public record RagInput(Long documentId, String task, String documentText, Integer topK) {

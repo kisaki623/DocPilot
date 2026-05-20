@@ -31,6 +31,14 @@ class DocumentRagToolTest {
         assertFalse(result.answerContext().isBlank());
         assertFalse(result.citations().isEmpty());
         assertTrue(result.retrievedChunks().get(0).metadata().containsKey("contentHash"));
+        assertTrue(result.outputSummary().contains("embeddingProvider=fake"));
+        assertTrue(result.outputSummary().contains("vectorStoreType=in_memory"));
+        assertTrue(result.outputSummary().contains("topK=2"));
+        assertTrue(result.outputSummary().contains("retrievedCount="));
+        assertTrue(result.outputSummary().contains("contextHashPresent=true"));
+        assertTrue(result.outputSummary().contains("fallbackUsed=false"));
+        assertTrue(result.outputSummary().contains("citationCount="));
+        assertFalse(result.outputSummary().contains("Payment terms require"));
     }
 
     @Test
@@ -66,6 +74,7 @@ class DocumentRagToolTest {
         assertEquals(0, result.chunkCount());
         assertTrue(result.retrievedChunks().isEmpty());
         assertTrue(result.citations().isEmpty());
-        assertTrue(result.outputSummary().contains("No parsed document text"));
+        assertTrue(result.outputSummary().contains("fallbackUsed=true"));
+        assertTrue(result.outputSummary().contains("fallbackReason=no_document_text"));
     }
 }

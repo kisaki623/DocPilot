@@ -186,7 +186,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                         2,
                         documentRagTool.getToolName(),
                         "documentId=" + request.getDocumentId() + ", topK=" + rag.topK(),
-                        String.format("chunks=%d, retrieved=%d", rag.chunkCount(), rag.retrievedChunks().size()),
+                        rag.outputSummary(),
                         ragResult.durationMs(),
                         "success"
                 ));

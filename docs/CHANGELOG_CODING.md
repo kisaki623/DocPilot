@@ -2,6 +2,39 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T073 Agent RAG Trace Step Summary
+
+### 本轮目标
+
+让 Agent RAG 工具步骤和 smoke 输出能看到脱敏 RAG trace 摘要，展示 RAG 过程证据。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `DocumentRagTool.outputSummary` 输出白名单 trace-style 字段：embedding provider、vector store type、topK、retrievedCount、contextHashPresent、fallbackUsed、fallbackReason 和 citationCount。
+- Agent RAG step 的 `outputSummary` 复用工具返回的脱敏摘要。
+- 测试覆盖摘要字段存在、空文档 fallback 和不输出 chunk 正文。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Agent* test`：通过，53 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，25 tests。
+- `cd backend; mvn test -DskipITs`：通过，354 tests。
+
+### 当前边界
+
+- 未新增公开 API、前端、数据库表、依赖或 docker-compose。
+- 未输出文档正文、chunk 全文、prompt、provider response 或 secret。
+- 未接 LangChain4j、Qdrant 或 Redis Vector；未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T072 RAG QA Demo Script
 
 ### 本轮目标
