@@ -1,13 +1,16 @@
 package com.docpilot.backend.ai.agent.tool;
 
-import com.docpilot.backend.ai.rag.FakeEmbeddingModel;
+import com.docpilot.backend.ai.rag.EmbeddingModel;
+import com.docpilot.backend.ai.rag.EmbeddingModelFactory;
 import com.docpilot.backend.ai.rag.InMemoryVectorStore;
 import com.docpilot.backend.ai.rag.RagAnswerContext;
 import com.docpilot.backend.ai.rag.RagAnswerContextBuilder;
+import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagIndexService;
 import com.docpilot.backend.ai.rag.RagRetrievalService;
 import com.docpilot.backend.ai.rag.VectorSearchResult;
 import com.docpilot.backend.common.util.ValidationUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -21,6 +24,19 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
     private static final int MAX_TOP_K = 5;
     private static final int SNIPPET_MAX_LENGTH = 280;
     private static final int CONTEXT_MAX_LENGTH = 900;
+
+    private final EmbeddingModelFactory embeddingModelFactory;
+    private final RagEmbeddingProperties embeddingProperties;
+
+    public DocumentRagTool() {
+        this(new EmbeddingModelFactory(), new RagEmbeddingProperties());
+    }
+
+    @Autowired
+    public DocumentRagTool(EmbeddingModelFactory embeddingModelFactory, RagEmbeddingProperties embeddingProperties) {
+        this.embeddingModelFactory = embeddingModelFactory;
+        this.embeddingProperties = embeddingProperties;
+    }
 
     @Override
     public String getToolName() {
@@ -47,7 +63,7 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
             );
         }
 
-        FakeEmbeddingModel embeddingModel = new FakeEmbeddingModel();
+        EmbeddingModel embeddingModel = embeddingModelFactory.create(embeddingProperties);
         InMemoryVectorStore vectorStore = new InMemoryVectorStore();
         RagIndexService indexService = new RagIndexService(embeddingModel, vectorStore);
         RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, vectorStore);

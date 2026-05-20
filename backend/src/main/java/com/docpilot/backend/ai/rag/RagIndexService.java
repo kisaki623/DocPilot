@@ -23,6 +23,12 @@ public class RagIndexService {
         this(embeddingModel, vectorStore, DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP);
     }
 
+    public RagIndexService(EmbeddingModelFactory embeddingModelFactory,
+                           RagEmbeddingProperties embeddingProperties,
+                           VectorStore vectorStore) {
+        this(embeddingModelFactory.create(embeddingProperties), vectorStore);
+    }
+
     public RagIndexService(EmbeddingModel embeddingModel, VectorStore vectorStore, int chunkSize, int chunkOverlap) {
         if (embeddingModel == null) {
             throw new IllegalArgumentException("embeddingModel must not be null");
