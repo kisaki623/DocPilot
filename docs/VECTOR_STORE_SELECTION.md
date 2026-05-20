@@ -200,3 +200,10 @@ T071 未新增依赖、未改 docker-compose、未新增数据库表、未接 Qd
 - T091 已补 Qdrant collection lifecycle 边界：可构造 info / create payload，preflight 默认只读，不自动创建 collection。
 - T092 已新增离线 retrieval eval cases，用 fake embedding + in-memory 做默认评测，并用本地 fake Qdrant server 覆盖一条 adapter eval。
 - 选型结论仍保持克制：默认 provider 是 `in_memory`，Qdrant adapter 仍默认关闭；当前没有启动真实 Qdrant、没有改 docker-compose、没有新增 API / DB / Maven 依赖，也没有接 Redis Vector、LangChain4j 或 Spring AI。
+
+## 13. 2026-05-21 T095 更新
+
+- Qdrant adapter 仍是默认关闭能力，只有显式 `provider=qdrant` 且 endpoint 齐全才会发 HTTP；默认 provider 仍为 `in_memory`。
+- 本轮补强了 Qdrant payload / filter / fallback 测试：search payload 必须包含 userId + documentId filter，HTTP 500 / 缺 endpoint 错误不输出 endpoint、Authorization、API key 或 response body。
+- Qdrant payload 的 metadata/citation 采用白名单字段，不把正文、prompt 或 provider response 类字段写入 metadata；正文仅作为受控 retrieval text 存在于 payload，用于 adapter 解析测试。
+- 当前仍未启动真实 Qdrant，未改 docker-compose，未新增 API / DB / Maven 依赖，未接 Redis Vector、LangChain4j 或 Spring AI。

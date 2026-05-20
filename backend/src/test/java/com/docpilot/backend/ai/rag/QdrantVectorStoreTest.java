@@ -96,6 +96,30 @@ class QdrantVectorStoreTest {
     }
 
     @Test
+    void shouldSendScopedSearchFilterForExplicitUser() throws Exception {
+        startServer(exchange -> sendJson(exchange, 200, "{\"result\":[]}"));
+        QdrantVectorStore vectorStore = new QdrantVectorStore(properties(false));
+
+        List<VectorSearchResult> results = vectorStore.searchTopK(
+                RagSearchScope.of("user-42", 61L),
+                vector(0.1D, 0.2D),
+                3
+        );
+
+        Map<String, Object> body = readMap(requests.get(0).body());
+        List<Map<String, Object>> must = castList(castMap(body.get("filter")).get("must"));
+        assertThat(results).isEmpty();
+        assertThat(must).anySatisfy(condition -> {
+            assertThat(condition.get("key")).isEqualTo("userId");
+            assertThat(castMap(condition.get("match")).get("value")).isEqualTo("user-42");
+        });
+        assertThat(must).anySatisfy(condition -> {
+            assertThat(condition.get("key")).isEqualTo("documentId");
+            assertThat(castMap(condition.get("match")).get("value")).isEqualTo(61);
+        });
+    }
+
+    @Test
     void shouldIndexAndSearchAgainstSameLocalFakeServer() throws Exception {
         startServer(exchange -> {
             String path = exchange.getRequestURI().getPath();
@@ -187,8 +211,21 @@ class QdrantVectorStoreTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Qdrant search request failed with status 500.")
                 .hasMessageNotContaining("secret-test-token")
-                .hasMessageNotContaining("do-not-print");
+                .hasMessageNotContaining("do-not-print")
+                .hasMessageNotContaining("127.0.0.1")
+                .hasMessageNotContaining("docpilot_test");
         assertThat(requests.get(0).authorizationPresent()).isTrue();
+    }
+
+    @Test
+    void shouldFailFastWithoutEndpointBeforeHttpRequest() {
+        RagVectorStoreProperties.Qdrant properties = new RagVectorStoreProperties.Qdrant();
+        properties.setEndpoint("");
+
+        assertThatThrownBy(() -> new QdrantVectorStore(properties))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Qdrant vector store endpoint is required when provider=qdrant.");
+        assertThat(requests).isEmpty();
     }
 
     private RagVectorStoreProperties.Qdrant properties(boolean withApiKey) {

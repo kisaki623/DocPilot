@@ -44,7 +44,7 @@ public record QdrantPointPayload(
         payload.put("contentHash", metadataValue(chunk, "contentHash"));
         payload.put("chunkHash", metadataValue(chunk, "chunkHash"));
         payload.put("citation", citationMetadata(chunk.metadata()));
-        payload.put("metadata", new LinkedHashMap<>(chunk.metadata()));
+        payload.put("metadata", safeMetadata(chunk.metadata()));
         return new QdrantPointPayload(pointId(chunk, normalizedVersion), vector, payload);
     }
 
@@ -66,6 +66,17 @@ public record QdrantPointPayload(
         copyIfPresent(metadata, citation, "chunkVersion");
         copyIfPresent(metadata, citation, "source");
         return citation;
+    }
+
+    private static Map<String, Object> safeMetadata(Map<String, String> metadata) {
+        Map<String, Object> safe = new LinkedHashMap<>();
+        copyIfPresent(metadata, safe, "contentHash");
+        copyIfPresent(metadata, safe, "chunkHash");
+        copyIfPresent(metadata, safe, "charStart");
+        copyIfPresent(metadata, safe, "charEnd");
+        copyIfPresent(metadata, safe, "chunkVersion");
+        copyIfPresent(metadata, safe, "source");
+        return safe;
     }
 
     private static void copyIfPresent(Map<String, String> source, Map<String, Object> target, String key) {

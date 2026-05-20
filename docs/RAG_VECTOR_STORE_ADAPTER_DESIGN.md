@@ -149,3 +149,11 @@ adapter 返回的 hit 应保持：
 - T091 已补 collection info / create request builder 和 response parser；preflight 脚本默认只读 / dry-run，只有显式允许时才会尝试 create。
 - T092 已补离线 retrieval eval：默认 fake embedding + in-memory vector store，指标为 total、hitCount、missCount、hitRate、averageRetrievedCount；另用本地 fake Qdrant server 验证 adapter eval，不依赖真实 Qdrant。
 - 当前边界不变：默认 provider 仍为 `in_memory`，Qdrant adapter 默认关闭；未启动真实 Qdrant，未新增公开 API / DB / Maven 依赖 / docker-compose，未接 Redis Vector、LangChain4j 或 Spring AI。
+
+## 12. 2026-05-21 T095 Qdrant Adapter Safety Coverage
+
+- T095 补强了 Qdrant adapter 只读安全测试：默认 provider 仍由既有 contract tests 锁定为 `in_memory`，`qdrant` 仍必须显式配置 endpoint 才会创建 HTTP adapter。
+- `QdrantVectorStore` 新增测试覆盖显式 userId + documentId search scope，确认 search payload filter 不缺隔离条件。
+- `QdrantPointPayload` 的 `metadata` 字段收敛为白名单，只保留 contentHash / chunkHash / charStart / charEnd / chunkVersion / source；不会把 prompt、provider response 或误塞入 metadata 的正文类字段复制进 metadata / citation。
+- Qdrant HTTP 500 和缺 endpoint 的失败路径继续保持脱敏：异常信息不包含 endpoint 原文、collection、Authorization、API key 或 response body。
+- 测试仍只使用 JDK 本地 fake HTTP server；未启动真实 Qdrant，未访问外部 Qdrant 服务，未新增 API / DB / Maven 依赖 / docker-compose。

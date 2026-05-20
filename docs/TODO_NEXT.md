@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T095-Qdrant-Adapter-Safety-Coverage
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：在不真实连接 Qdrant 的情况下，补强 Qdrant adapter 的安全边界、payload/filter 和 fallback 测试。
+- 当前结果：`QdrantPointPayload` 的 metadata 收敛为白名单字段；`QdrantPayloadMappingTest` 覆盖 metadata 不复制正文 / prompt / provider response；`QdrantVectorStoreTest` 覆盖显式 userId + documentId filter、缺 endpoint fail-fast 和 HTTP 500 错误信息脱敏。
+- 验证结果：`cd backend; mvn -Dtest=*Qdrant* test` 通过，21 tests；`cd backend; mvn -Dtest=*VectorStore* test` 通过，26 tests；`cd backend; mvn test -DskipITs` 通过，431 tests。
+- 边界：默认 provider 仍为 `in_memory`；Qdrant adapter 仍默认关闭；测试只使用本地 fake HTTP server；未启动真实 Qdrant，未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T094-RAG-QA-Trace-Smoke-Evidence
 
 - 状态：DONE

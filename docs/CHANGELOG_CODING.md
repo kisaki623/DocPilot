@@ -2,6 +2,44 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T095 Qdrant Adapter Safety Coverage
+
+### 本轮目标
+
+在不真实连接 Qdrant 的情况下，补强 Qdrant adapter 的安全边界、payload/filter 和 fallback 测试。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantPointPayload.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPayloadMappingTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantVectorStoreTest.java`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `QdrantPointPayload` 的 metadata 改为白名单字段，避免把正文、prompt 或 provider response 类字段复制进 metadata / citation。
+- `QdrantPayloadMappingTest` 覆盖 metadata/citation 不包含正文类字段。
+- `QdrantVectorStoreTest` 覆盖显式 userId + documentId search filter、缺 endpoint fail-fast 和 HTTP 500 错误脱敏。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过，21 tests。
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过，26 tests。
+- `cd backend; mvn test -DskipITs`：通过，431 tests。
+
+### 当前边界
+
+- 默认 provider 仍为 `in_memory`。
+- Qdrant adapter 仍默认关闭。
+- 测试只使用 JDK 本地 fake HTTP server。
+- 未启动真实 Qdrant，未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T094 RAG QA Trace Smoke Evidence
 
 ### 本轮目标

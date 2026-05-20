@@ -32,6 +32,7 @@ class QdrantPayloadMappingTest {
         Map<String, Object> firstPoint = firstPoint(request);
         Map<String, Object> payload = castMap(firstPoint.get("payload"));
         Map<String, Object> citation = castMap(payload.get("citation"));
+        Map<String, Object> metadata = castMap(payload.get("metadata"));
 
         assertThat(firstPoint.get("id")).isEqualTo("61:v1:2:content-hash-61-2");
         assertThat(firstPoint.get("vector")).isEqualTo(List.of(0.1D, 0.2D, 0.3D));
@@ -46,6 +47,44 @@ class QdrantPayloadMappingTest {
                 .containsEntry("charEnd", "180")
                 .containsEntry("chunkVersion", "fake-rag-v1")
                 .containsEntry("source", "unit-test");
+        assertThat(metadata)
+                .containsEntry("contentHash", "content-hash-61-2")
+                .containsEntry("charStart", "120")
+                .containsEntry("charEnd", "180")
+                .containsEntry("source", "unit-test");
+    }
+
+    @Test
+    void shouldKeepPayloadMetadataSanitized() throws Exception {
+        String privateBodyMarker = "PRIVATE_DOCUMENT_BODY_SHOULD_NOT_BE_METADATA";
+        DocumentChunk chunk = new DocumentChunk(61L, 0, "short retrieval text",
+                Map.of(
+                        "contentHash", "content-hash-safe",
+                        "charStart", "0",
+                        "charEnd", "20",
+                        "documentBody", privateBodyMarker,
+                        "prompt", "PRIVATE_PROMPT_MARKER",
+                        "providerResponse", "PRIVATE_PROVIDER_RESPONSE"
+                ));
+
+        String json = new QdrantUpsertRequestBuilder().buildJson(List.of(
+                QdrantPointPayload.fromChunk("user-1", "v1", chunk, vector(0.1D, 0.2D))
+        ));
+        Map<String, Object> payload = castMap(firstPoint(readMap(json)).get("payload"));
+        Map<String, Object> metadata = castMap(payload.get("metadata"));
+        Map<String, Object> citation = castMap(payload.get("citation"));
+
+        assertThat(payload.get("text")).isEqualTo("short retrieval text");
+        assertThat(metadata)
+                .containsEntry("contentHash", "content-hash-safe")
+                .containsEntry("charStart", "0")
+                .containsEntry("charEnd", "20")
+                .doesNotContainKeys("documentBody", "prompt", "providerResponse");
+        assertThat(citation).doesNotContainKeys("documentBody", "prompt", "providerResponse");
+        assertThat(metadata.toString() + citation)
+                .doesNotContain(privateBodyMarker)
+                .doesNotContain("PRIVATE_PROMPT_MARKER")
+                .doesNotContain("PRIVATE_PROVIDER_RESPONSE");
     }
 
     @Test
