@@ -2,6 +2,39 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T096 RAG Implementation Boundary Alignment
+
+### 本轮目标
+
+检查 README / RAG 文档 / handoff 口径，避免把 fake embedding、in-memory vector store、默认关闭 Qdrant adapter 或 function-calling-style 工具执行模式写成生产完整能力。
+
+### 修改文件
+
+- `README.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- README 首屏岗位相关描述从 `Function Calling` 收紧为 `Function-calling-style 工具执行`。
+- 复核 RAG minimal design、vector store selection、adapter boundary、TODO、handoff 和 changelog 中的 Qdrant / embedding / LangChain4j / production RAG 表述；当前命中均为边界说明或历史记录。
+- 继续明确当前不是生产完整 RAG，不是 OpenAI 官方 tools/function_call API 默认接入，不是真实 Qdrant runtime 上线。
+
+### 验证结果
+
+- overclaim 关键词扫描：完成。
+- 中文 Markdown mojibake 扫描：完成，仅命中既有扫描命令示例 / 历史说明中的 `�`。
+- `git diff --check`：通过。
+
+### 当前边界
+
+- 仅修改文档口径。
+- 未修改 Java / TS / 配置 / docker-compose。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未读取 `backend/.env`。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T095 Qdrant Adapter Safety Coverage
 
 ### 本轮目标

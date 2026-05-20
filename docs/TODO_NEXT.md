@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T096-RAG-Implementation-Boundary-Alignment
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：检查 README / RAG 文档 / handoff 口径，避免把 fake embedding、in-memory、默认关闭 Qdrant adapter 或 function-calling-style 执行模式写成生产完整能力。
+- 当前结果：README 首屏岗位相关描述从 `Function Calling` 收紧为 `Function-calling-style 工具执行`；复核 RAG minimal design、vector store selection、adapter boundary、TODO、handoff 和 changelog 中的 Qdrant / embedding / LangChain4j / production RAG 表述，现有命中均为边界说明或历史记录。
+- 验证结果：overclaim 关键词扫描完成；中文 Markdown mojibake 扫描完成，仅命中既有扫描命令示例 / 历史说明中的 `�`；`git diff --check` 通过。
+- 边界：仅修改文档口径；未修改 Java / TS / 配置 / docker-compose；未新增公开 API、数据库表或 Maven 依赖；未读取 `backend/.env`；未处理 T010 / MQ blocked。
+
 ### T095-Qdrant-Adapter-Safety-Coverage
 
 - 状态：DONE

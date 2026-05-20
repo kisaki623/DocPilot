@@ -13,7 +13,7 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 
 ## For AI Agent Internship Reviewers
 
-如果你只想快速判断这个项目是否和 AI Agent / RAG / Function Calling 岗位相关，建议先看这 4 点：
+如果你只想快速判断这个项目是否和 AI Agent / RAG / Function-calling-style 工具执行岗位相关，建议先看这 4 点：
 
 1. **可展示 Demo**：`/agent` 页面已收口为 Agent + RAG Showcase，可以选择当前账号已解析文档，展示工具选择、`routingReason`、`matchedKeywords`、`taskId`、持久化 steps、最终回答、citations，以及 RAG 召回片段、score 和 metadata。
 2. **Agent 工具链**：后端已有 `ToolRegistry`、`DocumentToolSelector`、文档状态 / 摘要 / 问答 / RAG 召回工具，并新增默认关闭的 `llm_execute` 模式，可由 LLM 选择 allowlist 内工具、服务端执行真实工具。
