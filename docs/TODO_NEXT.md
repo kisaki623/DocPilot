@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T093b-RAG-Eval-Runner-Report-Stabilization
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：把 RAG retrieval eval 从测试断言扩展为稳定的本地评估入口和脱敏 report，方便后续展示和面试解释。
+- 当前结果：`RagRetrievalEvaluationTest` 可生成 `target/rag-eval/rag-retrieval-eval-summary.json`，新增 `run-rag-retrieval-eval.ps1` 本地入口；report 只包含 provider、embeddingProvider、total、hitCount、missCount、hitRate、averageRetrievedCount、reusedIndexCount、isolatedDocumentChecks 和 failedCaseIds。
+- 覆盖范围：命中、未命中、空文档、同 documentId/version 复用、不同 documentId 隔离、本地 fake Qdrant adapter eval；新增脚本安全测试，确认不输出 Authorization、token、endpoint、API Key、文档正文、prompt 或 provider response。
+- 验证结果：`cd backend; mvn "-Dtest=*RagRetrievalEvaluation*,RagRetrievalEvalScriptSafetyTest" test` 通过，6 tests；`cd backend; mvn -Dtest=*Rag* test` 通过，67 tests；`cd backend; mvn test -DskipITs` 通过。
+- 边界：不调用真实 embedding provider；不启动真实 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T093-RAG-Retrieval-Hardening-And-Eval-Docs
 
 - 状态：DONE

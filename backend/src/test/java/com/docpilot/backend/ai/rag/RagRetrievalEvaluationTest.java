@@ -10,7 +10,10 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,6 +21,7 @@ class RagRetrievalEvaluationTest {
 
     private static final String CASES_RESOURCE = "/rag/rag-retrieval-eval-cases.json";
     private static final double MIN_HIT_RATE = 0.60D;
+    private static final Path REPORT_PATH = Path.of("target", "rag-eval", "rag-retrieval-eval-summary.json");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private HttpServer server;
@@ -40,6 +44,10 @@ class RagRetrievalEvaluationTest {
         assertThat(result.missCount()).isGreaterThanOrEqualTo(1);
         assertThat(result.hitRate()).isGreaterThanOrEqualTo(MIN_HIT_RATE);
         assertThat(result.averageRetrievedCount()).isGreaterThan(0.0D);
+        assertThat(result.provider()).isEqualTo("in_memory");
+        assertThat(result.embeddingProvider()).isEqualTo(RagEmbeddingProperties.PROVIDER_FAKE);
+        assertThat(result.reusedIndexCount()).isEqualTo(1);
+        assertThat(result.isolatedDocumentChecks()).isEqualTo(2);
         assertThat(result.failedCaseIds()).isEmpty();
         assertThat(result.toString())
                 .doesNotContain("Redis cache stores hot session")
@@ -67,16 +75,21 @@ class RagRetrievalEvaluationTest {
         assertThat(result.total()).isEqualTo(1);
         assertThat(result.hitCount()).isEqualTo(1);
         assertThat(result.hitRate()).isEqualTo(1.0D);
+        assertThat(result.provider()).isEqualTo("qdrant_fake_server");
     }
 
     @Test
     void shouldKeepFailureSummarySanitized() {
         RagRetrievalEvaluationResult result = new RagRetrievalEvaluationResult(
+                "in_memory",
+                RagEmbeddingProperties.PROVIDER_FAKE,
                 2,
                 1,
                 1,
                 0.5D,
                 1.0D,
+                0,
+                0,
                 List.of("case-safe-id")
         );
 
@@ -85,6 +98,57 @@ class RagRetrievalEvaluationTest {
                 .doesNotContain("documentText")
                 .doesNotContain("prompt")
                 .doesNotContain("secret");
+    }
+
+    @Test
+    void shouldWriteSanitizedEvaluationReport() throws Exception {
+        RagRetrievalEvaluationResult result = evaluateInMemory(loadCases());
+
+        Files.createDirectories(REPORT_PATH.getParent());
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(REPORT_PATH.toFile(), result.safeReport());
+
+        String report = Files.readString(REPORT_PATH, StandardCharsets.UTF_8);
+        assertThat(report).contains("\"provider\" : \"in_memory\"");
+        assertThat(report).contains("\"embeddingProvider\" : \"fake\"");
+        assertThat(report).contains("\"total\" : 5");
+        assertThat(report).contains("\"hitRate\"");
+        assertThat(report)
+                .doesNotContain("documentText")
+                .doesNotContain("Redis cache stores hot session")
+                .doesNotContain("RocketMQ outbox dispatches")
+                .doesNotContain("MinIO object storage keeps")
+                .doesNotContain("prompt")
+                .doesNotContain("secret");
+    }
+
+    @Test
+    void shouldCoverIndexReuseAndDocumentIsolationInEvalPath() {
+        FakeEmbeddingModel embeddingModel = new FakeEmbeddingModel(128);
+        InMemoryVectorStore vectorStore = new InMemoryVectorStore();
+        RagIndexManager indexManager = new RagIndexManager();
+        RagIndexService indexService = new RagIndexService(
+                embeddingModel,
+                vectorStore,
+                indexManager,
+                RagEmbeddingProperties.PROVIDER_FAKE,
+                RagIndexManager.VECTOR_STORE_IN_MEMORY,
+                new RagChunkingPolicy(120, 20, 10)
+        );
+        RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, vectorStore);
+
+        RagIndexService.RagIndexResult first = indexService.indexDocument(9100L, "v1",
+                "Redis eval marker appears in this document.");
+        RagIndexService.RagIndexResult second = indexService.indexDocument(9100L, "v1",
+                "Redis eval marker appears in this document.");
+        indexService.indexDocument(9101L, "v1", "MinIO isolation marker appears in a different document.");
+
+        List<VectorSearchResult> doc9100Hits = retrievalService.retrieveForQuestion(9100L, "Where is MinIO isolation marker?", 3);
+        List<VectorSearchResult> doc9101Hits = retrievalService.retrieveForQuestion(9101L, "Where is MinIO isolation marker?", 3);
+
+        assertThat(first.state().indexReused()).isFalse();
+        assertThat(second.state().indexReused()).isTrue();
+        assertThat(doc9100Hits).noneMatch(hit -> hit.chunk().text().contains("MinIO isolation marker"));
+        assertThat(doc9101Hits).anyMatch(hit -> hit.chunk().text().contains("MinIO isolation marker"));
     }
 
     private RagRetrievalEvaluationResult evaluateInMemory(List<RagRetrievalEvaluationCase> cases) {
@@ -125,10 +189,37 @@ class RagRetrievalEvaluationTest {
                 failedCaseIds.add(evalCase.id());
             }
         }
+        int reusedIndexCount = 0;
+        int isolatedDocumentChecks = 0;
+        if (vectorStore instanceof InMemoryVectorStore) {
+            RagIndexService.RagIndexResult first = indexService.indexDocument(9900L, "v1",
+                    "Cache reuse marker stays stable.");
+            RagIndexService.RagIndexResult second = indexService.indexDocument(9900L, "v1",
+                    "Cache reuse marker stays stable.");
+            indexService.indexDocument(9901L, "v1", "Isolation marker belongs to a separate document.");
+            List<VectorSearchResult> isolatedHits = retrievalService.retrieveForQuestion(9900L,
+                    "Where is the isolation marker?", 3);
+            List<VectorSearchResult> separateDocumentHits = retrievalService.retrieveForQuestion(9901L,
+                    "Where is the isolation marker?", 3);
+            reusedIndexCount = second.state().indexReused() && !first.state().indexReused() ? 1 : 0;
+            isolatedDocumentChecks += isolatedHits.stream()
+                    .noneMatch(hit -> hit.chunk().text().contains("Isolation marker")) ? 1 : 0;
+            isolatedDocumentChecks += separateDocumentHits.stream()
+                    .anyMatch(hit -> hit.chunk().text().contains("Isolation marker")) ? 1 : 0;
+        }
         int total = cases.size();
         double hitRate = total == 0 ? 0.0D : (double) hitCount / total;
         double averageRetrieved = total == 0 ? 0.0D : (double) retrievedTotal / total;
-        return new RagRetrievalEvaluationResult(total, hitCount, missCount, hitRate, averageRetrieved,
+        return new RagRetrievalEvaluationResult(
+                vectorStore instanceof QdrantVectorStore ? "qdrant_fake_server" : "in_memory",
+                RagEmbeddingProperties.PROVIDER_FAKE,
+                total,
+                hitCount,
+                missCount,
+                hitRate,
+                averageRetrieved,
+                reusedIndexCount,
+                isolatedDocumentChecks,
                 failedCaseIds);
     }
 
@@ -211,19 +302,42 @@ class RagRetrievalEvaluationTest {
     }
 
     record RagRetrievalEvaluationResult(
+            String provider,
+            String embeddingProvider,
             int total,
             int hitCount,
             int missCount,
             double hitRate,
             double averageRetrievedCount,
+            int reusedIndexCount,
+            int isolatedDocumentChecks,
             List<String> failedCaseIds
     ) {
         RagRetrievalEvaluationResult {
+            provider = provider == null || provider.isBlank() ? "unknown" : provider.trim();
+            embeddingProvider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider.trim();
             failedCaseIds = failedCaseIds == null ? List.of() : List.copyOf(failedCaseIds);
         }
 
+        Map<String, Object> safeReport() {
+            return Map.of(
+                    "provider", provider,
+                    "embeddingProvider", embeddingProvider,
+                    "total", total,
+                    "hitCount", hitCount,
+                    "missCount", missCount,
+                    "hitRate", String.format(java.util.Locale.ROOT, "%.4f", hitRate),
+                    "averageRetrievedCount", String.format(java.util.Locale.ROOT, "%.2f", averageRetrievedCount),
+                    "reusedIndexCount", reusedIndexCount,
+                    "isolatedDocumentChecks", isolatedDocumentChecks,
+                    "failedCaseIds", failedCaseIds
+            );
+        }
+
         String safeSummary() {
-            return "total=" + total
+            return "provider=" + provider
+                    + ", embeddingProvider=" + embeddingProvider
+                    + ", total=" + total
                     + ", hitCount=" + hitCount
                     + ", missCount=" + missCount
                     + ", hitRate=" + String.format(java.util.Locale.ROOT, "%.4f", hitRate)

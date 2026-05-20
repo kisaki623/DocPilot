@@ -2,6 +2,44 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T093b RAG Eval Runner Report Stabilization
+
+### 本轮目标
+
+把 RAG retrieval eval 从测试断言扩展为稳定的本地评估入口和脱敏 report，方便后续展示和面试解释。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvalScriptSafetyTest.java`
+- `backend/scripts/rag/run-rag-retrieval-eval.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `RagRetrievalEvaluationTest` 生成 `target/rag-eval/rag-retrieval-eval-summary.json`。
+- 新增本地脚本 `run-rag-retrieval-eval.ps1`，运行 fake embedding + in-memory retrieval eval，并打印脱敏 summary。
+- report 字段只包含 provider、embeddingProvider、total、hitCount、missCount、hitRate、averageRetrievedCount、reusedIndexCount、isolatedDocumentChecks 和 failedCaseIds。
+- eval 覆盖命中、未命中、空文档、同 documentId/version 复用、不同 documentId 隔离和本地 fake Qdrant adapter eval。
+- 新增脚本安全测试，确认不输出 Authorization、token、endpoint、API Key、文档正文、prompt 或 provider response。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagRetrievalEvaluation*,RagRetrievalEvalScriptSafetyTest" test`：通过，6 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，67 tests。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts\rag\run-rag-retrieval-eval.ps1 -SkipTests`：通过，输出脱敏聚合指标。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未调用真实 embedding provider。
+- 未启动真实 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T093 RAG Retrieval Hardening And Eval Docs
 
 ### 本轮目标
