@@ -188,7 +188,7 @@ DocPilot/
 - T062 已完成默认关闭的 LLM tool execution mode 真实 provider runtime 验证：summary / QA / RAG 三条路径均由真实 provider 选择工具、服务端 allowlist 执行，fallback 路径也已覆盖。
 - T063 已新增 embedding provider adapter 架构，默认仍为 fake embedding；真实 embedding runtime preflight 因 `APP_RAG_EMBEDDING_*` 必要环境变量缺失 BLOCKED。
 - T067 已新增默认关闭的 QA RAG context feature flag；flag=false 时默认 QA 行为不变，flag=true 时可注入受限 RAG context，并覆盖 fallback / cache key 隔离测试。
-- T072-T075 已补齐 RAG demo 脚本、Agent step 脱敏 RAG trace 摘要、in-memory index lifecycle tracking 和 Qdrant disabled skeleton；当前未真实接 Qdrant / Redis Vector。
+- T072-T086 已补齐 RAG demo 脚本、Agent step 脱敏 RAG trace 摘要、in-memory index lifecycle tracking、默认关闭 Qdrant HTTP adapter、本地 fake server 链路测试和 Qdrant 故障 fallback；当前未启动真实 Qdrant / Redis Vector。
 - T030 鉴权测试当前 BLOCKED：项目尚未接入 Spring Security Web 鉴权体系，不建议为了测试直接新增依赖。
 
 ## 量化结果（可复现边界）
@@ -219,7 +219,7 @@ DocPilot/
 - selector Prometheus metrics 目前只有设计文档，尚未接入 Micrometer / Prometheus；compose 中的 Prometheus 基础设施不等同于 selector metrics 已接入。
 - shadow decision 不接管 production routing，真实 Agent 工具执行仍由 primary selector 决定。
 - LLM execute mode 已完成真实 provider runtime 验证，但当前实现是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 allowlist 执行工具；不是 OpenAI 官方 tools/function_call API，也未默认启用。
-- 当前已有真实 embedding adapter 代码路径，但真实 embedding provider runtime 未通过；只有 Qdrant disabled skeleton，未真实接 Qdrant / Redis Vector、完整生产 RAG、MCP、Spring AI 或 LangChain4j。RAG Showcase 仍是 fake embedding + in-memory vector store 的 demo 路径，QA RAG context feature flag 默认关闭。
+- 当前已有真实 embedding adapter 代码路径，但真实 embedding provider runtime 未通过；Qdrant HTTP adapter 仍默认关闭，已用本地 fake server 验证 adapter / QA context / fallback 链路，但未启动真实 Qdrant / Redis Vector、完整生产 RAG、MCP、Spring AI 或 LangChain4j。RAG Showcase 仍是 fake embedding + in-memory vector store 的 demo 路径，QA RAG context feature flag 默认关闭。
 - 短信验证码接口保留为兼容联调能力，不代表已接入生产短信网关。
 - Prometheus demo 抓取配置如需运行仍要按宿主机网络调整；这不代表 selector shadow 指标已经接入 Prometheus。
 

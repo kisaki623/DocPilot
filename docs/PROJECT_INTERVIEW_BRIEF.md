@@ -8,7 +8,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 更克制的面试讲法：这是一个展示后端工程链路和 AI 应用工程化意识的项目，不是生产级 SaaS、完整向量 RAG 平台或成熟多 Agent 系统。
 
-面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、workflow timeline、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。RAG 侧已有 fake embedding + in-memory vector store demo、脱敏 trace、index lifecycle、Qdrant payload mapping 和默认关闭的 Qdrant HTTP adapter；真实 embedding / 真实 Qdrant runtime 仍是后续方向。
+面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、workflow timeline、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。RAG 侧已有 fake embedding + in-memory vector store demo、脱敏 trace、index lifecycle、Qdrant payload mapping、默认关闭的 Qdrant HTTP adapter、本地 fake server 链路测试和故障 fallback；真实 embedding / 真实 Qdrant runtime 仍是后续方向。
 
 ## 2. 当前真实已实现能力
 
@@ -30,7 +30,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 ## 3. 当前半实现能力
 
-- RAG Showcase 当前使用 fake embedding + in-memory vector store，并已补 in-memory index lifecycle；Qdrant 目前已有默认关闭的 HTTP adapter 和本地 fake server 测试，但未启动真实 Qdrant，不是向量数据库 + 真实 embedding + rerank 的完整生产 RAG。
+- RAG Showcase 当前使用 fake embedding + in-memory vector store，并已补 in-memory index lifecycle；Qdrant 目前已有默认关闭的 HTTP adapter、本地 fake server index/search 与 QA context 链路测试、故障 fallback 测试，但未启动真实 Qdrant，不是向量数据库 + 真实 embedding + rerank 的完整生产 RAG。
 - PDF 支持偏占位，主能力更适合 txt / md 文档。
 - Agent 是同步 API 下的最小工具链闭环，不是异步多 Agent 编排。
 - LLM execute mode 只在显式配置时启用；默认仍是 keyword selector。本轮 fake provider 测试已覆盖执行和 fallback，真实 provider execute runtime 因当前 shell 未注入 provider / 中间件环境变量而 BLOCKED。
@@ -64,7 +64,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、workflow timeline、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
 2. 再展示详情页普通问答 / SSE 流式问答：说明 citations 如何来自轻量检索增强。
-3. 对 RAG 保持诚实：当前已能展示 fake embedding + in-memory vector store 的 topK 召回、score、metadata、脱敏 trace 和 index lifecycle；Qdrant 只有默认关闭 HTTP adapter 和本地 fake server 测试，下一步才是接真实 embedding、chunk 持久化和真实 Qdrant / Redis Vector。
+3. 对 RAG 保持诚实：当前已能展示 fake embedding + in-memory vector store 的 topK 召回、score、metadata、脱敏 trace 和 index lifecycle；Qdrant 只有默认关闭 HTTP adapter、本地 fake server 链路测试和 fallback 测试，下一步才是接真实 embedding、chunk 持久化和真实 Qdrant / Redis Vector。
 4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only，以及默认关闭的 `llm_execute` 执行模式；默认生产行为仍是 keyword selector，真实 provider execute runtime 待验证。
 5. 面试时不要优先讲 Actuator / Prometheus / Spring Security，除非面试官追问可观测性或安全边界。
 
@@ -74,7 +74,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 ### 你这个是完整 RAG 吗？
 
-不是。当前已做出求职展示用的最小 RAG demo：fake embedding、in-memory vector store、topK 召回、score、metadata、脱敏 trace 和 index lifecycle；也有默认关闭的 Qdrant HTTP adapter 和本地 fake server 测试用于说明 adapter 边界。但还没有真实 embedding provider、真实 Qdrant / Redis Vector、chunk 持久化和 rerank。我会把它描述为 RAG demo 或轻量检索增强演进，不会包装成生产完整向量 RAG。
+不是。当前已做出求职展示用的最小 RAG demo：fake embedding、in-memory vector store、topK 召回、score、metadata、脱敏 trace 和 index lifecycle；也有默认关闭的 Qdrant HTTP adapter、本地 fake server 链路测试和 fallback 测试用于说明 adapter 边界。但还没有真实 embedding provider、真实 Qdrant / Redis Vector、chunk 持久化和 rerank。我会把它描述为 RAG demo 或轻量检索增强演进，不会包装成生产完整向量 RAG。
 
 ### Agent 是多 Agent 吗？
 

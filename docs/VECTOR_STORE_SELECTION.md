@@ -182,3 +182,12 @@ T071 未新增依赖、未改 docker-compose、未新增数据库表、未接 Qd
 - T079 已新增默认关闭的 Qdrant HTTP adapter：显式 `provider=qdrant` 且 endpoint 配置齐全时才会发请求，默认仍为 `in_memory`；测试只使用 JDK 本地 fake HTTP server，未启动真实 Qdrant。
 - T080 已新增脱敏 preflight 脚本，缺环境时 SKIPPED / BLOCKED，不输出 endpoint 原文、API key、Authorization 或响应体。
 - 选型结论保持克制：当前可以讲“已有 fake embedding + in-memory vector store 的 RAG demo、QA RAG feature flag、RAG trace、index lifecycle、默认关闭的 Qdrant HTTP adapter 和 preflight”；不能写成真实 embedding / 真实 Qdrant runtime / 生产完整 RAG 已完成。
+
+## 11. 2026-05-21 T082-T086 更新
+
+- T082 已统一 Qdrant 配置 / 环境变量命名，默认 provider 仍为 `in_memory`，显式 `RAG_VECTOR_STORE_PROVIDER=qdrant` 才会进入 Qdrant HTTP adapter。
+- T083 已确认 RAG 主链路通过 `VectorStore` 抽象运行，避免把 `RagIndexService` / `RagQaContextBuilder` / `DocumentRagTool` 主路径硬编码到 in-memory 实现。
+- T084 已用 JDK 本地 fake HTTP server 验证 `QdrantVectorStore` 的 index / search 请求形态、payload metadata 和 userId + documentId filter。
+- T085 已用 fake Qdrant server 验证 QA RAG context 在 `provider=qdrant` 时可通过 adapter 返回召回结果。
+- T086 已补 Qdrant HTTP error、timeout、disabled、空结果和 Agent rag_tool 失败的 fallback 测试，确保默认 QA / Agent 体验不被向量库故障破坏。
+- 选型结论不变：Qdrant 是后续真实向量库优先方案，但当前只完成默认关闭 adapter 和本地 fake server 链路验证；没有启动真实 Qdrant，没有改 docker-compose，没有新增 Maven 依赖、DB 表或公开 API。

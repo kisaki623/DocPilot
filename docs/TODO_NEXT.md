@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T087-Qdrant-Integration-Test-Boundary-Docs
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：收口 T082-T086 文档，明确当前是“默认关闭、fake server 验证过的 Qdrant adapter 链路”，不是生产 Qdrant 上线。
+- 当前结果：更新 `RAG_MINIMAL_DESIGN`、`VECTOR_STORE_SELECTION`、`RAG_VECTOR_STORE_ADAPTER_DESIGN`、README、项目面试 brief 和简历 bullet；明确 T082 配置命名校准、T083 VectorStore 抽象接入、T084 fake server index/search、T085 QA context 走 Qdrant adapter、T086 Qdrant 故障 fallback 均已完成。
+- 验证结果：指定文档 mojibake 关键词扫描通过；`cd backend; mvn test -DskipITs` 通过。
+- 边界：默认 provider 仍为 `in_memory`；Qdrant adapter 仍默认关闭；未启动真实 Qdrant；未改 docker-compose；未新增公开 API、数据库表或 Maven 依赖；未接 Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+
 ### T086-Qdrant-Failure-Fallback-Behavior
 
 - 状态：DONE

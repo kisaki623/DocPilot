@@ -13,7 +13,7 @@ parsed text -> chunk -> embedding -> vector store -> retrieve topK -> prompt ass
 当前边界：
 
 - 已有 Agent QA tool、普通问答、SSE 问答、citations 和前端引用展示。
-- 当前不是完整生产向量 RAG；T054 / T055 已有 fake embedding + in-memory vector store + Agent Showcase 召回展示，T063 已新增真实 embedding adapter 代码路径但真实 runtime 尚未验证，T067 已新增默认关闭的 QA RAG context feature flag，T072-T080 已补脱敏 demo 脚本、Agent step trace 摘要、in-memory index lifecycle、Qdrant payload mapping、默认关闭的 Qdrant HTTP adapter 和脱敏 preflight 脚本；仍未启动真实 Qdrant / Redis Vector、chunk 持久化、rerank 或默认生产级 RAG routing。
+- 当前不是完整生产向量 RAG；T054 / T055 已有 fake embedding + in-memory vector store + Agent Showcase 召回展示，T063 已新增真实 embedding adapter 代码路径但真实 runtime 尚未验证，T067 已新增默认关闭的 QA RAG context feature flag，T072-T086 已补脱敏 demo 脚本、Agent step trace 摘要、in-memory index lifecycle、Qdrant payload mapping、默认关闭的 Qdrant HTTP adapter、本地 fake server 链路测试和故障 fallback 测试；仍未启动真实 Qdrant / Redis Vector、chunk 持久化、rerank 或默认生产级 RAG routing。
 - 完整上传 -> 解析 -> Agent run 的 T010 runtime 仍因 MQ disabled / NoopParseTaskMessageProducer 保持 BLOCKED。
 - 本设计不修改代码，不修改配置，不新增公开 API。
 
@@ -133,7 +133,7 @@ Agent 接入时，`document_qa_tool` 可以先保持当前逻辑；T067 已先�
 可以这样讲：
 
 - “当前项目已经实现轻量检索增强问答和 citations，Agent QA tool 可以复用这条链路，并展示执行轨迹。”
-- “当前已经先用 fake embedding 和 in-memory vector store 打通了最小 RAG demo，并新增了默认关闭的 QA RAG context 注入开关、脱敏 trace、index lifecycle、Qdrant payload mapping 和默认关闭的 Qdrant HTTP adapter；真实 embedding runtime 和真实 Qdrant runtime 还没有完成。”
+- “当前已经先用 fake embedding 和 in-memory vector store 打通了最小 RAG demo，并新增了默认关闭的 QA RAG context 注入开关、脱敏 trace、index lifecycle、Qdrant payload mapping、默认关闭的 Qdrant HTTP adapter、本地 fake server 链路测试和故障 fallback；真实 embedding runtime 和真实 Qdrant runtime 还没有完成。”
 - “我没有直接上 LangChain / LangGraph，是因为这个项目重点展示 Java 后端工程能力：鉴权、异步解析、幂等、trace、service 边界、fallback 和测试可控性。”
 - “RAG 尚未实现时，我会明确说当前是轻量检索增强，不会把它包装成完整向量 RAG。”
 
@@ -239,3 +239,12 @@ T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_R
 - T079 已新增默认关闭的 `QdrantVectorStore` HTTP adapter；只有显式 `app.rag.vector-store.provider=qdrant` 且 endpoint 配置齐全时才会发请求，默认仍为 `in_memory`。测试只使用 JDK 本地 fake HTTP server。
 - T080 已新增 `backend/scripts/rag/preflight-qdrant-vector-store.ps1`，用于脱敏检查 Qdrant 环境是否齐全；缺环境时 SKIPPED / BLOCKED，不读取 `.env`，不输出 endpoint / API key / response body。
 - 当前没有新增公开 API、数据库表、Maven 依赖或 docker-compose 服务；未接 LangChain4j / Spring AI；未启动真实 Qdrant；真实 embedding runtime 仍因 `APP_RAG_EMBEDDING_*` 缺失保持 BLOCKED；T010 / MQ 仍 BLOCKED。
+
+## 17. T082-T086 Qdrant adapter 链路验证状态
+
+- T082 已统一 Qdrant 配置 / 环境变量命名，推荐变量为 `RAG_VECTOR_STORE_PROVIDER`、`RAG_QDRANT_ENDPOINT`、`RAG_QDRANT_API_KEY`、`RAG_QDRANT_COLLECTION`、`RAG_QDRANT_CONNECT_TIMEOUT_MS`、`RAG_QDRANT_REQUEST_TIMEOUT_MS`；默认 provider 仍是 `in_memory`。
+- T083 已确认 RAG 主链路通过 `VectorStore` 抽象运行，`RagIndexService`、`RagRetrievalService`、`RagQaContextBuilder` 和 `DocumentRagTool` 可用注入的 store 完成 index / search。
+- T084 已用 JDK 本地 fake HTTP server 验证 `QdrantVectorStore` 的 upsert / search 请求形态、payload metadata、userId + documentId filter 和 topK parser。
+- T085 已用 fake Qdrant server 验证 QA RAG context 能在显式 `provider=qdrant` 时通过 Qdrant adapter 返回召回结果，trace 可展示 `vectorStoreType=qdrant`。
+- T086 已补 Qdrant 故障 fallback：HTTP 500、timeout、disabled、空结果和 Agent rag_tool 失败均不会破坏默认 QA / Agent 体验；fallback reason 只保留脱敏摘要。
+- 当前仍没有启动真实 Qdrant，没有新增 API / DB / Maven 依赖 / docker-compose，没有接 Redis Vector、LangChain4j 或 Spring AI；真实 Qdrant runtime 仍需要用户提供服务和环境变量后再验证。
