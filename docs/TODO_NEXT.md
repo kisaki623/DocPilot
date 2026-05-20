@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T085-RAG-QA-Context-Qdrant-Adapter-Integration
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：证明 `provider=qdrant` 时，RAG QA context 构建链路可以通过 Qdrant adapter 返回召回结果，且只使用本地 fake server。
+- 当前结果：新增 `QdrantRagQaContextIntegrationTest`，构造 `RagQaContextBuilder` / `RagIndexManager` / `VectorStoreFactory`，显式配置 `provider=qdrant` 指向 JDK 本地 fake server；测试覆盖 index 阶段 delete / upsert、query 阶段 search、userId + documentId filter、retrievedCount、contextHashPresent、citation metadata 和 `trace.vectorStoreType=qdrant`。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过；`cd backend; mvn test -DskipITs` 通过。
+- 边界：未启动真实 Qdrant；未访问外网；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未输出 endpoint 原文、Authorization、provider response、文档正文或 prompt。
+
 ### T084-Qdrant-Fake-Server-Index-Search-Test
 
 - 状态：DONE

@@ -2,6 +2,37 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T085 RAG QA Context Qdrant Adapter Integration
+
+### 本轮目标
+
+证明 `provider=qdrant` 时，RAG QA context 构建链路可以通过 Qdrant adapter 返回召回结果，且只使用本地 fake server。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantRagQaContextIntegrationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `QdrantRagQaContextIntegrationTest`。
+- 构造 `RagQaContextBuilder` / `RagIndexManager` / `VectorStoreFactory`，显式配置 `provider=qdrant` 指向 JDK 本地 fake server。
+- 验证 index 阶段 delete / upsert、query 阶段 search、userId + documentId filter。
+- 验证 `retrievedCount`、`contextHashPresent`、citation metadata 和 `trace.vectorStoreType=qdrant`。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未启动真实 Qdrant，未访问外网。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未输出 endpoint 原文、Authorization、provider response、文档正文或 prompt。
+
 ## 2026-05-21 - T084 Qdrant Fake Server Index Search Test
 
 ### 本轮目标
