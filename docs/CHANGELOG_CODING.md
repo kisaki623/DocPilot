@@ -2,6 +2,42 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T062 LLM Execute Runtime Verification Closeout
+
+### 本轮目标
+
+在 T062c 真实 provider summary / QA / RAG runtime 通过后，完成 T062d fallback 验证与 T062e 文档收口。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/service/DocumentAgentLlmExecuteModeTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+
+### 完成范围
+
+- T062d：新增 provider timeout fallback 服务级测试，使用本地 stub server 和极短 request timeout 验证 `llm_execute` 失败后回退 keyword selector，最终仍由服务端执行 keyword 选中的工具。
+- 现有测试继续覆盖 provider disabled、provider exception、invalid decision / unknown toolName、decision / toolNames 不匹配、parser failure 等 fallback 路径。
+- T062e：协作文档已收口，明确当前实现是 Function-calling-style / LLM 工具选择执行模式；OpenAI-compatible client 使用 chat completions 文本 JSON 输出再解析，不是 OpenAI 官方 tools / function_call API。
+- 文档明确默认 production routing 仍为 `keyword`，`llm_execute` 必须显式开启；模型只返回 decision / toolNames，实际工具执行和参数构造仍由服务端 `ToolRegistry` allowlist 控制。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过，11 tests。
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest,RealLlmSelectorShadowRunnerTest,OpenAiCompatibleLlmToolSelectionClientTest test`：通过，29 tests。
+- `cd backend; mvn test -DskipITs`：通过，318 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 当前边界
+
+- 未读取 `backend/.env`，未输出 secret、baseUrl、Authorization、prompt、provider 响应或文档正文。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose 服务。
+- 未修改默认 production routing，默认仍为 keyword selector。
+- 未处理 T010 / MQ blocked；T063 / T067 未执行。
+
 ## 2026-05-20 - T062c Recovery Real Provider Runtime
 
 ### 本轮目标
