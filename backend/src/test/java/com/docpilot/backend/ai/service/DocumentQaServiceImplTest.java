@@ -1,6 +1,10 @@
 package com.docpilot.backend.ai.service;
 
 import com.docpilot.backend.ai.mapper.DocumentQaHistoryMapper;
+import com.docpilot.backend.ai.rag.RagCitation;
+import com.docpilot.backend.ai.rag.RagQaContext;
+import com.docpilot.backend.ai.rag.RagQaContextBuilder;
+import com.docpilot.backend.ai.rag.RagQaProperties;
 import com.docpilot.backend.ai.service.impl.AiRetryExecutor;
 import com.docpilot.backend.ai.service.impl.DocumentQaServiceImpl;
 import com.docpilot.backend.ai.entity.DocumentQaHistory;
@@ -48,6 +52,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Map;
 
 @ExtendWith(MockitoExtension.class)
 class DocumentQaServiceImplTest {
@@ -74,6 +79,10 @@ class DocumentQaServiceImplTest {
     private ListOperations<String, String> listOperations;
 
     private DocumentQaServiceImpl buildService() {
+        return buildService(new RagQaProperties(), new RagQaContextBuilder());
+    }
+
+    private DocumentQaServiceImpl buildService(RagQaProperties ragQaProperties, RagQaContextBuilder ragQaContextBuilder) {
         AiRetryExecutor aiRetryExecutor = new AiRetryExecutor();
         ReflectionTestUtils.setField(aiRetryExecutor, "retryEnabled", true);
         ReflectionTestUtils.setField(aiRetryExecutor, "maxAttempts", 3);
@@ -95,7 +104,9 @@ class DocumentQaServiceImplTest {
                 documentQaHistoryMapper,
                 stringRedisTemplate,
                 redisTokenBucketRateLimiter,
-                aiRetryExecutor
+                aiRetryExecutor,
+                ragQaProperties,
+                ragQaContextBuilder
         );
     }
 
@@ -260,6 +271,37 @@ class DocumentQaServiceImplTest {
         ArgumentCaptor<String> contextCaptor = ArgumentCaptor.forClass(String.class);
         verify(aiAnswerService).answer(contextCaptor.capture(), eq("question"));
         assertEquals(50, contextCaptor.getValue().length());
+    }
+
+    @Test
+    void shouldUseRagContextWhenQaRagFlagEnabled() {
+        RagQaProperties ragQaProperties = new RagQaProperties();
+        ragQaProperties.setEnabled(true);
+        ragQaProperties.setTopK(2);
+        ragQaProperties.setMaxContextChars(128);
+        RagQaContextBuilder ragQaContextBuilder = new StubRagQaContextBuilder(new RagQaContext(
+                true,
+                "[1] documentId=101, chunkIndex=0, score=0.9000\nRedis cache context",
+                List.of(new RagCitation(101L, 0, 0.9D, Map.of("charStart", "0", "charEnd", "20"))),
+                1,
+                1
+        ));
+        DocumentQaServiceImpl documentQaService = buildService(ragQaProperties, ragQaContextBuilder);
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("Full document text should only be used for citations when RAG context is available.");
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(aiAnswerService.answer(eq("RAG context:\n[1] documentId=101, chunkIndex=0, score=0.9000\nRedis cache context"),
+                eq("How is Redis cache used?"))).thenReturn("RAG answer");
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+
+        DocumentQaResponse response = documentQaService.answer(100L, 101L, "How is Redis cache used?");
+
+        assertEquals("RAG answer", response.getAnswer());
+        verify(aiAnswerService).answer(eq("RAG context:\n[1] documentId=101, chunkIndex=0, score=0.9000\nRedis cache context"),
+                eq("How is Redis cache used?"));
     }
 
     @Test
@@ -691,6 +733,20 @@ class DocumentQaServiceImplTest {
             return HexFormat.of().formatHex(digest.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException(ex);
+        }
+    }
+
+    private static class StubRagQaContextBuilder extends RagQaContextBuilder {
+
+        private final RagQaContext context;
+
+        private StubRagQaContextBuilder(RagQaContext context) {
+            this.context = context;
+        }
+
+        @Override
+        public RagQaContext build(Long documentId, String question, String documentText, int topK, int maxContextChars) {
+            return context;
         }
     }
 }

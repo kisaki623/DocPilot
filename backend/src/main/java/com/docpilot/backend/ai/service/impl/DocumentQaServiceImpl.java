@@ -2,6 +2,9 @@ package com.docpilot.backend.ai.service.impl;
 
 import com.docpilot.backend.ai.entity.DocumentQaHistory;
 import com.docpilot.backend.ai.mapper.DocumentQaHistoryMapper;
+import com.docpilot.backend.ai.rag.RagQaContext;
+import com.docpilot.backend.ai.rag.RagQaContextBuilder;
+import com.docpilot.backend.ai.rag.RagQaProperties;
 import com.docpilot.backend.ai.service.AiAnswerService;
 import com.docpilot.backend.ai.service.DocumentQaService;
 import com.docpilot.backend.ai.vo.DocumentQaHistoryItemResponse;
@@ -18,6 +21,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,6 +73,8 @@ public class DocumentQaServiceImpl implements DocumentQaService {
     private final StringRedisTemplate stringRedisTemplate;
     private final RedisTokenBucketRateLimiter redisTokenBucketRateLimiter;
     private final AiRetryExecutor aiRetryExecutor;
+    private final RagQaProperties ragQaProperties;
+    private final RagQaContextBuilder ragQaContextBuilder;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${app.ai.max-document-context-length:4000}")
@@ -80,12 +86,33 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                                  StringRedisTemplate stringRedisTemplate,
                                  RedisTokenBucketRateLimiter redisTokenBucketRateLimiter,
                                  AiRetryExecutor aiRetryExecutor) {
+        this(documentMapper,
+                aiAnswerService,
+                documentQaHistoryMapper,
+                stringRedisTemplate,
+                redisTokenBucketRateLimiter,
+                aiRetryExecutor,
+                new RagQaProperties(),
+                new RagQaContextBuilder());
+    }
+
+    @Autowired
+    public DocumentQaServiceImpl(DocumentMapper documentMapper,
+                                 AiAnswerService aiAnswerService,
+                                 DocumentQaHistoryMapper documentQaHistoryMapper,
+                                 StringRedisTemplate stringRedisTemplate,
+                                 RedisTokenBucketRateLimiter redisTokenBucketRateLimiter,
+                                 AiRetryExecutor aiRetryExecutor,
+                                 RagQaProperties ragQaProperties,
+                                 RagQaContextBuilder ragQaContextBuilder) {
         this.documentMapper = documentMapper;
         this.aiAnswerService = aiAnswerService;
         this.documentQaHistoryMapper = documentQaHistoryMapper;
         this.stringRedisTemplate = stringRedisTemplate;
         this.redisTokenBucketRateLimiter = redisTokenBucketRateLimiter;
         this.aiRetryExecutor = aiRetryExecutor;
+        this.ragQaProperties = ragQaProperties == null ? new RagQaProperties() : ragQaProperties;
+        this.ragQaContextBuilder = ragQaContextBuilder == null ? new RagQaContextBuilder() : ragQaContextBuilder;
     }
 
     @Override
@@ -303,6 +330,12 @@ public class DocumentQaServiceImpl implements DocumentQaService {
         List<RankedChunk> rankedChunks = rankChunks(chunks, terms);
 
         String documentContext = buildDocumentContext(rankedChunks, normalizedContent);
+        String ragCacheVariant = "";
+        RagQaContext ragContext = buildRagQaContextSafely(documentId, normalizedQuestion, normalizedContent);
+        if (ragContext.used()) {
+            documentContext = buildRagEnhancedDocumentContext(ragContext);
+            ragCacheVariant = buildRagCacheVariant(ragContext);
+        }
         String documentVersion = resolveDocumentVersion(document.getUpdateTime());
         List<DocumentQaResponse.CitationItem> citations = buildCitations(rankedChunks, terms);
         String normalizedSessionId = normalizeSessionId(sessionId);
@@ -315,8 +348,44 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                 citations,
                 normalizedSessionId,
                 chunks,
-                terms
+                terms,
+                ragCacheVariant
         );
+    }
+
+    private RagQaContext buildRagQaContextSafely(Long documentId, String question, String normalizedContent) {
+        if (!ragQaProperties.isEnabled()) {
+            return RagQaContext.empty();
+        }
+        try {
+            return ragQaContextBuilder.build(
+                    documentId,
+                    question,
+                    normalizedContent,
+                    ragQaProperties.getTopK(),
+                    ragQaProperties.getMaxContextChars()
+            );
+        } catch (Exception ex) {
+            if (!ragQaProperties.isFallbackEnabled()) {
+                if (ex instanceof RuntimeException runtimeException) {
+                    throw runtimeException;
+                }
+                throw new IllegalStateException("QA RAG context retrieval failed", ex);
+            }
+            log.warn("QA RAG context retrieval failed, fallback to plain QA, documentId={}, error={}",
+                    documentId, ex.getClass().getSimpleName());
+            return RagQaContext.empty();
+        }
+    }
+
+    private String buildRagEnhancedDocumentContext(RagQaContext ragContext) {
+        return "RAG context:\n" + ragContext.contextText();
+    }
+
+    private String buildRagCacheVariant(RagQaContext ragContext) {
+        return "rag:topK=" + ragQaProperties.getTopK()
+                + ":maxContextChars=" + ragQaProperties.getMaxContextChars()
+                + ":contextHash=" + hashQuestion(ragContext.contextText());
     }
 
     private List<DocumentQaResponse.CitationItem> buildAnswerAwareCitations(QaContext context, String answer) {
@@ -358,6 +427,9 @@ public class DocumentQaServiceImpl implements DocumentQaService {
 
     private String buildQaAnswerCacheKey(Long userId, QaContext context, String promptQuestion) {
         String cacheQuestion = promptQuestion == null ? context.question() : promptQuestion;
+        if (!context.ragCacheVariant().isBlank()) {
+            cacheQuestion = cacheQuestion + "\n" + context.ragCacheVariant();
+        }
         return CommonConstants.buildQaAnswerCacheKey(
                 userId,
                 context.documentId(),
@@ -841,11 +913,13 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                              List<DocumentQaResponse.CitationItem> citations,
                              String sessionId,
                              List<DocumentChunk> chunks,
-                             List<String> queryTerms) {
+                             List<String> queryTerms,
+                             String ragCacheVariant) {
         private QaContext {
             citations = List.copyOf(Objects.requireNonNull(citations));
             chunks = List.copyOf(Objects.requireNonNull(chunks));
             queryTerms = List.copyOf(Objects.requireNonNull(queryTerms));
+            ragCacheVariant = ragCacheVariant == null ? "" : ragCacheVariant;
         }
     }
 }
