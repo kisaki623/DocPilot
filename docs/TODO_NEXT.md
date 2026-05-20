@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T069-RAG-QA-Fake-Smoke
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：新增可演示的 RAG QA smoke，用 fake embedding + in-memory vector store + `app.rag.qa.enabled=true` 验证 QA RAG feature flag 链路。
+- 当前结果：新增 `RagQaSmokeVerificationTest`，直接走 `DocumentQaServiceImpl`，验证 flag=true 时 RAG context 会注入 QA 输入、retrievedCount > 0、contextHash 存在、citation metadata 存在、cache key 对 RAG context hash 敏感；同时验证 flag=false 时不调用 RAG builder，普通 QA context 不变。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过，21 tests；`cd backend; mvn -Dtest=DocumentQaServiceImplTest test` 通过，36 tests；`cd backend; mvn test -DskipITs` 通过，350 tests。
+- 边界：smoke 不依赖真实 embedding provider、不依赖 Qdrant / Redis Vector、不接 LangChain4j、不读取 `backend/.env`，测试与摘要对象不输出文档正文、prompt、provider response 或 secret。
+
 ### T068-Embedding-Provider-Preflight-Retry
 
 - 状态：BLOCKED（真实 embedding runtime）；DONE（preflight 记录）
