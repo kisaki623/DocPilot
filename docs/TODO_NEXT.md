@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T094-RAG-QA-Trace-Smoke-Evidence
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强 RAG QA trace / demo smoke 证据，让面试演示可看到脱敏 RAG trace 摘要，但不需要真实服务、token 或真实 provider。
+- 当前结果：新增 `RagQaTraceSmokeEvidenceTest`，使用 fake embedding + in-memory vector store 生成 `target/rag-evidence/rag-qa-trace-summary.json`；新增 `run-rag-qa-trace-smoke.ps1` 本地入口，打印白名单 trace summary。
+- 输出字段：`ragEnabled`、`embeddingProvider`、`vectorStoreProvider`、`vectorStoreType`、`documentIdPresent`、`userIdPresent`、`topK`、`retrievedCount`、`chunkCount`、`indexReused`、`indexTruncated`、`contextChars`、`contextTruncated`、`contextHashPresent`、`fallbackUsed`、`fallbackReason`、`citationCount`、`cacheKeyRagAware`。
+- 验证结果：`cd backend; mvn "-Dtest=*RagQaTraceSmokeEvidence*,RagQaTraceSmokeScriptSafetyTest" test` 通过，2 tests；`cd backend; mvn "-Dtest=*RagQa*" test` 通过，17 tests；`cd backend; mvn -Dtest=*Rag* test` 通过，69 tests；`cd backend; mvn test -DskipITs` 通过，428 tests。
+- 边界：不输出文档正文、prompt、provider response、endpoint、Authorization、API Key 或 token；不调用真实 embedding / Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T093b-RAG-Eval-Runner-Report-Stabilization
 
 - 状态：DONE

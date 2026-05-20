@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- RAG QA trace smoke evidence 已补齐：`RagQaTraceSmokeEvidenceTest` 使用 fake embedding + in-memory vector store 生成 `target/rag-evidence/rag-qa-trace-summary.json`，`backend/scripts/rag/run-rag-qa-trace-smoke.ps1` 可打印脱敏 trace 摘要；字段仅包含 RAG enable、embedding / vector store、document / user 存在性、topK、retrievedCount、chunkCount、index / context / fallback / citation / cache key 状态，不输出正文、prompt、endpoint、Authorization、token 或 provider response。
 - RAG retrieval eval runner / report 已稳定化：`RagRetrievalEvaluationTest` 会生成 `target/rag-eval/rag-retrieval-eval-summary.json`，`backend/scripts/rag/run-rag-retrieval-eval.ps1` 可在本地运行 eval 并打印脱敏聚合指标；report 覆盖 hit / miss / hitRate、index reuse 和 document isolation，不输出正文、prompt、endpoint、Authorization 或 provider response。
 - RAG retrieval hardening / eval 文档已完成 T093 收口：README、RAG minimal design、vector store selection、adapter boundary、项目面试 brief 和简历 bullet 已同步 T088-T092 事实边界；默认 provider 仍为 `in_memory`，Qdrant 仍默认关闭，当前不是生产完整 RAG。
 - RAG retrieval offline eval 已补齐：新增固定小样例 eval 资源和 `RagRetrievalEvaluationTest`，默认用 fake embedding + in-memory vector store 统计 total、hitCount、missCount、hitRate、averageRetrievedCount，并用本地 fake Qdrant server 覆盖一条 adapter eval；当前不调用真实 provider，不启动真实 Qdrant。

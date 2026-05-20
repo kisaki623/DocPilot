@@ -2,6 +2,45 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T094 RAG QA Trace Smoke Evidence
+
+### 本轮目标
+
+增强现有 RAG QA trace / demo smoke 证据，让面试演示可以看到脱敏 RAG trace 摘要，但不需要真实服务、token 或真实 provider。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceSmokeEvidenceTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceSmokeScriptSafetyTest.java`
+- `backend/scripts/rag/run-rag-qa-trace-smoke.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagQaTraceSmokeEvidenceTest`，使用 fake embedding + in-memory vector store 构建本地 RAG QA trace。
+- 生成 `target/rag-evidence/rag-qa-trace-summary.json`，只包含 `RagDebugReporter` 白名单字段。
+- 新增 `run-rag-qa-trace-smoke.ps1`，可运行 targeted test 并打印脱敏 summary。
+- 新增脚本安全测试，确认脚本不包含 Authorization、token、endpoint、API Key、文档正文、prompt 或 provider response 输出口。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagQaTraceSmokeEvidence*,RagQaTraceSmokeScriptSafetyTest" test`：通过，2 tests。
+- `cd backend; mvn "-Dtest=*RagQa*" test`：通过，17 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，69 tests。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts\rag\run-rag-qa-trace-smoke.ps1 -Help`：通过。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts\rag\run-rag-qa-trace-smoke.ps1 -SkipTests`：通过，输出脱敏 JSON summary。
+- `cd backend; mvn test -DskipITs`：通过，428 tests。
+
+### 当前边界
+
+- 未调用真实 embedding provider。
+- 未启动或连接真实 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T093b RAG Eval Runner Report Stabilization
 
 ### 本轮目标
