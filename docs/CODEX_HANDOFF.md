@@ -147,6 +147,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T059 已完成：新增 `docs/PROMPT_ENGINEERING_NOTES.md`，记录 Tool Selection prompt 模板结构、JSON 输出协议、parser 校验、ToolRegistry allowlist、服务端工具执行、fallback 策略、shadow-only 到 execute mode 演进和 bad cases；未输出真实 prompt、文档正文、API Key、baseUrl 或 Authorization，未真实调用 provider。
 - T060 已完成：新增 `backend/scripts/agent/demo-agent-showcase.ps1` 和 `docs/DEMO_SCRIPT.md`；脚本要求显式传入 `DocumentId`，支持 `qa / rag / summary`，默认只连接已有后端服务，token 只通过 `-Token` 或 `DOCPILOT_AUTH_TOKEN` 注入且不会打印。输出仅包含 taskId、decision、routingReason 是否存在和 counts 等脱敏摘要。PowerShell 语法检查通过；当前 shell 未提供 token，未执行 runtime 调用，未启动服务。
 - 夜间收口已完成：T051 / T058 / T059 / T060 均已单独提交；最终全局验证 `cd backend; mvn test -DskipITs` 通过 312 tests，`cd frontend; npm run lint` 通过，`cd frontend; npm run build` 通过。T051d 真实 provider execute runtime 仍因当前 shell 缺 provider / 中间件环境变量保持 BLOCKED。
+- T062a 已完成：`llm_execute` 安全审计确认默认 routing 仍为 `keyword`，默认 provider 仍为 `disabled`，执行模式必须显式开启；该模式不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 `ToolRegistry` allowlist 与 required tool 校验后执行 summary / QA / RAG 工具。provider disabled、异常、非法 decision、未知 toolName 或 decision / toolNames 不匹配时 fail-open 回退 keyword selector；日志与响应 fallback reason 不输出 prompt、文档正文、API Key、完整 baseUrl 或 Authorization。T062a 未真实调用 provider，未读取 `backend/.env`，未修改生产代码或默认配置。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T062a-LLM-Execute-Safety-Audit
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：审计 `llm_execute` 真实 provider 执行路径的默认关闭、安全日志、allowlist、fallback 和敏感信息边界。
+- 当前结果：审计确认默认 production routing 仍为 `keyword`，默认 provider 仍为 `disabled`，`llm_execute` 必须显式开启；真实 provider 只返回 JSON decision / toolNames，服务端通过 `LlmToolSelectionParser` 与 `ToolRegistry` allowlist / required tool 校验后执行 summary / QA / RAG 工具，不执行模型生成代码，也不信任模型传入任意参数。
+- fallback：provider disabled、HTTP / timeout / client 异常、非法 JSON、未知 toolName、decision 与 toolNames 不匹配时 fail-open 回退 keyword selector；fallback reason 与日志只保留 provider、decision 和异常类型摘要，不输出 prompt、文档正文、API Key、baseUrl 或 Authorization。
+- 验证结果：`mvn -Dtest=DocumentAgentLlmExecuteModeTest test` 通过；`mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
+- 边界：T062a 只做安全审计与文档记录，未真实调用 provider，未读取 `backend/.env`，未修改生产代码、默认配置、公开 API、docker-compose、数据库表或 production routing。
+
 ### T051-T060-Overnight-Agent-Showcase-Closeout
 
 - 状态：DONE

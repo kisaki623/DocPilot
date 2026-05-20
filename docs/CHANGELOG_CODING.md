@@ -2,6 +2,39 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T062a LLM Execute Safety Audit
+
+### 本轮目标
+
+审计 `llm_execute` 真实 provider 执行路径的默认关闭、安全日志、allowlist 校验和 fallback 脱敏边界。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 审计结论
+
+- 默认 production routing 仍为 `keyword`，默认 provider 仍为 `disabled`，`llm_execute` 必须显式开启。
+- 当前实现不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端执行工具。
+- LLM 只能返回 `decision` / `toolNames` 等选择字段；服务端通过 parser、`ToolRegistry` allowlist 和 required tool 校验，使用既有上下文执行 summary / QA / RAG，不执行模型生成代码，也不信任模型传入任意参数。
+- provider disabled、HTTP / timeout / client 异常、非法 JSON、未知 toolName、decision 与 toolNames 不匹配时 fail-open 回退 keyword selector。
+- 日志与 fallback reason 只保留 provider、decision 和异常类型摘要，不输出 prompt、文档正文、API Key、baseUrl 或 Authorization。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过。
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- T062a 未真实调用 provider。
+- 未读取 `backend/.env`。
+- 未修改生产代码、默认配置、公开 API、数据库表、docker-compose 或 production routing。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+
 ## 2026-05-20 - T051-T060 Overnight Closeout
 
 ### 本轮目标
