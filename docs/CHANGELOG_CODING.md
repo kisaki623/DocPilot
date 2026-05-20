@@ -2,6 +2,36 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T071x RAG Docs UTF-8 Recovery Check
+
+### 本轮目标
+
+处理 T072-T076 前发现的 RAG 文档乱码阻塞，确认三份 RAG 文档是否需要从 git 历史恢复。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 检查 `docs/RAG_MINIMAL_DESIGN.md`、`docs/VECTOR_STORE_SELECTION.md`、`docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md` 当前内容和 git 历史候选版本。
+- 使用 UTF-8 读取方式扫描当前三份文档，确认文件内容本身未命中 mojibake 关键词。
+- 结论：普通 PowerShell `Get-Content` 输出乱码属于控制台解码显示问题，不需要回滚或重写三份 RAG 文档正文。
+
+### 验证结果
+
+- 三份 RAG 文档 UTF-8 关键词扫描通过；用户给定的 mojibake 关键词集合命中数均为 0。
+- `git diff --check` 通过。
+
+### 当前边界
+
+- 未修改 RAG 设计正文。
+- 未修改 Java、TypeScript、配置或 docker-compose。
+- 未读取 `backend/.env`，未输出 secret、baseUrl、Authorization、prompt、provider response 或文档正文。
+- 未处理 T010 / MQ blocked，未接 LangChain4j、Qdrant 或 Redis Vector。
+
 ## 2026-05-20 - T071 Vector Store Adapter Boundary Design
 
 ### 本轮目标

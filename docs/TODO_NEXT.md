@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T071x-RAG-Docs-UTF8-Recovery-Check
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：处理 T072-T076 前发现的 RAG 文档 mojibake 阻塞，确认 `docs/RAG_MINIMAL_DESIGN.md`、`docs/VECTOR_STORE_SELECTION.md`、`docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md` 是否需要从历史版本恢复。
+- 当前结果：使用 git 历史逐个检查三份文档的候选版本，并用 UTF-8 读取方式扫描当前文件；确认当前文件内容按 UTF-8 读取为可读中文，乱码来自普通 PowerShell `Get-Content` 控制台显示，不需要回滚文档内容。
+- 验证结果：三份 RAG 文档按 UTF-8 读取，并使用用户给定的 mojibake 关键词集合扫描，命中数均为 0；`git diff --check` 通过。
+- 边界：未修改 RAG 设计正文；未读取 `backend/.env`；未输出 secret、baseUrl、Authorization、prompt、provider response 或文档正文；未处理 T010 / MQ blocked。
+
 ### T071-Vector-Store-Adapter-Boundary
 
 - 状态：DONE
