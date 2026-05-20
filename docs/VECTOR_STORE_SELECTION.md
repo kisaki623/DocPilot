@@ -191,3 +191,12 @@ T071 未新增依赖、未改 docker-compose、未新增数据库表、未接 Qd
 - T085 已用 fake Qdrant server 验证 QA RAG context 在 `provider=qdrant` 时可通过 adapter 返回召回结果。
 - T086 已补 Qdrant HTTP error、timeout、disabled、空结果和 Agent rag_tool 失败的 fallback 测试，确保默认 QA / Agent 体验不被向量库故障破坏。
 - 选型结论不变：Qdrant 是后续真实向量库优先方案，但当前只完成默认关闭 adapter 和本地 fake server 链路验证；没有启动真实 Qdrant，没有改 docker-compose，没有新增 Maven 依赖、DB 表或公开 API。
+
+## 12. 2026-05-21 T088-T092 更新
+
+- T088 已把 chunk 切分收敛为可配置 policy：支持 `maxChunkChars`、`overlapChars`、`maxChunksPerDocument`、稳定 chunkId、offset 和 hash metadata。
+- T089 已强化 retrieval isolation：所有主链路 search 都应携带 userId + documentId scope，in-memory 与 Qdrant payload 均有对应测试。
+- T090 已新增脱敏 debug snapshot / reporter，只输出 RAG 链路摘要字段，不输出正文、prompt、endpoint、Authorization 或 provider response。
+- T091 已补 Qdrant collection lifecycle 边界：可构造 info / create payload，preflight 默认只读，不自动创建 collection。
+- T092 已新增离线 retrieval eval cases，用 fake embedding + in-memory 做默认评测，并用本地 fake Qdrant server 覆盖一条 adapter eval。
+- 选型结论仍保持克制：默认 provider 是 `in_memory`，Qdrant adapter 仍默认关闭；当前没有启动真实 Qdrant、没有改 docker-compose、没有新增 API / DB / Maven 依赖，也没有接 Redis Vector、LangChain4j 或 Spring AI。

@@ -2,6 +2,47 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T093 RAG Retrieval Hardening And Eval Docs
+
+### 本轮目标
+
+收口 T088-T092 文档，明确当前是“稳定 chunk 策略、检索隔离、脱敏 trace、Qdrant collection 边界、离线 retrieval eval”的 RAG 工程化增强，不是生产完整 RAG 上线。
+
+### 修改文件
+
+- `README.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T088 可配置 chunking policy。
+- 记录 T089 retrieval scope isolation。
+- 记录 T090 脱敏 debug snapshot / reporter。
+- 记录 T091 Qdrant collection preflight boundary。
+- 记录 T092 offline retrieval eval cases。
+- 明确默认 vector store provider 仍为 `in_memory`，Qdrant adapter 仍默认关闭。
+
+### 验证结果
+
+- 指定文档 mojibake 关键词扫描：通过。
+- `cd backend; mvn test -DskipITs`：通过，423 tests。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未修改 docker-compose。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未修改前端。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T092 RAG Retrieval Offline Eval
 
 ### 本轮目标

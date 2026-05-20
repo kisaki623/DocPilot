@@ -1,6 +1,6 @@
 # RAG Vector Store Adapter Boundary
 
-本文记录 DocPilot 接入真实向量库的最小边界。T071 只做设计；T075 已新增 Qdrant disabled skeleton 和配置边界；T079 已新增默认关闭的 Qdrant HTTP adapter 和本地 fake server 测试；T082-T086 已把 RAG 主链路推进到可通过 `VectorStore` 抽象替换，并用 JDK 本地 fake Qdrant server 验证 index / search / QA context / fallback。当前仍未启动真实 Qdrant runtime，不新增依赖，不修改 docker-compose，不新增数据库表。
+本文记录 DocPilot 接入真实向量库的最小边界。T071 只做设计；T075 已新增 Qdrant disabled skeleton 和配置边界；T079 已新增默认关闭的 Qdrant HTTP adapter 和本地 fake server 测试；T082-T086 已把 RAG 主链路推进到可通过 `VectorStore` 抽象替换，并用 JDK 本地 fake Qdrant server 验证 index / search / QA context / fallback；T088-T092 已补 chunking policy、retrieval scope isolation、脱敏 debug snapshot、collection preflight boundary 和离线 retrieval eval。当前仍未启动真实 Qdrant runtime，不新增依赖，不修改 docker-compose，不新增数据库表。
 
 ## 1. 当前状态
 
@@ -13,6 +13,7 @@
 - Vector store adapter：T075 已新增 `app.rag.vector-store.provider=in_memory|qdrant_disabled`、`RagVectorStoreProperties`、`VectorStoreFactory` 和 `DisabledQdrantVectorStore`；T079 已新增显式 `provider=qdrant` 的 `QdrantVectorStore` HTTP adapter；T083 已确认 RAG 主链路通过 `VectorStore` 抽象运行。默认仍为 `in_memory`；`qdrant_disabled` 只返回本地 disabled 行为；`qdrant` 只有显式配置且 endpoint 齐全时才发 HTTP。
 - Qdrant 测试与 preflight：T077 已补 VectorStore contract tests，T078 已补 payload builder / parser，T079 使用 JDK 本地 fake HTTP server 验证 adapter，T084-T085 进一步用本地 fake server 验证 index / search 和 QA context 链路；T080 已新增脱敏 preflight 脚本，缺环境时 SKIPPED / BLOCKED。
 - 故障 fallback：T086 已补 Qdrant HTTP error、timeout、disabled、空召回和 Agent rag_tool 失败测试；fallback reason 仅保留 `qdrant_http_error`、`qdrant_timeout`、`qdrant_disabled`、`rag_retrieval_failed` 等脱敏摘要。
+- Retrieval hardening / eval：T088 已新增可配置 chunking policy；T089 已强制 userId + documentId search scope；T090 已新增脱敏 debug snapshot / reporter；T091 已补 collection preflight 只读 / dry-run 边界；T092 已新增 fake embedding + in-memory 离线 retrieval eval，并用本地 fake Qdrant server 覆盖 adapter eval。
 
 当前仍未启动真实 Qdrant / Redis Vector、LangChain4j / Spring AI、数据库表或 docker-compose 服务。
 
@@ -139,3 +140,12 @@ adapter 返回的 hit 应保持：
 - T085 已用 fake Qdrant server 验证 RAG QA context 链路：显式 `provider=qdrant` 时，index / search 可通过 Qdrant adapter 返回召回结果，trace 能显示 `vectorStoreType=qdrant`。
 - T086 已验证 Qdrant 故障 fallback：HTTP 500、timeout、disabled、空结果和 Agent rag_tool 失败不会破坏默认 QA / Agent 体验；失败 reason 只保留脱敏摘要。
 - 当前仍未启动真实 Qdrant，未访问外部 Qdrant 服务，未修改 docker-compose，未新增 API / DB / Maven 依赖，未接 Redis Vector、LangChain4j 或 Spring AI。
+
+## 11. 2026-05-21 T088-T092 Retrieval Hardening / Eval 收口
+
+- T088 已补 `RagChunkingPolicy`、`RagChunker` 和 `RagChunkMetadata`，支持可配置 chunk 长度、overlap、最大 chunk 数、稳定 chunkId、offset、hash 和 truncation trace。
+- T089 已补 `RagSearchScope`，要求 search scope 至少包含 userId + documentId；in-memory 与 Qdrant search 均按该 scope 过滤或构造 filter。
+- T090 已补 `RagDebugSnapshot` / `RagDebugReporter`，只输出白名单摘要字段，不包含正文、prompt、endpoint、Authorization、API key 或 provider response。
+- T091 已补 collection info / create request builder 和 response parser；preflight 脚本默认只读 / dry-run，只有显式允许时才会尝试 create。
+- T092 已补离线 retrieval eval：默认 fake embedding + in-memory vector store，指标为 total、hitCount、missCount、hitRate、averageRetrievedCount；另用本地 fake Qdrant server 验证 adapter eval，不依赖真实 Qdrant。
+- 当前边界不变：默认 provider 仍为 `in_memory`，Qdrant adapter 默认关闭；未启动真实 Qdrant，未新增公开 API / DB / Maven 依赖 / docker-compose，未接 Redis Vector、LangChain4j 或 Spring AI。

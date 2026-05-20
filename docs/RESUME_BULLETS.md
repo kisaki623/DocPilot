@@ -52,7 +52,7 @@
 - 抽象 ToolRegistry / ToolSelector / ToolDefinition，为文档状态、摘要、问答工具提供统一注册、规则路由和未来 Function Calling 输出协议。
 - 设计并验证 real provider shadow-only 路径，并实现默认关闭的 `llm_execute` 模式；LLM 只能选择 ToolRegistry allowlist 内工具，服务端负责实际执行和失败回退。
 - 沉淀 Tool Selection Engineering 证据链，覆盖 prompt 模板结构、JSON 输出协议、parser 校验、allowlist、fallback 和非法 JSON / 未知工具 / provider timeout 等 bad cases。
-- 实现最小 RAG 检索展示链路，支持文档切块、fake embedding、内存向量召回、topK 片段、相似度分数、引用元数据、脱敏 trace 和 in-memory index lifecycle；补充默认关闭的 Qdrant HTTP adapter、本地 fake server 链路测试和故障 fallback，真实 Qdrant runtime 待后续环境验证。
+- 实现最小 RAG 检索展示链路，支持可配置文档切块、fake embedding、内存向量召回、topK 片段、相似度分数、引用元数据、检索 scope 隔离、脱敏 trace / debug snapshot、in-memory index lifecycle 和离线 retrieval eval；补充默认关闭的 Qdrant HTTP adapter、本地 fake server 链路测试、collection preflight 边界和故障 fallback，真实 Qdrant runtime 待后续环境验证。
 - 构建默认关闭的 QA RAG context feature flag，开启后可向 QA 注入受限 RAG context，并通过 fallback / cache key 隔离测试验证默认 QA 行为不变。
 - 通过 Maven 测试、前端 lint/build、Agent smoke 和 Playwright runtime 记录沉淀验证证据，明确 MQ disabled、真实 embedding/Qdrant 未完成和 Function Calling 未默认接管的边界。
 
@@ -73,5 +73,5 @@
 面试可讲但简历不建议硬写：
 
 - 可以讲“已完成 Function Calling 风格工具抽象、输出协议和默认关闭的 LLM 工具执行模式”，但不要写“真实 Function Calling 已在生产启用”。
-- 可以讲“已有 fake embedding + in-memory vector store 的 RAG demo、RAG trace、index lifecycle、默认关闭的 Qdrant HTTP adapter 和本地 fake server 链路验证”，但不要写“已接入真实向量库 / 完整生产 RAG”。
+- 可以讲“已有 fake embedding + in-memory vector store 的 RAG demo、chunking policy、retrieval scope isolation、RAG trace / debug snapshot、index lifecycle、offline eval、默认关闭的 Qdrant HTTP adapter 和本地 fake server 链路验证”，但不要写“已接入真实向量库 / 完整生产 RAG”。
 - 可以讲“Actuator / Prometheus 有设计和默认关闭 endpoint”，但不要写“生产可观测体系已上线”。

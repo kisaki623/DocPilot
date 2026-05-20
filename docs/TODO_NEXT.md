@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T093-RAG-Retrieval-Hardening-And-Eval-Docs
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：收口 T088-T092 文档，明确当前是“稳定 chunk 策略、检索隔离、脱敏 trace、Qdrant collection 边界、离线 retrieval eval”的 RAG 工程化增强，不是生产完整 RAG 上线。
+- 当前结果：更新 README、RAG minimal design、vector store selection、adapter boundary、项目面试 brief 和简历 bullet；明确 T088 chunking policy、T089 retrieval scope isolation、T090 debug snapshot / reporter、T091 collection preflight boundary、T092 offline retrieval eval 均已完成。
+- 边界：默认 vector store provider 仍为 `in_memory`；Qdrant 仍默认关闭；未启动真实 Qdrant；未改 docker-compose；未新增公开 API、数据库表或 Maven 依赖；未接 Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+- 验证结果：指定文档 mojibake 关键词扫描通过；`cd backend; mvn test -DskipITs` 通过，423 tests。
+
 ### T092-RAG-Retrieval-Offline-Eval
 
 - 状态：DONE
