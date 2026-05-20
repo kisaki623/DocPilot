@@ -29,6 +29,7 @@ class RagVectorStorePropertiesTest {
             assertThat(properties.getProvider()).isEqualTo(RagVectorStoreProperties.PROVIDER_IN_MEMORY);
             assertThat(properties.isInMemoryProvider()).isTrue();
             assertThat(properties.isQdrantDisabledProvider()).isFalse();
+            assertThat(properties.isQdrantProvider()).isFalse();
             assertThat(properties.getQdrant().getCollection()).isEqualTo("docpilot_rag_demo");
             assertThat(properties.getQdrant().getEndpoint()).isEmpty();
             assertThat(properties.getQdrant().getApiKey()).isEmpty();
@@ -50,6 +51,17 @@ class RagVectorStorePropertiesTest {
     }
 
     @Test
+    void shouldBindExplicitQdrantProvider() {
+        contextRunner.withPropertyValues("app.rag.vector-store.provider=qdrant")
+                .run(context -> {
+                    RagVectorStoreProperties properties = context.getBean(RagVectorStoreProperties.class);
+
+                    assertThat(properties.getProvider()).isEqualTo(RagVectorStoreProperties.PROVIDER_QDRANT);
+                    assertThat(properties.isQdrantProvider()).isTrue();
+                });
+    }
+
+    @Test
     void shouldNormalizeProviderAliases() {
         assertProviderAlias("in-memory", RagVectorStoreProperties.PROVIDER_IN_MEMORY);
         assertProviderAlias("inMemory", RagVectorStoreProperties.PROVIDER_IN_MEMORY);
@@ -59,11 +71,11 @@ class RagVectorStorePropertiesTest {
 
     @Test
     void shouldRejectUnsupportedProvider() {
-        contextRunner.withPropertyValues("app.rag.vector-store.provider=qdrant")
+        contextRunner.withPropertyValues("app.rag.vector-store.provider=definitely_unknown")
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
-                            .hasRootCauseMessage("Unsupported app.rag.vector-store.provider='qdrant'. Allowed values: in_memory, qdrant_disabled.");
+                            .hasRootCauseMessage("Unsupported app.rag.vector-store.provider='definitely_unknown'. Allowed values: in_memory, qdrant_disabled, qdrant.");
                 });
     }
 

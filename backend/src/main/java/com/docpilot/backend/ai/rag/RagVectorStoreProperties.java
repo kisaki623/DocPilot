@@ -12,9 +12,11 @@ public class RagVectorStoreProperties {
 
     public static final String PROVIDER_IN_MEMORY = "in_memory";
     public static final String PROVIDER_QDRANT_DISABLED = "qdrant_disabled";
+    public static final String PROVIDER_QDRANT = "qdrant";
     private static final Set<String> ALLOWED_PROVIDERS = Set.of(
             PROVIDER_IN_MEMORY,
-            PROVIDER_QDRANT_DISABLED
+            PROVIDER_QDRANT_DISABLED,
+            PROVIDER_QDRANT
     );
 
     private String provider = PROVIDER_IN_MEMORY;
@@ -28,7 +30,7 @@ public class RagVectorStoreProperties {
         String normalizedProvider = normalizeProvider(provider);
         if (!ALLOWED_PROVIDERS.contains(normalizedProvider)) {
             throw new IllegalArgumentException("Unsupported app.rag.vector-store.provider='" + provider
-                    + "'. Allowed values: in_memory, qdrant_disabled.");
+                    + "'. Allowed values: in_memory, qdrant_disabled, qdrant.");
         }
         this.provider = normalizedProvider;
     }
@@ -47,6 +49,10 @@ public class RagVectorStoreProperties {
 
     public boolean isQdrantDisabledProvider() {
         return PROVIDER_QDRANT_DISABLED.equals(provider);
+    }
+
+    public boolean isQdrantProvider() {
+        return PROVIDER_QDRANT.equals(provider);
     }
 
     private String normalizeProvider(String provider) {

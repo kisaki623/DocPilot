@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T079-Qdrant-HTTP-Vector-Store
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：实现默认关闭的 Qdrant HTTP adapter，显式 `provider=qdrant` 时才创建真实 HTTP adapter，测试仅使用 JDK 本地 fake HTTP server。
+- 当前结果：新增 `QdrantVectorStore`，使用 Java `HttpClient` 调用 Qdrant 风格 upsert / search / delete 路径；`RagVectorStoreProperties` 支持 `qdrant` 但默认仍为 `in_memory`；endpoint 为空时 fail-fast，不发请求；apiKey 为空允许无认证模式，存在时仅作为 Authorization header 使用且不输出。
+- 验证结果：`cd backend; mvn -Dtest=*Qdrant* test` 通过；`cd backend; mvn -Dtest=*VectorStore* test` 通过；`cd backend; mvn -Dtest=*Rag* test` 通过；`cd backend; mvn test -DskipITs` 通过。
+- 边界：未启动真实 Qdrant，未改 docker-compose，未新增 Maven 依赖、公开 API 或数据库表；测试只使用本地 fake server；未接 Redis Vector / LangChain4j / Spring AI；默认 provider 仍是 `in_memory`。
+
 ### T078-Qdrant-Payload-Mapping
 
 - 状态：DONE

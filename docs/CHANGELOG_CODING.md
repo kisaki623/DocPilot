@@ -2,6 +2,48 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T079 Qdrant HTTP Vector Store
+
+### 本轮目标
+
+实现默认关闭的 Qdrant HTTP adapter，测试使用 JDK 本地 fake HTTP server，不依赖真实 Qdrant。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagVectorStoreProperties.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStoreFactory.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantVectorStore.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStorePropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/VectorStoreFactoryTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantVectorStoreTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增显式 provider `qdrant`，默认 provider 仍为 `in_memory`。
+- `VectorStoreFactory` 仅在显式 `qdrant` 时创建 `QdrantVectorStore`。
+- `QdrantVectorStore` 使用 Java `HttpClient` 调用 Qdrant 风格 upsert / search / delete 路径。
+- endpoint 为空时 fail-fast，不发请求。
+- apiKey 为空允许无认证模式；apiKey 存在时仅作为 Authorization header 使用，异常信息不包含 token 或响应体。
+- 单元测试使用 JDK 本地 fake HTTP server 验证 path / method / body shape / parser topK。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过。
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未改 docker-compose。
+- 未新增 Maven 依赖、公开 API 或数据库表。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 默认 vector store provider 仍为 `in_memory`。
+
 ## 2026-05-21 - T078 Qdrant Payload Mapping
 
 ### 本轮目标

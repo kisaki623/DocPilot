@@ -41,4 +41,26 @@ class VectorStoreFactoryTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Qdrant vector store is disabled; skeleton does not perform HTTP requests.");
     }
+
+    @Test
+    void shouldFailFastWhenQdrantProviderHasNoEndpoint() {
+        RagVectorStoreProperties properties = new RagVectorStoreProperties();
+        properties.setProvider("qdrant");
+        properties.getQdrant().setEndpoint("");
+
+        assertThatThrownBy(() -> factory.create(properties, new InMemoryVectorStore()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Qdrant vector store endpoint is required when provider=qdrant.");
+    }
+
+    @Test
+    void shouldSelectQdrantHttpAdapterOnlyWhenExplicitlyConfigured() {
+        RagVectorStoreProperties properties = new RagVectorStoreProperties();
+        properties.setProvider("qdrant");
+        properties.getQdrant().setEndpoint("http://127.0.0.1:6333");
+
+        VectorStore vectorStore = factory.create(properties, new InMemoryVectorStore());
+
+        assertThat(vectorStore).isInstanceOf(QdrantVectorStore.class);
+    }
 }

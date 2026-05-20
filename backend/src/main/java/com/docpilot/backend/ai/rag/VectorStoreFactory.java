@@ -12,6 +12,9 @@ public class VectorStoreFactory {
         if (resolvedProperties.isQdrantDisabledProvider()) {
             return new DisabledQdrantVectorStore(resolvedProperties.getQdrant());
         }
+        if (resolvedProperties.isQdrantProvider()) {
+            return new QdrantVectorStore(resolvedProperties.getQdrant());
+        }
         return inMemoryVectorStore == null ? new InMemoryVectorStore() : inMemoryVectorStore;
     }
 }
