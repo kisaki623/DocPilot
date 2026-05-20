@@ -8,7 +8,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 更克制的面试讲法：这是一个展示后端工程链路和 AI 应用工程化意识的项目，不是生产级 SaaS、完整向量 RAG 平台或成熟多 Agent 系统。
 
-面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、workflow timeline、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。真实 embedding / 向量库仍是后续方向。
+面向 AI Agent 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、workflow timeline、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。RAG 侧已有 fake embedding + in-memory vector store demo、脱敏 trace、index lifecycle 和 Qdrant disabled skeleton；真实 embedding / 真实向量库 runtime 仍是后续方向。
 
 ## 2. 当前真实已实现能力
 
@@ -24,13 +24,13 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 - 默认关闭的 LLM tool execution mode：显式设置 `app.agent.selector.mode=llm_execute` 后，可用 LLM selector 选择 allowlist 内工具，服务端仍使用已有 `userId / documentId / task / sessionId` 上下文执行 summary / QA / RAG 等工具；provider 失败、解析失败或非法 toolName 会回退 keyword selector。
 - selector shadow metrics、threshold policy、内部 debug dump / reporter。
 - 默认关闭的 `agentSelectorShadow` Actuator endpoint，测试内显式开启已验证 200、字段白名单 / 黑名单和只读边界。
-- Agent + RAG Showcase：`/agent` 页面已通过 runtime 验证，`rag_tool` 能展示 retrieved chunk、score / similarity、citation metadata、routingReason、matchedKeywords 和 persisted steps；普通 QA 路径仍展示 citations。
+- Agent + RAG Showcase：`/agent` 页面已通过 runtime 验证，`rag_tool` 能展示 retrieved chunk、score / similarity、citation metadata、routingReason、matchedKeywords、脱敏 RAG trace 摘要和 persisted steps；普通 QA 路径仍展示 citations。
 - Agent Workflow 展示：`/agent` 页面基于已有响应和 persisted trace 展示接收任务、选择工具、执行工具、生成结果和持久化 trace，不新增 API 或后端路由逻辑。
 - Prompt Engineering 证据链：`docs/PROMPT_ENGINEERING_NOTES.md` 说明 tool selection prompt 结构、JSON 输出协议、parser 校验、allowlist、fallback 和 bad cases，不记录真实文档内容或完整运行时 prompt。
 
 ## 3. 当前半实现能力
 
-- RAG Showcase 当前使用 fake embedding + in-memory vector store，不是向量数据库 + 真实 embedding + rerank 的完整生产 RAG。
+- RAG Showcase 当前使用 fake embedding + in-memory vector store，并已补 in-memory index lifecycle；Qdrant 目前只是 disabled skeleton，不是向量数据库 + 真实 embedding + rerank 的完整生产 RAG。
 - PDF 支持偏占位，主能力更适合 txt / md 文档。
 - Agent 是同步 API 下的最小工具链闭环，不是异步多 Agent 编排。
 - LLM execute mode 只在显式配置时启用；默认仍是 keyword selector。本轮 fake provider 测试已覆盖执行和 fallback，真实 provider execute runtime 因当前 shell 未注入 provider / 中间件环境变量而 BLOCKED。
@@ -49,7 +49,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 - Spring Security 未接入；T029 只是 Spring Security / Actuator 安全集成设计。
 - Actuator endpoint 默认关闭，未生产开启，未加入默认 exposure include。
 - 默认 production routing 仍由 primary `DocumentToolSelector` 决定；`llm_execute` 需要显式开启，且不能写成生产环境已启用 Function Calling。
-- 没有完整向量 RAG、MCP、LangChain4j / Spring AI function calling 或成熟多 Agent 编排。
+- 没有完整向量 RAG、真实 Qdrant / Redis Vector runtime、MCP、LangChain4j / Spring AI function calling 或成熟多 Agent 编排。
 - 没有线上 SLA、生产权限体系或生产短信网关。
 
 ## 6. 最适合写进简历的 5 个工程亮点
@@ -64,7 +64,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、workflow timeline、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
 2. 再展示详情页普通问答 / SSE 流式问答：说明 citations 如何来自轻量检索增强。
-3. 对 RAG 保持诚实：当前已能展示 fake embedding + in-memory vector store 的 topK 召回、score 和 metadata；下一步才是接真实 embedding、chunk 持久化和 Qdrant / Redis Vector。
+3. 对 RAG 保持诚实：当前已能展示 fake embedding + in-memory vector store 的 topK 召回、score、metadata、脱敏 trace 和 index lifecycle；Qdrant 只有 disabled skeleton，下一步才是接真实 embedding、chunk 持久化和真实 Qdrant / Redis Vector。
 4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only，以及默认关闭的 `llm_execute` 执行模式；默认生产行为仍是 keyword selector，真实 provider execute runtime 待验证。
 5. 面试时不要优先讲 Actuator / Prometheus / Spring Security，除非面试官追问可观测性或安全边界。
 
@@ -74,7 +74,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 AI 文档平台，覆盖
 
 ### 你这个是完整 RAG 吗？
 
-不是。当前已做出求职展示用的最小 RAG demo：fake embedding、in-memory vector store、topK 召回、score 和 metadata 展示；但还没有真实 embedding provider、Qdrant / Redis Vector、chunk 持久化和 rerank。我会把它描述为 RAG demo 或轻量检索增强演进，不会包装成生产完整向量 RAG。
+不是。当前已做出求职展示用的最小 RAG demo：fake embedding、in-memory vector store、topK 召回、score、metadata、脱敏 trace 和 index lifecycle；也有 Qdrant disabled skeleton 用于说明 adapter 边界。但还没有真实 embedding provider、真实 Qdrant / Redis Vector、chunk 持久化和 rerank。我会把它描述为 RAG demo 或轻量检索增强演进，不会包装成生产完整向量 RAG。
 
 ### Agent 是多 Agent 吗？
 

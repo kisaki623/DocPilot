@@ -2,6 +2,47 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T076 RAG Demo and Vector Skeleton Docs Closeout
+
+### 本轮目标
+
+收口 T072-T075 文档，准确区分已完成的 fake embedding + in-memory RAG demo、trace、index lifecycle、Qdrant skeleton 与未完成的真实 embedding / 真实向量库 runtime。
+
+### 修改文件
+
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 明确 T072 已完成脱敏 RAG QA demo 脚本。
+- 明确 T073 已完成 Agent step / smoke 的脱敏 RAG trace 摘要。
+- 明确 T074 已完成 in-memory index lifecycle tracking。
+- 明确 T075 只是 Qdrant disabled skeleton / adapter boundary，未真实接 Qdrant。
+- README、面试 brief 和简历 bullet 同步为克制口径：可以讲 RAG demo、QA RAG feature flag、RAG trace、index lifecycle、Qdrant adapter skeleton；不能写真实 embedding / 真实 Qdrant / 生产完整 RAG 已完成。
+
+### 验证结果
+
+- 文档收口前指定文档 mojibake 关键词扫描通过。
+- 文档收口后指定文档 mojibake 关键词扫描通过。
+- `cd backend; mvn test -DskipITs`：通过，369 tests。
+
+### 当前边界
+
+- 未修改前端。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未真实接 Qdrant / Redis Vector。
+- 未接 LangChain4j 或 Spring AI。
+- 真实 embedding runtime 仍因 `APP_RAG_EMBEDDING_*` 缺失保持 BLOCKED。
+- T010 / MQ 仍 BLOCKED。
+
 ## 2026-05-21 - T075 Qdrant Vector Store Skeleton
 
 ### 本轮目标

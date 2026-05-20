@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T076-RAG-Demo-And-Vector-Skeleton-Docs-Closeout
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：收口 T072-T075 文档，准确区分已完成的 fake embedding + in-memory RAG demo、trace、index lifecycle、Qdrant skeleton 与未完成的真实 embedding / 真实向量库 runtime。
+- 当前结果：更新 `RAG_MINIMAL_DESIGN`、`VECTOR_STORE_SELECTION`、`RAG_VECTOR_STORE_ADAPTER_DESIGN`、README、项目面试 brief 和简历 bullet；明确 T072 demo 脚本、T073 Agent step trace 摘要、T074 in-memory index lifecycle、T075 Qdrant disabled skeleton 均已完成。
+- 验证结果：T076 文档收口前后 mojibake 关键词扫描通过；`cd backend; mvn test -DskipITs` 通过，369 tests。
+- 边界：未修改前端；未新增 API / DB / 依赖 / docker-compose；未真实接 Qdrant / Redis Vector；未接 LangChain4j / Spring AI；真实 embedding runtime 仍 BLOCKED；T010 / MQ 仍 BLOCKED。
+
 ### T075-Qdrant-Vector-Store-Skeleton
 
 - 状态：DONE
