@@ -13,6 +13,17 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T062-LLM-Execute-Runtime-Validation
+
+- 状态：BLOCKED
+- 完成时间：2026-05-20
+- 任务目标：验证并加固 `llm_execute` 模式，让真实 provider 可选择 summary / QA / RAG 工具，再由服务端 allowlist 校验并执行；异常时 fallback keyword。
+- 已完成：T062a 安全审计完成；T062b fake provider 全路径测试完成，覆盖 summary / QA / RAG 三条 `llm_execute` 工具路径、keyword mode 不变、provider disabled fallback、非法 toolName fallback、decision / toolNames 不匹配 fallback。
+- T062c：BLOCKED。当前 shell 未注入真实 provider 必要环境变量，检查结果为 `APP_AGENT_SELECTOR_MODE=false`、`APP_AGENT_SELECTOR_LLM_PROVIDER=false`、`APP_AGENT_SELECTOR_LLM_BASE_URL=false`、`APP_AGENT_SELECTOR_LLM_MODEL=false`、`APP_AGENT_SELECTOR_LLM_API_KEY=false`；未读取 `backend/.env`，未输出任何变量值，未执行真实 HTTP 调用。
+- T062d：未执行。原因是 T062c 触发停止条件，本轮不能跳过真实 provider 阻塞继续宣称 fallback runtime 完成。
+- 验证结果：T062a targeted tests 与 compile 通过；T062b targeted tests 通过；`cd backend; mvn test -DskipITs` 通过，314 tests。
+- 边界：当前实现不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 `ToolRegistry` allowlist 与 required tool 校验后执行工具；默认 production routing 仍为 `keyword`，`llm_execute` 需要显式开启；未新增 API，未修改默认配置、数据库表、docker-compose 或 production routing；未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding；T063 / T067 未执行。
+
 ### T062a-LLM-Execute-Safety-Audit
 
 - 状态：DONE
@@ -22,6 +33,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 - fallback：provider disabled、HTTP / timeout / client 异常、非法 JSON、未知 toolName、decision 与 toolNames 不匹配时 fail-open 回退 keyword selector；fallback reason 与日志只保留 provider、decision 和异常类型摘要，不输出 prompt、文档正文、API Key、baseUrl 或 Authorization。
 - 验证结果：`mvn -Dtest=DocumentAgentLlmExecuteModeTest test` 通过；`mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test` 通过；`mvn -DskipTests compile` 通过。
 - 边界：T062a 只做安全审计与文档记录，未真实调用 provider，未读取 `backend/.env`，未修改生产代码、默认配置、公开 API、docker-compose、数据库表或 production routing。
+
+### T062b-LLM-Execute-Fake-Provider-Paths
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：不依赖真实 provider，用 fake provider 验证 `llm_execute` 的 summary / QA / RAG 三条工具执行路径与 fallback 边界。
+- 当前结果：`DocumentAgentLlmExecuteModeTest` 覆盖 fake LLM decision 被接受后执行 summary、QA、RAG 工具；响应字段包含 `primaryDecision`、`llmDecision`、`finalDecision`、`fallbackUsed=false`、`executionMode=llm_execute`、`toolSelectionSource=llm_execute`；服务端仍通过 `ToolRegistry` allowlist 与 required tool 校验后执行工具。
+- fallback：新增测试确认默认 keyword mode 不进入 LLM，provider disabled 回退 keyword，未知 toolName 回退 keyword，decision / toolNames 不匹配回退 keyword。
+- 验证结果：`mvn -Dtest=DocumentAgentLlmExecuteModeTest test` 通过，10 tests；`mvn -Dtest=DocumentAgentServiceImplTest test` 通过；`mvn -Dtest=DocumentToolSelectorTest test` 通过；`mvn test -DskipITs` 通过，314 tests。
+- 边界：未读取 `backend/.env`；未真实调用 provider；未新增公开 API；未修改默认 production routing。
 
 ### T051-T060-Overnight-Agent-Showcase-Closeout
 

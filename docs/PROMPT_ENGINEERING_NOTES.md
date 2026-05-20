@@ -120,6 +120,8 @@ LLM selector 预期只返回如下结构的 JSON：
 - parser 合法 JSON、自然语言包裹 JSON、非法 decision、未知 toolName、confidence 越界和空输入。
 - shadow selector evaluation。
 - real provider shadow runner disabled / fake / failure path。
-- `DocumentAgentLlmExecuteModeTest` 覆盖 fake provider 选择 summary / QA / RAG 后实际执行对应工具，以及非法 toolName、解析失败、provider disabled、provider 异常时 fallback keyword。
+- `DocumentAgentLlmExecuteModeTest` 覆盖 fake provider 选择 summary / QA / RAG 后实际执行对应工具，以及 keyword mode 不变、非法 toolName、decision / toolNames 不匹配、解析失败、provider disabled、provider 异常时 fallback keyword。
 
-T059 只补文档证据链，不新增真实 provider 调用，不接 LangChain4j，不接 Qdrant，不接真实 embedding。
+T062c 真实 provider execute runtime 当前为 BLOCKED：当前 shell 未注入必要 provider 环境变量，未读取 `backend/.env`，未输出变量值，未执行真实 HTTP。
+
+T059 / T062 文档记录不代表已接 OpenAI 官方 tools / function_call API；当前是文本 JSON 选择加服务端 allowlist 执行，不接 LangChain4j，不接 Qdrant，不接真实 embedding。

@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T062 LLM Execute Runtime Validation Closeout
+
+### 本轮目标
+
+按 T062a-c 验证 `llm_execute` 安全边界、fake provider 全路径和真实 provider runtime 前置条件；若真实 provider 环境缺失则停止，不编造通过结果。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/service/DocumentAgentLlmExecuteModeTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/PROMPT_ENGINEERING_NOTES.md`
+
+### 完成范围
+
+- T062a：审计确认默认 routing 仍为 `keyword`，默认 provider 仍为 `disabled`，`llm_execute` 必须显式开启；日志与 fallback reason 不输出 prompt、文档正文、API Key、baseUrl 或 Authorization。
+- T062b：fake provider 覆盖 summary / QA / RAG 三条 `llm_execute` 工具执行路径；响应包含 primary / llm / final decision、`toolSelectionSource=llm_execute`、`fallbackUsed=false`；服务端执行 allowlist 中工具。
+- T062b 还补齐 keyword mode 不变、provider disabled fallback、未知 toolName fallback、decision / toolNames 不匹配 fallback。
+- T062c：真实 provider runtime 验证 BLOCKED，当前 shell 未注入 5 个必要环境变量，未执行真实 HTTP。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过，10 tests。
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentToolSelectorTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，314 tests。
+
+### 当前边界
+
+- T062c 是 BLOCKED，不是通过：`APP_AGENT_SELECTOR_MODE=false`、`APP_AGENT_SELECTOR_LLM_PROVIDER=false`、`APP_AGENT_SELECTOR_LLM_BASE_URL=false`、`APP_AGENT_SELECTOR_LLM_MODEL=false`、`APP_AGENT_SELECTOR_LLM_API_KEY=false`。
+- 未读取 `backend/.env`，未输出任何真实变量值、API Key、baseUrl、Authorization、prompt 或文档正文。
+- 没有真实 provider HTTP 调用，provider 调用次数为 0。
+- T062d 未执行，因为 T062c 触发停止条件；T063 / T067 未执行。
+- 当前实现不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 allowlist 校验并执行工具。
+- 未新增公开 API，未修改默认 production routing，未修改默认配置，未新增数据库表，未改 docker-compose。
+
 ## 2026-05-20 - T062a LLM Execute Safety Audit
 
 ### 本轮目标
