@@ -13,25 +13,40 @@ public class RagQaContextBuilder {
     private final RagEmbeddingProperties embeddingProperties;
     private final InMemoryVectorStore vectorStore;
     private final RagIndexManager indexManager;
+    private final RagVectorStoreProperties vectorStoreProperties;
+    private final VectorStoreFactory vectorStoreFactory;
 
     public RagQaContextBuilder() {
-        this(new EmbeddingModelFactory(), new RagEmbeddingProperties(), new InMemoryVectorStore(), new RagIndexManager());
+        this(new EmbeddingModelFactory(), new RagEmbeddingProperties());
     }
 
     public RagQaContextBuilder(EmbeddingModelFactory embeddingModelFactory,
                                RagEmbeddingProperties embeddingProperties) {
-        this(embeddingModelFactory, embeddingProperties, new InMemoryVectorStore(), new RagIndexManager());
+        this(embeddingModelFactory, embeddingProperties, new InMemoryVectorStore(), new RagIndexManager(),
+                new RagVectorStoreProperties(), new VectorStoreFactory());
+    }
+
+    public RagQaContextBuilder(EmbeddingModelFactory embeddingModelFactory,
+                               RagEmbeddingProperties embeddingProperties,
+                               InMemoryVectorStore vectorStore,
+                               RagIndexManager indexManager) {
+        this(embeddingModelFactory, embeddingProperties, vectorStore, indexManager,
+                new RagVectorStoreProperties(), new VectorStoreFactory());
     }
 
     @Autowired
     public RagQaContextBuilder(EmbeddingModelFactory embeddingModelFactory,
                                RagEmbeddingProperties embeddingProperties,
                                InMemoryVectorStore vectorStore,
-                               RagIndexManager indexManager) {
+                               RagIndexManager indexManager,
+                               RagVectorStoreProperties vectorStoreProperties,
+                               VectorStoreFactory vectorStoreFactory) {
         this.embeddingModelFactory = embeddingModelFactory;
         this.embeddingProperties = embeddingProperties;
         this.vectorStore = vectorStore;
         this.indexManager = indexManager;
+        this.vectorStoreProperties = vectorStoreProperties == null ? new RagVectorStoreProperties() : vectorStoreProperties;
+        this.vectorStoreFactory = vectorStoreFactory == null ? new VectorStoreFactory() : vectorStoreFactory;
     }
 
     public RagQaContext build(Long documentId, String question, String documentText, int topK, int maxContextChars) {
@@ -55,16 +70,17 @@ public class RagQaContextBuilder {
         }
 
         EmbeddingModel embeddingModel = embeddingModelFactory.create(embeddingProperties);
+        VectorStore selectedVectorStore = vectorStoreFactory.create(vectorStoreProperties, vectorStore);
         RagIndexService indexService = new RagIndexService(
                 embeddingModel,
-                vectorStore,
+                selectedVectorStore,
                 indexManager,
                 embeddingProvider,
-                RagIndexManager.VECTOR_STORE_IN_MEMORY,
+                vectorStoreProperties.getProvider(),
                 RagIndexService.DEFAULT_CHUNK_SIZE,
                 RagIndexService.DEFAULT_CHUNK_OVERLAP
         );
-        RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, vectorStore);
+        RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, selectedVectorStore);
         RagAnswerContextBuilder contextBuilder = new RagAnswerContextBuilder();
 
         RagIndexService.RagIndexResult indexResult = indexService.indexDocument(documentId, RagIndexKey.DEFAULT_VERSION, documentText);

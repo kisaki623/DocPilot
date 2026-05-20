@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T075 Qdrant Vector Store Skeleton
+
+### 本轮目标
+
+新增 Qdrant vector store adapter skeleton 和配置边界，默认关闭，不新增依赖、不发真实 HTTP、不改 docker-compose。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagVectorStoreProperties.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStoreFactory.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/DisabledQdrantVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/main/resources/application.yml`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStorePropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/VectorStoreFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `app.rag.vector-store.provider=in_memory|qdrant_disabled`，默认仍为 `in_memory`。
+- 新增 Qdrant collection / endpoint / api-key / timeout placeholder，默认 endpoint 和 api-key 为空。
+- `VectorStoreFactory` 根据配置选择现有 `InMemoryVectorStore` 或 `DisabledQdrantVectorStore`。
+- `qdrant_disabled` 只返回本地 disabled skeleton；调用 add / search / delete / clear 会抛出明确 disabled 异常，不发 HTTP。
+- QA RAG builder 和 Agent RAG tool 通过 factory 获取 vector store，默认路径仍使用 in-memory。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，37 tests。
+- `cd backend; mvn -Dtest=VectorStoreFactoryTest test`：通过，3 tests。
+- `cd backend; mvn test -DskipITs`：通过，369 tests。
+
+### 当前边界
+
+- 未真实接 Qdrant / Redis Vector。
+- 未新增 Maven 依赖、公开 API、数据库表或 docker-compose。
+- 未接 LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T074 RAG In-Memory Index Lifecycle
 
 ### 本轮目标

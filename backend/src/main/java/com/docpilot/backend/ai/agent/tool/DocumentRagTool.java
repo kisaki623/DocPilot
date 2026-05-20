@@ -10,6 +10,9 @@ import com.docpilot.backend.ai.rag.RagIndexKey;
 import com.docpilot.backend.ai.rag.RagIndexManager;
 import com.docpilot.backend.ai.rag.RagIndexService;
 import com.docpilot.backend.ai.rag.RagRetrievalService;
+import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
+import com.docpilot.backend.ai.rag.VectorStore;
+import com.docpilot.backend.ai.rag.VectorStoreFactory;
 import com.docpilot.backend.ai.rag.VectorSearchResult;
 import com.docpilot.backend.common.util.ValidationUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,20 +34,35 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
     private final RagEmbeddingProperties embeddingProperties;
     private final InMemoryVectorStore vectorStore;
     private final RagIndexManager indexManager;
+    private final RagVectorStoreProperties vectorStoreProperties;
+    private final VectorStoreFactory vectorStoreFactory;
 
     public DocumentRagTool() {
-        this(new EmbeddingModelFactory(), new RagEmbeddingProperties(), new InMemoryVectorStore(), new RagIndexManager());
+        this(new EmbeddingModelFactory(), new RagEmbeddingProperties(), new InMemoryVectorStore(), new RagIndexManager(),
+                new RagVectorStoreProperties(), new VectorStoreFactory());
+    }
+
+    public DocumentRagTool(EmbeddingModelFactory embeddingModelFactory,
+                           RagEmbeddingProperties embeddingProperties,
+                           InMemoryVectorStore vectorStore,
+                           RagIndexManager indexManager) {
+        this(embeddingModelFactory, embeddingProperties, vectorStore, indexManager,
+                new RagVectorStoreProperties(), new VectorStoreFactory());
     }
 
     @Autowired
     public DocumentRagTool(EmbeddingModelFactory embeddingModelFactory,
                            RagEmbeddingProperties embeddingProperties,
                            InMemoryVectorStore vectorStore,
-                           RagIndexManager indexManager) {
+                           RagIndexManager indexManager,
+                           RagVectorStoreProperties vectorStoreProperties,
+                           VectorStoreFactory vectorStoreFactory) {
         this.embeddingModelFactory = embeddingModelFactory;
         this.embeddingProperties = embeddingProperties;
         this.vectorStore = vectorStore;
         this.indexManager = indexManager;
+        this.vectorStoreProperties = vectorStoreProperties == null ? new RagVectorStoreProperties() : vectorStoreProperties;
+        this.vectorStoreFactory = vectorStoreFactory == null ? new VectorStoreFactory() : vectorStoreFactory;
     }
 
     @Override
@@ -73,16 +91,17 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
         }
 
         EmbeddingModel embeddingModel = embeddingModelFactory.create(embeddingProperties);
+        VectorStore selectedVectorStore = vectorStoreFactory.create(vectorStoreProperties, vectorStore);
         RagIndexService indexService = new RagIndexService(
                 embeddingModel,
-                vectorStore,
+                selectedVectorStore,
                 indexManager,
                 embeddingProperties.getProvider(),
-                RagIndexManager.VECTOR_STORE_IN_MEMORY,
+                vectorStoreProperties.getProvider(),
                 RagIndexService.DEFAULT_CHUNK_SIZE,
                 RagIndexService.DEFAULT_CHUNK_OVERLAP
         );
-        RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, vectorStore);
+        RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, selectedVectorStore);
         RagAnswerContextBuilder contextBuilder = new RagAnswerContextBuilder();
 
         RagIndexService.RagIndexResult indexResult = indexService.indexDocument(
@@ -122,7 +141,7 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                                      int citationCount,
                                      boolean indexReused) {
         return "embeddingProvider=" + embeddingProperties.getProvider()
-                + ", vectorStoreType=in_memory"
+                + ", vectorStoreType=" + vectorStoreProperties.getProvider()
                 + ", topK=" + topK
                 + ", retrievedCount=" + retrievedCount
                 + ", contextHashPresent=" + contextHashPresent

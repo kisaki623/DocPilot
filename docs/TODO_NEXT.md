@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T075-Qdrant-Vector-Store-Skeleton
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：新增 Qdrant vector store adapter skeleton 和配置边界，默认关闭，不新增依赖、不发真实 HTTP、不改 docker-compose。
+- 当前结果：新增 `app.rag.vector-store.*` 配置，默认 `provider=in_memory`；新增 `RagVectorStoreProperties`、`VectorStoreFactory` 和 `DisabledQdrantVectorStore`。`provider=qdrant_disabled` 时只返回明确 disabled skeleton，任何 add / search / delete / clear 操作都会抛出本地 disabled 异常，不发网络请求。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过，37 tests；`cd backend; mvn -Dtest=VectorStoreFactoryTest test` 通过，3 tests；`cd backend; mvn test -DskipITs` 通过，369 tests。
+- 边界：未新增 Maven 依赖、公开 API、数据库表或 docker-compose；未真实接 Qdrant / Redis Vector；未接 LangChain4j 或 Spring AI；未处理 T010 / MQ blocked；默认 RAG vector store 仍为 in-memory。
+
 ### T074-RAG-In-Memory-Index-Lifecycle
 
 - 状态：DONE
