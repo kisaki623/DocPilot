@@ -73,7 +73,8 @@ app:
 - `app.agent.selector.llm-provider=disabled|fake|openai_compatible`，默认 `disabled`。
 - `app.agent.selector.llm-model` 默认空。
 - `app.agent.selector.llm-base-url` 默认空。
-- `app.agent.selector.llm-request-timeout-ms=3000`。
+- `app.agent.selector.llm-connect-timeout-ms=5000`。
+- `app.agent.selector.llm-request-timeout-ms=30000`。
 - 即使配置为 `shadow_llm`，当前真实执行仍以 primary decision 为准。
 - `llm_execute` 必须显式开启；它不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 allowlist 与 required tool 校验后执行工具。
 - 不要把 `shadow_llm` 理解成 LLM 接管生产 routing；默认 production routing 仍是 keyword selector。
@@ -150,7 +151,7 @@ T021 已新增内部只读 debug dump / reporter：
 - `OpenAiCompatibleLlmToolSelectionClientTest` 已验证 OpenAI-compatible skeleton 只构造 request 并返回 disabled response，不联网。
 - `LlmToolSelectionClientFactoryTest` 已验证默认返回 disabled、fake 返回 fake、openai-compatible 返回 dry-run skeleton，unknown provider fallback disabled。
 - T062b 已验证 fake provider `llm_execute` 执行路径：summary / QA / RAG 三类 LLM decision 通过 parser 与 `ToolRegistry` allowlist 后由服务端执行对应工具；keyword mode 不变，provider disabled、未知 toolName、decision / toolNames 不匹配时 fallback keyword。后端全量测试通过，314 tests。
-- T062c 真实 provider execute runtime 当前 BLOCKED：当前 shell 未注入 `APP_AGENT_SELECTOR_MODE`、`APP_AGENT_SELECTOR_LLM_PROVIDER`、`APP_AGENT_SELECTOR_LLM_BASE_URL`、`APP_AGENT_SELECTOR_LLM_MODEL`、`APP_AGENT_SELECTOR_LLM_API_KEY`；未读取 `backend/.env`，未输出变量值，未执行真实 HTTP。
+- T062c-recovery 已完成真实 provider execute runtime 验证：先拆分 LLM selector connect timeout / request timeout，再用当前 shell / 系统环境变量完成 health smoke，并独立验证 summary / QA / RAG 三条 `llm_execute` 路径。三条路径均由真实 provider 返回 JSON decision / toolNames，服务端通过 `ToolRegistry` allowlist 与 required tool 校验后执行对应工具，`fallbackUsed=false`。该验证没有读取 `backend/.env`，没有输出 API Key、baseUrl、Authorization、prompt、provider 响应或文档正文；T062d fallback 验证仍待执行。
 - T018 fake provider shadow-only runtime 已通过：本地后端连接用户授权的远程中间件，使用命令行参数开启 `shadowEnabled=true`、`realShadowEnabled=true`、`realShadowRecordMetrics=true`、`llmProvider=fake`，基于已解析文档 `documentId=61` 完成 summary / QA 浏览器验证。
 - T018 runtime 验证中，summary primary decision 仍为 `summary_tool`，QA primary decision 仍为 `qa_tool`；后端安全日志可见 `provider=fake` 的 real shadow compare，shadow decision 与 primary matched，且只用于 shadow compare / metrics。
 - T018 runtime 验证未修改 API、前端、production routing 或配置文件；未真实调用 LLM，未读取 API Key / `backend/.env`，未向模型 provider 发真实 HTTP；本轮未使用 hk-ops，未执行远程 DB 只读 SELECT。

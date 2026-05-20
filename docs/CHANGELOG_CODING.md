@@ -2,6 +2,52 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T062c Recovery Real Provider Runtime
+
+### 本轮目标
+
+修复真实 provider `llm_execute` runtime 的偶发 timeout / fallback 不稳定问题，并重新验证 summary / QA / RAG 三条工具路径；本轮不进入 T063 / T067。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClient.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactory.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClientTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactoryTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+
+### 完成范围
+
+- T062c0：新增 `llmConnectTimeoutMs`，默认 5000ms；`llmRequestTimeoutMs` 默认改为 30000ms；OpenAI-compatible client 的 `HttpClient.connectTimeout` 与 `HttpRequest.timeout` 分别使用独立配置；factory 已传入两个 timeout。
+- 修复 fake provider 对 compact prompt `Task:` marker 的兼容，避免离线 shadow / factory tests 在新 prompt 格式下误读 available tools 文本。
+- T062c1：真实 provider health smoke 通过，只输出存在性与分类结果，不输出环境变量值、baseUrl、prompt 或响应正文。
+- T062c2-c4：真实 provider `llm_execute` 独立 runtime 验证 summary / QA / RAG 三条路径通过；LLM decision 可解析，服务端 allowlist 校验通过，server-side 工具执行成功，`fallbackUsed=false`。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过，12 tests。
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过，8 tests。
+- `cd backend; mvn -Dtest=LlmToolSelectionClientFactoryTest test`：通过，5 tests。
+- `cd backend; mvn -Dtest=FakeLlmToolSelectionClientTest,RealLlmToolSelectorFactoryTest,RealLlmSelectorShadowRunnerTest,RealShadowProviderEvaluationTest test`：通过，26 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，317 tests。
+- 临时 health / runtime harness 已删除，未提交。
+
+### 当前边界
+
+- 当前实现仍不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 allowlist 校验并执行工具。
+- 默认 production routing 仍为 `keyword`；`llm_execute` 必须显式开启。
+- 未读取 `backend/.env`，未输出 API Key、baseUrl、Authorization、prompt、provider 响应或文档正文。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose 服务。
+- T062d fallback 路径验证尚未执行；T010 / MQ blocked 未处理；T063 / T067 未执行。
+
 ## 2026-05-20 - T062 LLM Execute Runtime Validation Closeout
 
 ### 本轮目标

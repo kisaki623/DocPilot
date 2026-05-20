@@ -15,13 +15,14 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ### T062-LLM-Execute-Runtime-Validation
 
-- 状态：BLOCKED
+- 状态：IN_PROGRESS
 - 完成时间：2026-05-20
 - 任务目标：验证并加固 `llm_execute` 模式，让真实 provider 可选择 summary / QA / RAG 工具，再由服务端 allowlist 校验并执行；异常时 fallback keyword。
 - 已完成：T062a 安全审计完成；T062b fake provider 全路径测试完成，覆盖 summary / QA / RAG 三条 `llm_execute` 工具路径、keyword mode 不变、provider disabled fallback、非法 toolName fallback、decision / toolNames 不匹配 fallback。
-- T062c：BLOCKED。当前 shell 未注入真实 provider 必要环境变量，检查结果为 `APP_AGENT_SELECTOR_MODE=false`、`APP_AGENT_SELECTOR_LLM_PROVIDER=false`、`APP_AGENT_SELECTOR_LLM_BASE_URL=false`、`APP_AGENT_SELECTOR_LLM_MODEL=false`、`APP_AGENT_SELECTOR_LLM_API_KEY=false`；未读取 `backend/.env`，未输出任何变量值，未执行真实 HTTP 调用。
-- T062d：未执行。原因是 T062c 触发停止条件，本轮不能跳过真实 provider 阻塞继续宣称 fallback runtime 完成。
-- 验证结果：T062a targeted tests 与 compile 通过；T062b targeted tests 通过；`cd backend; mvn test -DskipITs` 通过，314 tests。
+- T062c0：已拆分 `llmConnectTimeoutMs=5000` 与 `llmRequestTimeoutMs=30000`，OpenAI-compatible client 的 connect timeout 与 request timeout 分别使用独立配置；同时修复 fake client 对 compact prompt `Task:` marker 的测试兼容。提交：`2c7e1aa`。
+- T062c1-c4：真实 provider health smoke 通过；summary / QA / RAG 三条 `llm_execute` 独立 runtime 验证通过，均为真实 provider 选择工具、服务端 allowlist 校验后执行工具，`fallbackUsed=false`，未读取 `backend/.env`，未输出变量值、API Key、baseUrl、Authorization、prompt、provider 响应或文档正文。
+- T062d：待执行。原因是当前只完成真实 provider runtime recovery，还未完成 fallback 路径收口验证。
+- 验证结果：T062a targeted tests 与 compile 通过；T062b targeted tests 通过；T062c0 targeted tests、compile 与 `cd backend; mvn test -DskipITs` 通过，317 tests；T062c2-c4 临时 harness 通过后已删除。
 - 边界：当前实现不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 `ToolRegistry` allowlist 与 required tool 校验后执行工具；默认 production routing 仍为 `keyword`，`llm_execute` 需要显式开启；未新增 API，未修改默认配置、数据库表、docker-compose 或 production routing；未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding；T063 / T067 未执行。
 
 ### T062a-LLM-Execute-Safety-Audit
