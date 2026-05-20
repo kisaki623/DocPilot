@@ -26,7 +26,11 @@ class RagMinimalInternalServiceTest {
         assertEquals("0", chunks.get(0).metadata().get("charStart"));
         assertEquals("20", chunks.get(0).metadata().get("charEnd"));
         assertFalse(chunks.get(0).metadata().get("contentHash").isBlank());
-        assertEquals("fake-rag-v1", chunks.get(0).metadata().get("chunkVersion"));
+        assertFalse(chunks.get(0).metadata().get("chunkId").isBlank());
+        assertEquals("default", chunks.get(0).metadata().get("documentVersion"));
+        assertEquals("0", chunks.get(0).metadata().get("startOffset"));
+        assertEquals("20", chunks.get(0).metadata().get("endOffset"));
+        assertEquals("rag-chunk-v2", chunks.get(0).metadata().get("chunkVersion"));
         assertEquals(1, chunks.get(1).chunkIndex());
         assertEquals("15", chunks.get(1).metadata().get("charStart"));
     }

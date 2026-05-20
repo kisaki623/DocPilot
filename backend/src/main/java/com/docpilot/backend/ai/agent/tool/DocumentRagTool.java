@@ -129,7 +129,8 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                             false,
                             "",
                             answerContext.citations().size(),
-                            indexResult.state().indexReused()
+                            indexResult.state().indexReused(),
+                            indexResult.indexTruncated()
                     )
             );
         } catch (Exception ex) {
@@ -140,7 +141,7 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                     List.of(),
                     List.of(),
                     "",
-                    buildTraceSummary(topK, 0, false, true, RagFallbackReasonClassifier.classify(ex), 0, false)
+                    buildTraceSummary(topK, 0, false, true, RagFallbackReasonClassifier.classify(ex), 0, false, false)
             );
         }
     }
@@ -152,6 +153,18 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                                      String fallbackReason,
                                      int citationCount,
                                      boolean indexReused) {
+        return buildTraceSummary(topK, retrievedCount, contextHashPresent, fallbackUsed, fallbackReason,
+                citationCount, indexReused, false);
+    }
+
+    private String buildTraceSummary(int topK,
+                                     int retrievedCount,
+                                     boolean contextHashPresent,
+                                     boolean fallbackUsed,
+                                     String fallbackReason,
+                                     int citationCount,
+                                     boolean indexReused,
+                                     boolean indexTruncated) {
         return "embeddingProvider=" + embeddingProperties.getProvider()
                 + ", vectorStoreType=" + vectorStoreProperties.getProvider()
                 + ", topK=" + topK
@@ -160,7 +173,8 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                 + ", fallbackUsed=" + fallbackUsed
                 + ", fallbackReason=" + safeSummaryValue(fallbackReason)
                 + ", citationCount=" + Math.max(0, citationCount)
-                + ", indexReused=" + indexReused;
+                + ", indexReused=" + indexReused
+                + ", indexTruncated=" + indexTruncated;
     }
 
     private List<RetrievedChunk> toRetrievedChunks(List<VectorSearchResult> hits) {

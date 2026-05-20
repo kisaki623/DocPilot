@@ -1,13 +1,6 @@
 package com.docpilot.backend.ai.rag;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.ArrayList;
-import java.util.HexFormat;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 public class RagIndexService {
 
@@ -19,8 +12,8 @@ public class RagIndexService {
     private final RagIndexManager indexManager;
     private final String embeddingProvider;
     private final String vectorStoreType;
-    private final int chunkSize;
-    private final int chunkOverlap;
+    private final RagChunkingPolicy chunkingPolicy;
+    private final RagChunker chunker;
 
     public RagIndexService(EmbeddingModel embeddingModel, VectorStore vectorStore) {
         this(embeddingModel, vectorStore, DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP);
@@ -49,6 +42,16 @@ public class RagIndexService {
                            String vectorStoreType,
                            int chunkSize,
                            int chunkOverlap) {
+        this(embeddingModel, vectorStore, indexManager, embeddingProvider, vectorStoreType,
+                RagChunkingPolicy.of(chunkSize, chunkOverlap));
+    }
+
+    public RagIndexService(EmbeddingModel embeddingModel,
+                           VectorStore vectorStore,
+                           RagIndexManager indexManager,
+                           String embeddingProvider,
+                           String vectorStoreType,
+                           RagChunkingPolicy chunkingPolicy) {
         if (embeddingModel == null) {
             throw new IllegalArgumentException("embeddingModel must not be null");
         }
@@ -58,19 +61,13 @@ public class RagIndexService {
         if (indexManager == null) {
             throw new IllegalArgumentException("indexManager must not be null");
         }
-        if (chunkSize <= 0) {
-            throw new IllegalArgumentException("chunkSize must be positive");
-        }
-        if (chunkOverlap < 0 || chunkOverlap >= chunkSize) {
-            throw new IllegalArgumentException("chunkOverlap must be non-negative and smaller than chunkSize");
-        }
         this.embeddingModel = embeddingModel;
         this.vectorStore = vectorStore;
         this.indexManager = indexManager;
         this.embeddingProvider = safeText(embeddingProvider);
         this.vectorStoreType = safeText(vectorStoreType);
-        this.chunkSize = chunkSize;
-        this.chunkOverlap = chunkOverlap;
+        this.chunkingPolicy = chunkingPolicy == null ? RagChunkingPolicy.defaults() : chunkingPolicy;
+        this.chunker = new RagChunker(this.chunkingPolicy);
     }
 
     public List<DocumentChunk> indexDocument(Long documentId, String documentText) {
@@ -86,10 +83,11 @@ public class RagIndexService {
                 vectorStoreType
         );
         if (decision.indexReused() && decision.state() != null) {
-            return new RagIndexResult(List.of(), decision.state().chunkCount(), decision.state());
+            return new RagIndexResult(List.of(), decision.state().chunkCount(), decision.state(), false);
         }
 
-        List<DocumentChunk> chunks = splitDocument(documentId, documentText);
+        RagChunker.RagChunkingResult chunkingResult = chunker.chunk(documentId, documentVersion, documentText);
+        List<DocumentChunk> chunks = chunkingResult.chunks();
         vectorStore.deleteDocument(documentId);
         for (DocumentChunk chunk : chunks) {
             vectorStore.add(chunk, embeddingModel.embed(chunk.text()));
@@ -101,33 +99,11 @@ public class RagIndexService {
                 vectorStoreType,
                 decision.contentHash()
         );
-        return new RagIndexResult(chunks, chunks.size(), state);
+        return new RagIndexResult(chunks, chunks.size(), state, chunkingResult.truncated());
     }
 
     public List<DocumentChunk> splitDocument(Long documentId, String documentText) {
-        if (documentId == null) {
-            throw new IllegalArgumentException("documentId must not be null");
-        }
-        if (documentText == null || documentText.isBlank()) {
-            return List.of();
-        }
-
-        String normalizedText = normalizeDocumentText(documentText);
-        List<DocumentChunk> chunks = new ArrayList<>();
-        int start = 0;
-        int chunkIndex = 0;
-        while (start < normalizedText.length()) {
-            int end = Math.min(start + chunkSize, normalizedText.length());
-            String chunkText = normalizedText.substring(start, end);
-            if (!chunkText.isBlank()) {
-                chunks.add(new DocumentChunk(documentId, chunkIndex++, chunkText, metadata(start, end, chunkText)));
-            }
-            if (end == normalizedText.length()) {
-                break;
-            }
-            start = Math.max(end - chunkOverlap, start + 1);
-        }
-        return chunks;
+        return chunker.chunk(documentId, RagIndexKey.DEFAULT_VERSION, documentText).chunks();
     }
 
     private String normalizeDocumentText(String documentText) {
@@ -149,26 +125,7 @@ public class RagIndexService {
         return embeddingProperties == null ? new RagEmbeddingProperties() : embeddingProperties;
     }
 
-    private Map<String, String> metadata(int charStart, int charEnd, String text) {
-        Map<String, String> metadata = new LinkedHashMap<>();
-        metadata.put("charStart", String.valueOf(charStart));
-        metadata.put("charEnd", String.valueOf(charEnd));
-        metadata.put("contentHash", sha256(text));
-        metadata.put("chunkVersion", "fake-rag-v1");
-        return metadata;
-    }
-
-    private String sha256(String text) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(text.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException("SHA-256 is not available", ex);
-        }
-    }
-
-    public record RagIndexResult(List<DocumentChunk> chunks, int chunkCount, RagIndexState state) {
+    public record RagIndexResult(List<DocumentChunk> chunks, int chunkCount, RagIndexState state, boolean indexTruncated) {
 
         public RagIndexResult {
             chunks = chunks == null ? List.of() : List.copyOf(chunks);

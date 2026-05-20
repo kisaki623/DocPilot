@@ -15,7 +15,8 @@ public record RagQaTrace(
         String fallbackReason,
         int citationCount,
         boolean cacheKeyRagAware,
-        boolean indexReused
+        boolean indexReused,
+        boolean indexTruncated
 ) {
 
     private static final String VECTOR_STORE_IN_MEMORY = "in_memory";
@@ -48,6 +49,7 @@ public record RagQaTrace(
                 "",
                 0,
                 false,
+                false,
                 false
         );
     }
@@ -67,6 +69,7 @@ public record RagQaTrace(
                 false,
                 "",
                 0,
+                false,
                 false,
                 false
         );
@@ -146,7 +149,40 @@ public record RagQaTrace(
                 "",
                 citationCount,
                 false,
-                indexReused
+                indexReused,
+                false
+        );
+    }
+
+    public static RagQaTrace retrieval(String embeddingProvider,
+                                       String vectorStoreType,
+                                       boolean documentIdPresent,
+                                       int topK,
+                                       int retrievedCount,
+                                       int maxContextChars,
+                                       int contextChars,
+                                       boolean contextTruncated,
+                                       boolean contextHashPresent,
+                                       int citationCount,
+                                       boolean indexReused,
+                                       boolean indexTruncated) {
+        return new RagQaTrace(
+                true,
+                embeddingProvider,
+                vectorStoreType,
+                documentIdPresent,
+                topK,
+                retrievedCount,
+                maxContextChars,
+                contextChars,
+                contextTruncated,
+                contextHashPresent,
+                false,
+                "",
+                citationCount,
+                false,
+                indexReused,
+                indexTruncated
         );
     }
 
@@ -186,6 +222,7 @@ public record RagQaTrace(
                 fallbackReason,
                 0,
                 false,
+                false,
                 false
         );
     }
@@ -206,7 +243,8 @@ public record RagQaTrace(
                 fallbackReason,
                 citationCount,
                 cacheKeyRagAware,
-                indexReused
+                indexReused,
+                indexTruncated
         );
     }
 

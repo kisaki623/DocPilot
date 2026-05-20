@@ -50,6 +50,7 @@ class RagQaTraceFormatterTest {
         assertThat(trace.retrievedCount()).isGreaterThan(0);
         assertThat(trace.citationCount()).isGreaterThan(0);
         assertThat(formatter.toSafeMap(trace)).containsEntry("contextTruncated", true);
+        assertThat(formatter.toSafeMap(trace)).containsKey("indexTruncated");
     }
 
     @Test

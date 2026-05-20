@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- RAG chunking policy 已补齐：新增 `RagChunkingPolicy` / `RagChunker` / `RagChunkMetadata`，支持 maxChunkChars、overlapChars、maxChunksPerDocument、稳定 chunkId、contentHash/chunkHash、documentVersion、chunkIndex、startOffset/endOffset 和 `indexTruncated` trace；当前仍为内部 RAG 能力，未新增公开 API / DB / 依赖。
 - Qdrant adapter 链路文档已完成 T087 收口：当前可准确描述为默认关闭的 Qdrant HTTP adapter，并已用 JDK 本地 fake server 覆盖 adapter index/search、RAG QA context 和故障 fallback；不能写成真实 Qdrant runtime 或生产完整向量 RAG 已上线。
 - Qdrant 故障 fallback 已补测试和轻量加固：QA RAG context 构建遇到 Qdrant HTTP error / timeout / disabled 时会记录脱敏 reason 并回退普通 QA；Agent `rag_tool` 遇到向量库失败会返回空召回和 `fallbackUsed=true`，不直接抛出 provider 异常。
 - RAG QA context 已通过默认关闭的 Qdrant adapter 链路做本地集成验证：`QdrantRagQaContextIntegrationTest` 显式配置 `provider=qdrant` 指向 JDK fake server，覆盖 index delete / upsert、search、userId + documentId filter、retrievedCount、contextHashPresent、citation metadata 和 `trace.vectorStoreType=qdrant`。

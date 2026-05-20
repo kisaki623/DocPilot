@@ -89,6 +89,7 @@ public class RagQaContextBuilder {
         RagIndexService.RagIndexResult indexResult = indexService.indexDocument(documentId, RagIndexKey.DEFAULT_VERSION, documentText);
         int chunkCount = indexResult.chunkCount();
         boolean indexReused = indexResult.state().indexReused();
+        boolean indexTruncated = indexResult.indexTruncated();
         if (chunkCount == 0) {
             return RagQaContext.empty(RagQaTrace.retrieval(
                     embeddingProvider,
@@ -101,7 +102,8 @@ public class RagQaContextBuilder {
                     false,
                     false,
                     0,
-                    indexReused
+                    indexReused,
+                    indexTruncated
             ));
         }
         List<VectorSearchResult> hits = retrievalService.retrieveForQuestion(documentId, question, resolvedTopK);
@@ -117,7 +119,8 @@ public class RagQaContextBuilder {
                     false,
                     false,
                     0,
-                    indexReused
+                    indexReused,
+                    indexTruncated
             ));
         }
 
@@ -136,7 +139,8 @@ public class RagQaContextBuilder {
                 contextTruncated,
                 !contextText.isBlank(),
                 answerContext.citations().size(),
-                indexReused
+                indexReused,
+                indexTruncated
         );
         if (contextText.isBlank()) {
             return new RagQaContext(false, "", answerContext.citations(), chunkCount, hits.size(), trace);

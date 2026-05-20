@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T088-RAG-Chunking-Policy
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：把 RAG chunk 切分逻辑收敛成可配置、可测试、可面试解释的 chunking policy。
+- 当前结果：新增 `RagChunkingPolicy`、`RagChunker`、`RagChunkMetadata`；`RagIndexService` 改为通过 policy/chunker 生成 chunks。policy 支持 `maxChunkChars`、`overlapChars`、`maxChunksPerDocument`，chunk metadata 包含 documentId、documentVersion、chunkIndex、stable chunkId、contentHash/chunkHash、startOffset/endOffset 和 `indexTruncated`。
+- 测试覆盖：短文本单 chunk、长文本多 chunk、overlap 生效、chunkId 稳定、chunkIndex 连续、空文本、maxChunksPerDocument 截断、metadata 完整、不同 documentId metadata 隔离。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过，57 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：未新增公开 API、数据库表、Maven 依赖或 docker-compose；未输出 chunk 正文到日志；未启动真实 Qdrant；未接 Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+
 ### T087-Qdrant-Integration-Test-Boundary-Docs
 
 - 状态：DONE

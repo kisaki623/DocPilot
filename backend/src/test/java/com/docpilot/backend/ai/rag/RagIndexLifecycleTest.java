@@ -115,6 +115,27 @@ class RagIndexLifecycleTest {
         assertThat(new RagQaTraceFormatter().format(second.trace())).contains("indexReused=true");
     }
 
+    @Test
+    void shouldExposeIndexTruncatedInTrace() {
+        RagIndexManager manager = new RagIndexManager();
+        InMemoryVectorStore store = new InMemoryVectorStore();
+        RagIndexService indexService = new RagIndexService(
+                new FakeEmbeddingModel(),
+                store,
+                manager,
+                RagEmbeddingProperties.PROVIDER_FAKE,
+                RagIndexManager.VECTOR_STORE_IN_MEMORY,
+                new RagChunkingPolicy(10, 0, 1)
+        );
+
+        RagIndexService.RagIndexResult result = indexService.indexDocument(DOCUMENT_ID, VERSION_1,
+                "0123456789ABCDEFGHIJ");
+
+        assertThat(result.indexTruncated()).isTrue();
+        assertThat(result.chunks()).hasSize(1);
+        assertThat(result.chunks().get(0).metadata()).containsEntry("indexTruncated", "true");
+    }
+
     private List<VectorSearchResult> search(Long documentId, String question) {
         RagRetrievalService retrievalService = new RagRetrievalService(new FakeEmbeddingModel(), vectorStore);
         return retrievalService.retrieveForQuestion(documentId, question, 1);

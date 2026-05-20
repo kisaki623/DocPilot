@@ -2,6 +2,49 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T088 RAG Chunking Policy
+
+### 本轮目标
+
+把当前 RAG chunk 切分逻辑收敛成可配置、可测试、可面试解释的 chunking policy。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagChunkingPolicy.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagChunker.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagChunkMetadata.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTrace.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTraceFormatter.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagChunkerTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagMinimalInternalServiceTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagIndexLifecycleTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceFormatterTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagChunkingPolicy`，支持 `maxChunkChars`、`overlapChars`、`maxChunksPerDocument`。
+- 新增 `RagChunker` 和 `RagChunkMetadata`，生成稳定 chunkId、contentHash/chunkHash、documentVersion、chunkIndex、startOffset/endOffset 等 metadata。
+- `RagIndexService` 改为通过 chunking policy 生成 chunks，保留旧构造器兼容。
+- `RagIndexResult`、`RagQaTrace`、trace formatter 和 Agent RAG step 摘要增加 `indexTruncated`，用于表达超大文档被截断索引。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，57 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未输出 chunk 正文到日志。
+- 未启动真实 Qdrant，未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T087 Qdrant Integration Test Boundary Docs
 
 ### 本轮目标
