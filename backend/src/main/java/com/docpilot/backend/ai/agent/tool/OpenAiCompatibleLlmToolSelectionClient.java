@@ -34,7 +34,7 @@ public class OpenAiCompatibleLlmToolSelectionClient implements LlmToolSelectionC
     private final HttpClient httpClient;
 
     public OpenAiCompatibleLlmToolSelectionClient() {
-        this("", "", "", 3000, 256, 0.0d);
+        this("", "", "", 15000, 256, 0.0d);
     }
 
     public OpenAiCompatibleLlmToolSelectionClient(String model, String baseUrl, int requestTimeoutMs) {
@@ -186,7 +186,7 @@ public class OpenAiCompatibleLlmToolSelectionClient implements LlmToolSelectionC
     }
 
     private static int normalizeTimeout(int requestTimeoutMs) {
-        return requestTimeoutMs <= 0 ? 3000 : requestTimeoutMs;
+        return requestTimeoutMs <= 0 ? 15000 : requestTimeoutMs;
     }
 
     private String safeErrorType(Exception ex) {

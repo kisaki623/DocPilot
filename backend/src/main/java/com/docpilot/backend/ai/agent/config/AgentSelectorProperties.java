@@ -31,7 +31,7 @@ public class AgentSelectorProperties {
     private String llmModel = "";
     private String llmBaseUrl = "";
     private String llmApiKey = "";
-    private int llmRequestTimeoutMs = 3000;
+    private int llmRequestTimeoutMs = 15000;
     private int llmMaxTokens = 256;
     private double llmTemperature = 0.0d;
 

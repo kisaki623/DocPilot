@@ -13,11 +13,12 @@ class AgentSelectorPropertiesTest {
             .withConfiguration(AutoConfigurations.of(ConfigurationPropertiesAutoConfiguration.class))
             .withUserConfiguration(AgentSelectorProperties.class)
             .withPropertyValues(
+                    "app.agent.selector.mode=keyword",
                     "app.agent.selector.llm-provider=disabled",
                     "app.agent.selector.llm-model=",
                     "app.agent.selector.llm-base-url=",
                     "app.agent.selector.llm-api-key=",
-                    "app.agent.selector.llm-request-timeout-ms=3000",
+                    "app.agent.selector.llm-request-timeout-ms=15000",
                     "app.agent.selector.llm-max-tokens=256",
                     "app.agent.selector.llm-temperature=0.0",
                     "app.agent.selector.shadow-enabled=false",
@@ -39,7 +40,7 @@ class AgentSelectorPropertiesTest {
             assertThat(properties.getLlmModel()).isEmpty();
             assertThat(properties.getLlmBaseUrl()).isEmpty();
             assertThat(properties.getLlmApiKey()).isEmpty();
-            assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(3000);
+            assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(15000);
             assertThat(properties.getLlmMaxTokens()).isEqualTo(256);
             assertThat(properties.getLlmTemperature()).isZero();
             assertThat(properties.isShadowLlmMode()).isFalse();

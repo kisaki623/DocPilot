@@ -33,6 +33,14 @@ class LlmToolSelectionPromptBuilderTest {
                     "{\"task\":\"String\"}",
                     "{\"answer\":\"String\",\"citations\":[]}",
                     true
+            ),
+            new ToolDefinition(
+                    DocumentRagTool.TOOL_NAME,
+                    "Document RAG retrieval",
+                    "Retrieves chunks.",
+                    "{\"task\":\"String\"}",
+                    "{\"retrievedChunks\":[]}",
+                    true
             )
     );
 
@@ -43,6 +51,7 @@ class LlmToolSelectionPromptBuilderTest {
         assertTrue(prompt.contains("document_status_tool"));
         assertTrue(prompt.contains("document_summary_tool"));
         assertTrue(prompt.contains("document_qa_tool"));
+        assertTrue(prompt.contains(DocumentRagTool.TOOL_NAME));
     }
 
     @Test
@@ -70,8 +79,8 @@ class LlmToolSelectionPromptBuilderTest {
         String prompt = buildPrompt();
 
         assertTrue(prompt.contains("Summarize with evidence"));
-        assertTrue(prompt.contains("parseReady: true"));
-        assertTrue(prompt.contains("hasSummary: false"));
+        assertTrue(prompt.contains("parseReady=true"));
+        assertTrue(prompt.contains("hasSummary=false"));
     }
 
     @Test
@@ -81,6 +90,16 @@ class LlmToolSelectionPromptBuilderTest {
         assertTrue(prompt.contains("status_only"));
         assertTrue(prompt.contains("summary_tool"));
         assertTrue(prompt.contains("qa_tool"));
+        assertTrue(prompt.contains("rag_tool"));
+    }
+
+    @Test
+    void shouldConstrainRagDecisionToRegisteredRagTool() {
+        String prompt = buildPrompt();
+
+        assertTrue(prompt.contains("rag_tool -> " + DocumentRagTool.TOOL_NAME));
+        assertTrue(prompt.contains("Use rag_tool only for explicit RAG"));
+        assertTrue(prompt.contains("toolNames must include document_status_tool and the required tool"));
     }
 
     private String buildPrompt() {
