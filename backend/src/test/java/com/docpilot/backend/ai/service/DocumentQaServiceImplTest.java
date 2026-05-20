@@ -305,6 +305,180 @@ class DocumentQaServiceImplTest {
     }
 
     @Test
+    void shouldKeepPlainQaWhenQaRagFlagDisabled() {
+        RagQaProperties ragQaProperties = new RagQaProperties();
+        ragQaProperties.setEnabled(false);
+        CountingRagQaContextBuilder ragQaContextBuilder = new CountingRagQaContextBuilder(RagQaContext.empty());
+        DocumentQaServiceImpl documentQaService = buildService(ragQaProperties, ragQaContextBuilder);
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("plain qa context");
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(aiAnswerService.answer("plain qa context", "plain question")).thenReturn("plain answer");
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+
+        DocumentQaResponse response = documentQaService.answer(100L, 101L, "plain question");
+
+        assertEquals("plain answer", response.getAnswer());
+        assertEquals(0, ragQaContextBuilder.callCount);
+        verify(aiAnswerService).answer("plain qa context", "plain question");
+    }
+
+    @Test
+    void shouldFallbackToPlainQaWhenRagContextBuilderThrows() {
+        RagQaProperties ragQaProperties = enabledRagProperties(3, 200);
+        DocumentQaServiceImpl documentQaService = buildService(ragQaProperties, new ThrowingRagQaContextBuilder());
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("fallback plain context");
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(aiAnswerService.answer("fallback plain context", "fallback question")).thenReturn("fallback answer");
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+
+        DocumentQaResponse response = documentQaService.answer(100L, 101L, "fallback question");
+
+        assertEquals("fallback answer", response.getAnswer());
+        verify(aiAnswerService).answer("fallback plain context", "fallback question");
+    }
+
+    @Test
+    void shouldFallbackToPlainQaWhenRagContextEmpty() {
+        RagQaProperties ragQaProperties = enabledRagProperties(3, 200);
+        DocumentQaServiceImpl documentQaService = buildService(
+                ragQaProperties,
+                new StubRagQaContextBuilder(RagQaContext.empty())
+        );
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("empty recall fallback context");
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(aiAnswerService.answer("empty recall fallback context", "empty recall question")).thenReturn("plain answer");
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+
+        DocumentQaResponse response = documentQaService.answer(100L, 101L, "empty recall question");
+
+        assertEquals("plain answer", response.getAnswer());
+        verify(aiAnswerService).answer("empty recall fallback context", "empty recall question");
+    }
+
+    @Test
+    void shouldPassConfiguredTopKAndMaxContextCharsToRagBuilder() {
+        RagQaProperties ragQaProperties = enabledRagProperties(2, 64);
+        RecordingRagQaContextBuilder ragQaContextBuilder = new RecordingRagQaContextBuilder(new RagQaContext(
+                true,
+                "[1] configured RAG context",
+                List.of(),
+                1,
+                1
+        ));
+        DocumentQaServiceImpl documentQaService = buildService(ragQaProperties, ragQaContextBuilder);
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("configured context");
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(aiAnswerService.answer("RAG context:\n[1] configured RAG context", "configured question"))
+                .thenReturn("configured answer");
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+
+        documentQaService.answer(100L, 101L, "configured question");
+
+        assertEquals(2, ragQaContextBuilder.topK);
+        assertEquals(64, ragQaContextBuilder.maxContextChars);
+    }
+
+    @Test
+    void shouldIncludeRagVariantInAnswerCacheKeyWhenRagUsed() {
+        RagQaProperties ragQaProperties = enabledRagProperties(2, 64);
+        String ragContextText = "[1] cache RAG context";
+        DocumentQaServiceImpl documentQaService = buildService(
+                ragQaProperties,
+                new StubRagQaContextBuilder(new RagQaContext(true, ragContextText, List.of(), 1, 1))
+        );
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("cache source context");
+        LocalDateTime version = LocalDateTime.of(2026, 5, 20, 12, 0, 0);
+        document.setUpdateTime(version);
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(aiAnswerService.answer("RAG context:\n" + ragContextText, "cache rag question")).thenReturn("cache rag answer");
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+
+        documentQaService.answer(100L, 101L, "cache rag question");
+
+        String ragVariant = "rag:topK=2:maxContextChars=64:contextHash=" + sha256Hex(ragContextText);
+        String expectedKey = CommonConstants.buildQaAnswerCacheKey(
+                100L,
+                101L,
+                version.toString(),
+                sha256Hex("cache rag question\n" + ragVariant)
+        );
+        verify(valueOperations).set(
+                eq(expectedKey),
+                eq("cache rag answer"),
+                eq(CommonConstants.QA_ANSWER_CACHE_TTL_SECONDS),
+                eq(TimeUnit.SECONDS)
+        );
+    }
+
+    @Test
+    void shouldStreamWithRagContextWhenQaRagFlagEnabled() {
+        RagQaProperties ragQaProperties = enabledRagProperties(1, 80);
+        DocumentQaServiceImpl documentQaService = buildService(
+                ragQaProperties,
+                new StubRagQaContextBuilder(new RagQaContext(true, "[1] stream RAG context", List.of(), 1, 1))
+        );
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("stream source context");
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+        doAnswer(invocation -> {
+            Consumer<String> consumer = invocation.getArgument(2);
+            consumer.accept("stream rag answer");
+            return null;
+        }).when(aiAnswerService).streamAnswer(eq("RAG context:\n[1] stream RAG context"), eq("stream rag question"), any());
+
+        documentQaService.streamAnswer(100L, 101L, "stream rag question");
+
+        verify(aiAnswerService, timeout(2000)).streamAnswer(
+                eq("RAG context:\n[1] stream RAG context"),
+                eq("stream rag question"),
+                any()
+        );
+    }
+
+    @Test
+    void shouldNotBuildRagContextWhenRateLimited() {
+        RagQaProperties ragQaProperties = enabledRagProperties(3, 200);
+        CountingRagQaContextBuilder ragQaContextBuilder = new CountingRagQaContextBuilder(RagQaContext.empty());
+        DocumentQaServiceImpl documentQaService = buildService(ragQaProperties, ragQaContextBuilder);
+        when(redisTokenBucketRateLimiter.tryConsume(
+                CommonConstants.buildAiQaRateLimitKey(100L),
+                CommonConstants.AI_QA_TOKEN_BUCKET_CAPACITY,
+                CommonConstants.AI_QA_TOKEN_BUCKET_REFILL_TOKENS,
+                CommonConstants.AI_QA_TOKEN_BUCKET_REFILL_INTERVAL_SECONDS
+        )).thenReturn(false);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> documentQaService.answer(100L, 101L, "rate limited question"));
+
+        assertEquals(ErrorCode.RATE_LIMIT_EXCEEDED, ex.getErrorCode());
+        assertEquals(0, ragQaContextBuilder.callCount);
+    }
+
+    @Test
     void shouldUseSameNormalizedContextForAnswerAndStream() {
         DocumentQaServiceImpl documentQaService = buildService();
 
@@ -736,6 +910,15 @@ class DocumentQaServiceImplTest {
         }
     }
 
+    private RagQaProperties enabledRagProperties(int topK, int maxContextChars) {
+        RagQaProperties properties = new RagQaProperties();
+        properties.setEnabled(true);
+        properties.setTopK(topK);
+        properties.setMaxContextChars(maxContextChars);
+        properties.setFallbackEnabled(true);
+        return properties;
+    }
+
     private static class StubRagQaContextBuilder extends RagQaContextBuilder {
 
         private final RagQaContext context;
@@ -747,6 +930,48 @@ class DocumentQaServiceImplTest {
         @Override
         public RagQaContext build(Long documentId, String question, String documentText, int topK, int maxContextChars) {
             return context;
+        }
+    }
+
+    private static class CountingRagQaContextBuilder extends RagQaContextBuilder {
+
+        private final RagQaContext context;
+        private int callCount;
+
+        private CountingRagQaContextBuilder(RagQaContext context) {
+            this.context = context;
+        }
+
+        @Override
+        public RagQaContext build(Long documentId, String question, String documentText, int topK, int maxContextChars) {
+            callCount++;
+            return context;
+        }
+    }
+
+    private static class RecordingRagQaContextBuilder extends RagQaContextBuilder {
+
+        private final RagQaContext context;
+        private int topK;
+        private int maxContextChars;
+
+        private RecordingRagQaContextBuilder(RagQaContext context) {
+            this.context = context;
+        }
+
+        @Override
+        public RagQaContext build(Long documentId, String question, String documentText, int topK, int maxContextChars) {
+            this.topK = topK;
+            this.maxContextChars = maxContextChars;
+            return context;
+        }
+    }
+
+    private static class ThrowingRagQaContextBuilder extends RagQaContextBuilder {
+
+        @Override
+        public RagQaContext build(Long documentId, String question, String documentText, int topK, int maxContextChars) {
+            throw new IllegalStateException("safe test exception");
         }
     }
 }
