@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T063-Embedding-Provider-Adapter
+
+- 状态：DONE（adapter）；BLOCKED（真实 embedding runtime preflight）
+- 完成时间：2026-05-20
+- 任务目标：新增独立 RAG embedding provider adapter 架构，让当前 fake embedding + in-memory RAG demo 具备迁移到真实 embedding provider 的代码路径，同时默认行为不变。
+- 当前结果：新增 `app.rag.embedding.*` 独立配置命名空间，默认 provider 仍为 `fake`；新增 `DisabledEmbeddingModel`、OpenAI-compatible embeddings adapter、`EmbeddingModelFactory`，并将 `DocumentRagTool` / `RagIndexService` 接入 factory 路径。OpenAI-compatible adapter 使用 `/embeddings` 文本向量接口 skeleton，缺少 apiKey / baseUrl / model 时不会联网并 fail-fast。
+- T063d：`APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 当前进程 / 系统环境变量存在性均为 False，因此真实 embedding provider runtime preflight 标记为 BLOCKED，未发起真实 HTTP 调用。
+- 验证结果：`cd backend; mvn -Dtest=*Embedding* test` 通过，16 tests；`cd backend; mvn -Dtest=*Rag* test` 通过，13 tests；`cd backend; mvn -DskipTests compile` 通过；`cd backend; mvn test -DskipITs` 通过，334 tests。
+- 边界：未读取 `backend/.env`；未输出 API Key、baseUrl、Authorization、request body、response body 或文档正文；未新增公开 API、数据库表、Maven 依赖或 docker-compose 服务；未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI；真实 embedding runtime 尚未验证。
+
 ### T062-LLM-Execute-Runtime-Validation
 
 - 状态：DONE

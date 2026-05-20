@@ -2,6 +2,44 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T063 Embedding Provider Adapter Preflight
+
+### 本轮目标
+
+新增真实 embedding adapter 架构，默认保持 fake embedding + in-memory RAG demo 行为；随后只做真实 embedding provider 环境变量 preflight，不强行通过 runtime。
+
+### 修改文件
+
+- `backend/src/main/resources/application.yml`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `app.rag.embedding.*` 独立配置命名空间，默认 provider 仍为 `fake`，不复用 selector / QA chat 配置。
+- 保留 `FakeEmbeddingModel` 默认路径，新增 `DisabledEmbeddingModel`、OpenAI-compatible `/embeddings` adapter skeleton 和 `EmbeddingModelFactory`。
+- `DocumentRagTool` 与 `RagIndexService` 已支持通过 factory 选择 embedding model；当前默认行为仍是 fake embedding + in-memory vector store demo。
+- OpenAI-compatible adapter 测试只使用本地 stub server 与 parser / request builder，不真实联网，不输出 secret。
+- T063d preflight：`APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 存在性均为 False，真实 embedding runtime 标记为 BLOCKED，未发起真实 HTTP。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Embedding* test`：通过，16 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，13 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，334 tests。
+
+### 当前边界
+
+- 未读取 `backend/.env`，未输出 API Key、baseUrl、Authorization、request body、provider response 或文档正文。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose 服务。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+- 真实 embedding provider runtime 尚未验证；不能写成真实向量 RAG 已完成。
+
 ## 2026-05-20 - T062 LLM Execute Runtime Verification Closeout
 
 ### 本轮目标
