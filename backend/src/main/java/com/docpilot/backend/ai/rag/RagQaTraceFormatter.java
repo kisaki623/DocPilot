@@ -22,6 +22,7 @@ public class RagQaTraceFormatter {
         fields.put("fallbackReason", resolvedTrace.fallbackReason());
         fields.put("citationCount", resolvedTrace.citationCount());
         fields.put("cacheKeyRagAware", resolvedTrace.cacheKeyRagAware());
+        fields.put("indexReused", resolvedTrace.indexReused());
         return fields;
     }
 

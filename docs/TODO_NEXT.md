@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T074-RAG-In-Memory-Index-Lifecycle
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补齐 fake embedding + in-memory vector store 的最小 index lifecycle，避免同一文档内容在 demo / smoke 中表现为每次查询都重复完整 index。
+- 当前结果：新增 `RagIndexKey`、`RagIndexState`、`RagIndexManager`，以 documentId、documentVersion、contentHash、embeddingProvider 和 vectorStoreType 判断是否复用；`InMemoryVectorStore` 支持按 documentId 替换旧 chunks；`RagIndexService` 返回 `RagIndexResult` 和 `indexReused` 状态；QA RAG trace 与 Agent RAG step 摘要可展示 `indexReused=true/false`。
+- 验证结果：修复 `RagQaContextBuilder` 构造器迁移编译问题；`cd backend; mvn -Dtest=*Rag* test` 通过，32 tests；`cd backend; mvn -Dtest=*Agent* test` 通过，53 tests；`cd backend; mvn test -DskipITs` 通过，361 tests。
+- 边界：仅做内存态 demo lifecycle，不落库、不新增公开 API、不引入分布式缓存、不新增依赖或 docker-compose；未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+
 ### T073-Agent-RAG-Trace-Step-Summary
 
 - 状态：DONE

@@ -1,9 +1,12 @@
 package com.docpilot.backend.ai.rag;
 
+import org.springframework.stereotype.Component;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+@Component
 public class InMemoryVectorStore implements VectorStore {
 
     private final List<Entry> entries = new ArrayList<>();
@@ -37,6 +40,14 @@ public class InMemoryVectorStore implements VectorStore {
                         .thenComparing(result -> result.chunk().chunkIndex()))
                 .limit(topK)
                 .toList();
+    }
+
+    @Override
+    public synchronized void deleteDocument(Long documentId) {
+        if (documentId == null) {
+            throw new IllegalArgumentException("documentId must not be null");
+        }
+        entries.removeIf(entry -> documentId.equals(entry.chunk().documentId()));
     }
 
     @Override

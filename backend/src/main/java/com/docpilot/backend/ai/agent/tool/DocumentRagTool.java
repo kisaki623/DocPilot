@@ -6,6 +6,8 @@ import com.docpilot.backend.ai.rag.InMemoryVectorStore;
 import com.docpilot.backend.ai.rag.RagAnswerContext;
 import com.docpilot.backend.ai.rag.RagAnswerContextBuilder;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
+import com.docpilot.backend.ai.rag.RagIndexKey;
+import com.docpilot.backend.ai.rag.RagIndexManager;
 import com.docpilot.backend.ai.rag.RagIndexService;
 import com.docpilot.backend.ai.rag.RagRetrievalService;
 import com.docpilot.backend.ai.rag.VectorSearchResult;
@@ -27,15 +29,22 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
 
     private final EmbeddingModelFactory embeddingModelFactory;
     private final RagEmbeddingProperties embeddingProperties;
+    private final InMemoryVectorStore vectorStore;
+    private final RagIndexManager indexManager;
 
     public DocumentRagTool() {
-        this(new EmbeddingModelFactory(), new RagEmbeddingProperties());
+        this(new EmbeddingModelFactory(), new RagEmbeddingProperties(), new InMemoryVectorStore(), new RagIndexManager());
     }
 
     @Autowired
-    public DocumentRagTool(EmbeddingModelFactory embeddingModelFactory, RagEmbeddingProperties embeddingProperties) {
+    public DocumentRagTool(EmbeddingModelFactory embeddingModelFactory,
+                           RagEmbeddingProperties embeddingProperties,
+                           InMemoryVectorStore vectorStore,
+                           RagIndexManager indexManager) {
         this.embeddingModelFactory = embeddingModelFactory;
         this.embeddingProperties = embeddingProperties;
+        this.vectorStore = vectorStore;
+        this.indexManager = indexManager;
     }
 
     @Override
@@ -59,17 +68,29 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                     List.of(),
                     List.of(),
                     "",
-                    buildTraceSummary(topK, 0, false, true, "no_document_text", 0)
+                    buildTraceSummary(topK, 0, false, true, "no_document_text", 0, false)
             );
         }
 
         EmbeddingModel embeddingModel = embeddingModelFactory.create(embeddingProperties);
-        InMemoryVectorStore vectorStore = new InMemoryVectorStore();
-        RagIndexService indexService = new RagIndexService(embeddingModel, vectorStore);
+        RagIndexService indexService = new RagIndexService(
+                embeddingModel,
+                vectorStore,
+                indexManager,
+                embeddingProperties.getProvider(),
+                RagIndexManager.VECTOR_STORE_IN_MEMORY,
+                RagIndexService.DEFAULT_CHUNK_SIZE,
+                RagIndexService.DEFAULT_CHUNK_OVERLAP
+        );
         RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, vectorStore);
         RagAnswerContextBuilder contextBuilder = new RagAnswerContextBuilder();
 
-        int chunkCount = indexService.indexDocument(input.documentId(), documentText).size();
+        RagIndexService.RagIndexResult indexResult = indexService.indexDocument(
+                input.documentId(),
+                RagIndexKey.DEFAULT_VERSION,
+                documentText
+        );
+        int chunkCount = indexResult.chunkCount();
         List<VectorSearchResult> hits = retrievalService.retrieveForQuestion(input.documentId(), input.task(), topK);
         RagAnswerContext answerContext = contextBuilder.build(hits);
         List<RetrievedChunk> retrievedChunks = toRetrievedChunks(hits);
@@ -87,7 +108,8 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                         !answerContext.contextText().isBlank(),
                         false,
                         "",
-                        answerContext.citations().size()
+                        answerContext.citations().size(),
+                        indexResult.state().indexReused()
                 )
         );
     }
@@ -97,7 +119,8 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                                      boolean contextHashPresent,
                                      boolean fallbackUsed,
                                      String fallbackReason,
-                                     int citationCount) {
+                                     int citationCount,
+                                     boolean indexReused) {
         return "embeddingProvider=" + embeddingProperties.getProvider()
                 + ", vectorStoreType=in_memory"
                 + ", topK=" + topK
@@ -105,7 +128,8 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                 + ", contextHashPresent=" + contextHashPresent
                 + ", fallbackUsed=" + fallbackUsed
                 + ", fallbackReason=" + safeSummaryValue(fallbackReason)
-                + ", citationCount=" + Math.max(0, citationCount);
+                + ", citationCount=" + Math.max(0, citationCount)
+                + ", indexReused=" + indexReused;
     }
 
     private List<RetrievedChunk> toRetrievedChunks(List<VectorSearchResult> hits) {

@@ -11,15 +11,27 @@ public class RagQaContextBuilder {
 
     private final EmbeddingModelFactory embeddingModelFactory;
     private final RagEmbeddingProperties embeddingProperties;
+    private final InMemoryVectorStore vectorStore;
+    private final RagIndexManager indexManager;
 
     public RagQaContextBuilder() {
-        this(new EmbeddingModelFactory(), new RagEmbeddingProperties());
+        this(new EmbeddingModelFactory(), new RagEmbeddingProperties(), new InMemoryVectorStore(), new RagIndexManager());
+    }
+
+    public RagQaContextBuilder(EmbeddingModelFactory embeddingModelFactory,
+                               RagEmbeddingProperties embeddingProperties) {
+        this(embeddingModelFactory, embeddingProperties, new InMemoryVectorStore(), new RagIndexManager());
     }
 
     @Autowired
-    public RagQaContextBuilder(EmbeddingModelFactory embeddingModelFactory, RagEmbeddingProperties embeddingProperties) {
+    public RagQaContextBuilder(EmbeddingModelFactory embeddingModelFactory,
+                               RagEmbeddingProperties embeddingProperties,
+                               InMemoryVectorStore vectorStore,
+                               RagIndexManager indexManager) {
         this.embeddingModelFactory = embeddingModelFactory;
         this.embeddingProperties = embeddingProperties;
+        this.vectorStore = vectorStore;
+        this.indexManager = indexManager;
     }
 
     public RagQaContext build(Long documentId, String question, String documentText, int topK, int maxContextChars) {
@@ -43,12 +55,21 @@ public class RagQaContextBuilder {
         }
 
         EmbeddingModel embeddingModel = embeddingModelFactory.create(embeddingProperties);
-        InMemoryVectorStore vectorStore = new InMemoryVectorStore();
-        RagIndexService indexService = new RagIndexService(embeddingModel, vectorStore);
+        RagIndexService indexService = new RagIndexService(
+                embeddingModel,
+                vectorStore,
+                indexManager,
+                embeddingProvider,
+                RagIndexManager.VECTOR_STORE_IN_MEMORY,
+                RagIndexService.DEFAULT_CHUNK_SIZE,
+                RagIndexService.DEFAULT_CHUNK_OVERLAP
+        );
         RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, vectorStore);
         RagAnswerContextBuilder contextBuilder = new RagAnswerContextBuilder();
 
-        int chunkCount = indexService.indexDocument(documentId, documentText).size();
+        RagIndexService.RagIndexResult indexResult = indexService.indexDocument(documentId, RagIndexKey.DEFAULT_VERSION, documentText);
+        int chunkCount = indexResult.chunkCount();
+        boolean indexReused = indexResult.state().indexReused();
         if (chunkCount == 0) {
             return RagQaContext.empty(RagQaTrace.retrieval(
                     embeddingProvider,
@@ -59,7 +80,8 @@ public class RagQaContextBuilder {
                     0,
                     false,
                     false,
-                    0
+                    0,
+                    indexReused
             ));
         }
         List<VectorSearchResult> hits = retrievalService.retrieveForQuestion(documentId, question, resolvedTopK);
@@ -73,7 +95,8 @@ public class RagQaContextBuilder {
                     0,
                     false,
                     false,
-                    0
+                    0,
+                    indexReused
             ));
         }
 
@@ -90,7 +113,8 @@ public class RagQaContextBuilder {
                 contextText.length(),
                 contextTruncated,
                 !contextText.isBlank(),
-                answerContext.citations().size()
+                answerContext.citations().size(),
+                indexReused
         );
         if (contextText.isBlank()) {
             return new RagQaContext(false, "", answerContext.citations(), chunkCount, hits.size(), trace);

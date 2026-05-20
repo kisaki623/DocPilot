@@ -8,5 +8,7 @@ public interface VectorStore {
 
     List<VectorSearchResult> searchTopK(Long documentId, EmbeddingVector queryVector, int topK);
 
+    void deleteDocument(Long documentId);
+
     void clear();
 }

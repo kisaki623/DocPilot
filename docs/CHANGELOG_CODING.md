@@ -2,6 +2,49 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T074 RAG In-Memory Index Lifecycle
+
+### 本轮目标
+
+为 fake embedding + in-memory vector store 补最小 index lifecycle，避免 demo / smoke 表现为同一文档内容每次查询都重复完整 index。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexKey.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexState.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexManager.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/InMemoryVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTrace.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTraceFormatter.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagIndexLifecycleTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagIndexKey` / `RagIndexState` / `RagIndexManager`，以 documentId、documentVersion、contentHash、embeddingProvider、vectorStoreType 判断 index 是否可复用。
+- `InMemoryVectorStore` 支持按 documentId 删除旧 chunks；版本或内容变化时替换该文档的内存向量。
+- `RagIndexService.indexDocument` 返回 `RagIndexResult`，同一 document/version/contentHash 会跳过重复 index。
+- QA RAG trace 与 Agent RAG step 摘要新增 `indexReused=true/false`。
+- 保留 `RagQaContextBuilder(EmbeddingModelFactory, RagEmbeddingProperties)` 兼容构造器，但它内部仍走默认 `InMemoryVectorStore + RagIndexManager` 生命周期逻辑。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，32 tests。
+- `cd backend; mvn -Dtest=*Agent* test`：通过，53 tests。
+- `cd backend; mvn test -DskipITs`：通过，361 tests。
+
+### 当前边界
+
+- 只做内存态 demo lifecycle，不落库、不新增公开 API、不引入分布式缓存。
+- 未新增依赖、数据库表或 docker-compose。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T073 Agent RAG Trace Step Summary
 
 ### 本轮目标
