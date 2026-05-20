@@ -2,6 +2,39 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T071 Vector Store Adapter Boundary Design
+
+### 本轮目标
+
+只读设计下一步真实向量库 adapter 边界，不接 Qdrant / Redis Vector，不新增依赖，不修改 docker-compose，不新增数据库表。
+
+### 修改文件
+
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`，记录当前 fake embedding、in-memory vector store、OpenAI-compatible embedding adapter runtime BLOCKED、QA RAG feature flag 默认关闭和内部 trace 状态。
+- 明确后续真实向量库优先 Qdrant，Redis Vector 仅在 Redis Stack / RediSearch 可用时作为备选。
+- 设计最小内部 adapter 接口、point / query / hit 值对象、collection / payload metadata、userId / documentId / documentVersion 隔离、topK / score / citation metadata、fallback 和测试策略。
+
+### 验证结果
+
+- 文档 diff 自查。
+- 中文 Markdown 乱码特征扫描：未发现新增乱码；历史 TODO 中用于扫描命令示例包含 `�` 字符，属于既有命中。
+
+### 当前边界
+
+- 未修改生产 Java、测试 Java、前端或配置。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose 服务。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+- 未读取 `backend/.env`，未输出 secret、prompt、provider response 或文档正文。
+
 ## 2026-05-20 - T070 RAG QA Debug Trace
 
 ### 本轮目标

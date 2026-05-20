@@ -220,3 +220,10 @@ T055 仍明确未做：
 T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_RAG_EMBEDDING_PROVIDER=False`、`APP_RAG_EMBEDDING_BASE_URL=False`、`APP_RAG_EMBEDDING_MODEL=False`、`APP_RAG_EMBEDDING_API_KEY=False`。
 
 结论：真实 embedding runtime 仍为 BLOCKED，未发起 `/embeddings` HTTP 调用。后续 QA RAG smoke 继续基于 fake embedding + in-memory vector store 验证 feature flag 链路；不能写成真实向量 RAG 已完成。
+
+## 15. T069 / T070 / T071 最新状态
+
+- T069 已新增 QA RAG fake smoke，使用 fake embedding + in-memory vector store 验证 `app.rag.qa.enabled=true` 时可注入受限 context、生成 citation metadata，并确认 flag=false 默认行为不变。
+- T070 已新增内部脱敏 `RagQaTrace` / `RagQaTraceFormatter`，用于展示 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、fallbackUsed、fallbackReason、citationCount、cacheKeyRagAware 等摘要；不输出正文、prompt、chunk 全文或 secret。
+- T071 已新增 `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`，明确下一步真实向量库 adapter 边界；推荐优先 Qdrant，Redis Vector 仅在 Redis Stack 可用时作为备选。
+- 当前仍未接 Qdrant / Redis Vector、LangChain4j、Spring AI、数据库表或 docker-compose 服务；T010 / MQ blocked 未处理。

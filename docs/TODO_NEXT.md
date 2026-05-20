@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T071-Vector-Store-Adapter-Boundary
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：基于当前 `EmbeddingModel` / `InMemoryVectorStore` / `RagIndexService`，只读设计下一步 Qdrant 或 Redis Vector 接入边界，不实现。
+- 当前结果：新增 `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`，明确当前 fake embedding + in-memory store、OpenAI-compatible embedding adapter runtime BLOCKED、QA RAG feature flag 默认关闭等状态；推荐后续真实向量库优先 Qdrant，Redis Vector 仅在 Redis Stack 可用时作为备选；设计最小 adapter 接口、collection / payload metadata、userId / documentId / documentVersion 隔离、topK / score / citation metadata、fallback 与测试策略。
+- 验证结果：只改文档；中文 Markdown 乱码特征扫描未发现新增乱码。
+- 边界：未新增依赖、公开 API、数据库表或 docker-compose；未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked；未把当前 fake RAG 写成生产完整 RAG。
+
 ### T070-RAG-QA-Debug-Trace
 
 - 状态：DONE

@@ -158,3 +158,15 @@ Redis Vector 可作为备选：如果用户已经有 Redis Stack 环境并希望
 - 当前已完成 fake / disabled / OpenAI-compatible embedding adapter 架构，默认仍走 fake embedding，真实 embedding provider runtime 因环境变量缺失 BLOCKED。
 - 当前已完成默认关闭的 QA RAG context feature flag，开启后可用 fake embedding + in-memory vector store 给 QA 注入受限 context；默认 QA 行为不变。
 - 选型结论不变：仍未接 Qdrant / Redis Vector；如果后续进入真实向量库，应先确认是否允许新增服务、DDL 和部署配置。
+
+## 9. T071 adapter 边界更新
+
+T071 新增 `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`，仅设计下一步 adapter 边界，不实现真实向量库。
+
+当前推荐保持：
+
+- 求职冲刺若要接真实向量库，优先 Qdrant：专用向量库语义清晰，collection / payload filter / score / point id 更适合讲 RAG 工程化。
+- Redis Vector 作为备选：只有确认 Redis Stack / RediSearch 可用时再评估；不能把当前普通 Redis 写成已支持向量检索。
+- in-memory fake store 继续作为单元测试和 smoke 替身。
+
+T071 未新增依赖、未改 docker-compose、未新增数据库表、未接 Qdrant / Redis Vector、未接 LangChain4j。
