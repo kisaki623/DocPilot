@@ -19,9 +19,13 @@ class QdrantPreflightScriptSafetyTest {
         assertThat(script).contains("RAG_QDRANT_ENDPOINT");
         assertThat(script).contains("RAG_QDRANT_COLLECTION");
         assertThat(script).contains("RAG_QDRANT_API_KEY");
+        assertThat(script).contains("RAG_QDRANT_CONNECT_TIMEOUT_MS");
+        assertThat(script).contains("RAG_QDRANT_REQUEST_TIMEOUT_MS");
         assertThat(script).contains("endpointPresent");
         assertThat(script).contains("collectionPresent");
         assertThat(script).contains("apiKeyPresent");
+        assertThat(script).contains("connectTimeoutPresent");
+        assertThat(script).contains("requestTimeoutPresent");
         assertThat(script).contains("isLocalhost");
         assertThat(script).contains("requestAttempted");
         assertThat(script).doesNotContain("Authorization");

@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T082-Qdrant-Config-Env-Naming-Alignment
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：统一 Qdrant vector store 相关配置与 preflight 脚本环境变量命名，避免 Spring 配置绑定和脚本检查口径不一致。
+- 当前结果：`application.yml` 的 `app.rag.vector-store.*` placeholder 优先读取推荐的 `RAG_VECTOR_STORE_PROVIDER`、`RAG_QDRANT_ENDPOINT`、`RAG_QDRANT_API_KEY`、`RAG_QDRANT_COLLECTION`、`RAG_QDRANT_CONNECT_TIMEOUT_MS`、`RAG_QDRANT_REQUEST_TIMEOUT_MS`，并保留旧 `APP_RAG_VECTOR_STORE_*` fallback；preflight 脚本同步检查 timeout 变量存在性且只输出 True/False 摘要。
+- 验证结果：`cd backend; mvn -Dtest=*VectorStore* test` 通过；`cd backend; mvn -Dtest=*Qdrant* test` 通过；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：默认 provider 仍为 `in_memory`；未读取 `backend/.env`；未输出任何环境变量值、endpoint 原文、API key 或 Authorization；未启动真实 Qdrant；未新增 API / DB / Maven 依赖 / docker-compose。
+
 ### T081-Qdrant-Adapter-Boundary-Docs
 
 - 状态：DONE

@@ -2,6 +2,43 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T082 Qdrant Config Env Naming Alignment
+
+### 本轮目标
+
+统一 Qdrant vector store 相关配置与 preflight 脚本环境变量命名，避免 application.yml、properties class、脚本和文档口径不一致。
+
+### 修改文件
+
+- `backend/src/main/resources/application.yml`
+- `backend/scripts/rag/preflight-qdrant-vector-store.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStorePropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `application.yml` 优先读取推荐变量：`RAG_VECTOR_STORE_PROVIDER`、`RAG_QDRANT_ENDPOINT`、`RAG_QDRANT_API_KEY`、`RAG_QDRANT_COLLECTION`、`RAG_QDRANT_CONNECT_TIMEOUT_MS`、`RAG_QDRANT_REQUEST_TIMEOUT_MS`。
+- 保留旧 `APP_RAG_VECTOR_STORE_*` fallback，避免破坏已有本地配置。
+- preflight 脚本同步检查 timeout 变量存在性，只输出 True/False 摘要。
+- 配置绑定测试覆盖默认 `in_memory` 和显式 `qdrant` 配置对象。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过。
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 默认 provider 仍为 `in_memory`。
+- 未读取 `backend/.env`。
+- 未输出任何环境变量值、endpoint 原文、API key 或 Authorization。
+- 未启动真实 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+
 ## 2026-05-21 - T081 Qdrant Adapter Boundary Docs
 
 ### 本轮目标

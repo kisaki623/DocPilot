@@ -80,13 +80,13 @@ app:
       request-timeout-ms: ${APP_RAG_EMBEDDING_REQUEST_TIMEOUT_MS:30000}
       dimension: ${APP_RAG_EMBEDDING_DIMENSION:32}
     vector-store:
-      provider: ${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}
+      provider: ${RAG_VECTOR_STORE_PROVIDER:${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}}
       qdrant:
-        collection: ${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION:docpilot_rag_demo}
-        endpoint: ${APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT:}
-        api-key: ${APP_RAG_VECTOR_STORE_QDRANT_API_KEY:}
-        connect-timeout-ms: ${APP_RAG_VECTOR_STORE_QDRANT_CONNECT_TIMEOUT_MS:5000}
-        request-timeout-ms: ${APP_RAG_VECTOR_STORE_QDRANT_REQUEST_TIMEOUT_MS:30000}
+        collection: ${RAG_QDRANT_COLLECTION:${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION:docpilot_rag_demo}}
+        endpoint: ${RAG_QDRANT_ENDPOINT:${APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT:}}
+        api-key: ${RAG_QDRANT_API_KEY:${APP_RAG_VECTOR_STORE_QDRANT_API_KEY:}}
+        connect-timeout-ms: ${RAG_QDRANT_CONNECT_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_CONNECT_TIMEOUT_MS:5000}}
+        request-timeout-ms: ${RAG_QDRANT_REQUEST_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_REQUEST_TIMEOUT_MS:30000}}
   rocketmq:
     enabled: ${ROCKETMQ_ENABLED:false}
     parse-topic: ${DOCPILOT_PARSE_TOPIC:docpilot-parse-topic}

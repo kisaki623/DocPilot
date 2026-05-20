@@ -28,11 +28,15 @@ $provider = $env:RAG_VECTOR_STORE_PROVIDER
 $endpoint = $env:RAG_QDRANT_ENDPOINT
 $collection = $env:RAG_QDRANT_COLLECTION
 $apiKey = $env:RAG_QDRANT_API_KEY
+$connectTimeoutMs = $env:RAG_QDRANT_CONNECT_TIMEOUT_MS
+$requestTimeoutMs = $env:RAG_QDRANT_REQUEST_TIMEOUT_MS
 
 $providerPresent = Test-Present -Value $provider
 $endpointPresent = Test-Present -Value $endpoint
 $collectionPresent = Test-Present -Value $collection
 $apiKeyPresent = Test-Present -Value $apiKey
+$connectTimeoutPresent = Test-Present -Value $connectTimeoutMs
+$requestTimeoutPresent = Test-Present -Value $requestTimeoutMs
 $isQdrant = $providerPresent -and $provider.Trim().ToLowerInvariant() -eq "qdrant"
 
 if (-not $isQdrant) {
@@ -43,6 +47,8 @@ if (-not $isQdrant) {
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
     apiKeyPresent = $apiKeyPresent
+    connectTimeoutPresent = $connectTimeoutPresent
+    requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $false
     requestAttempted = $false
   }
@@ -59,6 +65,8 @@ if (-not $endpointPresent -or -not $collectionPresent) {
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
     apiKeyPresent = $apiKeyPresent
+    connectTimeoutPresent = $connectTimeoutPresent
+    requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
     requestAttempted = $false
   }
@@ -73,6 +81,8 @@ if ($SkipRequest) {
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
     apiKeyPresent = $apiKeyPresent
+    connectTimeoutPresent = $connectTimeoutPresent
+    requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
     requestAttempted = $false
   }
@@ -101,6 +111,8 @@ try {
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
     apiKeyPresent = $apiKeyPresent
+    connectTimeoutPresent = $connectTimeoutPresent
+    requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
     requestAttempted = $true
     statusCode = $response.StatusCode
@@ -114,6 +126,8 @@ try {
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
     apiKeyPresent = $apiKeyPresent
+    connectTimeoutPresent = $connectTimeoutPresent
+    requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
     requestAttempted = $true
     errorType = $_.Exception.GetType().Name
