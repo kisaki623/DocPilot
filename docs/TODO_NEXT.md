@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T098-Overnight-RAG-Evaluation-Closeout
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：收口 T092-T098 夜间 RAG evaluation / retrieval / Qdrant adapter / embedding preflight 队列，不新增功能。
+- 当前结果：T092 `0872202`、T093 `476573b`、T093b `e35c01c`、T094 `ef29c91`、T095 `af19b69`、T096 `206b5c8` 均已完成；T097 `c640f66` 已完成 preflight 记录但真实 embedding runtime 继续 BLOCKED；T098 本条记录用于最终收口。
+- 验证结果：`cd backend; mvn test -DskipITs` 通过，431 tests；本轮未修改 frontend，因此未运行 frontend lint/build。
+- 边界：未新增公开 API、数据库表、Maven 依赖或 docker-compose；未真实调用 embedding provider；未真实连接 Qdrant / Redis Vector；未接 LangChain4j / Spring AI；未读取 `backend/.env`；未输出 secret、baseUrl、endpoint、Authorization、prompt、文档正文或 provider response；未处理 T010 / MQ blocked。
+- 明早建议：1. 先人工 / CC 只读审查 T092-T098 diff；2. 如需继续真实 runtime，只在用户注入 embedding / Qdrant 环境后做脱敏 preflight；3. 完整上传解析链路仍回到 T010/MQ readiness，不要绕过 MQ blocker。
+
 ### T097-Real-Embedding-Provider-Preflight
 
 - 状态：BLOCKED（真实 embedding runtime）；DONE（preflight 记录）

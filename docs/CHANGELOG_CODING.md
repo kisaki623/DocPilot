@@ -2,6 +2,36 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T098 Overnight RAG Evaluation Closeout
+
+### 本轮目标
+
+收口 T092-T098 夜间 RAG evaluation / retrieval / Qdrant adapter / embedding preflight 队列，不新增功能。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T092 `0872202` offline retrieval eval、T093 `476573b` retrieval hardening docs、T093b `e35c01c` eval runner report、T094 `ef29c91` sanitized RAG QA smoke、T095 `af19b69` Qdrant adapter safety coverage、T096 `206b5c8` boundary alignment。
+- 记录 T097 `c640f66` 已完成环境变量存在性 preflight，但真实 embedding runtime 继续 BLOCKED。
+- 记录本轮没有新增 API / DB / Maven 依赖 / docker-compose，没有真实接 Qdrant / Redis Vector / LangChain4j / Spring AI，没有处理 T010 / MQ blocked。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，431 tests。
+- 本轮未修改 frontend，因此未运行 frontend lint/build。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 secret、baseUrl、endpoint、Authorization、prompt、文档正文或 provider response。
+- 未启动后端 / 前端长期服务；Maven 测试中的随机端口测试进程随测试结束释放。
+- T010 / MQ 仍 BLOCKED，原因仍是 MQ disabled / `NoopParseTaskMessageProducer` 解析链路不推进。
+
 ## 2026-05-21 - T097 Real Embedding Provider Preflight
 
 ### 本轮目标

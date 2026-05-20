@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- T098 夜间 RAG evaluation 队列已收口：T092 `0872202`、T093 `476573b`、T093b `e35c01c`、T094 `ef29c91`、T095 `af19b69`、T096 `206b5c8` 已完成；T097 `c640f66` 已完成 preflight 记录但真实 embedding runtime 继续 BLOCKED。后端全量 `mvn test -DskipITs` 通过 431 tests；本轮未改 frontend，未运行 frontend lint/build。
 - T097 真实 embedding provider preflight 已重新执行：当前 shell 中 `APP_RAG_EMBEDDING_PROVIDER=False`、`APP_RAG_EMBEDDING_BASE_URL=False`、`APP_RAG_EMBEDDING_MODEL=False`、`APP_RAG_EMBEDDING_API_KEY=False`，所以真实 embedding runtime 继续 BLOCKED；未读取 `backend/.env`，未发起 `/embeddings` HTTP 调用。
 - RAG / Agent 公开口径已完成 T096 收紧：README 首屏改为 `Function-calling-style 工具执行`，避免被误读为 OpenAI 官方 tools/function_call API；RAG 文档继续明确 fake embedding + in-memory demo、默认关闭 Qdrant HTTP adapter、本地 fake server 测试和真实 embedding / Qdrant runtime BLOCKED 边界。
 - Qdrant adapter safety coverage 已补强：Qdrant payload metadata 收敛为 contentHash / chunkHash / charStart / charEnd / chunkVersion / source 白名单；测试覆盖显式 userId + documentId filter、缺 endpoint fail-fast、HTTP 500 错误脱敏和 metadata 不复制正文 / prompt / provider response。当前仍只用本地 fake HTTP server，不连接真实 Qdrant。
