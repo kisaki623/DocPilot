@@ -70,6 +70,15 @@ app:
     selector:
       mode: ${AGENT_SELECTOR_MODE:keyword}
       shadow-enabled: ${AGENT_SELECTOR_SHADOW_ENABLED:false}
+  rag:
+    embedding:
+      provider: ${APP_RAG_EMBEDDING_PROVIDER:fake}
+      base-url: ${APP_RAG_EMBEDDING_BASE_URL:}
+      model: ${APP_RAG_EMBEDDING_MODEL:}
+      api-key: ${APP_RAG_EMBEDDING_API_KEY:}
+      connect-timeout-ms: ${APP_RAG_EMBEDDING_CONNECT_TIMEOUT_MS:5000}
+      request-timeout-ms: ${APP_RAG_EMBEDDING_REQUEST_TIMEOUT_MS:30000}
+      dimension: ${APP_RAG_EMBEDDING_DIMENSION:32}
   rocketmq:
     enabled: ${ROCKETMQ_ENABLED:false}
     parse-topic: ${DOCPILOT_PARSE_TOPIC:docpilot-parse-topic}
