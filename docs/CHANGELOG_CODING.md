@@ -2,6 +2,47 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T091 Qdrant Collection Preflight Boundary
+
+### 本轮目标
+
+补 Qdrant collection lifecycle 的 request builder / preflight 边界，但不真实创建 collection，不启动真实 Qdrant。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantCollectionInfoRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantCollectionCreateRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantCollectionResponseParser.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantCollectionPreflightResult.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantCollectionBoundaryTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `backend/scripts/rag/preflight-qdrant-vector-store.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 collection info path builder。
+- 新增 create collection payload builder，支持 vector size 和 distance metric。
+- 新增 collection response parser 与 preflight result。
+- Qdrant preflight 脚本支持 `-DryRun`、`-AllowCreateCollection`、`VectorSize`、`Distance`。
+- 脚本默认仍只读；只有显式 `-AllowCreateCollection` 且 GET collection 返回 404 时才会尝试 create。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过，18 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，61 tests。
+- PowerShell 脚本语法检查：通过。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未修改 docker-compose。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未输出 endpoint、Authorization、provider response、文档正文或 prompt。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T090 RAG Debug Snapshot Reporter
 
 ### 本轮目标

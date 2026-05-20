@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T091-Qdrant-Collection-Preflight-Boundary
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补 Qdrant collection lifecycle 的 request builder / preflight 边界，但不真实创建 collection，不启动真实 Qdrant。
+- 当前结果：新增 `QdrantCollectionInfoRequestBuilder`、`QdrantCollectionCreateRequestBuilder`、`QdrantCollectionResponseParser`、`QdrantCollectionPreflightResult`；preflight 脚本新增 `-DryRun`、`-AllowCreateCollection`、`VectorSize`、`Distance` 参数。默认仍为只读 / dry-run 友好边界，只有显式允许且 collection check 返回 404 时才会尝试 create。
+- 测试覆盖：collection info path、create collection payload shape、response parser、fake server 只读 collection check、显式 allow create 时才发送 PUT、脚本不输出 endpoint / Authorization / response body。
+- 验证结果：`cd backend; mvn -Dtest=*Qdrant* test` 通过，18 tests；`cd backend; mvn -Dtest=*Rag* test` 通过，61 tests；PowerShell 脚本语法检查通过。
+- 边界：未启动真实 Qdrant；未改 docker-compose；未新增公开 API、数据库表或 Maven 依赖；未输出 endpoint、Authorization、provider response、文档正文或 prompt；未处理 T010 / MQ blocked。
+
 ### T090-RAG-Debug-Snapshot-Reporter
 
 - 状态：DONE

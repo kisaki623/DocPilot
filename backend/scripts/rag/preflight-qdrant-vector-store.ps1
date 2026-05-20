@@ -1,5 +1,9 @@
 param(
-  [switch]$SkipRequest
+  [switch]$SkipRequest,
+  [switch]$DryRun,
+  [switch]$AllowCreateCollection,
+  [int]$VectorSize = 1536,
+  [string]$Distance = "Cosine"
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,6 +55,9 @@ if (-not $isQdrant) {
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $false
     requestAttempted = $false
+    dryRun = [bool]$DryRun
+    allowCreateCollection = [bool]$AllowCreateCollection
+    createAttempted = $false
   }
   exit 0
 }
@@ -69,11 +76,14 @@ if (-not $endpointPresent -or -not $collectionPresent) {
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
     requestAttempted = $false
+    dryRun = [bool]$DryRun
+    allowCreateCollection = [bool]$AllowCreateCollection
+    createAttempted = $false
   }
   exit 2
 }
 
-if ($SkipRequest) {
+if ($SkipRequest -or $DryRun) {
   Write-Summary @{
     status = "READY"
     providerIsQdrant = $true
@@ -85,6 +95,9 @@ if ($SkipRequest) {
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
     requestAttempted = $false
+    dryRun = [bool]$DryRun
+    allowCreateCollection = [bool]$AllowCreateCollection
+    createAttempted = $false
   }
   exit 0
 }
@@ -115,10 +128,75 @@ try {
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
     requestAttempted = $true
+    dryRun = $false
+    allowCreateCollection = [bool]$AllowCreateCollection
+    createAttempted = $false
     statusCode = $response.StatusCode
   }
   exit 0
 } catch {
+  $statusCode = $null
+  if ($_.Exception.Response -ne $null) {
+    try {
+      $statusCode = [int]$_.Exception.Response.StatusCode
+    } catch {
+      $statusCode = $null
+    }
+  }
+  if ($statusCode -eq 404 -and $AllowCreateCollection) {
+    $createPayload = @{
+      vectors = @{
+        size = $VectorSize
+        distance = $Distance
+      }
+    } | ConvertTo-Json -Depth 4
+    try {
+      $createResponse = Invoke-WebRequest `
+        -Method Put `
+        -Uri "$baseEndpoint/collections/$escapedCollection" `
+        -Headers $headers `
+        -Body $createPayload `
+        -ContentType "application/json" `
+        -UseBasicParsing `
+        -TimeoutSec 5
+
+      Write-Summary @{
+        status = "CREATED"
+        providerIsQdrant = $true
+        providerPresent = $providerPresent
+        endpointPresent = $endpointPresent
+        collectionPresent = $collectionPresent
+        apiKeyPresent = $apiKeyPresent
+        connectTimeoutPresent = $connectTimeoutPresent
+        requestTimeoutPresent = $requestTimeoutPresent
+        isLocalhost = $isLocalhost
+        requestAttempted = $true
+        dryRun = $false
+        allowCreateCollection = $true
+        createAttempted = $true
+        statusCode = $createResponse.StatusCode
+      }
+      exit 0
+    } catch {
+      Write-Summary @{
+        status = "CREATE_FAILED"
+        providerIsQdrant = $true
+        providerPresent = $providerPresent
+        endpointPresent = $endpointPresent
+        collectionPresent = $collectionPresent
+        apiKeyPresent = $apiKeyPresent
+        connectTimeoutPresent = $connectTimeoutPresent
+        requestTimeoutPresent = $requestTimeoutPresent
+        isLocalhost = $isLocalhost
+        requestAttempted = $true
+        dryRun = $false
+        allowCreateCollection = $true
+        createAttempted = $true
+        errorType = $_.Exception.GetType().Name
+      }
+      exit 1
+    }
+  }
   Write-Summary @{
     status = "FAILED"
     providerIsQdrant = $true
@@ -130,6 +208,9 @@ try {
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
     requestAttempted = $true
+    dryRun = $false
+    allowCreateCollection = [bool]$AllowCreateCollection
+    createAttempted = $false
     errorType = $_.Exception.GetType().Name
   }
   exit 1
