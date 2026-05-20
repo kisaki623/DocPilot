@@ -344,6 +344,74 @@ class DocumentAgentLlmExecuteModeTest {
     }
 
     @Test
+    void shouldKeepKeywordModeBehaviorUnchanged() {
+        DocumentAgentServiceImpl service = buildService();
+
+        stubReadyStatus(118L, "summary", "content");
+        stubKeywordSelection("summary_tool", "keyword summary reason", "summary");
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubRegistryForSummary();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request(118L, "Please summarize this document"));
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("summary_tool", response.getPrimaryDecision());
+        assertEquals("", response.getLlmDecision());
+        assertEquals("summary_tool", response.getFinalDecision());
+        assertFalse(response.isFallbackUsed());
+        assertEquals("keyword", response.getExecutionMode());
+        assertEquals("keyword", response.getToolSelectionSource());
+        assertEquals("keyword summary reason", response.getRoutingReason());
+        verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
+        verify(realShadowParser, never()).parse(anyString());
+        verify(documentSummaryTool).execute(any());
+        verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
+    }
+
+    @Test
+    void shouldFallbackToKeywordWhenDecisionAndToolNamesMismatch() {
+        enableFakeLlmExecuteMode();
+        DocumentAgentServiceImpl service = buildService();
+
+        stubReadyStatus(119L, "summary", "content");
+        stubKeywordSelection("summary_tool", "keyword summary reason", "summary");
+        stubLlmSelection(new LlmToolSelectionResult(
+                "qa_tool",
+                List.of("document_status_tool", DocumentRagTool.TOOL_NAME),
+                "llm mismatched tool names",
+                List.of("question"),
+                0.8d
+        ));
+        when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                "Please summarize this document",
+                "summary",
+                "content"
+        ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+        stubToolNames();
+        stubRegistryForSummary();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request(119L, "Please summarize this document"));
+
+        assertEquals("summary_tool", response.getDecision());
+        assertEquals("summary_tool", response.getPrimaryDecision());
+        assertEquals("qa_tool", response.getLlmDecision());
+        assertEquals("summary_tool", response.getFinalDecision());
+        assertTrue(response.isFallbackUsed());
+        assertEquals("llm_execute_fallback", response.getToolSelectionSource());
+        assertTrue(response.getFallbackReason().contains("IllegalArgumentException"));
+        verify(documentSummaryTool).execute(any());
+        verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
+    }
+
+    @Test
     void responseShouldNotExposePromptDocumentContentOrSecretsOnFallback() {
         enableFakeLlmExecuteMode();
         DocumentAgentServiceImpl service = buildService();
