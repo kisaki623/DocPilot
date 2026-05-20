@@ -31,7 +31,8 @@ public class AgentSelectorProperties {
     private String llmModel = "";
     private String llmBaseUrl = "";
     private String llmApiKey = "";
-    private int llmRequestTimeoutMs = 15000;
+    private int llmConnectTimeoutMs = 5000;
+    private int llmRequestTimeoutMs = 30000;
     private int llmMaxTokens = 256;
     private double llmTemperature = 0.0d;
 
@@ -119,6 +120,17 @@ public class AgentSelectorProperties {
 
     public int getLlmRequestTimeoutMs() {
         return llmRequestTimeoutMs;
+    }
+
+    public int getLlmConnectTimeoutMs() {
+        return llmConnectTimeoutMs;
+    }
+
+    public void setLlmConnectTimeoutMs(int llmConnectTimeoutMs) {
+        if (llmConnectTimeoutMs <= 0) {
+            throw new IllegalArgumentException("app.agent.selector.llm-connect-timeout-ms must be positive.");
+        }
+        this.llmConnectTimeoutMs = llmConnectTimeoutMs;
     }
 
     public void setLlmRequestTimeoutMs(int llmRequestTimeoutMs) {

@@ -79,17 +79,19 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
         if (prompt == null || prompt.isBlank()) {
             return "";
         }
-        String marker = "Current task:";
-        int markerIndex = prompt.indexOf(marker);
-        if (markerIndex < 0) {
-            return prompt.trim();
+        String[] markers = {"Current task:", "Task:"};
+        for (String marker : markers) {
+            int markerIndex = prompt.indexOf(marker);
+            if (markerIndex >= 0) {
+                int start = markerIndex + marker.length();
+                int end = prompt.indexOf('\n', start);
+                if (end < 0) {
+                    end = prompt.length();
+                }
+                return prompt.substring(start, end).trim();
+            }
         }
-        int start = markerIndex + marker.length();
-        int end = prompt.indexOf('\n', start);
-        if (end < 0) {
-            end = prompt.length();
-        }
-        return prompt.substring(start, end).trim();
+        return prompt.trim();
     }
 
     private String selectDecision(String normalizedTask) {

@@ -121,6 +121,21 @@ class FakeLlmToolSelectionClientTest {
         assertValidCommonFields(result);
     }
 
+    @Test
+    void shouldExtractTaskFromCompactPromptFormat() {
+        LlmToolSelectionResult result = parse("""
+                Select one DocPilot document-agent route. Do not answer the task.
+                Task: brief overview
+                State: parseReady=true, hasSummary=true
+                Decision to required tool mapping:
+                - qa_tool -> document_qa_tool
+                """);
+
+        assertThat(result.decision()).isEqualTo("summary_tool");
+        assertThat(result.toolNames()).containsExactly("document_status_tool", "document_summary_tool");
+        assertValidCommonFields(result);
+    }
+
     private LlmToolSelectionResult parse(String prompt) {
         LlmToolSelectionClientResponse response = client.completeSelectionPrompt(prompt);
         assertThat(response.provider()).isEqualTo("fake");

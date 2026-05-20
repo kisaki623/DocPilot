@@ -20,6 +20,7 @@ class OpenAiCompatibleLlmToolSelectionClientTest {
                 "selector-model",
                 "https://example.invalid/v1",
                 "test-key-not-used",
+                2000,
                 5000,
                 128,
                 0.1d
@@ -37,6 +38,7 @@ class OpenAiCompatibleLlmToolSelectionClientTest {
         assertThat(request.messages().get(1).content()).isEqualTo("select a tool");
         assertThat(client.getBaseUrl()).isEqualTo("https://example.invalid/v1");
         assertThat(client.hasApiKey()).isTrue();
+        assertThat(client.getConnectTimeoutMs()).isEqualTo(2000);
         assertThat(client.getRequestTimeoutMs()).isEqualTo(5000);
         assertThat(client.getMaxTokens()).isEqualTo(128);
         assertThat(client.getTemperature()).isEqualTo(0.1d);
@@ -50,6 +52,7 @@ class OpenAiCompatibleLlmToolSelectionClientTest {
                     "selector-model",
                     provider.baseUrl(),
                     "",
+                    2000,
                     5000,
                     128,
                     0.0d
@@ -74,6 +77,7 @@ class OpenAiCompatibleLlmToolSelectionClientTest {
                     "selector-model",
                     "",
                     "test-key-not-used",
+                    2000,
                     5000,
                     128,
                     0.0d
@@ -94,6 +98,7 @@ class OpenAiCompatibleLlmToolSelectionClientTest {
                     "",
                     "https://example.invalid/v1",
                     "test-key-not-used",
+                    2000,
                     5000,
                     128,
                     0.0d
@@ -116,6 +121,7 @@ class OpenAiCompatibleLlmToolSelectionClientTest {
                     "selector-model",
                     provider.baseUrl(),
                     "test-key-not-used",
+                    2000,
                     5000,
                     128,
                     0.0d
@@ -182,6 +188,7 @@ class OpenAiCompatibleLlmToolSelectionClientTest {
                 "selector-model",
                 baseUrl,
                 "test-key-not-used",
+                2000,
                 5000,
                 128,
                 0.0d

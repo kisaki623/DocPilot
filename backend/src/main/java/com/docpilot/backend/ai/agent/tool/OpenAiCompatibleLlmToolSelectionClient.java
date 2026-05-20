@@ -28,17 +28,18 @@ public class OpenAiCompatibleLlmToolSelectionClient implements LlmToolSelectionC
     private final String model;
     private final String baseUrl;
     private final String apiKey;
+    private final int connectTimeoutMs;
     private final int requestTimeoutMs;
     private final int maxTokens;
     private final double temperature;
     private final HttpClient httpClient;
 
     public OpenAiCompatibleLlmToolSelectionClient() {
-        this("", "", "", 15000, 256, 0.0d);
+        this("", "", "", 5000, 30000, 256, 0.0d);
     }
 
     public OpenAiCompatibleLlmToolSelectionClient(String model, String baseUrl, int requestTimeoutMs) {
-        this(model, baseUrl, "", requestTimeoutMs, 256, 0.0d);
+        this(model, baseUrl, "", 5000, requestTimeoutMs, 256, 0.0d);
     }
 
     public OpenAiCompatibleLlmToolSelectionClient(String model,
@@ -47,15 +48,26 @@ public class OpenAiCompatibleLlmToolSelectionClient implements LlmToolSelectionC
                                                   int requestTimeoutMs,
                                                   int maxTokens,
                                                   double temperature) {
-        this(model, baseUrl, apiKey, requestTimeoutMs, maxTokens, temperature,
+        this(model, baseUrl, apiKey, 5000, requestTimeoutMs, maxTokens, temperature);
+    }
+
+    public OpenAiCompatibleLlmToolSelectionClient(String model,
+                                                  String baseUrl,
+                                                  String apiKey,
+                                                  int connectTimeoutMs,
+                                                  int requestTimeoutMs,
+                                                  int maxTokens,
+                                                  double temperature) {
+        this(model, baseUrl, apiKey, connectTimeoutMs, requestTimeoutMs, maxTokens, temperature,
                 HttpClient.newBuilder()
-                        .connectTimeout(Duration.ofMillis(normalizeTimeout(requestTimeoutMs)))
+                        .connectTimeout(Duration.ofMillis(normalizeConnectTimeout(connectTimeoutMs)))
                         .build());
     }
 
     OpenAiCompatibleLlmToolSelectionClient(String model,
                                            String baseUrl,
                                            String apiKey,
+                                           int connectTimeoutMs,
                                            int requestTimeoutMs,
                                            int maxTokens,
                                            double temperature,
@@ -63,7 +75,8 @@ public class OpenAiCompatibleLlmToolSelectionClient implements LlmToolSelectionC
         this.model = model == null ? "" : model.trim();
         this.baseUrl = baseUrl == null ? "" : baseUrl.trim();
         this.apiKey = apiKey == null ? "" : apiKey.trim();
-        this.requestTimeoutMs = normalizeTimeout(requestTimeoutMs);
+        this.connectTimeoutMs = normalizeConnectTimeout(connectTimeoutMs);
+        this.requestTimeoutMs = normalizeRequestTimeout(requestTimeoutMs);
         this.maxTokens = maxTokens <= 0 ? 256 : maxTokens;
         this.temperature = temperature < 0.0d ? 0.0d : temperature;
         this.httpClient = httpClient;
@@ -128,6 +141,10 @@ public class OpenAiCompatibleLlmToolSelectionClient implements LlmToolSelectionC
         return requestTimeoutMs;
     }
 
+    public int getConnectTimeoutMs() {
+        return connectTimeoutMs;
+    }
+
     public int getMaxTokens() {
         return maxTokens;
     }
@@ -185,8 +202,12 @@ public class OpenAiCompatibleLlmToolSelectionClient implements LlmToolSelectionC
         return new LlmToolSelectionClientResponse("", PROVIDER, model, true, errorMessage);
     }
 
-    private static int normalizeTimeout(int requestTimeoutMs) {
-        return requestTimeoutMs <= 0 ? 15000 : requestTimeoutMs;
+    private static int normalizeConnectTimeout(int connectTimeoutMs) {
+        return connectTimeoutMs <= 0 ? 5000 : connectTimeoutMs;
+    }
+
+    private static int normalizeRequestTimeout(int requestTimeoutMs) {
+        return requestTimeoutMs <= 0 ? 30000 : requestTimeoutMs;
     }
 
     private String safeErrorType(Exception ex) {

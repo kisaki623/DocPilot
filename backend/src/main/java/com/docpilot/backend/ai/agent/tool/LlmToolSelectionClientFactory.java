@@ -17,6 +17,7 @@ public class LlmToolSelectionClientFactory {
                     properties.getLlmModel(),
                     properties.getLlmBaseUrl(),
                     properties.getLlmApiKey(),
+                    properties.getLlmConnectTimeoutMs(),
                     properties.getLlmRequestTimeoutMs(),
                     properties.getLlmMaxTokens(),
                     properties.getLlmTemperature()

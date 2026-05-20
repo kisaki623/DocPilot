@@ -40,7 +40,8 @@ class LlmToolSelectionClientFactoryTest {
         properties.setLlmProvider("openai_compatible");
         properties.setLlmModel("selector-model");
         properties.setLlmBaseUrl("https://example.invalid/v1");
-        properties.setLlmRequestTimeoutMs(5000);
+        properties.setLlmConnectTimeoutMs(2000);
+        properties.setLlmRequestTimeoutMs(30000);
         properties.setLlmMaxTokens(128);
         properties.setLlmTemperature(0.1d);
 
@@ -51,6 +52,8 @@ class LlmToolSelectionClientFactoryTest {
         assertThat(response.disabled()).isTrue();
         assertThat(response.provider()).isEqualTo("openai_compatible");
         assertThat(response.model()).isEqualTo("selector-model");
+        assertThat(((OpenAiCompatibleLlmToolSelectionClient) client).getConnectTimeoutMs()).isEqualTo(2000);
+        assertThat(((OpenAiCompatibleLlmToolSelectionClient) client).getRequestTimeoutMs()).isEqualTo(30000);
         assertThat(((OpenAiCompatibleLlmToolSelectionClient) client).getMaxTokens()).isEqualTo(128);
         assertThat(((OpenAiCompatibleLlmToolSelectionClient) client).getTemperature()).isEqualTo(0.1d);
     }

@@ -18,7 +18,8 @@ class AgentSelectorPropertiesTest {
                     "app.agent.selector.llm-model=",
                     "app.agent.selector.llm-base-url=",
                     "app.agent.selector.llm-api-key=",
-                    "app.agent.selector.llm-request-timeout-ms=15000",
+                    "app.agent.selector.llm-connect-timeout-ms=5000",
+                    "app.agent.selector.llm-request-timeout-ms=30000",
                     "app.agent.selector.llm-max-tokens=256",
                     "app.agent.selector.llm-temperature=0.0",
                     "app.agent.selector.shadow-enabled=false",
@@ -40,7 +41,8 @@ class AgentSelectorPropertiesTest {
             assertThat(properties.getLlmModel()).isEmpty();
             assertThat(properties.getLlmBaseUrl()).isEmpty();
             assertThat(properties.getLlmApiKey()).isEmpty();
-            assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(15000);
+            assertThat(properties.getLlmConnectTimeoutMs()).isEqualTo(5000);
+            assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(30000);
             assertThat(properties.getLlmMaxTokens()).isEqualTo(256);
             assertThat(properties.getLlmTemperature()).isZero();
             assertThat(properties.isShadowLlmMode()).isFalse();
@@ -60,7 +62,8 @@ class AgentSelectorPropertiesTest {
                         "app.agent.selector.llm-model=fake-selector",
                         "app.agent.selector.llm-base-url=https://example.invalid/v1",
                         "app.agent.selector.llm-api-key=test-key-not-used",
-                        "app.agent.selector.llm-request-timeout-ms=5000",
+                        "app.agent.selector.llm-connect-timeout-ms=2000",
+                        "app.agent.selector.llm-request-timeout-ms=30000",
                         "app.agent.selector.llm-max-tokens=128",
                         "app.agent.selector.llm-temperature=0.1"
                 )
@@ -76,7 +79,8 @@ class AgentSelectorPropertiesTest {
                     assertThat(properties.getLlmModel()).isEqualTo("fake-selector");
                     assertThat(properties.getLlmBaseUrl()).isEqualTo("https://example.invalid/v1");
                     assertThat(properties.getLlmApiKey()).isEqualTo("test-key-not-used");
-                    assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(5000);
+                    assertThat(properties.getLlmConnectTimeoutMs()).isEqualTo(2000);
+                    assertThat(properties.getLlmRequestTimeoutMs()).isEqualTo(30000);
                     assertThat(properties.getLlmMaxTokens()).isEqualTo(128);
                     assertThat(properties.getLlmTemperature()).isEqualTo(0.1);
                     assertThat(properties.isShadowLlmMode()).isTrue();
@@ -163,6 +167,16 @@ class AgentSelectorPropertiesTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseMessage("app.agent.selector.llm-request-timeout-ms must be positive.");
+                });
+    }
+
+    @Test
+    void shouldRejectNonPositiveConnectTimeout() {
+        contextRunner.withPropertyValues("app.agent.selector.llm-connect-timeout-ms=0")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasRootCauseMessage("app.agent.selector.llm-connect-timeout-ms must be positive.");
                 });
     }
 
