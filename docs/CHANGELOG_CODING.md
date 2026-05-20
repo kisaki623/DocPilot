@@ -2,6 +2,36 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T068 Embedding Provider Preflight Retry
+
+### 本轮目标
+
+重新检查真实 embedding provider 环境变量；若齐全则做一次脱敏 embeddings health smoke，若缺失则准确记录 BLOCKED 并继续后续 fake embedding / in-memory RAG QA smoke。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+
+### 完成范围
+
+- 检查 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 的存在性。
+- 当前四个必要环境变量均为 False，真实 embedding runtime 保持 BLOCKED。
+- 未发起真实 embeddings HTTP 调用，未新增 preflight 脚本。
+
+### 验证结果
+
+- 仅文档记录更新；未修改 Java、前端或配置代码，未运行全量测试。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、request body、provider response 或文档正文。
+- 未把 chat model 当 embedding model 使用。
+- T068 BLOCKED 不阻塞 T069 / T070 / T071，因为后续 smoke 基于 fake embedding + in-memory vector store。
+
 ## 2026-05-20 - T067 QA RAG Feature Flag Integration
 
 ### 本轮目标

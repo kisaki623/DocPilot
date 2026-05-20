@@ -214,3 +214,9 @@ T055 仍明确未做：
 - T067 已把 RAG context 以 feature flag 接入 QA execute path：`app.rag.qa.enabled=false` 默认关闭；开启且召回成功时注入受限 RAG context；异常或空召回 fallback 普通 QA。
 - QA answer cache 在 RAG context used 时加入 topK、maxContextChars 和 context hash，避免不同上下文复用错误缓存。
 - 当前仍未接 Qdrant / Redis Vector、LangChain4j、Spring AI、数据库表或 docker-compose 服务；T010 / MQ blocked 未处理。
+
+## 14. T068 真实 embedding preflight 状态
+
+T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_RAG_EMBEDDING_PROVIDER=False`、`APP_RAG_EMBEDDING_BASE_URL=False`、`APP_RAG_EMBEDDING_MODEL=False`、`APP_RAG_EMBEDDING_API_KEY=False`。
+
+结论：真实 embedding runtime 仍为 BLOCKED，未发起 `/embeddings` HTTP 调用。后续 QA RAG smoke 继续基于 fake embedding + in-memory vector store 验证 feature flag 链路；不能写成真实向量 RAG 已完成。

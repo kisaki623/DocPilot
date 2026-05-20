@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T068-Embedding-Provider-Preflight-Retry
+
+- 状态：BLOCKED（真实 embedding runtime）；DONE（preflight 记录）
+- 完成时间：2026-05-20
+- 任务目标：重新检查真实 embedding provider 必要环境变量，并在齐全时最多执行一次 embeddings health smoke。
+- 当前结果：`APP_RAG_EMBEDDING_PROVIDER=False`、`APP_RAG_EMBEDDING_BASE_URL=False`、`APP_RAG_EMBEDDING_MODEL=False`、`APP_RAG_EMBEDDING_API_KEY=False`，因此真实 embedding runtime 仍为 BLOCKED；未发起 `/embeddings` HTTP 调用。
+- 验证结果：只改协作文档；未修改 Java / 前端 / 配置代码，未运行后端全量测试。
+- 边界：未读取 `backend/.env`；未输出 API Key、baseUrl、Authorization、request body、provider response 或文档正文；T068 BLOCKED 不阻塞后续 fake embedding + in-memory RAG QA smoke。
+
 ### T067-QA-RAG-Feature-Flag
 
 - 状态：DONE
