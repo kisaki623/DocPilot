@@ -2,6 +2,38 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T084 Qdrant Fake Server Index Search Test
+
+### 本轮目标
+
+用 JDK 本地 fake HTTP server 验证 `QdrantVectorStore` 的 upsert / search 链路，不依赖真实 Qdrant。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantVectorStoreTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 在同一个本地 fake server 中依次执行 `add` 和 `searchTopK`。
+- 验证 upsert 请求 path / method / point id / vector / payload metadata。
+- 验证 search 请求 path / method / vector / topK / userId + documentId filter。
+- 验证 fake server 返回 Qdrant 风格 response 后可解析为 topK result。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过。
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+
+### 当前边界
+
+- 测试只使用本地 fake server，未启动真实 Qdrant。
+- 未访问外网，未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未输出 endpoint 原文、Authorization、provider response、文档正文或 prompt。
+
 ## 2026-05-21 - T083 RAG VectorStore Abstraction Pipeline
 
 ### 本轮目标

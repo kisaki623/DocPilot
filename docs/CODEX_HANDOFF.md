@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- Qdrant fake server index/search 验证已补强：`QdrantVectorStoreTest` 使用 JDK 本地 fake HTTP server 在同一测试中完成 add / search，断言 upsert / search 的 path、method、payload metadata、userId + documentId filter 和 topK parser，不依赖真实 Qdrant。
 - RAG 主链路已进一步走 `VectorStore` 抽象：`RagIndexService` / `RagRetrievalService` / `RagQaContextBuilder` 可通过注入的 `VectorStore` 完成 index / search；默认仍由 `InMemoryVectorStore` 提供实现。
 - Qdrant 配置命名已校准：Spring `application.yml` 优先使用 `RAG_VECTOR_STORE_PROVIDER` / `RAG_QDRANT_*`，并兼容旧 `APP_RAG_VECTOR_STORE_*` fallback；preflight 脚本检查同一组推荐变量并只输出存在性布尔。
 - Qdrant adapter 边界文档已收口：当前可以准确描述为默认关闭的 Qdrant HTTP adapter + 本地 fake server 测试 + 脱敏 preflight；不能写成真实 Qdrant runtime 或生产完整向量 RAG 已完成。

@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T084-Qdrant-Fake-Server-Index-Search-Test
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：用 JDK 本地 fake HTTP server 验证 `QdrantVectorStore` 的 upsert / search 链路，不依赖真实 Qdrant。
+- 当前结果：扩展 `QdrantVectorStoreTest`，在同一个本地 fake server 中依次执行 add 和 search；断言 upsert path / method / point id / vector / payload metadata，断言 search path / method / vector / topK / userId + documentId filter，并验证 Qdrant 风格 response 可解析为 topK result。
+- 验证结果：`cd backend; mvn -Dtest=*Qdrant* test` 通过；`cd backend; mvn -Dtest=*VectorStore* test` 通过；`cd backend; mvn -Dtest=*Rag* test` 通过。
+- 边界：测试只使用本地 fake server；未启动真实 Qdrant，未访问外网；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未输出 endpoint 原文、Authorization、provider response、文档正文或 prompt。
+
 ### T083-RAG-VectorStore-Abstraction-Pipeline
 
 - 状态：DONE

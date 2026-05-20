@@ -96,6 +96,89 @@ class QdrantVectorStoreTest {
     }
 
     @Test
+    void shouldIndexAndSearchAgainstSameLocalFakeServer() throws Exception {
+        startServer(exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            if (path.endsWith("/points/search")) {
+                sendJson(exchange, 200, """
+                        {
+                          "result": {
+                            "points": [
+                              {
+                                "id": "61:default:1:hash-1",
+                                "score": 0.88,
+                                "payload": {
+                                  "documentId": 61,
+                                  "chunkIndex": 1,
+                                  "text": "sanitized chunk text",
+                                  "metadata": {
+                                    "contentHash": "hash-1",
+                                    "charStart": "11",
+                                    "charEnd": "33",
+                                    "source": "unit-test"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                        """);
+                return;
+            }
+            sendJson(exchange, 200, "{\"status\":\"ok\"}");
+        });
+        QdrantVectorStore vectorStore = new QdrantVectorStore(properties(false));
+        DocumentChunk chunk = new DocumentChunk(61L, 1, "sanitized chunk text",
+                Map.of("contentHash", "hash-1", "charStart", "11", "charEnd", "33", "source", "unit-test"));
+
+        vectorStore.add(chunk, vector(0.3D, 0.4D));
+        List<VectorSearchResult> results = vectorStore.searchTopK(61L, vector(0.3D, 0.4D), 2);
+
+        assertThat(requests).hasSize(2);
+        CapturedRequest upsertRequest = requests.get(0);
+        CapturedRequest searchRequest = requests.get(1);
+        Map<String, Object> upsertBody = readMap(upsertRequest.body());
+        Map<String, Object> searchBody = readMap(searchRequest.body());
+        Map<String, Object> point = firstPoint(upsertBody);
+        Map<String, Object> payload = castMap(point.get("payload"));
+        Map<String, Object> citation = castMap(payload.get("citation"));
+        List<Map<String, Object>> must = castList(castMap(searchBody.get("filter")).get("must"));
+
+        assertThat(upsertRequest.method()).isEqualTo("PUT");
+        assertThat(upsertRequest.path()).isEqualTo("/collections/docpilot_test/points");
+        assertThat(point.get("id")).isEqualTo("61:default:1:hash-1");
+        assertThat(point.get("vector")).isEqualTo(List.of(0.3D, 0.4D));
+        assertThat(payload)
+                .containsEntry("userId", "system")
+                .containsEntry("documentId", 61)
+                .containsEntry("documentVersion", "default")
+                .containsEntry("chunkIndex", 1)
+                .containsEntry("contentHash", "hash-1");
+        assertThat(citation)
+                .containsEntry("charStart", "11")
+                .containsEntry("charEnd", "33")
+                .containsEntry("source", "unit-test");
+
+        assertThat(searchRequest.method()).isEqualTo("POST");
+        assertThat(searchRequest.path()).isEqualTo("/collections/docpilot_test/points/search");
+        assertThat(searchBody.get("vector")).isEqualTo(List.of(0.3D, 0.4D));
+        assertThat(searchBody.get("limit")).isEqualTo(2);
+        assertThat(must).anySatisfy(condition -> {
+            assertThat(condition.get("key")).isEqualTo("userId");
+            assertThat(castMap(condition.get("match")).get("value")).isEqualTo("system");
+        });
+        assertThat(must).anySatisfy(condition -> {
+            assertThat(condition.get("key")).isEqualTo("documentId");
+            assertThat(castMap(condition.get("match")).get("value")).isEqualTo(61);
+        });
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).score()).isEqualTo(0.88D);
+        assertThat(results.get(0).chunk().metadata())
+                .containsEntry("contentHash", "hash-1")
+                .containsEntry("source", "unit-test");
+    }
+
+    @Test
     void shouldUseAuthorizationHeaderWithoutLeakingItInFailureMessage() throws Exception {
         startServer(exchange -> sendJson(exchange, 500, "{\"error\":\"do-not-print\"}"));
         QdrantVectorStore vectorStore = new QdrantVectorStore(properties(true));
