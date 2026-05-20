@@ -105,10 +105,36 @@ public record RagQaTrace(
                                        boolean contextHashPresent,
                                        int citationCount,
                                        boolean indexReused) {
+        return retrieval(
+                embeddingProvider,
+                VECTOR_STORE_IN_MEMORY,
+                documentIdPresent,
+                topK,
+                retrievedCount,
+                maxContextChars,
+                contextChars,
+                contextTruncated,
+                contextHashPresent,
+                citationCount,
+                indexReused
+        );
+    }
+
+    public static RagQaTrace retrieval(String embeddingProvider,
+                                       String vectorStoreType,
+                                       boolean documentIdPresent,
+                                       int topK,
+                                       int retrievedCount,
+                                       int maxContextChars,
+                                       int contextChars,
+                                       boolean contextTruncated,
+                                       boolean contextHashPresent,
+                                       int citationCount,
+                                       boolean indexReused) {
         return new RagQaTrace(
                 true,
                 embeddingProvider,
-                VECTOR_STORE_IN_MEMORY,
+                vectorStoreType,
                 documentIdPresent,
                 topK,
                 retrievedCount,
@@ -129,10 +155,26 @@ public record RagQaTrace(
                                       int topK,
                                       int maxContextChars,
                                       String fallbackReason) {
+        return fallback(
+                embeddingProvider,
+                VECTOR_STORE_IN_MEMORY,
+                documentIdPresent,
+                topK,
+                maxContextChars,
+                fallbackReason
+        );
+    }
+
+    public static RagQaTrace fallback(String embeddingProvider,
+                                      String vectorStoreType,
+                                      boolean documentIdPresent,
+                                      int topK,
+                                      int maxContextChars,
+                                      String fallbackReason) {
         return new RagQaTrace(
                 true,
                 embeddingProvider,
-                VECTOR_STORE_IN_MEMORY,
+                vectorStoreType,
                 documentIdPresent,
                 topK,
                 0,

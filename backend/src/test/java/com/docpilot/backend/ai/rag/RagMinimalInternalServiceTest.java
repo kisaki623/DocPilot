@@ -82,6 +82,42 @@ class RagMinimalInternalServiceTest {
     }
 
     @Test
+    void shouldIndexThroughVectorStoreAbstraction() {
+        RecordingVectorStore vectorStore = new RecordingVectorStore();
+        RagIndexService indexService = new RagIndexService(
+                new FakeEmbeddingModel(),
+                vectorStore,
+                new RagIndexManager(),
+                RagEmbeddingProperties.PROVIDER_FAKE,
+                "custom_test_store",
+                80,
+                10
+        );
+
+        RagIndexService.RagIndexResult result = indexService.indexDocument(61L, RagIndexKey.DEFAULT_VERSION,
+                "Redis cache keeps hot session context and token bucket counters.");
+
+        assertTrue(result.chunkCount() > 0);
+        assertEquals(1, vectorStore.deleteDocumentCalls);
+        assertEquals(result.chunkCount(), vectorStore.addCalls);
+        assertEquals("custom_test_store", result.state().vectorStoreType());
+    }
+
+    @Test
+    void shouldRetrieveThroughVectorStoreAbstraction() {
+        RecordingVectorStore vectorStore = new RecordingVectorStore();
+        DocumentChunk chunk = chunk(61L, 0, "Redis cache keeps hot session context.");
+        vectorStore.add(chunk, new FakeEmbeddingModel().embed(chunk.text()));
+        RagRetrievalService retrievalService = new RagRetrievalService(new FakeEmbeddingModel(), vectorStore);
+
+        List<VectorSearchResult> results = retrievalService.retrieveForQuestion(61L, "Redis cache", 1);
+
+        assertEquals(1, vectorStore.searchCalls);
+        assertEquals(1, results.size());
+        assertEquals(chunk, results.get(0).chunk());
+    }
+
+    @Test
     void shouldBuildAnswerContextWithCitations() {
         RagAnswerContextBuilder builder = new RagAnswerContextBuilder();
         DocumentChunk chunk = new DocumentChunk(61L, 2, "Agent trace records tool execution steps.",
@@ -103,5 +139,39 @@ class RagMinimalInternalServiceTest {
 
     private DocumentChunk chunk(Long documentId, int chunkIndex, String text) {
         return new DocumentChunk(documentId, chunkIndex, text, Map.of("source", "test"));
+    }
+
+    private static class RecordingVectorStore implements VectorStore {
+
+        private final java.util.ArrayList<VectorSearchResult> indexedResults = new java.util.ArrayList<>();
+        private int addCalls;
+        private int searchCalls;
+        private int deleteDocumentCalls;
+
+        @Override
+        public void add(DocumentChunk chunk, EmbeddingVector vector) {
+            addCalls++;
+            indexedResults.add(new VectorSearchResult(chunk, 0.99D));
+        }
+
+        @Override
+        public List<VectorSearchResult> searchTopK(Long documentId, EmbeddingVector queryVector, int topK) {
+            searchCalls++;
+            return indexedResults.stream()
+                    .filter(result -> documentId.equals(result.chunk().documentId()))
+                    .limit(Math.max(0, topK))
+                    .toList();
+        }
+
+        @Override
+        public void deleteDocument(Long documentId) {
+            deleteDocumentCalls++;
+            indexedResults.removeIf(result -> documentId.equals(result.chunk().documentId()));
+        }
+
+        @Override
+        public void clear() {
+            indexedResults.clear();
+        }
     }
 }

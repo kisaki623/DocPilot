@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T083-RAG-VectorStore-Abstraction-Pipeline
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：确认 RAG 主链路通过 `VectorStore` 抽象运行，默认实现仍为 in-memory，不硬编码具体向量库。
+- 当前结果：`VectorStoreFactory` 的默认 fallback 参数提升为 `VectorStore`；`RagQaContextBuilder` 和 `DocumentRagTool` 的内部默认 store 字段改为 `VectorStore` 抽象；`RagQaTrace` 支持传入实际 `vectorStoreType`，QA RAG trace 可体现当前 provider。新增测试用自定义 `VectorStore` 验证 `RagIndexService` / `RagRetrievalService` / `RagQaContextBuilder` 确实通过抽象调用 add / delete / search。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过；`cd backend; mvn -Dtest=*Agent* test` 通过；`cd backend; mvn test -DskipITs` 通过。
+- 边界：默认 provider 仍为 `in_memory`；未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose；未启动真实 Qdrant；未处理 T010 / MQ blocked。
+
 ### T082-Qdrant-Config-Env-Naming-Alignment
 
 - 状态：DONE

@@ -11,7 +11,7 @@ public class RagQaContextBuilder {
 
     private final EmbeddingModelFactory embeddingModelFactory;
     private final RagEmbeddingProperties embeddingProperties;
-    private final InMemoryVectorStore vectorStore;
+    private final VectorStore vectorStore;
     private final RagIndexManager indexManager;
     private final RagVectorStoreProperties vectorStoreProperties;
     private final VectorStoreFactory vectorStoreFactory;
@@ -37,7 +37,7 @@ public class RagQaContextBuilder {
     @Autowired
     public RagQaContextBuilder(EmbeddingModelFactory embeddingModelFactory,
                                RagEmbeddingProperties embeddingProperties,
-                               InMemoryVectorStore vectorStore,
+                               VectorStore vectorStore,
                                RagIndexManager indexManager,
                                RagVectorStoreProperties vectorStoreProperties,
                                VectorStoreFactory vectorStoreFactory) {
@@ -55,9 +55,11 @@ public class RagQaContextBuilder {
         int resolvedTopK = Math.max(1, topK);
         int resolvedMaxContextChars = Math.max(1, maxContextChars);
         String embeddingProvider = embeddingProperties.getProvider();
+        String vectorStoreType = vectorStoreProperties.getProvider();
         if (documentText == null || documentText.isBlank()) {
             return RagQaContext.empty(RagQaTrace.retrieval(
                     embeddingProvider,
+                    vectorStoreType,
                     true,
                     resolvedTopK,
                     0,
@@ -65,7 +67,8 @@ public class RagQaContextBuilder {
                     0,
                     false,
                     false,
-                    0
+                    0,
+                    false
             ));
         }
 
@@ -89,6 +92,7 @@ public class RagQaContextBuilder {
         if (chunkCount == 0) {
             return RagQaContext.empty(RagQaTrace.retrieval(
                     embeddingProvider,
+                    vectorStoreType,
                     true,
                     resolvedTopK,
                     0,
@@ -104,6 +108,7 @@ public class RagQaContextBuilder {
         if (hits.isEmpty()) {
             return new RagQaContext(false, "", List.of(), chunkCount, 0, RagQaTrace.retrieval(
                     embeddingProvider,
+                    vectorStoreType,
                     true,
                     resolvedTopK,
                     0,
@@ -122,6 +127,7 @@ public class RagQaContextBuilder {
         boolean contextTruncated = rawContextText != null && rawContextText.length() > contextText.length();
         RagQaTrace trace = RagQaTrace.retrieval(
                 embeddingProvider,
+                vectorStoreType,
                 true,
                 resolvedTopK,
                 hits.size(),

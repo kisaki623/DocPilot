@@ -2,6 +2,44 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T083 RAG VectorStore Abstraction Pipeline
+
+### 本轮目标
+
+确认 RAG 主链路通过 `VectorStore` 抽象运行，默认实现仍为 in-memory，不硬编码具体向量库。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStoreFactory.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTrace.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaContextBuilderTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagMinimalInternalServiceTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `VectorStoreFactory` 的默认 fallback 参数提升为 `VectorStore`。
+- `RagQaContextBuilder` 和 `DocumentRagTool` 内部默认 store 字段改为 `VectorStore` 抽象。
+- `RagQaTrace` 新增可传入实际 `vectorStoreType` 的 retrieval / fallback 重载。
+- 新增自定义 `VectorStore` 测试，验证 `RagIndexService` / `RagRetrievalService` / `RagQaContextBuilder` 通过抽象调用 add / delete / search。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `cd backend; mvn -Dtest=*Agent* test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 默认 provider 仍为 `in_memory`。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose。
+- 未启动真实 Qdrant。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T082 Qdrant Config Env Naming Alignment
 
 ### 本轮目标

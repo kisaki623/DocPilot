@@ -32,7 +32,7 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
 
     private final EmbeddingModelFactory embeddingModelFactory;
     private final RagEmbeddingProperties embeddingProperties;
-    private final InMemoryVectorStore vectorStore;
+    private final VectorStore vectorStore;
     private final RagIndexManager indexManager;
     private final RagVectorStoreProperties vectorStoreProperties;
     private final VectorStoreFactory vectorStoreFactory;
@@ -53,7 +53,7 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
     @Autowired
     public DocumentRagTool(EmbeddingModelFactory embeddingModelFactory,
                            RagEmbeddingProperties embeddingProperties,
-                           InMemoryVectorStore vectorStore,
+                           VectorStore vectorStore,
                            RagIndexManager indexManager,
                            RagVectorStoreProperties vectorStoreProperties,
                            VectorStoreFactory vectorStoreFactory) {

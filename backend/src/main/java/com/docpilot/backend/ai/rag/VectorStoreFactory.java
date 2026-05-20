@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class VectorStoreFactory {
 
-    public VectorStore create(RagVectorStoreProperties properties, InMemoryVectorStore inMemoryVectorStore) {
+    public VectorStore create(RagVectorStoreProperties properties, VectorStore defaultVectorStore) {
         RagVectorStoreProperties resolvedProperties = properties == null
                 ? new RagVectorStoreProperties()
                 : properties;
@@ -15,6 +15,6 @@ public class VectorStoreFactory {
         if (resolvedProperties.isQdrantProvider()) {
             return new QdrantVectorStore(resolvedProperties.getQdrant());
         }
-        return inMemoryVectorStore == null ? new InMemoryVectorStore() : inMemoryVectorStore;
+        return defaultVectorStore == null ? new InMemoryVectorStore() : defaultVectorStore;
     }
 }
