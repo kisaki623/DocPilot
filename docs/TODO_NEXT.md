@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T070-RAG-QA-Debug-Trace
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：补一个不新增公开 API 的 RAG QA debug trace / dump 能力，便于测试、脚本和面试说明 RAG 检索与 fallback。
+- 当前结果：新增 `RagQaTrace` 与 `RagQaTraceFormatter`，`RagQaContext` 可携带脱敏 trace；trace 字段覆盖 ragEnabled、embeddingProvider、vectorStoreType、documentIdPresent、topK、retrievedCount、maxContextChars、contextChars、contextTruncated、contextHashPresent、fallbackUsed、fallbackReason、citationCount、cacheKeyRagAware。`RagQaContextBuilder` 填充 retrieval / truncation 摘要，`DocumentQaServiceImpl` fallback 只写安全异常类型。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过，24 tests；`cd backend; mvn -Dtest=DocumentQaServiceImplTest test` 通过，36 tests；`cd backend; mvn test -DskipITs` 通过，353 tests。
+- 边界：未新增 REST API、Actuator、前端、落库字段、数据库表、依赖或 docker-compose；trace / formatter 不输出文档正文、prompt、chunk 全文、API Key、baseUrl、Authorization 或 provider response。
+
 ### T069-RAG-QA-Fake-Smoke
 
 - 状态：DONE

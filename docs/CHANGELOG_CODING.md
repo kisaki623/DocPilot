@@ -2,6 +2,42 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T070 RAG QA Debug Trace
+
+### 本轮目标
+
+新增内部 RAG QA debug trace / dump 对象，方便测试、脚本和面试材料说明 RAG 检索、截断、fallback 和 cache key 边界；不新增公开 API，不改前端。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/DocumentQaServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagQaTrace`，记录 ragEnabled、embeddingProvider、vectorStoreType、documentIdPresent、topK、retrievedCount、maxContextChars、contextChars、contextTruncated、contextHashPresent、fallbackUsed、fallbackReason、citationCount 和 cacheKeyRagAware。
+- 新增 `RagQaTraceFormatter`，只输出白名单脱敏字段。
+- `RagQaContext` 向后兼容新增 trace 字段，既有 5 参数构造仍可用。
+- `RagQaContextBuilder` 填充 retrieval / truncation / citation 摘要；`DocumentQaServiceImpl` 在 RAG fallback 时只记录安全异常类型作为 fallbackReason。
+- 补充测试确认 trace 不含文档正文或 prompt marker，能表达 contextHash、fallback reason、contextTruncated 和 cacheKeyRagAware。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，24 tests。
+- `cd backend; mvn -Dtest=DocumentQaServiceImplTest test`：通过，36 tests。
+- `cd backend; mvn test -DskipITs`：通过，353 tests。
+
+### 当前边界
+
+- 未新增公开 REST API、Actuator endpoint、前端展示、数据库表、落库字段、Maven 依赖或 docker-compose 服务。
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、prompt、provider response、文档正文或 chunk 全文。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+
 ## 2026-05-20 - T069 RAG QA Fake Smoke Verification
 
 ### 本轮目标

@@ -2,9 +2,11 @@ package com.docpilot.backend.ai.service.impl;
 
 import com.docpilot.backend.ai.entity.DocumentQaHistory;
 import com.docpilot.backend.ai.mapper.DocumentQaHistoryMapper;
+import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagQaContext;
 import com.docpilot.backend.ai.rag.RagQaContextBuilder;
 import com.docpilot.backend.ai.rag.RagQaProperties;
+import com.docpilot.backend.ai.rag.RagQaTrace;
 import com.docpilot.backend.ai.service.AiAnswerService;
 import com.docpilot.backend.ai.service.DocumentQaService;
 import com.docpilot.backend.ai.vo.DocumentQaHistoryItemResponse;
@@ -75,6 +77,7 @@ public class DocumentQaServiceImpl implements DocumentQaService {
     private final AiRetryExecutor aiRetryExecutor;
     private final RagQaProperties ragQaProperties;
     private final RagQaContextBuilder ragQaContextBuilder;
+    private final RagEmbeddingProperties ragEmbeddingProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${app.ai.max-document-context-length:4000}")
@@ -93,7 +96,8 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                 redisTokenBucketRateLimiter,
                 aiRetryExecutor,
                 new RagQaProperties(),
-                new RagQaContextBuilder());
+                new RagQaContextBuilder(),
+                new RagEmbeddingProperties());
     }
 
     @Autowired
@@ -104,7 +108,8 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                                  RedisTokenBucketRateLimiter redisTokenBucketRateLimiter,
                                  AiRetryExecutor aiRetryExecutor,
                                  RagQaProperties ragQaProperties,
-                                 RagQaContextBuilder ragQaContextBuilder) {
+                                 RagQaContextBuilder ragQaContextBuilder,
+                                 RagEmbeddingProperties ragEmbeddingProperties) {
         this.documentMapper = documentMapper;
         this.aiAnswerService = aiAnswerService;
         this.documentQaHistoryMapper = documentQaHistoryMapper;
@@ -113,6 +118,26 @@ public class DocumentQaServiceImpl implements DocumentQaService {
         this.aiRetryExecutor = aiRetryExecutor;
         this.ragQaProperties = ragQaProperties == null ? new RagQaProperties() : ragQaProperties;
         this.ragQaContextBuilder = ragQaContextBuilder == null ? new RagQaContextBuilder() : ragQaContextBuilder;
+        this.ragEmbeddingProperties = ragEmbeddingProperties == null ? new RagEmbeddingProperties() : ragEmbeddingProperties;
+    }
+
+    public DocumentQaServiceImpl(DocumentMapper documentMapper,
+                                 AiAnswerService aiAnswerService,
+                                 DocumentQaHistoryMapper documentQaHistoryMapper,
+                                 StringRedisTemplate stringRedisTemplate,
+                                 RedisTokenBucketRateLimiter redisTokenBucketRateLimiter,
+                                 AiRetryExecutor aiRetryExecutor,
+                                 RagQaProperties ragQaProperties,
+                                 RagQaContextBuilder ragQaContextBuilder) {
+        this(documentMapper,
+                aiAnswerService,
+                documentQaHistoryMapper,
+                stringRedisTemplate,
+                redisTokenBucketRateLimiter,
+                aiRetryExecutor,
+                ragQaProperties,
+                ragQaContextBuilder,
+                new RagEmbeddingProperties());
     }
 
     @Override
@@ -335,6 +360,14 @@ public class DocumentQaServiceImpl implements DocumentQaService {
         if (ragContext.used()) {
             documentContext = buildRagEnhancedDocumentContext(ragContext);
             ragCacheVariant = buildRagCacheVariant(ragContext);
+            ragContext = new RagQaContext(
+                    ragContext.used(),
+                    ragContext.contextText(),
+                    ragContext.citations(),
+                    ragContext.chunkCount(),
+                    ragContext.retrievedCount(),
+                    ragContext.trace().withCacheKeyRagAware(true)
+            );
         }
         String documentVersion = resolveDocumentVersion(document.getUpdateTime());
         List<DocumentQaResponse.CitationItem> citations = buildCitations(rankedChunks, terms);
@@ -355,7 +388,7 @@ public class DocumentQaServiceImpl implements DocumentQaService {
 
     private RagQaContext buildRagQaContextSafely(Long documentId, String question, String normalizedContent) {
         if (!ragQaProperties.isEnabled()) {
-            return RagQaContext.empty();
+            return RagQaContext.empty(RagQaTrace.disabled(ragEmbeddingProperties.getProvider()));
         }
         try {
             return ragQaContextBuilder.build(
@@ -374,7 +407,13 @@ public class DocumentQaServiceImpl implements DocumentQaService {
             }
             log.warn("QA RAG context retrieval failed, fallback to plain QA, documentId={}, error={}",
                     documentId, ex.getClass().getSimpleName());
-            return RagQaContext.empty();
+            return RagQaContext.empty(RagQaTrace.fallback(
+                    ragEmbeddingProperties.getProvider(),
+                    documentId != null,
+                    ragQaProperties.getTopK(),
+                    ragQaProperties.getMaxContextChars(),
+                    ex.getClass().getSimpleName()
+            ));
         }
     }
 

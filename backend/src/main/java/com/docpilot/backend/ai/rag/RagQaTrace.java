@@ -1,0 +1,152 @@
+package com.docpilot.backend.ai.rag;
+
+public record RagQaTrace(
+        boolean ragEnabled,
+        String embeddingProvider,
+        String vectorStoreType,
+        boolean documentIdPresent,
+        int topK,
+        int retrievedCount,
+        int maxContextChars,
+        int contextChars,
+        boolean contextTruncated,
+        boolean contextHashPresent,
+        boolean fallbackUsed,
+        String fallbackReason,
+        int citationCount,
+        boolean cacheKeyRagAware
+) {
+
+    private static final String VECTOR_STORE_IN_MEMORY = "in_memory";
+    private static final int MAX_FALLBACK_REASON_LENGTH = 80;
+
+    public RagQaTrace {
+        embeddingProvider = safeText(embeddingProvider);
+        vectorStoreType = safeText(vectorStoreType);
+        fallbackReason = safeFallbackReason(fallbackReason);
+        topK = Math.max(0, topK);
+        retrievedCount = Math.max(0, retrievedCount);
+        maxContextChars = Math.max(0, maxContextChars);
+        contextChars = Math.max(0, contextChars);
+        citationCount = Math.max(0, citationCount);
+    }
+
+    public static RagQaTrace empty() {
+        return new RagQaTrace(
+                false,
+                "",
+                "",
+                false,
+                0,
+                0,
+                0,
+                0,
+                false,
+                false,
+                false,
+                "",
+                0,
+                false
+        );
+    }
+
+    public static RagQaTrace disabled(String embeddingProvider) {
+        return new RagQaTrace(
+                false,
+                embeddingProvider,
+                VECTOR_STORE_IN_MEMORY,
+                false,
+                0,
+                0,
+                0,
+                0,
+                false,
+                false,
+                false,
+                "",
+                0,
+                false
+        );
+    }
+
+    public static RagQaTrace retrieval(String embeddingProvider,
+                                       boolean documentIdPresent,
+                                       int topK,
+                                       int retrievedCount,
+                                       int maxContextChars,
+                                       int contextChars,
+                                       boolean contextTruncated,
+                                       boolean contextHashPresent,
+                                       int citationCount) {
+        return new RagQaTrace(
+                true,
+                embeddingProvider,
+                VECTOR_STORE_IN_MEMORY,
+                documentIdPresent,
+                topK,
+                retrievedCount,
+                maxContextChars,
+                contextChars,
+                contextTruncated,
+                contextHashPresent,
+                false,
+                "",
+                citationCount,
+                false
+        );
+    }
+
+    public static RagQaTrace fallback(String embeddingProvider,
+                                      boolean documentIdPresent,
+                                      int topK,
+                                      int maxContextChars,
+                                      String fallbackReason) {
+        return new RagQaTrace(
+                true,
+                embeddingProvider,
+                VECTOR_STORE_IN_MEMORY,
+                documentIdPresent,
+                topK,
+                0,
+                maxContextChars,
+                0,
+                false,
+                false,
+                true,
+                fallbackReason,
+                0,
+                false
+        );
+    }
+
+    public RagQaTrace withCacheKeyRagAware(boolean cacheKeyRagAware) {
+        return new RagQaTrace(
+                ragEnabled,
+                embeddingProvider,
+                vectorStoreType,
+                documentIdPresent,
+                topK,
+                retrievedCount,
+                maxContextChars,
+                contextChars,
+                contextTruncated,
+                contextHashPresent,
+                fallbackUsed,
+                fallbackReason,
+                citationCount,
+                cacheKeyRagAware
+        );
+    }
+
+    private static String safeText(String text) {
+        return text == null ? "" : text.trim();
+    }
+
+    private static String safeFallbackReason(String reason) {
+        String normalized = safeText(reason).replaceAll("[\\r\\n\\t]+", " ");
+        if (normalized.length() <= MAX_FALLBACK_REASON_LENGTH) {
+            return normalized;
+        }
+        return normalized.substring(0, MAX_FALLBACK_REASON_LENGTH);
+    }
+}

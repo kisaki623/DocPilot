@@ -7,12 +7,22 @@ public record RagQaContext(
         String contextText,
         List<RagCitation> citations,
         int chunkCount,
-        int retrievedCount
+        int retrievedCount,
+        RagQaTrace trace
 ) {
+
+    public RagQaContext(boolean used,
+                        String contextText,
+                        List<RagCitation> citations,
+                        int chunkCount,
+                        int retrievedCount) {
+        this(used, contextText, citations, chunkCount, retrievedCount, RagQaTrace.empty());
+    }
 
     public RagQaContext {
         contextText = contextText == null ? "" : contextText;
         citations = citations == null ? List.of() : List.copyOf(citations);
+        trace = trace == null ? RagQaTrace.empty() : trace;
         if (chunkCount < 0) {
             throw new IllegalArgumentException("chunkCount must be non-negative");
         }
@@ -22,6 +32,10 @@ public record RagQaContext(
     }
 
     public static RagQaContext empty() {
-        return new RagQaContext(false, "", List.of(), 0, 0);
+        return empty(RagQaTrace.empty());
+    }
+
+    public static RagQaContext empty(RagQaTrace trace) {
+        return new RagQaContext(false, "", List.of(), 0, 0, trace);
     }
 }
