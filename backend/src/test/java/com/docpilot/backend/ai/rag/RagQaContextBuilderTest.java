@@ -87,6 +87,7 @@ class RagQaContextBuilderTest {
         assertThat(vectorStore.deleteDocumentCalls).isEqualTo(1);
         assertThat(vectorStore.addCalls).isGreaterThan(0);
         assertThat(vectorStore.searchCalls).isEqualTo(1);
+        assertThat(vectorStore.lastSearchScope).isEqualTo(RagSearchScope.system(61L));
         assertThat(context.used()).isTrue();
         assertThat(context.trace().vectorStoreType()).isEqualTo("in_memory");
         assertThat(context.retrievedCount()).isGreaterThan(0);
@@ -98,18 +99,20 @@ class RagQaContextBuilderTest {
         private int addCalls;
         private int searchCalls;
         private int deleteDocumentCalls;
+        private RagSearchScope lastSearchScope;
 
         @Override
-        public void add(DocumentChunk chunk, EmbeddingVector vector) {
+        public void add(RagSearchScope scope, DocumentChunk chunk, EmbeddingVector vector) {
             addCalls++;
             indexedResults.add(new VectorSearchResult(chunk, 0.99D));
         }
 
         @Override
-        public List<VectorSearchResult> searchTopK(Long documentId, EmbeddingVector queryVector, int topK) {
+        public List<VectorSearchResult> searchTopK(RagSearchScope scope, EmbeddingVector queryVector, int topK) {
             searchCalls++;
+            lastSearchScope = scope;
             return indexedResults.stream()
-                    .filter(result -> documentId.equals(result.chunk().documentId()))
+                    .filter(result -> scope.documentId().equals(result.chunk().documentId()))
                     .limit(Math.max(0, topK))
                     .toList();
         }

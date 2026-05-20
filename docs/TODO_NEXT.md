@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T089-RAG-Retrieval-Scope-Isolation
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：强化 RAG 检索隔离，确保 VectorStore search 必须携带 userId + documentId 或等价隔离条件。
+- 当前结果：新增 `RagSearchScope`，`VectorStore` 新增 scope-aware add/search 入口，旧 documentId search 仅作为兼容委托到 `system` scope。`InMemoryVectorStore` 按 userId + documentId 双条件过滤；`QdrantSearchRequestBuilder` 强制使用 scope 构造 userId + documentId filter；`QdrantVectorStore` add/search 均校验 scope，不输出 endpoint / request body / response body。
+- 测试覆盖：正常 userId + documentId 召回、不同 userId 隔离、不同 documentId 隔离、缺 userId fail fast、缺 documentId fail fast、Qdrant search payload 包含过滤条件、RAG QA context scope 传递、Agent rag_tool 不跨文档召回。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过，57 tests；`cd backend; mvn -Dtest=*Agent* test` 通过，53 tests；`cd backend; mvn test -DskipITs` 通过，410 tests。
+- 边界：未新增公开 API、数据库表、Maven 依赖或 docker-compose；未启动真实 Qdrant；未接 Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+
 ### T088-RAG-Chunking-Policy
 
 - 状态：DONE

@@ -66,6 +66,8 @@ class DocumentRagToolTest {
         assertEquals(200L, second.retrievedChunks().isEmpty() ? second.documentId() : second.documentId());
         assertTrue(first.retrievedChunks().stream().allMatch(chunk -> chunk.metadata().containsKey("chunkVersion")));
         assertTrue(second.retrievedChunks().stream().allMatch(chunk -> chunk.metadata().containsKey("chunkVersion")));
+        assertTrue(first.retrievedChunks().stream().allMatch(chunk -> "100".equals(chunk.metadata().get("documentId"))));
+        assertTrue(second.retrievedChunks().stream().allMatch(chunk -> "200".equals(chunk.metadata().get("documentId"))));
     }
 
     @Test

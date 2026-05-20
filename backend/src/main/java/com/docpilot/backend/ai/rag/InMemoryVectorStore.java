@@ -12,20 +12,26 @@ public class InMemoryVectorStore implements VectorStore {
     private final List<Entry> entries = new ArrayList<>();
 
     @Override
-    public synchronized void add(DocumentChunk chunk, EmbeddingVector vector) {
+    public synchronized void add(RagSearchScope scope, DocumentChunk chunk, EmbeddingVector vector) {
+        if (scope == null) {
+            throw new IllegalArgumentException("scope must not be null");
+        }
         if (chunk == null) {
             throw new IllegalArgumentException("chunk must not be null");
+        }
+        if (!scope.documentId().equals(chunk.documentId())) {
+            throw new IllegalArgumentException("scope documentId must match chunk documentId");
         }
         if (vector == null) {
             throw new IllegalArgumentException("vector must not be null");
         }
-        entries.add(new Entry(chunk, vector));
+        entries.add(new Entry(scope.userId(), chunk, vector));
     }
 
     @Override
-    public synchronized List<VectorSearchResult> searchTopK(Long documentId, EmbeddingVector queryVector, int topK) {
-        if (documentId == null) {
-            throw new IllegalArgumentException("documentId must not be null");
+    public synchronized List<VectorSearchResult> searchTopK(RagSearchScope scope, EmbeddingVector queryVector, int topK) {
+        if (scope == null) {
+            throw new IllegalArgumentException("scope must not be null");
         }
         if (queryVector == null) {
             throw new IllegalArgumentException("queryVector must not be null");
@@ -34,7 +40,8 @@ public class InMemoryVectorStore implements VectorStore {
             return List.of();
         }
         return entries.stream()
-                .filter(entry -> documentId.equals(entry.chunk().documentId()))
+                .filter(entry -> scope.documentId().equals(entry.chunk().documentId()))
+                .filter(entry -> scope.userId().equals(entry.userId()))
                 .map(entry -> new VectorSearchResult(entry.chunk(), cosineSimilarity(queryVector, entry.vector())))
                 .sorted(Comparator.comparingDouble(VectorSearchResult::score).reversed()
                         .thenComparing(result -> result.chunk().chunkIndex()))
@@ -77,6 +84,6 @@ public class InMemoryVectorStore implements VectorStore {
         return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
     }
 
-    private record Entry(DocumentChunk chunk, EmbeddingVector vector) {
+    private record Entry(String userId, DocumentChunk chunk, EmbeddingVector vector) {
     }
 }

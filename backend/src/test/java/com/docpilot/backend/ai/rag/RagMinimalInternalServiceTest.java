@@ -153,16 +153,16 @@ class RagMinimalInternalServiceTest {
         private int deleteDocumentCalls;
 
         @Override
-        public void add(DocumentChunk chunk, EmbeddingVector vector) {
+        public void add(RagSearchScope scope, DocumentChunk chunk, EmbeddingVector vector) {
             addCalls++;
             indexedResults.add(new VectorSearchResult(chunk, 0.99D));
         }
 
         @Override
-        public List<VectorSearchResult> searchTopK(Long documentId, EmbeddingVector queryVector, int topK) {
+        public List<VectorSearchResult> searchTopK(RagSearchScope scope, EmbeddingVector queryVector, int topK) {
             searchCalls++;
             return indexedResults.stream()
-                    .filter(result -> documentId.equals(result.chunk().documentId()))
+                    .filter(result -> scope.documentId().equals(result.chunk().documentId()))
                     .limit(Math.max(0, topK))
                     .toList();
         }

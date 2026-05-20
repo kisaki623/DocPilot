@@ -51,6 +51,35 @@ class VectorStoreContractTest {
     }
 
     @Test
+    void inMemoryShouldIsolateDifferentUsers() {
+        InMemoryVectorStore vectorStore = new InMemoryVectorStore();
+        vectorStore.add(RagSearchScope.of("user-a", 61L), chunk(61L, 0), vector(1.0D, 0.0D));
+        vectorStore.add(RagSearchScope.of("user-b", 61L), chunk(61L, 1), vector(1.0D, 0.0D));
+
+        List<VectorSearchResult> results = vectorStore.searchTopK(RagSearchScope.of("user-a", 61L),
+                vector(1.0D, 0.0D), 10);
+
+        assertThat(results)
+                .hasSize(1)
+                .allSatisfy(result -> assertThat(result.chunk().chunkIndex()).isZero());
+    }
+
+    @Test
+    void inMemoryShouldFailFastWhenSearchScopeMissing() {
+        InMemoryVectorStore vectorStore = new InMemoryVectorStore();
+
+        assertThatThrownBy(() -> vectorStore.searchTopK((RagSearchScope) null, vector(1.0D, 0.0D), 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scope");
+        assertThatThrownBy(() -> RagSearchScope.of(" ", 61L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("userId");
+        assertThatThrownBy(() -> RagSearchScope.of("user-a", null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("documentId");
+    }
+
+    @Test
     void inMemoryShouldUseStableChunkIndexOrderingForTies() {
         InMemoryVectorStore vectorStore = new InMemoryVectorStore();
         DocumentChunk later = chunk(61L, 2);

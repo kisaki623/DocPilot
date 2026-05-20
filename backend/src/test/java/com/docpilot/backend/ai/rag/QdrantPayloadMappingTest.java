@@ -50,7 +50,7 @@ class QdrantPayloadMappingTest {
 
     @Test
     void shouldBuildSearchPayloadWithUserAndDocumentFilter() throws Exception {
-        String json = new QdrantSearchRequestBuilder().buildJson("user-1", 61L,
+        String json = new QdrantSearchRequestBuilder().buildJson(RagSearchScope.of("user-1", 61L),
                 vector(0.4D, 0.5D), 3);
 
         Map<String, Object> request = readMap(json);
@@ -68,6 +68,21 @@ class QdrantPayloadMappingTest {
             assertThat(condition.get("key")).isEqualTo("documentId");
             assertThat(castMap(condition.get("match"))).containsEntry("value", 61);
         });
+    }
+
+    @Test
+    void shouldRejectSearchPayloadWithoutScope() {
+        QdrantSearchRequestBuilder builder = new QdrantSearchRequestBuilder();
+
+        assertThatThrownBy(() -> builder.buildJson((RagSearchScope) null, vector(0.4D, 0.5D), 3))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scope");
+        assertThatThrownBy(() -> builder.buildJson(" ", 61L, vector(0.4D, 0.5D), 3))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("userId");
+        assertThatThrownBy(() -> builder.buildJson("user-1", null, vector(0.4D, 0.5D), 3))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("documentId");
     }
 
     @Test

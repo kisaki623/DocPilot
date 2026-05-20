@@ -2,6 +2,52 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T089 RAG Retrieval Scope Isolation
+
+### 本轮目标
+
+强化 RAG 检索隔离，确保任何 VectorStore search 都必须携带 userId + documentId 或等价隔离条件，避免跨用户 / 跨文档召回风险。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagSearchScope.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/InMemoryVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/DisabledQdrantVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantSearchRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagRetrievalService.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/VectorStoreContractTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPayloadMappingTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaContextBuilderTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagMinimalInternalServiceTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagSearchScope`，显式承载 userId + documentId。
+- `VectorStore` 新增 scope-aware add/search 入口，旧 documentId search 仅委托到默认 `system` scope。
+- `InMemoryVectorStore` 按 userId + documentId 双条件过滤，防止同 documentId 下跨用户召回。
+- `QdrantSearchRequestBuilder` 通过 `RagSearchScope` 构造 filter，缺 userId / documentId 会 fail fast。
+- `QdrantVectorStore` add/search 校验 scope；RAG QA context 和 Agent rag_tool 默认兼容路径仍使用 `system` scope，不改变对外行为。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，57 tests。
+- `cd backend; mvn -Dtest=*Agent* test`：通过，53 tests。
+- `cd backend; mvn test -DskipITs`：通过，410 tests。
+
+### 当前边界
+
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未启动真实 Qdrant，未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未输出 endpoint、Authorization、provider response、文档正文或 prompt。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T088 RAG Chunking Policy
 
 ### 本轮目标

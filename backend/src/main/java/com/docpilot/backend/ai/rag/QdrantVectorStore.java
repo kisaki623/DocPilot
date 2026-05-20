@@ -40,9 +40,18 @@ public class QdrantVectorStore implements VectorStore {
     }
 
     @Override
-    public void add(DocumentChunk chunk, EmbeddingVector vector) {
+    public void add(RagSearchScope scope, DocumentChunk chunk, EmbeddingVector vector) {
+        if (scope == null) {
+            throw new IllegalArgumentException("scope must not be null");
+        }
+        if (chunk == null) {
+            throw new IllegalArgumentException("chunk must not be null");
+        }
+        if (!scope.documentId().equals(chunk.documentId())) {
+            throw new IllegalArgumentException("scope documentId must match chunk documentId");
+        }
         String body = upsertRequestBuilder.buildJson(List.of(
-                QdrantPointPayload.fromChunk(USER_ID, DOCUMENT_VERSION, chunk, vector)
+                QdrantPointPayload.fromChunk(scope.userId(), DOCUMENT_VERSION, chunk, vector)
         ));
         HttpRequest request = requestBuilder(upsertUri())
                 .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
@@ -51,11 +60,11 @@ public class QdrantVectorStore implements VectorStore {
     }
 
     @Override
-    public List<VectorSearchResult> searchTopK(Long documentId, EmbeddingVector queryVector, int topK) {
+    public List<VectorSearchResult> searchTopK(RagSearchScope scope, EmbeddingVector queryVector, int topK) {
         if (topK <= 0) {
             return List.of();
         }
-        String body = searchRequestBuilder.buildJson(USER_ID, documentId, queryVector, topK);
+        String body = searchRequestBuilder.buildJson(scope, queryVector, topK);
         HttpRequest request = requestBuilder(searchUri())
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                 .build();

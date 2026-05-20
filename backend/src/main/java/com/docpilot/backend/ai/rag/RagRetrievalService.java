@@ -19,8 +19,12 @@ public class RagRetrievalService {
     }
 
     public List<VectorSearchResult> retrieveForQuestion(Long documentId, String question, int topK) {
-        if (documentId == null) {
-            throw new IllegalArgumentException("documentId must not be null");
+        return retrieveForQuestion(RagSearchScope.system(documentId), question, topK);
+    }
+
+    public List<VectorSearchResult> retrieveForQuestion(RagSearchScope scope, String question, int topK) {
+        if (scope == null) {
+            throw new IllegalArgumentException("scope must not be null");
         }
         if (question == null || question.isBlank()) {
             throw new IllegalArgumentException("question must not be blank");
@@ -29,6 +33,6 @@ public class RagRetrievalService {
             return List.of();
         }
         EmbeddingVector queryVector = embeddingModel.embed(question);
-        return vectorStore.searchTopK(documentId, queryVector, topK);
+        return vectorStore.searchTopK(scope, queryVector, topK);
     }
 }

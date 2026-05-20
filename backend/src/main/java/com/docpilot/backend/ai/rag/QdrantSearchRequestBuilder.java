@@ -20,8 +20,12 @@ public class QdrantSearchRequestBuilder {
     }
 
     public String buildJson(String userId, Long documentId, EmbeddingVector queryVector, int topK) {
-        if (documentId == null) {
-            throw new IllegalArgumentException("documentId must not be null");
+        return buildJson(RagSearchScope.of(userId, documentId), queryVector, topK);
+    }
+
+    public String buildJson(RagSearchScope scope, EmbeddingVector queryVector, int topK) {
+        if (scope == null) {
+            throw new IllegalArgumentException("scope must not be null");
         }
         if (queryVector == null) {
             throw new IllegalArgumentException("queryVector must not be null");
@@ -33,15 +37,15 @@ public class QdrantSearchRequestBuilder {
         request.put("vector", queryVector.values());
         request.put("limit", topK);
         request.put("with_payload", true);
-        request.put("filter", filter(userId, documentId));
+        request.put("filter", filter(scope));
         return writeJson(request);
     }
 
-    private Map<String, Object> filter(String userId, Long documentId) {
+    private Map<String, Object> filter(RagSearchScope scope) {
         Map<String, Object> filter = new LinkedHashMap<>();
         filter.put("must", List.of(
-                match("userId", safeUserId(userId)),
-                match("documentId", documentId)
+                match("userId", scope.userId()),
+                match("documentId", scope.documentId())
         ));
         return filter;
     }
@@ -51,13 +55,6 @@ public class QdrantSearchRequestBuilder {
         match.put("key", key);
         match.put("match", Map.of("value", value));
         return match;
-    }
-
-    private String safeUserId(String userId) {
-        if (userId == null || userId.isBlank()) {
-            return QdrantPointPayload.DEFAULT_USER_ID;
-        }
-        return userId.trim();
     }
 
     private String writeJson(Map<String, Object> request) {

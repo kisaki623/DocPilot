@@ -11,12 +11,12 @@ public class DisabledQdrantVectorStore implements VectorStore {
     }
 
     @Override
-    public void add(DocumentChunk chunk, EmbeddingVector vector) {
+    public void add(RagSearchScope scope, DocumentChunk chunk, EmbeddingVector vector) {
         throw disabledException();
     }
 
     @Override
-    public List<VectorSearchResult> searchTopK(Long documentId, EmbeddingVector queryVector, int topK) {
+    public List<VectorSearchResult> searchTopK(RagSearchScope scope, EmbeddingVector queryVector, int topK) {
         throw disabledException();
     }
 

@@ -89,8 +89,9 @@ public class RagIndexService {
         RagChunker.RagChunkingResult chunkingResult = chunker.chunk(documentId, documentVersion, documentText);
         List<DocumentChunk> chunks = chunkingResult.chunks();
         vectorStore.deleteDocument(documentId);
+        RagSearchScope scope = RagSearchScope.system(documentId);
         for (DocumentChunk chunk : chunks) {
-            vectorStore.add(chunk, embeddingModel.embed(chunk.text()));
+            vectorStore.add(scope, chunk, embeddingModel.embed(chunk.text()));
         }
         RagIndexState state = indexManager.recordIndexed(
                 decision.key(),
