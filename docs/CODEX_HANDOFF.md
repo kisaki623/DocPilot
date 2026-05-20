@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- Qdrant payload mapping 已补充：本地 builder / parser 可生成 upsert / search JSON，filter 包含 userId + documentId 隔离条件，parser 可把 score / payload metadata 转成内部检索结果；该层不发 HTTP。
 - RAG vector store contract tests 已补充：默认 provider 仍为 `in_memory`，in-memory add / searchTopK / document isolation / stable topK 排序、`qdrant_disabled` 本地 disabled 语义和未知 provider fail-fast 均有测试覆盖。
 - 账号密码注册 / 登录，旧短信登录逻辑保留兼容口径。
 - 文件上传、分片上传、对象存储落盘与文件记录。

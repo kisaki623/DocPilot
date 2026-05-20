@@ -2,6 +2,42 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T078 Qdrant Payload Mapping
+
+### 本轮目标
+
+新增 Qdrant request / response model 和 payload builder / parser，但不发真实网络请求。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantPointPayload.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantUpsertRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantSearchRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantSearchResponseParser.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantRetrievedPoint.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPayloadMappingTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- upsert payload 包含 point id、vector、userId、documentId、documentVersion、chunkIndex、contentHash / chunkHash 和 citation metadata。
+- search payload 包含 vector、topK 和 userId + documentId filter。
+- parser 支持解析 Qdrant 风格 search response 的 score / payload / metadata，并转换为内部 `VectorSearchResult`。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+
+### 当前边界
+
+- 未发 HTTP。
+- 未新增 Maven 依赖、公开 API、数据库表或 docker-compose。
+- 未真实接 Qdrant / Redis Vector。
+- 未输出文档正文、prompt、provider response 或 secret。
+
 ## 2026-05-21 - T077 VectorStore Contract Tests
 
 ### 本轮目标

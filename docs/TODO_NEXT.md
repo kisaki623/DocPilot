@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T078-Qdrant-Payload-Mapping
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：新增 Qdrant request / response model 和 payload builder / parser，为后续默认关闭 HTTP adapter 提供离线映射层。
+- 当前结果：新增 `QdrantPointPayload`、`QdrantUpsertRequestBuilder`、`QdrantSearchRequestBuilder`、`QdrantSearchResponseParser` 和 `QdrantRetrievedPoint`；upsert payload 携带 point id、vector、userId、documentId、documentVersion、chunkIndex、contentHash / chunkHash 和 citation metadata；search payload 携带 vector、topK 与 userId + documentId filter；parser 可解析 score 与 metadata 并转换为内部 `VectorSearchResult`。
+- 验证结果：`cd backend; mvn -Dtest=*Qdrant* test` 通过；`cd backend; mvn -Dtest=*Rag* test` 通过。
+- 边界：未发 HTTP、未新增 Maven 依赖、未新增公开 API / DB / docker-compose；未真实接 Qdrant / Redis Vector；未输出文档正文、prompt、provider response 或 secret。
+
 ### T077-Vector-Store-Contract-Tests
 
 - 状态：DONE
