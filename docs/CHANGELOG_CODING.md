@@ -2,6 +2,41 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T092 RAG Retrieval Offline Eval
+
+### 本轮目标
+
+新增轻量离线 retrieval eval，用固定小样例验证 RAG chunk / embedding / vector store / retrieval 是否能跑通，作为求职展示证据。
+
+### 修改文件
+
+- `backend/src/test/resources/rag/rag-retrieval-eval-cases.json`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 5 条安全小样例，覆盖 Redis / RocketMQ / MinIO 正例、空文档负例和无匹配负例。
+- 默认 eval 使用 fake embedding + in-memory vector store，不调用真实 provider。
+- 新增一条本地 fake Qdrant server adapter eval，验证 Qdrant adapter 可进入同一评测口径。
+- 指标包含 total、hitCount、missCount、hitRate、averageRetrievedCount 和 failedCaseIds；负例按 retrieval miss 统计，failedCaseIds 只表示预期与实际不一致。
+- 失败摘要只输出 case id 和聚合指标，不输出完整文档正文、prompt、secret、endpoint、Authorization 或 provider response。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*RagRetrievalEvaluation* test`：通过，3 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，64 tests。
+- `cd backend; mvn test -DskipITs`：通过，423 tests。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T091 Qdrant Collection Preflight Boundary
 
 ### 本轮目标

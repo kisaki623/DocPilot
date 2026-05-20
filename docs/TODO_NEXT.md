@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T092-RAG-Retrieval-Offline-Eval
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：新增轻量离线 retrieval eval，用固定小样例验证 RAG chunk / embedding / vector store / retrieval 是否能跑通，作为求职展示证据。
+- 当前结果：新增 `rag-retrieval-eval-cases.json` 和 `RagRetrievalEvaluationTest`；默认使用 fake embedding + in-memory vector store 跑 5 条安全小样例，并额外用 JDK 本地 fake Qdrant server 覆盖 adapter eval。
+- 指标口径：total=5，hitCount=3，missCount=2，hitRate=0.6000，averageRetrievedCount=1.20；负例按 retrieval miss 统计，`failedCaseIds` 仅表示预期与实际不一致的 case，当前为空。
+- 验证结果：`cd backend; mvn -Dtest=*RagRetrievalEvaluation* test` 通过，3 tests；`cd backend; mvn -Dtest=*Rag* test` 通过，64 tests；`cd backend; mvn test -DskipITs` 通过，423 tests。
+- 边界：不调用真实 provider；未启动真实 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；不输出完整文档正文、prompt、secret、endpoint、Authorization 或 provider response；未处理 T010 / MQ blocked。
+
 ### T091-Qdrant-Collection-Preflight-Boundary
 
 - 状态：DONE

@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- RAG retrieval offline eval 已补齐：新增固定小样例 eval 资源和 `RagRetrievalEvaluationTest`，默认用 fake embedding + in-memory vector store 统计 total、hitCount、missCount、hitRate、averageRetrievedCount，并用本地 fake Qdrant server 覆盖一条 adapter eval；当前不调用真实 provider，不启动真实 Qdrant。
 - Qdrant collection preflight boundary 已补齐：新增 collection info / create payload builder、response parser 和 preflight result；preflight 脚本默认只读，只有显式 `-AllowCreateCollection` 且 collection 缺失时才会尝试 create。当前未启动真实 Qdrant，未改 docker-compose。
 - RAG 内部 debug snapshot / reporter 已补齐：`RagDebugSnapshot` / `RagDebugReporter` 可从 RAG trace/context 生成脱敏白名单摘要，覆盖 enable、provider、topK、retrievedCount、chunkCount、index / context / fallback / citation / cache key 状态；未新增 API / Actuator / 前端。
 - RAG retrieval scope isolation 已加固：新增 `RagSearchScope`，VectorStore add/search 支持 userId + documentId scope；in-memory store 按双条件过滤，Qdrant search payload 强制包含 userId + documentId filter。现有 QA / Agent 兼容路径仍使用内部 `system` scope，未新增公开 API。
