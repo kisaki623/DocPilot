@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T097-Real-Embedding-Provider-Preflight
+
+- 状态：BLOCKED（真实 embedding runtime）；DONE（preflight 记录）
+- 完成时间：2026-05-21
+- 任务目标：只检查真实 embedding provider 必要环境变量存在性，环境齐全时才允许最小脱敏 smoke。
+- 当前结果：当前 shell 中 `APP_RAG_EMBEDDING_PROVIDER=False`、`APP_RAG_EMBEDDING_BASE_URL=False`、`APP_RAG_EMBEDDING_MODEL=False`、`APP_RAG_EMBEDDING_API_KEY=False`；任一必要变量缺失，因此真实 embedding runtime 继续 BLOCKED，未发起 `/embeddings` HTTP 调用。
+- 验证结果：`cd backend; mvn -Dtest=*Embedding* test` 通过，16 tests。
+- 边界：未读取 `backend/.env`；未输出任何环境变量值、API Key、baseUrl、Authorization、request body、response body、provider response、prompt 或文档正文；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T096-RAG-Implementation-Boundary-Alignment
 
 - 状态：DONE

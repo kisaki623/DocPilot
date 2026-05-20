@@ -2,6 +2,35 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T097 Real Embedding Provider Preflight
+
+### 本轮目标
+
+只检查真实 embedding provider 必要环境变量存在性；如果缺失则标记 BLOCKED，不发起真实 provider 调用。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 检查当前 shell 中 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 是否存在。
+- 当前四个必要变量均为 False，因此真实 embedding runtime 继续 BLOCKED。
+- 未发起 `/embeddings` HTTP 调用。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Embedding* test`：通过，16 tests。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出任何环境变量值、API Key、baseUrl、Authorization、request body、response body、provider response、prompt 或文档正文。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T096 RAG Implementation Boundary Alignment
 
 ### 本轮目标

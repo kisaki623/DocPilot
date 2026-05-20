@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- T097 真实 embedding provider preflight 已重新执行：当前 shell 中 `APP_RAG_EMBEDDING_PROVIDER=False`、`APP_RAG_EMBEDDING_BASE_URL=False`、`APP_RAG_EMBEDDING_MODEL=False`、`APP_RAG_EMBEDDING_API_KEY=False`，所以真实 embedding runtime 继续 BLOCKED；未读取 `backend/.env`，未发起 `/embeddings` HTTP 调用。
 - RAG / Agent 公开口径已完成 T096 收紧：README 首屏改为 `Function-calling-style 工具执行`，避免被误读为 OpenAI 官方 tools/function_call API；RAG 文档继续明确 fake embedding + in-memory demo、默认关闭 Qdrant HTTP adapter、本地 fake server 测试和真实 embedding / Qdrant runtime BLOCKED 边界。
 - Qdrant adapter safety coverage 已补强：Qdrant payload metadata 收敛为 contentHash / chunkHash / charStart / charEnd / chunkVersion / source 白名单；测试覆盖显式 userId + documentId filter、缺 endpoint fail-fast、HTTP 500 错误脱敏和 metadata 不复制正文 / prompt / provider response。当前仍只用本地 fake HTTP server，不连接真实 Qdrant。
 - RAG QA trace smoke evidence 已补齐：`RagQaTraceSmokeEvidenceTest` 使用 fake embedding + in-memory vector store 生成 `target/rag-evidence/rag-qa-trace-summary.json`，`backend/scripts/rag/run-rag-qa-trace-smoke.ps1` 可打印脱敏 trace 摘要；字段仅包含 RAG enable、embedding / vector store、document / user 存在性、topK、retrievedCount、chunkCount、index / context / fallback / citation / cache key 状态，不输出正文、prompt、endpoint、Authorization、token 或 provider response。
