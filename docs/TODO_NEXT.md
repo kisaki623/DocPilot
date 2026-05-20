@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T067-QA-RAG-Feature-Flag
+
+- 状态：DONE
+- 完成时间：2026-05-20
+- 任务目标：在 feature flag 默认关闭的前提下，把受限 RAG context 接入 QA execute path，同时保持默认 QA 行为不变。
+- 当前结果：新增 `app.rag.qa.*` 配置对象，默认 `enabled=false`；新增 `RagQaContextBuilder`，支持 topK / maxContextChars 和 context 截断；`DocumentQaServiceImpl` 仅在 flag 开启且 RAG 召回成功时把受限 RAG context 注入给 `AiAnswerService`，否则 fallback 普通 QA。SSE 与普通 answer 共享同一上下文准备路径；RAG 使用时 cache key 会加入 topK、maxContextChars 和 context hash，避免 flag=true/false 复用错误缓存。
+- 验证结果：`cd backend; mvn -Dtest=DocumentQaServiceImplTest test` 通过，36 tests；`cd backend; mvn -Dtest=*Rag* test` 通过，19 tests；`cd backend; mvn test -DskipITs` 通过，348 tests。
+- 边界：未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose 服务；未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked；默认 QA 行为和默认 production routing 不变。
+
 ### T063-Embedding-Provider-Adapter
 
 - 状态：DONE（adapter）；BLOCKED（真实 embedding runtime preflight）

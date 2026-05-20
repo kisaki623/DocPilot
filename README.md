@@ -18,9 +18,9 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 1. **可展示 Demo**：`/agent` 页面已收口为 Agent + RAG Showcase，可以选择当前账号已解析文档，展示工具选择、`routingReason`、`matchedKeywords`、`taskId`、持久化 steps、最终回答、citations，以及 RAG 召回片段、score 和 metadata。
 2. **Agent 工具链**：后端已有 `ToolRegistry`、`DocumentToolSelector`、文档状态 / 摘要 / 问答 / RAG 召回工具，并新增默认关闭的 `llm_execute` 模式，可由 LLM 选择 allowlist 内工具、服务端执行真实工具。
 3. **执行轨迹**：每次 Agent run 会写入 `AgentTask` / `AgentStep`，前端能展示 stepIndex、toolName、status、durationMs、inputSummary、outputSummary。
-4. **真实边界**：当前不是完整向量 RAG；默认 production routing 仍由规则 selector 决定。`llm_execute` 必须显式开启，且真实 provider execute runtime 待验证。
+4. **真实边界**：当前不是完整向量 RAG；默认 production routing 仍由规则 selector 决定。`llm_execute` 必须显式开启，真实 provider runtime 已验证 summary / QA / RAG，但它不是 OpenAI 官方 tools/function_call API。
 
-下一阶段求职展示优先级：先补真实 provider execute runtime 证据，再决定是否把当前 fake embedding / in-memory RAG demo 替换为真实 embedding + Qdrant / Redis Vector。
+下一阶段求职展示优先级：先确认真实 embedding provider 是否可用，再决定是否把当前 fake embedding / in-memory RAG demo 迁移到 Qdrant / Redis Vector。
 
 ## 核心亮点
 
@@ -31,6 +31,7 @@ DocPilot 适合作为后端工程 + 全栈联调能力的展示样本：
 - **最小 Agent 工具链闭环**：`/api/ai/agent/run` 先检查文档状态，再按 ToolSelector 规则选择 summary / QA 工具；前端 `/agent` 展示决策、步骤 trace、最终回答和引用。
 - **默认关闭的 LLM Tool Execution**：`app.agent.selector.mode=llm_execute` 显式开启后，后端可调用 LLM selector 选择 `ToolRegistry` allowlist 内工具；服务端仍使用当前 `userId / documentId / task / sessionId` 构造工具输入，不执行模型生成代码或任意参数。provider 失败、解析失败或非法 toolName 会 fail-open 回退 keyword selector。
 - **Agent + RAG Showcase**：`rag_tool` demo 使用 fake embedding + in-memory vector store 返回 topK retrieved chunks、similarity score 和 citation metadata，适合展示 RAG 工程拆分，但不等同于生产向量 RAG。
+- **默认关闭的 QA RAG Context**：后端已有 feature flag，可在显式开启时把受限 RAG context 注入 QA execute path；默认 QA 行为不变，RAG 异常或空召回会回退普通 QA。
 - **Agent 执行轨迹落库**：`tb_agent_task` / `tb_agent_step` 记录每次 Agent run 和工具步骤，后端提供 task / step 查询接口，前端可按 `taskId` 展示持久化执行轨迹。
 - **Selector shadow compare**：支持 primary / shadow selector 对比、真实 provider shadow-only 验证和阈值策略；shadow decision 只观测，不接管 production routing。
 - **Selector metrics debug dump**：提供内部 metrics snapshot / reporter，并实现默认关闭的 `agentSelectorShadow` Actuator endpoint；当前未生产开启、未接 Spring Security、未接 selector Prometheus metrics。
@@ -184,7 +185,9 @@ DocPilot/
 - 远程开发库中 `tb_agent_task` / `tb_agent_step` 已通过 hk-ops 只读核验，可查到 runtime smoke 产生的真实记录。
 - T019 已完成真实 provider shadow-only 验证；T020/T021 已完成 selector metrics / debug dump；T024 已实现默认关闭的 `agentSelectorShadow` endpoint；T027 已验证测试内显式开启返回 200。
 - T057 已完成 Agent + RAG Showcase runtime 验证：`documentId=61` 的 `rag_tool` 可展示 retrieved chunks、score、metadata、routingReason、matchedKeywords、taskId 和持久化 steps；普通 QA 路径仍返回 citations。
-- T051 已完成默认关闭的 LLM tool execution mode 代码与 fake provider 测试；真实 provider execute runtime 因当前 shell 未注入 provider / 中间件环境变量，本轮标记为 BLOCKED，未启动服务验证。
+- T062 已完成默认关闭的 LLM tool execution mode 真实 provider runtime 验证：summary / QA / RAG 三条路径均由真实 provider 选择工具、服务端 allowlist 执行，fallback 路径也已覆盖。
+- T063 已新增 embedding provider adapter 架构，默认仍为 fake embedding；真实 embedding runtime preflight 因 `APP_RAG_EMBEDDING_*` 必要环境变量缺失 BLOCKED。
+- T067 已新增默认关闭的 QA RAG context feature flag；flag=false 时默认 QA 行为不变，flag=true 时可注入受限 RAG context，并覆盖 fallback / cache key 隔离测试。
 - T030 鉴权测试当前 BLOCKED：项目尚未接入 Spring Security Web 鉴权体系，不建议为了测试直接新增依赖。
 
 ## 量化结果（可复现边界）
@@ -214,8 +217,8 @@ DocPilot/
 - Spring Security Web 鉴权体系尚未接入；`agentSelectorShadow` 未完成未认证 / 普通用户 / 运维角色访问验证。
 - selector Prometheus metrics 目前只有设计文档，尚未接入 Micrometer / Prometheus；compose 中的 Prometheus 基础设施不等同于 selector metrics 已接入。
 - shadow decision 不接管 production routing，真实 Agent 工具执行仍由 primary selector 决定。
-- LLM execute mode 尚未完成真实 provider runtime 验证；不能写成生产环境已启用 Function Calling。
-- 当前未接真实 embedding、Qdrant / Redis Vector、完整生产 RAG、MCP、Spring AI 或 LangChain4j；RAG Showcase 是 fake embedding + in-memory vector store 的 demo 路径。
+- LLM execute mode 已完成真实 provider runtime 验证，但当前实现是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 allowlist 执行工具；不是 OpenAI 官方 tools/function_call API，也未默认启用。
+- 当前已有真实 embedding adapter 代码路径，但真实 embedding provider runtime 未通过；未接 Qdrant / Redis Vector、完整生产 RAG、MCP、Spring AI 或 LangChain4j。RAG Showcase 仍是 fake embedding + in-memory vector store 的 demo 路径，QA RAG context feature flag 默认关闭。
 - 短信验证码接口保留为兼容联调能力，不代表已接入生产短信网关。
 - Prometheus demo 抓取配置如需运行仍要按宿主机网络调整；这不代表 selector shadow 指标已经接入 Prometheus。
 
@@ -234,6 +237,6 @@ DocPilot/
 ---
 
 如果你在准备面试演示，建议优先展示这条 5 分钟链路：
-`已解析文档 -> 详情页普通/SSE 问答 -> Agent Showcase 页面查看工具决策、RAG 召回片段、持久化执行轨迹和 citations -> 说明 llm_execute 默认关闭、allowlist + fallback 设计和真实 provider execute runtime 待验证`。
+`已解析文档 -> 详情页普通/SSE 问答 -> Agent Showcase 页面查看工具决策、RAG 召回片段、持久化执行轨迹和 citations -> 说明 llm_execute 默认关闭、allowlist + fallback 设计，以及 RAG 仍未接真实向量库`。
 
 如要展示“上传 -> 自动解析 -> 问答”的完整链路，请先确认 RocketMQ / consumer 环境可用；当前 T010 完整上传解析 runtime 验证仍为 BLOCKED。

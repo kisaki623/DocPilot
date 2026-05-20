@@ -8,7 +8,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 项目仍处于作品展示与实习投递导向的持续打磨阶段。它可以展示工程化能力，但还不是生产级 SaaS，也不是完整向量 RAG / 多 Agent 平台。
 
-截至 2026-05-14 当前交接记录同步时，`git status --short` 为空，工作区干净；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
+截至 2026-05-20 当前交接记录同步时，`git status --short` 为空，工作区干净；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
 
 ## 2. 已经实现的功能
 
@@ -149,8 +149,9 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - 夜间收口已完成：T051 / T058 / T059 / T060 均已单独提交；最终全局验证 `cd backend; mvn test -DskipITs` 通过 312 tests，`cd frontend; npm run lint` 通过，`cd frontend; npm run build` 通过。T051d 真实 provider execute runtime 仍因当前 shell 缺 provider / 中间件环境变量保持 BLOCKED。
 - T062a 已完成：`llm_execute` 安全审计确认默认 routing 仍为 `keyword`，默认 provider 仍为 `disabled`，执行模式必须显式开启；该模式不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 `ToolRegistry` allowlist 与 required tool 校验后执行 summary / QA / RAG 工具。provider disabled、异常、非法 decision、未知 toolName 或 decision / toolNames 不匹配时 fail-open 回退 keyword selector；日志与响应 fallback reason 不输出 prompt、文档正文、API Key、完整 baseUrl 或 Authorization。T062a 未真实调用 provider，未读取 `backend/.env`，未修改生产代码或默认配置。
 - T062b 已完成：fake provider `llm_execute` 测试覆盖 summary / QA / RAG 三条工具执行路径，确认响应透出 primary / llm / final decision、`toolSelectionSource=llm_execute`、`fallbackUsed=false`，且服务端执行的是 allowlist 中工具；同时补齐 keyword mode 不变、provider disabled fallback、未知 toolName fallback、decision / toolNames 不匹配 fallback。后端全量 `mvn test -DskipITs` 通过，314 tests。
-- T062 已完成真实 provider `llm_execute` runtime 与 fallback 收口：T062c0 将 selector connect timeout / request timeout 拆分为 `llmConnectTimeoutMs=5000` 与 `llmRequestTimeoutMs=30000`，提交 `2c7e1aa`；T062c1 health smoke 通过；T062c2 / T062c3 / T062c4 分别验证 summary / QA / RAG 三条独立路径，真实 provider 返回 JSON decision / toolNames，服务端通过 `ToolRegistry` allowlist 与 required tool 校验后执行对应工具，`fallbackUsed=false`。T062d 覆盖 provider disabled、provider timeout、非法 toolName、decision / toolNames 不匹配、parser failure / provider exception 等回退 keyword selector 场景，提交 `09ce99c`。临时 runtime harness 已删除；最终后端 full test 318 tests 通过，前端 lint/build 通过；未读取 `backend/.env`，未输出变量值、API Key、baseUrl、Authorization、prompt、provider 响应或文档正文。T063 / T067 未执行。
+- T062 已完成真实 provider `llm_execute` runtime 与 fallback 收口：T062c0 将 selector connect timeout / request timeout 拆分为 `llmConnectTimeoutMs=5000` 与 `llmRequestTimeoutMs=30000`，提交 `2c7e1aa`；T062c1 health smoke 通过；T062c2 / T062c3 / T062c4 分别验证 summary / QA / RAG 三条独立路径，真实 provider 返回 JSON decision / toolNames，服务端通过 `ToolRegistry` allowlist 与 required tool 校验后执行对应工具，`fallbackUsed=false`。T062d 覆盖 provider disabled、provider timeout、非法 toolName、decision / toolNames 不匹配、parser failure / provider exception 等回退 keyword selector 场景，提交 `09ce99c`。临时 runtime harness 已删除；最终后端 full test 318 tests 通过，前端 lint/build 通过；未读取 `backend/.env`，未输出变量值、API Key、baseUrl、Authorization、prompt、provider 响应或文档正文。
 - T063a-c 已完成 embedding provider adapter 架构：新增独立 `app.rag.embedding.*` 配置，默认仍为 fake embedding；新增 disabled provider、OpenAI-compatible `/embeddings` adapter skeleton 和 `EmbeddingModelFactory`，并让 `DocumentRagTool` / `RagIndexService` 可通过 factory 选择 embedding model。T063d 真实 embedding runtime preflight 当前 BLOCKED，因为 `APP_RAG_EMBEDDING_PROVIDER` / `BASE_URL` / `MODEL` / `API_KEY` 存在性均为 False；未发起真实 embedding HTTP。验证：`*Embedding*`、`*Rag*`、compile 和后端 full test 334 tests 通过。未接 Qdrant / Redis Vector、LangChain4j、Spring AI、数据库表或公开 API。
+- T067 已完成默认关闭的 QA RAG context feature flag：新增 `app.rag.qa.enabled=false`、topK、maxContextChars 和 fallback 配置；`DocumentQaServiceImpl` 仅在 flag 开启且召回成功时把受限 RAG context 交给 `AiAnswerService`，RAG 异常或空召回 fallback 普通 QA；cache key 在 RAG used 时加入 topK / maxContextChars / context hash，避免 flag=true/false 复用缓存。验证覆盖默认不变、RAG context 注入、异常 / 空召回 fallback、SSE、rate limit 和 cache key；后端 full test 348 tests 通过。未新增 API、前端、DB、依赖或 docker-compose，未处理 T010 / MQ blocked。
 - subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`；尤其是 hk-ops 远程访问前必须说明目的、命令类别和是否只读，并等待用户确认。
 
 ## 6. 核心业务链路

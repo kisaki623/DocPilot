@@ -2,6 +2,47 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-20 - T067 QA RAG Feature Flag Integration
+
+### 本轮目标
+
+在默认关闭前提下，把 RAG context 接入 QA execute path，并确认普通 QA / SSE / cache / rate limit 行为不被默认改动。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/DocumentQaServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentQaServiceImplTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `README.md`
+
+### 完成范围
+
+- 新增 `RagQaProperties`，默认 `app.rag.qa.enabled=false`，并支持 topK、maxContextChars 和 fallbackEnabled。
+- 新增 `RagQaContextBuilder`，使用当前 embedding factory + in-memory vector store 构造受限 RAG context，支持最大长度截断。
+- `DocumentQaServiceImpl` 仅在 flag 开启且 RAG 召回成功时注入 RAG context；RAG 异常或空召回会 fallback 普通 QA。
+- RAG context 使用时，QA answer cache key 加入 topK、maxContextChars 和 context hash，避免 flag=true/false 或不同 RAG 参数复用错误缓存。
+- 补充测试覆盖默认不变、flag=true context 注入、异常 fallback、空召回 fallback、maxContextChars / topK 传递、SSE 路径、rate limit 和 cache key 隔离。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentQaServiceImplTest test`：通过，36 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，19 tests。
+- `cd backend; mvn test -DskipITs`：通过，348 tests。
+
+### 当前边界
+
+- feature flag 默认关闭，默认 QA 行为不变。
+- T063 完成的是 embedding adapter；真实 embedding runtime 仍因环境变量缺失 BLOCKED，不能写成真实向量 RAG 已完成。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose 服务。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-20 - T063 Embedding Provider Adapter Preflight
 
 ### 本轮目标

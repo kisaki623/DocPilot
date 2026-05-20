@@ -148,7 +148,13 @@ Redis Vector 可作为备选：如果用户已经有 Redis Stack 环境并希望
 - 未修改 docker-compose。
 - 未修改配置文件。
 - 未新增后端 API。
-- 未实现 embedding。
+- T063 已实现 embedding adapter 代码路径，但真实 embedding runtime 尚未验证。
 - 未实现向量库。
 - 未修改数据库 DDL。
 - 未修改 production routing。
+
+## 8. 2026-05-20 更新
+
+- 当前已完成 fake / disabled / OpenAI-compatible embedding adapter 架构，默认仍走 fake embedding，真实 embedding provider runtime 因环境变量缺失 BLOCKED。
+- 当前已完成默认关闭的 QA RAG context feature flag，开启后可用 fake embedding + in-memory vector store 给 QA 注入受限 context；默认 QA 行为不变。
+- 选型结论不变：仍未接 Qdrant / Redis Vector；如果后续进入真实向量库，应先确认是否允许新增服务、DDL 和部署配置。
