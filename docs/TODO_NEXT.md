@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T090-RAG-Debug-Snapshot-Reporter
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：新增内部脱敏 RAG debug snapshot / reporter，帮助面试和排障说明 RAG 链路状态，但不新增 API / Actuator / 前端。
+- 当前结果：新增 `RagDebugSnapshot` 与 `RagDebugReporter`，支持从 `RagQaTrace` / `RagQaContext` 生成白名单摘要；字段覆盖 ragEnabled、embeddingProvider、vectorStoreProvider、vectorStoreType、documentIdPresent、userIdPresent、topK、retrievedCount、chunkCount、indexReused、indexTruncated、contextChars、contextTruncated、contextHashPresent、fallbackUsed、fallbackReason、citationCount、cacheKeyRagAware。
+- 测试覆盖：正常 RAG context snapshot、fallback trace snapshot、null trace / snapshot 友好处理、format / safe map 不泄露正文、prompt、secret、endpoint、Authorization 或 provider response。
+- 验证结果：`cd backend; mvn -Dtest=*Rag* test` 通过，61 tests；`cd backend; mvn test -DskipITs` 通过，414 tests。
+- 边界：仅内部 reporter，不新增公开 API / Actuator / Prometheus / 前端；未读取或输出 secret；未处理 T010 / MQ blocked。
+
 ### T089-RAG-Retrieval-Scope-Isolation
 
 - 状态：DONE

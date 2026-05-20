@@ -2,6 +2,39 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T090 RAG Debug Snapshot Reporter
+
+### 本轮目标
+
+新增内部脱敏 RAG debug snapshot / reporter，帮助面试和排障说明 RAG 链路状态，但不新增 API / Actuator / 前端。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagDebugSnapshot.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagDebugReporter.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagDebugReporterTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `RagDebugSnapshot` 支持从 `RagQaTrace` / `RagQaContext` 生成脱敏白名单摘要。
+- `RagDebugReporter` 输出 safe map 和单行格式化字符串。
+- snapshot 字段覆盖 RAG enable、embedding / vector store、document / user 存在性、topK、retrievedCount、chunkCount、indexReused、indexTruncated、context 摘要、fallback 摘要、citationCount 和 cacheKeyRagAware。
+- fallback reason 只保留安全短 token，避免异常消息尾部带出敏感内容。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，61 tests。
+- `cd backend; mvn test -DskipITs`：通过，414 tests。
+
+### 当前边界
+
+- 未新增公开 API、Actuator、Prometheus、前端、数据库表、Maven 依赖或 docker-compose。
+- 未输出文档正文、prompt、provider response、endpoint、API key 或 Authorization。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T089 RAG Retrieval Scope Isolation
 
 ### 本轮目标
