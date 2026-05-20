@@ -2,6 +2,41 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T080 Qdrant Vector Store Preflight Script
+
+### 本轮目标
+
+新增脱敏 Qdrant preflight 脚本，环境缺失时只记录 SKIPPED / BLOCKED，不影响项目。
+
+### 修改文件
+
+- `backend/scripts/rag/preflight-qdrant-vector-store.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 脚本只检查当前 shell 中 `RAG_VECTOR_STORE_PROVIDER`、`RAG_QDRANT_ENDPOINT`、`RAG_QDRANT_COLLECTION`、`RAG_QDRANT_API_KEY` 的存在性。
+- provider 不是 `qdrant` 时输出 SKIPPED。
+- endpoint 或 collection 缺失时输出 BLOCKED，不发请求。
+- 环境齐全且未传 `-SkipRequest` 时只做 collection 只读 GET 检查，不做写入或 upsert。
+- 输出只包含存在性布尔、`isLocalhost`、`requestAttempted`、状态码或错误类型。
+
+### 验证结果
+
+- PowerShell 语法检查：通过。
+- `cd backend; mvn -Dtest=QdrantPreflightScriptSafetyTest test`：通过。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 endpoint 原文、API key、Authorization、provider response、文档正文或 prompt。
+- 未启动真实 Qdrant。
+- 未改 docker-compose。
+- 未新增 Maven 依赖、公开 API 或数据库表。
+
 ## 2026-05-21 - T079 Qdrant HTTP Vector Store
 
 ### 本轮目标

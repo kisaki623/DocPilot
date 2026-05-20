@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T080-Qdrant-Vector-Store-Preflight-Script
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：新增脱敏 Qdrant vector store preflight / smoke 脚本，环境缺失时只输出 SKIPPED / BLOCKED，不发真实请求。
+- 当前结果：新增 `backend/scripts/rag/preflight-qdrant-vector-store.ps1`，只读取当前 shell 的 `RAG_VECTOR_STORE_PROVIDER`、`RAG_QDRANT_ENDPOINT`、`RAG_QDRANT_COLLECTION`、`RAG_QDRANT_API_KEY` 存在性；provider 不是 `qdrant` 时 SKIPPED，endpoint 或 collection 缺失时 BLOCKED；环境齐全且未传 `-SkipRequest` 时仅做 collection 只读 GET 检查。
+- 输出边界：脚本只输出 providerIsQdrant、providerPresent、endpointPresent、collectionPresent、apiKeyPresent、isLocalhost、requestAttempted、status / statusCode / errorType 等脱敏字段；不输出 endpoint 原文、API key、Authorization、provider response、文档正文或 prompt。
+- 验证结果：PowerShell 语法检查通过；`cd backend; mvn -Dtest=QdrantPreflightScriptSafetyTest test` 通过。
+- 边界：未读取 `backend/.env`，未启动真实 Qdrant，未改 docker-compose，未新增公开 API / DB / Maven 依赖；未处理 T010 / MQ blocked。
+
 ### T079-Qdrant-HTTP-Vector-Store
 
 - 状态：DONE

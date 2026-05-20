@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- Qdrant preflight 脚本已补充：`backend/scripts/rag/preflight-qdrant-vector-store.ps1` 只检查环境变量存在性并输出脱敏状态；provider 非 `qdrant` 时 SKIPPED，缺 endpoint / collection 时 BLOCKED，环境齐全时只做只读 collection check。
 - Qdrant HTTP vector store adapter 已实现但默认关闭：只有显式 `app.rag.vector-store.provider=qdrant` 时才创建 `QdrantVectorStore`；默认仍是 `in_memory`。单元测试使用 JDK 本地 fake HTTP server，不依赖真实 Qdrant。
 - Qdrant payload mapping 已补充：本地 builder / parser 可生成 upsert / search JSON，filter 包含 userId + documentId 隔离条件，parser 可把 score / payload metadata 转成内部检索结果；该层不发 HTTP。
 - RAG vector store contract tests 已补充：默认 provider 仍为 `in_memory`，in-memory add / searchTopK / document isolation / stable topK 排序、`qdrant_disabled` 本地 disabled 语义和未知 provider fail-fast 均有测试覆盖。
