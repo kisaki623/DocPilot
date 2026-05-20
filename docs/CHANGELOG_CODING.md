@@ -2,6 +2,41 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T072 RAG QA Demo Script
+
+### 本轮目标
+
+新增一个面试 / 演示用的 RAG QA demo 脚本，在已启动且显式开启 `app.rag.qa.enabled=true` 的后端上输出脱敏 RAG trace-style 摘要。
+
+### 修改文件
+
+- `backend/scripts/rag/demo-rag-qa-fake.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaDemoScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `demo-rag-qa-fake.ps1`，支持 `BackendBaseUrl`、`DocumentId`、`AuthToken`、`Question` 参数。
+- token 只通过参数或 `DOCPILOT_AUTH_TOKEN` 注入，不打印。
+- 脚本只调用已有 `/api/ai/qa`，不新增公开 API。
+- 输出字段限制为 `isLocalhost`、`ragEnabled`、`embeddingProvider`、`vectorStoreType`、`documentIdPresent`、`topK`、`retrievedCount`、`contextHashPresent`、`fallbackUsed`、`fallbackReason`、`citationCount`、`cacheKeyRagAware`。
+- 新增脚本文本安全测试，避免输出 answer、citation snippet、文档正文、provider response 或 token。
+
+### 验证结果
+
+- PowerShell 语法检查通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，25 tests。
+
+### 当前边界
+
+- 本轮未启动后端服务，未执行真实 runtime 调用。
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、prompt、provider response、文档正文或 chunk 全文。
+- 未新增 API、数据库表、依赖或 docker-compose。
+- 未接 LangChain4j、Qdrant 或 Redis Vector；未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T071x RAG Docs UTF-8 Recovery Check
 
 ### 本轮目标

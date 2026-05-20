@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T072-RAG-QA-Demo-Script
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：新增一个安全的 RAG QA demo 脚本，用于在已启动且显式开启 `app.rag.qa.enabled=true` 的后端上演示 fake embedding + in-memory vector store 的 QA RAG 链路。
+- 当前结果：新增 `backend/scripts/rag/demo-rag-qa-fake.ps1`，支持 `BackendBaseUrl`、`DocumentId`、`AuthToken` 和 `Question` 参数；token 可通过 `DOCPILOT_AUTH_TOKEN` 或参数传入但不会打印。脚本只调用已有 `/api/ai/qa`，不新增公开 API。
+- 输出边界：脚本只输出脱敏 trace-style 摘要，包括 `isLocalhost`、`ragEnabled`、`embeddingProvider`、`vectorStoreType`、`documentIdPresent`、`topK`、`retrievedCount`、`contextHashPresent`、`fallbackUsed`、`fallbackReason`、`citationCount`、`cacheKeyRagAware`；不输出完整 answer、citation snippet、文档正文、prompt、provider response、Authorization 或 secret。
+- 验证结果：PowerShell 语法检查通过；新增 `RagQaDemoScriptSafetyTest` 检查脚本不打印敏感字段；`cd backend; mvn -Dtest=*Rag* test` 通过，25 tests。
+- 边界：未启动后端服务，未执行真实 runtime 调用；未读取 `backend/.env`；未新增 API / DB / 依赖 / docker-compose；未接 LangChain4j、Qdrant 或 Redis Vector；未处理 T010 / MQ blocked。
+
 ### T071x-RAG-Docs-UTF8-Recovery-Check
 
 - 状态：DONE
