@@ -2,9 +2,15 @@ package com.docpilot.backend.ai.service;
 
 import com.docpilot.backend.ai.mapper.DocumentQaHistoryMapper;
 import com.docpilot.backend.ai.rag.RagCitation;
+import com.docpilot.backend.ai.rag.EmbeddingModelFactory;
+import com.docpilot.backend.ai.rag.InMemoryVectorStore;
+import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
+import com.docpilot.backend.ai.rag.RagIndexManager;
 import com.docpilot.backend.ai.rag.RagQaContext;
 import com.docpilot.backend.ai.rag.RagQaContextBuilder;
 import com.docpilot.backend.ai.rag.RagQaProperties;
+import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
+import com.docpilot.backend.ai.rag.VectorStoreFactory;
 import com.docpilot.backend.ai.service.impl.AiRetryExecutor;
 import com.docpilot.backend.ai.service.impl.DocumentQaServiceImpl;
 import com.docpilot.backend.ai.entity.DocumentQaHistory;
@@ -29,6 +35,12 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.AfterEach;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
@@ -57,6 +69,8 @@ import java.util.Map;
 @ExtendWith(MockitoExtension.class)
 class DocumentQaServiceImplTest {
 
+    private HttpServer qdrantServer;
+
     @Mock
     private DocumentMapper documentMapper;
 
@@ -77,6 +91,14 @@ class DocumentQaServiceImplTest {
 
     @Mock
     private ListOperations<String, String> listOperations;
+
+    @AfterEach
+    void tearDownQdrantServer() {
+        if (qdrantServer != null) {
+            qdrantServer.stop(0);
+            qdrantServer = null;
+        }
+    }
 
     private DocumentQaServiceImpl buildService() {
         return buildService(new RagQaProperties(), new RagQaContextBuilder());
@@ -343,6 +365,41 @@ class DocumentQaServiceImplTest {
 
         assertEquals("fallback answer", response.getAnswer());
         verify(aiAnswerService).answer("fallback plain context", "fallback question");
+    }
+
+    @Test
+    void shouldFallbackToPlainQaAndPlainCacheKeyWhenQdrantReturnsHttpError() throws Exception {
+        startFailingQdrantServer(500);
+        RagQaProperties ragQaProperties = enabledRagProperties(3, 200);
+        DocumentQaServiceImpl documentQaService = buildService(ragQaProperties, qdrantRagQaContextBuilder());
+        LocalDateTime version = LocalDateTime.of(2026, 5, 21, 10, 30, 0);
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setContent("qdrant failure should keep plain QA context");
+        document.setUpdateTime(version);
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(aiAnswerService.answer("qdrant failure should keep plain QA context", "qdrant fallback question"))
+                .thenReturn("plain fallback answer");
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class))).thenReturn(1);
+
+        DocumentQaResponse response = documentQaService.answer(100L, 101L, "qdrant fallback question");
+
+        String expectedPlainKey = CommonConstants.buildQaAnswerCacheKey(
+                100L,
+                101L,
+                version.toString(),
+                sha256Hex("qdrant fallback question")
+        );
+        assertEquals("plain fallback answer", response.getAnswer());
+        verify(aiAnswerService).answer("qdrant failure should keep plain QA context", "qdrant fallback question");
+        verify(valueOperations).set(
+                eq(expectedPlainKey),
+                eq("plain fallback answer"),
+                eq(CommonConstants.QA_ANSWER_CACHE_TTL_SECONDS),
+                eq(TimeUnit.SECONDS)
+        );
     }
 
     @Test
@@ -899,6 +956,38 @@ class DocumentQaServiceImplTest {
         DocumentQaResponse response = documentQaService.answer(100L, 101L, "question", "  ");
 
         assertEquals(CommonConstants.QA_DEFAULT_SESSION_ID, response.getSessionId());
+    }
+
+    private void startFailingQdrantServer(int statusCode) throws IOException {
+        qdrantServer = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        qdrantServer.createContext("/", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] bytes = "{\"status\":\"error\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(statusCode, bytes.length);
+            exchange.getResponseBody().write(bytes);
+            exchange.close();
+        });
+        qdrantServer.start();
+    }
+
+    private RagQaContextBuilder qdrantRagQaContextBuilder() {
+        RagVectorStoreProperties vectorStoreProperties = new RagVectorStoreProperties();
+        vectorStoreProperties.setProvider("qdrant");
+        RagVectorStoreProperties.Qdrant qdrant = new RagVectorStoreProperties.Qdrant();
+        qdrant.setEndpoint("http://127.0.0.1:" + qdrantServer.getAddress().getPort());
+        qdrant.setCollection("docpilot_failure");
+        qdrant.setConnectTimeoutMs(1000);
+        qdrant.setRequestTimeoutMs(3000);
+        vectorStoreProperties.setQdrant(qdrant);
+        return new RagQaContextBuilder(
+                new EmbeddingModelFactory(),
+                new RagEmbeddingProperties(),
+                new InMemoryVectorStore(),
+                new RagIndexManager(),
+                vectorStoreProperties,
+                new VectorStoreFactory()
+        );
     }
 
     private String sha256Hex(String input) {

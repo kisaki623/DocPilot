@@ -3,6 +3,7 @@ package com.docpilot.backend.ai.service.impl;
 import com.docpilot.backend.ai.entity.DocumentQaHistory;
 import com.docpilot.backend.ai.mapper.DocumentQaHistoryMapper;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
+import com.docpilot.backend.ai.rag.RagFallbackReasonClassifier;
 import com.docpilot.backend.ai.rag.RagQaContext;
 import com.docpilot.backend.ai.rag.RagQaContextBuilder;
 import com.docpilot.backend.ai.rag.RagQaProperties;
@@ -405,14 +406,15 @@ public class DocumentQaServiceImpl implements DocumentQaService {
                 }
                 throw new IllegalStateException("QA RAG context retrieval failed", ex);
             }
+            String fallbackReason = RagFallbackReasonClassifier.classify(ex);
             log.warn("QA RAG context retrieval failed, fallback to plain QA, documentId={}, error={}",
-                    documentId, ex.getClass().getSimpleName());
+                    documentId, fallbackReason);
             return RagQaContext.empty(RagQaTrace.fallback(
                     ragEmbeddingProperties.getProvider(),
                     documentId != null,
                     ragQaProperties.getTopK(),
                     ragQaProperties.getMaxContextChars(),
-                    ex.getClass().getSimpleName()
+                    fallbackReason
             ));
         }
     }

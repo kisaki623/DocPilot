@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T086 Qdrant Failure Fallback Behavior
+
+### 本轮目标
+
+验证 Qdrant adapter 失败时不会破坏默认 QA / Agent 体验，失败只记录脱敏 fallback reason。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagFallbackReasonClassifier.java`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/DocumentQaServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagFallbackReasonClassifierTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantRagQaContextIntegrationTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentQaServiceImplTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagFallbackReasonClassifier`，将 Qdrant HTTP error、timeout、disabled 和其他检索失败归一为安全 reason。
+- `DocumentQaServiceImpl` 的 RAG fallback 使用白名单 reason，并继续普通 QA。
+- `DocumentRagTool` 在向量库失败时返回空召回 + `fallbackUsed=true`，不让 rag_tool 直接抛出 provider 异常。
+- 测试覆盖 Qdrant HTTP 500、timeout 分类、disabled 分类、空结果和 Agent rag_tool 友好 fallback。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `cd backend; mvn -Dtest=*DocumentQaServiceImplTest test`：通过。
+- `cd backend; mvn -Dtest=*Agent* test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未启动真实 Qdrant。
+- 未输出 endpoint 原文、Authorization、provider response、文档正文或 prompt。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T085 RAG QA Context Qdrant Adapter Integration
 
 ### 本轮目标

@@ -85,32 +85,65 @@ class QdrantRagQaContextIntegrationTest {
                 .containsEntry("source", "fake-qdrant");
     }
 
+    @Test
+    void shouldReturnEmptyContextWhenQdrantSearchReturnsNoPoints() throws Exception {
+        startServerWithSearchResponse("{\"result\":[]}");
+        RagQaContextBuilder builder = new RagQaContextBuilder(
+                new EmbeddingModelFactory(),
+                new RagEmbeddingProperties(),
+                new InMemoryVectorStore(),
+                new RagIndexManager(),
+                qdrantProperties(),
+                new VectorStoreFactory()
+        );
+
+        RagQaContext context = builder.build(
+                61L,
+                "Where is the cache evidence?",
+                "Cache evidence is kept in session counters.",
+                3,
+                500
+        );
+
+        assertThat(context.used()).isFalse();
+        assertThat(context.retrievedCount()).isZero();
+        assertThat(context.trace().vectorStoreType()).isEqualTo("qdrant");
+        assertThat(context.trace().retrievedCount()).isZero();
+        assertThat(context.trace().contextHashPresent()).isFalse();
+        assertThat(requests).anySatisfy(request ->
+                assertThat(request.path()).isEqualTo("/collections/docpilot_context/points/search"));
+    }
+
     private void startServer() throws IOException {
+        startServerWithSearchResponse("""
+                {
+                  "result": [
+                    {
+                      "id": "61:default:0:hash-qdrant-1",
+                      "score": 0.91,
+                      "payload": {
+                        "documentId": 61,
+                        "chunkIndex": 0,
+                        "text": "sanitized retrieval text",
+                        "metadata": {
+                          "contentHash": "hash-qdrant-1",
+                          "charStart": "0",
+                          "charEnd": "24",
+                          "source": "fake-qdrant"
+                        }
+                      }
+                    }
+                  ]
+                }
+                """);
+    }
+
+    private void startServerWithSearchResponse(String searchResponse) throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/", exchange -> {
             capture(exchange);
             if (exchange.getRequestURI().getPath().endsWith("/points/search")) {
-                sendJson(exchange, 200, """
-                        {
-                          "result": [
-                            {
-                              "id": "61:default:0:hash-qdrant-1",
-                              "score": 0.91,
-                              "payload": {
-                                "documentId": 61,
-                                "chunkIndex": 0,
-                                "text": "sanitized retrieval text",
-                                "metadata": {
-                                  "contentHash": "hash-qdrant-1",
-                                  "charStart": "0",
-                                  "charEnd": "24",
-                                  "source": "fake-qdrant"
-                                }
-                              }
-                            }
-                          ]
-                        }
-                        """);
+                sendJson(exchange, 200, searchResponse);
                 return;
             }
             sendJson(exchange, 200, "{\"status\":\"ok\"}");

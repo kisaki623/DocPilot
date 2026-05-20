@@ -1,5 +1,11 @@
 package com.docpilot.backend.ai.agent.tool;
 
+import com.docpilot.backend.ai.rag.EmbeddingModelFactory;
+import com.docpilot.backend.ai.rag.InMemoryVectorStore;
+import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
+import com.docpilot.backend.ai.rag.RagIndexManager;
+import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
+import com.docpilot.backend.ai.rag.VectorStoreFactory;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -76,5 +82,36 @@ class DocumentRagToolTest {
         assertTrue(result.citations().isEmpty());
         assertTrue(result.outputSummary().contains("fallbackUsed=true"));
         assertTrue(result.outputSummary().contains("fallbackReason=no_document_text"));
+    }
+
+    @Test
+    void shouldReturnFriendlyEmptyResultWhenVectorStoreFails() {
+        RagVectorStoreProperties vectorStoreProperties = new RagVectorStoreProperties();
+        vectorStoreProperties.setProvider("qdrant_disabled");
+        DocumentRagTool failingTool = new DocumentRagTool(
+                new EmbeddingModelFactory(),
+                new RagEmbeddingProperties(),
+                new InMemoryVectorStore(),
+                new RagIndexManager(),
+                vectorStoreProperties,
+                new VectorStoreFactory()
+        );
+
+        DocumentRagTool.RagResult result = failingTool.execute(new DocumentRagTool.RagInput(
+                61L,
+                "retrieve terms",
+                "Payment terms require settlement within 30 days after invoice.",
+                2
+        ));
+
+        assertEquals(61L, result.documentId());
+        assertEquals(0, result.chunkCount());
+        assertTrue(result.retrievedChunks().isEmpty());
+        assertTrue(result.citations().isEmpty());
+        assertTrue(result.answerContext().isBlank());
+        assertTrue(result.outputSummary().contains("vectorStoreType=qdrant_disabled"));
+        assertTrue(result.outputSummary().contains("fallbackUsed=true"));
+        assertTrue(result.outputSummary().contains("fallbackReason=qdrant_disabled"));
+        assertFalse(result.outputSummary().contains("Payment terms require"));
     }
 }

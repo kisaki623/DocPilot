@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- Qdrant 故障 fallback 已补测试和轻量加固：QA RAG context 构建遇到 Qdrant HTTP error / timeout / disabled 时会记录脱敏 reason 并回退普通 QA；Agent `rag_tool` 遇到向量库失败会返回空召回和 `fallbackUsed=true`，不直接抛出 provider 异常。
 - RAG QA context 已通过默认关闭的 Qdrant adapter 链路做本地集成验证：`QdrantRagQaContextIntegrationTest` 显式配置 `provider=qdrant` 指向 JDK fake server，覆盖 index delete / upsert、search、userId + documentId filter、retrievedCount、contextHashPresent、citation metadata 和 `trace.vectorStoreType=qdrant`。
 - Qdrant fake server index/search 验证已补强：`QdrantVectorStoreTest` 使用 JDK 本地 fake HTTP server 在同一测试中完成 add / search，断言 upsert / search 的 path、method、payload metadata、userId + documentId filter 和 topK parser，不依赖真实 Qdrant。
 - RAG 主链路已进一步走 `VectorStore` 抽象：`RagIndexService` / `RagRetrievalService` / `RagQaContextBuilder` 可通过注入的 `VectorStore` 完成 index / search；默认仍由 `InMemoryVectorStore` 提供实现。

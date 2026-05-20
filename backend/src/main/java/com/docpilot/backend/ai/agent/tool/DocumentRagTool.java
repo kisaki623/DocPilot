@@ -6,6 +6,7 @@ import com.docpilot.backend.ai.rag.InMemoryVectorStore;
 import com.docpilot.backend.ai.rag.RagAnswerContext;
 import com.docpilot.backend.ai.rag.RagAnswerContextBuilder;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
+import com.docpilot.backend.ai.rag.RagFallbackReasonClassifier;
 import com.docpilot.backend.ai.rag.RagIndexKey;
 import com.docpilot.backend.ai.rag.RagIndexManager;
 import com.docpilot.backend.ai.rag.RagIndexService;
@@ -90,47 +91,58 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
             );
         }
 
-        EmbeddingModel embeddingModel = embeddingModelFactory.create(embeddingProperties);
-        VectorStore selectedVectorStore = vectorStoreFactory.create(vectorStoreProperties, vectorStore);
-        RagIndexService indexService = new RagIndexService(
-                embeddingModel,
-                selectedVectorStore,
-                indexManager,
-                embeddingProperties.getProvider(),
-                vectorStoreProperties.getProvider(),
-                RagIndexService.DEFAULT_CHUNK_SIZE,
-                RagIndexService.DEFAULT_CHUNK_OVERLAP
-        );
-        RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, selectedVectorStore);
-        RagAnswerContextBuilder contextBuilder = new RagAnswerContextBuilder();
+        try {
+            EmbeddingModel embeddingModel = embeddingModelFactory.create(embeddingProperties);
+            VectorStore selectedVectorStore = vectorStoreFactory.create(vectorStoreProperties, vectorStore);
+            RagIndexService indexService = new RagIndexService(
+                    embeddingModel,
+                    selectedVectorStore,
+                    indexManager,
+                    embeddingProperties.getProvider(),
+                    vectorStoreProperties.getProvider(),
+                    RagIndexService.DEFAULT_CHUNK_SIZE,
+                    RagIndexService.DEFAULT_CHUNK_OVERLAP
+            );
+            RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, selectedVectorStore);
+            RagAnswerContextBuilder contextBuilder = new RagAnswerContextBuilder();
+            RagIndexService.RagIndexResult indexResult = indexService.indexDocument(
+                    input.documentId(),
+                    RagIndexKey.DEFAULT_VERSION,
+                    documentText
+            );
+            int chunkCount = indexResult.chunkCount();
+            List<VectorSearchResult> hits = retrievalService.retrieveForQuestion(input.documentId(), input.task(), topK);
+            RagAnswerContext answerContext = contextBuilder.build(hits);
+            List<RetrievedChunk> retrievedChunks = toRetrievedChunks(hits);
 
-        RagIndexService.RagIndexResult indexResult = indexService.indexDocument(
-                input.documentId(),
-                RagIndexKey.DEFAULT_VERSION,
-                documentText
-        );
-        int chunkCount = indexResult.chunkCount();
-        List<VectorSearchResult> hits = retrievalService.retrieveForQuestion(input.documentId(), input.task(), topK);
-        RagAnswerContext answerContext = contextBuilder.build(hits);
-        List<RetrievedChunk> retrievedChunks = toRetrievedChunks(hits);
-
-        return new RagResult(
-                input.documentId(),
-                chunkCount,
-                topK,
-                retrievedChunks,
-                answerContext.citations(),
-                truncate(answerContext.contextText(), CONTEXT_MAX_LENGTH),
-                buildTraceSummary(
-                        topK,
-                        retrievedChunks.size(),
-                        !answerContext.contextText().isBlank(),
-                        false,
-                        "",
-                        answerContext.citations().size(),
-                        indexResult.state().indexReused()
-                )
-        );
+            return new RagResult(
+                    input.documentId(),
+                    chunkCount,
+                    topK,
+                    retrievedChunks,
+                    answerContext.citations(),
+                    truncate(answerContext.contextText(), CONTEXT_MAX_LENGTH),
+                    buildTraceSummary(
+                            topK,
+                            retrievedChunks.size(),
+                            !answerContext.contextText().isBlank(),
+                            false,
+                            "",
+                            answerContext.citations().size(),
+                            indexResult.state().indexReused()
+                    )
+            );
+        } catch (Exception ex) {
+            return new RagResult(
+                    input.documentId(),
+                    0,
+                    topK,
+                    List.of(),
+                    List.of(),
+                    "",
+                    buildTraceSummary(topK, 0, false, true, RagFallbackReasonClassifier.classify(ex), 0, false)
+            );
+        }
     }
 
     private String buildTraceSummary(int topK,
