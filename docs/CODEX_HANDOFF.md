@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- RAG vector store contract tests 已补充：默认 provider 仍为 `in_memory`，in-memory add / searchTopK / document isolation / stable topK 排序、`qdrant_disabled` 本地 disabled 语义和未知 provider fail-fast 均有测试覆盖。
 - 账号密码注册 / 登录，旧短信登录逻辑保留兼容口径。
 - 文件上传、分片上传、对象存储落盘与文件记录。
 - 文档创建、文档列表、文档详情、状态展示。

@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T077-Vector-Store-Contract-Tests
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补充 VectorStore contract tests，锁定默认 provider、in-memory 检索行为、qdrant_disabled skeleton 和 factory fail-fast 边界。
+- 当前结果：新增 `VectorStoreContractTest`，覆盖默认 `in_memory`、in-memory add / searchTopK、不同 documentId 隔离、topK 同分时按 chunkIndex 稳定排序、`qdrant_disabled` 本地 disabled 异常和未知 provider fail-fast。
+- 验证结果：`cd backend; mvn -Dtest=*VectorStore* test` 通过；`cd backend; mvn -Dtest=*Rag* test` 通过。
+- 边界：未新增公开 API、数据库表、Maven 依赖或 docker-compose；未发真实 HTTP；未真实接 Qdrant / Redis Vector；未读取 `backend/.env`；未处理 T010 / MQ blocked。
+
 ### T076-RAG-Demo-And-Vector-Skeleton-Docs-Closeout
 
 - 状态：DONE

@@ -2,6 +2,39 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T077 VectorStore Contract Tests
+
+### 本轮目标
+
+补充 VectorStore contract tests，确保 in-memory store、qdrant_disabled skeleton 与 factory 默认选择行为稳定。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/VectorStoreContractTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 覆盖默认 provider 为 `in_memory`。
+- 覆盖 in-memory add / searchTopK、不同 documentId 隔离、topK 同分时按 chunkIndex 稳定排序。
+- 覆盖 `qdrant_disabled` 在无 endpoint / apiKey 时仍只抛出本地 disabled 异常，不发 HTTP。
+- 覆盖未知 provider fail-fast。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+
+### 当前边界
+
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未发真实 HTTP。
+- 未真实接 Qdrant / Redis Vector。
+- 未接 LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T076 RAG Demo and Vector Skeleton Docs Closeout
 
 ### 本轮目标
