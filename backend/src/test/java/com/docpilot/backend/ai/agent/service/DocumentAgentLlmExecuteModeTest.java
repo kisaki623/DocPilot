@@ -24,6 +24,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.sun.net.httpserver.HttpServer;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -344,6 +348,46 @@ class DocumentAgentLlmExecuteModeTest {
     }
 
     @Test
+    void shouldFallbackToKeywordWhenOpenAiCompatibleProviderTimesOut() throws Exception {
+        try (SlowProvider provider = SlowProvider.start()) {
+            selectorProperties.setMode(AgentSelectorProperties.MODE_LLM_EXECUTE);
+            selectorProperties.setLlmProvider(AgentSelectorProperties.PROVIDER_OPENAI_COMPATIBLE);
+            selectorProperties.setLlmModel("selector-model");
+            selectorProperties.setLlmBaseUrl(provider.baseUrl());
+            selectorProperties.setLlmApiKey("test-key-not-used");
+            selectorProperties.setLlmConnectTimeoutMs(1000);
+            selectorProperties.setLlmRequestTimeoutMs(50);
+            DocumentAgentServiceImpl service = buildService();
+
+            stubReadyStatus(120L, "summary", "content");
+            stubKeywordSelection("summary_tool", "keyword summary reason", "summary");
+            stubToolDefinitions();
+            when(realShadowPromptBuilder.build(anyString(), anyBoolean(), anyBoolean(), anyList()))
+                    .thenReturn("Current task: safe timeout test task");
+            when(documentSummaryTool.execute(new DocumentSummaryTool.SummaryInput(
+                    "Please summarize this document",
+                    "summary",
+                    "content"
+            ))).thenReturn(new DocumentSummaryTool.SummaryResult("summary", "summary_field"));
+            stubRegistryForSummary();
+            stubPersistenceTask();
+
+            var response = service.run(100L, request(120L, "Please summarize this document"));
+
+            assertEquals("summary_tool", response.getDecision());
+            assertEquals("summary_tool", response.getPrimaryDecision());
+            assertEquals("", response.getLlmDecision());
+            assertEquals("summary_tool", response.getFinalDecision());
+            assertTrue(response.isFallbackUsed());
+            assertEquals("llm_execute_fallback", response.getToolSelectionSource());
+            assertTrue(response.getFallbackReason().contains("IllegalStateException"));
+            verify(realShadowParser, never()).parse(anyString());
+            verify(documentSummaryTool).execute(any());
+            verify(documentQaTool, never()).execute(any());
+        }
+    }
+
+    @Test
     void shouldKeepKeywordModeBehaviorUnchanged() {
         DocumentAgentServiceImpl service = buildService();
 
@@ -546,6 +590,38 @@ class DocumentAgentLlmExecuteModeTest {
         assertNotNull(value);
         for (String sensitiveValue : sensitiveValues) {
             assertFalse(value.contains(sensitiveValue), "Unexpected sensitive text in response field");
+        }
+    }
+
+    private record SlowProvider(HttpServer server) implements AutoCloseable {
+
+        static SlowProvider start() throws IOException {
+            HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/v1/chat/completions", exchange -> {
+                try {
+                    Thread.sleep(500L);
+                    byte[] bytes = """
+                            {"choices":[{"message":{"content":"{\\"decision\\":\\"summary_tool\\",\\"toolNames\\":[\\"document_summary_tool\\"],\\"confidence\\":0.8}"}}]}
+                            """.getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    exchange.close();
+                }
+            });
+            server.start();
+            return new SlowProvider(server);
+        }
+
+        String baseUrl() {
+            return "http://127.0.0.1:" + server.getAddress().getPort() + "/v1";
+        }
+
+        @Override
+        public void close() {
+            server.stop(0);
         }
     }
 }
