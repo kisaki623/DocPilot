@@ -2,6 +2,41 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T123 RAG Demo Backend Full Regression
+
+### 本轮目标
+
+运行 T116-T122 后的后端全量回归，并记录当前测试状态。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录后端全量回归结果。
+- 同步 T116-T122 后测试数和安全边界。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，452 tests。
+- 测试后 `git status --short`：为空。
+
+### 当前边界
+
+- 未修改业务代码。
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+- 未启动长期后端 / 前端服务进程。
+
 ## 2026-05-21 - T122 Qdrant Preflight Redaction Test
 
 ### 本轮目标

@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T123-RAG-Demo-Backend-Full-Regression
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：运行后端全量回归并记录 T116-T122 后的测试状态。
+- 当前结果：后端全量 `mvn test -DskipITs` 已通过，当前测试数 452。测试后 `git status --short` 为空。
+- 验证结果：`cd backend; mvn test -DskipITs` 通过，452 tests。
+- 边界：未修改业务代码；未新增公开 API；未读取 `backend/.env`；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response；未真实调用 provider；未真实连接 Qdrant；未新增数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked；未启动长期后端 / 前端服务进程。
+
 ### T122-Qdrant-Preflight-Redaction-Test
 
 - 状态：DONE
