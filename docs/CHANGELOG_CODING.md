@@ -2,6 +2,41 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T099 RAG Qdrant Review
+
+### 本轮目标
+
+只读审查 T092-T098 的 RAG eval、Qdrant adapter、fake server test、fallback 和 preflight / boundary 文档，确认默认路径、脱敏输出和真实 runtime 边界。
+
+### 修改文件
+
+- `docs/RAG_QDRANT_REVIEW_NOTES.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 复核 T092-T098 diff 涉及的 eval 脚本、trace smoke 脚本、Qdrant payload、Qdrant fake server tests、eval fixture 和 RAG 文档。
+- 记录默认 provider 仍为 `in_memory`，`qdrant` 只有显式配置 provider + endpoint 后才会构造 HTTP adapter。
+- 记录脚本与 report 只输出脱敏摘要，不输出文档正文、prompt、endpoint 原文、Authorization、API key 或 provider response。
+- 记录需要继续保留的真实 runtime 边界：显式启用真实 Qdrant 时，当前 adapter 会把 chunk text 作为 payload 发送到配置 endpoint，真实环境前需要确认部署归属和数据合规。
+
+### 验证结果
+
+- 完成只读 diff / grep 审查。
+- 中文 Markdown mojibake 扫描通过。
+- 敏感形态扫描未发现 secret / token / Authorization / provider response / endpoint 原文输出。
+
+### 当前边界
+
+- 未修改生产代码。
+- 未新增 API、数据库表、Maven 依赖或 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T098 Overnight RAG Evaluation Closeout
 
 ### 本轮目标

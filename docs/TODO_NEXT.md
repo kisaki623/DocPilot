@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T099-RAG-Qdrant-Review
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：只读审查 T092-T098 新增的 RAG eval、Qdrant adapter、fake server test、fallback 和 preflight / boundary 文档，确认是否存在默认路径误连外部服务、secret 输出、endpoint 原文输出、provider response 输出、prompt / 文档正文输出等风险。
+- 当前结果：新增 `docs/RAG_QDRANT_REVIEW_NOTES.md` 记录审查结论。默认 vector store provider 仍为 `in_memory`；`qdrant` 只有显式配置 provider 且 endpoint 齐全时才会构造 HTTP adapter；脚本只运行离线测试并读取 `target` 下脱敏摘要；eval fixture 使用 synthetic 文本；Qdrant 错误信息、trace report 和 eval report 均已有脱敏断言。
+- 注意边界：`QdrantPointPayload` 仍会把 chunk text 放入 Qdrant payload；这不是默认路径泄漏，但未来显式启用真实 Qdrant runtime 前，需要确认 Qdrant 部署归属、网络边界和数据合规口径。
+- 验证结果：完成只读 diff / grep 审查；中文 Markdown mojibake 扫描通过；敏感形态扫描未发现 secret / token / Authorization / provider response / endpoint 原文输出。
+- 边界：未修改生产代码；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未处理 T010 / MQ blocked。
+
 ### T098-Overnight-RAG-Evaluation-Closeout
 
 - 状态：DONE
