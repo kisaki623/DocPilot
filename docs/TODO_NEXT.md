@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T105-Embedding-Provider-Preflight-Checklist
+
+- 状态：BLOCKED（真实 embedding runtime）；DONE（脱敏 preflight 脚本 / 文档）
+- 完成时间：2026-05-21
+- 任务目标：增强真实 embedding provider preflight，只检查环境变量存在性和配置命名一致性，不发 HTTP。
+- 当前结果：新增 `backend/scripts/rag/preflight-embedding-provider.ps1`，只读取当前 shell 的 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 是否存在，并输出 True/False；可识别 `openai_compatible` / `openai-compatible` / `openaiCompatible`、`fake` 和 `disabled`。当前 shell 未注入真实 embedding 必要变量时，真实 embedding runtime 继续 BLOCKED，但不影响 fake embedding + in-memory 测试。
+- 验证结果：PowerShell 语法解析通过；脚本缺环境默认脱敏 BLOCKED 输出通过；脚本变量齐全场景仍为 READY_DRY_RUN 且 `httpAttempted=false`；`cd backend; mvn "-Dtest=EmbeddingProviderPreflightScriptSafetyTest" test` 通过，1 test；`cd backend; mvn "-Dtest=*Embedding*" test` 通过，17 tests；变更文件敏感形态扫描通过。
+- 边界：脚本不读取 `backend/.env`；不输出环境变量值、API key、baseUrl、Authorization、request body、provider response、prompt 或文档正文；不发真实 HTTP；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T104-Qdrant-Provider-Preflight-Redaction
 
 - 状态：DONE

@@ -292,3 +292,9 @@ T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_R
 - 脚本新增 `APP_RAG_VECTOR_STORE_PROVIDER`、`APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT`、`APP_RAG_VECTOR_STORE_QDRANT_COLLECTION`、`APP_RAG_VECTOR_STORE_QDRANT_API_KEY` 检查，同时保留既有 `RAG_VECTOR_STORE_PROVIDER` / `RAG_QDRANT_*` 兼容检查。
 - 只有显式传入 `-AllowRequest` 且 endpoint / collection 齐全时才允许只读 collection check；如需 create，还必须额外显式传入 `-AllowCreateCollection`。
 - 本轮未修改 `application.yml` 或 docker-compose，未读取 `backend/.env`，未真实连接 Qdrant，未新增 API / DB / Maven 依赖。
+
+## 24. T105 embedding provider preflight 状态
+
+- T105 新增 `backend/scripts/rag/preflight-embedding-provider.ps1`，只检查 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 的存在性并输出布尔摘要。
+- 脚本不读取 `backend/.env`，不发 HTTP，不输出 API key、baseUrl、Authorization、request body、provider response、prompt 或文档正文。
+- 当前真实 embedding runtime 在缺少必要变量时继续 BLOCKED；该 BLOCKED 不影响 fake embedding + in-memory vector store 的离线 demo、eval 和测试。

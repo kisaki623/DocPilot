@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T105 Embedding Provider Preflight Checklist
+
+### 本轮目标
+
+增强真实 embedding provider preflight，不发 HTTP，只检查环境变量存在性和配置命名是否一致。
+
+### 修改文件
+
+- `backend/scripts/rag/preflight-embedding-provider.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/EmbeddingProviderPreflightScriptSafetyTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `preflight-embedding-provider.ps1`，检查 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 是否存在。
+- 脚本只输出存在性布尔和 READY_DRY_RUN / SKIPPED / BLOCKED 状态，不输出任何变量值。
+- 脚本不读取 `.env`，不发 HTTP，不调用真实 provider。
+- 新增脚本安全测试，确认脚本不包含 HTTP 调用、`.env` 读取、Authorization 或原始变量输出。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- 脚本缺环境默认脱敏 BLOCKED 输出：通过。
+- 脚本变量齐全场景仍为 READY_DRY_RUN 且 `httpAttempted=false`：通过。
+- `cd backend; mvn "-Dtest=EmbeddingProviderPreflightScriptSafetyTest" test`：通过，1 test。
+- `cd backend; mvn "-Dtest=*Embedding*" test`：通过，17 tests。
+- 变更文件敏感形态扫描：通过。
+
+### 当前边界
+
+- 真实 embedding runtime 在缺少必要环境变量时继续 BLOCKED。
+- fake embedding + in-memory RAG demo / eval / test 不受影响。
+- 未读取 `backend/.env`。
+- 未输出 API key、baseUrl、Authorization、request body、provider response、prompt 或文档正文。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T104 Qdrant Provider Preflight Redaction
 
 ### 本轮目标
