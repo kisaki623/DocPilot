@@ -13,6 +13,17 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T136-Offline-Agent-RAG-Demo-Status-Sync
+
+- 状态：DONE
+- 完成时间：2026-05-22
+- 任务目标：同步 T131-T135 的真实完成状态、验证结果和边界；不新增功能，不写投递材料，不新增 T137 之后任务。
+- 当前结果：T131 `b5eeca0`、T132 `d89b7e7`、T133 `b507e32`、T134 `9bb4f49`、T135 `cb4002e` 已完成；离线 Agent/RAG demo suite、offline artifact schema、eval trend 稳定性、T010/MQ 只读 readiness 诊断和后端全量回归均已有记录。
+- 验证结果：T131 targeted `*OfflineAgentRagDemoSuite*` 通过，3 tests，`mvn -DskipTests compile` 通过；T133 targeted `*RagRetrievalEvaluationTrend*` 通过，3 tests，`*Rag*` 通过，92 tests，`mvn -DskipTests compile` 通过；T134 PowerShell readiness 脚本普通输出和 `-Json` 输出均通过；T135 `cd backend; mvn test -DskipITs` 通过，459 tests。
+- 前端验证：本轮未修改 `frontend/`，因此未运行 `npm run lint` / `npm run build`。
+- 边界：未新增公开 API；未新增数据库表；未新增 Maven 依赖；未修改 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未接 LangChain4j / Spring AI / Redis Vector；T010 / MQ 仍 BLOCKED，仅新增只读 readiness 诊断；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+- 下一步建议：1. 给离线 demo suite 增加 CI 可选入口但默认不跑真实服务；2. 继续补 Agent/RAG artifact schema 版本号和兼容性测试；3. 如需推进 T010，仅在用户明确提供本地 MQ / MySQL / Redis / 存储环境后做脱敏 runtime 验证。
+
 ### T135-Offline-Demo-Backend-Full-Regression
 
 - 状态：DONE

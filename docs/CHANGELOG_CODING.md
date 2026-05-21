@@ -2,6 +2,57 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-22 - T136 Offline Agent RAG Demo Status Sync
+
+### 本轮目标
+
+同步 T131-T135 的真实状态和边界；不新增功能，不写投递材料，不新增 T137 之后任务。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T131 `b5eeca0`：新增 `backend/scripts/agent/run-offline-agent-rag-demo-suite.ps1`，默认 offline / dry-run，聚合既有 Agent DryRun、RAG vector store demo、retrieval eval、artifact、trace smoke 和 trend check。
+- 记录 T132 `d89b7e7`：新增 offline demo summary artifact schema / redaction 测试。
+- 记录 T133 `b507e32`：增强 offline RAG eval trend history delta 稳定性测试。
+- 记录 T134 `9bb4f49`：新增 `backend/scripts/demo/check-mq-readiness.ps1`，只读诊断 T010/MQ readiness，输出变量名和 True/False，不连接中间件。
+- 记录 T135 `cb4002e`：后端全量回归通过，459 tests。
+
+### 验证结果
+
+- PowerShell：`scripts/agent/run-offline-agent-rag-demo-suite.ps1 -SkipTests` 通过。
+- PowerShell：`scripts/demo/check-mq-readiness.ps1` 与 `-Json` 通过。
+- `cd backend; mvn "-Dtest=*OfflineAgentRagDemoSuite*" test`：通过，3 tests。
+- `cd backend; mvn "-Dtest=*RagRetrievalEvaluationTrend*" test`：通过，3 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，92 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，459 tests。
+- Frontend lint/build：未运行，原因是本轮未修改 `frontend/`。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未接 LangChain4j / Spring AI / Redis Vector。
+- T010 / MQ 仍 BLOCKED；本轮只做只读 readiness 诊断，未修复或启用生产 MQ。
+- 未启动长期后端 / 前端服务进程。
+- 未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
+### 下一步建议
+
+- 给 offline Agent/RAG demo suite 增加可选 CI 入口，默认仍不调用真实服务。
+- 给 offline demo artifact 加 `schemaVersion` 并补兼容性测试。
+- 如需推进 T010，只在用户明确提供本地 MQ / MySQL / Redis / 存储环境后做脱敏 runtime 验证。
+
 ## 2026-05-22 - T135 Offline Demo Backend Full Regression
 
 ### 本轮目标

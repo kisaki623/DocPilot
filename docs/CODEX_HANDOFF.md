@@ -8,11 +8,12 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 项目仍处于作品展示与实习投递导向的持续打磨阶段。它可以展示工程化能力，但还不是生产级 SaaS，也不是完整向量 RAG / 多 Agent 平台。
 
-截至 2026-05-22 T135 回归记录时，T131-T134 已单独提交，后端全量 `mvn test -DskipITs` 通过 459 tests；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
+截至 2026-05-22 T136 状态同步时，T131-T135 已单独提交，后端全量 `mvn test -DskipITs` 通过 459 tests；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
 
 ## 2. 已经实现的功能
 
 - T115 已完成 T108-T114 阶段收口：T108 `f6d10d5`、T109 `5f7e997`、T110 `e1d2691`、T111 `99f0513`、T112 `a1a0782`、T113 `9ee22a2`、T114 `d428795` 均已单独提交。后端全量 `mvn test -DskipITs` 通过 446 tests；因 T113 修改 frontend，`npm run lint` 与 `npm run build` 均通过。未新增公开 API、DB 表、Maven 依赖或 docker-compose；未真实调用 provider；未真实连接 Qdrant；未处理 T010/MQ blocked。
+- T136 已完成 T131-T135 状态同步：T131 `b5eeca0` 新增离线 Agent/RAG demo suite 聚合脚本；T132 `d89b7e7` 锁定 offline demo artifact schema；T133 `b507e32` 增强 offline eval trend/history 稳定性；T134 `9bb4f49` 新增 T010/MQ 只读 readiness 诊断脚本；T135 `cb4002e` 记录后端全量回归 459 tests。未修改 frontend，未运行 frontend lint/build。未新增 API、DB、Maven 依赖或 docker-compose；未真实调用 provider；未真实连接 Qdrant；未处理生产 MQ。
 - T135 已完成 T131-T134 后端全量回归：T131 `b5eeca0`、T132 `d89b7e7`、T133 `b507e32`、T134 `9bb4f49` 已单独提交；`cd backend; mvn test -DskipITs` 通过 459 tests。本轮未修改 frontend，因此未运行 frontend lint/build。未新增 API、DB 表、Maven 依赖或 docker-compose；未真实调用 provider；未真实连接 Qdrant；T010/MQ 仍只做 readiness 只读诊断，未修复或启用生产 MQ。
 - T130 已完成 T126-T129 回归收口：T126 `06a6ff0`、T127 `a0e9a6e`、T128 `1cdecfa`、T129 `7d4c98a` 已单独提交；后端 full test `mvn test -DskipITs` 通过 455 tests。本轮未修改 frontend，因此未运行 frontend lint/build。未新增 API、DB 表、Maven 依赖或 docker-compose；未真实调用 provider；未真实连接 Qdrant；未处理 T010/MQ blocked。
 - T129 已增强 Agent/RAG 一致性回归：`RagChunkMetadata` 增加安全字段 `sourceType=rag_chunk`，`QdrantPointPayload` 白名单透传该字段；`AgentRagQaConsistencyTest` 锁定同一 document/query 下 Agent rag_tool 与 QA RAG context 的 retrievedCount、citation metadata 和 fallback 语义一致，并确认 qdrant_disabled fallback 不污染默认 in_memory 正常路径。
