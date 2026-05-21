@@ -264,3 +264,10 @@ T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_R
 - demo 覆盖 fake embedding 稳定性、in-memory index / retrieve、本地 fake Qdrant server 的 upsert / search，以及 Qdrant HTTP error fallback reason。
 - 输出只包含聚合布尔和计数字段，例如 embeddingStable、embeddingDimension、retrievedCount、qdrantUpsertObserved、qdrantSearchObserved、qdrantFallbackReason；不输出文档正文、prompt、endpoint 原文、Authorization、API key 或 provider response。
 - 该 demo 不读取 `backend/.env`，不依赖真实 provider，不连接真实 Qdrant，不新增 API / DB / Maven 依赖 / docker-compose。
+
+## 20. T101 offline retrieval evaluation artifact 状态
+
+- T101 新增 `backend/scripts/rag/run-rag-evaluation-artifact.ps1` 和 `RagRetrievalEvaluationArtifactTest`，可生成 `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.json` 与 `.md`。
+- artifact 覆盖 fake embedding + in-memory positive hit rate、no-match query、empty document、多 documentId isolation、本地 fake Qdrant retrieval hit rate 和 Qdrant HTTP error fallback row。
+- artifact 只保存 provider、case counts、positiveHitRate、averageRetrievedCount、noMatchPassed、emptyDocumentPassed、isolationPassed、fallbackReason、failedCaseIds 等摘要字段，不保存 synthetic 文档正文、prompt、endpoint 原文、Authorization、API key 或 provider response。
+- 验证已通过 `mvn "-Dtest=*Rag*Evaluation*" test`、`mvn "-Dtest=*Rag*" test` 和 `mvn test -DskipITs`；当前仍未真实调用 provider，未真实连接 Qdrant。

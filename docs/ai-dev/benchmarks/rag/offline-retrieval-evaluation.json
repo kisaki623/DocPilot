@@ -1,0 +1,47 @@
+{
+  "mode" : "offline",
+  "embeddingProvider" : "fake",
+  "stores" : [ {
+    "provider" : "in_memory",
+    "totalCases" : 5,
+    "positiveCases" : 3,
+    "positiveHits" : 3,
+    "positiveHitRate" : "1.0000",
+    "averageRetrievedCount" : "0.80",
+    "noMatchPassed" : true,
+    "emptyDocumentPassed" : true,
+    "isolationPassed" : true,
+    "fallbackUsed" : false,
+    "fallbackReason" : "",
+    "failedCaseIds" : [ ]
+  }, {
+    "provider" : "qdrant_fake_server",
+    "totalCases" : 1,
+    "positiveCases" : 1,
+    "positiveHits" : 1,
+    "positiveHitRate" : "1.0000",
+    "averageRetrievedCount" : "1.00",
+    "noMatchPassed" : true,
+    "emptyDocumentPassed" : true,
+    "isolationPassed" : true,
+    "fallbackUsed" : false,
+    "fallbackReason" : "",
+    "failedCaseIds" : [ ]
+  }, {
+    "provider" : "qdrant_fake_server_fallback",
+    "totalCases" : 1,
+    "positiveCases" : 0,
+    "positiveHits" : 0,
+    "positiveHitRate" : "0.0000",
+    "averageRetrievedCount" : "0.00",
+    "noMatchPassed" : true,
+    "emptyDocumentPassed" : true,
+    "isolationPassed" : true,
+    "fallbackUsed" : true,
+    "fallbackReason" : "qdrant_http_error",
+    "failedCaseIds" : [ ]
+  } ],
+  "fallbackReason" : "qdrant_http_error",
+  "sanitized" : true,
+  "notes" : [ "Synthetic cases only", "No document text or model inputs are stored", "Qdrant coverage uses a local fake server" ]
+}

@@ -2,6 +2,48 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T101 RAG Eval Artifact Generator
+
+### 本轮目标
+
+新增离线 eval artifact 生成器，用 synthetic cases 评估 in-memory、fake Qdrant、no-match、empty document、多 documentId isolation 和 fallback 场景，并输出 JSON artifact 与 Markdown summary。
+
+### 修改文件
+
+- `backend/scripts/rag/run-rag-evaluation-artifact.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationArtifactTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationArtifactScriptSafetyTest.java`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.json`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 artifact 生成脚本，默认运行 `*Rag*EvaluationArtifact*` 测试并输出 Markdown summary。
+- 新增 JUnit artifact 生成器，覆盖 in-memory positive hit rate、no-match query、empty document、多 documentId isolation、本地 fake Qdrant retrieval hit rate 和 Qdrant HTTP error fallback row。
+- 生成可提交的 JSON / Markdown artifact，内容只包含 provider、计数、hit rate、隔离 / fallback 布尔结果和 failedCaseIds。
+- 新增脚本安全测试，确保脚本不包含 Authorization、Bearer、apiKey、baseUrl、provider response、documentText 或 prompt 等敏感输出关键词。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- `cd backend; mvn "-Dtest=*Rag*Evaluation*" test`：通过，7 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，74 tests。
+- `cd backend; mvn test -DskipITs`：通过，436 tests。
+
+### 当前边界
+
+- 只使用 synthetic fixture，不提交真实文档内容。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T100 RAG Qdrant Offline Demo Script
 
 ### 本轮目标

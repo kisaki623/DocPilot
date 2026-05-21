@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T101-RAG-Eval-Artifact-Generator
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：新增离线 eval artifact 生成器，用 synthetic cases 评估 in-memory 检索命中率、fake Qdrant 检索命中率、no-match、空文档、多 documentId 隔离和 fallback 场景。
+- 当前结果：新增 `backend/scripts/rag/run-rag-evaluation-artifact.ps1`；新增 `RagRetrievalEvaluationArtifactTest` / `RagRetrievalEvaluationArtifactScriptSafetyTest`；生成并纳入 git 的 artifact 为 `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.json` 与 `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.md`。artifact 只包含 provider、case counts、positiveHitRate、averageRetrievedCount、noMatchPassed、emptyDocumentPassed、isolationPassed、fallbackReason 和 failedCaseIds 等摘要。
+- 验证结果：PowerShell 语法解析通过；`cd backend; mvn "-Dtest=*Rag*Evaluation*" test` 通过，7 tests；`cd backend; mvn "-Dtest=*Rag*" test` 通过，74 tests；`cd backend; mvn test -DskipITs` 通过，436 tests。
+- 边界：只用 synthetic fixture；不提交真实文档内容；不输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T100-RAG-Qdrant-Offline-Demo-Script
 
 - 状态：DONE
