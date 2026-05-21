@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T102-RAG-QA-Debug-Trace-Summary
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强 `RagQaTrace` / `RagQaTraceFormatter`，让后端能输出更适合面试展示的脱敏 RAG QA trace。
+- 当前结果：`RagQaTrace` 已有目标字段，本轮没有重复造字段；在 `RagQaTraceFormatter` 新增 `toInterviewSafeMap` 和 `formatInterviewSummary`，固定输出 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware。新增测试确认字段顺序、字段内容和不输出文档正文 / prompt / 多余上下文字段。
+- 验证结果：`cd backend; mvn "-Dtest=*Rag*" test` 通过，75 tests；`cd backend; mvn "-Dtest=DocumentQaServiceImplTest" test` 通过，37 tests；`cd backend; mvn test -DskipITs` 通过，437 tests。
+- 边界：未新增公开 API；未修改前端；未新增数据库表、Maven 依赖或 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；未处理 T010 / MQ blocked。
+
 ### T101-RAG-Eval-Artifact-Generator
 
 - 状态：DONE

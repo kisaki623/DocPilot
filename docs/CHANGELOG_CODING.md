@@ -2,6 +2,44 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T102 RAG QA Debug Trace Summary
+
+### 本轮目标
+
+增强 `RagQaTrace` / `RagQaTraceFormatter`，让后端能输出更适合面试展示的脱敏 RAG QA trace。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTraceFormatter.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceFormatterTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 复核 `RagQaTrace` 已具备目标字段，没有重复新增 record 字段。
+- 在 `RagQaTraceFormatter` 新增 `toInterviewSafeMap` 和 `formatInterviewSummary`，固定输出 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware。
+- 新增测试确认字段顺序、字段内容、summary 格式，以及不输出文档正文 / prompt marker / 多余上下文字段。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，75 tests。
+- `cd backend; mvn "-Dtest=DocumentQaServiceImplTest" test`：通过，37 tests。
+- `cd backend; mvn test -DskipITs`：通过，437 tests。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未修改前端。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T101 RAG Eval Artifact Generator
 
 ### 本轮目标

@@ -2,6 +2,9 @@ package com.docpilot.backend.ai.rag;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RagQaTraceFormatterTest {
@@ -71,5 +74,63 @@ class RagQaTraceFormatterTest {
         assertThat(formatted).contains("fallbackUsed=true");
         assertThat(formatted).contains("fallbackReason=IllegalStateException");
         assertThat(formatted).contains("cacheKeyRagAware=true");
+    }
+
+    @Test
+    void shouldExposeInterviewSafeSummaryFieldsOnly() {
+        RagQaTrace trace = RagQaTrace.retrieval(
+                "fake",
+                "qdrant",
+                true,
+                3,
+                2,
+                600,
+                480,
+                true,
+                true,
+                2,
+                true,
+                false
+        ).withCacheKeyRagAware(true);
+
+        Map<String, Object> fields = formatter.toInterviewSafeMap(trace);
+        String formatted = formatter.formatInterviewSummary(trace);
+
+        assertThat(fields.keySet()).containsExactlyElementsOf(List.of(
+                "ragEnabled",
+                "embeddingProvider",
+                "vectorStoreType",
+                "topK",
+                "retrievedCount",
+                "contextHashPresent",
+                "contextTruncated",
+                "fallbackUsed",
+                "fallbackReason",
+                "citationCount",
+                "indexReused",
+                "cacheKeyRagAware"
+        ));
+        assertThat(fields)
+                .containsEntry("ragEnabled", true)
+                .containsEntry("embeddingProvider", "fake")
+                .containsEntry("vectorStoreType", "qdrant")
+                .containsEntry("topK", 3)
+                .containsEntry("retrievedCount", 2)
+                .containsEntry("contextHashPresent", true)
+                .containsEntry("contextTruncated", true)
+                .containsEntry("fallbackUsed", false)
+                .containsEntry("fallbackReason", "")
+                .containsEntry("citationCount", 2)
+                .containsEntry("indexReused", true)
+                .containsEntry("cacheKeyRagAware", true);
+        assertThat(formatted).contains("ragEnabled=true");
+        assertThat(formatted).contains("cacheKeyRagAware=true");
+        assertThat(formatted)
+                .doesNotContain("documentIdPresent")
+                .doesNotContain("maxContextChars")
+                .doesNotContain("contextChars")
+                .doesNotContain("indexTruncated")
+                .doesNotContain(DOC_BODY_MARKER)
+                .doesNotContain(PROMPT_MARKER);
     }
 }

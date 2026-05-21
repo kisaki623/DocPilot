@@ -1,9 +1,25 @@
 package com.docpilot.backend.ai.rag;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class RagQaTraceFormatter {
+
+    private static final List<String> INTERVIEW_FIELDS = List.of(
+            "ragEnabled",
+            "embeddingProvider",
+            "vectorStoreType",
+            "topK",
+            "retrievedCount",
+            "contextHashPresent",
+            "contextTruncated",
+            "fallbackUsed",
+            "fallbackReason",
+            "citationCount",
+            "indexReused",
+            "cacheKeyRagAware"
+    );
 
     public Map<String, Object> toSafeMap(RagQaTrace trace) {
         RagQaTrace resolvedTrace = trace == null ? RagQaTrace.empty() : trace;
@@ -27,9 +43,26 @@ public class RagQaTraceFormatter {
         return fields;
     }
 
+    public Map<String, Object> toInterviewSafeMap(RagQaTrace trace) {
+        Map<String, Object> full = toSafeMap(trace);
+        Map<String, Object> fields = new LinkedHashMap<>();
+        for (String field : INTERVIEW_FIELDS) {
+            fields.put(field, full.get(field));
+        }
+        return fields;
+    }
+
     public String format(RagQaTrace trace) {
+        return formatFields(toSafeMap(trace));
+    }
+
+    public String formatInterviewSummary(RagQaTrace trace) {
+        return formatFields(toInterviewSafeMap(trace));
+    }
+
+    private String formatFields(Map<String, Object> fields) {
         StringBuilder builder = new StringBuilder();
-        toSafeMap(trace).forEach((key, value) -> {
+        fields.forEach((key, value) -> {
             if (!builder.isEmpty()) {
                 builder.append(", ");
             }

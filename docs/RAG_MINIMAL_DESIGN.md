@@ -271,3 +271,10 @@ T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_R
 - artifact 覆盖 fake embedding + in-memory positive hit rate、no-match query、empty document、多 documentId isolation、本地 fake Qdrant retrieval hit rate 和 Qdrant HTTP error fallback row。
 - artifact 只保存 provider、case counts、positiveHitRate、averageRetrievedCount、noMatchPassed、emptyDocumentPassed、isolationPassed、fallbackReason、failedCaseIds 等摘要字段，不保存 synthetic 文档正文、prompt、endpoint 原文、Authorization、API key 或 provider response。
 - 验证已通过 `mvn "-Dtest=*Rag*Evaluation*" test`、`mvn "-Dtest=*Rag*" test` 和 `mvn test -DskipITs`；当前仍未真实调用 provider，未真实连接 Qdrant。
+
+## 21. T102 RAG QA trace interview summary 状态
+
+- T102 在 `RagQaTraceFormatter` 上新增 `toInterviewSafeMap` / `formatInterviewSummary`，复用既有 `RagQaTrace` 字段输出更适合展示的脱敏摘要。
+- interview summary 字段固定为 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware。
+- 该能力不新增公开 API，不改变 QA / Agent routing，只是内部 formatter 增强；测试确认不输出文档正文、prompt 或多余上下文字段。
+- 验证已通过 `mvn "-Dtest=*Rag*" test`、`mvn "-Dtest=DocumentQaServiceImplTest" test` 和 `mvn test -DskipITs`。
