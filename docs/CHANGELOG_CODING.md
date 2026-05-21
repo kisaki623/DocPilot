@@ -2,6 +2,42 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T107 Full Validation And Status Sync
+
+### 本轮目标
+
+运行完整验证，并同步 `docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 执行后端全量测试。
+- 记录 T099-T106 的任务状态已单独提交。
+- 记录本轮未修改 frontend 代码，因此未运行 frontend lint/build。
+- 记录测试后工作区状态为空。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，443 tests。
+- `git status --short`：测试后为空。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+- 未启动长期后端 / 前端服务进程。
+
 ## 2026-05-21 - T106 Agent RAG Demo Checklist
 
 ### 本轮目标

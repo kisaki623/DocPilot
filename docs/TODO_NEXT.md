@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T107-Full-Validation-And-Status-Sync
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：运行本轮完整验证并同步 RAG engineering task status。
+- 当前结果：后端全量测试已通过；本轮 T099-T106 未修改 frontend 代码，因此未运行 frontend lint/build。同步记录 T099-T106 commit 与验证边界。
+- 验证结果：`cd backend; mvn test -DskipITs` 通过，443 tests；`git status --short` 在测试后为空。
+- 边界：未新增公开 API；未新增数据库表；未新增 Maven 依赖；未修改 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未处理 T010 / MQ blocked；本轮未启动长期后端 / 前端服务进程。
+
 ### T106-Agent-RAG-Demo-Checklist
 
 - 状态：DONE
