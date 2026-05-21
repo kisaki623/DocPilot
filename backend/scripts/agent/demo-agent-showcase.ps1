@@ -60,6 +60,17 @@ function Write-SanitizedSummary {
   $Summary | ConvertTo-Json -Depth 5
 }
 
+function New-DryRunSummary {
+  return [PSCustomObject]@{
+    mode = "dry-run"
+    backendReachable = "unknown"
+    authTokenPresent = -not [string]::IsNullOrWhiteSpace($Token)
+    documentIdPresent = $DocumentId -gt 0
+    secretRedactionEnabled = $true
+    expectedDemoSteps = Get-DryRunSteps
+  }
+}
+
 function Get-DryRunSteps {
   return @(
     "check backend health",
@@ -76,8 +87,7 @@ function Get-DryRunSteps {
 }
 
 if ($DryRun) {
-  Write-SanitizedSummary -Summary (New-SanitizedSummary -Note "dry-run" -PlannedSteps (Get-DryRunSteps))
-  Write-Host "DryRun completed. No backend request was made."
+  New-DryRunSummary | ConvertTo-Json -Depth 5
   exit 0
 }
 
