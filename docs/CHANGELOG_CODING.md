@@ -2,6 +2,44 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T121 Agent RAG Tool Consistency Coverage
+
+### 本轮目标
+
+给 Agent `rag_tool` 增加更多一致性测试，覆盖 RAG 路由、空召回 fallback、输出脱敏和原有工具路径不受影响。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- RAG 路由用例加入私有正文标记，确认 step `outputSummary`、final answer 和 `ragResults.snippet` 不泄露正文标记。
+- RAG 路由用例补充 `ragResults` score、snippet、metadata 断言，保护前端 / Agent response 向后兼容。
+- 新增空召回 RAG 用例，确认 final answer 友好提示、`ragResults` 为空但非 null、`ragAnswerContext` 为空串，并保留 `fallbackUsed=true` / `fallbackReason=no_match` 摘要。
+- summary / QA / status 用例补充 `documentRagTool` 不被调用断言，避免 RAG 测试改动影响原有工具路径。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=DocumentAgentServiceImplTest" test`：通过，10 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，85 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 只修改测试。
+- 未改变 Agent routing 默认行为。
+- 未新增公开 API。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T120 RAG QA Debug Trace Formatting Coverage
 
 ### 本轮目标

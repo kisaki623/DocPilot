@@ -50,6 +50,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DocumentAgentServiceImplTest {
 
+    private static final String PRIVATE_RAG_DOC_MARKER = "PRIVATE_AGENT_RAG_DOC_BODY_MARKER";
+
     @Mock
     private DocumentStatusTool documentStatusTool;
 
@@ -179,6 +181,7 @@ class DocumentAgentServiceImplTest {
         assertTrue(response.getTotalDurationMs() >= 0);
         verifyPersistenceSuccess();
         verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
         verify(shadowToolSelector, never()).selectWithPrompt(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertEmptySelectorMetrics();
@@ -236,6 +239,7 @@ class DocumentAgentServiceImplTest {
         assertEquals(2, response.getSteps().size());
         assertTrue(response.isSuccess());
         verifyPersistenceSuccess();
+        verify(documentRagTool, never()).execute(any());
         verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         assertEmptySelectorMetrics();
     }
@@ -247,6 +251,7 @@ class DocumentAgentServiceImplTest {
         DocumentAgentRequest request = new DocumentAgentRequest();
         request.setDocumentId(109L);
         request.setTask("RAG retrieve topK chunks and show similarity score");
+        String documentContent = "Payment clause content. Delivery clause content. " + PRIVATE_RAG_DOC_MARKER;
 
         when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 109L)))
                 .thenReturn(new DocumentStatusTool.StatusResult(
@@ -256,7 +261,7 @@ class DocumentAgentServiceImplTest {
                         true,
                         "ready",
                         "summary",
-                        "Payment clause content. Delivery clause content."
+                        documentContent
                 ));
         when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
         when(documentRagTool.getToolName()).thenReturn(DocumentRagTool.TOOL_NAME);
@@ -285,7 +290,7 @@ class DocumentAgentServiceImplTest {
         when(documentRagTool.execute(new DocumentRagTool.RagInput(
                 109L,
                 "RAG retrieve topK chunks and show similarity score",
-                "Payment clause content. Delivery clause content.",
+                documentContent,
                 3
         ))).thenReturn(ragResult);
         stubStatusTool();
@@ -298,8 +303,74 @@ class DocumentAgentServiceImplTest {
         assertTrue(response.getFinalAnswer().contains("RAG demo retrieved"));
         assertEquals(1, response.getRagResults().size());
         assertEquals(0.91d, response.getRagResults().get(0).getScore());
+        assertEquals("Payment clause content.", response.getRagResults().get(0).getSnippet());
+        assertEquals("hash", response.getRagResults().get(0).getMetadata().get("contentHash"));
         assertEquals("[1] Payment clause content.", response.getRagAnswerContext());
         assertEquals(2, response.getSteps().size());
+        assertFalse(response.getFinalAnswer().contains(PRIVATE_RAG_DOC_MARKER));
+        assertFalse(response.getSteps().get(1).getOutputSummary().contains(PRIVATE_RAG_DOC_MARKER));
+        assertFalse(response.getRagResults().get(0).getSnippet().contains(PRIVATE_RAG_DOC_MARKER));
+        verifyPersistenceSuccess();
+        verify(documentRagTool).execute(any());
+        verify(documentSummaryTool, never()).execute(any());
+        verify(documentQaTool, never()).execute(any());
+        assertEmptySelectorMetrics();
+    }
+
+    @Test
+    void shouldReturnFriendlyRagFallbackWhenNoChunksRetrieved() {
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(110L);
+        request.setTask("RAG retrieve missing topic evidence");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 110L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        110L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "Document text without the requested synthetic marker. " + PRIVATE_RAG_DOC_MARKER
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentRagTool.getToolName()).thenReturn(DocumentRagTool.TOOL_NAME);
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "rag_tool",
+                List.of("document_status_tool", DocumentRagTool.TOOL_NAME),
+                "rag reason",
+                List.of("RAG", "retrieve")
+        ));
+        DocumentRagTool.RagResult ragResult = new DocumentRagTool.RagResult(
+                110L,
+                1,
+                3,
+                List.of(),
+                List.of(),
+                "",
+                "ragEnabled=true, embeddingProvider=fake, vectorStoreType=in_memory, topK=3, retrievedCount=0, "
+                        + "contextHashPresent=false, contextTruncated=false, fallbackUsed=true, "
+                        + "fallbackReason=no_match, citationCount=0, indexReused=false, cacheKeyRagAware=false"
+        );
+        when(documentRagTool.execute(any())).thenReturn(ragResult);
+        stubStatusTool();
+        stubRagTool();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request);
+
+        assertEquals("rag_tool", response.getDecision());
+        assertTrue(response.getFinalAnswer().contains("RAG demo did not retrieve chunks"));
+        assertNotNull(response.getRagResults());
+        assertTrue(response.getRagResults().isEmpty());
+        assertEquals("", response.getRagAnswerContext());
+        assertEquals(2, response.getSteps().size());
+        assertTrue(response.getSteps().get(1).getOutputSummary().contains("fallbackUsed=true"));
+        assertTrue(response.getSteps().get(1).getOutputSummary().contains("fallbackReason=no_match"));
+        assertFalse(response.getSteps().get(1).getOutputSummary().contains(PRIVATE_RAG_DOC_MARKER));
+        assertFalse(response.getFinalAnswer().contains(PRIVATE_RAG_DOC_MARKER));
         verifyPersistenceSuccess();
         verify(documentRagTool).execute(any());
         verify(documentSummaryTool, never()).execute(any());
@@ -636,6 +707,7 @@ class DocumentAgentServiceImplTest {
         verify(realShadowPromptBuilder, never()).build(anyString(), anyBoolean(), anyBoolean(), anyList());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
         assertEmptySelectorMetrics();
     }
 

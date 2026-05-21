@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T121-Agent-RAG-Tool-Consistency-Coverage
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：给 Agent `rag_tool` 增加更多一致性测试，覆盖路由触发、对 summary / QA / status 的非影响、空召回友好 fallback、step summary 脱敏和 `ragResults` 向后兼容。
+- 当前结果：`DocumentAgentServiceImplTest` 增强 RAG 路由用例，断言 `ragResults` 保留 score / snippet / metadata，step `outputSummary` 和 final answer 不泄露私有正文标记；新增空召回 RAG 用例，断言 final answer 友好提示、`ragResults` 为空但非 null、`ragAnswerContext` 为空串，并保留 `fallbackUsed=true` / `fallbackReason=no_match` 摘要。summary / QA / status 用例补充 `documentRagTool` 不被调用断言。
+- 验证结果：`cd backend; mvn "-Dtest=DocumentAgentServiceImplTest" test` 通过，10 tests；`cd backend; mvn "-Dtest=*Rag*" test` 通过，85 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：只改测试；未改变 Agent routing 默认行为；未新增公开 API；未读取 `backend/.env`；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response；未真实调用 provider；未真实连接 Qdrant；未新增数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T120-RAG-QA-Debug-Trace-Formatting-Coverage
 
 - 状态：DONE
