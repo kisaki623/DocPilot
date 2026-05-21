@@ -65,6 +65,7 @@ public record QdrantPointPayload(
         copyIfPresent(metadata, citation, "charEnd");
         copyIfPresent(metadata, citation, "chunkVersion");
         copyIfPresent(metadata, citation, "source");
+        copyIfPresent(metadata, citation, "sourceType");
         return citation;
     }
 
@@ -76,6 +77,7 @@ public record QdrantPointPayload(
         copyIfPresent(metadata, safe, "charEnd");
         copyIfPresent(metadata, safe, "chunkVersion");
         copyIfPresent(metadata, safe, "source");
+        copyIfPresent(metadata, safe, "sourceType");
         return safe;
     }
 

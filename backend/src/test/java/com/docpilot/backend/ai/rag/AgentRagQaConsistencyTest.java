@@ -91,6 +91,16 @@ class AgentRagQaConsistencyTest {
         assertThat(qaContext.trace().contextHashPresent()).isTrue();
         assertThat(agentResult.retrievedChunks().get(0).metadata().keySet())
                 .containsAll(qaContext.citations().get(0).metadata().keySet());
+        assertThat(agentResult.retrievedChunks().get(0).metadata())
+                .containsEntry("documentId", String.valueOf(DOCUMENT_ID))
+                .containsEntry("chunkIndex", String.valueOf(agentResult.retrievedChunks().get(0).chunkIndex()))
+                .containsEntry("sourceType", "rag_chunk")
+                .containsKey("chunkVersion");
+        assertThat(qaContext.citations().get(0).metadata())
+                .containsEntry("documentId", String.valueOf(DOCUMENT_ID))
+                .containsEntry("chunkIndex", String.valueOf(qaContext.citations().get(0).chunkIndex()))
+                .containsEntry("sourceType", "rag_chunk")
+                .containsKey("chunkVersion");
         assertThat(agentResult.retrievedChunks().get(0).chunkIndex())
                 .isEqualTo(qaContext.citations().get(0).chunkIndex());
         assertThat(qaTraceSummary)
@@ -111,6 +121,55 @@ class AgentRagQaConsistencyTest {
                 .contains("citationCount=" + qaContext.citations().size())
                 .contains("cacheKeyRagAware=false");
         assertThat(agentResult.outputSummary()).doesNotContain(PRIVATE_DOC_MARKER);
+    }
+
+    @Test
+    void shouldKeepInMemoryPathCleanAfterQdrantDisabledFallback() {
+        RagVectorStoreProperties disabledVectorStoreProperties = new RagVectorStoreProperties();
+        disabledVectorStoreProperties.setProvider("qdrant_disabled");
+        DocumentRagTool failingAgentTool = new DocumentRagTool(
+                new EmbeddingModelFactory(),
+                new RagEmbeddingProperties(),
+                new InMemoryVectorStore(),
+                new RagIndexManager(),
+                disabledVectorStoreProperties,
+                new VectorStoreFactory()
+        );
+        DocumentRagTool.RagResult fallbackResult = failingAgentTool.execute(new DocumentRagTool.RagInput(
+                DOCUMENT_ID,
+                QUESTION,
+                DOCUMENT_TEXT,
+                2
+        ));
+
+        DocumentRagTool normalAgentTool = new DocumentRagTool();
+        RagQaContext normalQaContext = new RagQaContextBuilder().build(DOCUMENT_ID, QUESTION, DOCUMENT_TEXT, 2, 800);
+        DocumentRagTool.RagResult normalAgentResult = normalAgentTool.execute(new DocumentRagTool.RagInput(
+                DOCUMENT_ID,
+                QUESTION,
+                DOCUMENT_TEXT,
+                2
+        ));
+
+        assertThat(fallbackResult.retrievedChunks()).isEmpty();
+        assertThat(fallbackResult.outputSummary())
+                .contains("vectorStoreType=qdrant_disabled")
+                .contains("retrievedCount=0")
+                .contains("fallbackUsed=true")
+                .contains("fallbackReason=qdrant_disabled");
+        assertThat(normalQaContext.retrievedCount()).isGreaterThan(0);
+        assertThat(normalAgentResult.retrievedChunks()).hasSize(normalQaContext.retrievedCount());
+        assertThat(normalAgentResult.outputSummary())
+                .contains("vectorStoreType=in_memory")
+                .contains("retrievedCount=" + normalQaContext.retrievedCount())
+                .contains("fallbackUsed=false")
+                .doesNotContain("qdrant_disabled");
+        assertThat(normalAgentResult.retrievedChunks())
+                .allSatisfy(chunk -> assertThat(chunk.metadata())
+                        .containsEntry("documentId", String.valueOf(DOCUMENT_ID))
+                        .containsEntry("sourceType", "rag_chunk")
+                        .containsKey("chunkIndex")
+                        .containsKey("chunkVersion"));
     }
 
     @Test

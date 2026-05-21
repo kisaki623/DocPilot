@@ -50,6 +50,7 @@ public record RagChunkMetadata(
         metadata.put("charStart", String.valueOf(startOffset));
         metadata.put("charEnd", String.valueOf(endOffset));
         metadata.put("chunkVersion", CHUNK_VERSION);
+        metadata.put("sourceType", "rag_chunk");
         metadata.put("indexTruncated", String.valueOf(indexTruncated));
         return metadata;
     }
