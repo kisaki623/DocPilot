@@ -9,16 +9,58 @@ param(
 $ErrorActionPreference = "Stop"
 $baseUrl = $BackendBaseUrl.TrimEnd("/")
 
-if ($DocumentId -le 0) {
-  throw "DocumentId is required. Example: .\demo-agent-showcase.ps1 -DocumentId 61 -Mode rag"
-}
-
 if ([string]::IsNullOrWhiteSpace($Token) -and -not [string]::IsNullOrWhiteSpace($env:DOCPILOT_AUTH_TOKEN)) {
   $Token = $env:DOCPILOT_AUTH_TOKEN
 }
 
-if ([string]::IsNullOrWhiteSpace($Token)) {
-  throw "A bearer token is required. Pass -Token or set DOCPILOT_AUTH_TOKEN in the current shell. The script will not print it."
+function Resolve-BackendLocation {
+  param([string]$Value)
+  try {
+    $uri = [System.Uri]::new($Value)
+    if ($uri.IsLoopback -or $uri.Host -eq "localhost") {
+      return "localhost"
+    }
+    return "remote-redacted"
+  } catch {
+    return "unknown"
+  }
+}
+
+function New-SanitizedSummary {
+  param(
+    [bool]$BackendReachable = $false,
+    [bool]$AgentRunOk = $false,
+    [string]$Decision = "not_run",
+    [int]$RagRetrievedCount = 0,
+    [int]$CitationCount = 0,
+    [int]$TraceStepCount = 0,
+    [string]$Note = ""
+  )
+  return [PSCustomObject]@{
+    backendReachable = $BackendReachable
+    backendLocation = Resolve-BackendLocation -Value $baseUrl
+    authTokenPresent = -not [string]::IsNullOrWhiteSpace($Token)
+    documentIdPresent = $DocumentId -gt 0
+    agentRunOk = $AgentRunOk
+    decision = $Decision
+    ragRetrievedCount = $RagRetrievedCount
+    citationCount = $CitationCount
+    traceStepCount = $TraceStepCount
+    mode = $Mode
+    note = $Note
+  }
+}
+
+function Write-SanitizedSummary {
+  param([object]$Summary)
+  Write-Host "Agent showcase demo sanitized summary:"
+  $Summary | ConvertTo-Json -Depth 5
+}
+
+if ($DocumentId -le 0 -or [string]::IsNullOrWhiteSpace($Token)) {
+  Write-SanitizedSummary -Summary (New-SanitizedSummary -Note "missing-token-or-document-id")
+  Write-Host "Provide a current-shell token and a parsed documentId to run the live Agent demo. No token or endpoint value was printed."
+  exit 0
 }
 
 function Assert-ApiSuccess {
@@ -67,38 +109,43 @@ function Count-Items {
   return @($Items).Count
 }
 
-$health = Invoke-WebRequest -Uri "$baseUrl/actuator/health" -UseBasicParsing -TimeoutSec 5
-if ($health.StatusCode -ne 200) {
-  throw "Backend health check failed."
+try {
+  $health = Invoke-WebRequest -Uri "$baseUrl/actuator/health" -UseBasicParsing -TimeoutSec 5
+  if ($health.StatusCode -ne 200) {
+    Write-SanitizedSummary -Summary (New-SanitizedSummary -Note "backend-health-not-ready")
+    exit 2
+  }
+} catch {
+  Write-SanitizedSummary -Summary (New-SanitizedSummary -Note "backend-health-not-ready")
+  exit 2
 }
 
 $headers = @{ Authorization = "Bearer $Token" }
 $task = Resolve-AgentTask -RequestedMode $Mode
-$runResponse = Invoke-JsonPost -Uri "$baseUrl/api/ai/agent/run" -Headers $headers -Body @{
-  documentId = $DocumentId
-  task = $task
+try {
+  $runResponse = Invoke-JsonPost -Uri "$baseUrl/api/ai/agent/run" -Headers $headers -Body @{
+    documentId = $DocumentId
+    task = $task
+  }
+  Assert-ApiSuccess -Response $runResponse -Step "agent run"
+} catch {
+  Write-SanitizedSummary -Summary (New-SanitizedSummary -BackendReachable $true -Note "agent-run-failed")
+  exit 3
 }
-Assert-ApiSuccess -Response $runResponse -Step "agent run"
+
+if ($null -eq $runResponse.data) {
+  Write-SanitizedSummary -Summary (New-SanitizedSummary -BackendReachable $true -Note "agent-run-empty-data")
+  exit 3
+}
 
 $data = $runResponse.data
-if ($null -eq $data) {
-  throw "Agent run returned empty data."
-}
+$summary = New-SanitizedSummary `
+  -BackendReachable $true `
+  -AgentRunOk $true `
+  -Decision ([string]$data.decision) `
+  -RagRetrievedCount (Count-Items -Items $data.ragResults) `
+  -CitationCount (Count-Items -Items $data.citations) `
+  -TraceStepCount (Count-Items -Items $data.steps) `
+  -Note "completed"
 
-$summary = [PSCustomObject]@{
-  backendBaseUrl = $baseUrl
-  documentId = $DocumentId
-  mode = $Mode
-  taskId = $data.taskId
-  decision = $data.decision
-  routingReasonPresent = -not [string]::IsNullOrWhiteSpace([string]$data.routingReason)
-  matchedKeywordsCount = Count-Items -Items $data.matchedKeywords
-  citationsCount = Count-Items -Items $data.citations
-  ragResultsCount = Count-Items -Items $data.ragResults
-  stepsCount = Count-Items -Items $data.steps
-  fallbackUsed = $data.fallbackUsed
-  toolSelectionSource = $data.toolSelectionSource
-}
-
-Write-Host "Agent showcase demo completed. Redacted summary:"
-$summary | ConvertTo-Json -Depth 5
+Write-SanitizedSummary -Summary $summary

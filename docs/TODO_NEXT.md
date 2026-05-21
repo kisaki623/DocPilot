@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T114-Agent-RAG-Demo-Script-Sanitized-Check
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强 Agent/RAG demo 脚本的一键脱敏检查，缺 token 或 documentId 时友好输出，不打印原始后端地址或 token。
+- 当前结果：`demo-agent-showcase.ps1` 输出 `backendReachable`、`backendLocation=localhost|remote-redacted|unknown`、`authTokenPresent`、`documentIdPresent`、`agentRunOk`、`decision`、`ragRetrievedCount`、`citationCount`、`traceStepCount`、`mode`、`note`；缺 token / documentId 时输出 sanitized summary 并提示补齐前置条件，不抛堆栈。新增 `AgentDemoScriptSafetyTest` 防止 summary 回退到原始 base URL、token、正文、provider response 或 final answer。
+- 验证结果：PowerShell 语法解析通过；缺 token / documentId 模式通过并只输出脱敏 summary；`cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test` 通过，1 test；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：未启动后端服务；未真实运行 Agent runtime；未输出 token、endpoint 原文、文档正文、prompt、Authorization、API key、baseUrl 或 provider response；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T113-Agent-Showcase-RAG-Debug-Trace
 
 - 状态：DONE

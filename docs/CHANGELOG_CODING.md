@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T114 Agent RAG Demo Script Sanitized Check
+
+### 本轮目标
+
+增强 Agent / RAG demo 脚本的一键脱敏检查，输出安全 summary；缺 token 或 documentId 时友好提示，不失败成堆栈。
+
+### 修改文件
+
+- `backend/scripts/agent/demo-agent-showcase.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/AgentDemoScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `demo-agent-showcase.ps1` 新增 sanitized summary：backendReachable、backendLocation、authTokenPresent、documentIdPresent、agentRunOk、decision、ragRetrievedCount、citationCount、traceStepCount、mode、note。
+- 原始后端地址只归类为 localhost / remote-redacted / unknown。
+- 缺 token 或 documentId 时输出 dry-run summary 和中文友好提示，不抛 PowerShell 堆栈。
+- Agent run 失败时只输出脱敏失败状态，不输出响应正文或鉴权信息。
+- 新增脚本安全测试，防止 summary 输出原始 base URL、token、documentText、provider response 或 finalAnswer。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- 缺 token / documentId 模式：通过，只输出脱敏 summary。
+- `cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test`：通过，1 test。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未启动后端服务。
+- 未真实运行 Agent runtime。
+- 未输出 token、endpoint 原文、文档正文、prompt、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T113 Agent Showcase RAG Debug Trace
 
 ### 本轮目标
