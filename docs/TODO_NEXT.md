@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T115-RAG-Showcase-Hardening-Closeout
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：阶段收口验证并同步 T108-T114 的真实完成情况，不写投递材料，不新增功能。
+- 当前结果：T108 `f6d10d5`、T109 `5f7e997`、T110 `e1d2691`、T111 `99f0513`、T112 `a1a0782`、T113 `9ee22a2`、T114 `d428795` 均已完成并单独提交；本条只同步阶段状态。
+- 验证结果：`cd backend; mvn test -DskipITs` 通过，446 tests；因 T113 修改 frontend，`cd frontend; npm run lint` 通过，`cd frontend; npm run build` 通过；收口前 `git status --short` 为空。
+- 边界：未新增公开 API；未新增数据库表；未新增 Maven 依赖；未修改 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未接 LangChain4j / Spring AI / Redis Vector；未处理 T010 / MQ blocked；未启动长期后端 / 前端服务进程。
+
 ### T114-Agent-RAG-Demo-Script-Sanitized-Check
 
 - 状态：DONE

@@ -2,6 +2,44 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T115 RAG Showcase Hardening Closeout
+
+### 本轮目标
+
+阶段收口验证并同步 T108-T114 的真实完成情况；不写投递材料，不新增功能。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T108-T114 均已单独提交：T108 `f6d10d5`、T109 `5f7e997`、T110 `e1d2691`、T111 `99f0513`、T112 `a1a0782`、T113 `9ee22a2`、T114 `d428795`。
+- 记录后端全量测试和前端 lint/build 结果。
+- 同步交接文档中的当前工作区状态。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，446 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+- `git status --short`：收口前为空。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未接 LangChain4j / Spring AI / Redis Vector。
+- 未处理 T010 / MQ blocked。
+- 未启动长期后端 / 前端服务进程。
+
 ## 2026-05-21 - T114 Agent RAG Demo Script Sanitized Check
 
 ### 本轮目标
