@@ -2,9 +2,11 @@ package com.docpilot.backend.ai.agent;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,5 +39,48 @@ class AgentDemoScriptSafetyTest {
                 .doesNotContain("provider response")
                 .doesNotContain("prompt =")
                 .doesNotContain("finalAnswer =");
+    }
+
+    @Test
+    void dryRunOutputShouldStayRedacted() throws Exception {
+        Process process = new ProcessBuilder(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                Path.of("scripts", "agent", "demo-agent-showcase.ps1").toString(),
+                "-DryRun",
+                "-BackendBaseUrl",
+                "https://remote.example.invalid/private-demo")
+                .redirectErrorStream(true)
+                .start();
+
+        boolean completed = process.waitFor(20, TimeUnit.SECONDS);
+        String output = readAll(process.getInputStream());
+
+        assertThat(completed).isTrue();
+        assertThat(process.exitValue()).isZero();
+        assertThat(output)
+                .contains("dry-run")
+                .contains("plannedSteps")
+                .contains("remote-redacted")
+                .contains("verify rag debug summary")
+                .doesNotContain("https://")
+                .doesNotContain("remote.example.invalid")
+                .doesNotContain("Authorization")
+                .doesNotContain("Bearer")
+                .doesNotContain("API key")
+                .doesNotContain("apiKey")
+                .doesNotContain("baseUrl")
+                .doesNotContain("endpoint")
+                .doesNotContain("prompt")
+                .doesNotContain("document content")
+                .doesNotContain("documentText")
+                .doesNotContain("provider response");
+    }
+
+    private static String readAll(InputStream inputStream) throws Exception {
+        return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
 }

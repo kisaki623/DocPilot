@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T117-Agent-Demo-Script-Redaction-Test
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补 demo 脚本 DryRun 脱敏输出的可运行测试，防止输出 Authorization、API key、baseUrl / endpoint 原文、prompt、文档内容或 provider response。
+- 当前结果：`AgentDemoScriptSafetyTest.dryRunOutputShouldStayRedacted` 会以 `-DryRun` 启动 `demo-agent-showcase.ps1`，并传入远程样式后端地址；测试断言输出只包含 `remote-redacted`、`plannedSteps` 和 dry-run 计划，不包含原始地址、鉴权字段、prompt、正文或 provider response 禁词。
+- 验证结果：`cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test` 通过，2 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：测试只运行 DryRun，不调用后端，不启动服务，不读取 `backend/.env`；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response；未真实调用 provider；未真实连接 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T116-Agent-Demo-Script-DryRun
 
 - 状态：DONE
