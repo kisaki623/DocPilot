@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T119-RAG-Offline-Eval-Trend-Summary
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补一个离线小工具读取 T118 history artifact，并输出 trend / comparison 摘要。
+- 当前结果：新增 `backend/scripts/rag/show-rag-eval-trend.ps1`，默认读取 `offline-retrieval-evaluation-history.json`，按 `vectorStoreProvider` 输出 `latestHitRate`、`caseCount`、`previousHitRatePresent`、`previousHitRate`、`deltaPresent`、`delta`。新增 `RagRetrievalEvaluationTrendScriptSafetyTest` 执行脚本并检查输出脱敏。
+- 验证结果：PowerShell 语法解析通过；脚本离线实跑通过；`cd backend; mvn "-Dtest=RagRetrievalEvaluationTrendScriptSafetyTest" test` 通过，2 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：脚本只读取已提交的 synthetic history artifact，不发 HTTP，不读取 `backend/.env`，不输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；未真实调用 provider；未真实连接 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T118-RAG-Offline-Eval-History-Artifact
 
 - 状态：DONE

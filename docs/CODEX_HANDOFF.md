@@ -8,7 +8,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 项目仍处于作品展示与实习投递导向的持续打磨阶段。它可以展示工程化能力，但还不是生产级 SaaS，也不是完整向量 RAG / 多 Agent 平台。
 
-截至 2026-05-21 T118 收口同步时，`git status --short` 为空，工作区干净；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
+截至 2026-05-21 T119 收口同步时，`git status --short` 为空，工作区干净；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
 
 ## 2. 已经实现的功能
 
@@ -16,6 +16,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 - T116 已给 Agent showcase demo 脚本补显式 `-DryRun`：不要求 token / documentId，不调用后端，不启动服务，不输出原始 baseUrl；只输出脱敏 summary 与 plannedSteps，覆盖 health check、summary / QA / RAG agent task、decision / routingReason / matchedKeywords / trace / citations / rag debug summary 检查计划。真实模式原有行为保留，`AgentDemoScriptSafetyTest` 已补充 DryRun 字段断言。
 - T117 已补 Agent showcase demo DryRun 输出脱敏测试：`AgentDemoScriptSafetyTest.dryRunOutputShouldStayRedacted` 通过 PowerShell 执行脚本 DryRun，传入远程样式地址并断言输出只保留 `remote-redacted`，不包含原始地址、Authorization、Bearer、API key、baseUrl / endpoint 字段、prompt、document content / documentText 或 provider response。
 - T118 已补离线 RAG eval history artifact：`RagRetrievalEvaluationArtifactTest` 额外生成 `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.json` 和 `.md`，记录 `generatedAt`、`vectorStoreProvider`、`embeddingProvider=fake`、`caseCount`、`hitCount`、`missCount`、`hitRate`；当前包含 `in_memory` 与本地 `fake_server` 两条聚合记录，仍只使用 synthetic fixture 和 fake embedding。
+- T119 已新增离线 RAG eval trend 小工具：`backend/scripts/rag/show-rag-eval-trend.ps1` 读取 T118 history artifact，按 vector store 输出 latest hitRate、caseCount、previous hitRate 和 delta 字段；`RagRetrievalEvaluationTrendScriptSafetyTest` 覆盖脚本执行与离线 / 脱敏边界。脚本只读本地 synthetic artifact，不发 HTTP。
 - T114 已加固 Agent showcase demo 脚本脱敏输出：`backend/scripts/agent/demo-agent-showcase.ps1` 现在输出 backendReachable、backendLocation=localhost|remote-redacted|unknown、authTokenPresent、documentIdPresent、agentRunOk、decision、ragRetrievedCount、citationCount、traceStepCount、mode、note；缺 token 或 documentId 时友好 dry-run，不抛堆栈，不打印 token 或原始后端地址。新增 `AgentDemoScriptSafetyTest` 覆盖 summary 安全字段。
 - T113 已在 `/agent` 页面新增“RAG 调试摘要”区域：前端不新增 API，只从 Agent step `outputSummary` 中白名单解析 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextTruncated、fallbackUsed、fallbackReason、cacheKeyRagAware 并展示；工作流状态文案已中文化，避免可见 done / waiting / loading。前端 lint/build 均通过。
 - T112 已对齐 Agent `rag_tool` 与 QA RAG trace summary 口径：`DocumentRagTool.outputSummary` 复用 `RagQaTraceFormatter.formatInterviewSummary`，输出 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware；测试覆盖 Agent retrieved chunk metadata / chunkIndex 与 QA citation metadata / trace summary 对齐、RAG 失败 friendly fallback、QA flag=false 原行为、QA flag=true cache key RAG-aware，以及 DocumentToolSelector 原有 routing 不受影响。

@@ -2,6 +2,45 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T119 RAG Offline Eval Trend Summary
+
+### 本轮目标
+
+新增一个离线小工具，读取 T118 history artifact 并输出 trend / comparison 摘要。
+
+### 修改文件
+
+- `backend/scripts/rag/show-rag-eval-trend.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationTrendScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `show-rag-eval-trend.ps1`，默认读取 `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.json`。
+- 输出 `offline-rag-eval-trend-summary`，按 `vectorStoreProvider` 汇总 latest hitRate、caseCount、previous hitRate 和 delta 字段。
+- 当前 history 只有一轮记录，因此 `previousHitRatePresent=false`、`deltaPresent=false`；字段已经为后续追加历史记录预留。
+- 新增脚本安全测试，执行脚本并确认输出不包含鉴权、地址、正文、prompt、provider response 或本地 fake server 地址。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rag/show-rag-eval-trend.ps1`：通过。
+- `cd backend; mvn "-Dtest=RagRetrievalEvaluationTrendScriptSafetyTest" test`：通过，2 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 脚本只读取本地 synthetic history artifact。
+- 不发 HTTP，不启动服务。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T118 RAG Offline Eval History Artifact
 
 ### 本轮目标
