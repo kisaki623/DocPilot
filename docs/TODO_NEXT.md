@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T116-Agent-Demo-Script-DryRun
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：给 Agent showcase demo 脚本补显式 `-DryRun` 模式，方便开发者预览演示步骤且不要求 token / documentId。
+- 当前结果：`backend/scripts/agent/demo-agent-showcase.ps1` 新增 `-DryRun` 参数；DryRun 会输出脱敏 summary 和 `plannedSteps`，包含 check backend health、run summary / QA / RAG agent task、verify decision / routingReason / matchedKeywords / trace / citations / rag debug summary。DryRun 不检查 `DOCPILOT_AUTH_TOKEN`，不调用后端，不启动服务，不输出原始 baseUrl。
+- 验证结果：PowerShell 语法解析通过；`-DryRun` 模式通过并只输出脱敏计划；`cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test` 通过；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：真实模式原有 health check / Agent run 行为保留；未新增公开 API；未读取 `backend/.env`；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response；未真实调用 provider；未真实连接 Qdrant；未新增数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T115-RAG-Showcase-Hardening-Closeout
 
 - 状态：DONE

@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T116 Agent Demo Script DryRun
+
+### 本轮目标
+
+给 Agent showcase demo 脚本补显式 `-DryRun` 模式，允许开发者在没有 token / documentId、没有后端服务的情况下预览脱敏演示步骤。
+
+### 修改文件
+
+- `backend/scripts/agent/demo-agent-showcase.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/AgentDemoScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `demo-agent-showcase.ps1` 新增 `-DryRun` 参数。
+- DryRun 直接输出 sanitized summary 和 `plannedSteps`，覆盖 backend health、summary / QA / RAG agent task、decision / routingReason / matchedKeywords / trace / citations / rag debug summary 检查计划。
+- DryRun 不要求 `DOCPILOT_AUTH_TOKEN` 或 `DocumentId`，不调用后端，不启动服务，不输出原始 baseUrl。
+- 真实模式原有 health check、Authorization header 构造和 Agent run 调用路径保持不变。
+- `AgentDemoScriptSafetyTest` 增加 DryRun / plannedSteps 静态断言。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- `-DryRun` 模式：通过，只输出脱敏计划。
+- `cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未启动后端服务。
+- 未真实运行 Agent runtime。
+- 未输出 token、endpoint 原文、文档正文、prompt、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T115 RAG Showcase Hardening Closeout
 
 ### 本轮目标

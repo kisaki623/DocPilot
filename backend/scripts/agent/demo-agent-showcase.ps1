@@ -3,7 +3,8 @@ param(
   [long]$DocumentId = 0,
   [ValidateSet("qa", "rag", "summary")]
   [string]$Mode = "qa",
-  [string]$Token = ""
+  [string]$Token = "",
+  [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,7 +35,8 @@ function New-SanitizedSummary {
     [int]$RagRetrievedCount = 0,
     [int]$CitationCount = 0,
     [int]$TraceStepCount = 0,
-    [string]$Note = ""
+    [string]$Note = "",
+    [string[]]$PlannedSteps = @()
   )
   return [PSCustomObject]@{
     backendReachable = $BackendReachable
@@ -48,6 +50,7 @@ function New-SanitizedSummary {
     traceStepCount = $TraceStepCount
     mode = $Mode
     note = $Note
+    plannedSteps = $PlannedSteps
   }
 }
 
@@ -55,6 +58,27 @@ function Write-SanitizedSummary {
   param([object]$Summary)
   Write-Host "Agent showcase demo sanitized summary:"
   $Summary | ConvertTo-Json -Depth 5
+}
+
+function Get-DryRunSteps {
+  return @(
+    "check backend health",
+    "run summary agent task",
+    "run QA agent task",
+    "run RAG agent task",
+    "verify decision",
+    "verify routingReason",
+    "verify matchedKeywords",
+    "verify trace",
+    "verify citations",
+    "verify rag debug summary"
+  )
+}
+
+if ($DryRun) {
+  Write-SanitizedSummary -Summary (New-SanitizedSummary -Note "dry-run" -PlannedSteps (Get-DryRunSteps))
+  Write-Host "DryRun completed. No backend request was made."
+  exit 0
 }
 
 if ($DocumentId -le 0 -or [string]::IsNullOrWhiteSpace($Token)) {

@@ -25,7 +25,11 @@ class AgentDemoScriptSafetyTest {
                 .contains("citationCount")
                 .contains("traceStepCount")
                 .contains("remote-redacted")
-                .contains("missing-token-or-document-id");
+                .contains("missing-token-or-document-id")
+                .contains("DryRun")
+                .contains("plannedSteps")
+                .contains("check backend health")
+                .contains("verify rag debug summary");
         assertThat(script)
                 .doesNotContain("backendBaseUrl = $baseUrl")
                 .doesNotContain("token = $Token")
