@@ -2,6 +2,43 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-22 - T135 Offline Demo Backend Full Regression
+
+### 本轮目标
+
+运行 T131-T134 后的后端全量回归，并记录当前测试状态。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录后端全量回归结果。
+- 同步 T131-T134 后测试数和安全边界。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，459 tests。
+- Frontend lint/build：未运行，原因是本轮未修改 `frontend/`。
+- 文档 mojibake 扫描：执行于本轮文档修改前，仅命中既有历史扫描命令示例 / 历史说明中的 replacement-character scan token，未发现本轮新增乱码。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未接 LangChain4j / Spring AI / Redis Vector。
+- 未处理 T010 / MQ blocked；T134 仅新增只读 readiness 诊断。
+- 未启动长期后端 / 前端服务进程。
+- 未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
 ## 2026-05-21 - T130 RAG Demo Regression Closeout
 
 ### 本轮目标

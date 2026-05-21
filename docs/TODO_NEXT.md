@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T135-Offline-Demo-Backend-Full-Regression
+
+- 状态：DONE
+- 完成时间：2026-05-22
+- 任务目标：在 T131-T134 完成后运行后端全量回归，确认离线 Agent/RAG demo suite、artifact schema、eval trend 稳定性和 MQ readiness 只读诊断未破坏现有测试。
+- 当前结果：后端全量 `mvn test -DskipITs` 已通过，当前测试数 459。
+- 验证结果：`cd backend; mvn test -DskipITs` 通过，459 tests。
+- 边界：本任务仅记录回归结果；未新增公开 API；未新增数据库表；未新增 Maven 依赖；未修改 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未接 LangChain4j / Spring AI / Redis Vector；未处理 T010 / MQ blocked；未启动长期后端 / 前端服务进程；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
 ### T130-RAG-Demo-Regression-Closeout
 
 - 状态：DONE
