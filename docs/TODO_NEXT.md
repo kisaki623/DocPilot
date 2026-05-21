@@ -13,6 +13,22 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T125-Offline-RAG-Demo-Evidence-Closeout
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：收口 T116-T124 的真实完成状态、验证结果和边界，不写投递材料，不新增 T126 之后任务。
+- 当前结果：T116 `6cb34f9`、T117 `54aa023`、T118 `80f1b7a`、T119 `2fe7cb9`、T120 `f7aee58`、T121 `a2fe603`、T122 `999a41b`、T123 `65d38a2` 已单独提交；T124 因本轮未修改 frontend / 前端展示相关代码而 SKIPPED，未做空提交。
+- 验证结果：收口前 `git status --short` 为空；`git diff --stat` 为空；`git log --oneline -15` 已确认本轮提交链路；后端全量 `cd backend; mvn test -DskipITs` 通过，452 tests；前端 lint/build 本轮未运行，原因是没有 frontend 改动。
+- 边界：未新增公开 API；未新增数据库表；未新增 Maven 依赖；未修改 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未接 LangChain4j / Spring AI / Redis Vector；未处理 T010 / MQ blocked；未启动长期后端 / 前端服务进程；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
+### T124-Frontend-Lint-Build-Conditional
+
+- 状态：SKIPPED
+- 完成时间：2026-05-21
+- 跳过原因：T116-T123 未修改 `frontend/`，也未修改影响前端展示 runtime 的接口或字段；因此按任务要求跳过 `npm run lint` / `npm run build`，不提交空任务。
+- 边界：未修改 frontend；未启动 frontend dev server。
+
 ### T123-RAG-Demo-Backend-Full-Regression
 
 - 状态：DONE
