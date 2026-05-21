@@ -81,6 +81,7 @@ class AgentRagQaConsistencyTest {
                 DOCUMENT_TEXT,
                 2
         ));
+        String qaTraceSummary = new RagQaTraceFormatter().formatInterviewSummary(qaContext.trace());
 
         assertThat(agentResult.topK()).isEqualTo(2);
         assertThat(agentResult.retrievedChunks()).hasSize(qaContext.retrievedCount());
@@ -88,12 +89,27 @@ class AgentRagQaConsistencyTest {
         assertThat(agentResult.answerContext()).isNotBlank();
         assertThat(qaContext.used()).isTrue();
         assertThat(qaContext.trace().contextHashPresent()).isTrue();
+        assertThat(agentResult.retrievedChunks().get(0).metadata().keySet())
+                .containsAll(qaContext.citations().get(0).metadata().keySet());
+        assertThat(agentResult.retrievedChunks().get(0).chunkIndex())
+                .isEqualTo(qaContext.citations().get(0).chunkIndex());
+        assertThat(qaTraceSummary)
+                .contains("topK=2")
+                .contains("retrievedCount=" + qaContext.retrievedCount())
+                .contains("citationCount=" + qaContext.citations().size())
+                .contains("contextHashPresent=true")
+                .contains("fallbackUsed=false");
         assertThat(agentResult.outputSummary())
+                .contains("ragEnabled=true")
                 .contains("embeddingProvider=fake")
                 .contains("vectorStoreType=in_memory")
                 .contains("topK=2")
+                .contains("retrievedCount=" + qaContext.retrievedCount())
                 .contains("contextHashPresent=true")
-                .contains("fallbackUsed=false");
+                .contains("contextTruncated=" + qaContext.trace().contextTruncated())
+                .contains("fallbackUsed=false")
+                .contains("citationCount=" + qaContext.citations().size())
+                .contains("cacheKeyRagAware=false");
         assertThat(agentResult.outputSummary()).doesNotContain(PRIVATE_DOC_MARKER);
     }
 

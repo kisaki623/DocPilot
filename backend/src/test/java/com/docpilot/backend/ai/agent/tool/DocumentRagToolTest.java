@@ -37,13 +37,16 @@ class DocumentRagToolTest {
         assertFalse(result.answerContext().isBlank());
         assertFalse(result.citations().isEmpty());
         assertTrue(result.retrievedChunks().get(0).metadata().containsKey("contentHash"));
+        assertTrue(result.outputSummary().contains("ragEnabled=true"));
         assertTrue(result.outputSummary().contains("embeddingProvider=fake"));
         assertTrue(result.outputSummary().contains("vectorStoreType=in_memory"));
         assertTrue(result.outputSummary().contains("topK=2"));
         assertTrue(result.outputSummary().contains("retrievedCount="));
         assertTrue(result.outputSummary().contains("contextHashPresent=true"));
+        assertTrue(result.outputSummary().contains("contextTruncated=false"));
         assertTrue(result.outputSummary().contains("fallbackUsed=false"));
         assertTrue(result.outputSummary().contains("citationCount="));
+        assertTrue(result.outputSummary().contains("cacheKeyRagAware=false"));
         assertFalse(result.outputSummary().contains("Payment terms require"));
     }
 
@@ -114,6 +117,8 @@ class DocumentRagToolTest {
         assertTrue(result.outputSummary().contains("vectorStoreType=qdrant_disabled"));
         assertTrue(result.outputSummary().contains("fallbackUsed=true"));
         assertTrue(result.outputSummary().contains("fallbackReason=qdrant_disabled"));
+        assertTrue(result.outputSummary().contains("retrievedCount=0"));
+        assertTrue(result.outputSummary().contains("citationCount=0"));
         assertFalse(result.outputSummary().contains("Payment terms require"));
     }
 }

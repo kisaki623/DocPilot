@@ -10,6 +10,8 @@ import com.docpilot.backend.ai.rag.RagFallbackReasonClassifier;
 import com.docpilot.backend.ai.rag.RagIndexKey;
 import com.docpilot.backend.ai.rag.RagIndexManager;
 import com.docpilot.backend.ai.rag.RagIndexService;
+import com.docpilot.backend.ai.rag.RagQaTrace;
+import com.docpilot.backend.ai.rag.RagQaTraceFormatter;
 import com.docpilot.backend.ai.rag.RagRetrievalService;
 import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
 import com.docpilot.backend.ai.rag.VectorStore;
@@ -30,6 +32,7 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
     private static final int MAX_TOP_K = 5;
     private static final int SNIPPET_MAX_LENGTH = 280;
     private static final int CONTEXT_MAX_LENGTH = 900;
+    private static final RagQaTraceFormatter TRACE_FORMATTER = new RagQaTraceFormatter();
 
     private final EmbeddingModelFactory embeddingModelFactory;
     private final RagEmbeddingProperties embeddingProperties;
@@ -87,7 +90,7 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                     List.of(),
                     List.of(),
                     "",
-                    buildTraceSummary(topK, 0, false, true, "no_document_text", 0, false)
+                    buildTraceSummary(topK, 0, false, false, true, "no_document_text", 0, false)
             );
         }
 
@@ -114,6 +117,9 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
             List<VectorSearchResult> hits = retrievalService.retrieveForQuestion(input.documentId(), input.task(), topK);
             RagAnswerContext answerContext = contextBuilder.build(hits);
             List<RetrievedChunk> retrievedChunks = toRetrievedChunks(hits);
+            String rawAnswerContext = answerContext.contextText();
+            String safeAnswerContext = truncate(rawAnswerContext, CONTEXT_MAX_LENGTH);
+            boolean contextTruncated = rawAnswerContext != null && rawAnswerContext.length() > safeAnswerContext.length();
 
             return new RagResult(
                     input.documentId(),
@@ -121,11 +127,12 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                     topK,
                     retrievedChunks,
                     answerContext.citations(),
-                    truncate(answerContext.contextText(), CONTEXT_MAX_LENGTH),
+                    safeAnswerContext,
                     buildTraceSummary(
                             topK,
                             retrievedChunks.size(),
-                            !answerContext.contextText().isBlank(),
+                            !safeAnswerContext.isBlank(),
+                            contextTruncated,
                             false,
                             "",
                             answerContext.citations().size(),
@@ -141,7 +148,8 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
                     List.of(),
                     List.of(),
                     "",
-                    buildTraceSummary(topK, 0, false, true, RagFallbackReasonClassifier.classify(ex), 0, false, false)
+                    buildTraceSummary(topK, 0, false, false, true,
+                            RagFallbackReasonClassifier.classify(ex), 0, false, false)
             );
         }
     }
@@ -149,32 +157,43 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
     private String buildTraceSummary(int topK,
                                      int retrievedCount,
                                      boolean contextHashPresent,
+                                     boolean contextTruncated,
                                      boolean fallbackUsed,
                                      String fallbackReason,
                                      int citationCount,
                                      boolean indexReused) {
-        return buildTraceSummary(topK, retrievedCount, contextHashPresent, fallbackUsed, fallbackReason,
+        return buildTraceSummary(topK, retrievedCount, contextHashPresent, contextTruncated, fallbackUsed, fallbackReason,
                 citationCount, indexReused, false);
     }
 
     private String buildTraceSummary(int topK,
                                      int retrievedCount,
                                      boolean contextHashPresent,
+                                     boolean contextTruncated,
                                      boolean fallbackUsed,
                                      String fallbackReason,
                                      int citationCount,
                                      boolean indexReused,
                                      boolean indexTruncated) {
-        return "embeddingProvider=" + embeddingProperties.getProvider()
-                + ", vectorStoreType=" + vectorStoreProperties.getProvider()
-                + ", topK=" + topK
-                + ", retrievedCount=" + retrievedCount
-                + ", contextHashPresent=" + contextHashPresent
-                + ", fallbackUsed=" + fallbackUsed
-                + ", fallbackReason=" + safeSummaryValue(fallbackReason)
-                + ", citationCount=" + Math.max(0, citationCount)
-                + ", indexReused=" + indexReused
-                + ", indexTruncated=" + indexTruncated;
+        RagQaTrace trace = new RagQaTrace(
+                true,
+                embeddingProperties.getProvider(),
+                vectorStoreProperties.getProvider(),
+                true,
+                topK,
+                retrievedCount,
+                CONTEXT_MAX_LENGTH,
+                contextHashPresent ? CONTEXT_MAX_LENGTH : 0,
+                contextTruncated,
+                contextHashPresent,
+                fallbackUsed,
+                fallbackReason,
+                citationCount,
+                false,
+                indexReused,
+                indexTruncated
+        );
+        return TRACE_FORMATTER.formatInterviewSummary(trace);
     }
 
     private List<RetrievedChunk> toRetrievedChunks(List<VectorSearchResult> hits) {
@@ -208,13 +227,6 @@ public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, Docu
             return text == null ? "" : text;
         }
         return text.substring(0, maxLength) + "...";
-    }
-
-    private String safeSummaryValue(String value) {
-        if (value == null || value.isBlank()) {
-            return "";
-        }
-        return value.replaceAll("[\\r\\n\\t]+", " ").trim();
     }
 
     public record RagInput(Long documentId, String task, String documentText, Integer topK) {

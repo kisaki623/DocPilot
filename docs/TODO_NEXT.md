@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T112-Agent-RAG-Tool-QA-Trace-Alignment
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强 Agent `rag_tool` 与 QA RAG context / trace 的一致性，证明 retrieval、citation metadata、fallback 和原有 routing 行为边界一致。
+- 当前结果：`DocumentRagTool` 的 `outputSummary` 改为复用 `RagQaTraceFormatter.formatInterviewSummary`，输出 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware 等 QA trace 同口径字段；`AgentRagQaConsistencyTest` 增加 Agent retrieved chunk metadata / chunkIndex 与 QA citation metadata / trace summary 对齐断言；`DocumentRagToolTest` 增加 ragEnabled、contextTruncated、cacheKeyRagAware、fallback retrievedCount / citationCount 断言。
+- 验证结果：`cd backend; mvn "-Dtest=*Rag*" test` 通过，82 tests；`cd backend; mvn "-Dtest=*DocumentAgent*" test` 通过，30 tests；`cd backend; mvn "-Dtest=DocumentToolSelectorTest" test` 通过，9 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：未新增公开 API；未改变 Agent routing 默认行为；未修改 summary / qa / status selector；未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T111-RAG-QA-Trace-Formatter-Sanitized-Tests
 
 - 状态：DONE

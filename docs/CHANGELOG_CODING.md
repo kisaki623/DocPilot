@@ -2,6 +2,47 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T112 Agent RAG Tool QA Trace Alignment
+
+### 本轮目标
+
+增强 Agent `rag_tool` 与 QA RAG context / trace 的一致性测试和输出口径，证明 retrieval、citation metadata、fallback 和原有 routing 行为边界一致。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/AgentRagQaConsistencyTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `DocumentRagTool.outputSummary` 改为复用 `RagQaTraceFormatter.formatInterviewSummary`。
+- Agent rag_tool summary 现在与 QA trace 同口径输出 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware。
+- `AgentRagQaConsistencyTest` 增加 Agent retrieved chunk metadata / chunkIndex 与 QA citation metadata / trace summary 对齐断言。
+- `DocumentRagToolTest` 增加 ragEnabled、contextTruncated、cacheKeyRagAware、fallback retrievedCount / citationCount 断言。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，82 tests。
+- `cd backend; mvn "-Dtest=*DocumentAgent*" test`：通过，30 tests。
+- `cd backend; mvn "-Dtest=DocumentToolSelectorTest" test`：通过，9 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未改变 Agent routing 默认行为。
+- 未修改 summary / qa / status selector 行为。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T111 RAG QA Trace Formatter Sanitized Tests
 
 ### 本轮目标
