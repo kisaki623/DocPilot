@@ -13,6 +13,51 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T130-RAG-Demo-Regression-Closeout
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：对 T126-T129 做后端全量回归和协作文档同步，不新增功能，不写投递材料。
+- 当前结果：T126 `06a6ff0`、T127 `a0e9a6e`、T128 `1cdecfa`、T129 `7d4c98a` 已单独提交；本条记录本轮验证结果和安全边界。
+- 验证结果：`cd backend; mvn test -DskipITs` 通过，455 tests；本轮未修改 `frontend/`，因此未运行 `npm run lint` / `npm run build`。
+- 边界：未新增公开 API；未新增数据库表；未新增 Maven 依赖；未修改 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未接 LangChain4j / Spring AI / Redis Vector；未处理 T010 / MQ blocked；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
+### T129-Agent-RAG-Consistency-Regression
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强 Agent `rag_tool` 和 RAG QA context builder 的一致性回归，避免同一 documentId / query 在 metadata、topK、retrievedCount 和 fallback 语义上漂移。
+- 当前结果：`AgentRagQaConsistencyTest` 增加同一 document/query 的 Agent 与 QA metadata 断言，确认 `documentId`、`chunkIndex`、`sourceType=rag_chunk` 和 `chunkVersion` 存在；新增 qdrant_disabled fallback 后默认 in_memory 正常路径不被污染的用例。内部 `RagChunkMetadata` 增加安全来源字段 `sourceType=rag_chunk`，`QdrantPointPayload` 白名单透传该字段。
+- 验证结果：`cd backend; mvn "-Dtest=*Rag*" test` 通过，88 tests；`cd backend; mvn "-Dtest=*DocumentAgent*" test` 通过，31 tests；`cd backend; mvn "-Dtest=*Qdrant*" test` 通过，22 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：未新增公开 API；未修改 production routing；未新增数据库表、Maven 依赖或 docker-compose；未真实连接 Qdrant；未输出 endpoint、Authorization、prompt、文档正文或 provider response。
+
+### T128-RAG-Debug-Trace-Redaction-Coverage
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：继续增强 `RagQaTraceFormatter` / debug trace summary 的脱敏测试。
+- 当前结果：`RagQaTraceFormatterTest` 新增 empty retrieval、qdrant_disabled fallback、provider_disabled fallback 的 interview summary 断言，覆盖 `contextTruncated=true/false`、`fallbackUsed=true/false` 和禁词脱敏边界。
+- 验证结果：`cd backend; mvn "-Dtest=*RagQaTrace*" test` 通过，10 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：只改测试；未改生产逻辑；未输出 endpoint、Authorization、API key、prompt、文档正文或 provider response。
+
+### T127-RAG-Offline-Eval-History-Stability
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：稳定 offline RAG eval history artifact 字段，确保它不依赖当前时间、真实 provider 或外部服务。
+- 当前结果：`RagRetrievalEvaluationArtifactTest` 新增 history stability 断言，锁定 `generatedAt`、`vectorStoreProvider`、`embeddingProvider=fake`、`caseCount`、`hitCount`、`missCount` 和 `hitRate`，并确认 artifact 不包含正文、prompt、endpoint 或 provider response。
+- 验证结果：`cd backend; mvn "-Dtest=*Rag*Eval*" test` 通过，11 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：只改测试；未调用真实 provider；未连接真实 Qdrant；未新增 API / DB / Maven 依赖 / docker-compose。
+
+### T126-Agent-Demo-DryRun-Output-Hardening
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强 Agent showcase demo 脚本 DryRun 输出，使其不启动服务、不调用后端、不暴露环境信息即可输出脱敏 demo 摘要。
+- 当前结果：`demo-agent-showcase.ps1 -DryRun` 改为只输出 JSON summary：`mode=dry-run`、`backendReachable=unknown`、`authTokenPresent`、`documentIdPresent`、`secretRedactionEnabled=true` 和 `expectedDemoSteps`；DryRun 不输出原始 backend URL、token、document text 或 endpoint 分类字段。`AgentDemoScriptSafetyTest` 已同步断言。
+- 验证结果：PowerShell DryRun 实跑通过；`cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test` 通过，2 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：未启动后端服务；未真实运行 Agent runtime；未读取 `backend/.env`；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
 ### T125-Offline-RAG-Demo-Evidence-Closeout
 
 - 状态：DONE

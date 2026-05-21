@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T130 RAG Demo Regression Closeout
+
+### 本轮目标
+
+完成 T126-T129 后端回归和协作文档同步；不新增功能，不写投递材料。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T126 `06a6ff0`：Agent showcase demo DryRun 输出改为脱敏 JSON summary。
+- 记录 T127 `a0e9a6e`：offline RAG eval history 字段稳定性测试。
+- 记录 T128 `1cdecfa`：RAG debug trace redaction 覆盖增强。
+- 记录 T129 `7d4c98a`：Agent / QA RAG 一致性回归和 `sourceType=rag_chunk` metadata 边界。
+- 同步本轮后端全量回归结果和未做事项。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，455 tests。
+- Frontend lint/build：未运行，原因是本轮未修改 `frontend/`。
+- 文档 mojibake 扫描：执行于本轮文档修改前，仅命中既有历史扫描命令示例 / 历史说明中的 replacement-character scan token，未发现本轮新增乱码。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未接 LangChain4j / Spring AI / Redis Vector。
+- 未处理 T010 / MQ blocked。
+- 未启动长期后端 / 前端服务进程。
+- 未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
 ## 2026-05-21 - T123 RAG Demo Backend Full Regression
 
 ### 本轮目标

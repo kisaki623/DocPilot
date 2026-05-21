@@ -8,11 +8,16 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 项目仍处于作品展示与实习投递导向的持续打磨阶段。它可以展示工程化能力，但还不是生产级 SaaS，也不是完整向量 RAG / 多 Agent 平台。
 
-截至 2026-05-21 T123 回归同步时，`git status --short` 为空，工作区干净；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
+截至 2026-05-21 T130 回归同步时，T126-T129 已单独提交，后端全量 `mvn test -DskipITs` 通过 455 tests；后续接手仍必须每轮先检查 `git status` / `git diff`，避免覆盖用户本地改动。
 
 ## 2. 已经实现的功能
 
 - T115 已完成 T108-T114 阶段收口：T108 `f6d10d5`、T109 `5f7e997`、T110 `e1d2691`、T111 `99f0513`、T112 `a1a0782`、T113 `9ee22a2`、T114 `d428795` 均已单独提交。后端全量 `mvn test -DskipITs` 通过 446 tests；因 T113 修改 frontend，`npm run lint` 与 `npm run build` 均通过。未新增公开 API、DB 表、Maven 依赖或 docker-compose；未真实调用 provider；未真实连接 Qdrant；未处理 T010/MQ blocked。
+- T130 已完成 T126-T129 回归收口：T126 `06a6ff0`、T127 `a0e9a6e`、T128 `1cdecfa`、T129 `7d4c98a` 已单独提交；后端 full test `mvn test -DskipITs` 通过 455 tests。本轮未修改 frontend，因此未运行 frontend lint/build。未新增 API、DB 表、Maven 依赖或 docker-compose；未真实调用 provider；未真实连接 Qdrant；未处理 T010/MQ blocked。
+- T129 已增强 Agent/RAG 一致性回归：`RagChunkMetadata` 增加安全字段 `sourceType=rag_chunk`，`QdrantPointPayload` 白名单透传该字段；`AgentRagQaConsistencyTest` 锁定同一 document/query 下 Agent rag_tool 与 QA RAG context 的 retrievedCount、citation metadata 和 fallback 语义一致，并确认 qdrant_disabled fallback 不污染默认 in_memory 正常路径。
+- T128 已增强 RAG debug trace redaction 覆盖：`RagQaTraceFormatterTest` 新增 empty retrieval、qdrant_disabled fallback、provider_disabled fallback 断言，继续确认 summary 不输出 endpoint、Authorization、API key、prompt、文档正文或 provider response。
+- T127 已稳定 offline RAG eval history 测试：`RagRetrievalEvaluationArtifactTest` 锁定 history artifact 的固定 `generatedAt`、`vectorStoreProvider`、`embeddingProvider=fake`、case / hit / miss / hitRate 字段，并确认不依赖真实 provider、真实 Qdrant 或当前时间。
+- T126 已加固 Agent showcase demo DryRun 输出：`demo-agent-showcase.ps1 -DryRun` 现在只输出脱敏 JSON summary，包含 `mode=dry-run`、`backendReachable=unknown`、token / documentId 存在性、`secretRedactionEnabled=true` 和 expected demo steps；不调用后端、不启动服务、不输出原始 baseUrl / endpoint / token / 文档正文。
 - T116 已给 Agent showcase demo 脚本补显式 `-DryRun`：不要求 token / documentId，不调用后端，不启动服务，不输出原始 baseUrl；只输出脱敏 summary 与 plannedSteps，覆盖 health check、summary / QA / RAG agent task、decision / routingReason / matchedKeywords / trace / citations / rag debug summary 检查计划。真实模式原有行为保留，`AgentDemoScriptSafetyTest` 已补充 DryRun 字段断言。
 - T117 已补 Agent showcase demo DryRun 输出脱敏测试：`AgentDemoScriptSafetyTest.dryRunOutputShouldStayRedacted` 通过 PowerShell 执行脚本 DryRun，传入远程样式地址并断言输出只保留 `remote-redacted`，不包含原始地址、Authorization、Bearer、API key、baseUrl / endpoint 字段、prompt、document content / documentText 或 provider response。
 - T118 已补离线 RAG eval history artifact：`RagRetrievalEvaluationArtifactTest` 额外生成 `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.json` 和 `.md`，记录 `generatedAt`、`vectorStoreProvider`、`embeddingProvider=fake`、`caseCount`、`hitCount`、`missCount`、`hitRate`；当前包含 `in_memory` 与本地 `fake_server` 两条聚合记录，仍只使用 synthetic fixture 和 fake embedding。
