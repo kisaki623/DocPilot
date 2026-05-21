@@ -2,6 +2,43 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T118 RAG Offline Eval History Artifact
+
+### 本轮目标
+
+在不调用真实 provider、不连接真实 Qdrant 的前提下，补一个可提交的离线 RAG retrieval eval history artifact。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationArtifactTest.java`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.json`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `RagRetrievalEvaluationArtifactTest` 继续生成现有 offline retrieval eval JSON / Markdown，同时新增 history JSON / Markdown。
+- history 记录 `generatedAt`、`vectorStoreProvider`、`embeddingProvider=fake`、`caseCount`、`hitCount`、`missCount`、`hitRate`。
+- 当前 history 覆盖 `in_memory` 与本地 `fake_server` 两条聚合记录。
+- `hitCount` 定义为符合 expected hit / miss 行为的 case 数，避免把 no-match / empty document 这类成功边界样例误写成失败。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=RagRetrievalEvaluationArtifactTest" test`：通过，1 test。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- Artifact 只保存 synthetic eval 聚合指标。
+- 未保存文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T117 Agent Demo Script Redaction Test
 
 ### 本轮目标

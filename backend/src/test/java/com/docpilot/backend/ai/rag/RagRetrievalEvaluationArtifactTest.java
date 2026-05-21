@@ -23,6 +23,9 @@ class RagRetrievalEvaluationArtifactTest {
     private static final Path ARTIFACT_DIR = Path.of("..", "docs", "ai-dev", "benchmarks", "rag");
     private static final Path JSON_PATH = ARTIFACT_DIR.resolve("offline-retrieval-evaluation.json");
     private static final Path MARKDOWN_PATH = ARTIFACT_DIR.resolve("offline-retrieval-evaluation.md");
+    private static final Path HISTORY_JSON_PATH = ARTIFACT_DIR.resolve("offline-retrieval-evaluation-history.json");
+    private static final Path HISTORY_MARKDOWN_PATH = ARTIFACT_DIR.resolve("offline-retrieval-evaluation-history.md");
+    private static final String GENERATED_AT = "2026-05-21T00:00:00Z";
     private static final String PRIVATE_DOC_MARKER = "PRIVATE_EVAL_ARTIFACT_DOC_MARKER";
     private static final String PRIVATE_QUERY_MARKER = "PRIVATE_EVAL_ARTIFACT_QUERY_MARKER";
     private static final String IN_MEMORY_MARKER = "alpha-cache-marker";
@@ -44,14 +47,23 @@ class RagRetrievalEvaluationArtifactTest {
         Files.createDirectories(ARTIFACT_DIR);
         objectMapper.writerWithDefaultPrettyPrinter().writeValue(JSON_PATH.toFile(), report.toSafeMap());
         Files.writeString(MARKDOWN_PATH, report.toMarkdown(), StandardCharsets.UTF_8);
+        EvaluationHistory history = EvaluationHistory.from(report);
+        objectMapper.writerWithDefaultPrettyPrinter().writeValue(HISTORY_JSON_PATH.toFile(), history.toSafeMap());
+        Files.writeString(HISTORY_MARKDOWN_PATH, history.toMarkdown(), StandardCharsets.UTF_8);
 
         String json = Files.readString(JSON_PATH, StandardCharsets.UTF_8);
         String markdown = Files.readString(MARKDOWN_PATH, StandardCharsets.UTF_8);
+        String historyJson = Files.readString(HISTORY_JSON_PATH, StandardCharsets.UTF_8);
+        String historyMarkdown = Files.readString(HISTORY_MARKDOWN_PATH, StandardCharsets.UTF_8);
         assertThat(json).contains("\"provider\" : \"in_memory\"");
         assertThat(json).contains("\"provider\" : \"qdrant_fake_server\"");
         assertThat(markdown).contains("| in_memory |");
         assertThat(markdown).contains("| qdrant_fake_server |");
-        assertThat(json + markdown)
+        assertThat(historyJson).contains("\"vectorStoreProvider\" : \"in_memory\"");
+        assertThat(historyJson).contains("\"vectorStoreProvider\" : \"fake_server\"");
+        assertThat(historyMarkdown).contains("| in_memory |");
+        assertThat(historyMarkdown).contains("| fake_server |");
+        assertThat(json + markdown + historyJson + historyMarkdown)
                 .doesNotContain(PRIVATE_DOC_MARKER)
                 .doesNotContain(PRIVATE_QUERY_MARKER)
                 .doesNotContain("Synthetic cache evidence")
@@ -443,6 +455,86 @@ class RagRetrievalEvaluationArtifactTest {
             value.put("fallbackReason", fallbackReason);
             value.put("failedCaseIds", failedCaseIds);
             value.put("caseSummaries", caseEvaluations.stream().map(CaseEvaluation::toSafeMap).toList());
+            return value;
+        }
+    }
+
+    private record EvaluationHistory(List<HistoryEntry> entries) {
+
+        static EvaluationHistory from(EvaluationReport report) {
+            return new EvaluationHistory(report.stores().stream()
+                    .filter(store -> "in_memory".equals(store.provider()) || "qdrant_fake_server".equals(store.provider()))
+                    .map(store -> {
+                        int caseCount = store.caseEvaluations().size();
+                        int hitCount = (int) store.caseEvaluations().stream().filter(CaseEvaluation::passed).count();
+                        int missCount = caseCount - hitCount;
+                        return new HistoryEntry(
+                                GENERATED_AT,
+                                normalizeProvider(store.provider()),
+                                report.embeddingProvider(),
+                                caseCount,
+                                hitCount,
+                                missCount,
+                                String.format(java.util.Locale.ROOT, "%.4f",
+                                        caseCount == 0 ? 0.0D : (double) hitCount / caseCount)
+                        );
+                    })
+                    .toList());
+        }
+
+        private static String normalizeProvider(String provider) {
+            if ("qdrant_fake_server".equals(provider)) {
+                return "fake_server";
+            }
+            return provider;
+        }
+
+        Map<String, Object> toSafeMap() {
+            Map<String, Object> root = new LinkedHashMap<>();
+            root.put("artifact", "offline-retrieval-evaluation-history");
+            root.put("metricDefinition", "hitCount counts cases whose expected hit/miss behavior passed");
+            root.put("entries", entries.stream().map(HistoryEntry::toSafeMap).toList());
+            return root;
+        }
+
+        String toMarkdown() {
+            StringBuilder builder = new StringBuilder();
+            builder.append("# Offline RAG Retrieval Evaluation History\n\n");
+            builder.append("Metrics are generated from synthetic fixtures only. `hitCount` counts cases whose expected hit/miss behavior passed.\n\n");
+            builder.append("| Generated at | Vector store | Embedding | Cases | Hits | Misses | Hit rate |\n");
+            builder.append("| --- | --- | --- | ---: | ---: | ---: | ---: |\n");
+            for (HistoryEntry entry : entries) {
+                builder.append("| ").append(entry.generatedAt())
+                        .append(" | ").append(entry.vectorStoreProvider())
+                        .append(" | ").append(entry.embeddingProvider())
+                        .append(" | ").append(entry.caseCount())
+                        .append(" | ").append(entry.hitCount())
+                        .append(" | ").append(entry.missCount())
+                        .append(" | ").append(entry.hitRate())
+                        .append(" |\n");
+            }
+            return builder.toString();
+        }
+    }
+
+    private record HistoryEntry(
+            String generatedAt,
+            String vectorStoreProvider,
+            String embeddingProvider,
+            int caseCount,
+            int hitCount,
+            int missCount,
+            String hitRate
+    ) {
+        Map<String, Object> toSafeMap() {
+            Map<String, Object> value = new LinkedHashMap<>();
+            value.put("generatedAt", generatedAt);
+            value.put("vectorStoreProvider", vectorStoreProvider);
+            value.put("embeddingProvider", embeddingProvider);
+            value.put("caseCount", caseCount);
+            value.put("hitCount", hitCount);
+            value.put("missCount", missCount);
+            value.put("hitRate", hitRate);
             return value;
         }
     }

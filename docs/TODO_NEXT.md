@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T118-RAG-Offline-Eval-History-Artifact
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补离线 RAG retrieval eval history artifact，记录最近一次 synthetic offline eval 的聚合指标。
+- 当前结果：`RagRetrievalEvaluationArtifactTest` 现在额外生成 `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.json` 与 `.md`；history 包含 `generatedAt`、`vectorStoreProvider`、`embeddingProvider=fake`、`caseCount`、`hitCount`、`missCount`、`hitRate`。当前 artifact 覆盖 `in_memory` 和本地 `fake_server`，`hitCount` 明确定义为符合 expected hit / miss 行为的 case 数。
+- 验证结果：`cd backend; mvn "-Dtest=RagRetrievalEvaluationArtifactTest" test` 通过，1 test；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：artifact 只记录 synthetic eval 聚合指标，不保存文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T117-Agent-Demo-Script-Redaction-Test
 
 - 状态：DONE
