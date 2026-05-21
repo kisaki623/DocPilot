@@ -15,6 +15,14 @@ class QdrantPreflightScriptSafetyTest {
     void shouldKeepQdrantPreflightOutputSanitized() throws IOException {
         String script = Files.readString(Path.of("scripts/rag/preflight-qdrant-vector-store.ps1"), StandardCharsets.UTF_8);
 
+        assertThat(script).contains("APP_RAG_VECTOR_STORE_PROVIDER");
+        assertThat(script).contains("APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT");
+        assertThat(script).contains("APP_RAG_VECTOR_STORE_QDRANT_COLLECTION");
+        assertThat(script).contains("APP_RAG_VECTOR_STORE_QDRANT_API_KEY");
+        assertThat(script).contains("appProviderPresent");
+        assertThat(script).contains("appEndpointPresent");
+        assertThat(script).contains("appCollectionPresent");
+        assertThat(script).contains("appApiKeyPresent");
         assertThat(script).contains("RAG_VECTOR_STORE_PROVIDER");
         assertThat(script).contains("RAG_QDRANT_ENDPOINT");
         assertThat(script).contains("RAG_QDRANT_COLLECTION");
@@ -27,7 +35,10 @@ class QdrantPreflightScriptSafetyTest {
         assertThat(script).contains("connectTimeoutPresent");
         assertThat(script).contains("requestTimeoutPresent");
         assertThat(script).contains("isLocalhost");
+        assertThat(script).contains("AllowRequest");
+        assertThat(script).contains("requestAllowed");
         assertThat(script).contains("requestAttempted");
+        assertThat(script).contains("READY_DRY_RUN");
         assertThat(script).contains("AllowCreateCollection");
         assertThat(script).contains("DryRun");
         assertThat(script).contains("createAttempted");

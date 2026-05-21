@@ -1,4 +1,5 @@
 param(
+  [switch]$AllowRequest,
   [switch]$SkipRequest,
   [switch]$DryRun,
   [switch]$AllowCreateCollection,
@@ -23,17 +24,42 @@ function Test-Present {
   return -not [string]::IsNullOrWhiteSpace($Value)
 }
 
+function Select-EffectiveValue {
+  param(
+    [string]$Primary,
+    [string]$Fallback
+  )
+  if (Test-Present -Value $Primary) {
+    return $Primary
+  }
+  return $Fallback
+}
+
 function Write-Summary {
   param([hashtable]$Summary)
   [PSCustomObject]$Summary | ConvertTo-Json -Depth 4
 }
 
-$provider = $env:RAG_VECTOR_STORE_PROVIDER
-$endpoint = $env:RAG_QDRANT_ENDPOINT
-$collection = $env:RAG_QDRANT_COLLECTION
-$apiKey = $env:RAG_QDRANT_API_KEY
-$connectTimeoutMs = $env:RAG_QDRANT_CONNECT_TIMEOUT_MS
-$requestTimeoutMs = $env:RAG_QDRANT_REQUEST_TIMEOUT_MS
+$appProvider = $env:APP_RAG_VECTOR_STORE_PROVIDER
+$appEndpoint = $env:APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT
+$appCollection = $env:APP_RAG_VECTOR_STORE_QDRANT_COLLECTION
+$appApiKey = $env:APP_RAG_VECTOR_STORE_QDRANT_API_KEY
+$appConnectTimeoutMs = $env:APP_RAG_VECTOR_STORE_QDRANT_CONNECT_TIMEOUT_MS
+$appRequestTimeoutMs = $env:APP_RAG_VECTOR_STORE_QDRANT_REQUEST_TIMEOUT_MS
+
+$legacyProvider = $env:RAG_VECTOR_STORE_PROVIDER
+$legacyEndpoint = $env:RAG_QDRANT_ENDPOINT
+$legacyCollection = $env:RAG_QDRANT_COLLECTION
+$legacyApiKey = $env:RAG_QDRANT_API_KEY
+$legacyConnectTimeoutMs = $env:RAG_QDRANT_CONNECT_TIMEOUT_MS
+$legacyRequestTimeoutMs = $env:RAG_QDRANT_REQUEST_TIMEOUT_MS
+
+$provider = Select-EffectiveValue -Primary $appProvider -Fallback $legacyProvider
+$endpoint = Select-EffectiveValue -Primary $appEndpoint -Fallback $legacyEndpoint
+$collection = Select-EffectiveValue -Primary $appCollection -Fallback $legacyCollection
+$apiKey = Select-EffectiveValue -Primary $appApiKey -Fallback $legacyApiKey
+$connectTimeoutMs = Select-EffectiveValue -Primary $appConnectTimeoutMs -Fallback $legacyConnectTimeoutMs
+$requestTimeoutMs = Select-EffectiveValue -Primary $appRequestTimeoutMs -Fallback $legacyRequestTimeoutMs
 
 $providerPresent = Test-Present -Value $provider
 $endpointPresent = Test-Present -Value $endpoint
@@ -41,12 +67,38 @@ $collectionPresent = Test-Present -Value $collection
 $apiKeyPresent = Test-Present -Value $apiKey
 $connectTimeoutPresent = Test-Present -Value $connectTimeoutMs
 $requestTimeoutPresent = Test-Present -Value $requestTimeoutMs
+$appProviderPresent = Test-Present -Value $appProvider
+$appEndpointPresent = Test-Present -Value $appEndpoint
+$appCollectionPresent = Test-Present -Value $appCollection
+$appApiKeyPresent = Test-Present -Value $appApiKey
+$appConnectTimeoutPresent = Test-Present -Value $appConnectTimeoutMs
+$appRequestTimeoutPresent = Test-Present -Value $appRequestTimeoutMs
+$legacyProviderPresent = Test-Present -Value $legacyProvider
+$legacyEndpointPresent = Test-Present -Value $legacyEndpoint
+$legacyCollectionPresent = Test-Present -Value $legacyCollection
+$legacyApiKeyPresent = Test-Present -Value $legacyApiKey
+$legacyConnectTimeoutPresent = Test-Present -Value $legacyConnectTimeoutMs
+$legacyRequestTimeoutPresent = Test-Present -Value $legacyRequestTimeoutMs
 $isQdrant = $providerPresent -and $provider.Trim().ToLowerInvariant() -eq "qdrant"
+$requestAllowed = [bool]$AllowRequest -and -not [bool]$SkipRequest -and -not [bool]$DryRun
+$effectiveDryRun = -not $requestAllowed
 
 if (-not $isQdrant) {
   Write-Summary @{
     status = "SKIPPED"
     providerIsQdrant = $false
+    appProviderPresent = $appProviderPresent
+    appEndpointPresent = $appEndpointPresent
+    appCollectionPresent = $appCollectionPresent
+    appApiKeyPresent = $appApiKeyPresent
+    appConnectTimeoutPresent = $appConnectTimeoutPresent
+    appRequestTimeoutPresent = $appRequestTimeoutPresent
+    legacyProviderPresent = $legacyProviderPresent
+    legacyEndpointPresent = $legacyEndpointPresent
+    legacyCollectionPresent = $legacyCollectionPresent
+    legacyApiKeyPresent = $legacyApiKeyPresent
+    legacyConnectTimeoutPresent = $legacyConnectTimeoutPresent
+    legacyRequestTimeoutPresent = $legacyRequestTimeoutPresent
     providerPresent = $providerPresent
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
@@ -54,8 +106,9 @@ if (-not $isQdrant) {
     connectTimeoutPresent = $connectTimeoutPresent
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $false
+    requestAllowed = $requestAllowed
     requestAttempted = $false
-    dryRun = [bool]$DryRun
+    dryRun = $effectiveDryRun
     allowCreateCollection = [bool]$AllowCreateCollection
     createAttempted = $false
   }
@@ -68,6 +121,18 @@ if (-not $endpointPresent -or -not $collectionPresent) {
   Write-Summary @{
     status = "BLOCKED"
     providerIsQdrant = $true
+    appProviderPresent = $appProviderPresent
+    appEndpointPresent = $appEndpointPresent
+    appCollectionPresent = $appCollectionPresent
+    appApiKeyPresent = $appApiKeyPresent
+    appConnectTimeoutPresent = $appConnectTimeoutPresent
+    appRequestTimeoutPresent = $appRequestTimeoutPresent
+    legacyProviderPresent = $legacyProviderPresent
+    legacyEndpointPresent = $legacyEndpointPresent
+    legacyCollectionPresent = $legacyCollectionPresent
+    legacyApiKeyPresent = $legacyApiKeyPresent
+    legacyConnectTimeoutPresent = $legacyConnectTimeoutPresent
+    legacyRequestTimeoutPresent = $legacyRequestTimeoutPresent
     providerPresent = $providerPresent
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
@@ -75,18 +140,31 @@ if (-not $endpointPresent -or -not $collectionPresent) {
     connectTimeoutPresent = $connectTimeoutPresent
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
+    requestAllowed = $requestAllowed
     requestAttempted = $false
-    dryRun = [bool]$DryRun
+    dryRun = $effectiveDryRun
     allowCreateCollection = [bool]$AllowCreateCollection
     createAttempted = $false
   }
   exit 2
 }
 
-if ($SkipRequest -or $DryRun) {
+if (-not $requestAllowed) {
   Write-Summary @{
-    status = "READY"
+    status = "READY_DRY_RUN"
     providerIsQdrant = $true
+    appProviderPresent = $appProviderPresent
+    appEndpointPresent = $appEndpointPresent
+    appCollectionPresent = $appCollectionPresent
+    appApiKeyPresent = $appApiKeyPresent
+    appConnectTimeoutPresent = $appConnectTimeoutPresent
+    appRequestTimeoutPresent = $appRequestTimeoutPresent
+    legacyProviderPresent = $legacyProviderPresent
+    legacyEndpointPresent = $legacyEndpointPresent
+    legacyCollectionPresent = $legacyCollectionPresent
+    legacyApiKeyPresent = $legacyApiKeyPresent
+    legacyConnectTimeoutPresent = $legacyConnectTimeoutPresent
+    legacyRequestTimeoutPresent = $legacyRequestTimeoutPresent
     providerPresent = $providerPresent
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
@@ -94,8 +172,9 @@ if ($SkipRequest -or $DryRun) {
     connectTimeoutPresent = $connectTimeoutPresent
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
+    requestAllowed = $requestAllowed
     requestAttempted = $false
-    dryRun = [bool]$DryRun
+    dryRun = $true
     allowCreateCollection = [bool]$AllowCreateCollection
     createAttempted = $false
   }
@@ -120,6 +199,18 @@ try {
   Write-Summary @{
     status = "OK"
     providerIsQdrant = $true
+    appProviderPresent = $appProviderPresent
+    appEndpointPresent = $appEndpointPresent
+    appCollectionPresent = $appCollectionPresent
+    appApiKeyPresent = $appApiKeyPresent
+    appConnectTimeoutPresent = $appConnectTimeoutPresent
+    appRequestTimeoutPresent = $appRequestTimeoutPresent
+    legacyProviderPresent = $legacyProviderPresent
+    legacyEndpointPresent = $legacyEndpointPresent
+    legacyCollectionPresent = $legacyCollectionPresent
+    legacyApiKeyPresent = $legacyApiKeyPresent
+    legacyConnectTimeoutPresent = $legacyConnectTimeoutPresent
+    legacyRequestTimeoutPresent = $legacyRequestTimeoutPresent
     providerPresent = $providerPresent
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
@@ -127,6 +218,7 @@ try {
     connectTimeoutPresent = $connectTimeoutPresent
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
+    requestAllowed = $requestAllowed
     requestAttempted = $true
     dryRun = $false
     allowCreateCollection = [bool]$AllowCreateCollection
@@ -163,6 +255,18 @@ try {
       Write-Summary @{
         status = "CREATED"
         providerIsQdrant = $true
+        appProviderPresent = $appProviderPresent
+        appEndpointPresent = $appEndpointPresent
+        appCollectionPresent = $appCollectionPresent
+        appApiKeyPresent = $appApiKeyPresent
+        appConnectTimeoutPresent = $appConnectTimeoutPresent
+        appRequestTimeoutPresent = $appRequestTimeoutPresent
+        legacyProviderPresent = $legacyProviderPresent
+        legacyEndpointPresent = $legacyEndpointPresent
+        legacyCollectionPresent = $legacyCollectionPresent
+        legacyApiKeyPresent = $legacyApiKeyPresent
+        legacyConnectTimeoutPresent = $legacyConnectTimeoutPresent
+        legacyRequestTimeoutPresent = $legacyRequestTimeoutPresent
         providerPresent = $providerPresent
         endpointPresent = $endpointPresent
         collectionPresent = $collectionPresent
@@ -170,6 +274,7 @@ try {
         connectTimeoutPresent = $connectTimeoutPresent
         requestTimeoutPresent = $requestTimeoutPresent
         isLocalhost = $isLocalhost
+        requestAllowed = $requestAllowed
         requestAttempted = $true
         dryRun = $false
         allowCreateCollection = $true
@@ -181,6 +286,18 @@ try {
       Write-Summary @{
         status = "CREATE_FAILED"
         providerIsQdrant = $true
+        appProviderPresent = $appProviderPresent
+        appEndpointPresent = $appEndpointPresent
+        appCollectionPresent = $appCollectionPresent
+        appApiKeyPresent = $appApiKeyPresent
+        appConnectTimeoutPresent = $appConnectTimeoutPresent
+        appRequestTimeoutPresent = $appRequestTimeoutPresent
+        legacyProviderPresent = $legacyProviderPresent
+        legacyEndpointPresent = $legacyEndpointPresent
+        legacyCollectionPresent = $legacyCollectionPresent
+        legacyApiKeyPresent = $legacyApiKeyPresent
+        legacyConnectTimeoutPresent = $legacyConnectTimeoutPresent
+        legacyRequestTimeoutPresent = $legacyRequestTimeoutPresent
         providerPresent = $providerPresent
         endpointPresent = $endpointPresent
         collectionPresent = $collectionPresent
@@ -188,6 +305,7 @@ try {
         connectTimeoutPresent = $connectTimeoutPresent
         requestTimeoutPresent = $requestTimeoutPresent
         isLocalhost = $isLocalhost
+        requestAllowed = $requestAllowed
         requestAttempted = $true
         dryRun = $false
         allowCreateCollection = $true
@@ -200,6 +318,18 @@ try {
   Write-Summary @{
     status = "FAILED"
     providerIsQdrant = $true
+    appProviderPresent = $appProviderPresent
+    appEndpointPresent = $appEndpointPresent
+    appCollectionPresent = $appCollectionPresent
+    appApiKeyPresent = $appApiKeyPresent
+    appConnectTimeoutPresent = $appConnectTimeoutPresent
+    appRequestTimeoutPresent = $appRequestTimeoutPresent
+    legacyProviderPresent = $legacyProviderPresent
+    legacyEndpointPresent = $legacyEndpointPresent
+    legacyCollectionPresent = $legacyCollectionPresent
+    legacyApiKeyPresent = $legacyApiKeyPresent
+    legacyConnectTimeoutPresent = $legacyConnectTimeoutPresent
+    legacyRequestTimeoutPresent = $legacyRequestTimeoutPresent
     providerPresent = $providerPresent
     endpointPresent = $endpointPresent
     collectionPresent = $collectionPresent
@@ -207,6 +337,7 @@ try {
     connectTimeoutPresent = $connectTimeoutPresent
     requestTimeoutPresent = $requestTimeoutPresent
     isLocalhost = $isLocalhost
+    requestAllowed = $requestAllowed
     requestAttempted = $true
     dryRun = $false
     allowCreateCollection = [bool]$AllowCreateCollection

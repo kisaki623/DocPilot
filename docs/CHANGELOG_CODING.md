@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T104 Qdrant Provider Preflight Redaction
+
+### 本轮目标
+
+增强 Qdrant provider preflight 脚本 / 文档，使它默认 dry-run，只检查环境变量是否存在并输出 True/False。
+
+### 修改文件
+
+- `backend/scripts/rag/preflight-qdrant-vector-store.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `APP_RAG_VECTOR_STORE_PROVIDER`、`APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT`、`APP_RAG_VECTOR_STORE_QDRANT_COLLECTION`、`APP_RAG_VECTOR_STORE_QDRANT_API_KEY` 存在性布尔检查。
+- 保留既有 `RAG_VECTOR_STORE_PROVIDER` / `RAG_QDRANT_*` 兼容检查，只输出存在性布尔，不输出值。
+- 新增 `-AllowRequest` 显式开关；默认即使环境变量齐全也只返回 `READY_DRY_RUN`，不连接 Qdrant。
+- `-AllowCreateCollection` 仍需配合显式请求允许才可能尝试 create，避免 dry-run 模式误创建 collection。
+- 更新脚本安全测试，锁定 APP_* 检查、默认 dry-run 状态和敏感输出禁止项。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- 脚本默认 dry-run 脱敏输出：通过。
+- `cd backend; mvn "-Dtest=QdrantPreflightScriptSafetyTest" test`：通过，1 test。
+- 变更文件敏感词 / endpoint 形态检查：通过。
+
+### 当前边界
+
+- 未修改 `application.yml`。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实连接 Qdrant。
+- 未输出 endpoint 原文、API key、Authorization、baseUrl、provider response、prompt 或文档正文。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T103 Agent Rag QA Consistency
 
 ### 本轮目标

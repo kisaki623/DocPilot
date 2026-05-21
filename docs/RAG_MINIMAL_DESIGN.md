@@ -285,3 +285,10 @@ T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_R
 - 测试确认 VectorStore `RagSearchScope` 的 userId + documentId 隔离、Agent rag_tool 遇到 qdrant disabled 时友好 fallback、QA flag=false 时不调用 RAG builder 且普通 QA context 不变、QA flag=true 时 answer cache key 包含 RAG context hash。
 - 本轮只补测试，不修改生产 routing 默认行为，不新增 API；Agent rag_tool 的 retrieved chunks / answerContext 仍是前端展示证据的用户可见内容，trace summary 和 cache key 保持脱敏。
 - 验证已通过 `mvn "-Dtest=*Agent*Rag*" test`、`mvn "-Dtest=*Rag*" test` 和 `mvn test -DskipITs`。
+
+## 23. T104 Qdrant preflight redaction 状态
+
+- T104 加固 `backend/scripts/rag/preflight-qdrant-vector-store.ps1`：默认 dry-run，只输出环境变量存在性布尔，不输出 endpoint 原文、API key、Authorization、baseUrl、provider response、prompt 或文档正文。
+- 脚本新增 `APP_RAG_VECTOR_STORE_PROVIDER`、`APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT`、`APP_RAG_VECTOR_STORE_QDRANT_COLLECTION`、`APP_RAG_VECTOR_STORE_QDRANT_API_KEY` 检查，同时保留既有 `RAG_VECTOR_STORE_PROVIDER` / `RAG_QDRANT_*` 兼容检查。
+- 只有显式传入 `-AllowRequest` 且 endpoint / collection 齐全时才允许只读 collection check；如需 create，还必须额外显式传入 `-AllowCreateCollection`。
+- 本轮未修改 `application.yml` 或 docker-compose，未读取 `backend/.env`，未真实连接 Qdrant，未新增 API / DB / Maven 依赖。

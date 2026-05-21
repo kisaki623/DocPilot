@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T104-Qdrant-Provider-Preflight-Redaction
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强 Qdrant provider preflight 的脱敏边界，默认 dry-run，只检查环境变量存在性。
+- 当前结果：`backend/scripts/rag/preflight-qdrant-vector-store.ps1` 新增 `APP_RAG_VECTOR_STORE_PROVIDER`、`APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT`、`APP_RAG_VECTOR_STORE_QDRANT_COLLECTION`、`APP_RAG_VECTOR_STORE_QDRANT_API_KEY` 存在性布尔输出，并保留既有 `RAG_VECTOR_STORE_PROVIDER` / `RAG_QDRANT_*` 兼容检查。脚本默认不发起 Qdrant 请求；只有显式传入 `-AllowRequest` 且未传 `-SkipRequest` / `-DryRun` 时才允许只读 collection check；`-AllowCreateCollection` 仍必须与显式请求允许配合才可能尝试 create。
+- 验证结果：PowerShell 语法解析通过；脚本默认 dry-run 脱敏输出通过；`cd backend; mvn "-Dtest=QdrantPreflightScriptSafetyTest" test` 通过，1 test；变更文件敏感词 / endpoint 形态检查通过。
+- 边界：未修改 `application.yml`；未修改 docker-compose；未读取 `backend/.env`；未输出 endpoint 原文、API key、Authorization、baseUrl、provider response、prompt 或文档正文；未真实连接 Qdrant；未新增公开 API、数据库表或 Maven 依赖；未处理 T010 / MQ blocked。
+
 ### T103-Agent-Rag-QA-Consistency
 
 - 状态：DONE
