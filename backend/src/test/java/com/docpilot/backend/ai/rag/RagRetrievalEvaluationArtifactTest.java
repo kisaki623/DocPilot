@@ -78,6 +78,55 @@ class RagRetrievalEvaluationArtifactTest {
                 .doesNotContain("127.0.0.1");
     }
 
+    @Test
+    void historyArtifactShouldUseStableOfflineFields() throws Exception {
+        EvaluationHistory history = EvaluationHistory.from(buildReport());
+        Map<String, Object> safeMap = history.toSafeMap();
+
+        assertThat(safeMap)
+                .containsEntry("artifact", "offline-retrieval-evaluation-history")
+                .containsKey("metricDefinition")
+                .doesNotContainKeys("documentText", "prompt", "providerResponse", "endpoint", "baseUrl");
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> entries = (List<Map<String, Object>>) safeMap.get("entries");
+        assertThat(entries).hasSize(2);
+        assertThat(entries)
+                .allSatisfy(entry -> {
+                    assertThat(entry)
+                            .containsEntry("generatedAt", GENERATED_AT)
+                            .containsEntry("embeddingProvider", RagEmbeddingProperties.PROVIDER_FAKE)
+                            .containsKeys("caseCount", "hitCount", "missCount", "hitRate");
+                    assertThat(entry.keySet()).containsExactly(
+                            "generatedAt",
+                            "vectorStoreProvider",
+                            "embeddingProvider",
+                            "caseCount",
+                            "hitCount",
+                            "missCount",
+                            "hitRate"
+                    );
+                    assertThat((Integer) entry.get("caseCount"))
+                            .isEqualTo((Integer) entry.get("hitCount") + (Integer) entry.get("missCount"));
+                    assertThat(entry.toString())
+                            .doesNotContain(PRIVATE_DOC_MARKER)
+                            .doesNotContain(PRIVATE_QUERY_MARKER)
+                            .doesNotContain("Synthetic cache evidence")
+                            .doesNotContain("Authorization")
+                            .doesNotContain("apiKey")
+                            .doesNotContain("provider response")
+                            .doesNotContain("documentText")
+                            .doesNotContain("prompt")
+                            .doesNotContain("127.0.0.1");
+                });
+        assertThat(entries)
+                .extracting(entry -> entry.get("vectorStoreProvider"))
+                .containsExactly("in_memory", "fake_server");
+        assertThat(entries)
+                .extracting(entry -> entry.get("hitRate"))
+                .containsExactly("1.0000", "1.0000");
+    }
+
     private EvaluationReport buildReport() throws Exception {
         StoreEvaluation inMemory = evaluateInMemory();
         StoreEvaluation qdrant = evaluateQdrantFakeServer();
