@@ -2,6 +2,41 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T106 Agent RAG Demo Checklist
+
+### 本轮目标
+
+只补一个功能 demo checklist，方便后续截图或面试演示；不做投递材料收口，不写简历 bullet。
+
+### 修改文件
+
+- `docs/AGENT_RAG_DEMO_CHECKLIST.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `/agent` Agent + RAG Showcase 演示前置条件：需要当前账号可访问且已解析成功的 `documentId`。
+- 记录 RAG 召回和普通 QA 两条演示顺序。
+- 列出必须截图字段：documentId、decision、taskId、routingReason、matchedKeywords、RAG chunks、score / metadata、workflow、持久化 steps 和 citations。
+- 明确 fake embedding + in-memory、Qdrant disabled、真实 embedding BLOCKED、QA RAG flag 默认关闭、`llm_execute` 默认关闭和 T010/MQ 未覆盖边界。
+
+### 验证结果
+
+- 中文 Markdown 乱码特征扫描：通过。
+- 文档敏感形态扫描：未发现实际密钥、真实 endpoint 或 token；checklist 仅以禁止输出项形式提到 API Key、Authorization、baseUrl、endpoint 原文。
+
+### 当前边界
+
+- 只新增文档。
+- 未修改前端代码。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T105 Embedding Provider Preflight Checklist
 
 ### 本轮目标

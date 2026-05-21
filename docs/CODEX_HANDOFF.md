@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- T106 已新增 `/agent` Agent + RAG Showcase demo checklist：`docs/AGENT_RAG_DEMO_CHECKLIST.md` 记录已解析 `documentId` 前置条件、RAG 召回 / 普通 QA 演示顺序、必须截图字段，以及 fake embedding + in-memory、Qdrant disabled、真实 embedding BLOCKED、`llm_execute` 默认关闭和 T010/MQ 未覆盖等边界。仅新增文档，未改前端代码。
 - T105 已新增真实 embedding provider 脱敏 preflight：`backend/scripts/rag/preflight-embedding-provider.ps1` 只检查当前 shell 的 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 是否存在并输出 True/False；不读取 `backend/.env`，不发 HTTP，不输出变量值、API key、baseUrl、Authorization、prompt、文档正文或 provider response。真实 embedding runtime 在缺必要变量时继续 BLOCKED，但 fake embedding + in-memory RAG 测试不受影响。
 - T104 已加固 Qdrant preflight：`backend/scripts/rag/preflight-qdrant-vector-store.ps1` 会检查 `APP_RAG_VECTOR_STORE_PROVIDER`、`APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT`、`APP_RAG_VECTOR_STORE_QDRANT_COLLECTION`、`APP_RAG_VECTOR_STORE_QDRANT_API_KEY` 的存在性并只输出 True/False，同时保留既有 `RAG_VECTOR_STORE_PROVIDER` / `RAG_QDRANT_*` 兼容检查。脚本默认 dry-run，不真实连接 Qdrant；只有显式 `-AllowRequest` 且环境齐全时才允许只读 collection check，create 仍需额外显式 `-AllowCreateCollection`。未修改配置文件或 docker-compose。
 - T103 已补 Agent rag_tool / QA RAG flag 一致性测试：`AgentRagQaConsistencyTest` 覆盖 Agent rag_tool 与 QA RAG context 的召回 / trace 边界一致性、VectorStore userId + documentId 隔离、Agent qdrant disabled 友好 fallback、QA flag=false 普通 QA 不变、QA flag=true cache key 包含 RAG context hash。仅新增测试，未改 production routing / API。后端 full test 已更新通过到 442 tests。

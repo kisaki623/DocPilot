@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T106-Agent-RAG-Demo-Checklist
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：只补 Agent + RAG Showcase 功能 demo checklist，方便后续截图和面试演示，不改前端代码。
+- 当前结果：新增 `docs/AGENT_RAG_DEMO_CHECKLIST.md`，记录 `/agent` 演示入口、已解析 `documentId` 前置条件、RAG 召回 / 普通 QA 操作顺序、必须截图字段、fake embedding / in-memory / Qdrant disabled / `llm_execute` 默认关闭等边界，以及失败时处理口径。
+- 验证结果：中文 Markdown 乱码特征扫描通过；文档敏感形态扫描未发现实际密钥、真实 endpoint 或 token；checklist 仅以禁止输出项形式提到 API Key、Authorization、baseUrl、endpoint 原文。
+- 边界：只新增文档；未修改前端代码；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未处理 T010 / MQ blocked。
+
 ### T105-Embedding-Provider-Preflight-Checklist
 
 - 状态：BLOCKED（真实 embedding runtime）；DONE（脱敏 preflight 脚本 / 文档）
