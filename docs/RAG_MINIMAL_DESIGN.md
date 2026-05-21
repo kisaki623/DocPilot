@@ -278,3 +278,10 @@ T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_R
 - interview summary 字段固定为 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware。
 - 该能力不新增公开 API，不改变 QA / Agent routing，只是内部 formatter 增强；测试确认不输出文档正文、prompt 或多余上下文字段。
 - 验证已通过 `mvn "-Dtest=*Rag*" test`、`mvn "-Dtest=DocumentQaServiceImplTest" test` 和 `mvn test -DskipITs`。
+
+## 22. T103 Agent rag_tool / QA RAG flag consistency 状态
+
+- T103 新增 `AgentRagQaConsistencyTest`，覆盖 Agent `document_rag_tool` 与 QA RAG context 的召回 / trace 边界一致性。
+- 测试确认 VectorStore `RagSearchScope` 的 userId + documentId 隔离、Agent rag_tool 遇到 qdrant disabled 时友好 fallback、QA flag=false 时不调用 RAG builder 且普通 QA context 不变、QA flag=true 时 answer cache key 包含 RAG context hash。
+- 本轮只补测试，不修改生产 routing 默认行为，不新增 API；Agent rag_tool 的 retrieved chunks / answerContext 仍是前端展示证据的用户可见内容，trace summary 和 cache key 保持脱敏。
+- 验证已通过 `mvn "-Dtest=*Agent*Rag*" test`、`mvn "-Dtest=*Rag*" test` 和 `mvn test -DskipITs`。

@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T103-Agent-Rag-QA-Consistency
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补测试证明 Agent `rag_tool` 与 QA RAG flag 的 retrieval / context / fallback / cache key 行为边界一致。
+- 当前结果：新增 `AgentRagQaConsistencyTest`，覆盖 Agent rag_tool 与 QA RAG context 的召回 / trace 边界一致性、VectorStore userId + documentId 隔离、Agent rag_tool qdrant disabled 友好 fallback、QA flag=false 普通 QA 不变、QA flag=true cache key 包含 RAG context hash。
+- 验证结果：`cd backend; mvn "-Dtest=*Agent*Rag*" test` 通过，5 tests；`cd backend; mvn "-Dtest=*Rag*" test` 通过，80 tests；`cd backend; mvn test -DskipITs` 通过，442 tests。
+- 边界：只新增测试；未修改生产 routing 默认行为；未新增公开 API；未修改前端；未新增数据库表、Maven 依赖或 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未处理 T010 / MQ blocked。Agent rag_tool 的 retrieved chunks / answerContext 是前端展示证据的用户可见内容，本轮未把 trace summary / cache key 写成正文输出。
+
 ### T102-RAG-QA-Debug-Trace-Summary
 
 - 状态：DONE

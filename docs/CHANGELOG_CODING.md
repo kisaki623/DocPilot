@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T103 Agent Rag QA Consistency
+
+### 本轮目标
+
+补测试证明 Agent `rag_tool` 与 QA RAG flag 的 retrieval / context / fallback / cache key 行为边界一致。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/AgentRagQaConsistencyTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 Agent rag_tool 与 QA RAG context 的召回 / trace 边界一致性测试。
+- 新增 VectorStore `RagSearchScope` userId + documentId 隔离测试。
+- 新增 Agent rag_tool 在 qdrant disabled 时友好 fallback 的一致性测试。
+- 新增 QA flag=false 普通 QA 不变、QA flag=true cache key 包含 RAG context hash 的一致性测试。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*Agent*Rag*" test`：通过，5 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，80 tests。
+- `cd backend; mvn test -DskipITs`：通过，442 tests。
+
+### 当前边界
+
+- 只新增测试。
+- 未修改 production routing 默认行为。
+- 未新增公开 API。
+- 未修改前端。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+- Agent rag_tool 的 retrieved chunks / answerContext 是前端展示证据的用户可见内容；trace summary 和 cache key 仍保持脱敏。
+
 ## 2026-05-21 - T102 RAG QA Debug Trace Summary
 
 ### 本轮目标
