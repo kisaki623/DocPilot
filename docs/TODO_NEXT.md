@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T109-Offline-RAG-Demo-Summary
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强离线 RAG vector store demo 输出，让开发者能直接查看脱敏 retrieval 摘要。
+- 当前结果：`RagVectorStoreOfflineDemoTest` 生成的 `target/rag-demo/rag-vector-store-offline-demo-summary.json` 新增 `retrievalSummaries`，覆盖 in-memory smoke、本地 fake Qdrant smoke 和 Qdrant fallback smoke。每条 summary 包含 `vectorStoreType`、`embeddingProvider`、`sampleId`、`documentId`、短 query label、`topK`、`retrievedCount`、score summary、citation metadata presence summary、`fallbackUsed`、`fallbackReason` 和 `contextHashPresent`。
+- 验证结果：`cd backend; mvn "-Dtest=*RagVectorStoreOfflineDemo*" test` 通过，3 tests；`cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rag/run-rag-vector-store-offline-demo.ps1` 通过并打印脱敏 summary；`cd backend; mvn "-Dtest=*Rag*" test` 通过；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：只增强离线 test-generated summary；不输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；不读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T108-Offline-RAG-Eval-And-Qdrant-Safety-Review
 
 - 状态：DONE

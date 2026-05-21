@@ -2,6 +2,43 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T109 Offline RAG Demo Summary
+
+### 本轮目标
+
+增强 RAG 离线 demo 脚本输出，让本地开发者能看到更完整的脱敏 retrieval 摘要，同时保持不依赖真实 provider / Qdrant。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStoreOfflineDemoTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 在 `rag-vector-store-offline-demo-summary.json` 中新增 `retrievalSummaries`。
+- 覆盖 in-memory smoke、本地 fake Qdrant smoke 和 Qdrant fallback smoke。
+- 每条 summary 输出 vectorStoreType、embeddingProvider、sampleId、documentId、短 query label、topK、retrievedCount、score summary、citation metadata presence summary、fallbackUsed / fallbackReason 和 contextHashPresent。
+- 保留原有聚合字段，避免影响现有脚本读取路径。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagVectorStoreOfflineDemo*" test`：通过，3 tests。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rag/run-rag-vector-store-offline-demo.ps1`：通过，打印脱敏 summary。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 只增强离线 test-generated summary。
+- 不输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T108 Offline RAG Eval And Qdrant Safety Review
 
 ### 本轮目标

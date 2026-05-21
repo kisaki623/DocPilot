@@ -47,10 +47,11 @@ class RagVectorStoreOfflineDemoTest {
 
         inMemoryVectorStore.add(RagSearchScope.of("offline-user", 7001L), inMemoryChunk,
                 embeddingModel.embed(inMemoryChunk.text()));
+        int inMemoryTopK = 2;
         List<VectorSearchResult> inMemoryHits = inMemoryVectorStore.searchTopK(
                 RagSearchScope.of("offline-user", 7001L),
                 embeddingModel.embed("Where is the Redis cache marker?"),
-                1
+                inMemoryTopK
         );
 
         startFakeQdrantServer(false);
@@ -60,13 +61,22 @@ class RagVectorStoreOfflineDemoTest {
                 Map.of("contentHash", "offline-qdrant-hash", "charStart", "0", "charEnd", "64"));
         qdrantVectorStore.add(RagSearchScope.of("offline-user", 7002L), qdrantChunk,
                 embeddingModel.embed(qdrantChunk.text()));
+        int qdrantTopK = 2;
         List<VectorSearchResult> qdrantHits = qdrantVectorStore.searchTopK(
                 RagSearchScope.of("offline-user", 7002L),
                 embeddingModel.embed("Where is the fake server marker?"),
-                1
+                qdrantTopK
         );
 
         String fallbackReason = qdrantFallbackReason();
+        List<Map<String, Object>> retrievalSummaries = List.of(
+                retrievalSummary("in-memory-smoke", "in_memory", 7001L, "cache-marker-query",
+                        inMemoryTopK, inMemoryHits, false, "none"),
+                retrievalSummary("qdrant-fake-server-smoke", "qdrant_fake_server", 7002L,
+                        "fake-server-marker-query", qdrantTopK, qdrantHits, false, "none"),
+                retrievalSummary("qdrant-fallback-smoke", "qdrant_fake_server", 7002L,
+                        "qdrant-fallback-query", 1, List.of(), true, fallbackReason)
+        );
         Map<String, Object> safeReport = Map.ofEntries(
                 Map.entry("mode", "offline"),
                 Map.entry("embeddingProvider", RagEmbeddingProperties.PROVIDER_FAKE),
@@ -83,6 +93,7 @@ class RagVectorStoreOfflineDemoTest {
                 Map.entry("qdrantRetrievedCount", qdrantHits.size()),
                 Map.entry("qdrantFallbackChecked", true),
                 Map.entry("qdrantFallbackReason", fallbackReason),
+                Map.entry("retrievalSummaries", retrievalSummaries),
                 Map.entry("sanitized", true)
         );
 
@@ -98,11 +109,32 @@ class RagVectorStoreOfflineDemoTest {
                 .containsEntry("qdrantSearchObserved", true)
                 .containsEntry("qdrantRetrievedCount", 1)
                 .containsEntry("qdrantFallbackReason", "qdrant_http_error");
+        assertThat(retrievalSummaries).hasSize(3);
+        assertThat(retrievalSummaries.get(0))
+                .containsEntry("vectorStoreType", "in_memory")
+                .containsEntry("embeddingProvider", RagEmbeddingProperties.PROVIDER_FAKE)
+                .containsEntry("documentId", 7001L)
+                .containsEntry("query", "cache-marker-query")
+                .containsEntry("topK", 2)
+                .containsEntry("retrievedCount", 1)
+                .containsEntry("fallbackUsed", false)
+                .containsEntry("fallbackReason", "none")
+                .containsEntry("contextHashPresent", true);
+        assertThat(retrievalSummaries.get(1))
+                .containsEntry("vectorStoreType", "qdrant_fake_server")
+                .containsEntry("retrievedCount", 1)
+                .containsEntry("fallbackUsed", false);
+        assertThat(retrievalSummaries.get(2))
+                .containsEntry("fallbackUsed", true)
+                .containsEntry("fallbackReason", "qdrant_http_error")
+                .containsEntry("retrievedCount", 0)
+                .containsEntry("contextHashPresent", false);
         assertThat(report)
                 .doesNotContain(PRIVATE_DOC_MARKER)
                 .doesNotContain(PRIVATE_QUERY_MARKER)
                 .doesNotContain("Redis cache marker appears")
                 .doesNotContain("Qdrant fake server marker appears")
+                .doesNotContain("fake-qdrant-offline-hit")
                 .doesNotContain("Authorization")
                 .doesNotContain("apiKey")
                 .doesNotContain("provider response")
@@ -128,6 +160,71 @@ class RagVectorStoreOfflineDemoTest {
                     .doesNotContain("fallback query")
                     .doesNotContain("provider response");
         });
+    }
+
+    private Map<String, Object> retrievalSummary(String sampleId,
+                                                 String vectorStoreType,
+                                                 Long documentId,
+                                                 String queryLabel,
+                                                 int topK,
+                                                 List<VectorSearchResult> hits,
+                                                 boolean fallbackUsed,
+                                                 String fallbackReason) {
+        return Map.ofEntries(
+                Map.entry("sampleId", sampleId),
+                Map.entry("vectorStoreType", vectorStoreType),
+                Map.entry("embeddingProvider", RagEmbeddingProperties.PROVIDER_FAKE),
+                Map.entry("documentId", documentId),
+                Map.entry("query", queryLabel),
+                Map.entry("topK", topK),
+                Map.entry("retrievedCount", hits.size()),
+                Map.entry("scoreSummary", scoreSummary(hits)),
+                Map.entry("citationMetadataSummary", citationMetadataSummary(hits)),
+                Map.entry("fallbackUsed", fallbackUsed),
+                Map.entry("fallbackReason", fallbackReason),
+                Map.entry("contextHashPresent", hits.stream()
+                        .anyMatch(hit -> hasMetadata(hit, "contentHash")))
+        );
+    }
+
+    private Map<String, Object> scoreSummary(List<VectorSearchResult> hits) {
+        if (hits.isEmpty()) {
+            return Map.of("count", 0, "min", 0.0d, "max", 0.0d, "average", 0.0d);
+        }
+        double min = hits.stream().mapToDouble(VectorSearchResult::score).min().orElse(0.0d);
+        double max = hits.stream().mapToDouble(VectorSearchResult::score).max().orElse(0.0d);
+        double average = hits.stream().mapToDouble(VectorSearchResult::score).average().orElse(0.0d);
+        return Map.of(
+                "count", hits.size(),
+                "min", roundScore(min),
+                "max", roundScore(max),
+                "average", roundScore(average)
+        );
+    }
+
+    private List<Map<String, Object>> citationMetadataSummary(List<VectorSearchResult> hits) {
+        return hits.stream()
+                .map(hit -> {
+                    Map<String, Object> summary = Map.ofEntries(
+                            Map.entry("documentIdPresent", hit.chunk().documentId() != null),
+                            Map.entry("chunkIndex", hit.chunk().chunkIndex()),
+                            Map.entry("contentHashPresent", hasMetadata(hit, "contentHash")),
+                            Map.entry("charStartPresent", hasMetadata(hit, "charStart")),
+                            Map.entry("charEndPresent", hasMetadata(hit, "charEnd")),
+                            Map.entry("sourcePresent", hasMetadata(hit, "source"))
+                    );
+                    return summary;
+                })
+                .toList();
+    }
+
+    private boolean hasMetadata(VectorSearchResult hit, String key) {
+        String value = hit.chunk().metadata().get(key);
+        return value != null && !value.isBlank();
+    }
+
+    private double roundScore(double value) {
+        return Math.round(value * 10000.0d) / 10000.0d;
     }
 
     private String qdrantFallbackReason() throws IOException {
