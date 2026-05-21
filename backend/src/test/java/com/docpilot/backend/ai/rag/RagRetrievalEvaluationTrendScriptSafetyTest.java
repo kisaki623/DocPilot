@@ -64,6 +64,72 @@ class RagRetrievalEvaluationTrendScriptSafetyTest {
                 .doesNotContain("backend/.env");
     }
 
+    @Test
+    void shouldComputeStableTrendDeltaFromOfflineHistoryArtifact() throws Exception {
+        Path historyPath = Files.createTempFile("offline-rag-eval-history-", ".json");
+        Files.writeString(historyPath, """
+                {
+                  "artifact": "offline-retrieval-evaluation-history",
+                  "metricDefinition": "hitCount counts cases whose expected hit/miss behavior passed",
+                  "entries": [
+                    {
+                      "generatedAt": "2026-05-20T00:00:00Z",
+                      "vectorStoreProvider": "in_memory",
+                      "embeddingProvider": "fake",
+                      "caseCount": 4,
+                      "hitCount": 2,
+                      "missCount": 2,
+                      "hitRate": "0.5000"
+                    },
+                    {
+                      "generatedAt": "2026-05-21T00:00:00Z",
+                      "vectorStoreProvider": "in_memory",
+                      "embeddingProvider": "fake",
+                      "caseCount": 4,
+                      "hitCount": 3,
+                      "missCount": 1,
+                      "hitRate": "0.7500"
+                    }
+                  ]
+                }
+                """, StandardCharsets.UTF_8);
+
+        Process process = new ProcessBuilder(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                Path.of("scripts", "rag", "show-rag-eval-trend.ps1").toString(),
+                "-HistoryPath",
+                historyPath.toString())
+                .redirectErrorStream(true)
+                .start();
+
+        boolean completed = process.waitFor(20, TimeUnit.SECONDS);
+        String output = readAll(process.getInputStream());
+
+        assertThat(completed).isTrue();
+        assertThat(process.exitValue()).isZero();
+        assertThat(output)
+                .contains("offline-rag-eval-trend-summary")
+                .contains("\"caseCount\":  4")
+                .contains("\"latestHitRate\":  \"0.7500\"")
+                .contains("\"previousHitRatePresent\":  true")
+                .contains("\"previousHitRate\":  \"0.5000\"")
+                .contains("\"deltaPresent\":  true")
+                .contains("\"delta\":  \"+0.2500\"")
+                .contains("\"embeddingProvider\":  \"fake\"")
+                .doesNotContain("Authorization")
+                .doesNotContain("Bearer")
+                .doesNotContain("apiKey")
+                .doesNotContain("baseUrl")
+                .doesNotContain("endpoint")
+                .doesNotContain("provider response")
+                .doesNotContain("documentText")
+                .doesNotContain("prompt");
+    }
+
     private static String readAll(InputStream inputStream) throws Exception {
         return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
