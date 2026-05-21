@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T110-RAG-Retrieval-Eval-Edge-Cases
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补 RAG 召回 eval 的失败样例和边界样例覆盖，让 artifact 明确记录 expectedHit / expectedMarker / retrievedCount / hit / miss。
+- 当前结果：`rag-retrieval-eval-cases.json` 新增 same keyword but wrong topic、topK > available chunks、metadata isolation negative 等边界样例；`RagRetrievalEvaluationTest` 的 safe report 新增 `caseSummaries`；`RagRetrievalEvaluationArtifactTest` 生成的 JSON / Markdown artifact 新增 case-level 表格，覆盖 empty document、no-match query、same-keyword-wrong-topic、topK over available chunks、Qdrant fake server hit 和 Qdrant fallback。
+- 验证结果：`cd backend; mvn "-Dtest=*RagRetrievalEvaluation*" test` 通过，7 tests；`cd backend; mvn "-Dtest=*Rag*" test` 通过，80 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：artifact 只保存 synthetic case id、expected marker label 和计数 / 布尔指标；不提交真实文档内容；不输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T109-Offline-RAG-Demo-Summary
 
 - 状态：DONE

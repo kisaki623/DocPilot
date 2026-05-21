@@ -93,20 +93,27 @@ class RagRetrievalEvaluationArtifactTest {
         RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, vectorStore);
         List<EvalCase> cases = List.of(
                 new EvalCase("cache-hit", "Synthetic cache evidence includes " + IN_MEMORY_MARKER + ".",
-                        "Where is cache evidence " + PRIVATE_QUERY_MARKER + "?", IN_MEMORY_MARKER, true),
+                        "Where is cache evidence " + PRIVATE_QUERY_MARKER + "?", IN_MEMORY_MARKER, "cache-evidence", true),
                 new EvalCase("upload-hit", "Synthetic upload evidence includes upload-artifact-marker.",
-                        "Where is upload evidence?", "upload-artifact-marker", true),
+                        "Where is upload evidence?", "upload-artifact-marker", "upload-evidence", true),
                 new EvalCase("agent-hit", "Synthetic agent evidence includes agent-artifact-marker.",
-                        "Where is agent evidence?", "agent-artifact-marker", true),
+                        "Where is agent evidence?", "agent-artifact-marker", "agent-evidence", true),
                 new EvalCase("no-match-query", "Synthetic cache evidence includes " + IN_MEMORY_MARKER + ".",
-                        "Which payment gateway appears?", "payment-artifact-marker", false),
-                new EvalCase("empty-document", "", "What can be retrieved?", "empty-artifact-marker", false)
+                        "Which payment gateway appears?", "payment-artifact-marker", "payment-gateway", false),
+                new EvalCase("empty-document", "", "What can be retrieved?", "empty-artifact-marker", "empty-document", false),
+                new EvalCase("same-keyword-wrong-topic",
+                        "Synthetic agent evidence describes routing metadata but no billing policy.",
+                        "Which agent pricing policy controls billing?", "agent-pricing-policy", "wrong-topic-agent-policy", false),
+                new EvalCase("topk-over-available-chunks",
+                        "Synthetic short evidence includes topk-artifact-marker.",
+                        "Where is the topK boundary evidence?", "topk-artifact-marker", "topk-boundary", true)
         );
 
         int positiveCases = 0;
         int positiveHits = 0;
         int retrievedTotal = 0;
         List<String> failedCaseIds = new ArrayList<>();
+        List<CaseEvaluation> caseEvaluations = new ArrayList<>();
         boolean noMatchPassed = false;
         boolean emptyDocumentPassed = false;
         for (int i = 0; i < cases.size(); i++) {
@@ -130,6 +137,8 @@ class RagRetrievalEvaluationArtifactTest {
             if (!passed) {
                 failedCaseIds.add(evalCase.id());
             }
+            caseEvaluations.add(new CaseEvaluation(evalCase.id(), evalCase.expectedHit(),
+                    evalCase.expectedMarkerLabel(), hits.size(), markerFound, !markerFound, passed));
             if ("no-match-query".equals(evalCase.id())) {
                 noMatchPassed = passed;
             }
@@ -150,7 +159,8 @@ class RagRetrievalEvaluationArtifactTest {
                 isolationPassed,
                 false,
                 "",
-                failedCaseIds
+                failedCaseIds,
+                caseEvaluations
         );
     }
 
@@ -188,7 +198,9 @@ class RagRetrievalEvaluationArtifactTest {
                 true,
                 false,
                 "",
-                markerFound ? List.of() : List.of("qdrant-fake-hit")
+                markerFound ? List.of() : List.of("qdrant-fake-hit"),
+                List.of(new CaseEvaluation("qdrant-fake-hit", true, "qdrant-artifact",
+                        hits.size(), markerFound, !markerFound, markerFound))
         );
     }
 
@@ -217,7 +229,9 @@ class RagRetrievalEvaluationArtifactTest {
                 true,
                 true,
                 fallbackReason,
-                "qdrant_http_error".equals(fallbackReason) ? List.of() : List.of("qdrant-fallback")
+                "qdrant_http_error".equals(fallbackReason) ? List.of() : List.of("qdrant-fallback"),
+                List.of(new CaseEvaluation("qdrant-fallback", false, "qdrant-fallback",
+                        0, false, true, "qdrant_http_error".equals(fallbackReason)))
         );
     }
 
@@ -276,7 +290,34 @@ class RagRetrievalEvaluationArtifactTest {
         exchange.close();
     }
 
-    private record EvalCase(String id, String documentText, String query, String expectedMarker, boolean expectedHit) {
+    private record EvalCase(String id,
+                            String documentText,
+                            String query,
+                            String expectedMarker,
+                            String expectedMarkerLabel,
+                            boolean expectedHit) {
+    }
+
+    private record CaseEvaluation(
+            String id,
+            boolean expectedHit,
+            String expectedMarker,
+            int retrievedCount,
+            boolean hit,
+            boolean miss,
+            boolean passed
+    ) {
+        Map<String, Object> toSafeMap() {
+            Map<String, Object> value = new LinkedHashMap<>();
+            value.put("id", id);
+            value.put("expectedHit", expectedHit);
+            value.put("expectedMarker", expectedMarker);
+            value.put("retrievedCount", retrievedCount);
+            value.put("hit", hit);
+            value.put("miss", miss);
+            value.put("passed", passed);
+            return value;
+        }
     }
 
     private record EvaluationReport(
@@ -321,6 +362,21 @@ class RagRetrievalEvaluationArtifactTest {
                         .append(" | ").append(store.fallbackUsed())
                         .append(" |\n");
             }
+            builder.append("\n| Provider | Case | Expected hit | Expected marker | Retrieved | Hit | Miss | Passed |\n");
+            builder.append("| --- | --- | --- | --- | ---: | --- | --- | --- |\n");
+            for (StoreEvaluation store : stores) {
+                for (CaseEvaluation evaluation : store.caseEvaluations()) {
+                    builder.append("| ").append(store.provider())
+                            .append(" | ").append(evaluation.id())
+                            .append(" | ").append(evaluation.expectedHit())
+                            .append(" | ").append(evaluation.expectedMarker())
+                            .append(" | ").append(evaluation.retrievedCount())
+                            .append(" | ").append(evaluation.hit())
+                            .append(" | ").append(evaluation.miss())
+                            .append(" | ").append(evaluation.passed())
+                            .append(" |\n");
+                }
+            }
             builder.append("\nArtifacts are generated from synthetic fixtures only and intentionally omit source text.\n");
             return builder.toString();
         }
@@ -338,7 +394,8 @@ class RagRetrievalEvaluationArtifactTest {
             boolean isolationPassed,
             boolean fallbackUsed,
             String fallbackReason,
-            List<String> failedCaseIds
+            List<String> failedCaseIds,
+            List<CaseEvaluation> caseEvaluations
     ) {
         static StoreEvaluation of(String provider,
                                   int totalCases,
@@ -350,7 +407,8 @@ class RagRetrievalEvaluationArtifactTest {
                                   boolean isolationPassed,
                                   boolean fallbackUsed,
                                   String fallbackReason,
-                                  List<String> failedCaseIds) {
+                                  List<String> failedCaseIds,
+                                  List<CaseEvaluation> caseEvaluations) {
             double hitRate = positiveCases == 0 ? 0.0D : (double) positiveHits / positiveCases;
             double averageRetrieved = totalCases == 0 ? 0.0D : (double) retrievedTotal / totalCases;
             return new StoreEvaluation(
@@ -365,7 +423,8 @@ class RagRetrievalEvaluationArtifactTest {
                     isolationPassed,
                     fallbackUsed,
                     fallbackReason == null ? "" : fallbackReason,
-                    failedCaseIds == null ? List.of() : List.copyOf(failedCaseIds)
+                    failedCaseIds == null ? List.of() : List.copyOf(failedCaseIds),
+                    caseEvaluations == null ? List.of() : List.copyOf(caseEvaluations)
             );
         }
 
@@ -383,6 +442,7 @@ class RagRetrievalEvaluationArtifactTest {
             value.put("fallbackUsed", fallbackUsed);
             value.put("fallbackReason", fallbackReason);
             value.put("failedCaseIds", failedCaseIds);
+            value.put("caseSummaries", caseEvaluations.stream().map(CaseEvaluation::toSafeMap).toList());
             return value;
         }
     }

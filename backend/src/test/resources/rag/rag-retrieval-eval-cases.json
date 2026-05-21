@@ -38,5 +38,29 @@
     "expectedMarker": "Stripe payment gateway",
     "topK": 1,
     "expectedHit": false
+  },
+  {
+    "id": "same-keyword-wrong-topic",
+    "documentText": "Agent routing metadata records tool decisions and trace steps.",
+    "query": "Which agent pricing policy controls billing?",
+    "expectedMarker": "agent pricing policy",
+    "topK": 2,
+    "expectedHit": false
+  },
+  {
+    "id": "topk-over-available-chunks",
+    "documentText": "Short eval note contains a single topk-boundary-marker.",
+    "query": "Where is the topK boundary marker?",
+    "expectedMarker": "topk-boundary-marker",
+    "topK": 5,
+    "expectedHit": true
+  },
+  {
+    "id": "metadata-isolation-negative",
+    "documentText": "This document only describes Redis rate limit counters.",
+    "query": "Where is the metadata isolation marker from another document?",
+    "expectedMarker": "metadata-isolation-marker",
+    "topK": 3,
+    "expectedHit": false
   }
 ]

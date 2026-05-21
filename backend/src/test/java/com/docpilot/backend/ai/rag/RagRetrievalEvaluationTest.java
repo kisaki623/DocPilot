@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class RagRetrievalEvaluationTest {
 
     private static final String CASES_RESOURCE = "/rag/rag-retrieval-eval-cases.json";
-    private static final double MIN_HIT_RATE = 0.60D;
+    private static final double MIN_HIT_RATE = 0.50D;
     private static final Path REPORT_PATH = Path.of("target", "rag-eval", "rag-retrieval-eval-summary.json");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -40,8 +40,8 @@ class RagRetrievalEvaluationTest {
         RagRetrievalEvaluationResult result = evaluateInMemory(cases);
 
         assertThat(result.total()).isEqualTo(cases.size());
-        assertThat(result.hitCount()).isGreaterThanOrEqualTo(3);
-        assertThat(result.missCount()).isGreaterThanOrEqualTo(1);
+        assertThat(result.hitCount()).isGreaterThanOrEqualTo(4);
+        assertThat(result.missCount()).isGreaterThanOrEqualTo(3);
         assertThat(result.hitRate()).isGreaterThanOrEqualTo(MIN_HIT_RATE);
         assertThat(result.averageRetrievedCount()).isGreaterThan(0.0D);
         assertThat(result.provider()).isEqualTo("in_memory");
@@ -49,6 +49,26 @@ class RagRetrievalEvaluationTest {
         assertThat(result.reusedIndexCount()).isEqualTo(1);
         assertThat(result.isolatedDocumentChecks()).isEqualTo(2);
         assertThat(result.failedCaseIds()).isEmpty();
+        assertThat(result.caseSummaries()).hasSize(cases.size());
+        assertThat(result.caseSummaries())
+                .anySatisfy(summary -> assertThat(summary)
+                        .containsEntry("id", "empty-document")
+                        .containsEntry("expectedHit", false)
+                        .containsEntry("retrievedCount", 0)
+                        .containsEntry("hit", false)
+                        .containsEntry("miss", true)
+                        .containsEntry("passed", true))
+                .anySatisfy(summary -> assertThat(summary)
+                        .containsEntry("id", "same-keyword-wrong-topic")
+                        .containsEntry("expectedHit", false)
+                        .containsEntry("hit", false)
+                        .containsEntry("passed", true))
+                .anySatisfy(summary -> assertThat(summary)
+                        .containsEntry("id", "topk-over-available-chunks")
+                        .containsEntry("expectedHit", true)
+                        .containsEntry("expectedMarker", "topk-boundary-marker")
+                        .containsEntry("hit", true)
+                        .containsEntry("passed", true));
         assertThat(result.toString())
                 .doesNotContain("Redis cache stores hot session")
                 .doesNotContain("RocketMQ outbox dispatches")
@@ -90,7 +110,16 @@ class RagRetrievalEvaluationTest {
                 1.0D,
                 0,
                 0,
-                List.of("case-safe-id")
+                List.of("case-safe-id"),
+                List.of(Map.of(
+                        "id", "case-safe-id",
+                        "expectedHit", false,
+                        "expectedMarker", "safe-marker",
+                        "retrievedCount", 0,
+                        "hit", false,
+                        "miss", true,
+                        "passed", true
+                ))
         );
 
         assertThat(result.safeSummary()).contains("case-safe-id");
@@ -110,8 +139,11 @@ class RagRetrievalEvaluationTest {
         String report = Files.readString(REPORT_PATH, StandardCharsets.UTF_8);
         assertThat(report).contains("\"provider\" : \"in_memory\"");
         assertThat(report).contains("\"embeddingProvider\" : \"fake\"");
-        assertThat(report).contains("\"total\" : 5");
+        assertThat(report).contains("\"total\" : 8");
         assertThat(report).contains("\"hitRate\"");
+        assertThat(report).contains("\"caseSummaries\"");
+        assertThat(report).contains("\"same-keyword-wrong-topic\"");
+        assertThat(report).contains("\"topk-over-available-chunks\"");
         assertThat(report)
                 .doesNotContain("documentText")
                 .doesNotContain("Redis cache stores hot session")
@@ -170,6 +202,7 @@ class RagRetrievalEvaluationTest {
         int missCount = 0;
         int retrievedTotal = 0;
         java.util.ArrayList<String> failedCaseIds = new java.util.ArrayList<>();
+        java.util.ArrayList<Map<String, Object>> caseSummaries = new java.util.ArrayList<>();
         for (int i = 0; i < cases.size(); i++) {
             RagRetrievalEvaluationCase evalCase = cases.get(i);
             Long documentId = 9000L + i;
@@ -188,6 +221,15 @@ class RagRetrievalEvaluationTest {
             if (evalCase.expectedHit() != markerFound) {
                 failedCaseIds.add(evalCase.id());
             }
+            caseSummaries.add(Map.of(
+                    "id", evalCase.id(),
+                    "expectedHit", evalCase.expectedHit(),
+                    "expectedMarker", evalCase.expectedMarker(),
+                    "retrievedCount", hits.size(),
+                    "hit", markerFound,
+                    "miss", !markerFound,
+                    "passed", evalCase.expectedHit() == markerFound
+            ));
         }
         int reusedIndexCount = 0;
         int isolatedDocumentChecks = 0;
@@ -220,7 +262,8 @@ class RagRetrievalEvaluationTest {
                 averageRetrieved,
                 reusedIndexCount,
                 isolatedDocumentChecks,
-                failedCaseIds);
+                failedCaseIds,
+                caseSummaries);
     }
 
     private List<RagRetrievalEvaluationCase> loadCases() throws IOException {
@@ -311,27 +354,30 @@ class RagRetrievalEvaluationTest {
             double averageRetrievedCount,
             int reusedIndexCount,
             int isolatedDocumentChecks,
-            List<String> failedCaseIds
+            List<String> failedCaseIds,
+            List<Map<String, Object>> caseSummaries
     ) {
         RagRetrievalEvaluationResult {
             provider = provider == null || provider.isBlank() ? "unknown" : provider.trim();
             embeddingProvider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider.trim();
             failedCaseIds = failedCaseIds == null ? List.of() : List.copyOf(failedCaseIds);
+            caseSummaries = caseSummaries == null ? List.of() : List.copyOf(caseSummaries);
         }
 
         Map<String, Object> safeReport() {
-            return Map.of(
-                    "provider", provider,
-                    "embeddingProvider", embeddingProvider,
-                    "total", total,
-                    "hitCount", hitCount,
-                    "missCount", missCount,
-                    "hitRate", String.format(java.util.Locale.ROOT, "%.4f", hitRate),
-                    "averageRetrievedCount", String.format(java.util.Locale.ROOT, "%.2f", averageRetrievedCount),
-                    "reusedIndexCount", reusedIndexCount,
-                    "isolatedDocumentChecks", isolatedDocumentChecks,
-                    "failedCaseIds", failedCaseIds
-            );
+            Map<String, Object> report = new java.util.LinkedHashMap<>();
+            report.put("provider", provider);
+            report.put("embeddingProvider", embeddingProvider);
+            report.put("total", total);
+            report.put("hitCount", hitCount);
+            report.put("missCount", missCount);
+            report.put("hitRate", String.format(java.util.Locale.ROOT, "%.4f", hitRate));
+            report.put("averageRetrievedCount", String.format(java.util.Locale.ROOT, "%.2f", averageRetrievedCount));
+            report.put("reusedIndexCount", reusedIndexCount);
+            report.put("isolatedDocumentChecks", isolatedDocumentChecks);
+            report.put("failedCaseIds", failedCaseIds);
+            report.put("caseSummaries", caseSummaries);
+            return report;
         }
 
         String safeSummary() {

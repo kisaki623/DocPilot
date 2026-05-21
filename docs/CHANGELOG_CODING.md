@@ -2,6 +2,47 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T110 RAG Retrieval Eval Edge Cases
+
+### 本轮目标
+
+补 RAG 召回 eval 的失败样例和边界样例，并让 artifact 明确记录 expectedHit、expectedMarker、retrievedCount、hit / miss。
+
+### 修改文件
+
+- `backend/src/test/resources/rag/rag-retrieval-eval-cases.json`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationArtifactTest.java`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.json`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 same-keyword-wrong-topic、topK over available chunks 和 metadata isolation negative eval cases。
+- `RagRetrievalEvaluationResult.safeReport()` 新增 `caseSummaries`。
+- 离线 artifact JSON / Markdown 新增 case-level table，覆盖 in-memory、fake Qdrant hit 和 Qdrant fallback。
+- 每个 case 只输出 synthetic case id、expected marker label、retrievedCount、hit、miss、passed，不输出正文。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagRetrievalEvaluation*" test`：通过，7 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，80 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- artifact 只保存 synthetic fixture 指标。
+- 未提交真实文档内容。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T109 Offline RAG Demo Summary
 
 ### 本轮目标
