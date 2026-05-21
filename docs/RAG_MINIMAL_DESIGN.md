@@ -257,3 +257,10 @@ T068 已重新检查真实 embedding provider 必要环境变量，当前 `APP_R
 - T091 已补 Qdrant collection preflight 边界：新增 collection info / create payload builder，preflight 脚本默认只读，只有显式允许时才尝试 create。
 - T092 已新增离线 retrieval eval cases：默认用 fake embedding + in-memory vector store 统计 total、hitCount、missCount、hitRate、averageRetrievedCount，并用本地 fake Qdrant server 覆盖一条 adapter eval。
 - 当前默认 provider 仍为 `in_memory`，Qdrant 仍默认关闭；未启动真实 Qdrant，未修改 docker-compose，未新增公开 API / DB / Maven 依赖，未接 Redis Vector、LangChain4j 或 Spring AI。
+
+## 19. T100 offline vector store demo 状态
+
+- T100 新增 `backend/scripts/rag/run-rag-vector-store-offline-demo.ps1`，默认运行 JUnit 离线 demo 并打印 `target/rag-demo/rag-vector-store-offline-demo-summary.json`。
+- demo 覆盖 fake embedding 稳定性、in-memory index / retrieve、本地 fake Qdrant server 的 upsert / search，以及 Qdrant HTTP error fallback reason。
+- 输出只包含聚合布尔和计数字段，例如 embeddingStable、embeddingDimension、retrievedCount、qdrantUpsertObserved、qdrantSearchObserved、qdrantFallbackReason；不输出文档正文、prompt、endpoint 原文、Authorization、API key 或 provider response。
+- 该 demo 不读取 `backend/.env`，不依赖真实 provider，不连接真实 Qdrant，不新增 API / DB / Maven 依赖 / docker-compose。

@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T100 RAG Qdrant Offline Demo Script
+
+### 本轮目标
+
+新增一个不依赖真实 provider、不依赖真实 Qdrant、不读取 `backend/.env` 的离线 RAG vector store demo / smoke 脚本。
+
+### 修改文件
+
+- `backend/scripts/rag/run-rag-vector-store-offline-demo.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStoreOfflineDemoTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStoreOfflineDemoScriptSafetyTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增离线 demo 脚本，默认运行 `*RagVectorStoreOfflineDemo*` 测试并打印 `target/rag-demo/rag-vector-store-offline-demo-summary.json`。
+- 新增 JUnit demo 生成器，覆盖 fake embedding 稳定性、in-memory index / retrieve、本地 fake Qdrant server upsert / search 和 Qdrant HTTP error fallback reason。
+- 新增脚本安全测试，确保脚本文案不包含 Authorization、Bearer、apiKey、baseUrl、provider response、documentText 或 prompt 等敏感输出关键词。
+- 同步 RAG 设计文档，明确该 demo 不是真实 provider / 真实 Qdrant runtime。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagVectorStoreOfflineDemo*" test`：通过，3 tests。
+- PowerShell 语法解析：通过。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T099 RAG Qdrant Review
 
 ### 本轮目标

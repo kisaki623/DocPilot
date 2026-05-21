@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T100-RAG-Qdrant-Offline-Demo-Script
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：新增不依赖真实 provider、不依赖真实 Qdrant、不读取 `backend/.env` 的离线 RAG vector store demo / smoke 脚本。
+- 当前结果：新增 `backend/scripts/rag/run-rag-vector-store-offline-demo.ps1`；新增 `RagVectorStoreOfflineDemoTest` 生成 `target/rag-demo/rag-vector-store-offline-demo-summary.json`，覆盖 fake embedding 稳定性、in-memory index / retrieve、本地 fake Qdrant server upsert / search，以及 Qdrant HTTP error fallback reason；新增脚本安全测试确保脚本文案不包含敏感输出关键词。
+- 验证结果：`cd backend; mvn "-Dtest=*RagVectorStoreOfflineDemo*" test` 通过，3 tests；PowerShell 语法解析通过；`cd backend; mvn "-Dtest=*Rag*" test` 通过；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：脚本和 summary 不输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T099-RAG-Qdrant-Review
 
 - 状态：DONE

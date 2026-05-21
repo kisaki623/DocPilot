@@ -157,3 +157,10 @@ adapter 返回的 hit 应保持：
 - `QdrantPointPayload` 的 `metadata` 字段收敛为白名单，只保留 contentHash / chunkHash / charStart / charEnd / chunkVersion / source；不会把 prompt、provider response 或误塞入 metadata 的正文类字段复制进 metadata / citation。
 - Qdrant HTTP 500 和缺 endpoint 的失败路径继续保持脱敏：异常信息不包含 endpoint 原文、collection、Authorization、API key 或 response body。
 - 测试仍只使用 JDK 本地 fake HTTP server；未启动真实 Qdrant，未访问外部 Qdrant 服务，未新增 API / DB / Maven 依赖 / docker-compose。
+
+## 13. 2026-05-21 T100 Offline RAG Vector Store Demo
+
+- T100 新增离线 demo 脚本 `backend/scripts/rag/run-rag-vector-store-offline-demo.ps1`，用测试生成脱敏 summary，再由脚本打印聚合结果。
+- 覆盖范围：fake embedding 是否稳定、in-memory vector store 是否可 index / retrieve、Qdrant adapter 是否可在本地 fake server 下完成 upsert / search、Qdrant HTTP error 是否能归类为脱敏 fallback reason。
+- 输出边界：summary 不包含 chunk 文本、prompt、endpoint 原文、Authorization、API key、response body 或 provider response。
+- 运行边界：不读取 `backend/.env`，不依赖真实 embedding provider，不连接真实 Qdrant，不修改 docker-compose，不新增 Maven 依赖、数据库表或公开 API。

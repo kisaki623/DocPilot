@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- T100 已新增离线 RAG vector store demo：`backend/scripts/rag/run-rag-vector-store-offline-demo.ps1` 会运行 `RagVectorStoreOfflineDemoTest` 并打印 `target/rag-demo/rag-vector-store-offline-demo-summary.json` 的脱敏聚合结果。覆盖 fake embedding 稳定性、in-memory index / retrieve、本地 fake Qdrant server upsert / search 和 Qdrant fallback reason；不读取 `backend/.env`，不调用真实 provider，不连接真实 Qdrant，不输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
 - T099 已完成 T092-T098 RAG / Qdrant / eval 只读审查，并新增 `docs/RAG_QDRANT_REVIEW_NOTES.md`：默认 vector store provider 仍为 `in_memory`，脚本与 report 只输出脱敏摘要，Qdrant fake server 测试不连接真实 Qdrant，错误信息不输出 endpoint / Authorization / API key / response body。需要继续保留的边界是：显式启用真实 Qdrant 时，当前 adapter 会把 chunk text 作为 Qdrant payload 发送到配置 endpoint，因此真实 runtime 前必须确认部署归属与数据合规。
 - T098 夜间 RAG evaluation 队列已收口：T092 `0872202`、T093 `476573b`、T093b `e35c01c`、T094 `ef29c91`、T095 `af19b69`、T096 `206b5c8` 已完成；T097 `c640f66` 已完成 preflight 记录但真实 embedding runtime 继续 BLOCKED。后端全量 `mvn test -DskipITs` 通过 431 tests；本轮未改 frontend，未运行 frontend lint/build。
 - T097 真实 embedding provider preflight 已重新执行：当前 shell 中 `APP_RAG_EMBEDDING_PROVIDER=False`、`APP_RAG_EMBEDDING_BASE_URL=False`、`APP_RAG_EMBEDDING_MODEL=False`、`APP_RAG_EMBEDDING_API_KEY=False`，所以真实 embedding runtime 继续 BLOCKED；未读取 `backend/.env`，未发起 `/embeddings` HTTP 调用。
