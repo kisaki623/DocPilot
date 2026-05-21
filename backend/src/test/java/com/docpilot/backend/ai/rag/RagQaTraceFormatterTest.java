@@ -12,6 +12,8 @@ class RagQaTraceFormatterTest {
     private static final String DOC_BODY_MARKER = "PRIVATE_DOC_BODY_MARKER_DO_NOT_DUMP";
     private static final String PROMPT_MARKER = "PRIVATE_PROMPT_MARKER_DO_NOT_DUMP";
     private static final String PROVIDER_RESPONSE_MARKER = "PRIVATE_PROVIDER_RESPONSE_MARKER_DO_NOT_DUMP";
+    private static final String ENDPOINT_MARKER = "https://qdrant.example.invalid/private";
+    private static final String API_KEY_MARKER = "PRIVATE_API_KEY_MARKER_DO_NOT_DUMP";
 
     private final RagQaTraceFormatter formatter = new RagQaTraceFormatter();
 
@@ -255,6 +257,78 @@ class RagQaTraceFormatterTest {
                 .doesNotContain("context=")
                 .doesNotContain("Authorization")
                 .doesNotContain("provider response")
+                .doesNotContain("documentText");
+    }
+
+    @Test
+    void shouldRedactDebugTraceForEmptyRetrievalAndDisabledFallbackStates() {
+        RagQaTrace emptyRetrieval = RagQaTrace.retrieval(
+                "fake",
+                "in_memory",
+                true,
+                3,
+                0,
+                600,
+                0,
+                false,
+                false,
+                0,
+                false
+        );
+        RagQaTrace qdrantDisabled = RagQaTrace.fallback(
+                "fake",
+                "qdrant_disabled",
+                true,
+                3,
+                600,
+                "qdrant_disabled"
+        );
+        RagQaTrace providerDisabled = RagQaTrace.fallback(
+                "disabled",
+                "qdrant_disabled",
+                true,
+                3,
+                600,
+                "provider_disabled"
+        );
+
+        String emptySummary = formatter.formatInterviewSummary(emptyRetrieval);
+        String qdrantDisabledSummary = formatter.formatInterviewSummary(qdrantDisabled);
+        String providerDisabledSummary = formatter.formatInterviewSummary(providerDisabled);
+
+        assertThat(emptySummary)
+                .contains("ragEnabled=true")
+                .contains("vectorStoreType=in_memory")
+                .contains("retrievedCount=0")
+                .contains("contextTruncated=false")
+                .contains("fallbackUsed=false")
+                .contains("fallbackReason=")
+                .doesNotContain("fallbackReason=qdrant_disabled")
+                .doesNotContain("fallbackReason=provider_disabled");
+        assertThat(qdrantDisabledSummary)
+                .contains("embeddingProvider=fake")
+                .contains("vectorStoreType=qdrant_disabled")
+                .contains("retrievedCount=0")
+                .contains("contextTruncated=false")
+                .contains("fallbackUsed=true")
+                .contains("fallbackReason=qdrant_disabled");
+        assertThat(providerDisabledSummary)
+                .contains("embeddingProvider=disabled")
+                .contains("vectorStoreType=qdrant_disabled")
+                .contains("fallbackUsed=true")
+                .contains("fallbackReason=provider_disabled");
+        assertThat(emptySummary + qdrantDisabledSummary + providerDisabledSummary)
+                .doesNotContain(DOC_BODY_MARKER)
+                .doesNotContain(PROMPT_MARKER)
+                .doesNotContain(PROVIDER_RESPONSE_MARKER)
+                .doesNotContain(ENDPOINT_MARKER)
+                .doesNotContain(API_KEY_MARKER)
+                .doesNotContain("endpoint")
+                .doesNotContain("Authorization")
+                .doesNotContain("API key")
+                .doesNotContain("apiKey")
+                .doesNotContain("prompt")
+                .doesNotContain("document content")
                 .doesNotContain("documentText");
     }
 }
