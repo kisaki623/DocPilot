@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T111-RAG-QA-Trace-Formatter-Sanitized-Tests
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：增强 `RagQaTraceFormatter` / `RagQaTrace` 的脱敏格式化测试，覆盖 fallback、零召回、截断、citation、cache key 和敏感 fallback reason。
+- 当前结果：新增 interview summary 测试，覆盖 `fallbackUsed=true`、`contextTruncated=true`、`retrievedCount=0`、`citationCount>0`、`cacheKeyRagAware=true`、`contextHashPresent=true`；`RagQaTrace.safeFallbackReason` 对包含 Authorization、Bearer、API key、baseUrl、provider response、prompt、documentText 等禁词的 fallback reason 统一输出 `redacted_fallback_reason`，正常安全 reason 保持原样。
+- 验证结果：`cd backend; mvn "-Dtest=*RagQaTrace*" test` 通过，8 tests；`cd backend; mvn "-Dtest=*Rag*" test` 通过，82 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：未新增公开 API；未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T110-RAG-Retrieval-Eval-Edge-Cases
 
 - 状态：DONE

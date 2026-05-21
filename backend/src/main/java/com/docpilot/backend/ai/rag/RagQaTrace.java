@@ -254,6 +254,17 @@ public record RagQaTrace(
 
     private static String safeFallbackReason(String reason) {
         String normalized = safeText(reason).replaceAll("[\\r\\n\\t]+", " ");
+        String lower = normalized.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("authorization")
+                || lower.contains("bearer")
+                || lower.contains("api key")
+                || lower.contains("apikey")
+                || lower.contains("baseurl")
+                || lower.contains("provider response")
+                || lower.contains("prompt")
+                || lower.contains("documenttext")) {
+            return "redacted_fallback_reason";
+        }
         if (normalized.length() <= MAX_FALLBACK_REASON_LENGTH) {
             return normalized;
         }
