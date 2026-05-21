@@ -3,9 +3,12 @@ package com.docpilot.backend.ai.rag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -57,5 +60,50 @@ class QdrantPreflightScriptSafetyTest {
         assertThat(script).doesNotContain("provider response");
         assertThat(script).doesNotContain("document body");
         assertThat(script).doesNotContain("prompt");
+    }
+
+    @Test
+    void shouldDefaultToDryRunAndRedactEnvironmentValues() throws Exception {
+        ProcessBuilder builder = new ProcessBuilder(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                Path.of("scripts", "rag", "preflight-qdrant-vector-store.ps1").toString());
+        Map<String, String> env = builder.environment();
+        env.put("APP_RAG_VECTOR_STORE_PROVIDER", "qdrant");
+        env.put("APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT", "https://qdrant.example.invalid:6333");
+        env.put("APP_RAG_VECTOR_STORE_QDRANT_COLLECTION", "docpilot_eval_collection");
+        env.put("APP_RAG_VECTOR_STORE_QDRANT_API_KEY", "secret-qdrant-api-key");
+        Process process = builder.redirectErrorStream(true).start();
+
+        boolean completed = process.waitFor(20, TimeUnit.SECONDS);
+        String output = readAll(process.getInputStream());
+
+        assertThat(completed).isTrue();
+        assertThat(process.exitValue()).isZero();
+        assertThat(output)
+                .contains("READY_DRY_RUN")
+                .contains("\"providerIsQdrant\":  true")
+                .contains("\"endpointPresent\":  true")
+                .contains("\"collectionPresent\":  true")
+                .contains("\"apiKeyPresent\":  true")
+                .contains("\"requestAllowed\":  false")
+                .contains("\"requestAttempted\":  false")
+                .contains("\"dryRun\":  true")
+                .doesNotContain("https://")
+                .doesNotContain("qdrant.example.invalid")
+                .doesNotContain("docpilot_eval_collection")
+                .doesNotContain("secret-qdrant-api-key")
+                .doesNotContain("Authorization")
+                .doesNotContain("api-key")
+                .doesNotContain("provider response")
+                .doesNotContain("documentText")
+                .doesNotContain("prompt");
+    }
+
+    private static String readAll(InputStream inputStream) throws IOException {
+        return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
 }

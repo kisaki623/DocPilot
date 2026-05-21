@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T122-Qdrant-Preflight-Redaction-Test
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：补 Qdrant preflight 脚本脱敏静态 / DryRun 检查，证明默认不连接外部服务且不输出 endpoint / api key / Authorization。
+- 当前结果：`QdrantPreflightScriptSafetyTest` 新增实际执行用例，向当前进程注入假的 Qdrant provider、endpoint、collection 和 api key，但不传 `-AllowRequest`；测试断言输出 `READY_DRY_RUN`、`requestAttempted=false`、`dryRun=true` 以及存在性布尔字段，同时不包含原始 endpoint、collection、api key、Authorization、provider response、documentText 或 prompt。
+- 验证结果：PowerShell 语法解析通过；`cd backend; mvn "-Dtest=QdrantPreflightScriptSafetyTest" test` 通过，2 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：未修改 preflight 脚本真实请求逻辑；未真实连接 Qdrant；未读取 `backend/.env`；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response；未真实调用 provider；未新增公开 API、数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T121-Agent-RAG-Tool-Consistency-Coverage
 
 - 状态：DONE

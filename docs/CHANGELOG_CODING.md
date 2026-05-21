@@ -2,6 +2,42 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T122 Qdrant Preflight Redaction Test
+
+### 本轮目标
+
+给 Qdrant preflight 脚本补静态 / DryRun 安全检查，确认默认不连接外部服务且输出脱敏。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `shouldDefaultToDryRunAndRedactEnvironmentValues` 测试。
+- 测试向子进程注入假的 Qdrant provider、endpoint、collection 和 api key，但不传 `-AllowRequest`。
+- 断言脚本输出 `READY_DRY_RUN`、`requestAttempted=false`、`dryRun=true` 和存在性布尔字段。
+- 断言输出不包含原始 endpoint、collection、api key、Authorization、api-key、provider response、documentText 或 prompt。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- `cd backend; mvn "-Dtest=QdrantPreflightScriptSafetyTest" test`：通过，2 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未修改 preflight 脚本真实请求逻辑。
+- 未真实连接 Qdrant。
+- 未输出 endpoint 原文、API key、Authorization、baseUrl、prompt、文档正文或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T121 Agent RAG Tool Consistency Coverage
 
 ### 本轮目标
