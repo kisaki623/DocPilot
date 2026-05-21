@@ -208,4 +208,53 @@ class RagQaTraceFormatterTest {
                 .doesNotContain("baseUrl")
                 .doesNotContain("documentText");
     }
+
+    @Test
+    void shouldFormatDisabledAndQdrantDisabledStatesWithoutContextText() {
+        RagQaTrace disabled = RagQaTrace.disabled("fake");
+        RagQaTrace enabled = RagQaTrace.retrieval(
+                "fake",
+                "qdrant_disabled",
+                true,
+                5,
+                2,
+                800,
+                320,
+                true,
+                true,
+                2,
+                false,
+                true
+        ).withCacheKeyRagAware(true);
+
+        String disabledSummary = formatter.formatInterviewSummary(disabled);
+        String enabledSummary = formatter.formatInterviewSummary(enabled);
+
+        assertThat(disabledSummary)
+                .contains("ragEnabled=false")
+                .contains("embeddingProvider=fake")
+                .contains("vectorStoreType=in_memory")
+                .contains("retrievedCount=0")
+                .contains("fallbackUsed=false")
+                .contains("cacheKeyRagAware=false");
+        assertThat(enabledSummary)
+                .contains("ragEnabled=true")
+                .contains("embeddingProvider=fake")
+                .contains("vectorStoreType=qdrant_disabled")
+                .contains("topK=5")
+                .contains("retrievedCount=2")
+                .contains("contextHashPresent=true")
+                .contains("contextTruncated=true")
+                .contains("fallbackUsed=false")
+                .contains("citationCount=2")
+                .contains("cacheKeyRagAware=true");
+        assertThat(disabledSummary + enabledSummary)
+                .doesNotContain(DOC_BODY_MARKER)
+                .doesNotContain(PROMPT_MARKER)
+                .doesNotContain(PROVIDER_RESPONSE_MARKER)
+                .doesNotContain("context=")
+                .doesNotContain("Authorization")
+                .doesNotContain("provider response")
+                .doesNotContain("documentText");
+    }
 }

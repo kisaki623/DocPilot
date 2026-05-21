@@ -2,6 +2,43 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T120 RAG QA Debug Trace Formatting Coverage
+
+### 本轮目标
+
+加强 `RagQaTraceFormatter` 测试，覆盖 RAG flag、retrieval、fallback、截断、cache key 和脱敏展示边界。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceFormatterTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 disabled + qdrant_disabled 组合测试。
+- 覆盖 `ragEnabled=false` 时的 `in_memory`、retrievedCount=0、fallbackUsed=false、cacheKeyRagAware=false。
+- 覆盖 `ragEnabled=true` 时的 `qdrant_disabled`、topK、retrievedCount>0、contextHashPresent、contextTruncated、citationCount、cacheKeyRagAware。
+- 继续确认 formatter summary 不输出正文、prompt、provider response、Authorization、documentText 或 context 原文。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagQaTrace*" test`：通过，9 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，85 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未修改生产逻辑。
+- 未新增公开 API。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T119 RAG Offline Eval Trend Summary
 
 ### 本轮目标

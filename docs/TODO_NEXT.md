@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T120-RAG-QA-Debug-Trace-Formatting-Coverage
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：加强 `RagQaTraceFormatter` 测试，明确覆盖 flag=false、flag=true retrievedCount>0、fallback、截断、cache key、qdrant_disabled / in_memory 展示和正文脱敏边界。
+- 当前结果：`RagQaTraceFormatterTest` 新增 disabled + qdrant_disabled 组合测试，断言 `ragEnabled=false` 时展示 `in_memory` / zero retrieval，`ragEnabled=true` 时展示 `qdrant_disabled`、topK、retrievedCount、contextHashPresent、contextTruncated、citationCount、cacheKeyRagAware；同时确认 summary 不包含正文、prompt、provider response、Authorization 或 context 原文。
+- 验证结果：`cd backend; mvn "-Dtest=*RagQaTrace*" test` 通过，9 tests；`cd backend; mvn "-Dtest=*Rag*" test` 通过，85 tests；`cd backend; mvn -DskipTests compile` 通过。
+- 边界：未改生产逻辑；未新增公开 API；未读取 `backend/.env`；未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response；未真实调用 provider；未真实连接 Qdrant；未新增数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T119-RAG-Offline-Eval-Trend-Summary
 
 - 状态：DONE
