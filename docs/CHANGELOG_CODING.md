@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T108 Offline RAG Eval And Qdrant Safety Review
+
+### 本轮目标
+
+只读审查 T099-T107 的 RAG / Qdrant / eval / preflight 相关改动，确认 offline demo、fake server、artifact、preflight 和文档边界没有引入真实 provider / Qdrant 风险。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 检查最近相关 commit 的文件范围和脚本 / 测试 / artifact 内容。
+- 确认默认 vector store provider 仍为 `in_memory`，Qdrant HTTP adapter 仍需显式 provider / endpoint 配置。
+- 确认 Qdrant preflight 默认 dry-run；只有显式 `-AllowRequest` 且环境齐全时才可能尝试只读检查。
+- 确认 embedding preflight 不发 HTTP，只输出环境变量存在性布尔。
+- 确认 offline demo / eval 使用 fake embedding、in-memory store、本地 fake Qdrant server 和 synthetic fixture，artifact 只保存脱敏指标。
+- 记录一处旧设计文档漂移：`docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md` 的早期 preflight smoke 表述不如 T104 脚本准确，当前以脚本和 git 记录为准。
+
+### 验证结果
+
+- `git diff --stat`：写入审查记录前为空。
+- RAG scripts / tests / docs secret、endpoint 原文、Authorization、provider response、prompt、文档正文风险扫描：未发现需修改生产代码的问题。
+- 新增文档 diff mojibake 扫描：通过。
+- 新增文档 diff 敏感形态扫描：通过。
+
+### 当前边界
+
+- 只修改协作文档。
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T107 Full Validation And Status Sync
 
 ### 本轮目标

@@ -13,6 +13,16 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T108-Offline-RAG-Eval-And-Qdrant-Safety-Review
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：只读审查 T099-T107 的 RAG / Qdrant / eval / preflight 相关改动，确认离线 demo、fake server、artifact 和安全边界没有漂移。
+- 当前结果：完成最近相关 commit、脚本、测试和 artifact 的只读检查；未修改生产代码。默认 vector store provider 仍为 `in_memory`；Qdrant adapter 只有显式 provider / endpoint 配置时才进入 HTTP 路径；Qdrant preflight 默认 dry-run，只有显式 `-AllowRequest` 且环境齐全时才可能尝试只读检查；embedding preflight 不发 HTTP。RAG demo / eval 仍使用 fake embedding、in-memory store、本地 fake Qdrant server 和 synthetic fixture，summary / artifact 只保存脱敏指标。
+- 纠偏记录：`docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md` 仍有较早的笼统 preflight smoke 表述；当前以 T104 后的脚本行为和 git 记录为准，即默认 dry-run，不真实连接 Qdrant。
+- 验证结果：`git diff --stat` 在写入审查记录前为空；完成 RAG scripts / tests / docs 的 secret、endpoint 原文、Authorization、provider response、prompt、文档正文风险扫描；新增文档 diff 的 mojibake 和敏感形态扫描通过。
+- 边界：本任务只记录审查结果；未新增公开 API；未新增数据库表；未新增 Maven 依赖；未修改 docker-compose；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未处理 T010 / MQ blocked。
+
 ### T107-Full-Validation-And-Status-Sync
 
 - 状态：DONE

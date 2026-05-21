@@ -12,6 +12,7 @@ DocPilot 是一个 Java 后端 + Next.js 前端的 AI 文档平台。当前仓�
 
 ## 2. 已经实现的功能
 
+- T108 已完成 T099-T107 RAG / Qdrant / eval / preflight 只读安全审查：默认 vector store provider 仍为 `in_memory`；Qdrant adapter 仍需显式配置才进入 HTTP 路径；Qdrant preflight 默认 dry-run，真实请求必须显式 `-AllowRequest`；embedding preflight 不发 HTTP；offline demo / eval 只使用 fake embedding、in-memory store、本地 fake Qdrant server 和 synthetic fixture。未发现新增脚本或 artifact 输出 secret、endpoint 原文、Authorization、provider response、prompt 或文档正文。记录一处旧设计文档措辞漂移：`docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md` 的早期 preflight smoke 表述不如 T104 脚本准确，当前以脚本和 git 记录为准。
 - T107 已完成本轮全量验证与状态同步：`cd backend; mvn test -DskipITs` 通过，443 tests；T099-T106 未修改 frontend 代码，因此未运行 frontend lint/build。测试后 `git status --short` 为空；未启动长期服务进程。
 - T106 已新增 `/agent` Agent + RAG Showcase demo checklist：`docs/AGENT_RAG_DEMO_CHECKLIST.md` 记录已解析 `documentId` 前置条件、RAG 召回 / 普通 QA 演示顺序、必须截图字段，以及 fake embedding + in-memory、Qdrant disabled、真实 embedding BLOCKED、`llm_execute` 默认关闭和 T010/MQ 未覆盖等边界。仅新增文档，未改前端代码。
 - T105 已新增真实 embedding provider 脱敏 preflight：`backend/scripts/rag/preflight-embedding-provider.ps1` 只检查当前 shell 的 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 是否存在并输出 True/False；不读取 `backend/.env`，不发 HTTP，不输出变量值、API key、baseUrl、Authorization、prompt、文档正文或 provider response。真实 embedding runtime 在缺必要变量时继续 BLOCKED，但 fake embedding + in-memory RAG 测试不受影响。
