@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T113-Agent-Showcase-RAG-Debug-Trace
+
+- 状态：DONE
+- 完成时间：2026-05-21
+- 任务目标：在 `/agent` 页面可选展示脱敏 RAG debug trace，不新增 API。
+- 当前结果：前端从 Agent step `outputSummary` 中白名单解析 `ragEnabled`、`embeddingProvider`、`vectorStoreType`、`topK`、`retrievedCount`、`contextTruncated`、`fallbackUsed`、`fallbackReason`、`cacheKeyRagAware`，新增“RAG 调试摘要”区域；工作流中残留的 done / waiting / loading 等英文状态文案已改为中文展示。未展示文档正文、prompt 或 provider response。
+- 验证结果：`cd frontend; npm run lint` 通过；`cd frontend; npm run build` 通过。
+- 边界：未新增公开 API；未修改后端接口；未读取 `backend/.env`；未真实调用 provider；未真实连接 Qdrant；未新增数据库表、Maven 依赖或 docker-compose；未处理 T010 / MQ blocked。
+
 ### T112-Agent-RAG-Tool-QA-Trace-Alignment
 
 - 状态：DONE

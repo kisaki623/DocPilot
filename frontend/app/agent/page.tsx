@@ -117,6 +117,43 @@ function summarizeToolNames(steps?: Array<{ toolName?: string }>): string {
   return names.length > 0 ? names.join(" / ") : "-";
 }
 
+function parseRagTraceSummary(summary?: string): Record<string, string> | null {
+  if (!summary || !summary.includes("ragEnabled=")) {
+    return null;
+  }
+  const allowedKeys = new Set([
+    "ragEnabled",
+    "embeddingProvider",
+    "vectorStoreType",
+    "topK",
+    "retrievedCount",
+    "contextTruncated",
+    "fallbackUsed",
+    "fallbackReason",
+    "cacheKeyRagAware"
+  ]);
+  const fields: Record<string, string> = {};
+  summary.split(",").forEach((part) => {
+    const [rawKey, ...rawValue] = part.split("=");
+    const key = rawKey.trim();
+    if (!allowedKeys.has(key)) {
+      return;
+    }
+    fields[key] = rawValue.join("=").trim() || "-";
+  });
+  return Object.keys(fields).length > 0 ? fields : null;
+}
+
+function formatTraceValue(value?: string): string {
+  if (value === "true") {
+    return "是";
+  }
+  if (value === "false") {
+    return "否";
+  }
+  return value && value.length > 0 ? value : "-";
+}
+
 export default function AgentPage() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [loadingDocuments, setLoadingDocuments] = useState(true);
@@ -180,46 +217,74 @@ export default function AgentPage() {
     const runtimeSteps = result.steps || [];
     const visibleSteps = persistedSteps.length > 0 ? persistedSteps : runtimeSteps;
     const persistedStatus = persistedTrace
-      ? `${persistedTrace.steps.length} step(s) persisted`
+      ? `已持久化 ${persistedTrace.steps.length} 个步骤`
       : result.taskId
         ? loadingPersistedTrace
-          ? "loading persisted trace"
-          : "taskId returned"
-        : "no taskId";
+          ? "正在加载持久化轨迹"
+          : "已返回 taskId"
+        : "未返回 taskId";
 
     return [
       {
         label: "接收任务",
         status: "done",
         detail: `documentId=${result.documentId}`,
-        evidence: result.task ? "task accepted" : "task payload accepted"
+        evidence: result.task ? "任务已接收" : "任务载荷已接收"
       },
       {
         label: "选择工具",
         status: result.decision ? "done" : "waiting",
         detail: result.decision || "-",
-        evidence: result.routingReason || "routing reason not returned"
+        evidence: result.routingReason || "未返回路由说明"
       },
       {
         label: "执行工具",
         status: visibleSteps.length > 0 ? "done" : "waiting",
         detail: summarizeToolNames(visibleSteps),
-        evidence: `${visibleSteps.length} step(s)`
+        evidence: `${visibleSteps.length} 个步骤`
       },
       {
         label: "生成结果",
         status: result.finalAnswer ? "done" : "waiting",
-        detail: result.success === false ? "failed" : "answer ready",
+        detail: result.success === false ? "执行失败" : "回答已生成",
         evidence: `${result.totalDurationMs ?? 0} ms`
       },
       {
         label: "持久化 trace",
         status: persistedTrace ? "done" : result.taskId ? "waiting" : "waiting",
         detail: persistedStatus,
-        evidence: persistedTrace?.task.status || (result.taskId ? `taskId=${result.taskId}` : "not available")
+        evidence: persistedTrace?.task.status || (result.taskId ? `taskId=${result.taskId}` : "暂不可用")
       }
     ];
   }, [loadingPersistedTrace, persistedTrace, result]);
+
+  const ragTraceSummary = useMemo(() => {
+    if (!result) {
+      return null;
+    }
+    const steps = persistedTrace?.steps && persistedTrace.steps.length > 0 ? persistedTrace.steps : result.steps || [];
+    const ragStep = steps.find((step) =>
+      step.toolName === "document_rag_tool" || Boolean(parseRagTraceSummary(step.outputSummary))
+    );
+    return parseRagTraceSummary(ragStep?.outputSummary);
+  }, [persistedTrace, result]);
+
+  const ragTraceItems = useMemo(() => {
+    if (!ragTraceSummary) {
+      return [];
+    }
+    return [
+      ["RAG 开启", ragTraceSummary.ragEnabled],
+      ["Embedding Provider", ragTraceSummary.embeddingProvider],
+      ["Vector Store", ragTraceSummary.vectorStoreType],
+      ["Top K", ragTraceSummary.topK],
+      ["召回数量", ragTraceSummary.retrievedCount],
+      ["上下文截断", ragTraceSummary.contextTruncated],
+      ["Fallback 使用", ragTraceSummary.fallbackUsed],
+      ["Fallback 原因", ragTraceSummary.fallbackReason],
+      ["缓存 Key 含 RAG", ragTraceSummary.cacheKeyRagAware]
+    ];
+  }, [ragTraceSummary]);
 
   useEffect(() => {
     if (result && String(result.documentId) !== selectedDocumentId) {
@@ -507,38 +572,38 @@ export default function AgentPage() {
             <div className="grid gap-4">
               <div className="dp-kpi-grid">
                 <div className="dp-kpi-card">
-                  <p className="dp-kpi-label">Decision</p>
+                  <p className="dp-kpi-label">工具决策</p>
                   <p className="dp-kpi-value text-lg">{result.decision || "-"}</p>
                 </div>
                 <div className="dp-kpi-card">
-                  <p className="dp-kpi-label">Total Duration</p>
+                  <p className="dp-kpi-label">总耗时</p>
                   <p className="dp-kpi-value text-lg">{result.totalDurationMs ?? 0} ms</p>
                 </div>
                 <div className="dp-kpi-card">
-                  <p className="dp-kpi-label">Task ID</p>
+                  <p className="dp-kpi-label">任务 ID</p>
                   <p className="dp-kpi-value text-lg">{result.taskId ?? "-"}</p>
                 </div>
                 <div className="dp-kpi-card">
-                  <p className="dp-kpi-label">Citations</p>
+                  <p className="dp-kpi-label">引用数量</p>
                   <p className="dp-kpi-value text-lg">{result.citations?.length ?? 0}</p>
                 </div>
                 <div className="dp-kpi-card">
-                  <p className="dp-kpi-label">RAG Chunks</p>
+                  <p className="dp-kpi-label">RAG 片段</p>
                   <p className="dp-kpi-value text-lg">{result.ragResults?.length ?? 0}</p>
                 </div>
               </div>
 
               <div className="dp-card-soft text-xs text-slate-600">
-                <p>Trace ID: <span className="font-mono">{result.traceId || "-"}</span></p>
-                <p className="mt-1">Started: {formatDateTime(result.startedAt)}</p>
-                <p className="mt-1">Finished: {formatDateTime(result.finishedAt)}</p>
+                <p>轨迹 ID: <span className="font-mono">{result.traceId || "-"}</span></p>
+                <p className="mt-1">开始时间: {formatDateTime(result.startedAt)}</p>
+                <p className="mt-1">结束时间: {formatDateTime(result.finishedAt)}</p>
               </div>
 
               {result.routingReason ? (
                 <div className="dp-card-soft">
                   <div className="flex items-center justify-between gap-2 mb-2">
                     <p className="text-sm font-semibold text-slate-700">路由决策</p>
-                    <span className="dp-badge dp-badge-info">Tool Selection</span>
+                    <span className="dp-badge dp-badge-info">工具选择</span>
                   </div>
                   <p className="text-sm text-slate-700">{result.routingReason}</p>
                   {result.matchedKeywords && result.matchedKeywords.length > 0 ? (
@@ -553,10 +618,29 @@ export default function AgentPage() {
                 </div>
               ) : null}
 
+              {ragTraceItems.length > 0 ? (
+                <div className="dp-card-soft">
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <p className="text-sm font-semibold text-slate-700">RAG 调试摘要</p>
+                    <span className="dp-badge dp-badge-info">脱敏 Trace</span>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {ragTraceItems.map(([label, value]) => (
+                      <div key={label} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+                        <p className="mt-1 break-words text-sm font-semibold text-slate-700">
+                          {formatTraceValue(value)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="dp-card-soft">
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <p className="text-sm font-semibold text-slate-700">Agent Workflow</p>
-                  <span className="dp-badge dp-badge-info">Trace View</span>
+                  <p className="text-sm font-semibold text-slate-700">Agent 工作流</p>
+                  <span className="dp-badge dp-badge-info">轨迹视图</span>
                 </div>
                 <ol className="grid gap-3">
                   {workflowItems.map((item, index) => (
@@ -577,7 +661,7 @@ export default function AgentPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-slate-800">{item.label}</p>
                           <span className={item.status === "done" ? "dp-badge dp-badge-success" : "dp-badge dp-badge-warning"}>
-                            {item.status === "done" ? "done" : "waiting"}
+                            {item.status === "done" ? "已完成" : "等待中"}
                           </span>
                         </div>
                         <p className="mt-1 text-xs font-semibold text-slate-600">{item.detail}</p>
@@ -666,10 +750,10 @@ export default function AgentPage() {
                     <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-600">
                       <p>Task ID: <span className="font-mono">{persistedTrace.task.id}</span></p>
                       <p>Status: <span className="font-semibold">{persistedTrace.task.status || "-"}</span></p>
-                      <p>Decision: <span className="font-semibold">{persistedTrace.task.decision || "-"}</span></p>
-                      <p>Total Duration: {persistedTrace.task.totalDurationMs ?? "-"} ms</p>
-                      <p>Step Count: {persistedTrace.steps.length}</p>
-                      <p>Finished: {formatDateTime(persistedTrace.task.finishTime)}</p>
+                      <p>工具决策: <span className="font-semibold">{persistedTrace.task.decision || "-"}</span></p>
+                      <p>总耗时: {persistedTrace.task.totalDurationMs ?? "-"} ms</p>
+                      <p>步骤数量: {persistedTrace.steps.length}</p>
+                      <p>结束时间: {formatDateTime(persistedTrace.task.finishTime)}</p>
                     </div>
 
                     {persistedTrace.steps.length > 0 ? (
@@ -698,7 +782,7 @@ export default function AgentPage() {
               </div>
 
               <div className="dp-card-soft">
-                <p className="text-sm font-semibold text-slate-700 mb-2">工具步骤 Trace</p>
+                <p className="text-sm font-semibold text-slate-700 mb-2">工具步骤轨迹</p>
                 {result.steps && result.steps.length > 0 ? (
                   <ol className="dp-list-clean">
                     {result.steps.map((step) => (

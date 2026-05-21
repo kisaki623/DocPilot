@@ -2,6 +2,41 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-21 - T113 Agent Showcase RAG Debug Trace
+
+### 本轮目标
+
+在 `/agent` 页面可选展示脱敏 RAG debug trace，并中文化页面中残留的英文状态文案；不新增 API。
+
+### 修改文件
+
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `parseRagTraceSummary`，只从 Agent step `outputSummary` 白名单解析 RAG trace 字段。
+- 新增“RAG 调试摘要”区域，展示 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextTruncated、fallbackUsed、fallbackReason、cacheKeyRagAware。
+- 将工作流可见状态从 done / waiting / loading 类英文改成中文展示。
+- 未展示文档正文、prompt 或 provider response。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未修改后端接口。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
 ## 2026-05-21 - T112 Agent RAG Tool QA Trace Alignment
 
 ### 本轮目标
