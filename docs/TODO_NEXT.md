@@ -13,6 +13,15 @@ DocPilot Codex 协作看板。每轮只执行一个任务；没有真实验证�
 
 ## 已完成
 
+### T137-Release-Audit-Public-IP-Default-Fix
+
+- 状态：DONE
+- 完成时间：2026-05-27
+- 任务目标：修复 GitHub 推送前 release audit 发现的唯一阻塞项，移除 `backend/scripts/demo/check-task11_7.ps1` 中的公网 IP 默认值风险。
+- 当前结果：脚本不再内置远程公网地址；local 模式默认使用本地安全地址；cloud 模式需要通过 `-CloudHost` 或 `DOCPILOT_CLOUD_HOST` 显式配置远程目标，缺失时只输出 `configured=false` 并停止。脚本输出目标分类为 `localhost` / `remote-redacted` / `configured=false`，不打印完整远程 endpoint。
+- 验证结果：PowerShell parser syntax check 通过；cloud 未配置分支实跑通过预期阻塞；指定范围公网 IP 扫描 0 hits；secret/token 候选复核未发现真实 secret；`backend/.env` 仍未被 git 跟踪且本轮未读取；`git diff --check` 通过；`cd backend; mvn test -DskipITs` 通过，459 tests；`cd frontend; npm run lint` 与 `npm run build` 通过。
+- 边界：未修改业务代码、后端 Java、前端、配置文件、Maven 依赖、数据库表或 docker-compose；未真实调用 provider；未真实连接 Qdrant；未处理 T010 / MQ blocked；未输出原始公网 IP、endpoint、token、secret、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
 ### T136-Offline-Agent-RAG-Demo-Status-Sync
 
 - 状态：DONE

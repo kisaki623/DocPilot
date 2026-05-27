@@ -2,8 +2,8 @@ Param(
     [switch]$CheckPrometheus,
     [ValidateSet("local", "cloud")]
     [string]$Mode = "local",
-    [string]$CloudHost = "116.204.132.136",
-    [string]$BackendHost = "127.0.0.1",
+    [string]$CloudHost = "",
+    [string]$BackendHost = "",
     [int]$BackendPort = 8081,
     [switch]$SkipRocketMQ,
     [switch]$SkipMinio
@@ -49,6 +49,22 @@ function First-NonEmpty {
     return $DefaultValue
 }
 
+function Get-TargetLabel {
+    Param(
+        [string]$TargetHost
+    )
+
+    if ([string]::IsNullOrWhiteSpace($TargetHost)) {
+        return "configured=false"
+    }
+
+    if ($TargetHost -eq "127.0.0.1" -or $TargetHost -eq "localhost" -or $TargetHost -eq "::1") {
+        return "localhost"
+    }
+
+    return "remote-redacted"
+}
+
 function Parse-HostPort {
     Param(
         [string]$InputValue,
@@ -91,46 +107,56 @@ function Parse-HostPort {
 }
 
 $requiredPorts = @()
-$backendHost = $BackendHost
+$backendHost = First-NonEmpty -Candidates @($BackendHost, $env:DOCPILOT_BACKEND_HOST) -DefaultValue "127.0.0.1"
 $backendPort = $BackendPort
 
 if ($Mode -eq "local") {
+    $localHost = "127.0.0.1"
     $requiredPorts += @{ Name = "MySQL"; Host = "127.0.0.1"; Port = 3306 }
-    $requiredPorts += @{ Name = "Redis"; Host = "127.0.0.1"; Port = 6379 }
+    $requiredPorts += @{ Name = "Redis"; Host = $localHost; Port = 6379 }
     if (-not $SkipRocketMQ) {
-        $requiredPorts += @{ Name = "RocketMQ NameServer"; Host = "127.0.0.1"; Port = 9876 }
+        $requiredPorts += @{ Name = "RocketMQ NameServer"; Host = $localHost; Port = 9876 }
     }
     if (-not $SkipMinio) {
-        $requiredPorts += @{ Name = "MinIO API"; Host = "127.0.0.1"; Port = 9000 }
-        $requiredPorts += @{ Name = "MinIO Console"; Host = "127.0.0.1"; Port = 9001 }
+        $requiredPorts += @{ Name = "MinIO API"; Host = $localHost; Port = 9000 }
+        $requiredPorts += @{ Name = "MinIO Console"; Host = $localHost; Port = 9001 }
     }
 } else {
-    $mysqlHost = First-NonEmpty -Candidates @($env:MYSQL_HOST) -DefaultValue $CloudHost
+    $cloudTargetHost = First-NonEmpty -Candidates @($CloudHost, $env:DOCPILOT_CLOUD_HOST) -DefaultValue ""
+    if ([string]::IsNullOrWhiteSpace($cloudTargetHost)) {
+        Write-Host "[BLOCKED] cloud target configured=false. Pass -CloudHost or set DOCPILOT_CLOUD_HOST." -ForegroundColor Yellow
+        exit 1
+    }
+    $backendHost = First-NonEmpty -Candidates @($BackendHost, $env:DOCPILOT_BACKEND_HOST) -DefaultValue $cloudTargetHost
+    $mysqlHost = First-NonEmpty -Candidates @($env:MYSQL_HOST) -DefaultValue $cloudTargetHost
     $mysqlPort = First-NonEmpty -Candidates @($env:MYSQL_PORT) -DefaultValue "3306"
-    $redisHost = First-NonEmpty -Candidates @($env:REDIS_HOST) -DefaultValue $CloudHost
+    $redisHost = First-NonEmpty -Candidates @($env:REDIS_HOST) -DefaultValue $cloudTargetHost
     $redisPort = First-NonEmpty -Candidates @($env:REDIS_PORT) -DefaultValue "6379"
 
     $requiredPorts += @{ Name = "MySQL"; Host = $mysqlHost; Port = [int]$mysqlPort }
     $requiredPorts += @{ Name = "Redis"; Host = $redisHost; Port = [int]$redisPort }
 
     if (-not $SkipRocketMQ) {
-        $nameSrv = Parse-HostPort -InputValue $env:ROCKETMQ_NAME_SERVER -DefaultHost $CloudHost -DefaultPort 9876
+        $nameSrv = Parse-HostPort -InputValue $env:ROCKETMQ_NAME_SERVER -DefaultHost $cloudTargetHost -DefaultPort 9876
         $requiredPorts += @{ Name = "RocketMQ NameServer"; Host = $nameSrv.Host; Port = $nameSrv.Port }
     }
 
     if (-not $SkipMinio) {
-        $minioEndpoint = Parse-HostPort -InputValue $env:MINIO_ENDPOINT -DefaultHost $CloudHost -DefaultPort 9000
+        $minioEndpoint = Parse-HostPort -InputValue $env:MINIO_ENDPOINT -DefaultHost $cloudTargetHost -DefaultPort 9000
         $requiredPorts += @{ Name = "MinIO API"; Host = $minioEndpoint.Host; Port = $minioEndpoint.Port }
     }
 }
 
+Write-Host "[INFO] backend target: $(Get-TargetLabel -TargetHost $backendHost), configured=$(-not [string]::IsNullOrWhiteSpace($backendHost))"
+
 $failed = @()
 foreach ($item in $requiredPorts) {
     $ok = Test-Port -TargetHost $item.Host -Port $item.Port
+    $targetLabel = Get-TargetLabel -TargetHost $item.Host
     if ($ok) {
-        Write-Host "[OK] $($item.Name) port $($item.Port) reachable"
+        Write-Host "[OK] $($item.Name) target=${targetLabel}, port $($item.Port) reachable"
     } else {
-        Write-Host "[FAIL] $($item.Name) port $($item.Port) unreachable" -ForegroundColor Yellow
+        Write-Host "[FAIL] $($item.Name) target=${targetLabel}, port $($item.Port) unreachable" -ForegroundColor Yellow
         $failed += $item.Name
     }
 }
@@ -150,10 +176,12 @@ try {
 }
 
 if ($CheckPrometheus) {
-    if (Test-Port -TargetHost "127.0.0.1" -Port 9090) {
-        Write-Host "[OK] Prometheus UI port 9090 reachable"
+    $prometheusHost = if ($Mode -eq "local") { "127.0.0.1" } else { $cloudTargetHost }
+    $prometheusLabel = Get-TargetLabel -TargetHost $prometheusHost
+    if (Test-Port -TargetHost $prometheusHost -Port 9090) {
+        Write-Host "[OK] Prometheus UI target=${prometheusLabel}, port 9090 reachable"
     } else {
-        Write-Host "[WARN] Prometheus UI port 9090 unreachable" -ForegroundColor Yellow
+        Write-Host "[WARN] Prometheus UI target=${prometheusLabel}, port 9090 unreachable" -ForegroundColor Yellow
     }
 }
 

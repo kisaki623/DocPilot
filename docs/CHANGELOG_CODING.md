@@ -2,6 +2,46 @@
 
 记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
 
+## 2026-05-27 - Release Audit Public IP Default Removal
+
+### 本轮目标
+
+修复 GitHub 推送前 release audit 发现的唯一阻塞项：`backend/scripts/demo/check-task11_7.ps1` 中被跟踪的公网 IP 默认值风险。不新增功能，不改业务代码，不读取 `backend/.env`。
+
+### 修改文件
+
+- `backend/scripts/demo/check-task11_7.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 移除 demo 检查脚本中的公网 IP 默认值。
+- local 模式默认使用本地安全地址。
+- cloud 模式要求通过 `-CloudHost` 或 `DOCPILOT_CLOUD_HOST` 显式传入远程目标；缺失时输出 `configured=false` 并停止。
+- 脚本输出只展示 `localhost`、`remote-redacted` 或 `configured=false` 这类目标分类，不打印完整远程 endpoint。
+
+### 验证结果
+
+- PowerShell parser syntax check：通过。
+- `check-task11_7.ps1 -Mode cloud -SkipRocketMQ -SkipMinio`：通过预期阻塞分支，只输出 `configured=false`。
+- 指定范围公网 IP 脱敏扫描：0 hits。
+- 指定范围 secret/token 候选复核：命中均为示例变量、参数名、header 构造或 `API_KEY=false` 状态记录，未发现真实 secret。
+- `backend/.env`：仍未被 git 跟踪；本轮未读取内容。
+- `git diff --check`：通过。
+- `cd backend; mvn test -DskipITs`：通过，459 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 当前边界
+
+- 未修改业务代码、后端 Java、前端、配置文件、Maven 依赖、数据库表或 docker-compose。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+- 未输出原始公网 IP、endpoint、token、secret、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
 ## 2026-05-22 - T136 Offline Agent RAG Demo Status Sync
 
 ### 本轮目标
