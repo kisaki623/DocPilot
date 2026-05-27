@@ -1,0 +1,41 @@
+CREATE TABLE IF NOT EXISTS tb_agent_task (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    user_id BIGINT UNSIGNED NOT NULL COMMENT 'Owner user id',
+    document_id BIGINT UNSIGNED NOT NULL COMMENT 'Related document id',
+    session_id VARCHAR(128) DEFAULT NULL COMMENT 'QA session id',
+    task_input VARCHAR(1000) NOT NULL COMMENT 'Original agent task input',
+    decision VARCHAR(255) DEFAULT NULL COMMENT 'Agent routing decision',
+    final_answer TEXT DEFAULT NULL COMMENT 'Final answer',
+    status VARCHAR(20) NOT NULL COMMENT 'Task status: RUNNING, SUCCESS, FAILED',
+    error_msg VARCHAR(512) DEFAULT NULL COMMENT 'Failure reason when status is FAILED',
+    total_duration_ms BIGINT DEFAULT NULL COMMENT 'Total duration in milliseconds',
+    start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Task start time',
+    finish_time DATETIME DEFAULT NULL COMMENT 'Task finish time',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation time',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update time',
+    PRIMARY KEY (id),
+    KEY idx_user_id (user_id),
+    KEY idx_document_id (document_id),
+    KEY idx_status (status),
+    KEY idx_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Agent task execution record';
+
+CREATE TABLE IF NOT EXISTS tb_agent_step (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    task_id BIGINT UNSIGNED NOT NULL COMMENT 'Related agent task id',
+    step_index INT NOT NULL COMMENT 'Step order in task execution',
+    tool_name VARCHAR(100) NOT NULL COMMENT 'Tool name',
+    input_summary VARCHAR(500) DEFAULT NULL COMMENT 'Tool input summary',
+    output_summary VARCHAR(500) DEFAULT NULL COMMENT 'Tool output summary',
+    status VARCHAR(20) NOT NULL COMMENT 'Step status: RUNNING, SUCCESS, FAILED',
+    duration_ms BIGINT DEFAULT NULL COMMENT 'Step duration in milliseconds',
+    error_msg VARCHAR(512) DEFAULT NULL COMMENT 'Failure reason when status is FAILED',
+    start_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Step start time',
+    finish_time DATETIME DEFAULT NULL COMMENT 'Step finish time',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation time',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update time',
+    PRIMARY KEY (id),
+    KEY idx_task_id (task_id),
+    KEY idx_task_step (task_id, step_index),
+    KEY idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Agent tool step execution record';

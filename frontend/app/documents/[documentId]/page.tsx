@@ -11,14 +11,13 @@ import {
   askDocumentQuestionStream,
   getDocumentQaHistory,
   type DocumentQaCitationItem,
-  type DocumentQaHistoryItem
+  type DocumentQaHistoryItem,
+  type DocumentQaStreamPayload
 } from "@/lib/qa-api";
 import { reparseTask } from "@/lib/task-api";
 
 const DETAIL_STATUS_POLLING_TIMEOUT_MS = 120_000;
 const TERMINAL_PARSE_STATUS = new Set(["SUCCESS", "FAILED"]);
-
-type ViewMode = "rendered" | "raw";
 
 function formatDateTime(input: string): string {
   if (!input) {
@@ -112,7 +111,7 @@ export default function DocumentDetailPage() {
   const [statusPollingStartedAt, setStatusPollingStartedAt] = useState<number | null>(null);
 
   const streamAbortRef = useRef<AbortController | null>(null);
-  const [answerViewMode, setAnswerViewMode] = useState<ViewMode>("rendered");
+  const [firstTokenLatencyMs, setFirstTokenLatencyMs] = useState<number | null>(null);
 
   const fetchQaHistory = useCallback(async (documentId: number) => {
     setHistoryLoading(true);
@@ -264,6 +263,25 @@ export default function DocumentDetailPage() {
 
   const errorHint = useMemo(() => buildErrorHint(errorMessage), [errorMessage]);
 
+  function applyStreamPayload(payload?: DocumentQaStreamPayload): string | null {
+    if (!payload) {
+      return null;
+    }
+    let nextSessionId: string | null = null;
+    if (payload.sessionId && payload.sessionId.trim()) {
+      nextSessionId = payload.sessionId.trim();
+      setSessionId(nextSessionId);
+      const documentId = Number(documentIdParam);
+      if (!Number.isNaN(documentId) && documentId > 0) {
+        window.localStorage.setItem(buildSessionStorageKey(documentId), nextSessionId);
+      }
+    }
+    if (Array.isArray(payload.citations)) {
+      setCitations(payload.citations);
+    }
+    return nextSessionId;
+  }
+
   async function handleAskQuestion() {
     const token = getToken();
     if (!token) {
@@ -296,6 +314,10 @@ export default function DocumentDetailPage() {
     setStreamingQa(useStreamingQa);
     setAnswer("");
     setCitations([]);
+    setFirstTokenLatencyMs(null);
+    const streamStartedAtMs = useStreamingQa ? Date.now() : 0;
+    let firstChunkReceived = false;
+    let streamedChunkCount = 0;
 
     const askByNormalApi = async () => {
       const response = await askDocumentQuestion({
@@ -320,13 +342,28 @@ export default function DocumentDetailPage() {
             sessionId: normalizedSessionId
           },
           {
+            onMeta: (payload) => {
+              const payloadSessionId = applyStreamPayload(payload);
+              if (payloadSessionId) {
+                nextSessionId = payloadSessionId;
+              }
+            },
             onChunk: (chunk) => {
               if (!chunk) {
                 return;
               }
+              streamedChunkCount += 1;
+              if (!firstChunkReceived && streamStartedAtMs > 0) {
+                firstChunkReceived = true;
+                setFirstTokenLatencyMs(Math.max(0, Date.now() - streamStartedAtMs));
+              }
               setAnswer((prev) => prev + chunk);
             },
-            onDone: () => {
+            onDone: (payload) => {
+              const payloadSessionId = applyStreamPayload(payload);
+              if (payloadSessionId) {
+                nextSessionId = payloadSessionId;
+              }
               setStreamingQa(false);
               setSessionHint("当前会话已续用，后续提问会自动携带历史上下文。");
             },
@@ -364,13 +401,15 @@ export default function DocumentDetailPage() {
           return;
         } catch (fallbackError) {
           const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "普通问答也失败";
-          setQaErrorMessage(`流式问答失败：${streamErrorMessage}；降级后仍失败：${fallbackMessage}`);
+          if (streamedChunkCount > 0) {
+            setQaErrorMessage(`流式问答失败：${streamErrorMessage}；降级后仍失败：${fallbackMessage}。已保留流式阶段已生成内容。`);
+          } else {
+            setQaErrorMessage(`流式问答失败：${streamErrorMessage}；降级后仍失败：${fallbackMessage}`);
+          }
         }
       } else {
         setQaErrorMessage(streamErrorMessage);
       }
-      setAnswer("");
-      setCitations([]);
     } finally {
       setAsking(false);
       setStreamingQa(false);
@@ -582,14 +621,13 @@ export default function DocumentDetailPage() {
                         </div>
 
                         {streamingQa && <p className="text-xs text-blue-600 mb-2 animate-pulse">正在生成中...</p>}
+                        {firstTokenLatencyMs !== null ? (
+                          <p className="mb-2 text-xs text-slate-500">首字延迟：{firstTokenLatencyMs} ms</p>
+                        ) : null}
 
-                        <div className="prose prose-slate max-w-none text-[0.95rem] leading-relaxed bg-slate-50 p-5 rounded-xl border border-slate-100">
+                        <div className="bg-slate-50 p-5 rounded-xl border border-slate-100 min-h-[120px]">
                           {answer ? (
-                            answerViewMode === "rendered" && !streamingQa ? (
-                              <MarkdownViewer markdown={answer} showViewToggle={false} emptyText="" variant="answer" />
-                            ) : (
-                              <pre className="whitespace-pre-wrap break-words font-sans">{answer}</pre>
-                            )
+                            <MarkdownViewer markdown={answer} showViewToggle={false} emptyText="" variant="answer" mode="inline" />
                           ) : (
                             <span className="text-slate-400">等待回答...</span>
                           )}
@@ -646,6 +684,9 @@ export default function DocumentDetailPage() {
               <article className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
                 <h2 className="text-base font-bold text-slate-900 mb-3">历史记录</h2>
                 {historyLoading ? <p className="text-sm text-slate-400">加载中...</p> : null}
+                {!historyLoading && historyErrorMessage ? (
+                  <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{historyErrorMessage}</p>
+                ) : null}
                 {!historyLoading && historyList.length === 0 ? (
                   <p className="text-sm text-slate-400 italic">暂无对话记录。</p>
                 ) : null}
@@ -655,7 +696,15 @@ export default function DocumentDetailPage() {
                       <li key={item.id} className="border-l-2 border-slate-200 pl-3 py-1">
                         <p className="text-xs text-slate-400 mb-1">{formatDateTime(item.createTime)}</p>
                         <p className="text-sm font-medium text-slate-800 mb-1 line-clamp-2">{item.question}</p>
-                        <p className="text-sm text-slate-500 line-clamp-2">{item.answer}</p>
+                        <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                          <MarkdownViewer
+                            markdown={item.answer}
+                            showViewToggle={false}
+                            emptyText=""
+                            variant="history"
+                            mode="inline"
+                          />
+                        </div>
                       </li>
                     ))}
                   </ul>

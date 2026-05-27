@@ -84,8 +84,8 @@ class Task11_6BenchmarkTest {
         AiModeScenarioResult aiMode = benchmarkAiModeComparison();
         CreateMainChainScenarioResult createMainChain = benchmarkCreateMainChain();
 
-        assertTrue(detailCache.hitStats().avgMs() < detailCache.missStats().avgMs(), "detail cache hit should be faster than miss");
-        assertTrue(qaCache.hitStats().avgMs() < qaCache.missStats().avgMs(), "qa cache hit should be faster than miss");
+        assertTrue(detailCache.hitPathVerified(), "detail cache hit should reuse cached payload");
+        assertTrue(qaCache.hitPathVerified(), "qa cache hit should reuse cached answer");
         assertTrue(aiMode.mockStats().successRate() >= 99.0D, "mock success rate should be stable");
         assertTrue(aiMode.realStats().successRate() >= 99.0D, "real(local) success rate should be stable");
         assertTrue(createMainChain.documentCreate().stats().successRate() >= 99.0D, "document/create success rate should be stable");
@@ -119,11 +119,13 @@ class Task11_6BenchmarkTest {
         detailResponse.setCreateTime(LocalDateTime.now());
         detailResponse.setUpdateTime(LocalDateTime.now());
 
+        AtomicInteger detailLookupCounter = new AtomicInteger(0);
         doAnswer(invocation -> {
             sleepQuietly(2L);
             return document;
         }).when(documentMapper).selectById(DOCUMENT_ID);
         doAnswer(invocation -> {
+            detailLookupCounter.incrementAndGet();
             sleepQuietly(2L);
             return detailResponse;
         }).when(documentMapper).selectUserDocumentDetail(DOCUMENT_ID, USER_ID);
@@ -145,17 +147,20 @@ class Task11_6BenchmarkTest {
 
         redisHarness.store().remove(cacheKey);
         service.getDetailById(DOCUMENT_ID, USER_ID);
+        int lookupCountBeforeHits = detailLookupCounter.get();
         List<Long> hitDurations = new ArrayList<>(samples);
         for (int i = 0; i < samples; i++) {
             hitDurations.add(measureNanos(() -> service.getDetailById(DOCUMENT_ID, USER_ID)));
         }
+        boolean hitPathVerified = detailLookupCounter.get() == lookupCountBeforeHits;
 
         return new CacheScenarioResult(
                 "document_detail_cache",
                 samples,
                 1,
                 toStats(missDurations),
-                toStats(hitDurations)
+                toStats(hitDurations),
+                hitPathVerified
         );
     }
 
@@ -214,17 +219,20 @@ class Task11_6BenchmarkTest {
 
         redisHarness.store().remove(cacheKey);
         service.answer(USER_ID, DOCUMENT_ID, question);
+        int aiCallCountBeforeHits = aiCallCounter.get();
         List<Long> hitDurations = new ArrayList<>(samples);
         for (int i = 0; i < samples; i++) {
             hitDurations.add(measureNanos(() -> service.answer(USER_ID, DOCUMENT_ID, question)));
         }
+        boolean hitPathVerified = aiCallCounter.get() == aiCallCountBeforeHits;
 
         return new CacheScenarioResult(
                 "qa_answer_cache",
                 samples,
                 1,
                 toStats(missDurations),
-                toStats(hitDurations)
+                toStats(hitDurations),
+                hitPathVerified
         );
     }
 
@@ -846,7 +854,8 @@ class Task11_6BenchmarkTest {
                                        int samples,
                                        int concurrency,
                                        ScenarioStats missStats,
-                                       ScenarioStats hitStats) {
+                                       ScenarioStats hitStats,
+                                       boolean hitPathVerified) {
     }
 
     private record AiModeScenarioResult(int requests,
@@ -926,6 +935,5 @@ class Task11_6BenchmarkTest {
         }
     }
 }
-
 
 

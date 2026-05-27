@@ -29,5 +29,3 @@ public class MinioStorageConfig {
                 .build();
     }
 }
-
-

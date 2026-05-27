@@ -13,6 +13,7 @@ const navItems = [
   { href: "/dashboard", label: "控制台" },
   { href: "/upload", label: "上传" },
   { href: "/documents", label: "文档库" },
+  { href: "/agent", label: "Agent" },
   { href: "/login", label: "登录" }
 ];
 

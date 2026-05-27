@@ -1,0 +1,250 @@
+package com.docpilot.backend.ai.agent.tool;
+
+import com.docpilot.backend.ai.rag.EmbeddingModel;
+import com.docpilot.backend.ai.rag.EmbeddingModelFactory;
+import com.docpilot.backend.ai.rag.InMemoryVectorStore;
+import com.docpilot.backend.ai.rag.RagAnswerContext;
+import com.docpilot.backend.ai.rag.RagAnswerContextBuilder;
+import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
+import com.docpilot.backend.ai.rag.RagFallbackReasonClassifier;
+import com.docpilot.backend.ai.rag.RagIndexKey;
+import com.docpilot.backend.ai.rag.RagIndexManager;
+import com.docpilot.backend.ai.rag.RagIndexService;
+import com.docpilot.backend.ai.rag.RagQaTrace;
+import com.docpilot.backend.ai.rag.RagQaTraceFormatter;
+import com.docpilot.backend.ai.rag.RagRetrievalService;
+import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
+import com.docpilot.backend.ai.rag.VectorStore;
+import com.docpilot.backend.ai.rag.VectorStoreFactory;
+import com.docpilot.backend.ai.rag.VectorSearchResult;
+import com.docpilot.backend.common.util.ValidationUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+
+@Component
+public class DocumentRagTool implements AgentTool<DocumentRagTool.RagInput, DocumentRagTool.RagResult> {
+
+    public static final String TOOL_NAME = "document_rag_tool";
+    private static final int DEFAULT_TOP_K = 3;
+    private static final int MAX_TOP_K = 5;
+    private static final int SNIPPET_MAX_LENGTH = 280;
+    private static final int CONTEXT_MAX_LENGTH = 900;
+    private static final RagQaTraceFormatter TRACE_FORMATTER = new RagQaTraceFormatter();
+
+    private final EmbeddingModelFactory embeddingModelFactory;
+    private final RagEmbeddingProperties embeddingProperties;
+    private final VectorStore vectorStore;
+    private final RagIndexManager indexManager;
+    private final RagVectorStoreProperties vectorStoreProperties;
+    private final VectorStoreFactory vectorStoreFactory;
+
+    public DocumentRagTool() {
+        this(new EmbeddingModelFactory(), new RagEmbeddingProperties(), new InMemoryVectorStore(), new RagIndexManager(),
+                new RagVectorStoreProperties(), new VectorStoreFactory());
+    }
+
+    public DocumentRagTool(EmbeddingModelFactory embeddingModelFactory,
+                           RagEmbeddingProperties embeddingProperties,
+                           InMemoryVectorStore vectorStore,
+                           RagIndexManager indexManager) {
+        this(embeddingModelFactory, embeddingProperties, vectorStore, indexManager,
+                new RagVectorStoreProperties(), new VectorStoreFactory());
+    }
+
+    @Autowired
+    public DocumentRagTool(EmbeddingModelFactory embeddingModelFactory,
+                           RagEmbeddingProperties embeddingProperties,
+                           VectorStore vectorStore,
+                           RagIndexManager indexManager,
+                           RagVectorStoreProperties vectorStoreProperties,
+                           VectorStoreFactory vectorStoreFactory) {
+        this.embeddingModelFactory = embeddingModelFactory;
+        this.embeddingProperties = embeddingProperties;
+        this.vectorStore = vectorStore;
+        this.indexManager = indexManager;
+        this.vectorStoreProperties = vectorStoreProperties == null ? new RagVectorStoreProperties() : vectorStoreProperties;
+        this.vectorStoreFactory = vectorStoreFactory == null ? new VectorStoreFactory() : vectorStoreFactory;
+    }
+
+    @Override
+    public String getToolName() {
+        return TOOL_NAME;
+    }
+
+    @Override
+    public RagResult execute(RagInput input) {
+        ValidationUtils.requireNonNull(input, "input");
+        ValidationUtils.requireNonNull(input.documentId(), "documentId");
+        ValidationUtils.requireNonBlank(input.task(), "task");
+
+        String documentText = normalize(input.documentText());
+        int topK = resolveTopK(input.topK());
+        if (documentText.isEmpty()) {
+            return new RagResult(
+                    input.documentId(),
+                    0,
+                    topK,
+                    List.of(),
+                    List.of(),
+                    "",
+                    buildTraceSummary(topK, 0, false, false, true, "no_document_text", 0, false)
+            );
+        }
+
+        try {
+            EmbeddingModel embeddingModel = embeddingModelFactory.create(embeddingProperties);
+            VectorStore selectedVectorStore = vectorStoreFactory.create(vectorStoreProperties, vectorStore);
+            RagIndexService indexService = new RagIndexService(
+                    embeddingModel,
+                    selectedVectorStore,
+                    indexManager,
+                    embeddingProperties.getProvider(),
+                    vectorStoreProperties.getProvider(),
+                    RagIndexService.DEFAULT_CHUNK_SIZE,
+                    RagIndexService.DEFAULT_CHUNK_OVERLAP
+            );
+            RagRetrievalService retrievalService = new RagRetrievalService(embeddingModel, selectedVectorStore);
+            RagAnswerContextBuilder contextBuilder = new RagAnswerContextBuilder();
+            RagIndexService.RagIndexResult indexResult = indexService.indexDocument(
+                    input.documentId(),
+                    RagIndexKey.DEFAULT_VERSION,
+                    documentText
+            );
+            int chunkCount = indexResult.chunkCount();
+            List<VectorSearchResult> hits = retrievalService.retrieveForQuestion(input.documentId(), input.task(), topK);
+            RagAnswerContext answerContext = contextBuilder.build(hits);
+            List<RetrievedChunk> retrievedChunks = toRetrievedChunks(hits);
+            String rawAnswerContext = answerContext.contextText();
+            String safeAnswerContext = truncate(rawAnswerContext, CONTEXT_MAX_LENGTH);
+            boolean contextTruncated = rawAnswerContext != null && rawAnswerContext.length() > safeAnswerContext.length();
+
+            return new RagResult(
+                    input.documentId(),
+                    chunkCount,
+                    topK,
+                    retrievedChunks,
+                    answerContext.citations(),
+                    safeAnswerContext,
+                    buildTraceSummary(
+                            topK,
+                            retrievedChunks.size(),
+                            !safeAnswerContext.isBlank(),
+                            contextTruncated,
+                            false,
+                            "",
+                            answerContext.citations().size(),
+                            indexResult.state().indexReused(),
+                            indexResult.indexTruncated()
+                    )
+            );
+        } catch (Exception ex) {
+            return new RagResult(
+                    input.documentId(),
+                    0,
+                    topK,
+                    List.of(),
+                    List.of(),
+                    "",
+                    buildTraceSummary(topK, 0, false, false, true,
+                            RagFallbackReasonClassifier.classify(ex), 0, false, false)
+            );
+        }
+    }
+
+    private String buildTraceSummary(int topK,
+                                     int retrievedCount,
+                                     boolean contextHashPresent,
+                                     boolean contextTruncated,
+                                     boolean fallbackUsed,
+                                     String fallbackReason,
+                                     int citationCount,
+                                     boolean indexReused) {
+        return buildTraceSummary(topK, retrievedCount, contextHashPresent, contextTruncated, fallbackUsed, fallbackReason,
+                citationCount, indexReused, false);
+    }
+
+    private String buildTraceSummary(int topK,
+                                     int retrievedCount,
+                                     boolean contextHashPresent,
+                                     boolean contextTruncated,
+                                     boolean fallbackUsed,
+                                     String fallbackReason,
+                                     int citationCount,
+                                     boolean indexReused,
+                                     boolean indexTruncated) {
+        RagQaTrace trace = new RagQaTrace(
+                true,
+                embeddingProperties.getProvider(),
+                vectorStoreProperties.getProvider(),
+                true,
+                topK,
+                retrievedCount,
+                CONTEXT_MAX_LENGTH,
+                contextHashPresent ? CONTEXT_MAX_LENGTH : 0,
+                contextTruncated,
+                contextHashPresent,
+                fallbackUsed,
+                fallbackReason,
+                citationCount,
+                false,
+                indexReused,
+                indexTruncated
+        );
+        return TRACE_FORMATTER.formatInterviewSummary(trace);
+    }
+
+    private List<RetrievedChunk> toRetrievedChunks(List<VectorSearchResult> hits) {
+        java.util.ArrayList<RetrievedChunk> chunks = new java.util.ArrayList<>();
+        for (int i = 0; i < hits.size(); i++) {
+            VectorSearchResult hit = hits.get(i);
+            chunks.add(new RetrievedChunk(
+                    i + 1,
+                    hit.chunk().chunkIndex(),
+                    hit.score(),
+                    truncate(hit.chunk().text().trim(), SNIPPET_MAX_LENGTH),
+                    hit.chunk().metadata()
+            ));
+        }
+        return List.copyOf(chunks);
+    }
+
+    private int resolveTopK(Integer topK) {
+        if (topK == null || topK <= 0) {
+            return DEFAULT_TOP_K;
+        }
+        return Math.min(topK, MAX_TOP_K);
+    }
+
+    private String normalize(String text) {
+        return text == null ? "" : text.trim();
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null || text.length() <= maxLength) {
+            return text == null ? "" : text;
+        }
+        return text.substring(0, maxLength) + "...";
+    }
+
+    public record RagInput(Long documentId, String task, String documentText, Integer topK) {
+    }
+
+    public record RagResult(Long documentId,
+                            int chunkCount,
+                            int topK,
+                            List<RetrievedChunk> retrievedChunks,
+                            List<com.docpilot.backend.ai.rag.RagCitation> citations,
+                            String answerContext,
+                            String outputSummary) {
+    }
+
+    public record RetrievedChunk(int rank,
+                                 int chunkIndex,
+                                 double score,
+                                 String snippet,
+                                 Map<String, String> metadata) {
+    }
+}

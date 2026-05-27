@@ -32,9 +32,17 @@ export interface DocumentQaHistoryItem {
 }
 
 export interface DocumentQaStreamCallbacks {
+  onMeta?: (payload: DocumentQaStreamPayload) => void;
   onChunk?: (chunk: string) => void;
-  onDone?: () => void;
+  onDone?: (payload?: DocumentQaStreamPayload) => void;
   onError?: (message: string) => void;
+}
+
+export interface DocumentQaStreamPayload {
+  documentId?: number;
+  sessionId?: string;
+  fromCache?: boolean;
+  citations?: DocumentQaCitationItem[];
 }
 
 function resolveStreamEndpoint(): string {
@@ -96,6 +104,37 @@ function parseEventStream(rawChunk: string): Array<{ event: string; data: string
   return events;
 }
 
+function parseStreamPayload(data: string): DocumentQaStreamPayload | undefined {
+  const text = (data || "").trim();
+  if (!text || text === "[DONE]") {
+    return undefined;
+  }
+
+  try {
+    return JSON.parse(text) as DocumentQaStreamPayload;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseStreamError(data: string): string {
+  const text = (data || "").trim();
+  if (!text) {
+    return "Streaming QA failed";
+  }
+
+  try {
+    const parsed = JSON.parse(text) as { message?: string };
+    if (parsed?.message) {
+      return parsed.message;
+    }
+  } catch {
+    // ignore and fallback to raw text
+  }
+
+  return text;
+}
+
 export async function askDocumentQuestionStream(
   payload: DocumentQaRequest,
   callbacks: DocumentQaStreamCallbacks = {},
@@ -141,10 +180,12 @@ export async function askDocumentQuestionStream(
     for (const item of events) {
       if (item.event === "chunk") {
         callbacks.onChunk?.(item.data);
+      } else if (item.event === "meta") {
+        callbacks.onMeta?.(parseStreamPayload(item.data) || {});
       } else if (item.event === "done") {
-        callbacks.onDone?.();
+        callbacks.onDone?.(parseStreamPayload(item.data));
       } else if (item.event === "error") {
-        const message = item.data || "Streaming QA failed";
+        const message = parseStreamError(item.data);
         callbacks.onError?.(message);
         throw new Error(message);
       }
@@ -160,10 +201,12 @@ export async function askDocumentQuestionStream(
     for (const item of events) {
       if (item.event === "chunk") {
         callbacks.onChunk?.(item.data);
+      } else if (item.event === "meta") {
+        callbacks.onMeta?.(parseStreamPayload(item.data) || {});
       } else if (item.event === "done") {
-        callbacks.onDone?.();
+        callbacks.onDone?.(parseStreamPayload(item.data));
       } else if (item.event === "error") {
-        const message = item.data || "Streaming QA failed";
+        const message = parseStreamError(item.data);
         callbacks.onError?.(message);
         throw new Error(message);
       }
