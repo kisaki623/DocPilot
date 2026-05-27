@@ -17,6 +17,7 @@ type MarkdownViewerProps = {
   emptyText?: string;
   className?: string;
   variant?: MarkdownVariant;
+  mode?: "card" | "inline";
 };
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
@@ -62,7 +63,8 @@ export default function MarkdownViewer({
   defaultView = "rendered",
   emptyText = "-",
   className,
-  variant = "document"
+  variant = "document",
+  mode = "card"
 }: MarkdownViewerProps) {
   const [viewMode, setViewMode] = useState<MarkdownViewMode>(defaultView);
   const content = markdown || "";
@@ -96,7 +98,12 @@ export default function MarkdownViewer({
       : variant === "history"
         ? styles.rawTextHistory
         : styles.rawTextDocument;
-  const viewerClassName = [styles.viewer, viewerVariantClass, className].filter(Boolean).join(" ");
+  const viewerClassName = [
+    styles.viewer,
+    viewerVariantClass,
+    mode === "inline" ? styles.viewerInline : "",
+    className
+  ].filter(Boolean).join(" ");
 
   return (
     <div className={viewerClassName}>
@@ -123,7 +130,7 @@ export default function MarkdownViewer({
         </div>
       ) : null}
 
-      <div className={[styles.panel, panelVariantClass].join(" ")}>
+      <div className={[styles.panel, panelVariantClass, mode === "inline" ? styles.panelInline : ""].join(" ")}>
         {!hasContent ? (
           <p className={styles.emptyText}>{emptyText}</p>
         ) : activeViewMode === "raw" ? (

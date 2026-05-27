@@ -35,7 +35,7 @@ public class RealAiAnswerService implements AiAnswerService {
 
     private static final int DEFAULT_CONNECT_TIMEOUT_MS = 2_000;
     private static final int DEFAULT_READ_TIMEOUT_MS = 8_000;
-    private static final double DEFAULT_TEMPERATURE = 0.2D;
+    private static final double DEFAULT_TEMPERATURE = 0.0D;
     private static final int ERROR_SUMMARY_MAX_CHARS = 160;
     private static final String PROVIDER_OPENAI_COMPATIBLE = "openai-compatible";
     private static final String PROVIDER_SILICONFLOW = "siliconflow";
@@ -61,7 +61,7 @@ public class RealAiAnswerService implements AiAnswerService {
     @Value("${app.ai.real.read-timeout-ms:8000}")
     private int readTimeoutMs;
 
-    @Value("${app.ai.real.temperature:0.2}")
+    @Value("${app.ai.real.temperature:0.0}")
     private double temperature;
 
     @Value("${app.ai.real.max-output-tokens:800}")
@@ -383,6 +383,8 @@ public class RealAiAnswerService implements AiAnswerService {
     }
 
     private String buildRequestBody(String documentContext, String question, boolean stream) {
+        String responseLanguage = detectResponseLanguage(question);
+
         ObjectNode root = objectMapper.createObjectNode();
         root.put("model", model);
         root.put("temperature", resolveTemperature());
@@ -392,11 +394,33 @@ public class RealAiAnswerService implements AiAnswerService {
         ArrayNode messages = root.putArray("messages");
         messages.addObject()
                 .put("role", "system")
-                .put("content", "You are DocPilot QA assistant. Answer only based on provided document content. If uncertain, clearly say so. Use concise Chinese.");
+                .put("content", "You are DocPilot QA assistant. Follow all rules strictly:\n"
+                        + "1) Answer only from the provided document context. Never invent facts.\n"
+                        + "2) If information is missing, explicitly state that it is not found in the document.\n"
+                        + "3) Preserve key source terms literally when possible (e.g. API names, config keys, event names).\n"
+                        + "4) Reply in " + responseLanguage + ".\n"
+                        + "5) Keep the answer concise and directly aligned with the question.\n"
+                        + "6) For policy/contract/flow questions, quote the key clause from context verbatim before any paraphrase.");
         messages.addObject()
                 .put("role", "user")
-                .put("content", "文档内容:\n" + documentContext + "\n\n问题:\n" + question);
+                .put("content", "Document Context:\n" + documentContext + "\n\nQuestion:\n" + question);
         return root.toString();
+    }
+
+    private String detectResponseLanguage(String question) {
+        if (question == null || question.isBlank()) {
+            return "English";
+        }
+        for (char c : question.toCharArray()) {
+            Character.UnicodeBlock block = Character.UnicodeBlock.of(c);
+            if (block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
+                    || block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_A
+                    || block == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B
+                    || block == Character.UnicodeBlock.CJK_COMPATIBILITY_IDEOGRAPHS) {
+                return "Chinese";
+            }
+        }
+        return "English";
     }
 
     private String resolveChatCompletionsUrl() {

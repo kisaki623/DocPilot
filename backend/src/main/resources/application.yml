@@ -55,7 +55,7 @@ app:
       model: ${AI_REAL_MODEL:gpt-4o-mini}
       connect-timeout-ms: ${AI_REAL_CONNECT_TIMEOUT_MS:2000}
       read-timeout-ms: ${AI_REAL_READ_TIMEOUT_MS:8000}
-      temperature: ${AI_REAL_TEMPERATURE:0.2}
+      temperature: ${AI_REAL_TEMPERATURE:0.0}
       max-output-tokens: ${AI_REAL_MAX_OUTPUT_TOKENS:800}
       cost:
         input-per-1k-usd: ${AI_REAL_INPUT_COST_PER_1K_USD:0}
@@ -66,6 +66,27 @@ app:
       initial-backoff-ms: ${AI_RETRY_INITIAL_BACKOFF_MS:120}
       backoff-multiplier: ${AI_RETRY_BACKOFF_MULTIPLIER:2.0}
       max-backoff-ms: ${AI_RETRY_MAX_BACKOFF_MS:800}
+  agent:
+    selector:
+      mode: ${AGENT_SELECTOR_MODE:keyword}
+      shadow-enabled: ${AGENT_SELECTOR_SHADOW_ENABLED:false}
+  rag:
+    embedding:
+      provider: ${APP_RAG_EMBEDDING_PROVIDER:fake}
+      base-url: ${APP_RAG_EMBEDDING_BASE_URL:}
+      model: ${APP_RAG_EMBEDDING_MODEL:}
+      api-key: ${APP_RAG_EMBEDDING_API_KEY:}
+      connect-timeout-ms: ${APP_RAG_EMBEDDING_CONNECT_TIMEOUT_MS:5000}
+      request-timeout-ms: ${APP_RAG_EMBEDDING_REQUEST_TIMEOUT_MS:30000}
+      dimension: ${APP_RAG_EMBEDDING_DIMENSION:32}
+    vector-store:
+      provider: ${RAG_VECTOR_STORE_PROVIDER:${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}}
+      qdrant:
+        collection: ${RAG_QDRANT_COLLECTION:${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION:docpilot_rag_demo}}
+        endpoint: ${RAG_QDRANT_ENDPOINT:${APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT:}}
+        api-key: ${RAG_QDRANT_API_KEY:${APP_RAG_VECTOR_STORE_QDRANT_API_KEY:}}
+        connect-timeout-ms: ${RAG_QDRANT_CONNECT_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_CONNECT_TIMEOUT_MS:5000}}
+        request-timeout-ms: ${RAG_QDRANT_REQUEST_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_REQUEST_TIMEOUT_MS:30000}}
   rocketmq:
     enabled: ${ROCKETMQ_ENABLED:false}
     parse-topic: ${DOCPILOT_PARSE_TOPIC:docpilot-parse-topic}
@@ -104,4 +125,3 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
-

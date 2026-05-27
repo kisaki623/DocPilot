@@ -6,12 +6,12 @@ spring:
     import: optional:file:./.env[.properties]
   datasource:
     # Local development connects to the cloud DB by default; credentials are injected via env vars.
-    url: jdbc:mysql://${MYSQL_HOST:116.204.132.136}:${MYSQL_PORT:3306}/${MYSQL_DB:${MYSQL_DATABASE:docpilot}}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${MYSQL_HOST:${CLOUD_HOST:localhost}}:${MYSQL_PORT:3306}/${MYSQL_DB:${MYSQL_DATABASE:docpilot}}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${MYSQL_USERNAME:docpilot_user}
     password: ${MYSQL_PASSWORD:}
   data:
     redis:
-      host: ${REDIS_HOST:116.204.132.136}
+      host: ${REDIS_HOST:${CLOUD_HOST:localhost}}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
@@ -38,7 +38,7 @@ app:
 
 rocketmq:
   # Keep MQ optional for local debugging; sending is controlled by app.rocketmq.enabled.
-  name-server: ${ROCKETMQ_NAME_SERVER:116.204.132.136:9876}
+  name-server: ${ROCKETMQ_NAME_SERVER:${CLOUD_HOST:localhost}:9876}
   producer:
     group: ${ROCKETMQ_PRODUCER_GROUP:docpilot-producer-group}
 
