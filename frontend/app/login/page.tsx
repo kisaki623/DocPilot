@@ -38,9 +38,9 @@ export default function LoginPage() {
 
   const submitLabel = useMemo(() => {
     if (submitting) {
-      return mode === "register" ? "注册中..." : "登录中...";
+      return mode === "register" ? "创建中..." : "进入中...";
     }
-    return mode === "register" ? "注册并进入系统" : "登录并进入系统";
+    return mode === "register" ? "创建并进入工作台" : "进入演示工作台";
   }, [mode, submitting]);
 
   function switchMode(nextMode: AuthMode) {
@@ -63,7 +63,7 @@ export default function LoginPage() {
     if (!normalizedUsername) {
       nextErrors.username = "请输入用户名";
     } else if (!isValidUsername(normalizedUsername)) {
-      nextErrors.username = "用户名需为 4-32 位，仅支持字母/数字/._-";
+      nextErrors.username = "用户名需为 4-32 位，仅支持字母、数字、点、下划线或连字符";
     }
 
     if (!normalizedPassword) {
@@ -104,10 +104,10 @@ export default function LoginPage() {
         });
         const token = registerResponse.data?.token;
         if (!token) {
-          throw new Error("注册成功但未返回 token");
+          throw new Error("账号已创建，但暂时无法进入工作台，请稍后重试。");
         }
         saveToken(token);
-        setSuccessMessage("注册成功，正在进入控制台...");
+        setSuccessMessage("账号已创建，正在进入演示工作台...");
       } else {
         const loginResponse = await loginByPassword({
           username: normalizedUsername,
@@ -115,17 +115,17 @@ export default function LoginPage() {
         });
         const token = loginResponse.data?.token;
         if (!token) {
-          throw new Error("登录成功但未返回 token");
+          throw new Error("登录成功，但暂时无法进入工作台，请稍后重试。");
         }
         saveToken(token);
-        setSuccessMessage("登录成功，正在进入控制台...");
+        setSuccessMessage("登录成功，正在进入演示工作台...");
       }
 
       window.setTimeout(() => {
         router.push("/dashboard");
       }, 450);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "认证失败";
+      const message = error instanceof Error ? error.message : "无法进入工作台，请检查账号信息后重试。";
       setErrorMessage(message);
     } finally {
       setSubmitting(false);
@@ -136,23 +136,24 @@ export default function LoginPage() {
     <main className="dp-page">
       <section className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <article className="dp-hero">
-          <p className="dp-eyebrow">Account Access</p>
-          <h1 className="dp-title">DocPilot 账号认证中心</h1>
+          <p className="dp-eyebrow">Workspace Access</p>
+          <h1 className="dp-title">进入 DocPilot 演示工作台</h1>
           <p className="dp-subtitle">
-            现在默认使用“账号 + 密码”作为正式登录方案。注册后可直接进入控制台，继续演示上传、解析、问答与证据追踪。
+            创建或登录一个本地演示账号，体验文档上传、异步解析、文档问答、SSE 流式输出、
+            引用证据和 Agent 工作流展示。
           </p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="dp-card-soft">
-              <p className="dp-meta">1. 创建账号</p>
-              <p className="mt-1 text-sm font-semibold">用户名唯一，密码加密存储</p>
+              <p className="dp-meta">1. 准备账号</p>
+              <p className="mt-1 text-sm font-semibold">用于隔离你的文档与问答记录</p>
             </div>
             <div className="dp-card-soft">
-              <p className="dp-meta">2. 进入系统</p>
-              <p className="mt-1 text-sm font-semibold">登录态沿用现有 token 体系</p>
+              <p className="dp-meta">2. 进入工作台</p>
+              <p className="mt-1 text-sm font-semibold">查看文档状态与最近处理结果</p>
             </div>
             <div className="dp-card-soft">
-              <p className="dp-meta">3. 演示主链路</p>
+              <p className="dp-meta">3. 体验主链路</p>
               <p className="mt-1 text-sm font-semibold">上传 {"->"} 解析 {"->"} 问答 {"->"} 引用</p>
             </div>
           </div>
@@ -162,7 +163,7 @@ export default function LoginPage() {
               返回首页
             </Link>
             <Link href="/documents" className="dp-btn dp-btn-ghost">
-              直接查看文档库
+              查看文档库
             </Link>
           </div>
         </article>
@@ -176,7 +177,7 @@ export default function LoginPage() {
                 mode === "register" ? "bg-blue-600 text-white" : "text-slate-700"
               }`}
             >
-              注册（默认）
+              创建账号
             </button>
             <button
               type="button"
@@ -189,11 +190,11 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <h2 className="dp-section-title mt-4">{mode === "register" ? "创建账号" : "账号登录"}</h2>
+          <h2 className="dp-section-title mt-4">{mode === "register" ? "创建演示账号" : "进入已有账号"}</h2>
           <p className="dp-subtitle">
             {mode === "register"
-              ? "首次使用请先注册。注册成功后会自动登录并进入控制台。"
-              : "已有账号可直接输入用户名和密码登录。"}
+              ? "首次体验请先创建账号，成功后会自动进入工作台。"
+              : "已有账号可直接登录，继续查看文档处理和问答结果。"}
           </p>
 
           <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
@@ -202,7 +203,7 @@ export default function LoginPage() {
               <input
                 id="auth-username-input"
                 className="dp-input"
-                placeholder="4-32 位，仅支持字母/数字/._-"
+                placeholder="4-32 位，支持字母、数字、点、下划线或连字符"
                 value={username}
                 onChange={(event) => setUsername(event.target.value)}
                 autoComplete="username"
@@ -216,7 +217,7 @@ export default function LoginPage() {
                 <input
                   id="auth-nickname-input"
                   className="dp-input"
-                  placeholder="不填默认与用户名一致"
+                  placeholder="不填写则默认使用用户名"
                   value={nickname}
                   onChange={(event) => setNickname(event.target.value)}
                   maxLength={64}
@@ -245,7 +246,7 @@ export default function LoginPage() {
                   id="auth-confirm-password-input"
                   type="password"
                   className="dp-input"
-                  placeholder="请再次输入密码"
+                  placeholder="再次输入密码"
                   value={confirmPassword}
                   onChange={(event) => setConfirmPassword(event.target.value)}
                   autoComplete="new-password"
