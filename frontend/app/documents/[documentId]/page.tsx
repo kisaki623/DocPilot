@@ -397,14 +397,14 @@ export default function DocumentDetailPage() {
           window.localStorage.setItem(buildSessionStorageKey(documentId), nextSessionId);
           await fetchQaHistory(documentId);
           setQaErrorMessage("");
-          setSessionHint(`流式问答失败（${streamErrorMessage}），已自动降级为普通问答。`);
+          setSessionHint(`实时输出中断（${streamErrorMessage}），已自动切换为普通问答。`);
           return;
         } catch (fallbackError) {
           const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "普通问答也失败";
           if (streamedChunkCount > 0) {
-            setQaErrorMessage(`流式问答失败：${streamErrorMessage}；降级后仍失败：${fallbackMessage}。已保留流式阶段已生成内容。`);
+            setQaErrorMessage(`实时输出中断：${streamErrorMessage}；切换普通问答后仍未完成：${fallbackMessage}。已保留当前已生成内容。`);
           } else {
-            setQaErrorMessage(`流式问答失败：${streamErrorMessage}；降级后仍失败：${fallbackMessage}`);
+            setQaErrorMessage(`实时输出中断：${streamErrorMessage}；切换普通问答后仍未完成：${fallbackMessage}`);
           }
         }
       } else {
@@ -521,7 +521,7 @@ export default function DocumentDetailPage() {
               <article className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <span className="w-2 h-6 bg-blue-600 rounded-sm"></span> AI 问答助手
+                    <span className="w-2 h-6 bg-blue-600 rounded-sm"></span> 文档问答与引用证据
                   </h2>
                   <div className="flex items-center gap-4 text-sm text-slate-600">
                     <label className="flex items-center gap-2 cursor-pointer hover:text-slate-900 transition-colors">

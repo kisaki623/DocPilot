@@ -27,6 +27,17 @@ function isAuthError(message: string): boolean {
   return message.includes("登录") || message.includes("凭证") || message.includes("token");
 }
 
+function normalizeUploadError(message: string): string {
+  const normalized = message.toLowerCase();
+  if (message.includes("fileRecordId") || message.includes("documentId") || message.includes("taskId")) {
+    return "服务返回的处理结果不完整，请稍后重试或返回文档列表查看是否已生成记录。";
+  }
+  if (normalized.includes("consumer") || normalized.includes("producer") || normalized.includes("queue") || normalized.includes("broker")) {
+    return "解析任务暂时没有继续推进，请稍后刷新状态或点击重新解析。";
+  }
+  return message;
+}
+
 function buildParseStatusText(detail: DocumentDetailData | null): string {
   if (!detail) {
     return "-";
@@ -81,7 +92,7 @@ export default function UploadPage() {
         if (pollingStartedAt && Date.now() - pollingStartedAt > PARSE_POLLING_TIMEOUT_MS) {
           setPollingParseStatus(false);
           setWorkflowStatus("failed");
-          setErrorMessage("解析轮询超时，请检查 MQ 或消费者状态后重试。");
+          setErrorMessage("解析等待时间较长，请稍后刷新状态或点击重新解析。");
           return;
         }
         const response = await getDocumentDetail(documentId);
@@ -95,7 +106,7 @@ export default function UploadPage() {
           setPollingParseStatus(false);
           if (status === "SUCCESS") {
             setWorkflowStatus("ready");
-            setSuccessMessage("主链路已打通：文件上传、文档创建、解析任务创建并完成解析。");
+            setSuccessMessage("文档已上传并完成解析，可以进入详情页继续问答。");
           } else {
             setWorkflowStatus("failed");
             setErrorMessage(`解析任务失败：${buildParseStatusText(nextDetail)}`);
@@ -140,10 +151,10 @@ export default function UploadPage() {
 
   const workflowStatusText = useMemo(() => {
     if (workflowStatus === "creatingDocument") {
-      return "正在创建文档记录（document/create）...";
+      return "正在登记文档...";
     }
     if (workflowStatus === "creatingTask") {
-      return "正在创建解析任务（task/parse/create）...";
+      return "正在提交解析任务...";
     }
     if (workflowStatus === "polling") {
       return "解析进行中，正在轮询文档状态...";
@@ -208,7 +219,7 @@ export default function UploadPage() {
     const createDocumentResponse = await createDocument(fileRecordId);
     const createdDocumentId = createDocumentResponse.data?.id;
     if (!createdDocumentId) {
-      throw new Error("文档创建成功但未返回 documentId");
+      throw new Error("文档登记结果不完整，请稍后重试。");
     }
     setDocumentId(createdDocumentId);
 
@@ -268,7 +279,7 @@ export default function UploadPage() {
       });
       const uploadedRecord = uploadResponse.data;
       if (!uploadedRecord?.id) {
-        throw new Error("上传成功但未返回 fileRecordId");
+        throw new Error("上传结果不完整，请稍后重试。");
       }
 
       setUploadResult(uploadedRecord);
@@ -276,11 +287,11 @@ export default function UploadPage() {
       setUploadProgress(100);
       setHasToken(true);
       uploadCompleted = true;
-      setSuccessMessage("上传成功，正在自动创建文档与解析任务...");
+      setSuccessMessage("上传成功，正在自动登记文档并提交解析任务...");
 
       await createAndDispatchParseTask(uploadedRecord.id);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "上传失败";
+      const message = normalizeUploadError(error instanceof Error ? error.message : "上传失败");
       setErrorMessage(message);
       if (!uploadCompleted) {
         setUploadStatus("failed");
@@ -312,7 +323,7 @@ export default function UploadPage() {
       setPollingStartedAt(Date.now());
       setSuccessMessage("解析任务已重新创建，正在等待解析完成。");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "重试创建解析任务失败";
+      const message = normalizeUploadError(error instanceof Error ? error.message : "重试创建解析任务失败");
       setWorkflowStatus("failed");
       setErrorMessage(message);
     } finally {
@@ -325,13 +336,13 @@ export default function UploadPage() {
       <section className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 text-center">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">上传文档</h1>
         <p className="text-slate-600 max-w-2xl mx-auto">
-          上传您的文件开始知识解析。支持 TXT、Markdown 和 PDF 格式，完成后可直接向文档提问。
+          上传文件后自动进入文档登记、异步解析和状态追踪流程，完成后可在详情页进行问答与引用查看。
         </p>
       </section>
 
       {hasToken === false ? (
         <section className="bg-red-50 text-red-600 p-4 rounded-xl mb-8 flex justify-between items-center">
-          <span>未检测到有效登录态，请先前往登录页获取正确凭证。</span>
+          <span>当前尚未登录，请先进入演示工作台。</span>
           <Link href="/login" className="dp-btn dp-btn-primary whitespace-nowrap px-4 py-2">
             前往登录
           </Link>
@@ -341,7 +352,7 @@ export default function UploadPage() {
       <section className="grid gap-6 lg:grid-cols-2 lg:items-start disabled:opacity-50">
         <article className={`bg-white rounded-2xl p-6 shadow-sm border border-slate-100 ${hasToken === false ? "opacity-50 pointer-events-none" : ""}`}>
           <h2 className="text-xl font-bold text-slate-900 mb-2">选择文件</h2>
-          <p className="text-sm text-slate-500 mb-6">支持 txt / md / pdf 文件。</p>
+          <p className="text-sm text-slate-500 mb-6">支持 txt / md / pdf 文件；解析效果取决于后端当前解析能力。</p>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <input
@@ -391,7 +402,7 @@ export default function UploadPage() {
                   disabled={submitting}
                   className="dp-btn dp-btn-secondary"
                 >
-                  重试解析任务
+                  重新解析
                 </button>
               ) : null}
               <Link href="/documents" className="dp-btn dp-btn-ghost">
@@ -469,12 +480,12 @@ export default function UploadPage() {
             {workflowStatus === "failed" ? (
               <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3">
                 <p className="text-sm font-semibold text-rose-800">流程中断</p>
-                <p className="mt-1 text-xs text-rose-700">请查看错误提示并优先使用“重试解析任务”继续闭环。</p>
+                <p className="mt-1 text-xs text-rose-700">请查看错误提示，并尝试重新解析或稍后刷新状态。</p>
               </div>
             ) : null}
 
             <details className="mt-3 dp-card-soft">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-700">技术 ID 与调试信息</summary>
+              <summary className="cursor-pointer text-sm font-semibold text-slate-700">开发者信息（默认折叠）</summary>
               <div className="mt-2 space-y-1 text-xs text-slate-600">
                 <p>fileRecordId: {uploadResult?.id ?? "-"}</p>
                 <p>documentId: {documentId ?? "-"}</p>

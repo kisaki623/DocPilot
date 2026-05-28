@@ -60,7 +60,7 @@ export default function DashboardPage() {
       const response = await listDocuments({ pageNo: 1, pageSize: 20 });
       setRecords(response.data?.records || []);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "加载控制台概览失败";
+      const message = error instanceof Error ? error.message : "加载工作台概览失败";
       setErrorMessage(message);
       setRecords([]);
     } finally {
@@ -100,9 +100,9 @@ export default function DashboardPage() {
       <section className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">工作台</h1>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">工程化文档工作台</h1>
             <p className="text-slate-500">
-              欢迎回来。您可以在这里管理已上传的文档，并快速进行阅读和智能问答。
+              管理上传文档、追踪解析状态，并进入问答或 Agent 工作流页面查看引用证据与执行轨迹。
             </p>
           </div>
           <div className="flex gap-3">
@@ -110,7 +110,7 @@ export default function DashboardPage() {
               上传新文档
             </Link>
             <Link href="/agent" className="dp-btn dp-btn-ghost px-6">
-              Agent 演示
+              Agent 工作流
             </Link>
             <button
               type="button"
@@ -214,22 +214,22 @@ export default function DashboardPage() {
             <li className="relative pl-8">
               <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">1</div>
               <p className="font-semibold text-slate-800 text-sm">上传文档</p>
-              <p className="text-xs text-slate-500 mt-1">支持 TXT, PDF, Markdown 格式，系统会自动进行解析与特征提取。</p>
+              <p className="text-xs text-slate-500 mt-1">支持 TXT、Markdown、PDF 文件，上传后进入异步解析与状态追踪。</p>
             </li>
             <li className="relative pl-8">
               <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">2</div>
               <p className="font-semibold text-slate-800 text-sm">等待解析完成</p>
-              <p className="text-xs text-slate-500 mt-1">控制台会实时显示文档的解析进度，成功后即可使用智能问答。</p>
+              <p className="text-xs text-slate-500 mt-1">工作台会刷新展示解析进度，成功后即可进入详情页提问。</p>
             </li>
             <li className="relative pl-8">
               <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">3</div>
               <p className="font-semibold text-slate-800 text-sm">智能问答</p>
-              <p className="text-xs text-slate-500 mt-1">进入文档详情页，向 AI 助手提问，获取带有精准原文引用的回答。</p>
+              <p className="text-xs text-slate-500 mt-1">进入文档详情页，使用普通问答或 SSE 流式问答查看带引用的回答。</p>
             </li>
             <li className="relative pl-8">
               <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">4</div>
-              <p className="font-semibold text-slate-800 text-sm">Agent 工具链演示</p>
-              <p className="text-xs text-slate-500 mt-1">在 Agent 页面输入任务，观察工具选择、步骤 trace 与最终回答。</p>
+              <p className="font-semibold text-slate-800 text-sm">Agent 工作流展示</p>
+              <p className="text-xs text-slate-500 mt-1">在 Agent 页面输入任务，观察工具选择、执行步骤、Trace 与最终回答。</p>
             </li>
           </ol>
         </article>

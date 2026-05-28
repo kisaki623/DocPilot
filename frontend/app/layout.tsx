@@ -4,13 +4,13 @@ import ShellAuthChip from "@/components/shell-auth-chip";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "DocPilot | 智能文档解析与问答平台",
-  description: "DocPilot：一站式智能文档管理、解析与安全溯源问答系统。"
+  title: "DocPilot | AI 文档解析与问答平台",
+  description: "DocPilot：展示文档上传、异步解析、SSE 问答、引用证据和 Agent 工作流的工程化项目。"
 };
 
 const navItems = [
   { href: "/", label: "首页" },
-  { href: "/dashboard", label: "控制台" },
+  { href: "/dashboard", label: "工作台" },
   { href: "/upload", label: "上传" },
   { href: "/documents", label: "文档库" },
   { href: "/agent", label: "Agent" },
@@ -32,7 +32,7 @@ export default function RootLayout({
                 <span className="dp-brand-mark">DP</span>
                 <span className="dp-brand-text">
                   <span className="dp-brand-title">DocPilot</span>
-                  <span className="dp-brand-subtitle">AI Document Intelligence</span>
+                  <span className="dp-brand-subtitle">AI Document Workflow</span>
                 </span>
               </Link>
 
