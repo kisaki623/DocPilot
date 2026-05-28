@@ -60,13 +60,13 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 
 以下截图来自本地 runtime 验证，使用已解析测试文档演示 Agent / RAG 页面。截图不包含 API Key、token、真实公网 IP 或环境变量。
 
-| 截图 | 展示内容 |
+| 页面 | 展示内容 |
 | --- | --- |
-| ![Agent Showcase Overview](docs/assets/screenshots/agent-showcase-overview.png) | Agent 工作流总览、文档选择和任务模板 |
-| ![Agent RAG Retrieval Results](docs/assets/screenshots/agent-rag-retrieval-results.png) | 检索召回结果、相关片段和来源信息 |
-| ![Agent Routing Explanation](docs/assets/screenshots/agent-routing-explanation.png) | 工具选择依据与命中关键词 |
-| ![Agent Persisted Steps](docs/assets/screenshots/agent-persisted-steps.png) | AgentTask / AgentStep 持久化执行轨迹、工具步骤、状态和耗时 |
-| ![Agent Citations](docs/assets/screenshots/agent-citations.png) | 普通问答路径的引用证据与轨迹视图 |
+| ![首页展示](docs/assets/screenshots/home-showcase.png) | 项目定位、核心能力和演示入口 |
+| ![上传与解析工作流](docs/assets/screenshots/upload-workflow.png) | 文档上传、解析状态和后续问答入口 |
+| ![项目工作台](docs/assets/screenshots/dashboard-overview.png) | 文档状态、最近文档和核心入口 |
+| ![文档问答详情](docs/assets/screenshots/document-detail-qa.png) | 文档问答、引用证据和流式输出体验 |
+| ![Agent 工作流](docs/assets/screenshots/agent-workflow.png) | 工具选择、执行轨迹、结果与引用展示 |
 
 ## 技术栈
 
