@@ -164,7 +164,7 @@ export default function DocumentsPage() {
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">文档库</h1>
           <p className="text-slate-500 max-w-2xl">
-            在这里管理您上传的所有文档。点击文档可查看详情并与 AI 对话。
+            管理已上传文档，查看解析状态，并进入详情页发起问答与引用证据追踪。
           </p>
         </div>
         <div className="flex gap-3">
@@ -271,7 +271,7 @@ export default function DocumentsPage() {
                 <div className="flex justify-between items-start gap-4 mb-3">
                   <div className="flex-1 min-w-0">
                     <Link href={`/documents/${item.documentId}`} className="text-lg font-bold text-slate-900 group-hover:text-blue-700 transition-colors truncate block">
-                      {item.fileName || `未命名文档 #${item.documentId}`}
+                      {item.fileName || "未命名文档"}
                     </Link>
                     <p className="text-sm text-slate-500 mt-1 line-clamp-2">
                       {item.summary || "正在生成摘要中..."}

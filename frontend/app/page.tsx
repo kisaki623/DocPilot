@@ -4,20 +4,20 @@ export const dynamic = "force-static";
 
 const capabilityItems = [
   {
-    title: "智能文档解析",
-    description: "上传文档后自动完成解析与特征提取，轻松管理您的知识库。"
+    title: "文档上传与异步解析",
+    description: "围绕上传、任务创建、解析状态追踪和异常重试组织主链路，便于演示后端工程闭环。"
   },
   {
-    title: "精准溯源问答",
-    description: "问答结果基于文档内容生成，并提供精确的原文引用片段，确保信息可靠性。"
+    title: "问答与引用证据",
+    description: "基于已解析文档发起问答，回答区域同步展示引用片段，让生成结果有可检查的依据。"
   },
   {
-    title: "多模式对话体验",
-    description: "支持流式与普通问答，实时输出内容并保留完整的 Markdown 排版。"
+    title: "SSE 流式输出",
+    description: "支持普通问答与流式问答两种体验，并保留 Markdown 渲染、降级提示和历史记录。"
   },
   {
-    title: "完整的文档追踪",
-    description: "随时查看文档解析状态、历史问答记录，支持一键重试异常任务。"
+    title: "Agent 工作流展示",
+    description: "展示工具选择、执行步骤、最终回答、引用证据和 Trace 视图，帮助理解系统设计。"
   }
 ];
 
@@ -27,21 +27,22 @@ export default function HomePage() {
       <section className="text-center py-20">
         <h1 className="text-5xl font-extrabold text-slate-900 tracking-tight mb-6">DocPilot</h1>
         <p className="text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
-          您的智能文档助手。快速上传文档，精准提问，自动生成带有可靠引用的回答，让知识获取更高效。
+          AI 文档解析与问答工程化平台：串联文档上传、异步解析、状态追踪、
+          SSE 问答、引用证据和 Agent 工具工作流。
         </p>
 
         <div className="flex justify-center gap-4">
           <Link href="/login" className="dp-btn dp-btn-primary px-8 py-3 text-lg">
-            即刻开始使用
+            进入演示工作台
           </Link>
           <Link href="/dashboard" className="dp-btn dp-btn-secondary px-8 py-3 text-lg">
-            进入控制台
+            查看工作台
           </Link>
         </div>
       </section>
 
       <section className="mt-16">
-        <h2 className="text-2xl font-bold text-slate-800 text-center mb-10">核心特色</h2>
+        <h2 className="text-2xl font-bold text-slate-800 text-center mb-10">展示重点</h2>
         <div className="grid gap-6 md:grid-cols-2">
           {capabilityItems.map((item) => (
             <article key={item.title} className="p-8 bg-white rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
@@ -54,4 +55,3 @@ export default function HomePage() {
     </main>
   );
 }
-

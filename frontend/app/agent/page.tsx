@@ -16,9 +16,9 @@ import { listDocuments, type DocumentListItem } from "@/lib/document-api";
 const TASK_TEMPLATES = [
   {
     key: "summary",
-    label: "摘要 Demo",
-    helper: "触发 summary_tool，展示摘要工具与执行轨迹。",
-    task: "请总结这篇文档，提炼 3 个核心能力和 2 个当前边界，适合面试演示。"
+    label: "文档摘要",
+    helper: "提炼文档主题、关键结论与后续建议。",
+    task: "请总结这篇文档，提炼 3 个核心结论和 2 个后续建议。"
   },
   {
     key: "status-summary",
@@ -29,31 +29,30 @@ const TASK_TEMPLATES = [
   {
     key: "evidence-qa",
     label: "证据问答",
-    helper: "触发 qa_tool，展示引用证据和 citations。",
+    helper: "基于文档内容回答，并展示引用证据。",
     task: "请根据原文证据回答：这篇文档的核心技术亮点是什么？"
   },
   {
     key: "rag-retrieval",
-    label: "RAG 召回",
-    helper: "触发 rag_tool，展示 fake embedding 召回片段、score 和 metadata。",
-    task: "请做 RAG 检索召回，返回 topK 片段、相似度 score 和 citation metadata。"
+    label: "检索召回",
+    helper: "展示与问题相关的召回片段和证据来源。",
+    task: "请根据文档内容检索相关片段，并回答这些片段能够支持哪些结论。"
   }
 ] as const;
 
 const SHOWCASE_POINTS = [
-  "ToolRegistry 注册文档状态、摘要、问答三类工具",
-  "DocumentToolSelector 返回 decision、routingReason 和 matchedKeywords",
-  "AgentTask / AgentStep 持久化记录 taskId、步骤状态和耗时",
-  "QA 场景返回 citations，页面展示引用证据",
-  "RAG Demo 场景返回 retrieved chunks、similarity score 和 citation metadata"
+  "围绕文档状态、摘要、问答和检索召回组织工具能力",
+  "后端根据任务内容选择合适工具，并返回可解释的选择依据",
+  "执行步骤、耗时和状态可在页面中连续追踪",
+  "问答结果展示引用证据，便于回到原文核对",
+  "检索召回场景展示相关片段、相关度和来源信息"
 ];
 
 const BOUNDARY_POINTS = [
-  "当前页面验证已解析文档上的 Agent 运行，不验证上传解析链路",
-  "当前 RAG Demo 使用 fake embedding + in-memory vector store，仅用于求职展示",
-  "尚未接入真实 embedding、Qdrant、Redis Vector 或 LangChain4j",
-  "real provider 目前只做 shadow-only 观测，不接管生产工具选择",
-  "完整上传解析 runtime 仍受 MQ disabled / NoopParseTaskMessageProducer 阻塞"
+  "当前页面聚焦已解析文档上的 Agent 工作流展示",
+  "上传、解析和文档管理仍在其他页面独立呈现",
+  "检索召回展示采用后端当前配置，专用向量服务需在后端显式开启",
+  "工具选择和工具执行均由服务端受控逻辑完成，页面不执行任意模型指令"
 ];
 
 function formatDateTime(input?: string): string {
@@ -83,7 +82,7 @@ function resolveStatusBadge(status: string | undefined): string {
 function normalizeRunError(message: string): string {
   const normalized = message.toLowerCase();
   if (normalized.includes("code=1010") || message.includes("无权") || message.includes("不存在")) {
-    return "文档不存在或当前账号无权访问，请确认 documentId 来自当前用户的可访问文档。";
+    return "文档不存在或当前账号无权访问，请重新选择可访问的文档。";
   }
   if (normalized.includes("task too short")) {
     return "任务描述太短，请补充更多细节后再试。";
@@ -220,15 +219,15 @@ export default function AgentPage() {
       ? `已持久化 ${persistedTrace.steps.length} 个步骤`
       : result.taskId
         ? loadingPersistedTrace
-          ? "正在加载持久化轨迹"
-          : "已返回 taskId"
-        : "未返回 taskId";
+          ? "正在加载执行轨迹"
+          : "运行记录已创建"
+        : "暂无运行记录";
 
     return [
       {
         label: "接收任务",
         status: "done",
-        detail: `documentId=${result.documentId}`,
+        detail: "已选择文档",
         evidence: result.task ? "任务已接收" : "任务载荷已接收"
       },
       {
@@ -250,10 +249,10 @@ export default function AgentPage() {
         evidence: `${result.totalDurationMs ?? 0} ms`
       },
       {
-        label: "持久化 trace",
+        label: "记录执行轨迹",
         status: persistedTrace ? "done" : result.taskId ? "waiting" : "waiting",
         detail: persistedStatus,
-        evidence: persistedTrace?.task.status || (result.taskId ? `taskId=${result.taskId}` : "暂不可用")
+        evidence: persistedTrace?.task.status || (result.taskId ? "正在同步执行轨迹" : "暂不可用")
       }
     ];
   }, [loadingPersistedTrace, persistedTrace, result]);
@@ -307,7 +306,7 @@ export default function AgentPage() {
       ]);
 
       if (!taskResponse.data?.task) {
-        setPersistedTraceError("持久化执行轨迹为空，请稍后重试。");
+        setPersistedTraceError("执行轨迹暂未生成，请稍后重试。");
         return;
       }
 
@@ -336,7 +335,7 @@ export default function AgentPage() {
 
     const documentId = Number(selectedDocumentId);
     if (!selectedDocumentId || Number.isNaN(documentId) || documentId <= 0) {
-      setRunError("请先选择文档，或手动输入当前账号可访问的 documentId。");
+      setRunError("请先选择文档，或手动输入当前账号可访问的文档编号。");
       return;
     }
     const previousSessionId = result?.documentId === documentId ? result.sessionId : undefined;
@@ -374,23 +373,23 @@ export default function AgentPage() {
   return (
     <main className="dp-page max-w-7xl mx-auto py-8 px-4">
       <section className="dp-hero">
-        <p className="dp-eyebrow">Agent Showcase</p>
-        <h1 className="dp-title">Java AI Agent 文档问答 Demo</h1>
+        <p className="dp-eyebrow">Agent Workflow</p>
+        <h1 className="dp-title">Agent 工具编排工作流</h1>
         <p className="dp-subtitle">
-          选择当前账号可访问的已解析文档，运行 Tool Calling / Function Calling 风格的文档工具链，
-          一屏展示工具选择、执行轨迹、最终回答和引用证据，适合截图发给招聘方。
+          选择当前账号可访问的已解析文档，运行文档工具链，观察系统如何选择工具、
+          执行步骤、生成回答并保留引用证据。
         </p>
       </section>
 
       <section className="grid gap-4 mb-6 lg:grid-cols-[1fr_1fr]">
         <article className="dp-card">
           <div className="flex items-center justify-between gap-3 mb-3">
-            <h2 className="dp-section-title">招聘方可读说明</h2>
-            <span className="dp-badge dp-badge-info">Agent Demo</span>
+            <h2 className="dp-section-title">能力概览</h2>
+            <span className="dp-badge dp-badge-info">工具编排</span>
           </div>
           <p className="text-sm text-slate-600 leading-6">
-            当前已实现最小 Agent 工具链闭环：后端按任务选择文档状态、摘要或问答工具，返回可解释路由信息，
-            并将 AgentTask / AgentStep 落库，前端按 taskId 展示持久化执行轨迹。
+            当前页面展示文档 Agent 的核心工作流：后端按任务选择文档状态、摘要、问答或检索工具，
+            前端同步呈现工具选择、执行轨迹、最终回答和引用证据。
           </p>
           <ul className="mt-4 grid gap-2 text-sm text-slate-700">
             {SHOWCASE_POINTS.map((point) => (
@@ -402,15 +401,16 @@ export default function AgentPage() {
           </ul>
         </article>
 
-        <article className="dp-card">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <h2 className="dp-section-title">Lite 验证边界</h2>
-            <span className="dp-badge dp-badge-warning">Not Full T010</span>
-          </div>
-          <p className="text-sm text-slate-600 leading-6">
-            这里展示的是“已解析文档 -&gt; Agent run -&gt; trace / citations”的 Agent-only 链路，
-            不是完整上传、解析、MQ 消费链路验证。
-          </p>
+        <details className="dp-card">
+          <summary className="cursor-pointer list-none">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="dp-section-title">开发者说明</h2>
+              <span className="dp-badge dp-badge-warning">默认折叠</span>
+            </div>
+            <p className="mt-2 text-sm text-slate-600 leading-6">
+              展示边界和工程实现细节默认折叠，主流程优先呈现可观察的 Agent 工作流。
+            </p>
+          </summary>
           <ul className="mt-4 grid gap-2 text-sm text-slate-700">
             {BOUNDARY_POINTS.map((point) => (
               <li key={point} className="flex gap-2">
@@ -419,7 +419,7 @@ export default function AgentPage() {
               </li>
             ))}
           </ul>
-        </article>
+        </details>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
@@ -439,7 +439,7 @@ export default function AgentPage() {
 
           {documentsError ? <div className="dp-alert dp-alert-error mb-4">{documentsError}</div> : null}
           <div className="dp-alert dp-alert-info mb-4">
-            Lite 验证模式：仅验证已解析文档上的 Agent 运行，不验证上传和解析链路。建议截图时选择已解析成功文档。
+            建议选择已解析成功的文档，以便完整展示工具选择、执行步骤、回答与引用证据。
           </div>
           {hasToken && !loadingDocuments && documents.length === 0 ? (
             <div className="dp-alert dp-alert-info mb-4">
@@ -458,7 +458,7 @@ export default function AgentPage() {
                   onChange={(event) => setSelectedDocumentId(event.target.value)}
                   disabled={loadingDocuments || documents.length === 0}
                 >
-                  {documents.length === 0 ? <option value="">暂无可选文档</option> : <option value="">手动输入 documentId</option>}
+                  {documents.length === 0 ? <option value="">暂无可选文档</option> : <option value="">手动输入文档编号</option>}
                   {documents.map((item) => (
                     <option key={item.documentId} value={item.documentId}>
                       #{item.documentId} {item.fileName} ({item.parseStatusLabel || item.parseStatus})
@@ -468,7 +468,7 @@ export default function AgentPage() {
               </label>
 
               <label htmlFor="agent-document-id-input" className="grid gap-2">
-                <span className="text-sm font-semibold text-slate-700">Document ID</span>
+                <span className="text-sm font-semibold text-slate-700">文档编号</span>
                 <input
                   id="agent-document-id-input"
                   className="dp-input"
@@ -490,12 +490,12 @@ export default function AgentPage() {
                     {selectedDocument.parseStatusLabel || selectedDocument.parseStatus}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-2">文档 ID: {selectedDocument.documentId}</p>
+                <p className="text-xs text-slate-500 mt-2">文档编号：{selectedDocument.documentId}</p>
                 <p className="text-xs text-slate-500 mt-1 line-clamp-2">{selectedDocument.summary || "暂无摘要"}</p>
               </div>
             ) : selectedDocumentId ? (
               <div className="dp-card-soft">
-                <p className="font-semibold text-slate-800">手动指定文档 ID: {selectedDocumentId}</p>
+                <p className="font-semibold text-slate-800">手动指定文档编号：{selectedDocumentId}</p>
                 <p className="text-xs text-slate-500 mt-2">
                   请确认该文档属于当前登录用户，且已经解析成功；无权限或不存在时会在运行结果中提示。
                 </p>
@@ -503,7 +503,7 @@ export default function AgentPage() {
             ) : null}
 
             <div className="grid gap-2">
-              <span className="text-sm font-semibold text-slate-700">演示模板</span>
+              <span className="text-sm font-semibold text-slate-700">任务模板</span>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {TASK_TEMPLATES.map((template) => (
                   <button
@@ -521,7 +521,7 @@ export default function AgentPage() {
             </div>
 
             <label htmlFor="agent-task-input" className="grid gap-2">
-              <span className="text-sm font-semibold text-slate-700">Agent 任务</span>
+              <span className="text-sm font-semibold text-slate-700">工作流任务</span>
               <textarea
                 id="agent-task-input"
                 rows={4}
@@ -539,7 +539,7 @@ export default function AgentPage() {
                 disabled={running || hasToken === false || !selectedDocumentId}
                 className="dp-btn dp-btn-primary"
               >
-                {running ? "Agent 运行中..." : "运行 Agent"}
+                {running ? "Agent 运行中..." : "运行工作流"}
               </button>
               <button
                 type="button"
@@ -566,7 +566,7 @@ export default function AgentPage() {
           {!result ? (
             <div className="dp-card-soft text-sm text-slate-600">
               <p className="font-semibold mb-2">等待运行</p>
-              <p>执行后会展示：decision、routingReason、matchedKeywords、taskId、持久化 steps、最终回答与 citations。</p>
+              <p>执行后会展示工具选择、执行步骤、最终回答与引用证据。</p>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -580,29 +580,30 @@ export default function AgentPage() {
                   <p className="dp-kpi-value text-lg">{result.totalDurationMs ?? 0} ms</p>
                 </div>
                 <div className="dp-kpi-card">
-                  <p className="dp-kpi-label">任务 ID</p>
-                  <p className="dp-kpi-value text-lg">{result.taskId ?? "-"}</p>
+                  <p className="dp-kpi-label">运行记录</p>
+                  <p className="dp-kpi-value text-lg">{result.taskId ? "已记录" : "-"}</p>
                 </div>
                 <div className="dp-kpi-card">
                   <p className="dp-kpi-label">引用数量</p>
                   <p className="dp-kpi-value text-lg">{result.citations?.length ?? 0}</p>
                 </div>
                 <div className="dp-kpi-card">
-                  <p className="dp-kpi-label">RAG 片段</p>
+                  <p className="dp-kpi-label">检索片段</p>
                   <p className="dp-kpi-value text-lg">{result.ragResults?.length ?? 0}</p>
                 </div>
               </div>
 
-              <div className="dp-card-soft text-xs text-slate-600">
-                <p>轨迹 ID: <span className="font-mono">{result.traceId || "-"}</span></p>
+              <details className="dp-card-soft text-xs text-slate-600">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-700">开发者信息（默认折叠）</summary>
+                <p className="mt-2">轨迹编号: <span className="font-mono">{result.traceId || "-"}</span></p>
                 <p className="mt-1">开始时间: {formatDateTime(result.startedAt)}</p>
                 <p className="mt-1">结束时间: {formatDateTime(result.finishedAt)}</p>
-              </div>
+              </details>
 
               {result.routingReason ? (
                 <div className="dp-card-soft">
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    <p className="text-sm font-semibold text-slate-700">路由决策</p>
+                    <p className="text-sm font-semibold text-slate-700">工具选择依据</p>
                     <span className="dp-badge dp-badge-info">工具选择</span>
                   </div>
                   <p className="text-sm text-slate-700">{result.routingReason}</p>
@@ -619,11 +620,13 @@ export default function AgentPage() {
               ) : null}
 
               {ragTraceItems.length > 0 ? (
-                <div className="dp-card-soft">
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <p className="text-sm font-semibold text-slate-700">RAG 调试摘要</p>
-                    <span className="dp-badge dp-badge-info">脱敏 Trace</span>
-                  </div>
+                <details className="dp-card-soft">
+                  <summary className="cursor-pointer">
+                    <div className="inline-flex w-full items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-slate-700">检索召回开发者摘要</p>
+                      <span className="dp-badge dp-badge-info">默认折叠</span>
+                    </div>
+                  </summary>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {ragTraceItems.map(([label, value]) => (
                       <div key={label} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -634,7 +637,7 @@ export default function AgentPage() {
                       </div>
                     ))}
                   </div>
-                </div>
+                </details>
               ) : null}
 
               <div className="dp-card-soft">
@@ -685,11 +688,11 @@ export default function AgentPage() {
 
               <div className="dp-card-soft">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <p className="text-sm font-semibold text-slate-700">RAG 召回片段</p>
-                  <span className="dp-badge dp-badge-warning">Fake Embedding</span>
+                  <p className="text-sm font-semibold text-slate-700">检索召回片段</p>
+                  <span className="dp-badge dp-badge-warning">召回演示</span>
                 </div>
                 <p className="text-xs leading-5 text-slate-500 mb-3">
-                  当前展示的是后端内部 RAG demo：fake embedding + in-memory vector store，不代表已接入真实 embedding 或专用向量库。
+                  当前区域用于观察文档检索召回结果，展示相关片段、相关度和来源信息。
                 </p>
                 {result.ragResults && result.ragResults.length > 0 ? (
                   <ol className="dp-list-clean">
@@ -699,32 +702,35 @@ export default function AgentPage() {
                         <li key={`${item.rank}-${item.chunkIndex}`} className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-3">
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                             <p className="text-sm font-semibold text-slate-800">
-                              #{item.rank} chunk {item.chunkIndex}
+                              片段 {item.rank}
                             </p>
                             <span className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                              score {formatScore(item.score)}
+                              相关度 {formatScore(item.score)}
                             </span>
                           </div>
                           <p className="text-xs leading-5 text-slate-700">{item.snippet || "-"}</p>
                           {entries.length > 0 ? (
-                            <div className="mt-3 grid gap-1 text-[11px] text-slate-500 sm:grid-cols-2">
+                            <details className="mt-3 text-[11px] text-slate-500">
+                              <summary className="cursor-pointer font-semibold text-slate-600">查看片段来源信息</summary>
+                              <div className="mt-2 grid gap-1 sm:grid-cols-2">
                               {entries.map(([key, value]) => (
                                 <p key={key} className="truncate">
                                   <span className="font-semibold text-slate-600">{key}:</span> {value}
                                 </p>
                               ))}
-                            </div>
+                              </div>
+                            </details>
                           ) : null}
                         </li>
                       );
                     })}
                   </ol>
                 ) : (
-                  <p className="text-sm text-slate-500">本次结果未返回 RAG 召回片段。请选择 RAG 召回模板触发 rag_tool。</p>
+                  <p className="text-sm text-slate-500">本次结果未返回检索召回片段。请选择检索召回模板后重新运行。</p>
                 )}
                 {result.ragAnswerContext ? (
                   <details className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
-                    <summary className="cursor-pointer text-xs font-semibold text-slate-700">查看 answer context 摘要</summary>
+                    <summary className="cursor-pointer text-xs font-semibold text-slate-700">查看检索上下文摘要</summary>
                     <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-600">
                       {result.ragAnswerContext}
                     </pre>
@@ -734,22 +740,22 @@ export default function AgentPage() {
 
               <div className="dp-card-soft">
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <p className="text-sm font-semibold text-slate-700">持久化执行轨迹</p>
+                  <p className="text-sm font-semibold text-slate-700">执行轨迹记录</p>
                   {persistedTrace ? <span className={resolveStatusBadge(persistedTrace.task.status)}>{persistedTrace.task.status || "-"}</span> : null}
                   {loadingPersistedTrace ? <span className="text-xs text-slate-500">加载中...</span> : null}
                 </div>
 
                 {persistedTraceError ? (
                   <div className="dp-alert dp-alert-info mb-3">
-                    持久化 trace 暂时无法展示：{persistedTraceError}
+                    执行轨迹暂时无法展示：{persistedTraceError}
                   </div>
                 ) : null}
 
                 {persistedTrace ? (
                   <div className="grid gap-3">
                     <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-600">
-                      <p>Task ID: <span className="font-mono">{persistedTrace.task.id}</span></p>
-                      <p>Status: <span className="font-semibold">{persistedTrace.task.status || "-"}</span></p>
+                      <p>记录编号: <span className="font-mono">{persistedTrace.task.id}</span></p>
+                      <p>状态: <span className="font-semibold">{persistedTrace.task.status || "-"}</span></p>
                       <p>工具决策: <span className="font-semibold">{persistedTrace.task.decision || "-"}</span></p>
                       <p>总耗时: {persistedTrace.task.totalDurationMs ?? "-"} ms</p>
                       <p>步骤数量: {persistedTrace.steps.length}</p>
@@ -764,25 +770,25 @@ export default function AgentPage() {
                               <p className="text-sm font-semibold text-slate-800">#{step.stepIndex} {step.toolName}</p>
                               <span className="text-xs text-slate-500">{step.durationMs ?? "-"} ms</span>
                             </div>
-                            <p className="text-xs text-slate-600">Status: <span className="font-semibold">{step.status || "-"}</span></p>
+                            <p className="text-xs text-slate-600">状态：<span className="font-semibold">{step.status || "-"}</span></p>
                             <p className="text-xs text-slate-600 mt-1 line-clamp-2"><span className="font-semibold">输入：</span>{step.inputSummary || "-"}</p>
                             <p className="text-xs text-slate-600 mt-1 line-clamp-2"><span className="font-semibold">输出：</span>{step.outputSummary || "-"}</p>
                           </li>
                         ))}
                       </ol>
                     ) : (
-                      <p className="text-sm text-slate-500">持久化 trace 暂无步骤。</p>
+                      <p className="text-sm text-slate-500">执行轨迹暂无步骤。</p>
                     )}
                   </div>
                 ) : !loadingPersistedTrace && !persistedTraceError ? (
                   <p className="text-sm text-slate-500">
-                    {result.taskId ? "等待持久化 trace 返回。" : "本次响应未返回 taskId，无法查询持久化 trace。"}
+                    {result.taskId ? "正在同步执行轨迹。" : "本次结果暂未生成执行轨迹记录。"}
                   </p>
                 ) : null}
               </div>
 
               <div className="dp-card-soft">
-                <p className="text-sm font-semibold text-slate-700 mb-2">工具步骤轨迹</p>
+                <p className="text-sm font-semibold text-slate-700 mb-2">实时步骤轨迹</p>
                 {result.steps && result.steps.length > 0 ? (
                   <ol className="dp-list-clean">
                     {result.steps.map((step) => (
@@ -797,7 +803,7 @@ export default function AgentPage() {
                     ))}
                   </ol>
                 ) : (
-                  <p className="text-sm text-slate-500">暂无 trace 步骤。</p>
+                  <p className="text-sm text-slate-500">暂无步骤记录。</p>
                 )}
               </div>
 
