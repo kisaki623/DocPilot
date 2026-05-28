@@ -4,28 +4,44 @@
 
 DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、SSE 降级、引用证据、Agent 工具选择、执行步骤落库和脱敏调试信息。
 
-## 项目画像
+## 项目定位
 
-| 方向 | 项目中对应的展示点 |
+DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工具编排的工程化展示项目。它适合作为 Java 后端实习、AI 应用开发、Agent 开发和 AI 全栈方向的作品入口，重点展示一条可运行、可观察、可复盘的 AI 文档处理链路。
+
+| 方向 | README 前半部分重点展示 |
 | --- | --- |
 | 后端工程 | Spring Boot 分层、MyBatis-Plus、RocketMQ + Outbox、Redisson 幂等、Redis 缓存与限流、MinIO 上传链路 |
-| AI 应用 | 文档问答、SSE 流式输出、引用证据、mock / real provider 边界、RAG context 与 eval artifact |
-| Agent / RAG | ToolRegistry、ToolSelector、`llm_execute` 默认关闭模式、AgentTask / AgentStep trace、RAG retrieved chunks 与脱敏 debug summary |
-| 全栈联调 | Next.js 页面、文档状态轮询、问答流式事件解析、Agent Showcase 可视化、错误降级与空状态文案 |
+| AI 应用 | 文档问答、SSE 流式输出、引用证据、检索召回演示、问答历史与异常降级 |
+| Agent 工作流 | ToolRegistry、ToolSelector、AgentTask / AgentStep trace、工具选择依据与执行轨迹 |
+| 全栈联调 | Next.js 页面、文档状态轮询、问答流式事件解析、Agent 工作流可视化、错误降级与空状态文案 |
 
 ## 建议阅读顺序
 
-- 先看 **页面预览** 和 **核心看点**，快速建立对项目形态的第一印象。
-- 再看 **当前实现状态** 和 **核心工程点**，了解哪些链路已经落到代码和页面。
-- 最后看 **量化与证据链**、**当前边界** 和 **演示建议**，确认验证方式与能力边界。
+- 先看 **演示链路** 和 **核心能力**，快速建立对项目形态的第一印象。
+- 再看 **页面预览**、**当前实现状态** 和 **核心工程设计**，了解哪些链路已经落到代码和页面。
+- 最后看 **验证方式**、**当前边界** 和 **演示建议**，确认复现方式与能力边界。
 
-## 核心看点
+## 演示链路
+
+推荐按下面这条链路演示：
+
+```text
+登录工作台
+-> 上传 txt / md 文档
+-> 观察异步解析状态
+-> 进入文档详情页提问
+-> 查看 SSE 输出、Markdown 渲染和引用证据
+-> 进入 Agent 页面运行摘要 / 问答 / 检索召回任务
+-> 查看工具选择、执行步骤、最终回答和 Agent Trace
+```
+
+## 核心能力
 
 - **业务闭环**：账号登录、文件上传、文档创建、异步解析、文档列表 / 详情、普通问答、SSE 流式问答、引用证据和历史问答。
 - **异步链路**：使用 Outbox + RocketMQ 思路拆分接口响应与耗时解析，配合补偿扫描、消费去重和 Redisson 锁降低重复任务与消息不一致风险。
 - **AI 问答体验**：支持普通问答与 SSE 流式输出；流式异常时回退普通问答；回答展示 Markdown、代码块和引用片段。
-- **Agent Showcase**：`/agent` 页面展示工具选择、`routingReason`、`matchedKeywords`、`taskId`、持久化 steps、最终回答、citations，以及 RAG 召回片段、score 和 metadata。
-- **可复盘的工程细节**：README、截图、smoke 脚本、eval artifact 和协作文档共同保留实现证据，便于从页面演示追溯到后端链路。
+- **Agent 工作流**：`/agent` 页面展示工具选择、执行步骤、持久化轨迹、最终回答、引用证据和检索召回结果。
+- **可复盘的工程细节**：README、截图、smoke 脚本和本地验证记录共同保留实现证据，便于从页面演示追溯到后端链路。
 
 ## 当前实现状态
 
@@ -35,12 +51,10 @@ DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常�
 | 异步解析任务 | 已实现 Outbox / RocketMQ 链路设计、解析任务状态追踪、补偿与幂等相关代码；完整运行依赖可用 MQ / consumer 环境 |
 | 文档问答 | 已实现普通问答、历史问答、引用展示、Markdown 渲染 |
 | SSE 流式问答 | 已实现流式事件解析、增量输出与失败降级 |
-| Agent 工具链 | 已实现文档状态、摘要、问答、RAG 召回工具，以及 ToolRegistry / ToolSelector |
+| Agent 工具链 | 已实现文档状态、摘要、问答、检索召回工具，以及 ToolRegistry / ToolSelector |
 | Agent Trace | 已实现 AgentTask / AgentStep 持久化，前端可展示步骤、耗时、输入摘要和输出摘要 |
-| RAG Showcase | 已实现 fake embedding + in-memory vector store 的 demo 路径、chunking、scope isolation、trace/debug summary 和 offline eval |
-| Qdrant / embedding adapter | 已有默认关闭的 adapter / preflight / fake server 测试；真实 Qdrant 与真实 embedding runtime 作为可扩展方向保留 |
-| LLM 工具选择 | 已实现默认关闭的 `llm_execute` 模式，服务端只执行 allowlist 内已有工具；当前采用文本 JSON 选择协议 |
-| 观测与验证 | 保留 Actuator health、selector debug dump、benchmark / eval artifact、smoke 脚本和 lint/build/test 记录 |
+| 检索召回展示 | 已实现 chunking、scope isolation、召回片段、相关度、引用 metadata 和脱敏 trace summary |
+| 观测与验证 | 保留 Actuator health、benchmark / eval 记录、smoke 脚本和 lint/build/test 验证方式 |
 
 ## 页面预览
 
@@ -48,17 +62,17 @@ DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常�
 
 | 截图 | 展示内容 |
 | --- | --- |
-| ![Agent Showcase Overview](docs/assets/screenshots/agent-showcase-overview.png) | Agent Showcase 总览、文档选择和任务模板 |
-| ![Agent RAG Retrieval Results](docs/assets/screenshots/agent-rag-retrieval-results.png) | `rag_tool` 决策、RAG retrieved chunk、score / similarity 和 metadata |
-| ![Agent Routing Explanation](docs/assets/screenshots/agent-routing-explanation.png) | ToolSelector 的 routingReason 与 matchedKeywords |
-| ![Agent Persisted Steps](docs/assets/screenshots/agent-persisted-steps.png) | AgentTask / AgentStep 持久化执行轨迹、toolName、status 和 duration |
-| ![Agent Citations](docs/assets/screenshots/agent-citations.png) | 普通 QA 路径的 citations 与 trace |
+| ![Agent Showcase Overview](docs/assets/screenshots/agent-showcase-overview.png) | Agent 工作流总览、文档选择和任务模板 |
+| ![Agent RAG Retrieval Results](docs/assets/screenshots/agent-rag-retrieval-results.png) | 检索召回结果、相关片段和来源信息 |
+| ![Agent Routing Explanation](docs/assets/screenshots/agent-routing-explanation.png) | 工具选择依据与命中关键词 |
+| ![Agent Persisted Steps](docs/assets/screenshots/agent-persisted-steps.png) | AgentTask / AgentStep 持久化执行轨迹、工具步骤、状态和耗时 |
+| ![Agent Citations](docs/assets/screenshots/agent-citations.png) | 普通问答路径的引用证据与轨迹视图 |
 
 ## 技术栈
 
 - **Backend**: Java 17, Spring Boot 3.3.x, MyBatis-Plus, MySQL, Redis, Redisson, RocketMQ, MinIO, Actuator, Micrometer
 - **Frontend**: Next.js 14 App Router, React 18, TypeScript, Tailwind CSS, ReactMarkdown
-- **AI / RAG**: mock answer service, OpenAI-compatible real provider path, fake embedding, in-memory vector store, default-off Qdrant adapter
+- **AI / Agent**: 文档问答、SSE streaming、引用证据、检索召回、ToolRegistry / ToolSelector、Agent Trace
 - **Infra**: Docker Compose, MySQL, Redis, RocketMQ, MinIO, Prometheus demo config
 
 ## 系统主链路
@@ -69,12 +83,12 @@ DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常�
 4. 前端轮询文档状态，展示 `PENDING / PARSING / SUCCESS / FAILED` 等状态。
 5. 用户进入文档详情，查看摘要、正文、解析状态和引用证据。
 6. 用户发起普通问答或 SSE 流式问答。
-7. 用户进入 `/agent`，选择已解析文档并运行摘要、问答或 RAG 召回类任务。
+7. 用户进入 `/agent`，选择已解析文档并运行摘要、问答或检索召回类任务。
 8. 前端展示 Agent 工具决策、执行步骤、持久化 trace、citations 和最终回答。
 
 > 说明：`pdf` 目前主要是占位 / 基础解析边界，真实文本解析能力以 `txt / md` 更稳定。
 
-## 核心工程点
+## 核心工程设计
 
 ### Outbox + RocketMQ 异步解析
 
@@ -96,9 +110,9 @@ DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常�
 
 Agent 目前聚焦文档业务场景，围绕状态查询、摘要、问答与 RAG 召回形成最小工具闭环。后端根据任务选择工具，执行过程写入 `AgentTask` / `AgentStep`，前端用 timeline 展示 step、耗时、输入摘要和输出摘要。
 
-### 轻量 RAG Showcase
+### 检索召回 Showcase
 
-当前 RAG Showcase 使用 fake embedding + in-memory vector store 展示 chunking、topK 召回、score、citation metadata、scope isolation、index lifecycle 和脱敏 debug summary。Qdrant HTTP adapter 与真实 embedding adapter 已有默认关闭路径和测试边界，适合作为后续接入真实向量库的演进基础。
+当前检索召回展示覆盖 chunking、topK 召回、相关度、citation metadata、scope isolation、index lifecycle 和脱敏 trace summary。它用于说明文档问答如何从“全文上下文”进一步演进到“召回片段 + 引用证据”的链路。
 
 ## 快速开始
 
@@ -188,30 +202,24 @@ powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-qa-stream.ps
 powershell -ExecutionPolicy Bypass -File backend/scripts/agent/smoke-agent-min.ps1 -BackendBaseUrl http://127.0.0.1:8081
 ```
 
-最近一次仓库协作记录中，后端全量测试、前端 lint 和前端 build 均通过；具体记录见 `docs/CHANGELOG_CODING.md`。如果你要复现，请以本机实际运行结果为准。
+最近一次本地验证记录中，后端全量测试、前端 lint 和前端 build 均通过。公开 README 不依赖协作文档作为证明材料；如果你要复现，请以本机实际运行结果为准。
 
-## 量化与证据链
+## 验证方式
 
-仓库内保留了 eval / benchmark artifact，用于说明项目不是只靠主观展示。当前公开 README 只引用仓库已有 artifact，不把它写成线上 SLA。
+仓库内保留过 eval / benchmark 记录，用于说明项目不是只靠主观展示。当前公开 README 不直接引用本地协作 artifact；如果用于正式展示，建议在目标环境重新运行测试并补充当次运行条件。
 
-当前权威基准来自：
+建议复现顺序：
 
 ```text
-docs/ai-dev/benchmarks/artifacts/stagec_eval_latest.json
+cd backend
+mvn test -DskipITs
+
+cd ../frontend
+npm run lint
+npm run build
 ```
 
-记录摘要：
-
-- `datasetName`: `stagec-core-qa-eval`
-- `datasetVersion`: `2026-04-19-r2`
-- `caseCount / streamPairs`: `20 / 8`
-- `answerSuccessRate`: `90%`
-- `citationHitRate`: `100%`
-- `casePassRate`: `85%`
-- `streamVsNonStreamConsistency`: `87.5%`
-- `Gate`: `passed=true`
-
-边界：这是仓库内 artifact 记录，不是线上服务承诺；artifact 未记录完整运行时 provider / 模型配置。后续如果用于正式展示，建议重新运行 eval 并补充运行时配置说明。
+说明：历史 eval 指标属于本地验证记录，不是线上服务承诺，也不代表固定 SLA。
 
 ## 项目结构
 
