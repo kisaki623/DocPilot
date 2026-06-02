@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-06-02 T002
+
+- T002 EmbeddingProvider 抽象已完成：新增 provider/request/result、deterministic mock、OpenAI-compatible provider、配置适配和兼容层测试。
+- `RagEmbeddingProperties` 仍是唯一 Spring `app.rag.embedding` 配置入口；未接 Qdrant，未调用真实外部 embedding API。
+- 下一步建议进入 T003 Qdrant VectorStore adapter。
+
 ## 2026-06-02 T001b-confirmed
 
 - T001b-confirmed：远程 MySQL docpilot 数据库已创建 tb_document_chunk 表。

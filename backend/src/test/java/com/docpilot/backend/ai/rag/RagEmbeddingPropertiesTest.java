@@ -14,6 +14,7 @@ class RagEmbeddingPropertiesTest {
             .withUserConfiguration(RagEmbeddingProperties.class)
             .withPropertyValues(
                     "app.rag.embedding.provider=fake",
+                    "app.rag.embedding.enabled=true",
                     "app.rag.embedding.base-url=",
                     "app.rag.embedding.model=",
                     "app.rag.embedding.api-key=",
@@ -28,6 +29,7 @@ class RagEmbeddingPropertiesTest {
             RagEmbeddingProperties properties = context.getBean(RagEmbeddingProperties.class);
 
             assertThat(properties.getProvider()).isEqualTo(RagEmbeddingProperties.PROVIDER_FAKE);
+            assertThat(properties.isEnabled()).isTrue();
             assertThat(properties.isFakeProvider()).isTrue();
             assertThat(properties.isDisabledProvider()).isFalse();
             assertThat(properties.isOpenAiCompatibleProvider()).isFalse();
@@ -52,7 +54,19 @@ class RagEmbeddingPropertiesTest {
     }
 
     @Test
+    void shouldTreatDisabledEnabledFlagAsDisabledProvider() {
+        contextRunner.withPropertyValues("app.rag.embedding.enabled=false")
+                .run(context -> {
+                    RagEmbeddingProperties properties = context.getBean(RagEmbeddingProperties.class);
+
+                    assertThat(properties.isEnabled()).isFalse();
+                    assertThat(properties.isDisabledProvider()).isTrue();
+                });
+    }
+
+    @Test
     void shouldNormalizeOpenAiCompatibleProviderAliases() {
+        assertMockAlias("mock");
         assertProviderAlias("openai_compatible");
         assertProviderAlias("openai-compatible");
         assertProviderAlias("openaiCompatible");
@@ -64,7 +78,7 @@ class RagEmbeddingPropertiesTest {
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
-                            .hasRootCauseMessage("Unsupported app.rag.embedding.provider='qdrant'. Allowed values: disabled, fake, openai_compatible.");
+                            .hasRootCauseMessage("Unsupported app.rag.embedding.provider='qdrant'. Allowed values: disabled, fake, mock, openai_compatible.");
                 });
     }
 
@@ -89,6 +103,30 @@ class RagEmbeddingPropertiesTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseMessage("app.rag.embedding.dimension must be positive.");
+                });
+    }
+
+    @Test
+    void shouldConvertToCanonicalEmbeddingProperties() {
+        RagEmbeddingProperties properties = new RagEmbeddingProperties();
+        properties.setProvider("fake");
+        properties.setModel("mock-model");
+        properties.setDimension(16);
+
+        EmbeddingProperties embeddingProperties = properties.toEmbeddingProperties();
+
+        assertThat(embeddingProperties.getProvider()).isEqualTo(EmbeddingProperties.PROVIDER_MOCK);
+        assertThat(embeddingProperties.getModel()).isEqualTo("mock-model");
+        assertThat(embeddingProperties.getDimension()).isEqualTo(16);
+    }
+
+    private void assertMockAlias(String provider) {
+        contextRunner.withPropertyValues("app.rag.embedding.provider=" + provider)
+                .run(context -> {
+                    RagEmbeddingProperties properties = context.getBean(RagEmbeddingProperties.class);
+
+                    assertThat(properties.getProvider()).isEqualTo(RagEmbeddingProperties.PROVIDER_MOCK);
+                    assertThat(properties.isFakeProvider()).isTrue();
                 });
     }
 

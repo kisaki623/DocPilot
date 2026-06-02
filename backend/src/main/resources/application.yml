@@ -72,6 +72,7 @@ app:
       shadow-enabled: ${AGENT_SELECTOR_SHADOW_ENABLED:false}
   rag:
     embedding:
+      enabled: ${APP_RAG_EMBEDDING_ENABLED:true}
       provider: ${APP_RAG_EMBEDDING_PROVIDER:fake}
       base-url: ${APP_RAG_EMBEDDING_BASE_URL:}
       model: ${APP_RAG_EMBEDDING_MODEL:}

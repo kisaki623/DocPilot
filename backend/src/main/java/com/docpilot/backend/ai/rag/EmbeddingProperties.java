@@ -1,34 +1,34 @@
 package com.docpilot.backend.ai.rag;
 
-import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
-
 import java.util.Locale;
 import java.util.Set;
 
-@Component
-@ConfigurationProperties(prefix = "app.rag.embedding")
-public class RagEmbeddingProperties {
+public class EmbeddingProperties {
 
     public static final String PROVIDER_DISABLED = "disabled";
-    public static final String PROVIDER_FAKE = "fake";
     public static final String PROVIDER_MOCK = "mock";
     public static final String PROVIDER_OPENAI_COMPATIBLE = "openai_compatible";
     private static final Set<String> ALLOWED_PROVIDERS = Set.of(
             PROVIDER_DISABLED,
-            PROVIDER_FAKE,
             PROVIDER_MOCK,
             PROVIDER_OPENAI_COMPATIBLE
     );
 
     private boolean enabled = true;
-    private String provider = PROVIDER_FAKE;
+    private String provider = PROVIDER_MOCK;
     private String baseUrl = "";
     private String model = "";
     private String apiKey = "";
     private int connectTimeoutMs = 5000;
     private int requestTimeoutMs = 30000;
     private int dimension = 32;
+
+    public static EmbeddingProperties mock(int dimension) {
+        EmbeddingProperties properties = new EmbeddingProperties();
+        properties.setProvider(PROVIDER_MOCK);
+        properties.setDimension(dimension);
+        return properties;
+    }
 
     public boolean isEnabled() {
         return enabled;
@@ -45,8 +45,8 @@ public class RagEmbeddingProperties {
     public void setProvider(String provider) {
         String normalizedProvider = normalizeProvider(provider);
         if (!ALLOWED_PROVIDERS.contains(normalizedProvider)) {
-            throw new IllegalArgumentException("Unsupported app.rag.embedding.provider='" + provider
-                    + "'. Allowed values: disabled, fake, mock, openai_compatible.");
+            throw new IllegalArgumentException("Unsupported embedding provider='" + provider
+                    + "'. Allowed values: disabled, mock, openai_compatible.");
         }
         this.provider = normalizedProvider;
     }
@@ -81,7 +81,7 @@ public class RagEmbeddingProperties {
 
     public void setConnectTimeoutMs(int connectTimeoutMs) {
         if (connectTimeoutMs <= 0) {
-            throw new IllegalArgumentException("app.rag.embedding.connect-timeout-ms must be positive.");
+            throw new IllegalArgumentException("embedding connectTimeoutMs must be positive.");
         }
         this.connectTimeoutMs = connectTimeoutMs;
     }
@@ -92,7 +92,7 @@ public class RagEmbeddingProperties {
 
     public void setRequestTimeoutMs(int requestTimeoutMs) {
         if (requestTimeoutMs <= 0) {
-            throw new IllegalArgumentException("app.rag.embedding.request-timeout-ms must be positive.");
+            throw new IllegalArgumentException("embedding requestTimeoutMs must be positive.");
         }
         this.requestTimeoutMs = requestTimeoutMs;
     }
@@ -103,13 +103,13 @@ public class RagEmbeddingProperties {
 
     public void setDimension(int dimension) {
         if (dimension <= 0) {
-            throw new IllegalArgumentException("app.rag.embedding.dimension must be positive.");
+            throw new IllegalArgumentException("embedding dimension must be positive.");
         }
         this.dimension = dimension;
     }
 
-    public boolean isFakeProvider() {
-        return PROVIDER_FAKE.equals(provider) || PROVIDER_MOCK.equals(provider);
+    public boolean isMockProvider() {
+        return PROVIDER_MOCK.equals(provider);
     }
 
     public boolean isDisabledProvider() {
@@ -122,31 +122,15 @@ public class RagEmbeddingProperties {
 
     private String normalizeProvider(String provider) {
         if (provider == null || provider.isBlank()) {
-            return PROVIDER_FAKE;
+            return PROVIDER_MOCK;
         }
         String normalized = provider.trim().toLowerCase(Locale.ROOT).replace("-", "_");
+        if ("fake".equals(normalized)) {
+            return PROVIDER_MOCK;
+        }
         if ("openaicompatible".equals(normalized)) {
             return PROVIDER_OPENAI_COMPATIBLE;
         }
         return normalized;
-    }
-
-    public EmbeddingProperties toEmbeddingProperties() {
-        EmbeddingProperties properties = new EmbeddingProperties();
-        properties.setEnabled(enabled);
-        if (isOpenAiCompatibleProvider()) {
-            properties.setProvider(EmbeddingProperties.PROVIDER_OPENAI_COMPATIBLE);
-        } else if (PROVIDER_DISABLED.equals(provider)) {
-            properties.setProvider(EmbeddingProperties.PROVIDER_DISABLED);
-        } else {
-            properties.setProvider(EmbeddingProperties.PROVIDER_MOCK);
-        }
-        properties.setBaseUrl(baseUrl);
-        properties.setModel(model);
-        properties.setApiKey(apiKey);
-        properties.setConnectTimeoutMs(connectTimeoutMs);
-        properties.setRequestTimeoutMs(requestTimeoutMs);
-        properties.setDimension(dimension);
-        return properties;
     }
 }
