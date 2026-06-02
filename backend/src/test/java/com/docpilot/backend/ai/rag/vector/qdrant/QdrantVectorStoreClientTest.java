@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -33,6 +34,60 @@ class QdrantVectorStoreClientTest {
         if (server != null) {
             server.stop(0);
         }
+    }
+
+    @Test
+    void shouldCreateCollectionWhenMissing() throws Exception {
+        startServer(exchange -> {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                sendJson(exchange, 404, "{\"status\":\"not_found\"}");
+                return;
+            }
+            sendJson(exchange, 200, "{\"status\":\"ok\"}");
+        });
+        QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties(false));
+
+        client.ensureCollection();
+
+        assertThat(requests).hasSize(2);
+        assertThat(requests.get(0).method()).isEqualTo("GET");
+        assertThat(requests.get(0).path()).isEqualTo("/collections/docpilot_test");
+        assertThat(requests.get(1).method()).isEqualTo("PUT");
+        assertThat(requests.get(1).path()).isEqualTo("/collections/docpilot_test");
+
+        Map<String, Object> body = readMap(requests.get(1).body());
+        Map<String, Object> vectors = castMap(body.get("vectors"));
+        assertThat(vectors)
+                .containsEntry("size", 2)
+                .containsEntry("distance", "Cosine");
+    }
+
+    @Test
+    void shouldSkipCollectionCreateWhenAlreadyExists() throws Exception {
+        startServer(exchange -> sendJson(exchange, 200, "{\"result\":{}}"));
+        QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties(false));
+
+        client.ensureCollection();
+
+        assertThat(requests).hasSize(1);
+        assertThat(requests.get(0).method()).isEqualTo("GET");
+        assertThat(requests.get(0).path()).isEqualTo("/collections/docpilot_test");
+    }
+
+    @Test
+    void shouldDeleteCollectionIfExistsAndIgnoreMissingCollection() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        startServer(exchange -> sendJson(exchange, calls.getAndIncrement() == 0 ? 200 : 404, "{\"status\":\"ok\"}"));
+        QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties(false));
+
+        client.deleteCollectionIfExists();
+        client.deleteCollectionIfExists();
+
+        assertThat(requests).hasSize(2);
+        assertThat(requests).allSatisfy(request -> {
+            assertThat(request.method()).isEqualTo("DELETE");
+            assertThat(request.path()).isEqualTo("/collections/docpilot_test");
+        });
     }
 
     @Test

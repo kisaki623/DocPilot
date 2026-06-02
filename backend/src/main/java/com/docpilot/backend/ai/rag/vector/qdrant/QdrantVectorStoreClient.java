@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.rag.vector.qdrant;
 
 import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
+import com.docpilot.backend.ai.rag.QdrantCollectionCreateRequestBuilder;
 import com.docpilot.backend.ai.rag.vector.VectorPoint;
 import com.docpilot.backend.ai.rag.vector.VectorSearchRequest;
 import com.docpilot.backend.ai.rag.vector.VectorSearchResult;
@@ -23,11 +24,13 @@ public class QdrantVectorStoreClient implements VectorStoreClient {
     private final QdrantUpsertPointsRequestBuilder upsertRequestBuilder;
     private final QdrantSearchPointsRequestBuilder searchRequestBuilder;
     private final QdrantDeletePointsRequestBuilder deleteRequestBuilder;
+    private final QdrantCollectionCreateRequestBuilder collectionCreateRequestBuilder;
     private final QdrantVectorSearchResponseParser responseParser;
 
     public QdrantVectorStoreClient(RagVectorStoreProperties.Qdrant properties) {
         this(properties, null, new QdrantUpsertPointsRequestBuilder(), new QdrantSearchPointsRequestBuilder(),
-                new QdrantDeletePointsRequestBuilder(), new QdrantVectorSearchResponseParser());
+                new QdrantDeletePointsRequestBuilder(), new QdrantCollectionCreateRequestBuilder(),
+                new QdrantVectorSearchResponseParser());
     }
 
     QdrantVectorStoreClient(RagVectorStoreProperties.Qdrant properties,
@@ -35,6 +38,7 @@ public class QdrantVectorStoreClient implements VectorStoreClient {
                             QdrantUpsertPointsRequestBuilder upsertRequestBuilder,
                             QdrantSearchPointsRequestBuilder searchRequestBuilder,
                             QdrantDeletePointsRequestBuilder deleteRequestBuilder,
+                            QdrantCollectionCreateRequestBuilder collectionCreateRequestBuilder,
                             QdrantVectorSearchResponseParser responseParser) {
         this.properties = properties == null ? new RagVectorStoreProperties.Qdrant() : properties;
         validateEndpoint();
@@ -42,7 +46,29 @@ public class QdrantVectorStoreClient implements VectorStoreClient {
         this.upsertRequestBuilder = upsertRequestBuilder == null ? new QdrantUpsertPointsRequestBuilder() : upsertRequestBuilder;
         this.searchRequestBuilder = searchRequestBuilder == null ? new QdrantSearchPointsRequestBuilder() : searchRequestBuilder;
         this.deleteRequestBuilder = deleteRequestBuilder == null ? new QdrantDeletePointsRequestBuilder() : deleteRequestBuilder;
+        this.collectionCreateRequestBuilder = collectionCreateRequestBuilder == null
+                ? new QdrantCollectionCreateRequestBuilder()
+                : collectionCreateRequestBuilder;
         this.responseParser = responseParser == null ? new QdrantVectorSearchResponseParser() : responseParser;
+    }
+
+    public void ensureCollection() {
+        HttpRequest infoRequest = requestBuilder(collectionUri())
+                .GET()
+                .build();
+        int statusCode = send(infoRequest, "collection info").statusCode();
+        if (statusCode >= 200 && statusCode < 300) {
+            return;
+        }
+        if (statusCode != 404) {
+            throw new IllegalStateException("Qdrant vector store collection info request failed with status "
+                    + statusCode + ".");
+        }
+        String body = collectionCreateRequestBuilder.buildJson(properties.getDimension(), properties.getDistance());
+        HttpRequest createRequest = requestBuilder(collectionUri())
+                .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
+                .build();
+        sendExpectSuccess(createRequest, "collection create");
     }
 
     @Override
@@ -85,6 +111,18 @@ public class QdrantVectorStoreClient implements VectorStoreClient {
         sendExpectSuccess(request, "delete");
     }
 
+    public void deleteCollectionIfExists() {
+        HttpRequest request = requestBuilder(collectionUri())
+                .DELETE()
+                .build();
+        int statusCode = send(request, "collection delete").statusCode();
+        if ((statusCode >= 200 && statusCode < 300) || statusCode == 404) {
+            return;
+        }
+        throw new IllegalStateException("Qdrant vector store collection delete request failed with status "
+                + statusCode + ".");
+    }
+
     private HttpClient defaultHttpClient(RagVectorStoreProperties.Qdrant properties) {
         return HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(properties.getConnectTimeoutMs()))
@@ -102,13 +140,17 @@ public class QdrantVectorStoreClient implements VectorStoreClient {
     }
 
     private String sendExpectSuccess(HttpRequest request, String operation) {
+        HttpResponse<String> response = send(request, operation);
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Qdrant vector store " + operation
+                    + " request failed with status " + response.statusCode() + ".");
+        }
+        return response.body();
+    }
+
+    private HttpResponse<String> send(HttpRequest request, String operation) {
         try {
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("Qdrant vector store " + operation
-                        + " request failed with status " + response.statusCode() + ".");
-            }
-            return response.body();
+            return httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (IOException ex) {
             throw new IllegalStateException("Qdrant vector store " + operation + " request failed.", ex);
         } catch (InterruptedException ex) {
@@ -127,6 +169,10 @@ public class QdrantVectorStoreClient implements VectorStoreClient {
 
     private URI deleteUri() {
         return endpointUri("/collections/" + collection() + "/points/delete?wait=true");
+    }
+
+    private URI collectionUri() {
+        return endpointUri("/collections/" + collection());
     }
 
     private URI endpointUri(String pathAndQuery) {

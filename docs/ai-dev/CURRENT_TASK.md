@@ -1,48 +1,46 @@
 # Current Task
 
-当前任务：T003a Qdrant VectorStore adapter
+当前任务：T004 RAG Indexing Workflow
 
 ## 目标
 
-为 DocPilot 增加 RAG VectorStore adapter 抽象和本地可测试实现，为后续 T004 RAG Indexing Workflow 做准备。
+将 T001 的 DocumentChunk、T002 的 EmbeddingProvider、T003 的 VectorStoreClient 串成可复用的 RAG indexing workflow。
 
 ## 范围
 
-本轮只做：
+下一轮优先做：
 
-- VectorStoreClient 抽象；
-- VectorPoint / VectorSearchRequest / VectorSearchResult / VectorSearchHit；
-- InMemoryVectorStoreClient；
-- QdrantVectorStoreClient；
-- RagVectorStoreProperties 配置补充；
-- 单元测试和本地 HttpServer stub 测试。
+- parse success 后的 indexing 入口设计；
+- chunk 落库与 indexVersion 管理；
+- batch embedding；
+- Qdrant upsert；
+- indexStatus 更新；
+- retry / rebuild API 的最小实现；
+- service 层和本地 stub 测试。
 
 ## 禁止事项
 
-- 不接真实 embedding；
-- 不把 DocumentChunk 自动写入 Qdrant；
-- 不在 parse success 后触发 indexing；
+- 不接前端；
 - 不做 RAG QA API；
 - 不做 SSE RAG 问答；
-- 不改前端；
-- 不改根 README；
-- 不操作远程服务器；
-- 不读取或提交 `.env` / key / secret。
+- 不写生产级 RAG 夸大文案；
+- 不读取或提交 `.env` / key / secret；
+- 不 push。
 
 ## 验收标准
 
-- upsert chunks 请求结构正确；
-- search topK 可用；
-- userId / documentId / indexVersion filter 生效；
-- deleteByDocumentId 可用；
-- InMemory client deterministic；
-- Qdrant client 测试只打本地 stub；
-- 现有 RAG 相关测试继续通过。
+- indexing workflow 能从文本生成 chunks；
+- chunks 能落库；
+- embedding provider 可 mock；
+- vector store 可用 in-memory 或 Qdrant stub；
+- indexStatus 状态明确；
+- 普通测试不依赖远程 Qdrant；
+- 受影响后端测试通过。
 
 ## 完成后输出
 
 - 修改文件；
 - 测试结果；
 - 新增能力；
-- 下一步是否进入 T003b 或 T004；
+- 下一步是否进入 T005 Retrieval + QA + SSE；
 - 可写进简历的一句话。
