@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-06-02 T001
+
+- T001 RAG 数据模型和 ChunkingService 已完成。
+- 新增 DocumentChunkEntity / DocumentChunkMapper / DocumentChunkService / ChunkingService / tb_document_chunk SQL 脚本 / 单元测试。
+- 下一步建议进入 T002 EmbeddingProvider 抽象。
+
 ## 2026-06-02
 
 - 完成 docs 文档审计和索引整理。
