@@ -73,7 +73,12 @@ public class RagVectorStoreProperties {
 
         private String collection = "docpilot_rag_demo";
         private String endpoint = "";
+        private String host = "";
+        private int port = 6333;
         private String apiKey = "";
+        private int dimension = 1536;
+        private String distance = "Cosine";
+        private boolean collectionInitEnabled = false;
         private int connectTimeoutMs = 5000;
         private int requestTimeoutMs = 30000;
 
@@ -95,12 +100,58 @@ public class RagVectorStoreProperties {
             this.endpoint = endpoint == null ? "" : endpoint.trim();
         }
 
+        public String getHost() {
+            return host;
+        }
+
+        public void setHost(String host) {
+            this.host = host == null ? "" : host.trim();
+        }
+
+        public int getPort() {
+            return port;
+        }
+
+        public void setPort(int port) {
+            if (port <= 0 || port > 65535) {
+                throw new IllegalArgumentException("app.rag.vector-store.qdrant.port must be between 1 and 65535.");
+            }
+            this.port = port;
+        }
+
         public String getApiKey() {
             return apiKey;
         }
 
         public void setApiKey(String apiKey) {
             this.apiKey = apiKey == null ? "" : apiKey.trim();
+        }
+
+        public int getDimension() {
+            return dimension;
+        }
+
+        public void setDimension(int dimension) {
+            if (dimension <= 0) {
+                throw new IllegalArgumentException("app.rag.vector-store.qdrant.dimension must be positive.");
+            }
+            this.dimension = dimension;
+        }
+
+        public String getDistance() {
+            return distance;
+        }
+
+        public void setDistance(String distance) {
+            this.distance = distance == null || distance.isBlank() ? "Cosine" : distance.trim();
+        }
+
+        public boolean isCollectionInitEnabled() {
+            return collectionInitEnabled;
+        }
+
+        public void setCollectionInitEnabled(boolean collectionInitEnabled) {
+            this.collectionInitEnabled = collectionInitEnabled;
         }
 
         public int getConnectTimeoutMs() {
