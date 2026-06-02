@@ -16,8 +16,17 @@ docs/*
 !docs/TODO_NEXT.md
 !docs/CHANGELOG_CODING.md
 !docs/CODEX_TOOLING.md
+!docs/agent-upgrade-roadmap.md
 !docs/ai-dev/
 !docs/ai-dev/**
+!docs/rag/
+!docs/rag/**
+!docs/agent/
+!docs/agent/**
+!docs/showcase/
+!docs/showcase/**
+!docs/archive/
+!docs/archive/**
 
 # Local env / secrets
 backend/.env
