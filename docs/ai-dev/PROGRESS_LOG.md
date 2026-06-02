@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-02 T001b-confirmed
+
+- T001b-confirmed：远程 MySQL docpilot 数据库已创建 tb_document_chunk 表。
+- MySQL 容器：docpilot-mysql。
+- 表字段覆盖 document_id、user_id、chunk_index、content、content_hash、offset、token_count、index_status、index_version、embedding_model、vector_id、create_time、update_time。
+- 索引包含 idx_document_chunk_document_id、idx_document_chunk_user_document、idx_document_chunk_status。
+- 唯一约束为 uk_document_version_chunk(document_id, index_version, chunk_index)。
+- 未重启服务，未修改其他表。
+
 ## 2026-06-02 T001
 
 - T001 RAG 数据模型和 ChunkingService 已完成。
