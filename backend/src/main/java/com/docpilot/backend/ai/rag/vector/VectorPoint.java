@@ -52,6 +52,12 @@ public record VectorPoint(
     }
 
     public static VectorPoint fromDocumentChunk(DocumentChunkEntity chunk, EmbeddingVector vector) {
+        return fromDocumentChunk(chunk, vector, chunk == null ? "" : chunk.getEmbeddingModel());
+    }
+
+    public static VectorPoint fromDocumentChunk(DocumentChunkEntity chunk,
+                                                EmbeddingVector vector,
+                                                String embeddingModel) {
         if (chunk == null) {
             throw new IllegalArgumentException("chunk must not be null");
         }
@@ -69,7 +75,7 @@ public record VectorPoint(
                 chunk.getContent(),
                 chunk.getContentHash(),
                 vector,
-                metadata(chunk)
+                metadata(chunk, embeddingModel)
         );
     }
 
@@ -82,6 +88,8 @@ public record VectorPoint(
         payload.put("chunkIndex", chunkIndex);
         payload.put("content", content);
         payload.put("contentHash", contentHash);
+        // T004 keeps full chunk content in payload for retrieval/citation smoke.
+        // Later large-document indexing can switch this to chunkId + preview only.
         return payload;
     }
 
@@ -94,12 +102,13 @@ public record VectorPoint(
         return UUID.nameUUIDFromBytes(raw.getBytes(StandardCharsets.UTF_8)).toString();
     }
 
-    private static Map<String, Object> metadata(DocumentChunkEntity chunk) {
+    private static Map<String, Object> metadata(DocumentChunkEntity chunk, String embeddingModel) {
         Map<String, Object> metadata = new LinkedHashMap<>();
+        putIfNotNull(metadata, "chunkId", chunk.getId());
         putIfNotNull(metadata, "startOffset", chunk.getStartOffset());
         putIfNotNull(metadata, "endOffset", chunk.getEndOffset());
         putIfNotNull(metadata, "tokenCount", chunk.getTokenCount());
-        putIfNotBlank(metadata, "embeddingModel", chunk.getEmbeddingModel());
+        putIfNotBlank(metadata, "embeddingModel", embeddingModel);
         return metadata;
     }
 

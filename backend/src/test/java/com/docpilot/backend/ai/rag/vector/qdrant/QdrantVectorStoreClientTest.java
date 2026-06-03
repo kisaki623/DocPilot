@@ -75,6 +75,18 @@ class QdrantVectorStoreClientTest {
     }
 
     @Test
+    void ensureReadyShouldCheckCollection() throws Exception {
+        startServer(exchange -> sendJson(exchange, 200, "{\"result\":{}}"));
+        QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties(false));
+
+        client.ensureReady();
+
+        assertThat(requests).hasSize(1);
+        assertThat(requests.get(0).method()).isEqualTo("GET");
+        assertThat(requests.get(0).path()).isEqualTo("/collections/docpilot_test");
+    }
+
+    @Test
     void shouldDeleteCollectionIfExistsAndIgnoreMissingCollection() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         startServer(exchange -> sendJson(exchange, calls.getAndIncrement() == 0 ? 200 : 404, "{\"status\":\"ok\"}"));

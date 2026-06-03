@@ -57,6 +57,16 @@ public class DocumentChunkServiceImpl implements DocumentChunkService {
     }
 
     @Override
+    public List<DocumentChunkEntity> listByDocumentIdAndVersion(Long documentId, Integer indexVersion) {
+        requireNonNull(documentId, "documentId");
+        List<DocumentChunkEntity> chunks = documentChunkMapper.selectByDocumentIdAndVersion(
+                documentId,
+                resolveIndexVersion(indexVersion)
+        );
+        return chunks == null ? List.of() : chunks;
+    }
+
+    @Override
     @Transactional
     public int deleteByDocumentIdAndVersion(Long documentId, Integer indexVersion) {
         requireNonNull(documentId, "documentId");
@@ -72,6 +82,46 @@ public class DocumentChunkServiceImpl implements DocumentChunkService {
         documentChunkMapper.deleteByDocumentIdAndVersion(documentId, resolvedVersion);
         List<DocumentChunkCandidate> chunks = chunkingService.chunk(documentId, userId, text);
         return saveChunks(documentId, userId, chunks, resolvedVersion);
+    }
+
+    @Override
+    @Transactional
+    public List<DocumentChunkEntity> replaceChunks(Long documentId,
+                                                   Long userId,
+                                                   List<DocumentChunkCandidate> chunks,
+                                                   Integer indexVersion) {
+        requireNonNull(documentId, "documentId");
+        requireNonNull(userId, "userId");
+        int resolvedVersion = resolveIndexVersion(indexVersion);
+        documentChunkMapper.deleteByDocumentIdAndVersion(documentId, resolvedVersion);
+        return saveChunks(documentId, userId, chunks, resolvedVersion);
+    }
+
+    @Override
+    @Transactional
+    public void markIndexed(List<DocumentChunkEntity> chunks) {
+        updateStatus(chunks, DocumentChunkIndexStatus.INDEXED);
+    }
+
+    @Override
+    @Transactional
+    public void markFailed(List<DocumentChunkEntity> chunks) {
+        updateStatus(chunks, DocumentChunkIndexStatus.FAILED);
+    }
+
+    private void updateStatus(List<DocumentChunkEntity> chunks, String status) {
+        if (chunks == null || chunks.isEmpty()) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now();
+        for (DocumentChunkEntity chunk : chunks) {
+            if (chunk == null || chunk.getId() == null) {
+                continue;
+            }
+            chunk.setIndexStatus(status);
+            chunk.setUpdateTime(now);
+            documentChunkMapper.updateById(chunk);
+        }
     }
 
     private DocumentChunkEntity toEntity(Long documentId,

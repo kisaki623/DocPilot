@@ -19,6 +19,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -89,6 +90,20 @@ class DocumentChunkServiceImplTest {
     }
 
     @Test
+    void shouldListByDocumentIdAndVersion() {
+        DocumentChunkServiceImpl service = new DocumentChunkServiceImpl(documentChunkMapper, chunkingService);
+        DocumentChunkEntity entity = new DocumentChunkEntity();
+        entity.setDocumentId(101L);
+        entity.setIndexVersion(2);
+        when(documentChunkMapper.selectByDocumentIdAndVersion(101L, 2)).thenReturn(List.of(entity));
+
+        List<DocumentChunkEntity> chunks = service.listByDocumentIdAndVersion(101L, 2);
+
+        assertThat(chunks).containsExactly(entity);
+        verify(documentChunkMapper).selectByDocumentIdAndVersion(101L, 2);
+    }
+
+    @Test
     void shouldReplaceChunksByDeletingVersionBeforeInsert() {
         DocumentChunkServiceImpl service = new DocumentChunkServiceImpl(documentChunkMapper, chunkingService);
 
@@ -114,6 +129,65 @@ class DocumentChunkServiceImplTest {
 
         assertThat(saved).isEmpty();
         verify(documentChunkMapper).deleteByDocumentIdAndVersion(101L, 1);
-        verify(documentChunkMapper, org.mockito.Mockito.never()).insert(any(DocumentChunkEntity.class));
+        verify(documentChunkMapper, never()).insert(any(DocumentChunkEntity.class));
+    }
+
+    @Test
+    void shouldReplaceCandidateChunksWithoutRechunkingText() {
+        DocumentChunkServiceImpl service = new DocumentChunkServiceImpl(documentChunkMapper, chunkingService);
+        DocumentChunkCandidate candidate = new DocumentChunkCandidate(
+                101L,
+                7L,
+                0,
+                "already chunked",
+                "b".repeat(64),
+                0,
+                15,
+                15
+        );
+
+        List<DocumentChunkEntity> saved = service.replaceChunks(101L, 7L, List.of(candidate), 3);
+
+        assertThat(saved).hasSize(1);
+        InOrder inOrder = inOrder(documentChunkMapper);
+        inOrder.verify(documentChunkMapper).deleteByDocumentIdAndVersion(101L, 3);
+        inOrder.verify(documentChunkMapper).insert(any(DocumentChunkEntity.class));
+        ArgumentCaptor<DocumentChunkEntity> captor = ArgumentCaptor.forClass(DocumentChunkEntity.class);
+        verify(documentChunkMapper).insert(captor.capture());
+        assertThat(captor.getValue().getContent()).isEqualTo("already chunked");
+        assertThat(captor.getValue().getIndexStatus()).isEqualTo(DocumentChunkIndexStatus.PENDING);
+    }
+
+    @Test
+    void shouldMarkChunksIndexedAndFailedByUpdatingEachChunk() {
+        DocumentChunkServiceImpl service = new DocumentChunkServiceImpl(documentChunkMapper, chunkingService);
+        DocumentChunkEntity first = chunkEntity(1L);
+        DocumentChunkEntity second = chunkEntity(2L);
+        DocumentChunkEntity failed = chunkEntity(3L);
+
+        service.markIndexed(List.of(first, second));
+        service.markFailed(List.of(failed));
+
+        ArgumentCaptor<DocumentChunkEntity> captor = ArgumentCaptor.forClass(DocumentChunkEntity.class);
+        verify(documentChunkMapper, times(3)).updateById(captor.capture());
+        assertThat(captor.getAllValues()).extracting(DocumentChunkEntity::getIndexStatus)
+                .containsExactly(
+                        DocumentChunkIndexStatus.INDEXED,
+                        DocumentChunkIndexStatus.INDEXED,
+                        DocumentChunkIndexStatus.FAILED
+                );
+        assertThat(captor.getAllValues()).allSatisfy(chunk -> assertThat(chunk.getUpdateTime()).isNotNull());
+    }
+
+    private DocumentChunkEntity chunkEntity(Long id) {
+        DocumentChunkEntity chunk = new DocumentChunkEntity();
+        chunk.setId(id);
+        chunk.setDocumentId(101L);
+        chunk.setUserId(7L);
+        chunk.setChunkIndex(id.intValue() - 1);
+        chunk.setContent("chunk " + id);
+        chunk.setContentHash("hash-" + id);
+        chunk.setIndexVersion(1);
+        return chunk;
     }
 }

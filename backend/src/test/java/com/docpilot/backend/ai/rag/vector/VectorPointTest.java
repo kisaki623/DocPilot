@@ -24,6 +24,7 @@ class VectorPointTest {
         assertThat(first.indexVersion()).isEqualTo(1);
         assertThat(first.chunkIndex()).isEqualTo(0);
         assertThat(first.metadata())
+                .containsEntry("chunkId", 10L)
                 .containsEntry("startOffset", 3)
                 .containsEntry("endOffset", 18)
                 .containsEntry("tokenCount", 15)
@@ -52,6 +53,7 @@ class VectorPointTest {
 
     private DocumentChunkEntity chunk(String contentHash) {
         DocumentChunkEntity chunk = new DocumentChunkEntity();
+        chunk.setId(10L);
         chunk.setUserId(7L);
         chunk.setDocumentId(61L);
         chunk.setIndexVersion(1);

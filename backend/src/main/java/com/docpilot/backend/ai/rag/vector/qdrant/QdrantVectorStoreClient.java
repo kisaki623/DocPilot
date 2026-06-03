@@ -52,6 +52,11 @@ public class QdrantVectorStoreClient implements VectorStoreClient {
         this.responseParser = responseParser == null ? new QdrantVectorSearchResponseParser() : responseParser;
     }
 
+    @Override
+    public void ensureReady() {
+        ensureCollection();
+    }
+
     public void ensureCollection() {
         HttpRequest infoRequest = requestBuilder(collectionUri())
                 .GET()

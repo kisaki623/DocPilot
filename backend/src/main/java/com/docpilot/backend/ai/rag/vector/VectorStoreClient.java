@@ -4,6 +4,9 @@ import java.util.List;
 
 public interface VectorStoreClient {
 
+    default void ensureReady() {
+    }
+
     void upsert(List<VectorPoint> points);
 
     VectorSearchResult search(VectorSearchRequest request);
