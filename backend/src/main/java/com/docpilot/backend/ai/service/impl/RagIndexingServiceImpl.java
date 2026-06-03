@@ -39,7 +39,6 @@ public class RagIndexingServiceImpl implements RagIndexingService {
     private final RagEmbeddingProperties embeddingProperties;
     private final RagVectorStoreProperties vectorStoreProperties;
 
-    @Autowired
     public RagIndexingServiceImpl(ChunkingService chunkingService,
                                   DocumentChunkService documentChunkService,
                                   EmbeddingProviderFactory embeddingProviderFactory,
@@ -60,6 +59,7 @@ public class RagIndexingServiceImpl implements RagIndexingService {
         );
     }
 
+    @Autowired
     public RagIndexingServiceImpl(ChunkingService chunkingService,
                                   DocumentChunkService documentChunkService,
                                   EmbeddingProvider embeddingProvider,

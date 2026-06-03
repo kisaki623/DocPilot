@@ -1,6 +1,6 @@
 # DocPilot 当前状态
 
-最后更新：2026-06-02
+最后更新：2026-06-03
 
 旧状态快照已保留在 `docs/ai-dev/archive/STATE_2026-04-18.md`。本文件只维护当前事实，不追加流水账。
 
@@ -19,14 +19,14 @@ DocPilot 是 Java Spring Boot + Next.js 的 AI 文档解析与问答工程化项
 - 普通文档问答与 SSE 流式问答，支持 citations 和问答历史。
 - Agent 工具选择、`AgentTask` / `AgentStep` 持久化、前端 Trace 展示。
 - Agent 工具链包含文档状态、摘要、问答和 RAG showcase 工具，能展示 routingReason、matchedKeywords、steps、citations。
-- 当前 RAG showcase 已有轻量 chunking、fake embedding、in-memory vector store、topK retrieval、citations、脱敏 trace/debug snapshot、offline eval 和默认关闭的 Qdrant adapter / preflight 边界。
+- 当前 RAG 主线已有持久化 DocumentChunk、ChunkingService、EmbeddingProvider、VectorStoreClient、RagIndexingService、RagDocumentRetrievalService、RAG QA 和 RAG SSE 后端闭环；旧 Agent RAG showcase 链路仍保留为独立演示路径。
 
 ## 3. 当前边界
 
 - 当前默认不是生产级完整向量 RAG。
 - fake embedding / in-memory vector store 仍属于展示、测试和本地 smoke 边界。
-- Qdrant 已有 adapter、payload mapping、fake server 测试和 preflight 参考；默认运行路径仍不是真实 Qdrant runtime，真实服务需要显式配置并重新验证。
-- 当前没有持久化的 RAG chunk 表作为默认主链路；RAG index 仍未形成上传解析后的持久化 indexing workflow。
+- Qdrant 已有 adapter、payload mapping、fake server 测试和 preflight 参考；普通测试不依赖远程 Qdrant，真实服务需要显式配置并重新验证。
+- 持久化 RAG chunk 与 indexing workflow 已具备 service 层闭环，但尚未接 parse success 自动触发。
 - Agent 不是多智能体自主规划。
 - `llm_execute` / real provider 等能力如果默认关闭，要视为待显式配置和 runtime 验证，不能写成默认生产能力。
 - 没有线上 SLA，不写 100% 可靠。
