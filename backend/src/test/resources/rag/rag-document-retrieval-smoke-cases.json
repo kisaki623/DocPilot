@@ -1,0 +1,50 @@
+[
+  {
+    "id": "redis-cache-hit",
+    "userId": 100,
+    "documentId": 7001,
+    "indexVersion": 1,
+    "documentText": "Redis cache stores hot session context and token bucket counters for document QA.",
+    "query": "Where is hot session context stored?",
+    "topK": 3,
+    "expectedMarker": "Redis cache",
+    "expectedHit": true,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "rocketmq-outbox-hit",
+    "userId": 100,
+    "documentId": 7002,
+    "indexVersion": 1,
+    "documentText": "RocketMQ outbox dispatches parser tasks and keeps retry evidence for async parsing.",
+    "query": "Which component dispatches parser tasks?",
+    "topK": 3,
+    "expectedMarker": "RocketMQ outbox",
+    "expectedHit": true,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "minio-storage-hit",
+    "userId": 101,
+    "documentId": 7003,
+    "indexVersion": 2,
+    "documentText": "MinIO object storage keeps uploaded document binaries before parsing.",
+    "query": "Where are uploaded document binaries stored?",
+    "topK": 2,
+    "expectedMarker": "MinIO object storage",
+    "expectedHit": true,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "blank-document-no-evidence",
+    "userId": 102,
+    "documentId": 7004,
+    "indexVersion": 1,
+    "documentText": "   ",
+    "query": "What evidence exists in this document?",
+    "topK": 3,
+    "expectedMarker": "blank-document-marker",
+    "expectedHit": false,
+    "expectedNoEvidence": true
+  }
+]
