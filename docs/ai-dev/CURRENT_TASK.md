@@ -1,31 +1,34 @@
 # Current Task
 
-当前任务：T009 RAG Scope & Permission Guard 已完成；下一步待确认
+当前任务：T010a ToolSpec / ToolRegistry 已完成；下一步待确认
 
 ## 目标
 
-基于 T001-T008 已完成的 RAG indexing、retrieval、QA、SSE、Agent 接入、离线 smoke 和 parse success trigger 能力，强化 RAG 主链路的 userId / documentId / indexVersion scope isolation。
+在不接 OpenAI Function Calling、不做 MCP、不迁移现有 Agent 执行链的前提下，为后续工具调用演进补齐内部 ToolSpec / ToolRegistry 底座。
 
 ## 范围
 
-T009 已完成：
+T010a 已完成：
 
-- 新增 `RagScopeGuard`，统一校验 document owner；
-- `RagDocumentRetrievalService` 在 metadata filter 之外，对 vector search hit 做 userId / documentId / indexVersion 二次校验；
-- `RagQaService` 对权限类错误不做 retrieval fallback，不调用大模型，不保存 QA history；
-- `RagIndexingTriggerService` 在自动 indexing 前校验 document scope，避免直接调用 trigger 时写入错误用户范围；
-- `DocumentRagQaTool` 保持依赖 `RagQaService` 权限拒绝，不吞掉越权异常；
-- 测试不依赖远程 Qdrant、真实 embedding API 或真实大模型。
+- 新增 `ai.agent.tool.spec` 内部 package，包含 `ToolSpec`、参数 / 结果 schema、risk level、tool execution context、tool call result 和 executor contract；
+- 新增 `DefaultToolSpecProvider` 与 `ToolSpecRegistry`，统一管理当前 Agent 工具元数据；
+- `ToolDefinitionProvider` 改为从 `ToolSpecRegistry` 输出现有 `ToolDefinition`，保持 selector prompt 调用面兼容；
+- `document_rag_tool` 仍保留为旧 showcase 工具，但不再作为 LLM selectable spec 暴露；
+- 现有 `DocumentAgentServiceImpl` typed 工具执行链保持不变。
 
 下一步候选：
 
-- T010 前端小范围展示 RAG evidence / citations；
-- 或 RAG indexing trigger 进一步 MQ / Outbox 化。
+- T010b：OpenAI Function Calling adapter；
+- 或 T010c：逐步引入统一 `ToolExecutor` 执行路径；
+- 或前端小范围展示 RAG evidence / citations。
 
 ## 禁止事项
 
+- 不做 OpenAI Function Calling adapter；
+- 不做 MCP；
+- 不做 ToolCall API；
 - 不做多文档 RAG；
-- 不做 ToolSpec；
+- 不把所有现有 Agent 工具强行迁移到 `ToolExecutor`；
 - 不改前端；
 - 不改根 README；
 - 不调用真实 embedding / chat API；
@@ -35,14 +38,15 @@ T009 已完成：
 
 ## 验收标准
 
-- retrieval / QA / Agent rag_qa_tool 无法返回跨用户、跨文档、跨版本 hit 或 citation；
-- 权限拒绝不会被 no-evidence / retrieval-unavailable fallback 掩盖；
-- parse success trigger 不会为不匹配 user/document 的请求执行 indexing；
-- 受影响后端测试通过。
+- 当前 Agent status / summary / qa / rag_qa_tool 路由保持兼容；
+- 工具 metadata 有统一 spec 来源；
+- legacy `document_rag_tool` 不误入新 RAG 主链路或 LLM selector；
+- 测试不依赖真实 embedding、真实大模型或远程 Qdrant。
 
-## T009 输出
+## T010a 输出
 
-- 新增 guard；
-- 修改 retrieval / QA SSE / indexing trigger；
-- 补充越权与 scope isolation 测试；
+- 新增 ToolSpec 内部抽象底座；
+- 新增 ToolSpecRegistry 和 ToolDefinition adapter；
+- 更新 ToolDefinitionProvider；
+- 补充 spec registry / provider / call result 测试；
 - 更新 ai-dev 简短进度记录。

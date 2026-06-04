@@ -58,6 +58,21 @@ class ToolDefinitionProviderTest {
         assertFalse(qaDefinition.description().contains("系统命令"));
     }
 
+    @Test
+    void shouldNotExposeLegacyRagShowcaseToolToLlmSelection() {
+        ToolDefinitionProvider provider = new ToolDefinitionProvider(new ToolRegistry(List.of(
+                new StubTool("document_status_tool"),
+                new StubTool("document_summary_tool"),
+                new StubTool("document_qa_tool"),
+                new StubTool(DocumentRagQaTool.TOOL_NAME),
+                new StubTool(DocumentRagTool.TOOL_NAME)
+        )));
+
+        List<ToolDefinition> definitions = provider.getAllDefinitions();
+
+        assertFalse(definitions.stream().anyMatch(definition -> DocumentRagTool.TOOL_NAME.equals(definition.toolName())));
+    }
+
     private record StubTool(String toolName) implements AgentTool<Object, Object> {
         @Override
         public String getToolName() {

@@ -32,6 +32,10 @@ public class ToolRegistry {
         return Collections.unmodifiableSet(toolMap.keySet());
     }
 
+    public boolean contains(String toolName) {
+        return toolMap.containsKey(toolName);
+    }
+
     public int size() {
         return toolMap.size();
     }

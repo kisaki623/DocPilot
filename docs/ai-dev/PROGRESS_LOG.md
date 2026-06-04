@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-04 T010a
+
+- T010a ToolSpec / ToolRegistry 已完成：新增内部 `ai.agent.tool.spec` package，包含 `ToolSpec`、参数 / 结果 schema、risk level、`ToolExecutionContext`、`ToolCallResult` 和 `ToolExecutor` contract。
+- 新增 `DefaultToolSpecProvider`、`ToolSpecRegistry` 和 `ToolDefinitionAdapter`；`ToolDefinitionProvider` 现在从 spec registry 输出现有 selector 所需 `ToolDefinition`，现有 Agent typed 执行链不迁移。
+- 旧 `document_rag_tool` showcase spec 保留但不作为 LLM selectable 暴露；新 `rag_qa_tool` spec 明确基于 `EmbeddingProvider`、`VectorStoreClient` 和 `RagScopeGuard`。
+- 已验证：`mvn "-Dtest=ToolSpecRegistryTest,DefaultToolSpecProviderTest,ToolCallResultTest,ToolDefinitionProviderTest" test`、`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*,*Rag*" test`、`mvn test`（585 tests，0 failures，0 errors，1 skipped）。
+- 下一步待确认：T010b OpenAI Function Calling adapter、T010c 统一 ToolExecutor 执行路径，或前端小范围展示 RAG evidence / citations；不做 MCP、不做多文档 RAG、不改前端、不改根 README。
+
 ## 2026-06-04 T009
 
 - T009 RAG Scope & Permission Guard 已完成：新增 `RagScopeGuard`，统一 RAG 主链路 document owner 校验，并在 retrieval 返回 hits 后追加 userId / documentId / indexVersion 二次校验，防止跨 scope citation 泄露。
