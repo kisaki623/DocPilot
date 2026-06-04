@@ -58,10 +58,18 @@ public class ToolDefinitionProvider {
                 "{\"answer\":\"String\",\"sessionId\":\"String\",\"citations\":[{\"chunkIndex\":\"int\",\"snippet\":\"String\",\"score\":\"double\"}]}",
                 true
         ));
+        result.put(DocumentRagQaTool.TOOL_NAME, new ToolDefinition(
+                DocumentRagQaTool.TOOL_NAME,
+                "RAG QA",
+                "Answers with the T005 RAG retrieval workflow backed by EmbeddingProvider and VectorStoreClient, returning retrieval hits and evidence citations.",
+                "{\"userId\":\"Long\",\"documentId\":\"Long\",\"question\":\"String\",\"sessionId\":\"String|null\",\"topK\":\"int|null\",\"indexVersion\":\"int|null\"}",
+                "{\"answer\":\"String\",\"sessionId\":\"String\",\"noEvidence\":\"boolean\",\"fallbackUsed\":\"boolean\",\"retrievalHits\":\"List\",\"citations\":\"List\"}",
+                true
+        ));
         result.put(DocumentRagTool.TOOL_NAME, new ToolDefinition(
                 DocumentRagTool.TOOL_NAME,
                 "Document RAG retrieval",
-                "Retrieves top document chunks with fake embeddings and an in-memory vector store for showcase-only RAG demos.",
+                "Showcase-only legacy RAG retrieval with fake embeddings and an in-memory vector store; do not use for the T005/T006 RAG workflow.",
                 "{\"documentId\":\"Long\",\"task\":\"String\",\"documentText\":\"String\",\"topK\":\"int\"}",
                 "{\"retrievedChunks\":[{\"rank\":\"int\",\"chunkIndex\":\"int\",\"score\":\"double\",\"snippet\":\"String\",\"metadata\":\"Map\"}],\"answerContext\":\"String\"}",
                 true

@@ -6,6 +6,7 @@ import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
@@ -22,6 +23,10 @@ import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
+import com.docpilot.backend.ai.rag.RagEvidenceCitation;
+import com.docpilot.backend.ai.rag.RagQaAnswer;
+import com.docpilot.backend.ai.rag.RagRetrievalHit;
+import com.docpilot.backend.ai.rag.RagRetrievalResult;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
 import org.junit.jupiter.api.Test;
@@ -35,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -63,6 +69,9 @@ class DocumentAgentServiceImplTest {
 
     @Mock
     private DocumentRagTool documentRagTool;
+
+    @Mock
+    private DocumentRagQaTool documentRagQaTool;
 
     @Mock
     private ToolRegistry toolRegistry;
@@ -119,6 +128,10 @@ class DocumentAgentServiceImplTest {
         when(toolRegistry.<DocumentRagTool>get(DocumentRagTool.TOOL_NAME)).thenReturn(documentRagTool);
     }
 
+    private void stubRagQaTool() {
+        when(toolRegistry.<DocumentRagQaTool>get(DocumentRagQaTool.TOOL_NAME)).thenReturn(documentRagQaTool);
+    }
+
     private void stubPersistenceTask() {
         AgentTask mockTask = new AgentTask();
         mockTask.setId(1001L);
@@ -127,7 +140,7 @@ class DocumentAgentServiceImplTest {
 
     private void verifyPersistenceSuccess() {
         verify(persistenceService).createTask(anyLong(), anyLong(), anyString(), any());
-        verify(persistenceService, atLeastOnce()).createStep(anyLong(), anyInt(), anyString(), anyString(), anyString(), anyLong(), anyString());
+        verify(persistenceService, atLeastOnce()).createStep(anyLong(), anyInt(), anyString(), anyString(), anyString(), anyLong(), anyString(), any());
         verify(persistenceService).updateTaskSuccess(anyLong(), anyString(), anyString(), anyLong());
     }
 
@@ -264,56 +277,79 @@ class DocumentAgentServiceImplTest {
                         documentContent
                 ));
         when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
-        when(documentRagTool.getToolName()).thenReturn(DocumentRagTool.TOOL_NAME);
+        when(documentRagQaTool.getToolName()).thenReturn(DocumentRagQaTool.TOOL_NAME);
         when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
                 "rag_tool",
-                List.of("document_status_tool", DocumentRagTool.TOOL_NAME),
+                List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME),
                 "rag reason",
                 List.of("RAG", "retrieve")
         ));
-        DocumentRagTool.RetrievedChunk chunk = new DocumentRagTool.RetrievedChunk(
+        RagRetrievalHit hit = new RagRetrievalHit(
                 1,
-                0,
+                "vec-109-1",
                 0.91d,
-                "Payment clause content.",
-                java.util.Map.of("contentHash", "hash", "chunkVersion", "fake-rag-v1")
-        );
-        DocumentRagTool.RagResult ragResult = new DocumentRagTool.RagResult(
+                100L,
                 109L,
-                1,
-                3,
-                List.of(chunk),
-                List.of(),
-                "[1] Payment clause content.",
-                "Retrieved 1 chunk(s) from 1 indexed chunk(s)."
+                2,
+                901L,
+                0,
+                "Payment clause content.",
+                "hash",
+                0,
+                23,
+                4,
+                "mock-embedding"
         );
-        when(documentRagTool.execute(new DocumentRagTool.RagInput(
+        RagEvidenceCitation citation = hit.toCitation();
+        when(documentRagQaTool.execute(new DocumentRagQaTool.RagQaInput(
+                100L,
                 109L,
                 "RAG retrieve topK chunks and show similarity score",
-                documentContent,
-                3
-        ))).thenReturn(ragResult);
+                null,
+                4,
+                2
+        ))).thenReturn(new DocumentRagQaTool.RagQaResult(
+                100L,
+                109L,
+                "RAG retrieve topK chunks and show similarity score",
+                "Payment clause answer [1]",
+                "",
+                4,
+                2,
+                List.of(hit),
+                List.of(citation),
+                false,
+                false,
+                "",
+                "topK=4, indexVersion=2, hitCount=1, citationCount=1, noEvidence=false, fallbackUsed=false"
+        ));
+        request.setTopK(4);
+        request.setIndexVersion(2);
         stubStatusTool();
-        stubRagTool();
+        stubRagQaTool();
         stubPersistenceTask();
 
         var response = service.run(100L, request);
 
         assertEquals("rag_tool", response.getDecision());
-        assertTrue(response.getFinalAnswer().contains("RAG demo retrieved"));
+        assertEquals("Payment clause answer [1]", response.getFinalAnswer());
         assertEquals(1, response.getRagResults().size());
         assertEquals(0.91d, response.getRagResults().get(0).getScore());
         assertEquals("Payment clause content.", response.getRagResults().get(0).getSnippet());
         assertEquals("hash", response.getRagResults().get(0).getMetadata().get("contentHash"));
+        assertEquals(2, response.getRagResults().get(0).getIndexVersion());
+        assertEquals(901L, response.getRagResults().get(0).getChunkId());
+        assertEquals(1, response.getRagCitations().size());
         assertEquals("[1] Payment clause content.", response.getRagAnswerContext());
         assertEquals(2, response.getSteps().size());
         assertFalse(response.getFinalAnswer().contains(PRIVATE_RAG_DOC_MARKER));
         assertFalse(response.getSteps().get(1).getOutputSummary().contains(PRIVATE_RAG_DOC_MARKER));
         assertFalse(response.getRagResults().get(0).getSnippet().contains(PRIVATE_RAG_DOC_MARKER));
         verifyPersistenceSuccess();
-        verify(documentRagTool).execute(any());
+        verify(documentRagQaTool).execute(any());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
         assertEmptySelectorMetrics();
     }
 
@@ -336,46 +372,96 @@ class DocumentAgentServiceImplTest {
                         "Document text without the requested synthetic marker. " + PRIVATE_RAG_DOC_MARKER
                 ));
         when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
-        when(documentRagTool.getToolName()).thenReturn(DocumentRagTool.TOOL_NAME);
+        when(documentRagQaTool.getToolName()).thenReturn(DocumentRagQaTool.TOOL_NAME);
         when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
                 "rag_tool",
-                List.of("document_status_tool", DocumentRagTool.TOOL_NAME),
+                List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME),
                 "rag reason",
                 List.of("RAG", "retrieve")
         ));
-        DocumentRagTool.RagResult ragResult = new DocumentRagTool.RagResult(
+        when(documentRagQaTool.execute(any())).thenReturn(new DocumentRagQaTool.RagQaResult(
+                100L,
                 110L,
-                1,
-                3,
-                List.of(),
-                List.of(),
+                "RAG retrieve missing topic evidence",
+                "\u672a\u5728\u5f53\u524d\u6587\u6863\u7d22\u5f15\u4e2d\u68c0\u7d22\u5230\u8db3\u591f\u8bc1\u636e",
                 "",
-                "ragEnabled=true, embeddingProvider=fake, vectorStoreType=in_memory, topK=3, retrievedCount=0, "
-                        + "contextHashPresent=false, contextTruncated=false, fallbackUsed=true, "
-                        + "fallbackReason=no_match, citationCount=0, indexReused=false, cacheKeyRagAware=false"
-        );
-        when(documentRagTool.execute(any())).thenReturn(ragResult);
+                3,
+                1,
+                List.of(),
+                List.of(),
+                true,
+                true,
+                "no_evidence",
+                "topK=3, indexVersion=1, hitCount=0, citationCount=0, noEvidence=true, fallbackUsed=true, fallbackReason=no_evidence"
+        ));
         stubStatusTool();
-        stubRagTool();
+        stubRagQaTool();
         stubPersistenceTask();
 
         var response = service.run(100L, request);
 
         assertEquals("rag_tool", response.getDecision());
-        assertTrue(response.getFinalAnswer().contains("RAG demo did not retrieve chunks"));
+        assertTrue(response.getFinalAnswer().contains("\u672a\u5728\u5f53\u524d\u6587\u6863\u7d22\u5f15\u4e2d\u68c0\u7d22\u5230\u8db3\u591f\u8bc1\u636e"));
         assertNotNull(response.getRagResults());
         assertTrue(response.getRagResults().isEmpty());
         assertEquals("", response.getRagAnswerContext());
         assertEquals(2, response.getSteps().size());
         assertTrue(response.getSteps().get(1).getOutputSummary().contains("fallbackUsed=true"));
-        assertTrue(response.getSteps().get(1).getOutputSummary().contains("fallbackReason=no_match"));
+        assertTrue(response.getSteps().get(1).getOutputSummary().contains("fallbackReason=no_evidence"));
         assertFalse(response.getSteps().get(1).getOutputSummary().contains(PRIVATE_RAG_DOC_MARKER));
         assertFalse(response.getFinalAnswer().contains(PRIVATE_RAG_DOC_MARKER));
         verifyPersistenceSuccess();
-        verify(documentRagTool).execute(any());
+        verify(documentRagQaTool).execute(any());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
         assertEmptySelectorMetrics();
+    }
+
+    @Test
+    void shouldPersistFailedStepWhenRagToolThrows() {
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(111L);
+        request.setTask("RAG retrieve unavailable evidence");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 111L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        111L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "content"
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentRagQaTool.getToolName()).thenReturn(DocumentRagQaTool.TOOL_NAME);
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "rag_tool",
+                List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME),
+                "rag reason",
+                List.of("RAG", "retrieve")
+        ));
+        when(documentRagQaTool.execute(any())).thenThrow(new IllegalStateException("internal endpoint should not leak"));
+        stubStatusTool();
+        stubRagQaTool();
+        stubPersistenceTask();
+
+        assertThrows(IllegalStateException.class, () -> service.run(100L, request));
+
+        verify(persistenceService).createStep(
+                anyLong(),
+                org.mockito.ArgumentMatchers.eq(2),
+                org.mockito.ArgumentMatchers.eq(DocumentRagQaTool.TOOL_NAME),
+                anyString(),
+                org.mockito.ArgumentMatchers.eq("rag qa tool failed: IllegalStateException"),
+                anyLong(),
+                org.mockito.ArgumentMatchers.eq("failed"),
+                org.mockito.ArgumentMatchers.eq("IllegalStateException")
+        );
+        verify(persistenceService).updateTaskFailed(anyLong(), anyString());
     }
 
     @Test

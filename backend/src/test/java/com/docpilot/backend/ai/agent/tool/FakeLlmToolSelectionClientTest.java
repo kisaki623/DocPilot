@@ -12,7 +12,8 @@ class FakeLlmToolSelectionClientTest {
     private final LlmToolSelectionParser parser = new LlmToolSelectionParser(Set.of(
             "document_status_tool",
             "document_summary_tool",
-            "document_qa_tool"
+            "document_qa_tool",
+            DocumentRagQaTool.TOOL_NAME
     ));
 
     @Test
@@ -27,13 +28,13 @@ class FakeLlmToolSelectionClientTest {
     }
 
     @Test
-    void shouldExtractQaEvidenceTaskFromPrompt() {
+    void shouldExtractRagEvidenceTaskFromPrompt() {
         LlmToolSelectionResult result = parse(
                 "Current task: According to the evidence, what is the core content?\nDocument state:\n- parseReady: true"
         );
 
-        assertThat(result.decision()).isEqualTo("qa_tool");
-        assertThat(result.toolNames()).containsExactly("document_status_tool", "document_qa_tool");
+        assertThat(result.decision()).isEqualTo("rag_tool");
+        assertThat(result.toolNames()).containsExactly("document_status_tool", DocumentRagQaTool.TOOL_NAME);
         assertValidCommonFields(result);
     }
 
@@ -49,13 +50,13 @@ class FakeLlmToolSelectionClientTest {
     }
 
     @Test
-    void shouldPreferQaWhenSummaryAndEvidenceConflict() {
+    void shouldPreferRagWhenSummaryAndEvidenceConflict() {
         LlmToolSelectionResult result = parse(
                 "Current task: summary with evidence\nDocument state:\n- parseReady: true"
         );
 
-        assertThat(result.decision()).isEqualTo("qa_tool");
-        assertThat(result.toolNames()).containsExactly("document_status_tool", "document_qa_tool");
+        assertThat(result.decision()).isEqualTo("rag_tool");
+        assertThat(result.toolNames()).containsExactly("document_status_tool", DocumentRagQaTool.TOOL_NAME);
         assertValidCommonFields(result);
     }
 
@@ -76,8 +77,8 @@ class FakeLlmToolSelectionClientTest {
                 "Current task: \u6839\u636e\u539f\u6587\u8bc1\u636e\u56de\u7b54\u6838\u5fc3\u5185\u5bb9\nDocument state:\n- parseReady: true"
         );
 
-        assertThat(result.decision()).isEqualTo("qa_tool");
-        assertThat(result.toolNames()).containsExactly("document_status_tool", "document_qa_tool");
+        assertThat(result.decision()).isEqualTo("rag_tool");
+        assertThat(result.toolNames()).containsExactly("document_status_tool", DocumentRagQaTool.TOOL_NAME);
         assertValidCommonFields(result);
     }
 
@@ -150,7 +151,7 @@ class FakeLlmToolSelectionClientTest {
         assertThat(result.matchedKeywords()).isNotEmpty();
         assertThat(result.confidence()).isBetween(0.0d, 1.0d);
         assertThat(result.toolNames()).allSatisfy(toolName ->
-                assertThat(toolName).isIn("document_status_tool", "document_summary_tool", "document_qa_tool")
+                assertThat(toolName).isIn("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentRagQaTool.TOOL_NAME)
         );
     }
 }

@@ -13,7 +13,7 @@ class DocumentToolSelectorTest {
     private static final List<String> STATUS_ONLY = List.of("document_status_tool");
     private static final List<String> SUMMARY_CHAIN = List.of("document_status_tool", "document_summary_tool");
     private static final List<String> QA_CHAIN = List.of("document_status_tool", "document_qa_tool");
-    private static final List<String> RAG_CHAIN = List.of("document_status_tool", "document_rag_tool");
+    private static final List<String> RAG_CHAIN = List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME);
 
     private final DocumentToolSelector selector = new DocumentToolSelector();
 
@@ -38,11 +38,11 @@ class DocumentToolSelectorTest {
     }
 
     @Test
-    void shouldExplainEvidenceSelectionAsQa() {
+    void shouldExplainEvidenceSelectionAsRag() {
         ToolSelector.SelectResult result = selector.select("\u6839\u636e\u539f\u6587\u8bc1\u636e\u56de\u7b54\u5408\u540c\u91d1\u989d\u662f\u591a\u5c11");
 
-        assertEquals("qa_tool", result.decision());
-        assertEquals(QA_CHAIN, result.toolNames());
+        assertEquals("rag_tool", result.decision());
+        assertEquals(RAG_CHAIN, result.toolNames());
         assertFalse(result.matchedKeywords().isEmpty());
         assertTrue(result.reason().contains("\u8bc1\u636e") || result.reason().contains("\u5f15\u7528"));
     }
@@ -72,8 +72,8 @@ class DocumentToolSelectorTest {
     void shouldPreferQaWhenSummaryAndEvidenceConflict() {
         ToolSelector.SelectResult result = selector.select("\u603b\u7ed3\u5e76\u5f15\u7528\u539f\u6587\u8bc1\u636e");
 
-        assertEquals("qa_tool", result.decision());
-        assertEquals(QA_CHAIN, result.toolNames());
+        assertEquals("rag_tool", result.decision());
+        assertEquals(RAG_CHAIN, result.toolNames());
         assertFalse(result.matchedKeywords().isEmpty());
         assertTrue(result.reason().contains("\u8bc1\u636e") || result.reason().contains("\u5f15\u7528"));
     }
@@ -82,8 +82,8 @@ class DocumentToolSelectorTest {
     void shouldMatchEnglishKeywordsCaseInsensitively() {
         ToolSelector.SelectResult result = selector.select("Please SUMMARY this document with EVIDENCE");
 
-        assertEquals("qa_tool", result.decision());
-        assertEquals(QA_CHAIN, result.toolNames());
+        assertEquals("rag_tool", result.decision());
+        assertEquals(RAG_CHAIN, result.toolNames());
         assertEquals(List.of("evidence"), result.matchedKeywords());
         assertFalse(result.reason().isBlank());
     }

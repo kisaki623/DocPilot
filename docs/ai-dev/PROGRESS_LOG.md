@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-03 T006
+
+- T006 Agent Integration 已完成：新增 `rag_qa_tool`，将 Agent 的 `rag_tool` 决策接入 T005 `RagQaService`，旧 `DocumentRagTool` showcase 链路保持独立。
+- Agent RAG step / response 现在能返回 retrieval hits、RAG citations、no-evidence / fallback 摘要，并在工具异常时记录 FAILED step 和安全错误类型。
+- 已验证：`mvn -DskipTests compile`、`mvn "-Dtest=DocumentRagQaToolTest,DocumentToolSelectorTest,DocumentAgentServiceImplTest,DocumentAgentLlmExecuteModeTest,ToolDefinitionProviderTest,LlmToolSelectionPromptBuilderTest,FakeLlmToolSelectionClientTest,FakeLlmToolSelectorTest" test`、`mvn "-Dtest=*Rag*" test`、`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*,ToolDefinitionProviderTest" test`、`mvn test`。
+- 下一步进入 T007 Eval / Retrieval Quality Smoke，不做前端大改、不改根 README、不调用真实外部服务。
+
 ## 2026-06-03 T005
 
 - T005 Retrieval + QA + SSE 已完成：新增基于 T003 VectorStoreClient / T004 indexing workflow 的 RagDocumentRetrievalService、RagPromptBuilder、RagQaService 和独立 RAG API / SSE，旧 Agent showcase RAG 链路保持隔离。

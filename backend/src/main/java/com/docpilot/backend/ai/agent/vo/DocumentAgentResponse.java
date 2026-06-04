@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.agent.vo;
 
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
+import com.docpilot.backend.ai.rag.RagEvidenceCitation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,7 @@ public class DocumentAgentResponse {
     private List<String> matchedKeywords = new ArrayList<>();
     private String finalAnswer;
     private List<DocumentQaResponse.CitationItem> citations = new ArrayList<>();
+    private List<RagEvidenceCitation> ragCitations = new ArrayList<>();
     private List<RagRetrievedChunk> ragResults = new ArrayList<>();
     private String ragAnswerContext;
     private List<AgentStep> steps = new ArrayList<>();
@@ -201,6 +203,14 @@ public class DocumentAgentResponse {
         this.citations = citations;
     }
 
+    public List<RagEvidenceCitation> getRagCitations() {
+        return ragCitations;
+    }
+
+    public void setRagCitations(List<RagEvidenceCitation> ragCitations) {
+        this.ragCitations = ragCitations;
+    }
+
     public List<RagRetrievedChunk> getRagResults() {
         return ragResults;
     }
@@ -231,6 +241,7 @@ public class DocumentAgentResponse {
         private String status;
         private String inputSummary;
         private String outputSummary;
+        private String errorMessage;
         private long durationMs;
 
         public int getStepIndex() {
@@ -273,6 +284,14 @@ public class DocumentAgentResponse {
             this.outputSummary = outputSummary;
         }
 
+        public String getErrorMessage() {
+            return errorMessage;
+        }
+
+        public void setErrorMessage(String errorMessage) {
+            this.errorMessage = errorMessage;
+        }
+
         public long getDurationMs() {
             return durationMs;
         }
@@ -284,9 +303,18 @@ public class DocumentAgentResponse {
 
     public static class RagRetrievedChunk {
         private int rank;
+        private String vectorId;
+        private Long documentId;
+        private Integer indexVersion;
+        private Long chunkId;
         private int chunkIndex;
         private double score;
         private String snippet;
+        private String contentHash;
+        private Integer startOffset;
+        private Integer endOffset;
+        private Integer tokenCount;
+        private String embeddingModel;
         private Map<String, String> metadata;
 
         public int getRank() {
@@ -295,6 +323,38 @@ public class DocumentAgentResponse {
 
         public void setRank(int rank) {
             this.rank = rank;
+        }
+
+        public String getVectorId() {
+            return vectorId;
+        }
+
+        public void setVectorId(String vectorId) {
+            this.vectorId = vectorId;
+        }
+
+        public Long getDocumentId() {
+            return documentId;
+        }
+
+        public void setDocumentId(Long documentId) {
+            this.documentId = documentId;
+        }
+
+        public Integer getIndexVersion() {
+            return indexVersion;
+        }
+
+        public void setIndexVersion(Integer indexVersion) {
+            this.indexVersion = indexVersion;
+        }
+
+        public Long getChunkId() {
+            return chunkId;
+        }
+
+        public void setChunkId(Long chunkId) {
+            this.chunkId = chunkId;
         }
 
         public int getChunkIndex() {
@@ -319,6 +379,46 @@ public class DocumentAgentResponse {
 
         public void setSnippet(String snippet) {
             this.snippet = snippet;
+        }
+
+        public String getContentHash() {
+            return contentHash;
+        }
+
+        public void setContentHash(String contentHash) {
+            this.contentHash = contentHash;
+        }
+
+        public Integer getStartOffset() {
+            return startOffset;
+        }
+
+        public void setStartOffset(Integer startOffset) {
+            this.startOffset = startOffset;
+        }
+
+        public Integer getEndOffset() {
+            return endOffset;
+        }
+
+        public void setEndOffset(Integer endOffset) {
+            this.endOffset = endOffset;
+        }
+
+        public Integer getTokenCount() {
+            return tokenCount;
+        }
+
+        public void setTokenCount(Integer tokenCount) {
+            this.tokenCount = tokenCount;
+        }
+
+        public String getEmbeddingModel() {
+            return embeddingModel;
+        }
+
+        public void setEmbeddingModel(String embeddingModel) {
+            this.embeddingModel = embeddingModel;
         }
 
         public Map<String, String> getMetadata() {

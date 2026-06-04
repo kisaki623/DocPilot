@@ -18,8 +18,8 @@ DocPilot 是 Java Spring Boot + Next.js 的 AI 文档解析与问答工程化项
 - Redis 缓存、问答限流、登录 token / 上传会话等状态管理。
 - 普通文档问答与 SSE 流式问答，支持 citations 和问答历史。
 - Agent 工具选择、`AgentTask` / `AgentStep` 持久化、前端 Trace 展示。
-- Agent 工具链包含文档状态、摘要、问答和 RAG showcase 工具，能展示 routingReason、matchedKeywords、steps、citations。
-- 当前 RAG 主线已有持久化 DocumentChunk、ChunkingService、EmbeddingProvider、VectorStoreClient、RagIndexingService、RagDocumentRetrievalService、RAG QA 和 RAG SSE 后端闭环；旧 Agent RAG showcase 链路仍保留为独立演示路径。
+- Agent 工具链包含文档状态、摘要、问答、旧 RAG showcase 工具和新 RAG QA 工具，能展示 routingReason、matchedKeywords、steps、citations。
+- 当前 RAG 主线已有持久化 DocumentChunk、ChunkingService、EmbeddingProvider、VectorStoreClient、RagIndexingService、RagDocumentRetrievalService、RAG QA、RAG SSE 和 Agent RAG QA 接入；旧 Agent RAG showcase 链路仍保留为独立演示路径。
 
 ## 3. 当前边界
 
@@ -27,6 +27,7 @@ DocPilot 是 Java Spring Boot + Next.js 的 AI 文档解析与问答工程化项
 - fake embedding / in-memory vector store 仍属于展示、测试和本地 smoke 边界。
 - Qdrant 已有 adapter、payload mapping、fake server 测试和 preflight 参考；普通测试不依赖远程 Qdrant，真实服务需要显式配置并重新验证。
 - 持久化 RAG chunk 与 indexing workflow 已具备 service 层闭环，但尚未接 parse success 自动触发。
+- Agent RAG QA 已接入新 RAG 查询链路，但仍是最小工具路由，不是复杂 LLM planner。
 - Agent 不是多智能体自主规划。
 - `llm_execute` / real provider 等能力如果默认关闭，要视为待显式配置和 runtime 验证，不能写成默认生产能力。
 - 没有线上 SLA，不写 100% 可靠。

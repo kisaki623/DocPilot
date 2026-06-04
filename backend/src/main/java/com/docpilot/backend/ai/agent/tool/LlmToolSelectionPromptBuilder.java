@@ -27,8 +27,8 @@ public class LlmToolSelectionPromptBuilder {
         prompt.append("- status_only -> document_status_tool\n");
         prompt.append("- summary_tool -> document_summary_tool\n");
         prompt.append("- qa_tool -> document_qa_tool\n");
-        prompt.append("- rag_tool -> ").append(DocumentRagTool.TOOL_NAME).append("\n");
-        prompt.append("Use rag_tool only for explicit RAG, retrieval, topK chunk, similarity, score, or metadata requests.\n");
+        prompt.append("- rag_tool -> ").append(DocumentRagQaTool.TOOL_NAME).append("\n");
+        prompt.append("Use rag_tool for RAG, retrieval, topK chunk, similarity, score, metadata, evidence, citation, or source-grounded requests.\n");
 
         prompt.append("Available tools:\n");
         for (ToolDefinition definition : toolDefinitions) {

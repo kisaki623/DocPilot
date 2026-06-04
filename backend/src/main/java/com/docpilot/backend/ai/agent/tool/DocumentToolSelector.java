@@ -15,7 +15,8 @@ public class DocumentToolSelector implements ToolSelector {
             "summary", "summarize", "overview", "brief", "\u6458\u8981", "\u603b\u7ed3", "\u6982\u89c8"
     );
     private static final List<String> EVIDENCE_KEYWORDS = List.of(
-            "evidence", "citation", "cite", "proof", "\u4f9d\u636e", "\u5f15\u7528", "\u51fa\u5904", "\u8bc1\u636e"
+            "evidence", "citation", "cite", "proof", "source", "according to",
+            "\u4f9d\u636e", "\u5f15\u7528", "\u51fa\u5904", "\u8bc1\u636e", "\u6839\u636e\u6587\u6863", "\u6839\u636e\u539f\u6587"
     );
     private static final List<String> RAG_KEYWORDS = List.of(
             "rag", "retrieval", "retrieve", "topk", "top k", "similarity",
@@ -33,7 +34,7 @@ public class DocumentToolSelector implements ToolSelector {
         boolean evidenceIntent = !evidenceMatched.isEmpty();
         boolean ragIntent = !ragMatched.isEmpty();
 
-        if (statusIntent && !summaryIntent && !evidenceIntent) {
+        if (statusIntent && !summaryIntent && !evidenceIntent && !ragIntent) {
             return new SelectResult(
                     "status_only",
                     List.of("document_status_tool"),
@@ -41,12 +42,15 @@ public class DocumentToolSelector implements ToolSelector {
                     statusMatched
             );
         }
-        if (ragIntent) {
+        if (ragIntent || evidenceIntent) {
+            java.util.ArrayList<String> matched = new java.util.ArrayList<>();
+            matched.addAll(ragMatched);
+            matched.addAll(evidenceMatched);
             return new SelectResult(
                     "rag_tool",
-                    List.of("document_status_tool", DocumentRagTool.TOOL_NAME),
-                    "\u547d\u4e2d RAG\u3001\u68c0\u7d22\u6216\u53ec\u56de\u7c7b\u5173\u952e\u8bcd\uff0c\u9700\u5c55\u793a\u6587\u6863\u5206\u7247\u53ec\u56de\u3001score \u548c citation metadata\uff0c\u56e0\u6b64\u8def\u7531\u5230 RAG \u5de5\u5177\u3002",
-                    ragMatched
+                    List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME),
+                    "\u547d\u4e2d RAG\u3001\u68c0\u7d22\u3001\u8bc1\u636e\u6216\u5f15\u7528\u7c7b\u9700\u6c42\uff0c\u9700\u57fa\u4e8e\u65b0 RAG \u7d22\u5f15\u53ec\u56de\u8bc1\u636e\u5e76\u8fd4\u56de citations\uff0c\u56e0\u6b64\u8def\u7531\u5230 RAG QA \u5de5\u5177\u3002",
+                    List.copyOf(matched)
             );
         }
         if (summaryIntent && !evidenceIntent) {

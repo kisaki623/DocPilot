@@ -6,7 +6,7 @@ import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.DocumentAgentService;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
-import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
+import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
@@ -26,6 +26,8 @@ import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
 import com.docpilot.backend.ai.agent.vo.DocumentAgentResponse;
+import com.docpilot.backend.ai.rag.RagEvidenceCitation;
+import com.docpilot.backend.ai.rag.RagRetrievalHit;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
@@ -36,7 +38,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -178,26 +182,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
             }
 
             if ("rag_tool".equals(executionDecision.finalDecision())) {
-                DocumentRagTool documentRagTool = toolRegistry.get(DocumentRagTool.TOOL_NAME);
-                TimedResult<DocumentRagTool.RagResult> ragResult = timedExecute(() ->
-                        documentRagTool.execute(new DocumentRagTool.RagInput(request.getDocumentId(), task, detail.content(), 3)));
-                DocumentRagTool.RagResult rag = ragResult.value();
-                steps.add(buildStep(
-                        2,
-                        documentRagTool.getToolName(),
-                        "documentId=" + request.getDocumentId() + ", topK=" + rag.topK(),
-                        rag.outputSummary(),
-                        ragResult.durationMs(),
-                        "success"
-                ));
-                persistLastStep(taskId, steps);
-
-                response.setDecision("rag_tool");
-                response.setFinalAnswer(buildRagAnswer(rag));
-                response.setRagResults(toResponseRagResults(rag.retrievedChunks()));
-                response.setRagAnswerContext(rag.answerContext());
-                response.setSteps(steps);
-                return completeSuccess(taskId, response, beginNanos);
+                return runRagQaTool(userId, request, task, response, steps, taskId, beginNanos);
             }
 
             DocumentQaTool documentQaTool = toolRegistry.get("document_qa_tool");
@@ -282,7 +267,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         return switch (decision) {
             case "status_only" -> "document_status_tool";
             case "summary_tool" -> "document_summary_tool";
-            case "rag_tool" -> DocumentRagTool.TOOL_NAME;
+            case "rag_tool" -> DocumentRagQaTool.TOOL_NAME;
             case "qa_tool" -> "document_qa_tool";
             default -> throw new IllegalArgumentException("Unsupported LLM tool decision");
         };
@@ -433,27 +418,148 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                 + "；状态说明：" + desc;
     }
 
-    private String buildRagAnswer(DocumentRagTool.RagResult rag) {
-        if (rag.retrievedChunks().isEmpty()) {
-            return "RAG demo did not retrieve chunks. The document may not contain parsed text yet.";
+    private DocumentAgentResponse runRagQaTool(Long userId,
+                                               DocumentAgentRequest request,
+                                               String task,
+                                               DocumentAgentResponse response,
+                                               List<DocumentAgentResponse.AgentStep> steps,
+                                               Long taskId,
+                                               long beginNanos) {
+        DocumentRagQaTool ragQaTool = toolRegistry.get(DocumentRagQaTool.TOOL_NAME);
+        long start = System.nanoTime();
+        try {
+            DocumentRagQaTool.RagQaResult rag = ragQaTool.execute(new DocumentRagQaTool.RagQaInput(
+                    userId,
+                    request.getDocumentId(),
+                    task,
+                    response.getSessionId(),
+                    request.getTopK(),
+                    request.getIndexVersion()
+            ));
+            long durationMs = elapsedMs(start);
+            steps.add(buildStep(
+                    2,
+                    ragQaTool.getToolName(),
+                    "documentId=" + request.getDocumentId()
+                            + ", topK=" + safeNumber(request.getTopK())
+                            + ", indexVersion=" + safeNumber(request.getIndexVersion())
+                            + ", task=" + summarize(task),
+                    rag.outputSummary(),
+                    durationMs,
+                    "success"
+            ));
+            persistLastStep(taskId, steps);
+
+            response.setDecision("rag_tool");
+            response.setFinalAnswer(rag.answer());
+            response.setSessionId(normalizeSessionId(rag.sessionId()));
+            response.setRagResults(toResponseRagResults(rag.retrievalHits()));
+            response.setRagCitations(rag.citations());
+            response.setCitations(toLegacyCitationItems(rag.citations()));
+            response.setRagAnswerContext(buildRagAnswerContext(rag.citations()));
+            response.setSteps(steps);
+            return completeSuccess(taskId, response, beginNanos);
+        } catch (Exception ex) {
+            long durationMs = elapsedMs(start);
+            String errorMessage = safeErrorMessage(ex);
+            steps.add(buildStep(
+                    2,
+                    ragQaTool.getToolName(),
+                    "documentId=" + request.getDocumentId()
+                            + ", topK=" + safeNumber(request.getTopK())
+                            + ", indexVersion=" + safeNumber(request.getIndexVersion())
+                            + ", task=" + summarize(task),
+                    "rag qa tool failed: " + errorMessage,
+                    durationMs,
+                    "failed",
+                    errorMessage
+            ));
+            persistLastStep(taskId, steps);
+            response.setSteps(steps);
+            throw ex;
         }
-        return "RAG demo retrieved " + rag.retrievedChunks().size()
-                + " chunk(s) from " + rag.chunkCount()
-                + " indexed chunk(s) using fake embeddings and an in-memory vector store.";
     }
 
-    private List<DocumentAgentResponse.RagRetrievedChunk> toResponseRagResults(List<DocumentRagTool.RetrievedChunk> chunks) {
+    private List<DocumentAgentResponse.RagRetrievedChunk> toResponseRagResults(List<RagRetrievalHit> hits) {
         List<DocumentAgentResponse.RagRetrievedChunk> results = new ArrayList<>();
-        for (DocumentRagTool.RetrievedChunk chunk : chunks) {
+        for (RagRetrievalHit hit : safeHits(hits)) {
             DocumentAgentResponse.RagRetrievedChunk item = new DocumentAgentResponse.RagRetrievedChunk();
-            item.setRank(chunk.rank());
-            item.setChunkIndex(chunk.chunkIndex());
-            item.setScore(chunk.score());
-            item.setSnippet(chunk.snippet());
-            item.setMetadata(chunk.metadata());
+            item.setRank(hit.citationIndex());
+            item.setVectorId(hit.vectorId());
+            item.setDocumentId(hit.documentId());
+            item.setIndexVersion(hit.indexVersion());
+            item.setChunkId(hit.chunkId());
+            item.setChunkIndex(hit.chunkIndex());
+            item.setScore(hit.score());
+            item.setSnippet(hit.snippet());
+            item.setContentHash(hit.contentHash());
+            item.setStartOffset(hit.startOffset());
+            item.setEndOffset(hit.endOffset());
+            item.setTokenCount(hit.tokenCount());
+            item.setEmbeddingModel(hit.embeddingModel());
+            item.setMetadata(toRagMetadata(hit));
             results.add(item);
         }
         return results;
+    }
+
+    private List<DocumentQaResponse.CitationItem> toLegacyCitationItems(List<RagEvidenceCitation> citations) {
+        List<DocumentQaResponse.CitationItem> items = new ArrayList<>();
+        for (RagEvidenceCitation citation : safeCitations(citations)) {
+            DocumentQaResponse.CitationItem item = new DocumentQaResponse.CitationItem();
+            item.setChunkIndex(citation.chunkIndex());
+            item.setCharStart(citation.startOffset());
+            item.setCharEnd(citation.endOffset());
+            item.setSnippet(citation.snippet());
+            item.setScore((int) Math.round(citation.score() * 100));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private String buildRagAnswerContext(List<RagEvidenceCitation> citations) {
+        List<RagEvidenceCitation> safeCitations = safeCitations(citations);
+        if (safeCitations.isEmpty()) {
+            return "";
+        }
+        StringBuilder context = new StringBuilder();
+        for (RagEvidenceCitation citation : safeCitations) {
+            if (!context.isEmpty()) {
+                context.append('\n');
+            }
+            context.append('[').append(citation.index()).append("] ").append(citation.snippet());
+        }
+        return context.toString();
+    }
+
+    private Map<String, String> toRagMetadata(RagRetrievalHit hit) {
+        Map<String, String> metadata = new LinkedHashMap<>();
+        putMetadata(metadata, "userId", hit.userId());
+        putMetadata(metadata, "documentId", hit.documentId());
+        putMetadata(metadata, "indexVersion", hit.indexVersion());
+        putMetadata(metadata, "chunkId", hit.chunkId());
+        putMetadata(metadata, "chunkIndex", hit.chunkIndex());
+        putMetadata(metadata, "contentHash", hit.contentHash());
+        putMetadata(metadata, "startOffset", hit.startOffset());
+        putMetadata(metadata, "endOffset", hit.endOffset());
+        putMetadata(metadata, "tokenCount", hit.tokenCount());
+        putMetadata(metadata, "embeddingModel", hit.embeddingModel());
+        putMetadata(metadata, "vectorId", hit.vectorId());
+        return metadata;
+    }
+
+    private void putMetadata(Map<String, String> metadata, String key, Object value) {
+        if (value != null && !String.valueOf(value).isBlank()) {
+            metadata.put(key, String.valueOf(value));
+        }
+    }
+
+    private List<RagRetrievalHit> safeHits(List<RagRetrievalHit> hits) {
+        return hits == null ? List.of() : hits;
+    }
+
+    private List<RagEvidenceCitation> safeCitations(List<RagEvidenceCitation> citations) {
+        return citations == null ? List.of() : citations;
     }
 
     private String summarize(String text) {
@@ -482,11 +588,22 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                                                       String outputSummary,
                                                       long durationMs,
                                                       String status) {
+        return buildStep(stepIndex, toolName, inputSummary, outputSummary, durationMs, status, "");
+    }
+
+    private DocumentAgentResponse.AgentStep buildStep(int stepIndex,
+                                                      String toolName,
+                                                      String inputSummary,
+                                                      String outputSummary,
+                                                      long durationMs,
+                                                      String status,
+                                                      String errorMessage) {
         DocumentAgentResponse.AgentStep step = new DocumentAgentResponse.AgentStep();
         step.setStepIndex(stepIndex);
         step.setToolName(toolName);
         step.setInputSummary(summarize(inputSummary));
         step.setOutputSummary(summarize(outputSummary));
+        step.setErrorMessage(summarize(errorMessage));
         step.setDurationMs(durationMs);
         step.setStatus(status);
         return step;
@@ -508,7 +625,8 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                     step.getInputSummary(),
                     step.getOutputSummary(),
                     step.getDurationMs(),
-                    step.getStatus()
+                    step.getStatus(),
+                    step.getErrorMessage()
             );
         } catch (Exception ex) {
             log.warn("Failed to create agent step record, taskId={}, stepIndex={}", taskId, step.getStepIndex(), ex);
@@ -520,6 +638,21 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         T value = supplier.get();
         long durationMs = (System.nanoTime() - start) / 1_000_000L;
         return new TimedResult<>(value, durationMs);
+    }
+
+    private long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
+    }
+
+    private String safeNumber(Integer value) {
+        return value == null ? "default" : String.valueOf(value);
+    }
+
+    private String safeErrorMessage(Exception ex) {
+        if (ex == null) {
+            return "UnknownException";
+        }
+        return ex.getClass().getSimpleName();
     }
 
     @FunctionalInterface

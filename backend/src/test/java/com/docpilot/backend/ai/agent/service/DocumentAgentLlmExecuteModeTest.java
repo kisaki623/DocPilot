@@ -5,6 +5,7 @@ import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
 import com.docpilot.backend.ai.agent.entity.AgentTask;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
@@ -17,6 +18,8 @@ import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
+import com.docpilot.backend.ai.rag.RagEvidenceCitation;
+import com.docpilot.backend.ai.rag.RagRetrievalHit;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
 import org.junit.jupiter.api.Test;
@@ -59,6 +62,9 @@ class DocumentAgentLlmExecuteModeTest {
 
     @Mock
     private DocumentRagTool documentRagTool;
+
+    @Mock
+    private DocumentRagQaTool documentRagQaTool;
 
     @Mock
     private ToolRegistry toolRegistry;
@@ -184,26 +190,42 @@ class DocumentAgentLlmExecuteModeTest {
         stubKeywordSelection("qa_tool", "keyword qa reason", "question");
         stubLlmSelection(new LlmToolSelectionResult(
                 "rag_tool",
-                List.of("document_status_tool", DocumentRagTool.TOOL_NAME),
+                List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME),
                 "llm rag reason",
                 List.of("rag"),
                 0.8d
         ));
-        DocumentRagTool.RetrievedChunk chunk = new DocumentRagTool.RetrievedChunk(
+        RagRetrievalHit hit = new RagRetrievalHit(
                 1,
-                0,
+                "vec-112-1",
                 0.9d,
-                "Payment content",
-                Map.of("contentHash", "hash")
-        );
-        when(documentRagTool.execute(any())).thenReturn(new DocumentRagTool.RagResult(
+                100L,
                 112L,
                 1,
+                912L,
+                0,
+                "Payment content",
+                "hash",
+                0,
+                15,
+                2,
+                "mock-embedding"
+        );
+        RagEvidenceCitation citation = hit.toCitation();
+        when(documentRagQaTool.execute(any())).thenReturn(new DocumentRagQaTool.RagQaResult(
+                100L,
+                112L,
+                "RAG retrieve similar chunks",
+                "Payment answer [1]",
+                "",
                 3,
-                List.of(chunk),
-                List.of(),
-                "[1] Payment content",
-                "Retrieved 1 chunk(s) from 1 indexed chunk(s)."
+                1,
+                List.of(hit),
+                List.of(citation),
+                false,
+                false,
+                "",
+                "hitCount=1, citationCount=1, noEvidence=false, fallbackUsed=false"
         ));
         stubRegistryForRag();
         stubPersistenceTask();
@@ -217,8 +239,9 @@ class DocumentAgentLlmExecuteModeTest {
         assertFalse(response.isFallbackUsed());
         assertEquals("llm_execute", response.getToolSelectionSource());
         assertEquals(1, response.getRagResults().size());
-        verify(documentRagTool).execute(any());
+        verify(documentRagQaTool).execute(any());
         verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
     }
 
     @Test
@@ -549,8 +572,8 @@ class DocumentAgentLlmExecuteModeTest {
     private void stubRegistryForRag() {
         stubToolNames();
         when(toolRegistry.<DocumentStatusTool>get("document_status_tool")).thenReturn(documentStatusTool);
-        when(toolRegistry.<DocumentRagTool>get(DocumentRagTool.TOOL_NAME)).thenReturn(documentRagTool);
-        when(documentRagTool.getToolName()).thenReturn(DocumentRagTool.TOOL_NAME);
+        when(toolRegistry.<DocumentRagQaTool>get(DocumentRagQaTool.TOOL_NAME)).thenReturn(documentRagQaTool);
+        when(documentRagQaTool.getToolName()).thenReturn(DocumentRagQaTool.TOOL_NAME);
     }
 
     private void stubToolNames() {
@@ -558,6 +581,7 @@ class DocumentAgentLlmExecuteModeTest {
                 "document_status_tool",
                 "document_summary_tool",
                 "document_qa_tool",
+                DocumentRagQaTool.TOOL_NAME,
                 DocumentRagTool.TOOL_NAME
         ));
     }
@@ -567,6 +591,7 @@ class DocumentAgentLlmExecuteModeTest {
                 new ToolDefinition("document_status_tool", "Document status", "Checks parse status.", "{}", "{}", true),
                 new ToolDefinition("document_summary_tool", "Document summary", "Returns summary.", "{}", "{}", true),
                 new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true),
+                new ToolDefinition(DocumentRagQaTool.TOOL_NAME, "RAG QA", "Answers with RAG citations.", "{}", "{}", true),
                 new ToolDefinition(DocumentRagTool.TOOL_NAME, "Document RAG", "Retrieves chunks.", "{}", "{}", true)
         ));
     }
@@ -574,7 +599,7 @@ class DocumentAgentLlmExecuteModeTest {
     private List<String> toolNamesForDecision(String decision) {
         return switch (decision) {
             case "summary_tool" -> List.of("document_status_tool", "document_summary_tool");
-            case "rag_tool" -> List.of("document_status_tool", DocumentRagTool.TOOL_NAME);
+            case "rag_tool" -> List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME);
             case "status_only" -> List.of("document_status_tool");
             default -> List.of("document_status_tool", "document_qa_tool");
         };

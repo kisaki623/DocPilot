@@ -100,10 +100,7 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
         boolean statusIntent = containsAny(normalizedTask, STATUS_KEYWORDS);
         boolean ragIntent = containsAny(normalizedTask, RAG_KEYWORDS);
 
-        if (evidenceIntent) {
-            return DECISION_QA;
-        }
-        if (ragIntent) {
+        if (ragIntent || evidenceIntent) {
             return DECISION_RAG;
         }
         if (summaryIntent) {
@@ -147,8 +144,8 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
             case DECISION_RAG -> """
                     {
                       "decision": "rag_tool",
-                      "toolNames": ["document_status_tool", "document_rag_tool"],
-                      "routingReason": "Fake selector routed to RAG retrieval for retrieval-related task.",
+                      "toolNames": ["document_status_tool", "rag_qa_tool"],
+                      "routingReason": "Fake selector routed to RAG QA for retrieval or evidence-related task.",
                       "matchedKeywords": ["retrieval"],
                       "confidence": 0.8
                     }

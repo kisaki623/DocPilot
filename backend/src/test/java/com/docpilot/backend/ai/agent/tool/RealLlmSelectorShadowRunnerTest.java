@@ -15,13 +15,15 @@ class RealLlmSelectorShadowRunnerTest {
     private final List<ToolDefinition> toolDefinitions = List.of(
             new ToolDefinition("document_status_tool", "Document status", "Checks parse status.", "{}", "{}", true),
             new ToolDefinition("document_summary_tool", "Document summary", "Returns summary.", "{}", "{}", true),
-            new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true)
+            new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true),
+            new ToolDefinition(DocumentRagQaTool.TOOL_NAME, "RAG QA", "Answers with RAG citations.", "{}", "{}", true)
     );
     private final LlmToolSelectionPromptBuilder promptBuilder = new LlmToolSelectionPromptBuilder();
     private final LlmToolSelectionParser parser = new LlmToolSelectionParser(Set.of(
             "document_status_tool",
             "document_summary_tool",
-            "document_qa_tool"
+            "document_qa_tool",
+            DocumentRagQaTool.TOOL_NAME
     ));
 
     @Test
@@ -173,7 +175,7 @@ class RealLlmSelectorShadowRunnerTest {
         assertTrue(result.success());
         assertFalse(result.matched());
         assertTrue(result.shouldRecordMetrics());
-        assertEquals("qa_tool", result.shadowDecision());
+        assertEquals("rag_tool", result.shadowDecision());
     }
 
     @Test

@@ -15,17 +15,19 @@ class ToolDefinitionProviderTest {
     private final ToolDefinitionProvider provider = new ToolDefinitionProvider(new ToolRegistry(List.of(
             new StubTool("document_status_tool"),
             new StubTool("document_summary_tool"),
-            new StubTool("document_qa_tool")
+            new StubTool("document_qa_tool"),
+            new StubTool(DocumentRagQaTool.TOOL_NAME)
     )));
 
     @Test
     void shouldReturnDefinitionsForCurrentTools() {
         List<ToolDefinition> definitions = provider.getAllDefinitions();
 
-        assertEquals(3, definitions.size());
+        assertEquals(4, definitions.size());
         assertTrue(definitions.stream().anyMatch(definition -> "document_status_tool".equals(definition.toolName())));
         assertTrue(definitions.stream().anyMatch(definition -> "document_summary_tool".equals(definition.toolName())));
         assertTrue(definitions.stream().anyMatch(definition -> "document_qa_tool".equals(definition.toolName())));
+        assertTrue(definitions.stream().anyMatch(definition -> DocumentRagQaTool.TOOL_NAME.equals(definition.toolName())));
     }
 
     @Test
