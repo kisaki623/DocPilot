@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-04 T010d
+
+- T010d OpenAI-compatible Function Calling adapter 已完成：新增内部 `ai.agent.tool.openai` package，将 `ToolSpec` 转成 OpenAI `type=function` tools schema。
+- 新增 tool_call parser 和 tool result adapter；支持解析 mock model response 的 `tool_calls`、调用 T010b `ToolCallService`，并生成 OpenAI-compatible tool message。
+- 新增 mock function calling service，覆盖单个 / 多个 tool_calls、invalid JSON、unknown tool / invalid args、tool failed 和失败消息脱敏；不调用真实 OpenAI-compatible provider，不替换现有 Agent 主流程。
+- 已验证：`mvn "-Dtest=OpenAiToolSchemaAdapterTest,OpenAiToolCallParserTest,OpenAiToolResultAdapterTest,OpenAiFunctionCallingServiceImplTest,ToolCallServiceImplTest" test`；`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*,*Rag*,OpenAi*" test`；`mvn test`（611 tests，0 failures，0 errors，1 skipped）。
+- 下一步待确认：真实 provider adapter disabled-by-default preflight，或前端小范围展示 RAG evidence / citations；不做 MCP、不做多文档 RAG、不改前端、不改根 README。
+
 ## 2026-06-04 T010c
 
 - T010c 现有 Agent 工具迁移已完成：`DocumentAgentServiceImpl` 的 `document_status_tool` 与 `rag_qa_tool` 调用改为复用 T010b `ToolCallService` / `ToolCallResult`。
