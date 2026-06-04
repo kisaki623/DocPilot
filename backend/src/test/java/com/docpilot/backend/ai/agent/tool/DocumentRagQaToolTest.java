@@ -6,6 +6,8 @@ import com.docpilot.backend.ai.rag.RagQaQuery;
 import com.docpilot.backend.ai.rag.RagRetrievalHit;
 import com.docpilot.backend.ai.rag.RagRetrievalResult;
 import com.docpilot.backend.ai.service.RagQaService;
+import com.docpilot.backend.common.error.ErrorCode;
+import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -15,6 +17,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -141,5 +145,23 @@ class DocumentRagQaToolTest {
                 .contains("noEvidence=true")
                 .contains("fallbackUsed=true")
                 .contains("fallbackReason=no_evidence");
+    }
+
+    @Test
+    void shouldPropagateScopeRejectionFromRagQaService() {
+        DocumentRagQaTool tool = new DocumentRagQaTool(ragQaService);
+        when(ragQaService.answer(new RagQaQuery(100L, 200L, "forbidden", null, null, "")))
+                .thenThrow(new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN));
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> tool.execute(new DocumentRagQaTool.RagQaInput(
+                100L,
+                200L,
+                "forbidden",
+                "",
+                null,
+                null
+        )));
+
+        assertEquals(ErrorCode.DOCUMENT_FORBIDDEN, ex.getErrorCode());
     }
 }

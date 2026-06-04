@@ -4,6 +4,7 @@ import com.docpilot.backend.ai.rag.RagIndexingRequest;
 import com.docpilot.backend.ai.rag.RagIndexingResult;
 import com.docpilot.backend.ai.service.RagIndexingService;
 import com.docpilot.backend.ai.service.RagIndexingTriggerService;
+import com.docpilot.backend.ai.service.RagScopeGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,15 +22,28 @@ public class RagIndexingTriggerServiceImpl implements RagIndexingTriggerService 
     private static final Logger log = LoggerFactory.getLogger(RagIndexingTriggerServiceImpl.class);
 
     private final RagIndexingService ragIndexingService;
+    private final RagScopeGuard ragScopeGuard;
     private final Executor executor;
 
-    @Autowired
     public RagIndexingTriggerServiceImpl(RagIndexingService ragIndexingService) {
-        this(ragIndexingService, ForkJoinPool.commonPool());
+        this(ragIndexingService, null, ForkJoinPool.commonPool());
     }
 
     RagIndexingTriggerServiceImpl(RagIndexingService ragIndexingService, Executor executor) {
+        this(ragIndexingService, null, executor);
+    }
+
+    @Autowired
+    public RagIndexingTriggerServiceImpl(RagIndexingService ragIndexingService,
+                                         RagScopeGuard ragScopeGuard) {
+        this(ragIndexingService, ragScopeGuard, ForkJoinPool.commonPool());
+    }
+
+    RagIndexingTriggerServiceImpl(RagIndexingService ragIndexingService,
+                                  RagScopeGuard ragScopeGuard,
+                                  Executor executor) {
         this.ragIndexingService = ragIndexingService;
+        this.ragScopeGuard = ragScopeGuard;
         this.executor = executor == null ? ForkJoinPool.commonPool() : executor;
     }
 
@@ -50,6 +64,9 @@ public class RagIndexingTriggerServiceImpl implements RagIndexingTriggerService 
 
     private void indexSafely(Long userId, Long documentId, String parsedText) {
         try {
+            if (ragScopeGuard != null) {
+                ragScopeGuard.requireOwnedDocument(userId, documentId);
+            }
             RagIndexingResult result = ragIndexingService.index(new RagIndexingRequest(
                     documentId,
                     userId,

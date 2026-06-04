@@ -17,6 +17,9 @@ import com.docpilot.backend.ai.rag.vector.inmemory.InMemoryVectorStoreClient;
 import com.docpilot.backend.ai.service.DocumentChunkService;
 import com.docpilot.backend.ai.service.RagDocumentRetrievalService;
 import com.docpilot.backend.ai.service.RagIndexingService;
+import com.docpilot.backend.ai.service.RagScopeGuard;
+import com.docpilot.backend.common.error.ErrorCode;
+import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import org.junit.jupiter.api.Test;
@@ -29,6 +32,7 @@ import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -127,6 +131,24 @@ class RagIndexingTriggerServiceImplTest {
     }
 
     @Test
+    void shouldSkipIndexingWhenScopeGuardRejectsDocument() {
+        RagIndexingService indexingService = mock(RagIndexingService.class);
+        RagScopeGuard ragScopeGuard = mock(RagScopeGuard.class);
+        doThrow(new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN))
+                .when(ragScopeGuard).requireOwnedDocument(7L, 61L);
+        RagIndexingTriggerServiceImpl triggerService = new RagIndexingTriggerServiceImpl(
+                indexingService,
+                ragScopeGuard,
+                Runnable::run
+        );
+
+        assertThatCode(() -> triggerService.triggerAfterParseSuccess(7L, 61L, "parsed content"))
+                .doesNotThrowAnyException();
+
+        verify(indexingService, never()).index(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void shouldIndexParsedContentForRetrievalWhenTriggeredAfterParseSuccess() {
         DocumentMapper documentMapper = mock(DocumentMapper.class);
         Document document = new Document();
@@ -145,6 +167,7 @@ class RagIndexingTriggerServiceImplTest {
         );
         RagIndexingTriggerServiceImpl triggerService = new RagIndexingTriggerServiceImpl(
                 indexingService,
+                new RagScopeGuard(documentMapper),
                 Runnable::run
         );
         RagDocumentRetrievalService retrievalService = new RagDocumentRetrievalServiceImpl(

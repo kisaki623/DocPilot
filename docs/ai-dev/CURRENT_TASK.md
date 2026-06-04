@@ -1,45 +1,48 @@
 # Current Task
 
-当前任务：T008 parse success 自动触发 RAG indexing 已完成；下一步待确认
+当前任务：T009 RAG Scope & Permission Guard 已完成；下一步待确认
 
 ## 目标
 
-基于 T001-T007 已完成的 RAG indexing、retrieval、QA、SSE、Agent 接入和离线 smoke 能力，将文档解析成功后的内容自动交给 RAG indexing workflow。
+基于 T001-T008 已完成的 RAG indexing、retrieval、QA、SSE、Agent 接入、离线 smoke 和 parse success trigger 能力，强化 RAG 主链路的 userId / documentId / indexVersion scope isolation。
 
 ## 范围
 
-T008 已完成：
+T009 已完成：
 
-- 在 parse success 收口后触发 RAG indexing；
-- 通过独立 trigger service 隔离 RAG indexing 失败，避免破坏 parse success；
-- indexVersion 继续默认使用 1；
-- 保持测试不依赖远程 Qdrant、真实 embedding API 或真实大模型；
-- 不大改 RocketMQ / Outbox 架构。
+- 新增 `RagScopeGuard`，统一校验 document owner；
+- `RagDocumentRetrievalService` 在 metadata filter 之外，对 vector search hit 做 userId / documentId / indexVersion 二次校验；
+- `RagQaService` 对权限类错误不做 retrieval fallback，不调用大模型，不保存 QA history；
+- `RagIndexingTriggerService` 在自动 indexing 前校验 document scope，避免直接调用 trigger 时写入错误用户范围；
+- `DocumentRagQaTool` 保持依赖 `RagQaService` 权限拒绝，不吞掉越权异常；
+- 测试不依赖远程 Qdrant、真实 embedding API 或真实大模型。
 
 下一步候选：
 
-- RAG indexing trigger 进一步 MQ / Outbox 化；
-- 或前端小范围展示 RAG evidence / citations。
+- T010 前端小范围展示 RAG evidence / citations；
+- 或 RAG indexing trigger 进一步 MQ / Outbox 化。
 
 ## 禁止事项
 
-- 不接前端；
+- 不做多文档 RAG；
+- 不做 ToolSpec；
+- 不改前端；
+- 不改根 README；
 - 不调用真实 embedding / chat API；
-- 不写生产级 RAG 夸大文案；
-- 不做 reranker / 多文档复杂检索；
+- 不操作远程服务器；
 - 不读取或提交 `.env` / key / secret；
 - 不 push。
 
 ## 验收标准
 
-- parse success 后能自动触发 RAG indexing；
-- RAG indexing 失败不影响 parse task/document 成功状态；
-- 普通测试不依赖远程 Qdrant 或真实模型 API；
+- retrieval / QA / Agent rag_qa_tool 无法返回跨用户、跨文档、跨版本 hit 或 citation；
+- 权限拒绝不会被 no-evidence / retrieval-unavailable fallback 掩盖；
+- parse success trigger 不会为不匹配 user/document 的请求执行 indexing；
 - 受影响后端测试通过。
 
-## T008 输出
+## T009 输出
 
-- 修改文件；
-- 测试结果；
-- 新增能力；
-- 可写进简历的一句话。
+- 新增 guard；
+- 修改 retrieval / QA SSE / indexing trigger；
+- 补充越权与 scope isolation 测试；
+- 更新 ai-dev 简短进度记录。

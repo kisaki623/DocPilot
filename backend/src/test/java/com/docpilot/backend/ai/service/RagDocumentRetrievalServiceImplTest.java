@@ -133,6 +133,29 @@ class RagDocumentRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldRejectVectorHitOutsideRequestedScope() {
+        when(documentMapper.selectById(101L)).thenReturn(document(101L, 7L));
+        when(embeddingProvider.embed(any())).thenReturn(embedding("mock-model"));
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(
+                List.of(hit(7L, 102L, 1)),
+                "in_memory",
+                ""
+        ));
+        RagDocumentRetrievalServiceImpl service = service(new RagQaProperties());
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.retrieve(new RagRetrievalQuery(
+                7L,
+                101L,
+                "question",
+                3,
+                1,
+                ""
+        )));
+
+        assertEquals(ErrorCode.DOCUMENT_FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
     void shouldRejectBlankQuery() {
         RagDocumentRetrievalServiceImpl service = service(new RagQaProperties());
 
@@ -216,12 +239,16 @@ class RagDocumentRetrievalServiceImplTest {
     }
 
     private VectorSearchHit hit() {
+        return hit(7L, 101L, 1);
+    }
+
+    private VectorSearchHit hit(Long userId, Long documentId, Integer indexVersion) {
         return new VectorSearchHit(
                 "vector-1",
                 0.91D,
-                7L,
-                101L,
-                1,
+                userId,
+                documentId,
+                indexVersion,
                 0,
                 "cache policy evidence",
                 "hash-a",

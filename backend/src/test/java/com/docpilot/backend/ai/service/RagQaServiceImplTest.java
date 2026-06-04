@@ -92,6 +92,19 @@ class RagQaServiceImplTest {
     }
 
     @Test
+    void shouldNotFallbackOrSaveHistoryWhenRetrievalRejectsScope() {
+        when(retrievalService.retrieve(any())).thenThrow(new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN));
+        RagQaServiceImpl service = service(new RagQaProperties());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.answer(new RagQaQuery(7L, 101L, "question", 3, 1, "")));
+
+        assertEquals(ErrorCode.DOCUMENT_FORBIDDEN, ex.getErrorCode());
+        verify(aiAnswerService, never()).answer(any(), any());
+        verify(documentQaHistoryMapper, never()).insert(any(DocumentQaHistory.class));
+    }
+
+    @Test
     void shouldNotMaskGenerationFailureAsRetrievalFallback() {
         when(retrievalService.retrieve(any())).thenReturn(resultWithEvidence());
         when(aiAnswerService.answer(any(), any())).thenThrow(new IllegalStateException("model down"));
@@ -139,6 +152,23 @@ class RagQaServiceImplTest {
 
         assertThat(service.events).containsExactly("meta", "retrieval", "chunk", "done");
         verify(aiAnswerService, never()).streamAnswer(any(), any(), any());
+    }
+
+    @Test
+    void shouldEmitScopeErrorSseWithoutFallbackOrAiStream() {
+        when(retrievalService.retrieve(any())).thenThrow(new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN));
+        RecordingRagQaService service = new RecordingRagQaService(
+                retrievalService,
+                aiAnswerService,
+                documentQaHistoryMapper,
+                new RagQaProperties()
+        );
+
+        service.streamAnswer(new RagQaQuery(7L, 101L, "forbidden?", 3, 1, "s1"));
+
+        assertThat(service.events).containsExactly("meta", "error");
+        verify(aiAnswerService, never()).streamAnswer(any(), any(), any());
+        verify(documentQaHistoryMapper, never()).insert(any(DocumentQaHistory.class));
     }
 
     private RagQaServiceImpl service(RagQaProperties properties) {

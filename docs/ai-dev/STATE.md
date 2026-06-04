@@ -46,3 +46,8 @@ DocPilot 是 Java Spring Boot + Next.js 的 AI 文档解析与问答工程化项
 - 历史记录看 archive 或旧大文件。
 - 不要让旧 TODO 覆盖当前路线。
 - 文档和代码冲突时，以代码、测试和可运行结果为准。
+
+## 6. 最近安全加固
+
+- T009 已补充 RAG scope guard：retrieval / QA / Agent `rag_qa_tool` / parse success indexing trigger 均以 userId、documentId、indexVersion 作为最小隔离边界。
+- Vector search 仍依赖 metadata filter；service 层新增返回 hit 的二次校验，防止跨用户、跨文档或跨版本 citation 泄露。

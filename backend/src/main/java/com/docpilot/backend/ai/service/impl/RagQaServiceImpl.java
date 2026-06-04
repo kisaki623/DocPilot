@@ -153,6 +153,11 @@ public class RagQaServiceImpl implements RagQaService {
             send(emitter, "done", donePayload(resolved, retrieval, false));
             emitter.complete();
         } catch (RuntimeException ex) {
+            if (isScopeException(ex)) {
+                send(emitter, "error", Map.of("message", "RAG QA request is not allowed", "stage", "scope"));
+                emitter.completeWithError(ex);
+                return;
+            }
             if (resolved != null && ragQaProperties.isFallbackEnabled()) {
                 answerBuffer.setLength(0);
                 answerBuffer.append(RETRIEVAL_UNAVAILABLE_ANSWER);
@@ -171,6 +176,16 @@ public class RagQaServiceImpl implements RagQaService {
             send(emitter, "error", Map.of("message", "RAG QA failed", "stage", "unknown"));
             emitter.completeWithError(ex);
         }
+    }
+
+    private boolean isScopeException(RuntimeException ex) {
+        if (!(ex instanceof BusinessException businessException)) {
+            return false;
+        }
+        ErrorCode errorCode = businessException.getErrorCode();
+        return ErrorCode.BAD_REQUEST.equals(errorCode)
+                || ErrorCode.DOCUMENT_NOT_FOUND.equals(errorCode)
+                || ErrorCode.DOCUMENT_FORBIDDEN.equals(errorCode);
     }
 
     private RagRetrievalResult retrieve(ResolvedQaQuery query) {

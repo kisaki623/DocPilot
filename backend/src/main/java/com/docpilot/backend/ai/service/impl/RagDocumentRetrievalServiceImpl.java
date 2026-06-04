@@ -14,10 +14,11 @@ import com.docpilot.backend.ai.rag.vector.VectorSearchRequest;
 import com.docpilot.backend.ai.rag.vector.VectorSearchResult;
 import com.docpilot.backend.ai.rag.vector.VectorStoreClient;
 import com.docpilot.backend.ai.service.RagDocumentRetrievalService;
+import com.docpilot.backend.ai.service.RagScopeGuard;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
-import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -36,23 +37,39 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
     private final VectorStoreClient vectorStoreClient;
     private final RagEmbeddingProperties embeddingProperties;
     private final RagQaProperties ragQaProperties;
+    private final RagScopeGuard ragScopeGuard;
 
     public RagDocumentRetrievalServiceImpl(DocumentMapper documentMapper,
                                            EmbeddingProvider embeddingProvider,
                                            VectorStoreClient vectorStoreClient,
                                            RagEmbeddingProperties embeddingProperties,
                                            RagQaProperties ragQaProperties) {
+        this(documentMapper, embeddingProvider, vectorStoreClient, embeddingProperties, ragQaProperties,
+                new RagScopeGuard(documentMapper));
+    }
+
+    @Autowired
+    public RagDocumentRetrievalServiceImpl(DocumentMapper documentMapper,
+                                           EmbeddingProvider embeddingProvider,
+                                           VectorStoreClient vectorStoreClient,
+                                           RagEmbeddingProperties embeddingProperties,
+                                           RagQaProperties ragQaProperties,
+                                           RagScopeGuard ragScopeGuard) {
+        if (documentMapper == null && ragScopeGuard == null) {
+            throw new IllegalArgumentException("documentMapper or ragScopeGuard is required");
+        }
         this.documentMapper = documentMapper;
         this.embeddingProvider = embeddingProvider;
         this.vectorStoreClient = vectorStoreClient;
         this.embeddingProperties = embeddingProperties == null ? new RagEmbeddingProperties() : embeddingProperties;
         this.ragQaProperties = ragQaProperties == null ? new RagQaProperties() : ragQaProperties;
+        this.ragScopeGuard = ragScopeGuard == null ? new RagScopeGuard(documentMapper) : ragScopeGuard;
     }
 
     @Override
     public RagRetrievalResult retrieve(RagRetrievalQuery query) {
         ResolvedQuery resolved = validateAndResolve(query);
-        ensureOwnedDocument(resolved.userId(), resolved.documentId());
+        ragScopeGuard.requireOwnedDocument(resolved.userId(), resolved.documentId());
         EmbeddingResult embedding = embeddingProvider.embed(new EmbeddingRequest(
                 resolved.query(),
                 resolved.embeddingModel(),
@@ -65,7 +82,8 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
                 embedding.vector(),
                 resolved.topK()
         ));
-        List<RagRetrievalHit> hits = toHits(searchResult.hits());
+        List<VectorSearchHit> scopedHits = scopedHits(resolved, searchResult.hits());
+        List<RagRetrievalHit> hits = toHits(scopedHits);
         List<RagEvidenceCitation> citations = hits.stream()
                 .map(RagRetrievalHit::toCitation)
                 .toList();
@@ -118,16 +136,6 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
         );
     }
 
-    private void ensureOwnedDocument(Long userId, Long documentId) {
-        Document document = documentMapper.selectById(documentId);
-        if (document == null) {
-            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
-        }
-        if (!userId.equals(document.getUserId())) {
-            throw new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN);
-        }
-    }
-
     private Map<String, String> embeddingMetadata(ResolvedQuery query) {
         Map<String, String> metadata = new LinkedHashMap<>();
         metadata.put("userId", String.valueOf(query.userId()));
@@ -135,6 +143,18 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
         metadata.put("indexVersion", String.valueOf(query.indexVersion()));
         metadata.put("usage", "rag_query");
         return metadata;
+    }
+
+    private List<VectorSearchHit> scopedHits(ResolvedQuery query, List<VectorSearchHit> hits) {
+        if (hits == null || hits.isEmpty()) {
+            return List.of();
+        }
+        List<VectorSearchHit> scoped = new ArrayList<>(hits.size());
+        for (VectorSearchHit hit : hits) {
+            ragScopeGuard.requireHitInScope(query.userId(), query.documentId(), query.indexVersion(), hit);
+            scoped.add(hit);
+        }
+        return List.copyOf(scoped);
     }
 
     private List<RagRetrievalHit> toHits(List<VectorSearchHit> hits) {

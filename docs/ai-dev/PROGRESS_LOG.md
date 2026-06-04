@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-04 T009
+
+- T009 RAG Scope & Permission Guard 已完成：新增 `RagScopeGuard`，统一 RAG 主链路 document owner 校验，并在 retrieval 返回 hits 后追加 userId / documentId / indexVersion 二次校验，防止跨 scope citation 泄露。
+- RAG QA 权限类错误不再被 retrieval fallback 掩盖；`rag_qa_tool` 保持透传权限拒绝；parse success indexing trigger 在执行 indexing 前校验 document scope。
+- 已验证：`mvn "-Dtest=RagScopeGuardTest,RagDocumentRetrievalServiceImplTest,RagQaServiceImplTest,DocumentRagQaToolTest,RagIndexingTriggerServiceImplTest" test`、`mvn "-Dtest=*Rag*" test`、`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*" test`。
+- 下一步待确认：前端小范围展示 RAG evidence / citations，或 RAG indexing trigger MQ / Outbox 化；不做多文档 RAG、不改前端、不改根 README、不调用真实外部服务。
+
 ## 2026-06-04 T008
 
 - T008 parse success 自动触发 RAG indexing 已完成：在解析任务成功落库后，通过独立 `RagIndexingTriggerService` 异步触发 T004 `RagIndexingService`，形成 parse -> indexing -> retrieval 的后端闭环。
