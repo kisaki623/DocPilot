@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-04 T010b
+
+- T010b ToolCall API + 参数校验 + ToolCallResult 已完成：新增 `GET /api/agent/tools` 和 `POST /api/agent/tools/call`，基于 T010a `ToolSpecRegistry` 暴露可见工具并调用安全子集工具。
+- 新增 `ToolCallService`、`ToolArgumentValidator` 和 `ToolInputMapper`；ToolCall API 仅开放 `document_status_tool` 与 `rag_qa_tool`，不迁移现有 `DocumentAgentServiceImpl` 主执行链。
+- `ToolCallResult` 扩展 `durationMs`、`citations`、`retrievalHits`；`rag_qa_tool` 继续复用现有 `RagQaService` / `RagScopeGuard` 权限边界。
+- 已验证：`mvn "-Dtest=AgentToolControllerTest,ToolCallServiceImplTest,ToolArgumentValidatorTest,ToolCallResultTest,ToolSpecRegistryTest,DefaultToolSpecProviderTest,ToolDefinitionProviderTest" test`、`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*,*Rag*" test`、`mvn test`（598 tests，0 failures，0 errors，1 skipped）。
+- 下一步待确认：T010c 统一 `ToolExecutor` 执行路径，或 T010d OpenAI Function Calling adapter；不做 MCP、不做多文档 RAG、不改前端、不改根 README。
+
 ## 2026-06-04 T010a
 
 - T010a ToolSpec / ToolRegistry 已完成：新增内部 `ai.agent.tool.spec` package，包含 `ToolSpec`、参数 / 结果 schema、risk level、`ToolExecutionContext`、`ToolCallResult` 和 `ToolExecutor` contract。
