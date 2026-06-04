@@ -2,8 +2,10 @@ package com.docpilot.backend.ai.service;
 
 import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
+import com.docpilot.backend.ai.agent.dto.ToolCallRequest;
 import com.docpilot.backend.ai.agent.entity.AgentTask;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
+import com.docpilot.backend.ai.agent.service.ToolCallService;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
@@ -18,6 +20,7 @@ import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
+import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +54,9 @@ class DocumentAgentRealShadowPathTest {
 
     @Mock
     private ToolRegistry toolRegistry;
+
+    @Mock
+    private ToolCallService toolCallService;
 
     @Mock
     private ToolSelector toolSelector;
@@ -235,6 +241,7 @@ class DocumentAgentRealShadowPathTest {
         metricsCollector = new SelectorMetricsCollector();
         return new DocumentAgentServiceImpl(
                 toolRegistry,
+                toolCallService,
                 toolSelector,
                 persistenceService,
                 properties,
@@ -344,7 +351,23 @@ class DocumentAgentRealShadowPathTest {
     }
 
     private void stubStatusTool() {
-        when(toolRegistry.<DocumentStatusTool>get("document_status_tool")).thenReturn(documentStatusTool);
+        when(toolCallService.call(anyLong(), org.mockito.ArgumentMatchers.argThat(request ->
+                request != null && "document_status_tool".equals(request.getToolName())
+        ))).thenAnswer(invocation -> {
+            Long userId = invocation.getArgument(0);
+            ToolCallRequest request = invocation.getArgument(1);
+            Long documentId = ((Number) request.getArguments().get("documentId")).longValue();
+            DocumentStatusTool.StatusResult result = documentStatusTool.execute(new DocumentStatusTool.StatusInput(userId, documentId));
+            String toolName = documentStatusTool.getToolName();
+            if (toolName == null || toolName.isBlank()) {
+                toolName = "document_status_tool";
+            }
+            return ToolCallResult.success(
+                    toolName,
+                    result,
+                    "parseStatus=" + result.parseStatus() + ", parseReady=" + result.parseReady()
+            );
+        });
     }
 
     private void stubSummaryTool() {

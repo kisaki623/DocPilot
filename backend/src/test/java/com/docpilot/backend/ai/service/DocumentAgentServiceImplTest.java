@@ -4,6 +4,8 @@ import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
 import com.docpilot.backend.ai.agent.entity.AgentTask;
 import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
+import com.docpilot.backend.ai.agent.dto.ToolCallRequest;
+import com.docpilot.backend.ai.agent.service.ToolCallService;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
@@ -23,12 +25,15 @@ import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
+import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
 import com.docpilot.backend.ai.rag.RagEvidenceCitation;
 import com.docpilot.backend.ai.rag.RagQaAnswer;
 import com.docpilot.backend.ai.rag.RagRetrievalHit;
 import com.docpilot.backend.ai.rag.RagRetrievalResult;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
+import com.docpilot.backend.common.error.ErrorCode;
+import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -77,6 +82,9 @@ class DocumentAgentServiceImplTest {
     private ToolRegistry toolRegistry;
 
     @Mock
+    private ToolCallService toolCallService;
+
+    @Mock
     private ToolSelector toolSelector;
 
     @Mock
@@ -101,6 +109,7 @@ class DocumentAgentServiceImplTest {
         selectorMetricsCollector = new SelectorMetricsCollector();
         return new DocumentAgentServiceImpl(
                 toolRegistry,
+                toolCallService,
                 toolSelector,
                 persistenceService,
                 selectorProperties,
@@ -113,7 +122,23 @@ class DocumentAgentServiceImplTest {
     }
 
     private void stubStatusTool() {
-        when(toolRegistry.<DocumentStatusTool>get("document_status_tool")).thenReturn(documentStatusTool);
+        when(toolCallService.call(anyLong(), org.mockito.ArgumentMatchers.argThat(request ->
+                request != null && "document_status_tool".equals(request.getToolName())
+        ))).thenAnswer(invocation -> {
+            Long userId = invocation.getArgument(0);
+            ToolCallRequest request = invocation.getArgument(1);
+            Long documentId = ((Number) request.getArguments().get("documentId")).longValue();
+            DocumentStatusTool.StatusResult result = documentStatusTool.execute(new DocumentStatusTool.StatusInput(userId, documentId));
+            String toolName = documentStatusTool.getToolName();
+            if (toolName == null || toolName.isBlank()) {
+                toolName = "document_status_tool";
+            }
+            return ToolCallResult.success(
+                    toolName,
+                    result,
+                    "parseStatus=" + result.parseStatus() + ", parseReady=" + result.parseReady()
+            );
+        });
     }
 
     private void stubSummaryTool() {
@@ -129,7 +154,44 @@ class DocumentAgentServiceImplTest {
     }
 
     private void stubRagQaTool() {
-        when(toolRegistry.<DocumentRagQaTool>get(DocumentRagQaTool.TOOL_NAME)).thenReturn(documentRagQaTool);
+        when(toolCallService.call(anyLong(), org.mockito.ArgumentMatchers.argThat(request ->
+                request != null && DocumentRagQaTool.TOOL_NAME.equals(request.getToolName())
+        ))).thenAnswer(invocation -> {
+            Long userId = invocation.getArgument(0);
+            ToolCallRequest request = invocation.getArgument(1);
+            var arguments = request.getArguments();
+            Long documentId = ((Number) arguments.get("documentId")).longValue();
+            String question = String.valueOf(arguments.get("question"));
+            String sessionId = arguments.get("sessionId") == null ? null : String.valueOf(arguments.get("sessionId"));
+            Integer topK = arguments.get("topK") == null ? null : ((Number) arguments.get("topK")).intValue();
+            Integer indexVersion = arguments.get("indexVersion") == null ? null : ((Number) arguments.get("indexVersion")).intValue();
+            String toolName = documentRagQaTool.getToolName();
+            if (toolName == null || toolName.isBlank()) {
+                toolName = DocumentRagQaTool.TOOL_NAME;
+            }
+            try {
+                DocumentRagQaTool.RagQaResult result = documentRagQaTool.execute(new DocumentRagQaTool.RagQaInput(
+                        userId,
+                        documentId,
+                        question,
+                        sessionId,
+                        topK,
+                        indexVersion
+                ));
+                return ToolCallResult.success(
+                        toolName,
+                        result,
+                        result.outputSummary(),
+                        0L,
+                        result.citations(),
+                        result.retrievalHits()
+                );
+            } catch (BusinessException ex) {
+                return ToolCallResult.failed(toolName, ex.getErrorCode().name(), ex.getErrorCode().name());
+            } catch (Exception ex) {
+                return ToolCallResult.failed(toolName, ex);
+            }
+        });
     }
 
     private void stubPersistenceTask() {
@@ -449,17 +511,70 @@ class DocumentAgentServiceImplTest {
         stubRagQaTool();
         stubPersistenceTask();
 
-        assertThrows(IllegalStateException.class, () -> service.run(100L, request));
+        var response = service.run(100L, request);
 
+        assertEquals("rag_tool", response.getDecision());
+        assertEquals("RAG 工具调用暂不可用，请稍后重试。", response.getFinalAnswer());
+        assertTrue(response.isSuccess());
+        assertEquals(2, response.getSteps().size());
+        assertEquals("failed", response.getSteps().get(1).getStatus());
+        assertEquals("IllegalStateException", response.getSteps().get(1).getErrorMessage());
         verify(persistenceService).createStep(
                 anyLong(),
                 org.mockito.ArgumentMatchers.eq(2),
                 org.mockito.ArgumentMatchers.eq(DocumentRagQaTool.TOOL_NAME),
                 anyString(),
-                org.mockito.ArgumentMatchers.eq("rag qa tool failed: IllegalStateException"),
+                org.mockito.ArgumentMatchers.eq("tool call failed: IllegalStateException"),
                 anyLong(),
                 org.mockito.ArgumentMatchers.eq("failed"),
                 org.mockito.ArgumentMatchers.eq("IllegalStateException")
+        );
+        verify(persistenceService).updateTaskSuccess(anyLong(), anyString(), anyString(), anyLong());
+    }
+
+    @Test
+    void shouldNotMaskRagScopeFailureWithFallback() {
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(112L);
+        request.setTask("RAG retrieve forbidden evidence");
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 112L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        112L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "content"
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(documentRagQaTool.getToolName()).thenReturn(DocumentRagQaTool.TOOL_NAME);
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "rag_tool",
+                List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME),
+                "rag reason",
+                List.of("RAG", "retrieve")
+        ));
+        when(documentRagQaTool.execute(any())).thenThrow(new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN));
+        stubStatusTool();
+        stubRagQaTool();
+        stubPersistenceTask();
+
+        BusinessException failure = assertThrows(BusinessException.class, () -> service.run(100L, request));
+
+        assertEquals(ErrorCode.DOCUMENT_FORBIDDEN, failure.getErrorCode());
+        verify(persistenceService).createStep(
+                anyLong(),
+                org.mockito.ArgumentMatchers.eq(2),
+                org.mockito.ArgumentMatchers.eq(DocumentRagQaTool.TOOL_NAME),
+                anyString(),
+                org.mockito.ArgumentMatchers.eq("tool call failed: DOCUMENT_FORBIDDEN"),
+                anyLong(),
+                org.mockito.ArgumentMatchers.eq("failed"),
+                org.mockito.ArgumentMatchers.eq("DOCUMENT_FORBIDDEN")
         );
         verify(persistenceService).updateTaskFailed(anyLong(), anyString());
     }

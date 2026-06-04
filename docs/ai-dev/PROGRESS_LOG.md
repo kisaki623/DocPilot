@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-04 T010c
+
+- T010c 现有 Agent 工具迁移已完成：`DocumentAgentServiceImpl` 的 `document_status_tool` 与 `rag_qa_tool` 调用改为复用 T010b `ToolCallService` / `ToolCallResult`。
+- Summary / QA legacy 分支和旧 `document_rag_tool` showcase 链路保持原执行路径；`DocumentToolSelector` 决策逻辑未做大改。
+- RAG ToolCallResult 继续进入 Agent response / trace，包含 retrieval hits、citations、no-evidence/fallback 摘要；普通工具失败记录 FAILED step 和安全 fallback，权限 / 文档归属错误不被 fallback 掩盖。
+- 已验证：`mvn "-Dtest=DocumentAgentServiceImplTest,DocumentAgentLlmExecuteModeTest,DocumentAgentRealShadowPathTest,ToolCallServiceImplTest,DocumentRagQaToolTest,DocumentToolSelectorTest" test`、`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*,*Rag*" test`、`mvn test`（599 tests，0 failures，0 errors，1 skipped）。
+- 下一步待确认：T010d OpenAI-compatible Function Calling adapter；不做 MCP、不做多文档 RAG、不改前端、不改根 README。
+
 ## 2026-06-04 T010b
 
 - T010b ToolCall API + 参数校验 + ToolCallResult 已完成：新增 `GET /api/agent/tools` 和 `POST /api/agent/tools/call`，基于 T010a `ToolSpecRegistry` 暴露可见工具并调用安全子集工具。

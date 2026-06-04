@@ -2,8 +2,10 @@ package com.docpilot.backend.ai.agent;
 
 import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
+import com.docpilot.backend.ai.agent.dto.ToolCallRequest;
 import com.docpilot.backend.ai.agent.entity.AgentTask;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
+import com.docpilot.backend.ai.agent.service.ToolCallService;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
@@ -14,6 +16,7 @@ import com.docpilot.backend.ai.agent.tool.SelectorMetricsCollector;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
+import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
 import com.docpilot.backend.ai.agent.vo.DocumentAgentResponse;
 import com.docpilot.backend.ai.rag.RagEvidenceCitation;
 import com.docpilot.backend.ai.rag.RagQaAnswer;
@@ -26,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -203,7 +207,41 @@ class DocumentAgentRagQaQualitySmokeTest {
                     "summary",
                     "RAG smoke content " + PRIVATE_AGENT_MARKER
             ));
-            ToolRegistry registry = new ToolRegistry(List.of(statusTool, new DocumentRagQaTool(ragQaService)));
+            DocumentRagQaTool ragQaTool = new DocumentRagQaTool(ragQaService);
+            ToolRegistry registry = new ToolRegistry(List.of(statusTool, ragQaTool));
+            ToolCallService toolCallService = mock(ToolCallService.class);
+            when(toolCallService.call(anyLong(), any())).thenAnswer(invocation -> {
+                Long userId = invocation.getArgument(0);
+                ToolCallRequest callRequest = invocation.getArgument(1);
+                Map<String, Object> arguments = callRequest.getArguments();
+                if ("document_status_tool".equals(callRequest.getToolName())) {
+                    DocumentStatusTool.StatusResult result = statusTool.execute(new DocumentStatusTool.StatusInput(
+                            userId,
+                            ((Number) arguments.get("documentId")).longValue()
+                    ));
+                    return ToolCallResult.success(
+                            "document_status_tool",
+                            result,
+                            "parseStatus=" + result.parseStatus() + ", parseReady=" + result.parseReady()
+                    );
+                }
+                DocumentRagQaTool.RagQaResult result = ragQaTool.execute(new DocumentRagQaTool.RagQaInput(
+                        userId,
+                        ((Number) arguments.get("documentId")).longValue(),
+                        String.valueOf(arguments.get("question")),
+                        arguments.get("sessionId") == null ? null : String.valueOf(arguments.get("sessionId")),
+                        arguments.get("topK") == null ? null : ((Number) arguments.get("topK")).intValue(),
+                        arguments.get("indexVersion") == null ? null : ((Number) arguments.get("indexVersion")).intValue()
+                ));
+                return ToolCallResult.success(
+                        DocumentRagQaTool.TOOL_NAME,
+                        result,
+                        result.outputSummary(),
+                        0L,
+                        result.citations(),
+                        result.retrievalHits()
+                );
+            });
             ToolSelector selector = task -> new ToolSelector.SelectResult(
                     "rag_tool",
                     List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME),
@@ -216,6 +254,7 @@ class DocumentAgentRagQaQualitySmokeTest {
             when(persistenceService.createTask(anyLong(), anyLong(), anyString(), any())).thenReturn(task);
             DocumentAgentServiceImpl service = new DocumentAgentServiceImpl(
                     registry,
+                    toolCallService,
                     selector,
                     persistenceService,
                     new AgentSelectorProperties(),

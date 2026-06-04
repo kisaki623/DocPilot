@@ -2,7 +2,9 @@ package com.docpilot.backend.ai.agent.service;
 
 import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.dto.DocumentAgentRequest;
+import com.docpilot.backend.ai.agent.dto.ToolCallRequest;
 import com.docpilot.backend.ai.agent.entity.AgentTask;
+import com.docpilot.backend.ai.agent.service.ToolCallService;
 import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
@@ -18,10 +20,12 @@ import com.docpilot.backend.ai.agent.tool.ToolDefinition;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
+import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
 import com.docpilot.backend.ai.rag.RagEvidenceCitation;
 import com.docpilot.backend.ai.rag.RagRetrievalHit;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
+import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -70,6 +74,9 @@ class DocumentAgentLlmExecuteModeTest {
     private ToolRegistry toolRegistry;
 
     @Mock
+    private ToolCallService toolCallService;
+
+    @Mock
     private ToolSelector toolSelector;
 
     @Mock
@@ -92,6 +99,7 @@ class DocumentAgentLlmExecuteModeTest {
     private DocumentAgentServiceImpl buildService() {
         return new DocumentAgentServiceImpl(
                 toolRegistry,
+                toolCallService,
                 toolSelector,
                 persistenceService,
                 selectorProperties,
@@ -527,8 +535,11 @@ class DocumentAgentLlmExecuteModeTest {
     }
 
     private void stubReadyStatus(Long documentId, String summary, String content) {
-        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, documentId)))
-                .thenReturn(new DocumentStatusTool.StatusResult(
+        when(toolCallService.call(anyLong(), org.mockito.ArgumentMatchers.argThat(request ->
+                request != null && "document_status_tool".equals(request.getToolName())
+        ))).thenAnswer(invocation -> ToolCallResult.success(
+                "document_status_tool",
+                new DocumentStatusTool.StatusResult(
                         documentId,
                         "demo",
                         ParseStatusConstants.SUCCESS,
@@ -536,8 +547,9 @@ class DocumentAgentLlmExecuteModeTest {
                         "ready",
                         summary,
                         content
-                ));
-        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+                ),
+                "parseStatus=" + ParseStatusConstants.SUCCESS + ", parseReady=true"
+        ));
     }
 
     private void stubKeywordSelection(String decision, String reason, String keyword) {
@@ -557,23 +569,52 @@ class DocumentAgentLlmExecuteModeTest {
     }
 
     private void stubRegistryForSummary() {
-        when(toolRegistry.<DocumentStatusTool>get("document_status_tool")).thenReturn(documentStatusTool);
         when(toolRegistry.<DocumentSummaryTool>get("document_summary_tool")).thenReturn(documentSummaryTool);
         when(documentSummaryTool.getToolName()).thenReturn("document_summary_tool");
     }
 
     private void stubRegistryForQa() {
         stubToolNames();
-        when(toolRegistry.<DocumentStatusTool>get("document_status_tool")).thenReturn(documentStatusTool);
         when(toolRegistry.<DocumentQaTool>get("document_qa_tool")).thenReturn(documentQaTool);
         when(documentQaTool.getToolName()).thenReturn("document_qa_tool");
     }
 
     private void stubRegistryForRag() {
         stubToolNames();
-        when(toolRegistry.<DocumentStatusTool>get("document_status_tool")).thenReturn(documentStatusTool);
-        when(toolRegistry.<DocumentRagQaTool>get(DocumentRagQaTool.TOOL_NAME)).thenReturn(documentRagQaTool);
-        when(documentRagQaTool.getToolName()).thenReturn(DocumentRagQaTool.TOOL_NAME);
+        when(toolCallService.call(anyLong(), org.mockito.ArgumentMatchers.argThat(request ->
+                request != null && DocumentRagQaTool.TOOL_NAME.equals(request.getToolName())
+        ))).thenAnswer(invocation -> {
+            Long userId = invocation.getArgument(0);
+            ToolCallRequest request = invocation.getArgument(1);
+            var arguments = request.getArguments();
+            Long documentId = ((Number) arguments.get("documentId")).longValue();
+            String question = String.valueOf(arguments.get("question"));
+            String sessionId = arguments.get("sessionId") == null ? null : String.valueOf(arguments.get("sessionId"));
+            Integer topK = arguments.get("topK") == null ? null : ((Number) arguments.get("topK")).intValue();
+            Integer indexVersion = arguments.get("indexVersion") == null ? null : ((Number) arguments.get("indexVersion")).intValue();
+            try {
+                DocumentRagQaTool.RagQaResult result = documentRagQaTool.execute(new DocumentRagQaTool.RagQaInput(
+                        userId,
+                        documentId,
+                        question,
+                        sessionId,
+                        topK,
+                        indexVersion
+                ));
+                return ToolCallResult.success(
+                        DocumentRagQaTool.TOOL_NAME,
+                        result,
+                        result.outputSummary(),
+                        0L,
+                        result.citations(),
+                        result.retrievalHits()
+                );
+            } catch (BusinessException ex) {
+                return ToolCallResult.failed(DocumentRagQaTool.TOOL_NAME, ex.getErrorCode().name(), ex.getErrorCode().name());
+            } catch (Exception ex) {
+                return ToolCallResult.failed(DocumentRagQaTool.TOOL_NAME, ex);
+            }
+        });
     }
 
     private void stubToolNames() {

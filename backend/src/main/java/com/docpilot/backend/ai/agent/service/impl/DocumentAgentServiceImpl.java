@@ -5,6 +5,8 @@ import com.docpilot.backend.ai.agent.entity.AgentTask;
 import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.DocumentAgentService;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
+import com.docpilot.backend.ai.agent.dto.ToolCallRequest;
+import com.docpilot.backend.ai.agent.service.ToolCallService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
@@ -25,6 +27,8 @@ import com.docpilot.backend.ai.agent.tool.ToolExecutionDecision;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
+import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
+import com.docpilot.backend.ai.agent.tool.spec.ToolCallStatus;
 import com.docpilot.backend.ai.agent.vo.DocumentAgentResponse;
 import com.docpilot.backend.ai.rag.RagEvidenceCitation;
 import com.docpilot.backend.ai.rag.RagRetrievalHit;
@@ -48,9 +52,13 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentAgentServiceImpl.class);
 
+    private static final String DOCUMENT_STATUS_TOOL_NAME = "document_status_tool";
     private static final int STEP_OUTPUT_MAX_LENGTH = 200;
+    private static final String STATUS_TOOL_UNAVAILABLE_ANSWER = "文档状态检查暂不可用，请稍后重试。";
+    private static final String RAG_TOOL_UNAVAILABLE_ANSWER = "RAG 工具调用暂不可用，请稍后重试。";
 
     private final ToolRegistry toolRegistry;
+    private final ToolCallService toolCallService;
     private final ToolSelector toolSelector;
     private final AgentTaskPersistenceService persistenceService;
     private final AgentSelectorProperties selectorProperties;
@@ -61,6 +69,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
     private final RealLlmToolSelectorFactory realLlmToolSelectorFactory;
 
     public DocumentAgentServiceImpl(ToolRegistry toolRegistry,
+                                    ToolCallService toolCallService,
                                     ToolSelector toolSelector,
                                     AgentTaskPersistenceService persistenceService,
                                     AgentSelectorProperties selectorProperties,
@@ -70,6 +79,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                                     LlmToolSelectionPromptBuilder realShadowPromptBuilder,
                                     LlmToolSelectionParser realShadowParser) {
         this.toolRegistry = toolRegistry;
+        this.toolCallService = toolCallService;
         this.toolSelector = toolSelector;
         this.persistenceService = persistenceService;
         this.selectorProperties = selectorProperties;
@@ -111,20 +121,32 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         response.setTaskId(taskId);
 
         try {
-            DocumentStatusTool documentStatusTool = toolRegistry.get("document_status_tool");
-            TimedResult<DocumentStatusTool.StatusResult> statusResult = timedExecute(() ->
-                    documentStatusTool.execute(new DocumentStatusTool.StatusInput(userId, request.getDocumentId())));
-            steps.add(buildStep(
-                    1,
-                    documentStatusTool.getToolName(),
-                    "documentId=" + request.getDocumentId(),
-                    String.format("parseStatus=%s, parseReady=%s", statusResult.value().parseStatus(), statusResult.value().parseReady()),
-                    statusResult.durationMs(),
-                    "success"
+            String statusInputSummary = "documentId=" + request.getDocumentId();
+            ToolCallResult statusCall = toolCallService.call(userId, toolCallRequest(
+                    DOCUMENT_STATUS_TOOL_NAME,
+                    Map.of("documentId", request.getDocumentId())
             ));
+            steps.add(buildStepFromToolCall(1, statusInputSummary, statusCall));
             persistLastStep(taskId, steps);
 
-            DocumentStatusTool.StatusResult detail = statusResult.value();
+            if (!statusCall.success()) {
+                rethrowProtectedToolFailure(statusCall);
+                response.setDecision("status_only");
+                response.setPrimaryDecision("status_only");
+                response.setLlmDecision("");
+                response.setFinalDecision("status_only");
+                response.setFallbackUsed(true);
+                response.setFallbackReason(safeToolCallError(statusCall));
+                response.setExecutionMode(selectorProperties == null ? AgentSelectorProperties.MODE_KEYWORD : selectorProperties.getMode());
+                response.setToolSelectionSource(ToolExecutionDecision.SOURCE_KEYWORD);
+                response.setRoutingReason("文档状态工具调用失败，返回安全状态提示，避免继续执行摘要或问答工具");
+                response.setMatchedKeywords(List.of());
+                response.setFinalAnswer(STATUS_TOOL_UNAVAILABLE_ANSWER);
+                response.setSteps(steps);
+                return completeSuccess(taskId, response, beginNanos);
+            }
+
+            DocumentStatusTool.StatusResult detail = requireToolResult(statusCall, DocumentStatusTool.StatusResult.class);
             if (!detail.parseReady()) {
                 response.setDecision("status_only");
                 response.setPrimaryDecision("status_only");
@@ -425,59 +447,118 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                                                List<DocumentAgentResponse.AgentStep> steps,
                                                Long taskId,
                                                long beginNanos) {
-        DocumentRagQaTool ragQaTool = toolRegistry.get(DocumentRagQaTool.TOOL_NAME);
-        long start = System.nanoTime();
-        try {
-            DocumentRagQaTool.RagQaResult rag = ragQaTool.execute(new DocumentRagQaTool.RagQaInput(
-                    userId,
-                    request.getDocumentId(),
-                    task,
-                    response.getSessionId(),
-                    request.getTopK(),
-                    request.getIndexVersion()
-            ));
-            long durationMs = elapsedMs(start);
-            steps.add(buildStep(
-                    2,
-                    ragQaTool.getToolName(),
-                    "documentId=" + request.getDocumentId()
-                            + ", topK=" + safeNumber(request.getTopK())
-                            + ", indexVersion=" + safeNumber(request.getIndexVersion())
-                            + ", task=" + summarize(task),
-                    rag.outputSummary(),
-                    durationMs,
-                    "success"
-            ));
-            persistLastStep(taskId, steps);
+        String inputSummary = "documentId=" + request.getDocumentId()
+                + ", topK=" + safeNumber(request.getTopK())
+                + ", indexVersion=" + safeNumber(request.getIndexVersion())
+                + ", task=" + summarize(task);
+        ToolCallResult ragCall = toolCallService.call(userId, toolCallRequest(
+                DocumentRagQaTool.TOOL_NAME,
+                ragArguments(request, task, response.getSessionId())
+        ));
+        steps.add(buildStepFromToolCall(2, inputSummary, ragCall));
+        persistLastStep(taskId, steps);
 
-            response.setDecision("rag_tool");
-            response.setFinalAnswer(rag.answer());
-            response.setSessionId(normalizeSessionId(rag.sessionId()));
-            response.setRagResults(toResponseRagResults(rag.retrievalHits()));
-            response.setRagCitations(rag.citations());
-            response.setCitations(toLegacyCitationItems(rag.citations()));
-            response.setRagAnswerContext(buildRagAnswerContext(rag.citations()));
-            response.setSteps(steps);
+        response.setDecision("rag_tool");
+        response.setSteps(steps);
+        if (!ragCall.success()) {
+            rethrowProtectedToolFailure(ragCall);
+            response.setFinalAnswer(RAG_TOOL_UNAVAILABLE_ANSWER);
+            response.setRagResults(List.of());
+            response.setRagCitations(List.of());
+            response.setCitations(List.of());
+            response.setRagAnswerContext("");
             return completeSuccess(taskId, response, beginNanos);
-        } catch (Exception ex) {
-            long durationMs = elapsedMs(start);
-            String errorMessage = safeErrorMessage(ex);
-            steps.add(buildStep(
-                    2,
-                    ragQaTool.getToolName(),
-                    "documentId=" + request.getDocumentId()
-                            + ", topK=" + safeNumber(request.getTopK())
-                            + ", indexVersion=" + safeNumber(request.getIndexVersion())
-                            + ", task=" + summarize(task),
-                    "rag qa tool failed: " + errorMessage,
-                    durationMs,
-                    "failed",
-                    errorMessage
-            ));
-            persistLastStep(taskId, steps);
-            response.setSteps(steps);
-            throw ex;
         }
+
+        DocumentRagQaTool.RagQaResult rag = requireToolResult(ragCall, DocumentRagQaTool.RagQaResult.class);
+        response.setFinalAnswer(rag.answer());
+        response.setSessionId(normalizeSessionId(rag.sessionId()));
+        response.setRagResults(toResponseRagResults(rag.retrievalHits()));
+        response.setRagCitations(rag.citations());
+        response.setCitations(toLegacyCitationItems(rag.citations()));
+        response.setRagAnswerContext(buildRagAnswerContext(rag.citations()));
+        return completeSuccess(taskId, response, beginNanos);
+    }
+
+    private ToolCallRequest toolCallRequest(String toolName, Map<String, Object> arguments) {
+        ToolCallRequest request = new ToolCallRequest();
+        request.setToolName(toolName);
+        request.setArguments(arguments);
+        return request;
+    }
+
+    private Map<String, Object> ragArguments(DocumentAgentRequest request, String task, String sessionId) {
+        Map<String, Object> arguments = new LinkedHashMap<>();
+        arguments.put("documentId", request.getDocumentId());
+        arguments.put("question", task);
+        if (sessionId != null && !sessionId.isBlank()) {
+            arguments.put("sessionId", sessionId);
+        }
+        if (request.getTopK() != null) {
+            arguments.put("topK", request.getTopK());
+        }
+        if (request.getIndexVersion() != null) {
+            arguments.put("indexVersion", request.getIndexVersion());
+        }
+        return arguments;
+    }
+
+    private <T> T requireToolResult(ToolCallResult result, Class<T> expectedType) {
+        Object value = result.result();
+        if (!expectedType.isInstance(value)) {
+            throw new IllegalStateException("Unexpected tool result type for " + result.toolName());
+        }
+        return expectedType.cast(value);
+    }
+
+    private DocumentAgentResponse.AgentStep buildStepFromToolCall(int stepIndex,
+                                                                  String inputSummary,
+                                                                  ToolCallResult result) {
+        String status = ToolCallStatus.SUCCESS.equals(result.status()) ? "success" : "failed";
+        String outputSummary = result.success()
+                ? result.outputSummary()
+                : "tool call failed: " + safeToolCallError(result);
+        String errorMessage = result.success() ? "" : safeToolCallError(result);
+        return buildStep(
+                stepIndex,
+                result.toolName(),
+                inputSummary,
+                outputSummary,
+                result.durationMs(),
+                status,
+                errorMessage
+        );
+    }
+
+    private void rethrowProtectedToolFailure(ToolCallResult result) {
+        ErrorCode errorCode = errorCodeFrom(result.errorType());
+        if (errorCode == ErrorCode.DOCUMENT_FORBIDDEN
+                || errorCode == ErrorCode.DOCUMENT_NOT_FOUND
+                || errorCode == ErrorCode.UNAUTHORIZED
+                || errorCode == ErrorCode.FORBIDDEN) {
+            throw new BusinessException(errorCode);
+        }
+    }
+
+    private ErrorCode errorCodeFrom(String errorType) {
+        if (errorType == null || errorType.isBlank()) {
+            return null;
+        }
+        try {
+            return ErrorCode.valueOf(errorType.trim());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private String safeToolCallError(ToolCallResult result) {
+        if (result == null) {
+            return "TOOL_CALL_FAILED";
+        }
+        if (result.errorType() != null && !result.errorType().isBlank()) {
+            return result.errorType();
+        }
+        return "TOOL_CALL_FAILED";
     }
 
     private List<DocumentAgentResponse.RagRetrievedChunk> toResponseRagResults(List<RagRetrievalHit> hits) {
@@ -640,19 +721,8 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         return new TimedResult<>(value, durationMs);
     }
 
-    private long elapsedMs(long startNanos) {
-        return (System.nanoTime() - startNanos) / 1_000_000L;
-    }
-
     private String safeNumber(Integer value) {
         return value == null ? "default" : String.valueOf(value);
-    }
-
-    private String safeErrorMessage(Exception ex) {
-        if (ex == null) {
-            return "UnknownException";
-        }
-        return ex.getClass().getSimpleName();
     }
 
     @FunctionalInterface
