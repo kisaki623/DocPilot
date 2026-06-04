@@ -12,6 +12,7 @@ import com.docpilot.backend.file.storage.FileContentReader;
 import com.docpilot.backend.mq.entity.ParseTaskConsumeRecord;
 import com.docpilot.backend.mq.mapper.ParseTaskConsumeRecordMapper;
 import com.docpilot.backend.mq.message.ParseTaskMessage;
+import com.docpilot.backend.ai.service.RagIndexingTriggerService;
 import com.docpilot.backend.task.entity.ParseTask;
 import com.docpilot.backend.task.mapper.ParseTaskMapper;
 import com.docpilot.backend.task.service.ParseTaskConsumeEntryService;
@@ -38,19 +39,22 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
     private final FileContentReader fileContentReader;
     private final ParseTaskConsumeRecordMapper parseTaskConsumeRecordMapper;
     private final StringRedisTemplate stringRedisTemplate;
+    private final RagIndexingTriggerService ragIndexingTriggerService;
 
     public ParseTaskConsumeEntryServiceImpl(ParseTaskMapper parseTaskMapper,
                                             DocumentMapper documentMapper,
                                             FileRecordMapper fileRecordMapper,
                                             FileContentReader fileContentReader,
                                             ParseTaskConsumeRecordMapper parseTaskConsumeRecordMapper,
-                                            StringRedisTemplate stringRedisTemplate) {
+                                            StringRedisTemplate stringRedisTemplate,
+                                            RagIndexingTriggerService ragIndexingTriggerService) {
         this.parseTaskMapper = parseTaskMapper;
         this.documentMapper = documentMapper;
         this.fileRecordMapper = fileRecordMapper;
         this.fileContentReader = fileContentReader;
         this.parseTaskConsumeRecordMapper = parseTaskConsumeRecordMapper;
         this.stringRedisTemplate = stringRedisTemplate;
+        this.ragIndexingTriggerService = ragIndexingTriggerService;
     }
 
     @Override
@@ -171,6 +175,7 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             parseTaskMapper.updateById(successTask);
             parseTask.setStatus(ParseStatusConstants.SUCCESS);
             DocPilotMetrics.recordParseStageDuration(ParseStatusConstants.INDEXING, System.nanoTime() - indexingStart);
+            triggerRagIndexingSafely(document.getUserId(), document.getId(), parsedContent);
 
             log.info("Parse task consume entry accepted. taskId={}, documentId={}, fileRecordId={}, contentLength={}, summaryLength={}",
                     parseTask.getId(),
@@ -188,6 +193,18 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
                 return;
             }
             markFailed(parseTask, document.getUserId(), document.getId(), "PARSE_EXCEPTION", ex.getMessage());
+        }
+    }
+
+    private void triggerRagIndexingSafely(Long userId, Long documentId, String parsedContent) {
+        if (ragIndexingTriggerService == null) {
+            return;
+        }
+        try {
+            ragIndexingTriggerService.triggerAfterParseSuccess(userId, documentId, parsedContent);
+        } catch (RuntimeException ex) {
+            log.warn("RAG indexing trigger returned an exception after parse success. userId={}, documentId={}, errorType={}",
+                    userId, documentId, ex.getClass().getSimpleName());
         }
     }
 

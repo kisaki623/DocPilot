@@ -6,6 +6,7 @@ import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.docpilot.backend.file.entity.FileRecord;
 import com.docpilot.backend.file.mapper.FileRecordMapper;
 import com.docpilot.backend.file.storage.FileContentReader;
+import com.docpilot.backend.ai.service.RagIndexingTriggerService;
 import com.docpilot.backend.mq.entity.ParseTaskConsumeRecord;
 import com.docpilot.backend.mq.mapper.ParseTaskConsumeRecordMapper;
 import com.docpilot.backend.mq.message.ParseTaskMessage;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyLong;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -56,6 +58,9 @@ class ParseTaskConsumeEntryServiceImplTest {
     @Mock
     private StringRedisTemplate stringRedisTemplate;
 
+    @Mock
+    private RagIndexingTriggerService ragIndexingTriggerService;
+
     private ParseTaskConsumeEntryServiceImpl buildService() {
         lenient().when(parseTaskConsumeRecordMapper.insertProcessing(anyString(), anyLong())).thenReturn(1);
         return new ParseTaskConsumeEntryServiceImpl(
@@ -64,7 +69,8 @@ class ParseTaskConsumeEntryServiceImplTest {
                 fileRecordMapper,
                 fileContentReader,
                 parseTaskConsumeRecordMapper,
-                stringRedisTemplate
+                stringRedisTemplate,
+                ragIndexingTriggerService
         );
     }
 
@@ -83,6 +89,7 @@ class ParseTaskConsumeEntryServiceImplTest {
         verify(parseTaskConsumeRecordMapper, never()).insertProcessing(anyString(), anyLong());
         verify(parseTaskMapper).updateById(any(ParseTask.class));
         verify(documentMapper, never()).updateById(any(Document.class));
+        verify(ragIndexingTriggerService, never()).triggerAfterParseSuccess(any(), any(), anyString());
     }
 
     @Test
@@ -142,6 +149,7 @@ class ParseTaskConsumeEntryServiceImplTest {
         assertEquals("DocPilot parse content test", successDocument.getSummary());
         verify(stringRedisTemplate, org.mockito.Mockito.times(6))
                 .delete(CommonConstants.buildDocumentDetailCacheKey(100L, 2L));
+        verify(ragIndexingTriggerService).triggerAfterParseSuccess(100L, 2L, "DocPilot parse content test");
     }
 
     @Test
@@ -180,6 +188,52 @@ class ParseTaskConsumeEntryServiceImplTest {
         Document successUpdated = updateCaptor.getAllValues().get(updateCaptor.getAllValues().size() - 1);
         assertTrue(successUpdated.getContent().contains("暂未实现 PDF 真实解析"));
         assertTrue(successUpdated.getSummary().contains("暂未实现 PDF 真实解析"));
+        verify(ragIndexingTriggerService).triggerAfterParseSuccess(
+                org.mockito.ArgumentMatchers.eq(100L),
+                org.mockito.ArgumentMatchers.eq(22L),
+                org.mockito.ArgumentMatchers.contains("暂未实现 PDF 真实解析")
+        );
+    }
+
+    @Test
+    void shouldKeepParseSuccessWhenRagIndexingTriggerThrows() {
+        ParseTaskConsumeEntryServiceImpl service = buildService();
+
+        ParseTaskMessage message = new ParseTaskMessage();
+        message.setTaskId(12L);
+        message.setDocumentId(23L);
+        message.setFileRecordId(34L);
+
+        ParseTask parseTask = new ParseTask();
+        parseTask.setId(12L);
+        parseTask.setDocumentId(23L);
+        parseTask.setFileRecordId(34L);
+        parseTask.setStatus("PENDING");
+        when(parseTaskMapper.selectById(12L)).thenReturn(parseTask);
+
+        Document document = new Document();
+        document.setId(23L);
+        document.setUserId(100L);
+        document.setFileRecordId(34L);
+        when(documentMapper.selectById(23L)).thenReturn(document);
+
+        FileRecord fileRecord = new FileRecord();
+        fileRecord.setId(34L);
+        fileRecord.setFileExt("txt");
+        fileRecord.setFileName("sample.txt");
+        fileRecord.setStoragePath("sample.txt");
+        when(fileRecordMapper.selectById(34L)).thenReturn(fileRecord);
+        when(fileContentReader.readText("sample.txt")).thenReturn("RAG trigger isolation content");
+        doThrow(new IllegalStateException("trigger down"))
+                .when(ragIndexingTriggerService)
+                .triggerAfterParseSuccess(100L, 23L, "RAG trigger isolation content");
+
+        service.handle(message);
+
+        ArgumentCaptor<ParseTask> taskCaptor = ArgumentCaptor.forClass(ParseTask.class);
+        verify(parseTaskMapper, org.mockito.Mockito.times(6)).updateById(taskCaptor.capture());
+        assertEquals("SUCCESS", taskCaptor.getAllValues().get(taskCaptor.getAllValues().size() - 1).getStatus());
+        verify(parseTaskConsumeRecordMapper).markSuccess("legacy-task:12");
     }
 
     @Test
@@ -205,6 +259,7 @@ class ParseTaskConsumeEntryServiceImplTest {
         verify(parseTaskMapper).updateById(taskCaptor.capture());
         assertEquals("FAILED", taskCaptor.getValue().getStatus());
         verify(documentMapper).updateById(any(Document.class));
+        verify(ragIndexingTriggerService, never()).triggerAfterParseSuccess(any(), any(), anyString());
     }
 
     @Test

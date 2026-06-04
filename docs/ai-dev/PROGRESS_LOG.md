@@ -1,5 +1,19 @@
 # Progress Log
 
+## 2026-06-04 T008
+
+- T008 parse success 自动触发 RAG indexing 已完成：在解析任务成功落库后，通过独立 `RagIndexingTriggerService` 异步触发 T004 `RagIndexingService`，形成 parse -> indexing -> retrieval 的后端闭环。
+- RAG indexing 失败与 parse success 隔离：trigger 和 parse consumer 都做异常保护，parse task / document 保持 SUCCESS；indexVersion 继续默认使用 1，后续可再演进为 RAG indexing Outbox / MQ。
+- 已验证：`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,RagIndexingTriggerServiceImplTest,RagDocumentRetrievalQualitySmokeTest" test`、`mvn "-Dtest=*Rag*" test`、`mvn "-Dtest=*ParseTask*" test`、`mvn test`。
+- 下一步待确认：RAG indexing trigger MQ / Outbox 化，或前端小范围展示 RAG evidence / citations；不做前端大改、不改根 README、不调用真实外部服务。
+
+## 2026-06-04 T007
+
+- T007 Eval / Retrieval Quality Smoke 已完成：新增基于 T003-T006 新 RAG 主链路的离线 smoke fixture 和测试，覆盖 indexing -> retrieval -> QA citations -> Agent `rag_qa_tool` trace。
+- Smoke 指标覆盖 hit@k、citationHitRate、noEvidenceRate 和 userId / documentId / indexVersion metadata isolation；测试只使用 `MockEmbeddingProvider`、`InMemoryVectorStoreClient` 和 mock answer service。
+- 已验证：`mvn "-Dtest=RagDocumentRetrievalQualitySmokeTest,DocumentAgentRagQaQualitySmokeTest" test`。后续建议补跑 `*Rag*`、Agent selector 相关测试和 `mvn test` 后再提交。
+- 下一步待确认：parse success 自动触发 RAG indexing，或前端小范围展示 RAG evidence / citations；不做前端大改、不改根 README、不调用真实外部服务。
+
 ## 2026-06-03 T006
 
 - T006 Agent Integration 已完成：新增 `rag_qa_tool`，将 Agent 的 `rag_tool` 决策接入 T005 `RagQaService`，旧 `DocumentRagTool` showcase 链路保持独立。
