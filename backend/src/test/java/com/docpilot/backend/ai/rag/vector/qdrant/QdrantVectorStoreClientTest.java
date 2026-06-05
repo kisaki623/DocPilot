@@ -183,6 +183,22 @@ class QdrantVectorStoreClientTest {
     }
 
     @Test
+    void shouldSendSearchFilterWithDocumentIdsMatchAny() throws Exception {
+        startServer(exchange -> sendJson(exchange, 200, "{\"result\":[]}"));
+        QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties(false));
+
+        client.search(VectorSearchRequest.forDocuments(1L, List.of(61L, 62L), 1, vector(0.1D, 0.2D), 3));
+
+        List<Map<String, Object>> must = castList(castMap(readMap(requests.get(0).body()).get("filter")).get("must"));
+        assertThat(must).anySatisfy(condition -> {
+            assertThat(condition.get("key")).isEqualTo("documentId");
+            assertThat(castMap(condition.get("match")).get("any")).isEqualTo(List.of(61, 62));
+        });
+        assertThat(must).anySatisfy(condition -> assertMatch(condition, "userId", 1));
+        assertThat(must).anySatisfy(condition -> assertMatch(condition, "indexVersion", 1));
+    }
+
+    @Test
     void shouldSendDeleteByDocumentFilter() throws Exception {
         startServer(exchange -> sendJson(exchange, 200, "{\"status\":\"ok\"}"));
         QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties(false));

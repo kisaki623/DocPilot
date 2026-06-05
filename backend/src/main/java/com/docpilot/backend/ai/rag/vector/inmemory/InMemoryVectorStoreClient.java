@@ -67,7 +67,7 @@ public class InMemoryVectorStoreClient implements VectorStoreClient {
 
     private boolean matches(VectorSearchRequest request, VectorPoint point) {
         return request.userId().equals(point.userId())
-                && request.documentId().equals(point.documentId())
+                && request.effectiveDocumentIds().contains(point.documentId())
                 && (request.indexVersion() == null || request.indexVersion().equals(point.indexVersion()));
     }
 

@@ -46,6 +46,26 @@ class InMemoryVectorStoreClientTest {
     }
 
     @Test
+    void shouldFilterByMultipleDocumentIds() {
+        client.upsert(List.of(
+                point("doc-10", 1L, 10L, 1, 0, "match", vector(1.0D, 0.0D)),
+                point("doc-11", 1L, 11L, 1, 1, "match", vector(0.9D, 0.1D)),
+                point("doc-12", 1L, 12L, 1, 2, "skip", vector(1.0D, 0.0D)),
+                point("other-user", 2L, 10L, 1, 3, "skip", vector(1.0D, 0.0D))
+        ));
+
+        VectorSearchResult result = client.search(VectorSearchRequest.forDocuments(
+                1L,
+                List.of(10L, 11L),
+                1,
+                vector(1.0D, 0.0D),
+                10
+        ));
+
+        assertThat(result.hits()).extracting("id").containsExactly("doc-10", "doc-11");
+    }
+
+    @Test
     void shouldSearchAllVersionsWhenVersionIsNull() {
         client.upsert(List.of(
                 point("v1", 1L, 10L, 1, 0, "first", vector(1.0D, 0.0D)),
@@ -98,6 +118,13 @@ class InMemoryVectorStoreClientTest {
         assertThatThrownBy(() -> client.search(new VectorSearchRequest(1L, 10L, 1, vector(1.0D), 1)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("query vector dimension must match indexed vector dimension");
+    }
+
+    @Test
+    void shouldRejectSearchWithoutDocumentScope() {
+        assertThatThrownBy(() -> VectorSearchRequest.forDocuments(1L, List.of(), 1, vector(1.0D), 1))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("documentId or documentIds must not be null");
     }
 
     private VectorPoint point(String id,

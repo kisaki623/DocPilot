@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-05 T011
+
+- T011a KnowledgeBase 管理底座已完成：新增 `tb_knowledge_base` / `tb_knowledge_base_document`，实现 KnowledgeBase entity / mapper / service / controller 和 `KnowledgeBaseScopeGuard`。
+- 关系表采用 `ACTIVE / REMOVED` 软状态；removeDocument 软删除，addDocuments 可恢复 REMOVED 关系，重复 ACTIVE 添加保持幂等。
+- T011b 多文档 RAG 已完成：`VectorSearchRequest` 兼容扩展 documentIds，InMemory / Qdrant filter 支持多文档 IN，新增 KnowledgeBase retrieval / 非流式 QA / prompt builder / citation response。
+- 已验证：`mvn "-Dtest=KnowledgeBaseServiceImplTest,KnowledgeBaseScopeGuardTest,KnowledgeBaseControllerTest,KnowledgeBaseSchemaTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagControllerTest,*VectorStoreClient*" test`；`mvn "-Dtest=*Rag*" test`；`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*,*ToolCall*,OpenAi*" test`；`mvn test`（644 tests，0 failures，0 errors，1 skipped）。
+- 下一步待确认：T012 KnowledgeBase Agent Tool / ToolSpec 接入，或前端小范围展示知识库 RAG citations；T011 未做 SSE、Agent / ToolSpec、多文档 eval、前端或根 README。
+
 ## 2026-06-04 T010d
 
 - T010d OpenAI-compatible Function Calling adapter 已完成：新增内部 `ai.agent.tool.openai` package，将 `ToolSpec` 转成 OpenAI `type=function` tools schema。

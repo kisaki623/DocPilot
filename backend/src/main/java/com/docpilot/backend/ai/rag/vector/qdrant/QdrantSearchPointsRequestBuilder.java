@@ -29,23 +29,44 @@ class QdrantSearchPointsRequestBuilder {
         body.put("vector", request.queryVector().values());
         body.put("limit", request.topK());
         body.put("with_payload", true);
-        body.put("filter", filter(request.userId(), request.documentId(), request.indexVersion()));
+        body.put("filter", filter(request));
         return writeJson(body);
     }
 
+    static Map<String, Object> filter(VectorSearchRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        return filter(request.userId(), request.documentId(), request.documentIds(), request.indexVersion(),
+                request.hasDocumentIdsFilter());
+    }
+
     static Map<String, Object> filter(Long userId, Long documentId, Integer indexVersion) {
+        return filter(userId, documentId, List.of(), indexVersion, false);
+    }
+
+    private static Map<String, Object> filter(Long userId,
+                                              Long documentId,
+                                              List<Long> documentIds,
+                                              Integer indexVersion,
+                                              boolean useDocumentIds) {
         if (userId == null) {
             throw new IllegalArgumentException("userId must not be null");
         }
-        if (documentId == null) {
-            throw new IllegalArgumentException("documentId must not be null");
+        List<Long> effectiveDocumentIds = useDocumentIds ? documentIds : List.of();
+        if (effectiveDocumentIds.isEmpty() && documentId == null) {
+            throw new IllegalArgumentException("documentId or documentIds must not be empty");
         }
         if (indexVersion != null && indexVersion <= 0) {
             throw new IllegalArgumentException("indexVersion must be positive when provided");
         }
         List<Map<String, Object>> must = new ArrayList<>();
         must.add(match("userId", userId));
-        must.add(match("documentId", documentId));
+        if (!effectiveDocumentIds.isEmpty()) {
+            must.add(matchAny("documentId", effectiveDocumentIds));
+        } else {
+            must.add(match("documentId", documentId));
+        }
         if (indexVersion != null) {
             must.add(match("indexVersion", indexVersion));
         }
@@ -58,6 +79,13 @@ class QdrantSearchPointsRequestBuilder {
         Map<String, Object> match = new LinkedHashMap<>();
         match.put("key", key);
         match.put("match", Map.of("value", value));
+        return match;
+    }
+
+    private static Map<String, Object> matchAny(String key, List<Long> values) {
+        Map<String, Object> match = new LinkedHashMap<>();
+        match.put("key", key);
+        match.put("match", Map.of("any", values));
         return match;
     }
 

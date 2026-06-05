@@ -1,0 +1,16 @@
+package com.docpilot.backend.ai.rag;
+
+public record KnowledgeBaseRagRetrievalQuery(
+        Long userId,
+        Long knowledgeBaseId,
+        String query,
+        Integer topK,
+        Integer indexVersion,
+        String embeddingModel
+) {
+
+    public KnowledgeBaseRagRetrievalQuery {
+        query = query == null ? "" : query.trim();
+        embeddingModel = embeddingModel == null ? "" : embeddingModel.trim();
+    }
+}
