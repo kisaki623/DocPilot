@@ -27,6 +27,8 @@ public enum ErrorCode {
     PARSE_TASK_REPARSE_NOT_ALLOWED(1018, "当前任务状态不允许重新解析"),
     USERNAME_ALREADY_EXISTS(1019, "用户名已存在"),
     USERNAME_OR_PASSWORD_INVALID(1020, "用户名或密码错误"),
+    KNOWLEDGE_BASE_NOT_FOUND(1021, "知识库不存在"),
+    KNOWLEDGE_BASE_FORBIDDEN(1022, "无权访问该知识库"),
     INTERNAL_SERVER_ERROR(500, "服务器内部错误");
 
     private final int code;
