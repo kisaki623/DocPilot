@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-05 T012
+
+- T012 多文档 RAG eval 已完成：新增 KnowledgeBase RAG 离线 fixture、测试侧 eval runner / metrics / result 模型，复用 T011 retrieval / QA service。
+- 指标覆盖 `hitAtK`、`documentHitRate`、`citationHitRate`、`noEvidenceRate` 和 `scopeViolationRate`；测试只使用 `MockEmbeddingProvider`、`InMemoryVectorStoreClient` 和 mock answer service。
+- Eval artifact 可写入 `backend/target/rag-eval/knowledge-base-rag-eval-latest.json`，不纳入 git，且不保存文档原文、模型输入、evidence context、模型输出或密钥信息。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagEvalFixtureTest" test`。
+- 下一步待确认：T013 KnowledgeBase Agent Tool / ToolSpec 接入，或 KnowledgeBase RAG SSE / 前端小范围展示；不做 MCP、不做 reranker、不改前端、不改根 README。
+
 ## 2026-06-05 T011
 
 - T011a KnowledgeBase 管理底座已完成：新增 `tb_knowledge_base` / `tb_knowledge_base_document`，实现 KnowledgeBase entity / mapper / service / controller 和 `KnowledgeBaseScopeGuard`。

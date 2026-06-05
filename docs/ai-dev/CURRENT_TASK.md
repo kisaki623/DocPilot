@@ -1,35 +1,26 @@
 # Current Task
 
-当前任务：T011 多文档知识库 RAG 已完成；下一步待确认
+当前任务：T012 多文档 RAG eval 已完成；下一步待确认
 
 ## 目标
 
-从单文档 RAG 升级为知识库级 RAG，支持在用户指定的知识库内进行跨文档召回、证据合并和引用返回。
+为 T011 KnowledgeBase 多文档 RAG 增加轻量、离线、可复现的 retrieval quality smoke / eval，验证跨文档召回、citation 来源和 scope isolation。
 
 ## 范围
 
-T011a 已完成：
+T012 已完成：
 
-- 新增 `tb_knowledge_base` 与 `tb_knowledge_base_document`；
-- 新增 KnowledgeBase entity / mapper / service / controller；
-- 新增 `KnowledgeBaseScopeGuard`；
-- 知识库文档关系支持 `ACTIVE / REMOVED` 状态；
-- `removeDocument` 采用软删除，`addDocuments` 可恢复 REMOVED 关系；
-- 新增知识库创建、列表、详情、添加文档、移除文档 API。
-
-T011b 已完成：
-
-- `VectorSearchRequest` 兼容扩展 `documentIds`；
-- InMemory / Qdrant search filter 支持多文档 IN 过滤；
-- 新增 KnowledgeBase RAG retrieval service；
-- 新增 KnowledgeBase RAG QA service；
-- 新增多文档 citation / hit / response 模型；
-- 新增 `KnowledgeBaseRagPromptBuilder`，不破坏单文档 `RagPromptBuilder`；
-- 新增知识库 retrieval / 非流式 QA API。
+- 新增 `knowledge-base-rag-eval-cases.json` 多文档 eval fixture；
+- 新增测试侧 `KnowledgeBaseRagEvalRunner` / case / result / metrics；
+- 使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient` 离线执行 KnowledgeBase retrieval / QA；
+- 指标覆盖 `hitAtK`、`documentHitRate`、`citationHitRate`、`noEvidenceRate`、`scopeViolationRate`；
+- artifact 输出到 `backend/target/rag-eval/knowledge-base-rag-eval-latest.json`，不纳入 git；
+- artifact 不保存文档原文、模型输入、evidence context、模型输出或密钥信息。
 
 下一步候选：
 
-- T012：KnowledgeBase Agent Tool / ToolSpec 接入；
+- T013：KnowledgeBase Agent Tool / ToolSpec 接入；
+- 或 KnowledgeBase RAG SSE；
 - 或前端小范围展示知识库 RAG citations。
 
 ## 禁止事项
@@ -37,8 +28,8 @@ T011b 已完成：
 - 不做知识库 RAG SSE；
 - 不接 Agent / ToolSpec；
 - 不接 MCP；
-- 不做多文档 eval；
 - 不做 reranker；
+- 不做 hybrid search；
 - 不改前端；
 - 不改根 README；
 - 不读取或提交 `.env` / key / secret；
@@ -48,20 +39,17 @@ T011b 已完成：
 
 ## 验收标准
 
-- 知识库创建、列表、详情、添加文档、重复添加、软删除和恢复关系可测；
-- 跨用户文档、非 owner KB、越界 vector hit 均被拒绝；
-- 多文档 retrieval 强制使用 `userId + documentIds + indexVersion` scope；
-- `documentIds` 非空走 IN filter，旧单文档 `documentId` filter 行为保持不变；
-- no-evidence 不调用大模型；
-- retrieval unavailable fallback 不调用大模型；
-- 多文档 citations 包含 `documentId / documentTitle / chunkIndex / score`；
+- fixture 至少覆盖多文档命中、单文档命中、no-evidence、scope isolation 和 citation 来源校验；
+- eval runner 复用 T011 KnowledgeBase RAG service，不混用旧 showcase RAG 链路；
+- 指标全部稳定通过，`scopeViolationRate` 期望为 0；
+- no-evidence case 不调用 mock 大模型；
+- artifact 脱敏，不包含文档原文、模型输入、evidence context、模型输出或 secret 关键词；
 - 测试不依赖真实 embedding、真实大模型或远程 Qdrant。
 
-## T011 输出
+## T012 输出
 
-- KnowledgeBase 管理底座；
-- 多文档 KnowledgeBase RAG retrieval / QA 后端闭环；
-- 向量检索多文档 filter 兼容扩展；
-- 多文档 prompt / citation 模型；
-- 管理、权限、retrieval、QA、controller 和 vector filter 单元测试；
+- KnowledgeBase 多文档 RAG 离线 eval fixture；
+- 测试侧 eval runner / metrics / result 模型；
+- 可选写入 target 目录的安全 JSON artifact；
+- fixture、metrics、runner 单元测试；
 - 更新 ai-dev 简短进度记录。
