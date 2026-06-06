@@ -3,6 +3,7 @@ package com.docpilot.backend.knowledge.service;
 import com.docpilot.backend.ai.rag.vector.VectorSearchHit;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
+import com.docpilot.backend.document.constant.DocumentStatus;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.docpilot.backend.knowledge.entity.KnowledgeBase;
@@ -60,6 +61,18 @@ class KnowledgeBaseScopeGuardTest {
                 () -> guard.requireOwnedDocument(7L, 101L));
 
         assertEquals(ErrorCode.DOCUMENT_FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    void shouldRejectRemovedDocument() {
+        Document removed = document(101L, 7L);
+        removed.setStatus(DocumentStatus.REMOVED);
+        when(documentMapper.selectById(101L)).thenReturn(removed);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> guard.requireOwnedDocument(7L, 101L));
+
+        assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
     }
 
     @Test

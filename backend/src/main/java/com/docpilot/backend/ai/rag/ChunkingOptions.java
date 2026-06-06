@@ -2,8 +2,8 @@ package com.docpilot.backend.ai.rag;
 
 public record ChunkingOptions(int chunkSize, int overlap) {
 
-    public static final int DEFAULT_CHUNK_SIZE = 600;
-    public static final int DEFAULT_OVERLAP = 100;
+    public static final int DEFAULT_CHUNK_SIZE = 800;
+    public static final int DEFAULT_OVERLAP = 120;
 
     public ChunkingOptions {
         if (chunkSize <= 0) {

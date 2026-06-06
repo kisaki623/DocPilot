@@ -3,6 +3,7 @@ package com.docpilot.backend.knowledge.service;
 import com.docpilot.backend.ai.rag.vector.VectorSearchHit;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
+import com.docpilot.backend.document.constant.DocumentStatus;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.docpilot.backend.knowledge.constant.KnowledgeBaseStatus;
@@ -56,6 +57,9 @@ public class KnowledgeBaseScopeGuard {
         }
         Document document = documentMapper.selectById(documentId);
         if (document == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
+        }
+        if (DocumentStatus.isRemoved(document.getStatus())) {
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND);
         }
         if (!userId.equals(document.getUserId())) {

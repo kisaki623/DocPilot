@@ -1,17 +1,17 @@
 # DocPilot
 
-> AI 文档解析与问答工程化平台。项目围绕“上传文档 -> 异步解析 -> 文档问答 -> SSE 流式输出 -> 引用证据 -> Agent 工具执行与 Trace 展示”这条链路展开，呈现一个从业务流程、后端工程到 AI 交互体验逐步闭环的全栈项目。
+> RAG + Agent 文档问答工程化平台。项目围绕“上传文档 -> 异步解析 -> RAG indexing -> 单文档 / 多文档检索问答 -> SSE 流式输出 -> 引用证据 -> Agent 工具执行与 Trace 展示”这条链路展开，呈现一个从业务流程、后端工程到 AI 交互体验逐步闭环的全栈项目。
 
-DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、SSE 降级、引用证据、Agent 工具选择、执行步骤落库和脱敏调试信息。
+DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、真实 embedding + Qdrant smoke、SSE 降级、引用证据、Agent 工具选择、执行步骤落库和脱敏调试信息。
 
 ## 项目定位
 
-DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工具编排的工程化展示项目。它适合作为 Java 后端实习、AI 应用开发、Agent 开发和 AI 全栈方向的作品入口，重点展示一条可运行、可观察、可复盘的 AI 文档处理链路。
+DocPilot 是一个面向文档上传、异步解析、RAG 文档问答和 Agent 工具编排的工程化展示项目。它适合作为 Java 后端实习、AI 应用开发、Agent 开发和 AI 全栈方向的作品入口，重点展示一条可运行、可观察、可复盘的 AI 文档处理链路。
 
 | 方向 | README 前半部分重点展示 |
 | --- | --- |
 | 后端工程 | Spring Boot 分层、MyBatis-Plus、RocketMQ + Outbox、Redisson 幂等、Redis 缓存与限流、MinIO 上传链路 |
-| AI 应用 | 文档问答、SSE 流式输出、引用证据、检索召回演示、问答历史与异常降级 |
+| AI 应用 | 单文档 / 多文档 RAG、真实 embedding + Qdrant smoke、SSE 流式输出、引用证据、问答历史与异常降级 |
 | Agent 工作流 | ToolRegistry、ToolSelector、AgentTask / AgentStep trace、工具选择依据与执行轨迹 |
 | 全栈联调 | Next.js 页面、文档状态轮询、问答流式事件解析、Agent 工作流可视化、错误降级与空状态文案 |
 
@@ -37,9 +37,9 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 
 ## 核心能力
 
-- **业务闭环**：账号登录、文件上传、文档创建、异步解析、文档列表 / 详情、普通问答、SSE 流式问答、引用证据和历史问答。
-- **异步链路**：使用 Outbox + RocketMQ 思路拆分接口响应与耗时解析，配合补偿扫描、消费去重和 Redisson 锁降低重复任务与消息不一致风险。
-- **AI 问答体验**：支持普通问答与 SSE 流式输出；流式异常时回退普通问答；回答展示 Markdown、代码块和引用片段。
+- **业务闭环**：账号登录、文件上传、文档创建、异步解析、RAG indexing、文档列表 / 详情、普通问答、SSE 流式问答、引用证据和历史问答。
+- **异步链路**：使用 Outbox + RocketMQ 拆分接口响应与耗时解析，配合补偿扫描、消费去重和 Redisson 锁降低重复任务与消息不一致风险；该链路已在演示环境完成真实 smoke。
+- **AI 问答体验**：支持单文档 / 多文档 RAG retrieve、普通问答与 SSE 流式输出；回答展示 Markdown、代码块和结构化 citations。
 - **Agent 工作流**：`/agent` 页面展示工具选择、执行步骤、持久化轨迹、最终回答、引用证据和检索召回结果。
 - **可复盘的工程细节**：README、截图、smoke 脚本和本地验证记录共同保留实现证据，便于从页面演示追溯到后端链路。
 
@@ -48,12 +48,12 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 | 能力 | 当前状态 |
 | --- | --- |
 | 文档上传与创建 | 已实现普通上传、分片上传会话、文档创建与解析任务创建 |
-| 异步解析任务 | 已实现 Outbox / RocketMQ 链路设计、解析任务状态追踪、补偿与幂等相关代码；完整运行依赖可用 MQ / consumer 环境 |
-| 文档问答 | 已实现普通问答、历史问答、引用展示、Markdown 渲染 |
+| 异步解析任务 | 已实现 Outbox / RocketMQ 链路、解析任务状态追踪、补偿与幂等；演示环境已验证 MQ 投递、消费和解析成功 |
+| 文档问答 | 已实现普通问答、历史问答、引用展示、Markdown 渲染，以及单文档 RAG QA |
 | SSE 流式问答 | 已实现流式事件解析、增量输出与失败降级 |
 | Agent 工具链 | 已实现文档状态、摘要、问答、检索召回工具，以及 ToolRegistry / ToolSelector |
 | Agent Trace | 已实现 AgentTask / AgentStep 持久化，前端可展示步骤、耗时、输入摘要和输出摘要 |
-| 检索召回展示 | 已实现 chunking、scope isolation、召回片段、相关度、引用 metadata 和脱敏 trace summary |
+| 检索召回展示 | 已实现 chunking、scope isolation、单文档 / 多文档 RAG retrieve、Qdrant adapter、真实 embedding smoke、召回片段、相关度、引用 metadata 和脱敏 trace summary |
 | 观测与验证 | 保留 Actuator health、benchmark / eval 记录、smoke 脚本和 lint/build/test 验证方式 |
 
 ## 页面预览
@@ -100,7 +100,7 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 
 ### MinIO 上传与对象存储
 
-项目包含普通上传和分片上传会话，支持上传状态查询和合并完成。对象存储与文档业务记录分离，便于说明文件系统、数据库记录和解析任务之间的边界。
+项目包含普通上传和分片上传会话，支持上传状态查询和合并完成。对象存储与文档业务记录分离，便于说明文件系统、数据库记录和解析任务之间的边界；演示环境已补充 MinIO active storage 最小上传 / 解析 smoke。
 
 ### AI 问答 + SSE 降级
 
@@ -110,9 +110,9 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 
 Agent 目前聚焦文档业务场景，围绕状态查询、摘要、问答与 RAG 召回形成最小工具闭环。后端根据任务选择工具，执行过程写入 `AgentTask` / `AgentStep`，前端用 timeline 展示 step、耗时、输入摘要和输出摘要。
 
-### 检索召回 Showcase
+### RAG 检索召回与 Qdrant
 
-当前检索召回展示覆盖 chunking、topK 召回、相关度、citation metadata、scope isolation、index lifecycle 和脱敏 trace summary。它用于说明文档问答如何从“全文上下文”进一步演进到“召回片段 + 引用证据”的链路。
+当前 RAG 链路覆盖 chunking、chunk 持久化、parse success 自动 indexing、EmbeddingProvider 抽象、Qdrant VectorStore adapter、topK 召回、citation metadata、scope isolation、index lifecycle 和脱敏 trace summary。演示环境已完成单文档 RAG、KnowledgeBase 多文档 RAG、真实 embedding provider + Qdrant smoke collection 验证；离线 eval 仍使用 mock embedding + in-memory vector store，便于稳定复现质量指标。
 
 ## 快速开始
 
@@ -194,7 +194,7 @@ npm run lint
 npm run build
 ```
 
-Smoke 脚本示例：
+Smoke 脚本 / 记录示例：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-main-flow.ps1 -BaseUrl http://127.0.0.1:8081
@@ -202,7 +202,7 @@ powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-qa-stream.ps
 powershell -ExecutionPolicy Bypass -File backend/scripts/agent/smoke-agent-min.ps1 -BackendBaseUrl http://127.0.0.1:8081
 ```
 
-最近一次本地验证记录中，后端全量测试、前端 lint 和前端 build 均通过。公开 README 不依赖协作文档作为证明材料；如果你要复现，请以本机实际运行结果为准。
+最新演示证据记录见 `docs/showcase/DEMO_SMOKE_RECORD.md`。其中已归档单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、真实 embedding + Qdrant、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例。公开 README 不依赖协作文档作为唯一证明材料；如果你要复现，请以本机实际运行结果为准。
 
 ## 验证方式
 
@@ -219,7 +219,7 @@ npm run lint
 npm run build
 ```
 
-说明：历史 eval 指标属于本地验证记录，不是线上服务承诺，也不代表固定 SLA。
+说明：历史 eval / smoke 指标属于本地或演示环境验证记录，不是线上服务承诺，也不代表固定 SLA。
 
 ## 项目结构
 
@@ -235,10 +235,10 @@ DocPilot/
 ## 当前边界
 
 - 项目定位为工程展示与面试演示环境，不按生产 SaaS 的 SLA 或运维标准承诺。
-- 完整上传解析 runtime 依赖可用 RocketMQ NameServer / Broker / consumer；若关闭 MQ，会进入 no-op producer 路径，适合做接口联调但不会推进真实异步解析。
-- AI 默认可使用 mock answer service；真实模型调用依赖本地环境变量和可用 OpenAI-compatible provider。
+- 完整上传解析 runtime 依赖可用 RocketMQ NameServer / Broker / consumer；演示环境已跑通 active MQ smoke，若关闭 MQ，会进入 no-op producer 路径，适合做接口联调但不会推进真实异步解析。
+- AI 默认可使用 mock answer service；真实回答模型已完成一次 smoke，复现仍依赖本地环境变量和可用 OpenAI-compatible provider。
 - PDF 解析能力有限，当前更适合展示 `txt / md` 文档链路。
-- RAG Showcase 默认使用 fake embedding + in-memory vector store，适合展示检索增强链路；真实 embedding provider 和 Qdrant runtime 需要额外环境验证。
+- RAG 测试 / eval 仍可使用 fake embedding + in-memory vector store；真实 embedding provider + Qdrant 已在 smoke collection 验证，但这不等同于生产级完整向量 RAG、rerank、hybrid search 或线上 SLA。
 - Agent 当前围绕文档业务工具形成同步 API 闭环，MQ 异步 Agent 和多 Agent 编排属于后续演进方向。
 - `llm_execute` 是默认关闭的 OpenAI-compatible chat completions JSON 选择方案，再由服务端 allowlist 执行已有工具；尚未切换到官方 tools/function_call 接口。
 - selector Prometheus metrics 目前仍处于设计 / demo 边界，完整生产监控闭环留作后续扩展。
@@ -254,7 +254,7 @@ DocPilot/
 -> 查看 citations 与 Markdown 渲染
 -> Agent Showcase 运行摘要 / 问答 / RAG 召回任务
 -> 展示 routingReason、matchedKeywords、retrieved chunks、score、trace/debug summary 和 persisted steps
--> 说明 llm_execute 默认关闭、allowlist + fallback 设计，以及 RAG 尚未接真实向量库生产链路
+-> 说明 llm_execute 默认关闭、allowlist + fallback 设计，以及真实 embedding + Qdrant 已做 smoke 但不是生产级完整 RAG
 ```
 
-如果要展示“上传 -> 自动解析 -> 问答”的完整链路，请先确认 RocketMQ / consumer 环境可用。
+如果要展示“上传 -> 自动解析 -> RAG 问答”的完整链路，请先确认 RocketMQ / consumer、Qdrant tunnel 和真实 embedding provider 环境可用。

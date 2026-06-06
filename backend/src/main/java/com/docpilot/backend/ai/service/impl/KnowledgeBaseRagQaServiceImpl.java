@@ -67,16 +67,16 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                 throw ex;
             }
             return answer(resolved, RETRIEVAL_UNAVAILABLE_ANSWER, null, true, true,
-                    "retrieval_unavailable");
+                    "retrieval_unavailable", 0);
         } catch (RuntimeException ex) {
             if (!ragQaProperties.isFallbackEnabled()) {
                 throw new BusinessException(ErrorCode.AI_CALL_FAILED, "knowledge base RAG retrieval failed");
             }
             return answer(resolved, RETRIEVAL_UNAVAILABLE_ANSWER, null, true, true,
-                    "retrieval_unavailable");
+                    "retrieval_unavailable", 0);
         }
         if (retrieval.noEvidence()) {
-            return answer(resolved, NO_EVIDENCE_ANSWER, retrieval, true, true, "no_evidence");
+            return answer(resolved, NO_EVIDENCE_ANSWER, retrieval, true, true, "no_evidence", 0);
         }
         try {
             RagPrompt prompt = promptBuilder.build(
@@ -85,7 +85,7 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                     ragQaProperties.getMaxContextChars()
             );
             String answerText = aiAnswerService.answer(prompt.evidenceContext(), prompt.userPrompt());
-            return answer(resolved, answerText, retrieval, false, false, "");
+            return answer(resolved, answerText, retrieval, false, false, "", 1);
         } catch (RuntimeException ex) {
             throw new BusinessException(ErrorCode.AI_CALL_FAILED, "knowledge base RAG answer generation failed");
         }
@@ -135,7 +135,8 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                                             KnowledgeBaseRagRetrievalResult retrieval,
                                             boolean noEvidence,
                                             boolean fallbackUsed,
-                                            String fallbackReason) {
+                                            String fallbackReason,
+                                            int modelCallCount) {
         return new KnowledgeBaseRagQaAnswer(
                 query.userId(),
                 query.knowledgeBaseId(),
@@ -145,7 +146,10 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                 retrieval,
                 noEvidence,
                 fallbackUsed,
-                fallbackReason
+                fallbackReason,
+                aiAnswerService.provider(),
+                aiAnswerService.model(),
+                modelCallCount
         );
     }
 

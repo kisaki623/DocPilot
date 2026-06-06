@@ -11,6 +11,7 @@ import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,10 +33,12 @@ class KnowledgeBaseRagQaServiceImplTest {
     );
 
     @Test
-    void shouldAnswerWithEvidence() {
+    void shouldAnswerWithEvidenceAndModelMetadata() {
         when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(retrieval(false));
         when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
                 .thenReturn("Use Redis [1].");
+        when(aiAnswerService.provider()).thenReturn("mock");
+        when(aiAnswerService.model()).thenReturn("mock-model");
 
         KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
                 7L,
@@ -49,6 +52,9 @@ class KnowledgeBaseRagQaServiceImplTest {
         assertThat(answer.answer()).isEqualTo("Use Redis [1].");
         assertThat(answer.noEvidence()).isFalse();
         assertThat(answer.retrieval().citations()).hasSize(1);
+        assertThat(answer.answerProvider()).isEqualTo("mock");
+        assertThat(answer.answerModel()).isEqualTo("mock-model");
+        assertThat(answer.modelCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -66,6 +72,7 @@ class KnowledgeBaseRagQaServiceImplTest {
 
         assertThat(answer.noEvidence()).isTrue();
         assertThat(answer.answer()).contains("未在当前知识库索引中检索到足够证据");
+        assertThat(answer.modelCallCount()).isZero();
         verify(aiAnswerService, never()).answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString());
     }
 
@@ -84,6 +91,7 @@ class KnowledgeBaseRagQaServiceImplTest {
 
         assertThat(answer.fallbackUsed()).isTrue();
         assertThat(answer.fallbackReason()).isEqualTo("retrieval_unavailable");
+        assertThat(answer.modelCallCount()).isZero();
         verify(aiAnswerService, never()).answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString());
     }
 
@@ -135,7 +143,8 @@ class KnowledgeBaseRagQaServiceImplTest {
                 noEvidence,
                 "in_memory",
                 "",
-                "mock-model"
+                "mock-model",
+                Map.of(101L, hits.size())
         );
     }
 }

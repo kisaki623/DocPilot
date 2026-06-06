@@ -6,9 +6,12 @@ import com.docpilot.backend.document.dto.DocumentCreateRequest;
 import com.docpilot.backend.document.dto.DocumentListRequest;
 import com.docpilot.backend.document.service.DocumentService;
 import com.docpilot.backend.document.vo.DocumentCreateResponse;
+import com.docpilot.backend.document.vo.DocumentDeleteResponse;
 import com.docpilot.backend.document.vo.DocumentDetailResponse;
 import com.docpilot.backend.document.vo.DocumentListResponse;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +44,12 @@ public class DocumentController {
     public ApiResponse<DocumentDetailResponse> detail(@RequestParam("documentId") Long documentId) {
         Long userId = UserHolder.requireUserId();
         return ApiResponse.success(documentService.getDetailById(documentId, userId));
+    }
+
+    @DeleteMapping("/{documentId}")
+    public ApiResponse<DocumentDeleteResponse> delete(@PathVariable("documentId") Long documentId) {
+        Long userId = UserHolder.requireUserId();
+        return ApiResponse.success(documentService.deleteById(documentId, userId));
     }
 }
 

@@ -9,7 +9,10 @@ public record KnowledgeBaseRagQaAnswer(
         KnowledgeBaseRagRetrievalResult retrieval,
         boolean noEvidence,
         boolean fallbackUsed,
-        String fallbackReason
+        String fallbackReason,
+        String answerProvider,
+        String answerModel,
+        int modelCallCount
 ) {
 
     public KnowledgeBaseRagQaAnswer {
@@ -23,5 +26,8 @@ public record KnowledgeBaseRagQaAnswer(
         answer = answer == null ? "" : answer.trim();
         sessionId = sessionId == null ? "" : sessionId.trim();
         fallbackReason = fallbackReason == null ? "" : fallbackReason.trim();
+        answerProvider = answerProvider == null ? "" : answerProvider.trim();
+        answerModel = answerModel == null ? "" : answerModel.trim();
+        modelCallCount = Math.max(0, modelCallCount);
     }
 }

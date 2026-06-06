@@ -10,6 +10,21 @@ public class KnowledgeBaseRagPromptBuilder {
             If the evidence is insufficient, say that the answer cannot be confirmed from the knowledge base.
             Use citation markers like [1] and [2] when making claims.
             """;
+    private static final List<String> SUMMARY_INTENT_KEYWORDS = List.of(
+            "总结",
+            "概括",
+            "资料集",
+            "知识库",
+            "所有文档",
+            "全部文档",
+            "文档内容",
+            "summarize",
+            "summary",
+            "overview",
+            "corpus",
+            "knowledge base",
+            "all documents"
+    );
 
     public RagPrompt build(String question,
                            List<KnowledgeBaseRagRetrievalHit> hits,
@@ -27,14 +42,9 @@ public class KnowledgeBaseRagPromptBuilder {
         }
 
         String evidenceContext = buildEvidenceContext(resolvedHits, maxContextChars);
-        String userPrompt = """
-                Please answer the user's question using only the numbered knowledge-base evidence below.
-                If the evidence does not contain enough information, state that the knowledge-base evidence is insufficient.
-                Cite supporting evidence with markers such as [1] or [2].
-
-                User question:
-                %s
-                """.formatted(resolvedQuestion).trim();
+        String userPrompt = isSummaryIntent(resolvedQuestion)
+                ? summaryUserPrompt(resolvedQuestion)
+                : defaultUserPrompt(resolvedQuestion);
         return new RagPrompt(SYSTEM_PROMPT, evidenceContext, userPrompt, false);
     }
 
@@ -87,6 +97,39 @@ public class KnowledgeBaseRagPromptBuilder {
             return resolved.substring(0, Math.max(0, maxLength));
         }
         return resolved.substring(0, maxLength - 3) + "...";
+    }
+
+    private boolean isSummaryIntent(String question) {
+        String normalized = question == null ? "" : question.toLowerCase(Locale.ROOT);
+        for (String keyword : SUMMARY_INTENT_KEYWORDS) {
+            if (normalized.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String defaultUserPrompt(String question) {
+        return """
+                Please answer the user's question using only the numbered knowledge-base evidence below.
+                If the evidence does not contain enough information, state that the knowledge-base evidence is insufficient.
+                Cite supporting evidence with markers such as [1] or [2].
+
+                User question:
+                %s
+                """.formatted(question).trim();
+    }
+
+    private String summaryUserPrompt(String question) {
+        return """
+                The user is asking for an overview of the whole knowledge base or dataset.
+                Use only the numbered evidence. First summarize the overall theme, then summarize the covered documents by title.
+                If evidence from some knowledge-base documents is missing, say which document titles or documentIds are not represented in the evidence instead of inventing their contents.
+                Cite supporting evidence with markers such as [1] or [2].
+
+                User question:
+                %s
+                """.formatted(question).trim();
     }
 
     private String noEvidenceUserPrompt(String question) {

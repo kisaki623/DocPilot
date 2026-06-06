@@ -1,55 +1,57 @@
 # Current Task
 
-当前任务：T012 多文档 RAG eval 已完成；下一步待确认
+当前任务：KnowledgeBase RAG 问答质量修复
 
 ## 目标
 
-为 T011 KnowledgeBase 多文档 RAG 增加轻量、离线、可复现的 retrieval quality smoke / eval，验证跨文档召回、citation 来源和 scope isolation。
+修复“总结整个资料集”类问题中，多文档知识库虽然有 4 个成员文档和 6 条 evidence，但召回几乎被单一文档垄断、chunk 过短、回答模型无法总结整个资料集的问题。
 
-## 范围
+## 本轮已完成
 
-T012 已完成：
+- 后端 chunking 从“短段落直接成 chunk”改为先合并 Markdown / 文本块，再按窗口切分，默认 chunk size 调整为 `800`、overlap 调整为 `120`。
+- KnowledgeBase retrieval 扩大向量候选池，对外仍保留请求 `topK`；摘要 / 资料集 / 知识库类问题优先覆盖每个文档，并限制单文档命中数。
+- KnowledgeBase retrieval response 新增 `documentHitCounts`，用于观察每个文档的最终命中数量。
+- KnowledgeBase QA response 新增 `answerProvider`、`answerModel`、`modelCallCount`，用于确认是否真实调用回答模型。
+- KnowledgeBase summary prompt 增加“整体总结 + 按文档标题总结 + 缺失文档证据需说明”的提示。
+- RAG vector store 配置兼容 `RAG_VECTOR_PROVIDER` / `RAG_VECTOR_DIMENSION` 别名；未把误用的 `RAG_VECTOR_COLLECTION=http://...` 当 endpoint。
+- 前端 KnowledgeBase API 类型已同步新增 response 字段。
+- 已按用户授权对目标 KnowledgeBase 文档 `83/84/85/86` 执行 rebuild / reindex：写入 Qdrant collection `docpilot_kb_quality_20260606`，KnowledgeBase id 为 `3`，userId 为 `21`。
 
-- 新增 `knowledge-base-rag-eval-cases.json` 多文档 eval fixture；
-- 新增测试侧 `KnowledgeBaseRagEvalRunner` / case / result / metrics；
-- 使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient` 离线执行 KnowledgeBase retrieval / QA；
-- 指标覆盖 `hitAtK`、`documentHitRate`、`citationHitRate`、`noEvidenceRate`、`scopeViolationRate`；
-- artifact 输出到 `backend/target/rag-eval/knowledge-base-rag-eval-latest.json`，不纳入 git；
-- artifact 不保存文档原文、模型输入、evidence context、模型输出或密钥信息。
+## 已验证
 
-下一步候选：
+```powershell
+cd backend
+mvn "-Dtest=ChunkingServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagPromptBuilderTest,RagVectorStorePropertiesTest,KnowledgeBaseRagControllerTest" test
+mvn -DskipTests compile
+mvn "-Dtest=*Rag*" test
 
-- T013：KnowledgeBase Agent Tool / ToolSpec 接入；
-- 或 KnowledgeBase RAG SSE；
-- 或前端小范围展示知识库 RAG citations。
+cd frontend
+npm run lint
+```
 
-## 禁止事项
+授权后的运行时 reindex 验证：
 
-- 不做知识库 RAG SSE；
-- 不接 Agent / ToolSpec；
-- 不接 MCP；
-- 不做 reranker；
-- 不做 hybrid search；
-- 不改前端；
-- 不改根 README；
-- 不读取或提交 `.env` / key / secret；
-- 不调用真实外部 embedding / LLM / 远程 Qdrant；
-- 不操作远程服务器；
-- 不 push。
+```powershell
+cd backend
+mvn "-Dtest=ManualKnowledgeBaseRagReindexTest" "-Dspring.profiles.active=local" test
+```
 
-## 验收标准
+验证结果：
 
-- fixture 至少覆盖多文档命中、单文档命中、no-evidence、scope isolation 和 citation 来源校验；
-- eval runner 复用 T011 KnowledgeBase RAG service，不混用旧 showcase RAG 链路；
-- 指标全部稳定通过，`scopeViolationRate` 期望为 0；
-- no-evidence case 不调用 mock 大模型；
-- artifact 脱敏，不包含文档原文、模型输入、evidence context、模型输出或 secret 关键词；
-- 测试不依赖真实 embedding、真实大模型或远程 Qdrant。
+- targeted backend tests：36 tests，0 failures，0 errors。
+- backend `*Rag*` tests：164 tests，0 failures，0 errors。
+- backend compile：PASS。
+- frontend lint：PASS。
+- runtime reindex：document `83/84/85/86` rebuild 成功，chunk / vector 数分别为 `35/35`、`18/18`、`10/10`、`16/16`；“总结资料集”检索 hit 数为 `6`，`documentHitCounts={83:2,84:1,85:1,86:2}`。
 
-## T012 输出
+## 当前边界
 
-- KnowledgeBase 多文档 RAG 离线 eval fixture；
-- 测试侧 eval runner / metrics / result 模型；
-- 可选写入 target 目录的安全 JSON artifact；
-- fixture、metrics、runner 单元测试；
-- 更新 ai-dev 简短进度记录。
+- 本轮没有操作远程 / 云端 MySQL、Qdrant 或服务进程。
+- 已通过 Spring service 正式执行 rebuild / reindex，没有直接手写 SQL 或直接改 Qdrant payload。
+- 当前 `.env` 仍需要使用 `RAG_QDRANT_ENDPOINT` / `RAG_QDRANT_COLLECTION=docpilot_kb_quality_20260606` 这类新字段或等价进程环境，才能让后端运行时读取到本次重建后的 collection；本轮没有提交真实 `.env`。
+- 如果当前环境仍使用 mock / fake embedding，语义召回质量仍会受限；本轮代码只让 provider/model/call count 更可观测。
+
+## 下一步候选
+
+- 前端展示 `documentHitCounts`、`answerProvider`、`answerModel`、`modelCallCount`，便于演示时解释检索和模型调用。
+- 为 KnowledgeBase QA 补 SSE 流式路径，并保持与非流式 response 字段一致。

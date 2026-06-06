@@ -85,16 +85,15 @@ class ChunkingServiceImplTest {
     }
 
     @Test
-    void shouldPreferParagraphBoundaries() {
+    void shouldMergeShortParagraphsIntoContextRichChunk() {
         String text = "first paragraph\n\nsecond paragraph";
 
         List<DocumentChunkCandidate> chunks = chunkingService.chunk(101L, 7L, text, new ChunkingOptions(100, 10));
 
-        assertThat(chunks).hasSize(2);
+        assertThat(chunks).hasSize(1);
         assertThat(chunks).extracting(DocumentChunkCandidate::content)
-                .containsExactly("first paragraph", "second paragraph");
+                .containsExactly("first paragraph\n\nsecond paragraph");
         assertThat(chunks.get(0).startOffset()).isZero();
-        assertThat(chunks.get(1).startOffset()).isEqualTo(text.indexOf("second"));
     }
 
     @Test
@@ -112,11 +111,33 @@ class ChunkingServiceImplTest {
         List<DocumentChunkCandidate> chunks = chunkingService.chunk(101L, 7L, text, new ChunkingOptions(100, 10));
 
         String normalized = text.replace("\r\n", "\n").replace('\r', '\n');
-        assertThat(chunks).hasSize(2);
+        assertThat(chunks).hasSize(1);
         for (DocumentChunkCandidate chunk : chunks) {
             assertThat(normalized.substring(chunk.startOffset(), chunk.endOffset()))
                     .isEqualTo(chunk.content());
         }
+    }
+
+    @Test
+    void shouldPackMarkdownHeadingWithFollowingContent() {
+        String text = "# RAG\n\n系统检索数据库文档后回答。\n\n## MCP\n\n工具协议说明。";
+
+        List<DocumentChunkCandidate> chunks = chunkingService.chunk(101L, 7L, text, new ChunkingOptions(100, 10));
+
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.get(0).content()).contains("# RAG");
+        assertThat(chunks.get(0).content()).contains("系统检索数据库文档后回答。");
+        assertThat(chunks.get(0).content()).contains("## MCP");
+    }
+
+    @Test
+    void shouldKeepFencedCodeBlockTogetherWhenPackingBlocks() {
+        String text = "Intro\n\n```java\nclass Demo {\n\n}\n```\n\nOutro";
+
+        List<DocumentChunkCandidate> chunks = chunkingService.chunk(101L, 7L, text, new ChunkingOptions(100, 10));
+
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.get(0).content()).contains("```java\nclass Demo {\n\n}\n```");
     }
 
     @Test

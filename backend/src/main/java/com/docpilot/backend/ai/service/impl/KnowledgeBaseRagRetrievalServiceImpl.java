@@ -21,6 +21,8 @@ import com.docpilot.backend.knowledge.vo.KnowledgeBaseDocumentResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +35,24 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
 
     public static final int DEFAULT_INDEX_VERSION = 1;
     public static final int MAX_TOP_K = 10;
+    private static final int MAX_CANDIDATE_TOP_K = 50;
+    private static final int SUMMARY_MAX_HITS_PER_DOCUMENT = 2;
+    private static final int DEFAULT_MAX_HITS_PER_DOCUMENT = 3;
+    private static final List<String> SUMMARY_INTENT_KEYWORDS = List.of(
+            "总结",
+            "概括",
+            "资料集",
+            "知识库",
+            "所有文档",
+            "全部文档",
+            "文档内容",
+            "summarize",
+            "summary",
+            "overview",
+            "corpus",
+            "knowledge base",
+            "all documents"
+    );
 
     private final KnowledgeBaseScopeGuard knowledgeBaseScopeGuard;
     private final EmbeddingProvider embeddingProvider;
@@ -74,7 +94,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 documentIds,
                 resolved.indexVersion(),
                 embedding.vector(),
-                resolved.topK()
+                candidateTopK(resolved, documentIds.size())
         ));
         Map<Long, KnowledgeBaseDocumentResponse> documentById = documents.stream()
                 .collect(Collectors.toMap(
@@ -84,7 +104,8 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                         LinkedHashMap::new
                 ));
         List<VectorSearchHit> scopedHits = scopedHits(resolved, documentById.keySet(), searchResult.hits());
-        List<KnowledgeBaseRagRetrievalHit> hits = toHits(resolved.knowledgeBaseId(), scopedHits, documentById);
+        List<VectorSearchHit> selectedHits = selectDiverseHits(resolved, documentIds, scopedHits);
+        List<KnowledgeBaseRagRetrievalHit> hits = toHits(resolved.knowledgeBaseId(), selectedHits, documentById);
         List<KnowledgeBaseRagEvidenceCitation> citations = hits.stream()
                 .map(KnowledgeBaseRagRetrievalHit::toCitation)
                 .toList();
@@ -101,7 +122,8 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 hits.isEmpty(),
                 searchResult.provider(),
                 searchResult.collection(),
-                embeddingModel
+                embeddingModel,
+                documentHitCounts(documentIds, hits)
         );
     }
 
@@ -151,7 +173,8 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 true,
                 provider,
                 collection,
-                embeddingModel
+                embeddingModel,
+                documentHitCounts(documentIds, List.of())
         );
     }
 
@@ -163,6 +186,11 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         metadata.put("indexVersion", String.valueOf(query.indexVersion()));
         metadata.put("usage", "knowledge_base_rag_query");
         return metadata;
+    }
+
+    private int candidateTopK(ResolvedQuery query, int documentCount) {
+        int candidateTopK = Math.max(query.topK() * 4, documentCount * 3);
+        return Math.max(query.topK(), Math.min(MAX_CANDIDATE_TOP_K, candidateTopK));
     }
 
     private List<VectorSearchHit> scopedHits(ResolvedQuery query, Set<Long> allowedDocumentIds, List<VectorSearchHit> hits) {
@@ -183,6 +211,81 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         return List.copyOf(scoped);
     }
 
+    private List<VectorSearchHit> selectDiverseHits(ResolvedQuery query,
+                                                    List<Long> documentIds,
+                                                    List<VectorSearchHit> hits) {
+        if (hits.isEmpty() || hits.size() <= query.topK()) {
+            return hits;
+        }
+        boolean summaryIntent = isSummaryIntent(query.query());
+        int maxHitsPerDocument = summaryIntent ? SUMMARY_MAX_HITS_PER_DOCUMENT : DEFAULT_MAX_HITS_PER_DOCUMENT;
+        List<VectorSearchHit> selected = new ArrayList<>(query.topK());
+        Set<String> selectedIds = new HashSet<>();
+        Map<Long, Integer> counts = new LinkedHashMap<>();
+        for (Long documentId : documentIds) {
+            counts.put(documentId, 0);
+        }
+
+        if (summaryIntent) {
+            for (Long documentId : documentIds) {
+                VectorSearchHit bestHit = firstHitForDocument(hits, documentId, selectedIds);
+                if (bestHit != null) {
+                    addSelectedHit(bestHit, selected, selectedIds, counts);
+                    if (selected.size() >= query.topK()) {
+                        return List.copyOf(selected);
+                    }
+                }
+            }
+        }
+
+        for (VectorSearchHit hit : hits) {
+            if (selected.size() >= query.topK()) {
+                break;
+            }
+            if (isSelected(hit, selectedIds)) {
+                continue;
+            }
+            int currentCount = counts.getOrDefault(hit.documentId(), 0);
+            if (currentCount >= maxHitsPerDocument) {
+                continue;
+            }
+            addSelectedHit(hit, selected, selectedIds, counts);
+        }
+        return List.copyOf(selected);
+    }
+
+    private VectorSearchHit firstHitForDocument(List<VectorSearchHit> hits, Long documentId, Set<String> selectedIds) {
+        for (VectorSearchHit hit : hits) {
+            if (documentId.equals(hit.documentId()) && !isSelected(hit, selectedIds)) {
+                return hit;
+            }
+        }
+        return null;
+    }
+
+    private void addSelectedHit(VectorSearchHit hit,
+                                List<VectorSearchHit> selected,
+                                Set<String> selectedIds,
+                                Map<Long, Integer> counts) {
+        selected.add(hit);
+        selectedIds.add(hit.id());
+        counts.merge(hit.documentId(), 1, Integer::sum);
+    }
+
+    private boolean isSelected(VectorSearchHit hit, Set<String> selectedIds) {
+        return selectedIds.contains(hit.id());
+    }
+
+    private boolean isSummaryIntent(String query) {
+        String normalized = query == null ? "" : query.toLowerCase();
+        for (String keyword : SUMMARY_INTENT_KEYWORDS) {
+            if (normalized.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private List<KnowledgeBaseRagRetrievalHit> toHits(Long knowledgeBaseId,
                                                       List<VectorSearchHit> hits,
                                                       Map<Long, KnowledgeBaseDocumentResponse> documentById) {
@@ -194,6 +297,17 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
             result.add(KnowledgeBaseRagRetrievalHit.fromVectorHit(i + 1, knowledgeBaseId, title, hit));
         }
         return List.copyOf(result);
+    }
+
+    private Map<Long, Integer> documentHitCounts(List<Long> documentIds, List<KnowledgeBaseRagRetrievalHit> hits) {
+        Map<Long, Integer> counts = new LinkedHashMap<>();
+        for (Long documentId : documentIds) {
+            counts.put(documentId, 0);
+        }
+        for (KnowledgeBaseRagRetrievalHit hit : hits) {
+            counts.merge(hit.documentId(), 1, Integer::sum);
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<>(counts));
     }
 
     private record ResolvedQuery(

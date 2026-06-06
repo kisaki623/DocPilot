@@ -207,6 +207,16 @@ public class RealAiAnswerService implements AiAnswerService {
         }
     }
 
+    @Override
+    public String provider() {
+        return normalizeProvider();
+    }
+
+    @Override
+    public String model() {
+        return model == null ? "" : model.trim();
+    }
+
     private HttpClient createHttpClient() {
         return HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(resolveConnectTimeoutMs()))

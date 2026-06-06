@@ -6,21 +6,27 @@ import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.metrics.DocPilotMetrics;
 import com.docpilot.backend.common.util.ValidationUtils;
+import com.docpilot.backend.document.constant.DocumentStatus;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.docpilot.backend.document.service.DocumentService;
 import com.docpilot.backend.document.vo.DocumentCreateResponse;
+import com.docpilot.backend.document.vo.DocumentDeleteResponse;
 import com.docpilot.backend.document.vo.DocumentDetailResponse;
 import com.docpilot.backend.document.vo.DocumentListItemResponse;
 import com.docpilot.backend.document.vo.DocumentListResponse;
 import com.docpilot.backend.file.entity.FileRecord;
 import com.docpilot.backend.file.mapper.FileRecordMapper;
+import com.docpilot.backend.knowledge.constant.KnowledgeBaseStatus;
+import com.docpilot.backend.knowledge.mapper.KnowledgeBaseDocumentMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,17 +39,28 @@ public class DocumentServiceImpl implements DocumentService {
 
     private final DocumentMapper documentMapper;
     private final FileRecordMapper fileRecordMapper;
+    private final KnowledgeBaseDocumentMapper knowledgeBaseDocumentMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final ObjectMapper objectMapper;
+
+    @Autowired
+    public DocumentServiceImpl(DocumentMapper documentMapper,
+                               FileRecordMapper fileRecordMapper,
+                               KnowledgeBaseDocumentMapper knowledgeBaseDocumentMapper,
+                               StringRedisTemplate stringRedisTemplate,
+                               ObjectMapper objectMapper) {
+        this.documentMapper = documentMapper;
+        this.fileRecordMapper = fileRecordMapper;
+        this.knowledgeBaseDocumentMapper = knowledgeBaseDocumentMapper;
+        this.stringRedisTemplate = stringRedisTemplate;
+        this.objectMapper = objectMapper;
+    }
 
     public DocumentServiceImpl(DocumentMapper documentMapper,
                                FileRecordMapper fileRecordMapper,
                                StringRedisTemplate stringRedisTemplate,
                                ObjectMapper objectMapper) {
-        this.documentMapper = documentMapper;
-        this.fileRecordMapper = fileRecordMapper;
-        this.stringRedisTemplate = stringRedisTemplate;
-        this.objectMapper = objectMapper;
+        this(documentMapper, fileRecordMapper, null, stringRedisTemplate, objectMapper);
     }
 
     @Override
@@ -69,6 +86,7 @@ public class DocumentServiceImpl implements DocumentService {
         document.setFileRecordId(fileRecordId);
         document.setTitle(fileRecord.getFileName());
         document.setParseStatus(ParseStatusConstants.PENDING);
+        document.setStatus(DocumentStatus.ACTIVE);
 
         try {
             documentMapper.insert(document);
@@ -132,6 +150,10 @@ public class DocumentServiceImpl implements DocumentService {
             throw new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN, "当前用户无权访问该文档");
         }
 
+        if (DocumentStatus.isRemoved(document.getStatus())) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "document does not exist");
+        }
+
         DocumentDetailResponse detail = documentMapper.selectUserDocumentDetail(documentId, userId);
         if (detail == null) {
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "文档不存在");
@@ -142,6 +164,45 @@ public class DocumentServiceImpl implements DocumentService {
         fillParseStatusLabel(detail);
         cacheDetail(cacheKey, detail);
         return detail;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public DocumentDeleteResponse deleteById(Long documentId, Long userId) {
+        ValidationUtils.requireNonNull(documentId, "documentId");
+        ValidationUtils.requireNonNull(userId, "userId");
+
+        Document document = documentMapper.selectById(documentId);
+        if (document == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "document does not exist");
+        }
+        if (!userId.equals(document.getUserId())) {
+            throw new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN, "document does not belong to current user");
+        }
+
+        int removedRelations = 0;
+        if (knowledgeBaseDocumentMapper != null) {
+            removedRelations = knowledgeBaseDocumentMapper.updateActiveStatusByUserAndDocumentId(
+                    userId,
+                    documentId,
+                    KnowledgeBaseStatus.REMOVED
+            );
+        }
+
+        if (!DocumentStatus.isRemoved(document.getStatus())) {
+            int updatedRows = documentMapper.updateStatusByIdAndUserId(documentId, userId, DocumentStatus.REMOVED);
+            if (updatedRows <= 0) {
+                throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "document does not exist");
+            }
+        }
+
+        evictDocumentDetailCache(userId, documentId);
+
+        DocumentDeleteResponse response = new DocumentDeleteResponse();
+        response.setDocumentId(documentId);
+        response.setStatus(DocumentStatus.REMOVED);
+        response.setRemovedKnowledgeBaseRelationCount(removedRelations);
+        return response;
     }
 
     private DocumentDetailResponse getDetailFromCache(String cacheKey) {
@@ -168,6 +229,13 @@ public class DocumentServiceImpl implements DocumentService {
         } catch (Exception deleteEx) {
             log.warn("文档详情坏缓存删除失败，cacheKey={}", cacheKey, deleteEx);
         }
+    }
+
+    private void evictDocumentDetailCache(Long userId, Long documentId) {
+        if (userId == null || documentId == null) {
+            return;
+        }
+        deleteCacheQuietly(CommonConstants.buildDocumentDetailCacheKey(userId, documentId));
     }
 
     private void cacheDetail(String cacheKey, DocumentDetailResponse detail) {

@@ -43,6 +43,19 @@ class KnowledgeBaseRagPromptBuilderTest {
         assertThat(prompt.userPrompt()).contains("No evidence was retrieved");
     }
 
+    @Test
+    void shouldUseCorpusSummaryPromptForKnowledgeBaseSummaryQuestions() {
+        RagPrompt prompt = builder.build("请你阅读资料集，帮我总结一下资料及里面文档的内容", List.of(
+                hit(1, 101L, "harness.md", "Harness document content."),
+                hit(2, 102L, "MCP.md", "MCP document content.")
+        ), 2000);
+
+        assertThat(prompt.noEvidence()).isFalse();
+        assertThat(prompt.userPrompt()).contains("overview of the whole knowledge base or dataset");
+        assertThat(prompt.userPrompt()).contains("summarize the covered documents by title");
+        assertThat(prompt.evidenceContext()).contains("title=harness.md");
+    }
+
     private KnowledgeBaseRagRetrievalHit hit(int index, Long documentId, String title, String content) {
         return new KnowledgeBaseRagRetrievalHit(
                 index,

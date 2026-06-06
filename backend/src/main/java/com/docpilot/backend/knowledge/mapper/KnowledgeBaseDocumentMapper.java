@@ -39,10 +39,11 @@ public interface KnowledgeBaseDocumentMapper extends BaseMapper<KnowledgeBaseDoc
                    kbd.create_time AS createTime,
                    kbd.update_time AS updateTime
               FROM tb_knowledge_base_document kbd
-              JOIN tb_document d ON kbd.document_id = d.id
+             JOIN tb_document d ON kbd.document_id = d.id
              WHERE kbd.user_id = #{userId}
                AND kbd.knowledge_base_id = #{knowledgeBaseId}
                AND kbd.status = 'ACTIVE'
+               AND d.status = 'ACTIVE'
              ORDER BY kbd.create_time DESC, kbd.id DESC
             """)
     List<KnowledgeBaseDocumentResponse> selectActiveDocumentResponses(@Param("userId") Long userId,
@@ -68,4 +69,16 @@ public interface KnowledgeBaseDocumentMapper extends BaseMapper<KnowledgeBaseDoc
     int updateStatus(@Param("knowledgeBaseId") Long knowledgeBaseId,
                      @Param("documentId") Long documentId,
                      @Param("status") String status);
+
+    @Update("""
+            UPDATE tb_knowledge_base_document
+               SET status = #{status},
+                   update_time = CURRENT_TIMESTAMP
+             WHERE user_id = #{userId}
+               AND document_id = #{documentId}
+               AND status = 'ACTIVE'
+            """)
+    int updateActiveStatusByUserAndDocumentId(@Param("userId") Long userId,
+                                              @Param("documentId") Long documentId,
+                                              @Param("status") String status);
 }

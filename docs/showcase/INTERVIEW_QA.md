@@ -6,7 +6,7 @@
 
 ### Q1：请用一分钟介绍 DocPilot。
 
-面试可背版回答：DocPilot 是一个 Java Spring Boot + Next.js 的 AI 文档平台，覆盖文件上传、异步解析、轻量检索增强问答、SSE 流式输出和最小 Agent 工具链。后端重点在 Outbox + RocketMQ、Redisson 幂等锁、Redis 缓存限流、MinIO 对象存储和 Agent trace 持久化。
+面试可背版回答：DocPilot 是一个 Java Spring Boot + Next.js 的 RAG + Agent 文档问答工程化项目，覆盖文件上传、异步解析、RAG indexing、单文档 / 多文档检索问答、SSE 流式输出和最小 Agent 工具链。后端重点在 Outbox + RocketMQ、Redisson 幂等锁、Redis 缓存限流、MinIO 对象存储、Qdrant 检索和 Agent trace 持久化。
 
 面试官追问：它和普通 CRUD 项目相比有什么工程价值？
 
@@ -30,7 +30,7 @@
 
 面试官追问：为什么不继续堆功能？
 
-诚实边界：当前阶段更适合把真实链路讲清楚，继续堆 Prometheus 或 Spring Security 之前应先解决 T010 / T030 的 blocker。
+诚实边界：当前阶段更适合把真实链路讲清楚，继续堆 Prometheus 或 Spring Security 之前应先把 README、smoke 证据和边界口径收稳。
 
 对应位置：`docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`。
 
@@ -52,7 +52,7 @@
 
 面试官追问：现在完整链路是否已验证？
 
-诚实边界：完整上传 -> 解析 -> Agent run 的 T010 当前 BLOCKED，因为 MQ disabled / Noop producer 模式下不会发送解析消息。
+诚实边界：上传 -> 解析链路已在演示环境验证 active MQ producer / consumer 和 parse success；Agent run 仍是同步 API 下的最小工具链演示，不代表异步多 Agent 编排或线上 SLA。
 
 对应位置：`backend/src/main/java/com/docpilot/backend/task`、`backend/src/main/java/com/docpilot/backend/mq`。
 
@@ -88,15 +88,15 @@
 
 对应位置：`ParseTaskConsumeRecord`、`ParseTaskConsumeEntryService`、`RedissonConfig`。
 
-### Q9：T010 为什么 BLOCKED？
+### Q9：RocketMQ + Outbox 是否真的跑通过？
 
-面试可背版回答：T010 要验证完整上传解析链路，但当前运行环境是 MQ disabled / `NoopParseTaskMessageProducer`，不会真正投递解析消息，所以 parseStatus 不会推进。
+面试可背版回答：跑通过。演示环境里 `parse/create` 返回 `PENDING`，RocketMQ producer 发送 `SEND_OK`，consumer 收到消息并执行解析，最终文档 parseStatus 到 `SUCCESS`。
 
 面试官追问：那项目是不是不能演示？
 
-诚实边界：完整上传解析链路暂时不能说通过，但已解析文档上的 Agent-only lite 验证通过，可以演示 Agent run、路由解释、trace 和 citations。
+诚实边界：可以演示，但要说清这是演示环境 smoke，不是线上 SLA；复现依赖可用 RocketMQ NameServer / Broker / consumer。关闭 MQ 时会进入 no-op producer 路径。
 
-对应位置：`NoopParseTaskMessageProducer`、`docs/TODO_NEXT.md`。
+对应位置：`ParseTaskOutboxRelayService`、`RocketMqParseTaskMessageProducer`、`ParseTaskMessageConsumer`、`docs/showcase/DEMO_SMOKE_RECORD.md`。
 
 ## 4. SSE 流式问答
 
@@ -206,7 +206,7 @@
 
 ### Q18-1：这是真 Function Calling 吗？
 
-面试可背版回答：它已经具备默认关闭的 Function Calling / Tool Execution 工程形态：工具定义、prompt builder、LLM 输出 parser、OpenAI-compatible provider client、allowlist 校验和服务端工具执行都已打通。默认仍是 keyword selector，`llm_execute` 需要显式开启；本轮真实 provider execute runtime 因环境变量未注入而 BLOCKED。
+面试可背版回答：它已经具备默认关闭的 Function Calling / Tool Execution 工程形态：工具定义、prompt builder、LLM 输出 parser、OpenAI-compatible provider client、allowlist 校验和服务端工具执行都已打通。默认仍是 keyword selector，`llm_execute` 需要显式开启；不能写成生产默认接管官方 tools/function_call。
 
 面试官追问：为什么不直接让 LLM 决定工具？
 
@@ -224,25 +224,25 @@
 
 对应位置：`docs/PROMPT_ENGINEERING_NOTES.md`、`LlmToolSelectionPromptBuilder`、`LlmToolSelectionParser`。
 
-### Q18-2：RAG 还没做，怎么解释？
+### Q18-2：这是完整 RAG 吗？
 
-面试可背版回答：当前是轻量检索增强：文档内容切分、关键词检索、上下文组装、回答和 citations。它不是完整向量 RAG。下一步最小 RAG 会补 chunk 持久化、embedding、vector store、topK retrieve、prompt assemble 和 score/citation 展示。
+面试可背版回答：不是生产级完整 RAG，但已经是可演示的 RAG 工程闭环。项目已覆盖 chunk 持久化、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、metadata scope filter、prompt evidence 和 citations。
 
-面试官追问：为什么不直接上向量库？
+面试官追问：那它还缺什么？
 
-诚实边界：求职展示要控制复杂度。先把现有 QA / Agent / citations 跑通，再选择 Qdrant 或 Redis Vector 做最小闭环，避免为了“有 RAG”而引入不可验证的中间件。
+诚实边界：缺生产级 rerank、hybrid search、线上治理和固定 SLA；离线 eval 仍使用 mock embedding + in-memory vector store，真实 embedding + Qdrant 是 smoke 证据，不包装成线上生产能力。
 
-对应位置：`DocumentQaServiceImpl`、`docs/RAG_MINIMAL_DESIGN.md`（规划中）。
+对应位置：`RagIndexingServiceImpl`、`RagDocumentRetrievalServiceImpl`、`QdrantVectorStoreClient`、`docs/showcase/DEMO_SMOKE_RECORD.md`。
 
 ## 7. 真实 LLM provider shadow-only
 
 ### Q19：真实 provider 接入到什么程度？
 
-面试可背版回答：项目支持 OpenAI-compatible 风格 provider client，并在用户授权下做过 summary / QA 的 shadow-only 验证。当前也实现了默认关闭的 `llm_execute` 模式，但真实 provider execute runtime 尚未完成。
+面试可背版回答：项目支持 OpenAI-compatible 风格 provider client，并在用户授权下做过真实回答模型 smoke 和 selector shadow-only 验证。当前也实现了默认关闭的 `llm_execute` 模式，但真实 provider 调用必须显式配置、显式授权并遵守日志脱敏边界。
 
 面试官追问：是不是生产默认会调用真实模型？
 
-诚实边界：不是。真实 provider 调用需要显式配置和授权，默认不会调用。本轮检查当前 shell 未注入 provider / 中间件环境变量，因此没有启动服务做 execute runtime。
+诚实边界：不是。真实 provider 调用需要显式配置和授权，默认不会调用；不要把它说成生产默认真实模型链路。
 
 对应位置：`OpenAiCompatibleLlmToolSelectionClient`、`RealLlmToolSelectorFactory`。
 
@@ -298,17 +298,17 @@
 
 对应位置：`AgentSelectorShadowEndpoint`、`AgentSelectorShadowEndpointEnabledTest`。
 
-## 9. 当前 BLOCKED 点如何解释
+## 9. 当前边界如何解释
 
-### Q25：T010 BLOCKED 会影响项目价值吗？
+### Q25：还有哪些不能夸大？
 
-面试可背版回答：影响完整端到端验证口径，但不否定已实现模块。当前已解析文档上的 Agent-only 链路能展示问答、路由解释和 trace；完整上传解析链路需要 MQ 环境恢复后再验。
+面试可背版回答：不能写生产级完整向量 RAG、多 Agent、MCP、生产级权限、Prometheus 已接入、LLM selector 已在生产默认启用或线上 SLA。
 
-面试官追问：你会怎么修？
+面试官追问：那现在最强证据是什么？
 
-诚实边界：先只读确认 producer / consumer / profile 条件，再恢复 RocketMQ enabled 和 NameServer 环境，不会用硬编码 documentId 掩盖问题。
+诚实边界：最强证据是真实 smoke record：单文档 RAG、多文档 KnowledgeBase RAG、MinIO active storage、RocketMQ + Outbox active parse、真实回答模型、真实 embedding + Qdrant 和权限越界失败案例。
 
-对应位置：`NoopParseTaskMessageProducer`、`ParseTaskMessageConsumer`。
+对应位置：`docs/showcase/DEMO_SMOKE_RECORD.md`。
 
 ### Q26：T030 BLOCKED 怎么解释？
 
@@ -322,11 +322,11 @@
 
 ### Q27：你如何避免简历夸大？
 
-面试可背版回答：我把能力分成已实现、半实现、BLOCKED 和设计中。比如 Prometheus、Spring Security、生产 Actuator 暴露都只能写成设计或预留，不能写成已完成。
+面试可背版回答：我把能力分成已 smoke 验证、离线 eval 验证、默认关闭能力和设计中能力。比如 Prometheus、Spring Security、生产 Actuator 暴露都只能写成设计或预留，不能写成已完成。
 
 面试官追问：哪些不能写？
 
-诚实边界：不能写完整向量 RAG、多 Agent、生产级权限、Prometheus 已接入、LLM selector 已在生产启用。
+诚实边界：不能写生产级完整向量 RAG、多 Agent、MCP、生产级权限、Prometheus 已接入、LLM selector 已在生产启用。
 
 对应位置：`docs/RESUME_BULLETS.md`、`docs/PROJECT_INTERVIEW_BRIEF.md`。
 

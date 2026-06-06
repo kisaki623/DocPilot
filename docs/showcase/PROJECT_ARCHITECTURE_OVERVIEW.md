@@ -12,6 +12,7 @@ DocPilot 采用前后端分离架构：
 - 缓存与并发控制：Redis / Redisson，用于缓存、限流、会话上下文、分布式锁。
 - 消息队列：RocketMQ，用于文档解析任务异步投递与消费。
 - 对象存储：MinIO，用于文件上传和分片上传后的对象保存。
+- 向量检索：Qdrant / in-memory vector store，用于 RAG indexing、metadata filter 和 topK retrieval。
 - LLM provider：mock answer service 与 OpenAI-compatible / DeepSeek-compatible 风格 provider 接口并存，真实 provider 依赖运行环境注入。
 
 ```mermaid
@@ -31,6 +32,7 @@ flowchart LR
   Backend --> Redis[(Redis / Redisson)]
   Backend --> MinIO[(MinIO)]
   Backend --> MQ[(RocketMQ)]
+  Backend --> Vector[(Qdrant / In-memory Vector Store)]
   Backend --> LLM[Mock or OpenAI-compatible LLM Provider]
 
   Backend --> Actuator[Actuator health / default endpoints]
@@ -55,17 +57,17 @@ flowchart LR
 
 用户创建文档后，后端创建解析任务，并通过 Outbox + RocketMQ 推进异步解析。消费端通过 `ParseTaskMessageConsumer`、消费记录和 Redisson 锁控制幂等与并发。
 
-当前完整 MQ 解析链路验证仍为 BLOCKED：在 MQ disabled / `NoopParseTaskMessageProducer` 模式下不会发送解析消息，因此完整上传 -> 解析 -> Agent run 的 T010 仍不能标记为通过。
+演示环境已验证 active MQ 解析链路：`parse/create` 返回 `PENDING`，生产者发送 `SEND_OK`，消费者收到消息并推进解析到 `SUCCESS`。复现仍依赖可用 RocketMQ NameServer / Broker / consumer；关闭 MQ 时会进入 no-op producer 路径。
 
 ### 文档问答
 
 `DocumentQaServiceImpl` 负责检索文档内容、组装上下文并调用 mock 或 real answer service。问答结果支持引用片段，前端详情页展示回答、历史记录和 citations。
 
-### 最小 RAG 演进路径
+### RAG indexing 与检索召回
 
-当前问答链路是轻量检索增强，不是完整向量 RAG。T052 已新增 `docs/RAG_MINIMAL_DESIGN.md`，建议下一步按 `parsed text -> chunk -> embedding -> vector store -> retrieve topK -> prompt assemble -> answer -> citations / score display` 演进。
+当前 RAG 链路已覆盖 `parsed text -> chunk -> embedding -> vector store -> retrieve topK -> prompt assemble -> answer -> citations / score display`。已完成单文档 RAG、多文档 KnowledgeBase RAG、真实 embedding + Qdrant smoke 和离线 eval；测试 / eval 仍可使用 fake embedding + in-memory vector store 保证稳定复现。
 
-最小落地顺序建议先做内部 service 和测试替身：chunk 持久化草案、fake embedding、in-memory fake vector store、deterministic retrieve、citation mapping。公开 API、前端召回片段展示和真实向量库接入应放在后续 T054 / T055，并继续明确 RAG 尚未实现的边界。
+边界：这仍是求职展示级 RAG 工程闭环，不是生产级完整向量 RAG；rerank、hybrid search、线上治理和固定 SLA 不在当前能力内。
 
 ### SSE 流式输出
 
@@ -130,13 +132,13 @@ sequenceDiagram
 
 ## 4. 面试讲解建议
 
-推荐先讲主链路：上传 -> 文档创建 -> 解析任务 -> 问答 -> SSE -> Agent run -> 持久化 trace。然后再讲工程化增强：Outbox + MQ、幂等锁、缓存限流、selector shadow mode、debug dump 和默认关闭 Actuator endpoint。
+推荐先讲主链路：上传 -> 文档创建 -> 解析任务 -> RAG indexing -> 检索问答 -> SSE -> Agent run -> 持久化 trace。然后再讲工程化增强：Outbox + MQ、MinIO、Qdrant、幂等锁、缓存限流、selector shadow mode、debug dump 和默认关闭 Actuator endpoint。
 
-如果面向 AI Agent / RAG 实习岗位，建议把讲解顺序调整为：Agent Showcase -> ToolRegistry / ToolSelector -> AgentTask / AgentStep trace -> 轻量检索增强与 citations -> 最小 RAG 设计路径 -> Function Calling 下一阶段规划。
+如果面向 AI Agent / RAG 实习岗位，建议把讲解顺序调整为：Agent Showcase -> ToolRegistry / ToolSelector -> AgentTask / AgentStep trace -> 单文档 / 多文档 RAG 与 citations -> 真实 embedding + Qdrant smoke -> Function Calling 边界。
 
 不要把以下内容讲成已完成：
 
-- 完整上传解析链路当前验证通过。
+- 生产级完整向量 RAG、rerank 或 hybrid search 已上线。
 - Spring Security 已保护 Actuator endpoint。
 - selector metrics 已接 Prometheus。
 - Actuator endpoint 已在生产开启。

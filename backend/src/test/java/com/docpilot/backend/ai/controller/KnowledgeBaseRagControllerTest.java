@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -86,7 +87,8 @@ class KnowledgeBaseRagControllerTest {
                 true,
                 "in_memory",
                 "",
-                "mock-model"
+                "mock-model",
+                Map.of(101L, 0)
         );
     }
 
@@ -100,7 +102,10 @@ class KnowledgeBaseRagControllerTest {
                 retrieval(),
                 true,
                 true,
-                "no_evidence"
+                "no_evidence",
+                "mock",
+                "mock",
+                0
         );
     }
 }

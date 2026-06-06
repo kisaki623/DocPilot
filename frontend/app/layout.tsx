@@ -13,7 +13,9 @@ const navItems = [
   { href: "/dashboard", label: "工作台" },
   { href: "/upload", label: "上传" },
   { href: "/documents", label: "文档库" },
+  { href: "/knowledge-bases", label: "知识库" },
   { href: "/agent", label: "Agent" },
+  { href: "/agent/tools", label: "工具台" },
   { href: "/login", label: "登录" }
 ];
 

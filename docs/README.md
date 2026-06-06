@@ -4,16 +4,17 @@
 
 ## 1. 当前推进优先级
 
-现在项目推进的重点是求职级 RAG 闭环。阅读顺序建议如下：
+现在项目推进的重点是求职级展示收口：把 README、showcase 材料和 ai-dev 事实源统一到最新真实 smoke 状态。阅读顺序建议如下：
 
 1. `docs/ai-dev/STATE.md`：先确认项目当前真实状态和边界。
-2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。现在是 T001 RAG 数据模型和 ChunkingService。
-3. `docs/ai-dev/ROADMAP_RAG.md`：确认 RAG 长期路线和任务拆分。
-4. `docs/ai-dev/DECISIONS.md`：确认关键技术决策，例如 RAG 主链路自研、Qdrant、MySQL/Qdrant 分工。
-5. `docs/ai-dev/CONSTRAINTS.md`：确认协作和安全约束。
-6. `docs/ai-dev/PROGRESS_LOG.md`：只看最近简短进度，不追旧流水账。
+2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。现在是 README / docs 展示口径统一。
+3. `docs/showcase/DEMO_SMOKE_RECORD.md`：确认最近真实链路 smoke 证据。
+4. `docs/ai-dev/ROADMAP_RAG.md`：确认 RAG 长期路线和任务拆分。
+5. `docs/ai-dev/DECISIONS.md`：确认关键技术决策，例如 RAG 主链路自研、Qdrant、MySQL/Qdrant 分工。
+6. `docs/ai-dev/CONSTRAINTS.md`：确认协作和安全约束。
+7. `docs/ai-dev/PROGRESS_LOG.md`：只看最近简短进度，不追旧流水账。
 
-一句话原则：当前任务看 `CURRENT_TASK.md`，RAG 总路线看 `ROADMAP_RAG.md`，项目事实看 `STATE.md`。
+一句话原则：当前任务看 `CURRENT_TASK.md`，项目事实看 `STATE.md`，展示证据看 `DEMO_SMOKE_RECORD.md`，RAG 总路线看 `ROADMAP_RAG.md`。
 
 ## 2. docs/ai-dev：当前开发事实源
 
@@ -37,7 +38,7 @@
 - `docs/rag/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`：Qdrant / vector store adapter 边界设计。
 - `docs/rag/RAG_QDRANT_REVIEW_NOTES.md`：Qdrant adapter、preflight、trace、eval 的安全审查记录。
 
-当前 RAG 规划以 `docs/ai-dev/ROADMAP_RAG.md` 为准。旧 RAG 文档只在实现细节、边界解释或历史追溯时打开。
+当前 RAG 事实以 `docs/ai-dev/STATE.md` 和 `docs/showcase/DEMO_SMOKE_RECORD.md` 为准；长期规划以 `docs/ai-dev/ROADMAP_RAG.md` 为准。旧 RAG 文档只在实现细节、边界解释或历史追溯时打开。
 
 ## 4. Agent 设计参考
 
@@ -61,6 +62,7 @@
 - `docs/showcase/PROJECT_INTERVIEW_BRIEF.md`：项目面试总述，适合面试前快速复习。
 - `docs/showcase/RESUME_BULLETS.md`：简历 bullet 候选写法。
 - `docs/showcase/INTERVIEW_QA.md`：面试问答材料，偏长，按需读取。
+- `docs/showcase/DEMO_SMOKE_RECORD.md`：真实链路 smoke 证据，包含单文档 / 多文档 RAG、MinIO、RocketMQ + Outbox、真实模型和真实 embedding + Qdrant。
 - `docs/interview/`：分章节面试材料，覆盖项目概览、架构、数据库、API、异步解析、缓存、部署、测试等。
 - `docs/showcase/PROJECT_ARCHITECTURE_OVERVIEW.md`：项目架构概览。
 - `docs/showcase/DEMO_SCRIPT.md`：演示脚本参考。

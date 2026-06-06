@@ -13,6 +13,9 @@ public class KnowledgeBaseRagQaResponse {
     private Boolean noEvidence;
     private Boolean fallbackUsed;
     private String fallbackReason;
+    private String answerProvider;
+    private String answerModel;
+    private Integer modelCallCount;
     private KnowledgeBaseRagRetrievalResponse retrieval;
     private List<KnowledgeBaseRagCitationResponse> citations;
 
@@ -25,6 +28,9 @@ public class KnowledgeBaseRagQaResponse {
         response.setNoEvidence(answer.noEvidence());
         response.setFallbackUsed(answer.fallbackUsed());
         response.setFallbackReason(answer.fallbackReason());
+        response.setAnswerProvider(answer.answerProvider());
+        response.setAnswerModel(answer.answerModel());
+        response.setModelCallCount(answer.modelCallCount());
         if (answer.retrieval() != null) {
             response.setRetrieval(KnowledgeBaseRagRetrievalResponse.from(answer.retrieval()));
             response.setCitations(response.getRetrieval().getCitations());
@@ -88,6 +94,30 @@ public class KnowledgeBaseRagQaResponse {
 
     public void setFallbackReason(String fallbackReason) {
         this.fallbackReason = fallbackReason;
+    }
+
+    public String getAnswerProvider() {
+        return answerProvider;
+    }
+
+    public void setAnswerProvider(String answerProvider) {
+        this.answerProvider = answerProvider;
+    }
+
+    public String getAnswerModel() {
+        return answerModel;
+    }
+
+    public void setAnswerModel(String answerModel) {
+        this.answerModel = answerModel;
+    }
+
+    public Integer getModelCallCount() {
+        return modelCallCount;
+    }
+
+    public void setModelCallCount(Integer modelCallCount) {
+        this.modelCallCount = modelCallCount;
     }
 
     public KnowledgeBaseRagRetrievalResponse getRetrieval() {

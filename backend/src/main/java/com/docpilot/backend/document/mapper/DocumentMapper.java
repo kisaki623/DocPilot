@@ -7,6 +7,7 @@ import com.docpilot.backend.document.vo.DocumentListItemResponse;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
 			  FROM tb_document d
 			  LEFT JOIN tb_file_record f ON d.file_record_id = f.id
 			 WHERE d.user_id = #{userId}
+			   AND d.status = 'ACTIVE'
 			 ORDER BY d.create_time DESC
 			 LIMIT #{offset}, #{pageSize}
 			""")
@@ -36,6 +38,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
 			SELECT COUNT(1)
 			  FROM tb_document
 			 WHERE user_id = #{userId}
+			   AND status = 'ACTIVE'
 			""")
 	Long countUserDocuments(@Param("userId") Long userId);
 
@@ -52,6 +55,7 @@ public interface DocumentMapper extends BaseMapper<Document> {
 			  FROM tb_document
 			 WHERE user_id = #{userId}
 			   AND file_record_id = #{fileRecordId}
+			   AND status = 'ACTIVE'
 			 ORDER BY id DESC
 			 LIMIT 1
 			""")
@@ -73,9 +77,21 @@ public interface DocumentMapper extends BaseMapper<Document> {
 			  LEFT JOIN tb_file_record f ON d.file_record_id = f.id
 			 WHERE d.id = #{documentId}
 			   AND d.user_id = #{userId}
+			   AND d.status = 'ACTIVE'
 			 LIMIT 1
 			""")
 	DocumentDetailResponse selectUserDocumentDetail(@Param("documentId") Long documentId,
 											@Param("userId") Long userId);
+
+	@Update("""
+			UPDATE tb_document
+			   SET status = #{status},
+			       update_time = CURRENT_TIMESTAMP
+			 WHERE id = #{documentId}
+			   AND user_id = #{userId}
+			""")
+	int updateStatusByIdAndUserId(@Param("documentId") Long documentId,
+								  @Param("userId") Long userId,
+								  @Param("status") String status);
 }
 

@@ -18,6 +18,7 @@ import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.limiter.RedisTokenBucketRateLimiter;
 import com.docpilot.backend.common.metrics.DocPilotMetrics;
 import com.docpilot.backend.common.util.ValidationUtils;
+import com.docpilot.backend.document.constant.DocumentStatus;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -443,6 +444,9 @@ public class DocumentQaServiceImpl implements DocumentQaService {
     private Document ensureOwnedDocument(Long userId, Long documentId) {
         Document document = documentMapper.selectById(documentId);
         if (document == null) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "document does not exist");
+        }
+        if (DocumentStatus.isRemoved(document.getStatus())) {
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "document does not exist");
         }
         if (!userId.equals(document.getUserId())) {

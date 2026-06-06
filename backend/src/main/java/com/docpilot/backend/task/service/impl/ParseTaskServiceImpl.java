@@ -6,6 +6,7 @@ import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.metrics.DocPilotMetrics;
 import com.docpilot.backend.common.util.ValidationUtils;
+import com.docpilot.backend.document.constant.DocumentStatus;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.docpilot.backend.mq.service.ParseTaskOutboxRelayService;
@@ -268,6 +269,9 @@ public class ParseTaskServiceImpl implements ParseTaskService {
         }
         if (!userId.equals(document.getUserId())) {
             throw new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN, "当前用户无权访问该文档");
+        }
+        if (DocumentStatus.isRemoved(document.getStatus())) {
+            throw new BusinessException(ErrorCode.DOCUMENT_NOT_FOUND, "document does not exist");
         }
         return document;
     }

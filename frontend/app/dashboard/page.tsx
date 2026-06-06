@@ -105,12 +105,18 @@ export default function DashboardPage() {
               管理上传文档、追踪解析状态，并进入问答或 Agent 工作流页面查看引用证据与执行轨迹。
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Link href="/upload" className="dp-btn dp-btn-primary px-6">
               上传新文档
             </Link>
+            <Link href="/knowledge-bases" className="dp-btn dp-btn-secondary px-6">
+              知识库
+            </Link>
             <Link href="/agent" className="dp-btn dp-btn-ghost px-6">
               Agent 工作流
+            </Link>
+            <Link href="/agent/tools" className="dp-btn dp-btn-ghost px-6">
+              工具台
             </Link>
             <button
               type="button"
@@ -223,13 +229,18 @@ export default function DashboardPage() {
             </li>
             <li className="relative pl-8">
               <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">3</div>
-              <p className="font-semibold text-slate-800 text-sm">智能问答</p>
-              <p className="text-xs text-slate-500 mt-1">进入文档详情页，使用普通问答或 SSE 流式问答查看带引用的回答。</p>
+              <p className="font-semibold text-slate-800 text-sm">RAG 问答</p>
+              <p className="text-xs text-slate-500 mt-1">进入文档详情页，使用单文档 RAG 或 SSE 流式问答查看带引用的回答。</p>
             </li>
             <li className="relative pl-8">
               <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">4</div>
+              <p className="font-semibold text-slate-800 text-sm">多文档知识库</p>
+              <p className="text-xs text-slate-500 mt-1">将多份已解析文档加入知识库，验证跨文档检索、问答与 citation 来源。</p>
+            </li>
+            <li className="relative pl-8">
+              <div className="absolute left-0 top-1 w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">5</div>
               <p className="font-semibold text-slate-800 text-sm">Agent 工作流展示</p>
-              <p className="text-xs text-slate-500 mt-1">在 Agent 页面输入任务，观察工具选择、执行步骤、Trace 与最终回答。</p>
+              <p className="text-xs text-slate-500 mt-1">在 Agent 页面或工具台观察工具选择、ToolCall、执行步骤、Trace 与最终回答。</p>
             </li>
           </ol>
         </article>

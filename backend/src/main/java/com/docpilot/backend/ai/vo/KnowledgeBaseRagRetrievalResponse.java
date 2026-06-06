@@ -3,6 +3,7 @@ package com.docpilot.backend.ai.vo;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
 
 import java.util.List;
+import java.util.Map;
 
 public class KnowledgeBaseRagRetrievalResponse {
 
@@ -15,6 +16,7 @@ public class KnowledgeBaseRagRetrievalResponse {
     private String provider;
     private String collection;
     private String embeddingModel;
+    private Map<Long, Integer> documentHitCounts;
     private List<KnowledgeBaseRagRetrievalHitResponse> hits;
     private List<KnowledgeBaseRagCitationResponse> citations;
 
@@ -29,6 +31,7 @@ public class KnowledgeBaseRagRetrievalResponse {
         response.setProvider(result.provider());
         response.setCollection(result.collection());
         response.setEmbeddingModel(result.embeddingModel());
+        response.setDocumentHitCounts(result.documentHitCounts());
         response.setHits(result.hits().stream().map(KnowledgeBaseRagRetrievalHitResponse::from).toList());
         response.setCitations(result.citations().stream().map(KnowledgeBaseRagCitationResponse::from).toList());
         return response;
@@ -104,6 +107,14 @@ public class KnowledgeBaseRagRetrievalResponse {
 
     public void setEmbeddingModel(String embeddingModel) {
         this.embeddingModel = embeddingModel;
+    }
+
+    public Map<Long, Integer> getDocumentHitCounts() {
+        return documentHitCounts;
+    }
+
+    public void setDocumentHitCounts(Map<Long, Integer> documentHitCounts) {
+        this.documentHitCounts = documentHitCounts;
     }
 
     public List<KnowledgeBaseRagRetrievalHitResponse> getHits() {

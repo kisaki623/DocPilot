@@ -1,6 +1,9 @@
 package com.docpilot.backend.ai.rag;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public record KnowledgeBaseRagRetrievalResult(
         Long userId,
@@ -14,7 +17,8 @@ public record KnowledgeBaseRagRetrievalResult(
         boolean noEvidence,
         String provider,
         String collection,
-        String embeddingModel
+        String embeddingModel,
+        Map<Long, Integer> documentHitCounts
 ) {
 
     public KnowledgeBaseRagRetrievalResult {
@@ -38,5 +42,31 @@ public record KnowledgeBaseRagRetrievalResult(
         provider = provider == null ? "" : provider.trim();
         collection = collection == null ? "" : collection.trim();
         embeddingModel = embeddingModel == null ? "" : embeddingModel.trim();
+        documentHitCounts = normalizeDocumentHitCounts(documentIds, hits, documentHitCounts);
+    }
+
+    private static Map<Long, Integer> normalizeDocumentHitCounts(List<Long> documentIds,
+                                                                 List<KnowledgeBaseRagRetrievalHit> hits,
+                                                                 Map<Long, Integer> providedCounts) {
+        Map<Long, Integer> counts = new LinkedHashMap<>();
+        for (Long documentId : documentIds) {
+            if (documentId != null) {
+                counts.put(documentId, 0);
+            }
+        }
+        if (providedCounts != null && !providedCounts.isEmpty()) {
+            providedCounts.forEach((documentId, count) -> {
+                if (documentId != null) {
+                    counts.put(documentId, Math.max(0, count == null ? 0 : count));
+                }
+            });
+            return Collections.unmodifiableMap(new LinkedHashMap<>(counts));
+        }
+        for (KnowledgeBaseRagRetrievalHit hit : hits) {
+            if (hit.documentId() != null) {
+                counts.merge(hit.documentId(), 1, Integer::sum);
+            }
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<>(counts));
     }
 }

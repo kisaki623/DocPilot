@@ -1,19 +1,19 @@
-﻿# AGENTS.md
+﻿﻿# AGENTS.md
 
-本文件是 DocPilot 仓库给后续 Codex / API agent / Claude Code 等协作代理读取的项目规则。每轮开始先读本文件，再读 `docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`，并检查 `git status` 与 `git diff`。本地 subagents 与 MCP 工具能力边界见 `docs/CODEX_TOOLING.md`。
+本文件是 DocPilot 仓库给后续 Codex / API agent / Claude Code 等协作代理读取的项目规则。每轮开始先读本文件和 `docs/README.md`，再按文档地图读取 `docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/showcase/DEMO_SMOKE_RECORD.md`、`docs/ai-dev/ROADMAP_RAG.md`、`docs/ai-dev/DECISIONS.md`、`docs/ai-dev/CONSTRAINTS.md`、`docs/ai-dev/PROGRESS_LOG.md`，并检查 `git status` 与 `git diff`。旧的 `TODO_NEXT.md`、`CODEX_HANDOFF.md`、`CHANGELOG_CODING.md` 已归档到 `docs/archive/`，只在追溯历史时读取，不作为当前任务源。
 
 ## 项目定位
 
 DocPilot 是一个面向文档上传、异步解析、检索增强问答与最小 Agent 演示的 AI 文档平台。当前项目适合展示 Java 后端工程能力、AI 应用工程链路、前后端联调能力和工程化验证意识。
 
-当前口径要克制：项目是轻量检索增强问答，不是完整向量 RAG 平台；Agent 是基于现有文档业务工具的最小闭环，不是成熟多 Agent 编排系统。
+当前口径要克制：项目已有单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、MinIO active storage、RocketMQ + Outbox active parse、真实 embedding + Qdrant smoke 和 Agent `rag_qa_tool` / ToolCall API 记录；但这仍是求职级工程闭环，不是生产级完整向量 RAG 平台。Agent 是基于现有文档业务工具的最小闭环，不是成熟多 Agent 编排系统。
 
 ## 技术栈
 
 - 后端：Java 17、Spring Boot 3.3.x、Maven、MyBatis-Plus、MySQL、Redis、Redisson、RocketMQ、MinIO、Actuator、Micrometer / Prometheus。
 - 前端：Next.js 14 App Router、React 18、TypeScript、Tailwind CSS、ReactMarkdown、remark-gfm、rehype-highlight、rehype-sanitize。
-- 中间件：MySQL、Redis、RocketMQ NameServer / Broker / Dashboard、MinIO、Prometheus。
-- AI 接入：mock answer service 与 OpenAI-compatible / SiliconFlow 风格真实模型接入口径并存，真实模型依赖本地环境变量。
+- 中间件：MySQL、Redis、RocketMQ NameServer / Broker / Dashboard、MinIO、Prometheus；默认开发中间件位于云服务器 Docker，纯本地 demo 才使用 `docker-compose.demo.yml`。
+- AI 接入：mock answer service、OpenAI-compatible / SiliconFlow 风格真实回答模型、mock embedding 与 OpenAI-compatible embedding provider 并存；真实模型、真实 embedding、Qdrant endpoint 均依赖本地环境变量。
 
 ## 目录结构
 
@@ -21,8 +21,8 @@ DocPilot 是一个面向文档上传、异步解析、检索增强问答与最�
 - `frontend/`：Next.js 前端，包含首页、登录、dashboard、上传、文档列表、文档详情、Agent 页面等。
 - `deploy/`：演示环境相关初始化脚本和中间件配置。
 - `.run/`：IDEA Run Configuration，供本地 / 云中间件模式启动参考。
-- `docs/`：协作、交接、TODO、展示证据和阶段文档。不要把这里变成无限流水账。
-- `docker-compose.demo.yml`：本地演示中间件编排。
+- `docs/`：文档地图、当前事实源、RAG / Agent 设计参考、展示证据和历史归档。当前开发入口以 `docs/README.md` 和 `docs/ai-dev/` 为准，不要把这里变成无限流水账。
+- `docker-compose.demo.yml`：纯本地 demo 中间件编排；当前默认开发中间件在云服务器 Docker 中运行。
 - `README.md`：面向 GitHub / HR / 面试官的项目主页。
 
 ## 启动命令
@@ -38,17 +38,18 @@ mvn spring-boot:run "-Dspring-boot.run.profiles=local"
 
 ```powershell
 cd frontend
-npm install
 npm run dev
 ```
 
-本地中间件演示环境：
+当前默认开发环境是前后端本地运行，中间件 MySQL、Redis、RocketMQ、MinIO等部署在云服务器 Docker 中，通过 `backend/.env` 或 `.run/*-HK-Cloud` 接入。
 
-```powershell
-docker compose -f docker-compose.demo.yml up -d
-```
 
-实际运行前请根据 `backend/README.md`、`frontend/README.md` 和 `.env.example` / `.env.demo.example` 检查环境变量。不要提交真实 `.env`、密钥、密码或云服务凭据。
+
+涉及云服务器 Docker 中间件的查看、启动、停止、重启、日志、网络、端口和数据检查，默认由 `hk-ops` 子代理负责。使用 `hk-ops` 前必须先向用户说明目的、命令类别、是否只读、可能影响，并等待明确授权；不得为了方便绕过本地证据直接操作远程服务器。
+
+涉及前端开发或改善的工作请和子agent frontend_showcase 一起完成，他是前端页面方面的专家
+
+实际运行前请根据 `backend/README.md`、`frontend/README.md`、`.run/` 配置和 `.env.example` /检查环境变量。不要提交真实 `.env`、密钥、密码、token、云服务地址或连接串。
 
 ## 构建与测试命令
 
@@ -81,18 +82,18 @@ curl http://localhost:8081/actuator/health
 ## 协作流程规则
 
 1. 默认使用中文回复。
-2. 每轮开始必须先读：`AGENTS.md`、`docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`、`git status`、`git diff`。
-3. 每轮只允许执行一个 TODO 任务；如果任务过大，先拆小再做。
+2. 每轮开始必须先读：`AGENTS.md`、`docs/README.md`、`docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/ai-dev/CONSTRAINTS.md`、`docs/ai-dev/PROGRESS_LOG.md`、`git status`、`git diff`；涉及展示口径时同时读 `docs/showcase/DEMO_SMOKE_RECORD.md`，涉及 RAG / 技术决策时同时读 `docs/ai-dev/ROADMAP_RAG.md` 和 `docs/ai-dev/DECISIONS.md`。
+3. 每轮只允许执行一个用户任务或 `docs/ai-dev/CURRENT_TASK.md` 中的一个任务切片；如果任务过大，先拆小再做。
 4. 动代码前必须先说明本轮计划、涉及文件、验证方式。
 5. 不允许伪造测试结果；没有真实验证结果的任务不能标记为 `DONE`。
 6. 代码已改但验证不完整，只能把任务标记为 `REVIEW`。
 7. 缺环境、账号、密钥、数据库、中间件或用户确认时，任务标记为 `BLOCKED`，并说明阻塞原因。
-8. 每轮结束后必须更新 `docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
+8. 每轮结束后按任务性质更新当前事实源：任务状态写入 `docs/ai-dev/CURRENT_TASK.md`，当前项目事实写入 `docs/ai-dev/STATE.md`，简短进度写入 `docs/ai-dev/PROGRESS_LOG.md`。旧的 `docs/archive/TODO_NEXT.md`、`docs/archive/CODEX_HANDOFF.md`、`docs/archive/CHANGELOG_CODING.md` 只用于历史追溯，不再作为默认回写目标。
 9. 不要自动执行 `git commit` / `git push`，除非用户明确要求。
 10. 不要留下本地服务进程或端口占用；如启动了后端、前端或脚本服务，结束前要清理并说明端口状态。
 11. 如果发现工作区有未提交改动或未跟踪文件，必须先向用户汇报，不要直接执行 `git add` / `git commit` / `git push`。
 12. 每轮开始必须检查 `.env`、`.env.local`、`.env.*`、`application-*.yml`、`*.example` 中是否存在硬编码密钥、密码、token、真实云服务 IP；如有必须先告警，不能把敏感值复制到回复里。
-13. 使用 subagents、context7 MCP、playwright MCP 或远程 hk-ops 前，先遵守 `docs/CODEX_TOOLING.md` 中的用途、授权和禁止事项。
+13. 使用 subagents、context7 MCP、playwright MCP 或远程 `hk-ops` 前，先遵守本文件和 `docs/ai-dev/CONSTRAINTS.md`；旧工具边界可按需参考 `docs/archive/CODEX_TOOLING.md`。远程中间件操作只能通过 `hk-ops` 并在用户明确授权后进行，禁止泄露凭据或执行未经授权的破坏性操作。
 
 ## Commit Message 规则
 
@@ -100,7 +101,7 @@ curl http://localhost:8081/actuator/health
 15. 不生成多行 commit body，除非用户明确要求。
 16. 不添加 `Co-Authored-By` 或任何形式的共同作者签名。
 17. 不出现 Claude、Anthropic、Opus、AI assistant、Codex 等第三方工具或模型名称。
-18. 不把详细功能列表写进 git commit message；详细实现说明写入 `docs/CHANGELOG_CODING.md`、`docs/CODEX_HANDOFF.md` 或 `docs/TODO_NEXT.md`。
+18. 不把详细功能列表写进 git commit message；详细实现说明写入 `docs/ai-dev/PROGRESS_LOG.md`、`docs/ai-dev/STATE.md` 或 `docs/ai-dev/CURRENT_TASK.md`，历史追溯资料才写入 `docs/archive/`。
 19. commit message 要像正常开发者提交，而不是 AI 生成说明。
 20. 推荐格式示例：
     - `feat(agent): add document agent demo with tool orchestration`
@@ -129,6 +130,7 @@ curl http://localhost:8081/actuator/health
 - 不要把 mock / demo 能力写成生产能力。
 - 不要把轻量检索增强写成向量 RAG。
 - 不要把最小 Agent 写成复杂多 Agent 平台。
+- 不要直接操作云服务器 Docker 中间件；涉及远程 MySQL、Redis、RocketMQ、MinIO、Prometheus、Qdrant 或服务器网络时，必须走 `hk-ops` 授权流程。
 - 不要删除用户本地文件、日志、截图或临时产物，除非用户明确要求。
 - 不要提交 `.env`、`.env.local`、日志、截图、Playwright 临时目录、测试产物或 IDE 状态文件。
 

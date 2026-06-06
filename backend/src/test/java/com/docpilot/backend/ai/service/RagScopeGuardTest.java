@@ -3,6 +3,7 @@ package com.docpilot.backend.ai.service;
 import com.docpilot.backend.ai.rag.vector.VectorSearchHit;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
+import com.docpilot.backend.document.constant.DocumentStatus;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import org.junit.jupiter.api.Test;
@@ -48,6 +49,18 @@ class RagScopeGuardTest {
                 () -> guard.requireOwnedDocument(7L, 61L));
 
         assertEquals(ErrorCode.DOCUMENT_FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    void shouldRejectRemovedDocument() {
+        Document removed = document(61L, 7L);
+        removed.setStatus(DocumentStatus.REMOVED);
+        when(documentMapper.selectById(61L)).thenReturn(removed);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> guard.requireOwnedDocument(7L, 61L));
+
+        assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
     }
 
     @Test

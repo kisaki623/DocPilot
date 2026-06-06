@@ -62,6 +62,16 @@ public class MockAiAnswerService implements AiAnswerService {
         }
     }
 
+    @Override
+    public String provider() {
+        return "mock";
+    }
+
+    @Override
+    public String model() {
+        return "mock";
+    }
+
     private List<String> selectRelevantLines(String context, String question) {
         String normalizedQuestion = question.toLowerCase(Locale.ROOT);
         String[] terms = normalizedQuestion.split("[^\\p{L}\\p{N}]+");

@@ -1,5 +1,25 @@
 # Progress Log
 
+## 2026-06-06 KnowledgeBase RAG 质量修复
+
+- 修复“总结资料集”类问题的后端质量瓶颈：chunking 改为合并 Markdown / 文本块后切分，默认窗口调整为 `800/120`，避免大量短泛 chunk。
+- KnowledgeBase retrieval 增加候选池扩大和跨文档多样性选择，摘要意图优先覆盖各成员文档，并输出 `documentHitCounts`。
+- KnowledgeBase QA 输出 `answerProvider`、`answerModel`、`modelCallCount`，summary prompt 增加整体总结、按文档标题总结和缺失证据说明；前端 API 类型已同步。
+- 配置兼容 `RAG_VECTOR_PROVIDER` / `RAG_VECTOR_DIMENSION`；授权后已对 KnowledgeBase `3` 的文档 `83/84/85/86` 执行 rebuild / reindex，写入 collection `docpilot_kb_quality_20260606`。
+- Reindex 验证：chunk / vector 数分别为 `35/35`、`18/18`、`10/10`、`16/16`；“总结资料集”检索 hit 数为 `6`，`documentHitCounts={83:2,84:1,85:1,86:2}`。
+- 已验证：targeted backend tests 36/36 pass，`mvn "-Dtest=*Rag*" test` 164/164 pass，`mvn -DskipTests compile` pass，`frontend npm run lint` pass。
+
+## 2026-06-06 AGENTS 协作入口修正
+
+- 根 `AGENTS.md` 已同步 `docs/README.md` 的新文档地图：当前事实源改为 `docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/ai-dev/PROGRESS_LOG.md` 等文件，旧三件套仅保留在 `docs/archive/` 供历史追溯。
+- 明确默认开发中间件在云服务器 Docker 中运行，远程 MySQL / Redis / RocketMQ / MinIO / Prometheus / Qdrant 操作必须通过 `hk-ops` 子代理并等待用户授权。
+
+## 2026-06-06 README / showcase 收口
+
+- README / docs 展示口径已统一到 A1 / S 系列真实 smoke 之后的状态：单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、MinIO active storage、RocketMQ + Outbox active parse、真实 embedding + Qdrant、ToolCall API 和权限越界失败案例均有记录。
+- 展示口径采用“更突出成果但保留边界”：可以写真实 embedding + Qdrant smoke、MinIO / MQ active smoke，但不写生产级完整向量 RAG、MCP、多 Agent、线上 SLA 或生产默认 Function Calling。
+- 同步更新 `README.md`、`docs/showcase/DEMO_SMOKE_RECORD.md`、`docs/showcase/RESUME_BULLETS.md`、`docs/showcase/PROJECT_INTERVIEW_BRIEF.md`、`docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md` 和 `docs/README.md`。
+
 ## 2026-06-05 T012
 
 - T012 多文档 RAG eval 已完成：新增 KnowledgeBase RAG 离线 fixture、测试侧 eval runner / metrics / result 模型，复用 T011 retrieval / QA service。

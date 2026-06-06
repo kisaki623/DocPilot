@@ -97,13 +97,13 @@ class RagVectorStorePropertiesTest {
     void applicationYamlShouldPreferRecommendedQdrantEnvNamesWithLegacyFallback() throws IOException {
         String yaml = Files.readString(Path.of("src/main/resources/application.yml"), StandardCharsets.UTF_8);
 
-        assertThat(yaml).contains("provider: ${RAG_VECTOR_STORE_PROVIDER:${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}}");
+        assertThat(yaml).contains("provider: ${RAG_VECTOR_STORE_PROVIDER:${RAG_VECTOR_PROVIDER:${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}}}");
         assertThat(yaml).contains("collection: ${RAG_QDRANT_COLLECTION:${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION:docpilot_rag_demo}}");
         assertThat(yaml).contains("endpoint: ${RAG_QDRANT_ENDPOINT:${APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT:}}");
         assertThat(yaml).contains("host: ${RAG_QDRANT_HOST:${APP_RAG_VECTOR_STORE_QDRANT_HOST:}}");
         assertThat(yaml).contains("port: ${RAG_QDRANT_PORT:${APP_RAG_VECTOR_STORE_QDRANT_PORT:6333}}");
         assertThat(yaml).contains("api-key: ${RAG_QDRANT_API_KEY:${APP_RAG_VECTOR_STORE_QDRANT_API_KEY:}}");
-        assertThat(yaml).contains("dimension: ${RAG_QDRANT_DIMENSION:${APP_RAG_VECTOR_STORE_QDRANT_DIMENSION:1536}}");
+        assertThat(yaml).contains("dimension: ${RAG_QDRANT_DIMENSION:${RAG_VECTOR_DIMENSION:${APP_RAG_VECTOR_STORE_QDRANT_DIMENSION:1536}}}");
         assertThat(yaml).contains("distance: ${RAG_QDRANT_DISTANCE:${APP_RAG_VECTOR_STORE_QDRANT_DISTANCE:Cosine}}");
         assertThat(yaml).contains("collection-init-enabled: ${RAG_QDRANT_COLLECTION_INIT_ENABLED:${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION_INIT_ENABLED:false}}");
         assertThat(yaml).contains("connect-timeout-ms: ${RAG_QDRANT_CONNECT_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_CONNECT_TIMEOUT_MS:5000}}");

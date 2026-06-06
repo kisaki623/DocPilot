@@ -7,5 +7,13 @@ public interface AiAnswerService {
     String answer(String documentContext, String question);
 
     void streamAnswer(String documentContext, String question, Consumer<String> chunkConsumer);
+
+    default String provider() {
+        return "unknown";
+    }
+
+    default String model() {
+        return "";
+    }
 }
 

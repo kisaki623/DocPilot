@@ -5,6 +5,7 @@ import com.docpilot.backend.ai.rag.EmbeddingRequest;
 import com.docpilot.backend.ai.rag.EmbeddingResult;
 import com.docpilot.backend.ai.rag.EmbeddingVector;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalQuery;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalHit;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagQaProperties;
@@ -72,11 +73,55 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         verify(vectorStoreClient).search(searchCaptor.capture());
         assertThat(searchCaptor.getValue().userId()).isEqualTo(7L);
         assertThat(searchCaptor.getValue().documentIds()).containsExactly(101L, 102L);
-        assertThat(searchCaptor.getValue().topK()).isEqualTo(10);
+        assertThat(searchCaptor.getValue().topK()).isEqualTo(40);
         assertThat(searchCaptor.getValue().indexVersion()).isEqualTo(1);
+        assertThat(result.topK()).isEqualTo(10);
         assertThat(result.hits()).hasSize(2);
         assertThat(result.citations()).extracting("documentTitle").containsExactly("Redis Guide", "Qdrant Guide");
+        assertThat(result.documentHitCounts()).containsEntry(101L, 1).containsEntry(102L, 1);
         assertThat(result.noEvidence()).isFalse();
+    }
+
+    @Test
+    void shouldPreferPerDocumentCoverageForSummaryQuestions() {
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
+                doc(101L, "Harness"),
+                doc(102L, "MCP"),
+                doc(103L, "Skill"),
+                doc(104L, "RAG")
+        ));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("rag-1", 7L, 104L, 1, "RAG top one", 0.99D),
+                hit("rag-2", 7L, 104L, 1, "RAG top two", 0.98D),
+                hit("rag-3", 7L, 104L, 1, "RAG top three", 0.97D),
+                hit("rag-4", 7L, 104L, 1, "RAG top four", 0.96D),
+                hit("harness-1", 7L, 101L, 1, "Harness content", 0.80D),
+                hit("mcp-1", 7L, 102L, 1, "MCP content", 0.79D),
+                hit("skill-1", 7L, 103L, 1, "Skill content", 0.78D),
+                hit("harness-2", 7L, 101L, 1, "Harness second", 0.77D)
+        ), "in_memory", ""));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "请你阅读资料集，帮我总结一下资料及里面文档的内容",
+                6,
+                1,
+                ""
+        ));
+
+        ArgumentCaptor<VectorSearchRequest> searchCaptor = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        verify(vectorStoreClient).search(searchCaptor.capture());
+        assertThat(searchCaptor.getValue().topK()).isEqualTo(24);
+        assertThat(result.hits()).hasSize(6);
+        assertThat(result.documentHitCounts())
+                .containsEntry(101L, 2)
+                .containsEntry(102L, 1)
+                .containsEntry(103L, 1)
+                .containsEntry(104L, 2);
+        assertThat(result.hits()).extracting(KnowledgeBaseRagRetrievalHit::documentId)
+                .contains(101L, 102L, 103L, 104L);
     }
 
     @Test

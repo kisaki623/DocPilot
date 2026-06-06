@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MarkdownViewer from "@/components/markdown-viewer";
 import { getToken } from "@/lib/auth";
-import { getDocumentDetail, type DocumentDetailData } from "@/lib/document-api";
+import { deleteDocument, getDocumentDetail, type DocumentDetailData } from "@/lib/document-api";
 import {
   askDocumentQuestion,
   askDocumentQuestionStream,
@@ -14,10 +14,20 @@ import {
   type DocumentQaHistoryItem,
   type DocumentQaStreamPayload
 } from "@/lib/qa-api";
+import {
+  askDocumentRagQuestion,
+  askDocumentRagQuestionStream,
+  retrieveDocumentRag,
+  type RagCitationItem,
+  type RagRetrievalData,
+  type RagStreamPayload
+} from "@/lib/rag-api";
 import { reparseTask } from "@/lib/task-api";
 
 const DETAIL_STATUS_POLLING_TIMEOUT_MS = 120_000;
 const TERMINAL_PARSE_STATUS = new Set(["SUCCESS", "FAILED"]);
+
+type QaMode = "legacy" | "rag";
 
 function formatDateTime(input: string): string {
   if (!input) {
@@ -81,8 +91,26 @@ function parseProgressLabel(status: string | undefined): string {
   return "解析中";
 }
 
+function formatScore(score: number | undefined): string {
+  if (typeof score !== "number" || Number.isNaN(score)) {
+    return "-";
+  }
+  return score.toFixed(4);
+}
+
+function normalizeRagError(message: string): string {
+  if (message.includes("无权") || message.includes("不存在")) {
+    return "文档不存在或当前账号无权访问，请重新选择自己的文档。";
+  }
+  if (message.toLowerCase().includes("no evidence")) {
+    return "没有检索到足够证据，请换一个更贴近文档内容的问题。";
+  }
+  return message;
+}
+
 export default function DocumentDetailPage() {
   const params = useParams<{ documentId: string | string[] }>();
+  const router = useRouter();
   const documentIdParam = useMemo(() => normalizeDocumentId(params?.documentId), [params]);
 
   const [detail, setDetail] = useState<DocumentDetailData | null>(null);
@@ -91,8 +119,14 @@ export default function DocumentDetailPage() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
 
   const [question, setQuestion] = useState("");
+  const [qaMode, setQaMode] = useState<QaMode>("rag");
   const [answer, setAnswer] = useState("");
   const [citations, setCitations] = useState<DocumentQaCitationItem[]>([]);
+  const [ragCitations, setRagCitations] = useState<RagCitationItem[]>([]);
+  const [ragRetrieval, setRagRetrieval] = useState<RagRetrievalData | null>(null);
+  const [ragRetrieving, setRagRetrieving] = useState(false);
+  const [ragNoEvidence, setRagNoEvidence] = useState(false);
+  const [ragFallbackReason, setRagFallbackReason] = useState("");
   const [asking, setAsking] = useState(false);
   const [useStreamingQa, setUseStreamingQa] = useState(true);
   const [streamingQa, setStreamingQa] = useState(false);
@@ -106,6 +140,9 @@ export default function DocumentDetailPage() {
 
   const [reparsing, setReparsing] = useState(false);
   const [reparseMessage, setReparseMessage] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState("");
 
   const [statusPolling, setStatusPolling] = useState(false);
   const [statusPollingStartedAt, setStatusPollingStartedAt] = useState<number | null>(null);
@@ -282,6 +319,74 @@ export default function DocumentDetailPage() {
     return nextSessionId;
   }
 
+  function applyRagStreamPayload(payload?: RagStreamPayload): string | null {
+    if (!payload) {
+      return null;
+    }
+    let nextSessionId: string | null = null;
+    if (payload.sessionId && payload.sessionId.trim()) {
+      nextSessionId = payload.sessionId.trim();
+      setSessionId(nextSessionId);
+      const documentId = Number(documentIdParam);
+      if (!Number.isNaN(documentId) && documentId > 0) {
+        window.localStorage.setItem(buildSessionStorageKey(documentId), nextSessionId);
+      }
+    }
+    if (payload.retrieval) {
+      setRagRetrieval(payload.retrieval);
+    }
+    if (Array.isArray(payload.citations)) {
+      setRagCitations(payload.citations);
+    }
+    setRagNoEvidence(Boolean(payload.noEvidence));
+    setRagFallbackReason(payload.fallbackReason || "");
+    return nextSessionId;
+  }
+
+  async function handleRetrieveRag() {
+    const token = getToken();
+    if (!token) {
+      setHasToken(false);
+      setQaErrorMessage("未检测到登录状态，请先登录后检索");
+      return;
+    }
+
+    const normalizedQuestion = question.trim();
+    if (!normalizedQuestion) {
+      setQaErrorMessage("请输入检索问题后再试");
+      return;
+    }
+
+    const documentId = Number(documentIdParam);
+    if (!documentIdParam || Number.isNaN(documentId) || documentId <= 0) {
+      setQaErrorMessage("文档 ID 无效，无法检索");
+      return;
+    }
+
+    setQaErrorMessage("");
+    setRagRetrieving(true);
+    setRagRetrieval(null);
+    setRagCitations([]);
+    setRagNoEvidence(false);
+    setRagFallbackReason("");
+
+    try {
+      const response = await retrieveDocumentRag({
+        documentId,
+        query: normalizedQuestion,
+        topK: 5
+      });
+      setRagRetrieval(response.data || null);
+      setRagCitations(response.data?.citations || []);
+      setRagNoEvidence(Boolean(response.data?.noEvidence));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "RAG 检索失败";
+      setQaErrorMessage(normalizeRagError(message));
+    } finally {
+      setRagRetrieving(false);
+    }
+  }
+
   async function handleAskQuestion() {
     const token = getToken();
     if (!token) {
@@ -314,6 +419,10 @@ export default function DocumentDetailPage() {
     setStreamingQa(useStreamingQa);
     setAnswer("");
     setCitations([]);
+    setRagCitations([]);
+    setRagRetrieval(null);
+    setRagNoEvidence(false);
+    setRagFallbackReason("");
     setFirstTokenLatencyMs(null);
     const streamStartedAtMs = useStreamingQa ? Date.now() : 0;
     let firstChunkReceived = false;
@@ -331,8 +440,67 @@ export default function DocumentDetailPage() {
       setSessionHint("当前会话已续用，后续提问会自动携带历史上下文。");
     };
 
+    const askByRagApi = async () => {
+      const response = await askDocumentRagQuestion(documentId, {
+        question: normalizedQuestion,
+        sessionId: normalizedSessionId,
+        topK: 5
+      });
+      setAnswer(response.data?.answer || "");
+      setRagRetrieval(response.data?.retrieval || null);
+      setRagCitations(response.data?.citations || []);
+      setRagNoEvidence(Boolean(response.data?.noEvidence));
+      setRagFallbackReason(response.data?.fallbackReason || "");
+      nextSessionId = (response.data?.sessionId || "").trim() || normalizedSessionId;
+      setSessionHint("当前 RAG 会话已续用，后续提问会自动携带上下文。");
+    };
+
     try {
-      if (useStreamingQa) {
+      if (qaMode === "rag" && useStreamingQa) {
+        const controller = new AbortController();
+        streamAbortRef.current = controller;
+        await askDocumentRagQuestionStream(
+          documentId,
+          {
+            question: normalizedQuestion,
+            sessionId: normalizedSessionId,
+            topK: 5
+          },
+          {
+            onMeta: (payload) => {
+              const payloadSessionId = applyRagStreamPayload(payload);
+              if (payloadSessionId) {
+                nextSessionId = payloadSessionId;
+              }
+            },
+            onChunk: (chunk) => {
+              if (!chunk) {
+                return;
+              }
+              streamedChunkCount += 1;
+              if (!firstChunkReceived && streamStartedAtMs > 0) {
+                firstChunkReceived = true;
+                setFirstTokenLatencyMs(Math.max(0, Date.now() - streamStartedAtMs));
+              }
+              setAnswer((prev) => prev + chunk);
+            },
+            onDone: (payload) => {
+              const payloadSessionId = applyRagStreamPayload(payload);
+              if (payloadSessionId) {
+                nextSessionId = payloadSessionId;
+              }
+              setStreamingQa(false);
+              setSessionHint("当前 RAG 会话已续用，后续提问会自动携带上下文。");
+            },
+            onError: (message) => {
+              setQaErrorMessage(normalizeRagError(message || "RAG 流式问答失败"));
+              setStreamingQa(false);
+            }
+          },
+          controller.signal
+        );
+        setStreamingQa(false);
+      } else if (qaMode === "legacy" && useStreamingQa) {
         const controller = new AbortController();
         streamAbortRef.current = controller;
         await askDocumentQuestionStream(
@@ -375,6 +543,8 @@ export default function DocumentDetailPage() {
           controller.signal
         );
         setStreamingQa(false);
+      } else if (qaMode === "rag") {
+        await askByRagApi();
       } else {
         await askByNormalApi();
       }
@@ -392,12 +562,16 @@ export default function DocumentDetailPage() {
       if (useStreamingQa) {
         setStreamingQa(false);
         try {
-          await askByNormalApi();
+          if (qaMode === "rag") {
+            await askByRagApi();
+          } else {
+            await askByNormalApi();
+          }
           setSessionId(nextSessionId);
           window.localStorage.setItem(buildSessionStorageKey(documentId), nextSessionId);
           await fetchQaHistory(documentId);
           setQaErrorMessage("");
-          setSessionHint(`实时输出中断（${streamErrorMessage}），已自动切换为普通问答。`);
+          setSessionHint(`实时输出中断（${streamErrorMessage}），已自动切换为非流式问答。`);
           return;
         } catch (fallbackError) {
           const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "普通问答也失败";
@@ -440,6 +614,10 @@ export default function DocumentDetailPage() {
       setReparseMessage(`已触发重新解析，当前状态：${statusLabel}。`);
       setAnswer("");
       setCitations([]);
+      setRagCitations([]);
+      setRagRetrieval(null);
+      setRagNoEvidence(false);
+      setRagFallbackReason("");
       setQaErrorMessage("");
       setStatusPollingStartedAt(Date.now());
       await fetchDetail();
@@ -448,6 +626,33 @@ export default function DocumentDetailPage() {
       setReparseMessage(message);
     } finally {
       setReparsing(false);
+    }
+  }
+
+  async function handleDeleteDocument() {
+    const token = getToken();
+    if (!token) {
+      setHasToken(false);
+      setDeleteMessage("未检测到登录状态，请先登录后删除。");
+      return;
+    }
+
+    const documentId = Number(documentIdParam);
+    if (!documentIdParam || Number.isNaN(documentId) || documentId <= 0) {
+      setDeleteMessage("文档 ID 无效，无法删除。");
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteMessage("");
+    try {
+      await deleteDocument(documentId);
+      router.push("/documents");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "删除文档失败";
+      setDeleteMessage(message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -471,6 +676,41 @@ export default function DocumentDetailPage() {
         </div>
 
         <div className="flex gap-3">
+          {detail ? (
+            confirmingDelete ? (
+              <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2">
+                <span className="text-sm font-semibold text-red-700">确认删除？</span>
+                <button
+                  type="button"
+                  onClick={handleDeleteDocument}
+                  disabled={deleting}
+                  className="text-sm font-semibold text-red-700 hover:text-red-800 disabled:opacity-50"
+                >
+                  {deleting ? "删除中..." : "确认"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="text-sm font-medium text-slate-500 hover:text-slate-700"
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingDelete(true);
+                  setDeleteMessage("");
+                }}
+                disabled={loading || deleting}
+                className="dp-btn dp-btn-secondary text-red-600 hover:text-red-700"
+              >
+                删除文档
+              </button>
+            )
+          ) : null}
           {detail && TERMINAL_PARSE_STATUS.has(detail.parseStatus || "") ? (
             <button
               type="button"
@@ -515,6 +755,7 @@ export default function DocumentDetailPage() {
       {!loading && !errorMessage && detail ? (
         <>
           {reparseMessage ? <section className="bg-blue-50 text-blue-700 p-4 rounded-xl mb-8">{reparseMessage}</section> : null}
+          {deleteMessage ? <section className="bg-red-50 text-red-600 p-4 rounded-xl mb-8">{deleteMessage}</section> : null}
 
           <section className="grid gap-6 lg:grid-cols-[1fr_350px]">
             <div className="space-y-6">
@@ -523,7 +764,29 @@ export default function DocumentDetailPage() {
                   <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                     <span className="w-2 h-6 bg-blue-600 rounded-sm"></span> 文档问答与引用证据
                   </h2>
-                  <div className="flex items-center gap-4 text-sm text-slate-600">
+                  <div className="flex flex-wrap items-center justify-end gap-3 text-sm text-slate-600">
+                    <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+                      <button
+                        type="button"
+                        onClick={() => setQaMode("rag")}
+                        disabled={asking}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          qaMode === "rag" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        RAG 问答
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQaMode("legacy")}
+                        disabled={asking}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          qaMode === "legacy" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        普通问答
+                      </button>
+                    </div>
                     <label className="flex items-center gap-2 cursor-pointer hover:text-slate-900 transition-colors">
                       <input
                         type="checkbox"
@@ -567,6 +830,16 @@ export default function DocumentDetailPage() {
                       >
                         {asking ? "AI 思考中..." : "发送问题"}
                       </button>
+                      {qaMode === "rag" ? (
+                        <button
+                          type="button"
+                          onClick={handleRetrieveRag}
+                          disabled={asking || ragRetrieving || detail.parseStatus !== "SUCCESS"}
+                          className="dp-btn dp-btn-secondary px-5"
+                        >
+                          {ragRetrieving ? "检索中..." : "检索预览"}
+                        </button>
+                      ) : null}
                       {streamingQa ? (
                         <button
                           type="button"
@@ -582,6 +855,10 @@ export default function DocumentDetailPage() {
                           setQuestion("");
                           setAnswer("");
                           setCitations([]);
+                          setRagCitations([]);
+                          setRagRetrieval(null);
+                          setRagNoEvidence(false);
+                          setRagFallbackReason("");
                           setQaErrorMessage("");
                         }}
                         disabled={asking}
@@ -600,6 +877,10 @@ export default function DocumentDetailPage() {
                             setSessionHint("已开启全新对话。");
                             setAnswer("");
                             setCitations([]);
+                            setRagCitations([]);
+                            setRagRetrieval(null);
+                            setRagNoEvidence(false);
+                            setRagFallbackReason("");
                           }
                         }}
                         className="dp-btn dp-btn-ghost px-4 text-slate-500 hover:text-slate-800"
@@ -610,6 +891,11 @@ export default function DocumentDetailPage() {
                     </div>
 
                     {qaErrorMessage ? <p className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{qaErrorMessage}</p> : null}
+                    {qaMode === "rag" && ragNoEvidence ? (
+                      <p className="bg-amber-50 text-amber-800 p-3 rounded-lg text-sm">
+                        没有检索到足够证据{ragFallbackReason ? `：${ragFallbackReason}` : "。"}
+                      </p>
+                    ) : null}
 
                     {(answer || asking) && (
                       <div className="mt-6 pt-6 border-t border-slate-100">
@@ -662,7 +948,59 @@ export default function DocumentDetailPage() {
 
               <article className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
                 <h2 className="text-base font-bold text-slate-900 mb-3 block">证据引用</h2>
-                {citations.length === 0 ? (
+                {qaMode === "rag" ? (
+                  <div className="space-y-4">
+                    {ragRetrieval ? (
+                      <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs text-slate-600">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-blue-700">检索命中</span>
+                          <span>{ragRetrieval.hits?.length || 0} 条</span>
+                        </div>
+                        <p className="mt-1">TopK: {ragRetrieval.topK ?? "-"} / Index: {ragRetrieval.indexVersion ?? "-"}</p>
+                      </div>
+                    ) : null}
+
+                    {ragCitations.length === 0 && !ragRetrieval?.hits?.length ? (
+                      <p className="text-sm text-slate-400 italic">暂无 RAG 引用或召回片段。</p>
+                    ) : null}
+
+                    {ragCitations.length > 0 ? (
+                      <ul className="space-y-3">
+                        {ragCitations.map((citation, index) => (
+                          <li key={`${citation.chunkId}-${citation.chunkIndex}-${index}`} className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">引用 {citation.index ?? index + 1}</span>
+                              <span className="text-xs text-slate-400">score: {formatScore(citation.score)}</span>
+                            </div>
+                            <p className="text-xs text-slate-500 mb-1">
+                              chunk #{citation.chunkIndex ?? "-"} · version {citation.indexVersion ?? "-"}
+                            </p>
+                            <p className="text-slate-700 line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="点击查看全部内容">
+                              {citation.snippet || "-"}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+
+                    {ragRetrieval?.hits && ragRetrieval.hits.length > 0 ? (
+                      <details className="rounded-xl border border-slate-100 bg-white p-3">
+                        <summary className="cursor-pointer text-sm font-semibold text-slate-700">查看召回片段</summary>
+                        <ol className="mt-3 space-y-3">
+                          {ragRetrieval.hits.map((hit, index) => (
+                            <li key={`${hit.vectorId || hit.chunkId}-${index}`} className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-3 text-xs text-slate-700">
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <span className="font-semibold text-emerald-700">片段 {index + 1}</span>
+                                <span>score: {formatScore(hit.score)}</span>
+                              </div>
+                              <p className="line-clamp-5 hover:line-clamp-none">{hit.content || "-"}</p>
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : citations.length === 0 ? (
                   <p className="text-sm text-slate-400 italic">暂无相关引用片段。</p>
                 ) : (
                   <ul className="space-y-3">

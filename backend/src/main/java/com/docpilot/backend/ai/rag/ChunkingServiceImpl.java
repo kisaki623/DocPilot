@@ -8,13 +8,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 public class ChunkingServiceImpl implements ChunkingService {
-
-    private static final Pattern PARAGRAPH_SEPARATOR = Pattern.compile("\\n[ \\t]*\\n(?:[ \\t]*\\n)*");
 
     @Override
     public List<DocumentChunkCandidate> chunk(Long documentId, Long userId, String text) {
@@ -36,10 +32,11 @@ public class ChunkingServiceImpl implements ChunkingService {
             return List.of();
         }
 
-        List<TextSpan> paragraphs = findParagraphs(normalizedText);
+        List<TextSpan> blocks = findTextBlocks(normalizedText);
+        List<TextSpan> chunkSpans = packBlocks(normalizedText, blocks, resolvedOptions);
         List<DocumentChunkCandidate> chunks = new ArrayList<>();
-        for (TextSpan paragraph : paragraphs) {
-            appendChunks(documentId, userId, normalizedText, paragraph, resolvedOptions, chunks);
+        for (TextSpan chunkSpan : chunkSpans) {
+            appendChunks(documentId, userId, normalizedText, chunkSpan, resolvedOptions, chunks);
         }
         return List.copyOf(chunks);
     }
@@ -75,23 +72,78 @@ public class ChunkingServiceImpl implements ChunkingService {
         }
     }
 
-    private List<TextSpan> findParagraphs(String text) {
-        List<TextSpan> paragraphs = new ArrayList<>();
-        Matcher matcher = PARAGRAPH_SEPARATOR.matcher(text);
-        int start = 0;
-        while (matcher.find()) {
-            addTrimmedParagraph(text, start, matcher.start(), paragraphs);
-            start = matcher.end();
+    private List<TextSpan> findTextBlocks(String text) {
+        List<TextSpan> blocks = new ArrayList<>();
+        int blockStart = -1;
+        int lineStart = 0;
+        boolean inFence = false;
+        while (lineStart <= text.length()) {
+            int lineEnd = text.indexOf('\n', lineStart);
+            if (lineEnd < 0) {
+                lineEnd = text.length();
+            }
+            String line = text.substring(lineStart, lineEnd);
+            boolean fenceLine = isFenceLine(line);
+            if (fenceLine) {
+                if (blockStart < 0) {
+                    blockStart = lineStart;
+                }
+                inFence = !inFence;
+            }
+            if (blockStart < 0 && !line.isBlank()) {
+                blockStart = lineStart;
+            }
+            if (!inFence && line.isBlank()) {
+                addTrimmedBlock(text, blockStart, lineStart, blocks);
+                blockStart = -1;
+            }
+            if (lineEnd == text.length()) {
+                break;
+            }
+            lineStart = lineEnd + 1;
         }
-        addTrimmedParagraph(text, start, text.length(), paragraphs);
-        return paragraphs;
+        addTrimmedBlock(text, blockStart, text.length(), blocks);
+        return blocks;
     }
 
-    private void addTrimmedParagraph(String text, int start, int end, List<TextSpan> paragraphs) {
+    private void addTrimmedBlock(String text, int start, int end, List<TextSpan> blocks) {
+        if (start < 0) {
+            return;
+        }
         TextSpan span = trimSpan(text, start, end);
         if (!span.isEmpty()) {
-            paragraphs.add(span);
+            blocks.add(span);
         }
+    }
+
+    private boolean isFenceLine(String line) {
+        String trimmed = line.trim();
+        return trimmed.startsWith("```") || trimmed.startsWith("~~~");
+    }
+
+    private List<TextSpan> packBlocks(String text, List<TextSpan> blocks, ChunkingOptions options) {
+        if (blocks.isEmpty()) {
+            return List.of();
+        }
+        List<TextSpan> packed = new ArrayList<>();
+        TextSpan current = null;
+        for (TextSpan block : blocks) {
+            if (current == null) {
+                current = block;
+                continue;
+            }
+            TextSpan merged = trimSpan(text, current.startOffset(), block.endOffset());
+            if (merged.length() <= options.chunkSize()) {
+                current = merged;
+                continue;
+            }
+            packed.add(current);
+            current = block;
+        }
+        if (current != null) {
+            packed.add(current);
+        }
+        return List.copyOf(packed);
     }
 
     private TextSpan trimSpan(String text, int start, int end) {
@@ -127,6 +179,10 @@ public class ChunkingServiceImpl implements ChunkingService {
 
         private boolean isEmpty() {
             return endOffset <= startOffset;
+        }
+
+        private int length() {
+            return Math.max(0, endOffset - startOffset);
         }
     }
 }
