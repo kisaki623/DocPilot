@@ -7,6 +7,7 @@
 - KnowledgeBase QA 输出 `answerProvider`、`answerModel`、`modelCallCount`，summary prompt 增加整体总结、按文档标题总结和缺失证据说明；前端 API 类型已同步。
 - 配置兼容 `RAG_VECTOR_PROVIDER` / `RAG_VECTOR_DIMENSION`；授权后已对 KnowledgeBase `3` 的文档 `83/84/85/86` 执行 rebuild / reindex，写入 collection `docpilot_kb_quality_20260606`。
 - Reindex 验证：chunk / vector 数分别为 `35/35`、`18/18`、`10/10`、`16/16`；“总结资料集”检索 hit 数为 `6`，`documentHitCounts={83:2,84:1,85:1,86:2}`。
+- 后续已将本地运行 `.env` 切到稳定 collection `docpilot_rag_v2` 并再次 rebuild / reindex；Spring local profile 实际读取到 `qdrant` / `docpilot_rag_v2` / `1024`，四文档 chunk / vector 和检索分布保持一致。临时 collection `docpilot_kb_quality_20260606` 不再作为运行目标。
 - 已验证：targeted backend tests 36/36 pass，`mvn "-Dtest=*Rag*" test` 164/164 pass，`mvn -DskipTests compile` pass，`frontend npm run lint` pass。
 
 ## 2026-06-06 AGENTS 协作入口修正

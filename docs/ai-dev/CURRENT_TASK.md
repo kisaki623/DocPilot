@@ -15,7 +15,7 @@
 - KnowledgeBase summary prompt 增加“整体总结 + 按文档标题总结 + 缺失文档证据需说明”的提示。
 - RAG vector store 配置兼容 `RAG_VECTOR_PROVIDER` / `RAG_VECTOR_DIMENSION` 别名；未把误用的 `RAG_VECTOR_COLLECTION=http://...` 当 endpoint。
 - 前端 KnowledgeBase API 类型已同步新增 response 字段。
-- 已按用户授权对目标 KnowledgeBase 文档 `83/84/85/86` 执行 rebuild / reindex：写入 Qdrant collection `docpilot_kb_quality_20260606`，KnowledgeBase id 为 `3`，userId 为 `21`。
+- 已按用户授权对目标 KnowledgeBase 文档 `83/84/85/86` 执行 rebuild / reindex：先写入临时验证 collection `docpilot_kb_quality_20260606`，随后将本地 `backend/.env` 切到稳定 collection `docpilot_rag_v2` 并完成重建；KnowledgeBase id 为 `3`，userId 为 `21`。
 
 ## 已验证
 
@@ -42,13 +42,13 @@ mvn "-Dtest=ManualKnowledgeBaseRagReindexTest" "-Dspring.profiles.active=local" 
 - backend `*Rag*` tests：164 tests，0 failures，0 errors。
 - backend compile：PASS。
 - frontend lint：PASS。
-- runtime reindex：document `83/84/85/86` rebuild 成功，chunk / vector 数分别为 `35/35`、`18/18`、`10/10`、`16/16`；“总结资料集”检索 hit 数为 `6`，`documentHitCounts={83:2,84:1,85:1,86:2}`。
+- runtime reindex：document `83/84/85/86` rebuild 成功，稳定 collection 为 `docpilot_rag_v2`，chunk / vector 数分别为 `35/35`、`18/18`、`10/10`、`16/16`；“总结资料集”检索 hit 数为 `6`，`documentHitCounts={83:2,84:1,85:1,86:2}`。
 
 ## 当前边界
 
 - 本轮没有操作远程 / 云端 MySQL、Qdrant 或服务进程。
 - 已通过 Spring service 正式执行 rebuild / reindex，没有直接手写 SQL 或直接改 Qdrant payload。
-- 当前 `.env` 仍需要使用 `RAG_QDRANT_ENDPOINT` / `RAG_QDRANT_COLLECTION=docpilot_kb_quality_20260606` 这类新字段或等价进程环境，才能让后端运行时读取到本次重建后的 collection；本轮没有提交真实 `.env`。
+- 当前本地 `backend/.env` 已配置为 `RAG_VECTOR_STORE_PROVIDER=qdrant`、`RAG_QDRANT_COLLECTION=docpilot_rag_v2`、`RAG_QDRANT_DIMENSION=1024`，并继续使用本机 `.env` 中的真实 endpoint / key；真实 `.env` 不提交。
 - 如果当前环境仍使用 mock / fake embedding，语义召回质量仍会受限；本轮代码只让 provider/model/call count 更可观测。
 
 ## 下一步候选
