@@ -384,13 +384,14 @@ function Test-ChunkQuality([array]$chunks, [long]$documentId) {
   if (($shortChunks.Count / [double]$chunks.Count) -gt 0.25) {
     Stop-WithStatus "FAILED_CORE_FLOW" "chunkQuality" "document ${documentId} has too many short chunks"
   }
+  $lengths = @($chunks | ForEach-Object { [int]$_.contentLength })
   return [ordered]@{
     documentId = $documentId
     chunkCount = $chunks.Count
     indexedCount = @($chunks | Where-Object { $_.indexStatus -eq "INDEXED" }).Count
     vectorIdCount = @($chunks | Where-Object { $_.vectorId }).Count
-    minContentLength = ($chunks | Measure-Object -Property contentLength -Minimum).Minimum
-    maxContentLength = ($chunks | Measure-Object -Property contentLength -Maximum).Maximum
+    minContentLength = ($lengths | Measure-Object -Minimum).Minimum
+    maxContentLength = ($lengths | Measure-Object -Maximum).Maximum
   }
 }
 
