@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-27 云端完整业务 Smoke 质量门禁 runner
+
+- 已新增 `scripts/smoke/cloud-quality-smoke.ps1`，支持 `plan` / `dry-run` / `run` 三种执行模式，并统一使用 `smokeMarker` 串联临时用户、两份 txt 文档、KnowledgeBase、Conversation、问题文本和 ignored artifact。
+- `run` 模式设计为完整质量门禁：tunnel、backend health、frontend route、注册 / 登录、两文档上传 / parse / indexing、MySQL chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、权限隔离负向检查、脱敏 artifact、清理和最终 `git status`。
+- 已验证：Windows PowerShell 5 parser PASS；`powershell -File scripts/smoke/cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS。`dry-run` 显示当前 13306 / 6333 未监听，符合本轮未启动 tunnel 的预期。
+- 本轮未启动服务、未创建业务数据、未执行 `run` 模式、未生成真实 cloud quality smoke artifact、未提交 artifact、未 push；当前状态只能写为 runner 已落地且待授权 runtime 验证，不能写成云质量门禁 PASS。
+
 ## 2026-06-26 交付切片本地提交
 
 - 已按审查后的切片完成本地提交：`feat(conversation): add context memory workspace`、`feat(rag): add hybrid retrieval and rerank controls`、`feat(frontend): polish AI workspace presentation`、`docs(workflow): document cloud tunnel workflow`。

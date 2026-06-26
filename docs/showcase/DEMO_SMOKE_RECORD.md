@@ -1,6 +1,6 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-06-26
+> Last updated: 2026-06-27
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
@@ -362,7 +362,49 @@ Verified failures:
 
 Boundary: before S2, some Chinese error messages were garbled in API output. Error codes were valid, but display text needed cleanup.
 
-## 10. Current Boundaries
+## 10. Cloud Quality Gate Smoke Runner
+
+Status: REVIEW
+
+Evidence source: local runner implementation and non-mutating checks on 2026-06-27.
+
+Runner:
+
+- `scripts/smoke/cloud-quality-smoke.ps1`
+
+Implemented modes:
+
+| Mode | Behavior |
+| --- | --- |
+| `plan` | Prints the gate list and artifact target only; does not read `.env`, start services, or create data. |
+| `dry-run` | Checks local prerequisites, ports and ignored artifact path; does not start services or create data. |
+| `run` | Executes the full cloud quality smoke and writes a redacted ignored artifact. |
+
+Implemented gates:
+
+| Gate | Coverage |
+| --- | --- |
+| Tunnel / health | MySQL and Qdrant local tunnel ports, backend `/actuator/health`, frontend route smoke |
+| Business flow | Temporary user A / B, two txt uploads, document create, parse task create, parse polling, indexing |
+| Chunk quality | MySQL `tb_document_chunk` count, contiguous indexes, positive lengths, hashes, `INDEXED` status, vector ids |
+| MySQL / Qdrant consistency | Qdrant scroll filtered by user / document / indexVersion and payload comparison against MySQL chunks |
+| RAG | Single-document retrieve / QA citation and KnowledgeBase two-document retrieve / QA citation |
+| Conversation Trace | Bound KB conversation requires `ragTriggered=true`, `ragRequired=true`, `evidenceCount>0`, and document hit counts |
+| Security | Foreign KB detail, foreign KB retrieve, cross-user document add, and foreign trace access must fail |
+| Artifact | Redacted JSON artifact, no tokens / API keys / cloud addresses / connection strings / chunk content |
+
+Validation performed:
+
+| Check | Result |
+| --- | --- |
+| Windows PowerShell parser | PASS |
+| `-Mode plan` | PASS |
+| `-Mode dry-run` | PASS |
+| `dry-run` tunnel status | 13306 / 6333 not listening, expected because this check did not start tunnel |
+
+Boundary: `-Mode run` has not been executed yet, so this is not a PASS record for the full cloud quality gate. It proves the runner exists and the non-mutating preflight works, but no new temporary cloud business data or real artifact was created in this record.
+
+## 11. Current Boundaries
 
 What can be safely claimed:
 

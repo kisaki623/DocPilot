@@ -2,6 +2,15 @@
 
 当前任务：T013 Conversation Context Management / Agent Memory Mode MVP
 
+## 2026-06-27 追加任务：云端完整业务 Smoke 质量门禁增强
+
+- 已新增 `scripts/smoke/cloud-quality-smoke.ps1`，把 cloud smoke 从“链路能跑通”扩展为可执行质量门禁 runner。
+- runner 支持 `-Mode plan`、`-Mode dry-run`、`-Mode run`：`plan` 只输出门禁清单，`dry-run` 只做本地前置检查，`run` 才会启动 / 复用 tunnel、backend、frontend 并创建临时业务数据。
+- 统一 `smokeMarker` 贯穿临时用户、两份 txt 文档、KnowledgeBase、Conversation、问题文本和 artifact；artifact 默认写入 ignored 路径 `tmp-e2e/docpilot-cloud-quality-smoke/<smokeMarker>/artifact.json`。
+- `run` 模式门禁覆盖 tunnel 连通、backend health、frontend route、注册 / 登录、两文档上传 / parse / indexing、MySQL chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、至少四个权限隔离负向检查、artifact 脱敏扫描、清理和最终 `git status`。
+- 当前已验证：Windows PowerShell 5 parser PASS；`-Mode plan` PASS；`-Mode dry-run` PASS。`dry-run` 显示当前 13306 / 6333 未监听，符合本轮未启动 tunnel 的预期。
+- 当前未执行：`-Mode run` 未跑，未启动服务，未创建临时业务数据，未生成真实 cloud quality smoke artifact，不能标记为云质量门禁 PASS。
+
 ## T013 本轮已完成
 
 - 新增会话级上下文 MVP 后端底座：`tb_conversation`、`tb_conversation_message`、`tb_conversation_summary`、`tb_context_trace`、`tb_user_memory` 五张新表迁移脚本；未改动既有 `qa_history`、`agent_task`、`agent_step`、RAG 或 KnowledgeBase 表结构。
