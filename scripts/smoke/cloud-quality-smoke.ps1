@@ -695,10 +695,10 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
   $docA = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $fileA.id }) $tokenA
   $docB = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $fileB.id }) $tokenA
   $taskA = Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $docA.data.id }) $tokenA
-  $taskB = Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $docB.data.id }) $tokenA
   Wait-ParseSuccess ([long]$docA.data.id) $tokenA | Out-Null
-  Wait-ParseSuccess ([long]$docB.data.id) $tokenA | Out-Null
   $chunksA = Wait-IndexedChunks $envValues $userAId ([long]$docA.data.id)
+  $taskB = Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $docB.data.id }) $tokenA
+  Wait-ParseSuccess ([long]$docB.data.id) $tokenA | Out-Null
   $chunksB = Wait-IndexedChunks $envValues $userAId ([long]$docB.data.id)
   $chunkQuality = @(
     Test-ChunkQuality $chunksA ([long]$docA.data.id)
