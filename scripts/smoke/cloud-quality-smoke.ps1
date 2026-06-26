@@ -269,7 +269,7 @@ function Start-FrontendIfNeeded() {
 
   $frontendDir = Join-Path (Get-Location) "frontend"
   $port = ([Uri]$FrontendBaseUrl).Port
-  $command = "Set-Location -LiteralPath '$frontendDir'; npm run dev -- -p $port"
+  $command = "Set-Location -LiteralPath '$frontendDir'; npm.cmd run dev -- -p $port"
   $process = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command) -WindowStyle Hidden -PassThru
   $script:StartedProcesses += $process
   if (-not (Wait-FrontendRoute 90)) {
