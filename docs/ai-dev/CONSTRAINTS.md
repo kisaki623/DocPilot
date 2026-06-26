@@ -72,7 +72,7 @@
    - 根目录 `docker-compose.demo.yml`
    - `backend/.env.demo.example`
    - `frontend/.env.example`
-4. `application-local.yml` 的兜底默认指向香港云中间件；若不希望连云，必须显式使用 `.env.demo.example` / `.env` 覆盖。
+4. `application.yml` 默认导入 `backend/.env`；`application-local.yml` 只保留 local profile 覆盖。若不希望连云，必须显式使用 `.env.demo.example` / `.env` 或 `.run/*-Local` 的 `SPRING_CONFIG_IMPORT` 覆盖。
 5. 根目录 `.run/*-HK-Cloud` 是当前默认开发运行配置；`*-Local` 主要用于纯本地 demo。
 6. 所有真实密钥、云地址、账号密码只能出现在本机 `.env` 类文件中，不能写入可提交文档、示例配置或运行配置。
 7. 若修改端口、环境变量名、云中间件地址或 compose 服务名，必须同步更新：
@@ -82,7 +82,33 @@
    - `.run/` 配置
    - smoke / check 脚本
 
-## 6. 验证与收尾约束
+## 6. Gemini CLI 协作规则
+
+1. Gemini CLI 是协作增强，不是关键路径；失败时由 Codex 继续负责落地、验证和回写。
+2. 启动前只做可用性检查，不打印密钥或环境变量值：
+   - `Get-Command gemini.cmd`
+   - `gemini.cmd --version`
+3. 如当前 shell 未继承 Gemini 环境变量，只允许从系统环境变量注入到当前子进程：
+   - `$env:GOOGLE_GEMINI_BASE_URL = [Environment]::GetEnvironmentVariable('GOOGLE_GEMINI_BASE_URL','User')`
+   - `$env:GEMINI_API_KEY = [Environment]::GetEnvironmentVariable('GEMINI_API_KEY','User')`
+   - 禁止输出、复制或写入这些变量的真实值。
+4. 可用性探测使用短 prompt 和显式模型，只确认 READY 类返回：
+   - `gemini.cmd -m gemini-2.5-pro --prompt "Reply exactly: READY"`
+   - `gemini.cmd -m gemini-2.5-flash --prompt "Reply exactly: READY"`
+5. 长 prompt、源码和大上下文通过 stdin 传入 Gemini，不塞进命令行参数，避免 PowerShell 命令行长度限制。
+6. 推荐协作模式：
+   - Gemini 输出设计方向、patch 建议或单文件完整方案。
+   - Codex 审查是否破坏现有 API、路由、类型、安全边界和展示口径。
+   - 通过审查后由 Codex 使用 `apply_patch` 落地。
+7. `--approval-mode auto_edit` 只允许在明确文件范围内尝试；如果出现 503、`INVALID_ARGUMENT`、malformed tool call、空响应或工具流异常，立即降级为“Gemini 提建议，Codex 集成”。
+8. 安全边界：
+   - 不把 `.env`、密钥、云 IP、连接串、远程命令、数据库凭据传给 Gemini。
+   - 不让 Gemini 执行 `git commit` / `git push`。
+   - 不让 Gemini 操作远程服务器、云服务器 Docker 中间件或数据库迁移。
+   - 不让 Gemini 修改与当前任务无关的文件。
+9. 验证归属固定为 Codex：最终 lint、build、Playwright、乱码扫描、进程清理和 ai-dev 文档回写都由 Codex 执行；Gemini 输出不能直接写成已验证结果。
+
+## 7. 验证与收尾约束
 
 1. 文档或配置变更后，至少确认对应启动路径仍可解释且命令未失效。
 2. 若本轮启动过本地服务、Playwright 或 MCP 相关进程，最终回复前必须执行：

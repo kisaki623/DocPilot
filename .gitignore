@@ -5,6 +5,7 @@ Thumbs.db
 # IDE / editor local state
 .idea/
 .vscode/
+.claude/
 .runlogs/
 backend/.run/
 frontend/.run/
@@ -51,3 +52,4 @@ docs/ai-dev/benchmarks/artifacts/task11_6_latest.json
 # Logs and temp files
 *.log
 *.tmp
+test-hybrid-rag.sh

@@ -68,7 +68,7 @@ if ($killed.Count -eq 0) {
 }
 
 Write-Output "`n=== Port Status ==="
-$ports = @(3000, 3001, 3002, 3100, 8081)
+$ports = @(3000, 3001, 3002, 3007, 3100, 8081)
 foreach ($port in $ports) {
   $conn = Get-NetTCPConnection -LocalPort $port -State Listen
   if ($conn) {

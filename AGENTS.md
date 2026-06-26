@@ -1,4 +1,4 @@
-﻿﻿# AGENTS.md
+﻿﻿﻿# AGENTS.md
 
 本文件是 DocPilot 仓库给后续 Codex / API agent / Claude Code 等协作代理读取的项目规则。每轮开始先读本文件和 `docs/README.md`，再按文档地图读取 `docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/showcase/DEMO_SMOKE_RECORD.md`、`docs/ai-dev/ROADMAP_RAG.md`、`docs/ai-dev/DECISIONS.md`、`docs/ai-dev/CONSTRAINTS.md`、`docs/ai-dev/PROGRESS_LOG.md`，并检查 `git status` 与 `git diff`。旧的 `TODO_NEXT.md`、`CODEX_HANDOFF.md`、`CHANGELOG_CODING.md` 已归档到 `docs/archive/`，只在追溯历史时读取，不作为当前任务源。
 
@@ -41,13 +41,21 @@ cd frontend
 npm run dev
 ```
 
-当前默认开发环境是前后端本地运行，中间件 MySQL、Redis、RocketMQ、MinIO等部署在云服务器 Docker 中，通过 `backend/.env` 或 `.run/*-HK-Cloud` 接入。
+当前默认开发环境是前后端本地运行，中间件 MySQL、Redis、RocketMQ、MinIO等部署在云服务器 Docker 中，通过 `backend/.env`  接入。
+
+如需做云 MySQL / Qdrant runtime smoke、后端 `/actuator/health` 联调、真实 Qdrant retrieval / indexing 验证，必须先按 `backend/README.md` 在仓库根目录启动本地 SSH tunnel：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/dev/start-cloud-tunnels.ps1
+```
+
+普通离线单测、`mvn -DskipTests compile`、前端 `lint/build` 和未登录态 Playwright smoke 不要求启动 tunnel；如果测试日志里出现 scheduled outbox job 访问本机 MySQL tunnel 被拒，但 Surefire 最终 `BUILD SUCCESS`，只能记录为“未做 runtime smoke / tunnel 未连通边界”，不能写成云链路验证通过。
 
 
 
 涉及云服务器 Docker 中间件的查看、启动、停止、重启、日志、网络、端口和数据检查，默认由 `hk-ops` 子代理负责。使用 `hk-ops` 前必须先向用户说明目的、命令类别、是否只读、可能影响，并等待明确授权；不得为了方便绕过本地证据直接操作远程服务器。
 
-涉及前端开发或改善的工作请和子agent frontend_showcase 一起完成，他是前端页面方面的专家
+涉及前端开发或改善的工作请和 Gemini CLI 协作，Gemini CLI 负责创意、方案和代码建议，Codex 负责安全审查、代码落地、验证和文档回写；Gemini CLI 不直接接触 `.env`、secrets、远程服务器操作、数据库迁移或不相关文件。详细规则见 `docs/ai-dev/CONSTRAINTS.md`。
 
 实际运行前请根据 `backend/README.md`、`frontend/README.md`、`.run/` 配置和 `.env.example` /检查环境变量。不要提交真实 `.env`、密钥、密码、token、云服务地址或连接串。
 
