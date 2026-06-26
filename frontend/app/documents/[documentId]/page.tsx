@@ -103,7 +103,7 @@ function normalizeRagError(message: string): string {
     return "文档不存在或当前账号无权访问，请重新选择自己的文档。";
   }
   if (message.toLowerCase().includes("no evidence")) {
-    return "没有检索到足够证据，请换一个更贴近文档内容的问题。";
+    return "暂未找到足够相关的引用来源，请换一个更贴近文档内容的问题。";
   }
   return message;
 }
@@ -380,7 +380,7 @@ export default function DocumentDetailPage() {
       setRagCitations(response.data?.citations || []);
       setRagNoEvidence(Boolean(response.data?.noEvidence));
     } catch (error) {
-      const message = error instanceof Error ? error.message : "RAG 检索失败";
+      const message = error instanceof Error ? error.message : "检索预览失败";
       setQaErrorMessage(normalizeRagError(message));
     } finally {
       setRagRetrieving(false);
@@ -452,7 +452,7 @@ export default function DocumentDetailPage() {
       setRagNoEvidence(Boolean(response.data?.noEvidence));
       setRagFallbackReason(response.data?.fallbackReason || "");
       nextSessionId = (response.data?.sessionId || "").trim() || normalizedSessionId;
-      setSessionHint("当前 RAG 会话已续用，后续提问会自动携带上下文。");
+      setSessionHint("当前检索会话已续用，后续提问会自动携带上下文。");
     };
 
     try {
@@ -490,10 +490,10 @@ export default function DocumentDetailPage() {
                 nextSessionId = payloadSessionId;
               }
               setStreamingQa(false);
-              setSessionHint("当前 RAG 会话已续用，后续提问会自动携带上下文。");
+              setSessionHint("当前检索会话已续用，后续提问会自动携带上下文。");
             },
             onError: (message) => {
-              setQaErrorMessage(normalizeRagError(message || "RAG 流式问答失败"));
+              setQaErrorMessage(normalizeRagError(message || "检索增强问答失败"));
               setStreamingQa(false);
             }
           },
@@ -660,7 +660,7 @@ export default function DocumentDetailPage() {
     <main className="dp-page max-w-7xl mx-auto py-8 px-4">
       <section className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 flex items-center justify-between">
         <div>
-          <p className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-1">文档工作台</p>
+          <p className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-1">Document Space</p>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
             {detail?.title || detail?.fileName || "文档详情"}
             {detail ? (
@@ -762,7 +762,7 @@ export default function DocumentDetailPage() {
               <article className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <span className="w-2 h-6 bg-blue-600 rounded-sm"></span> 文档问答与引用证据
+                    <span className="w-2 h-6 bg-blue-600 rounded-sm"></span> 文档问答与引用来源
                   </h2>
                   <div className="flex flex-wrap items-center justify-end gap-3 text-sm text-slate-600">
                     <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
@@ -774,7 +774,7 @@ export default function DocumentDetailPage() {
                           qaMode === "rag" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"
                         }`}
                       >
-                        RAG 问答
+                        检索问答
                       </button>
                       <button
                         type="button"
@@ -893,7 +893,7 @@ export default function DocumentDetailPage() {
                     {qaErrorMessage ? <p className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{qaErrorMessage}</p> : null}
                     {qaMode === "rag" && ragNoEvidence ? (
                       <p className="bg-amber-50 text-amber-800 p-3 rounded-lg text-sm">
-                        没有检索到足够证据{ragFallbackReason ? `：${ragFallbackReason}` : "。"}
+                        暂未找到足够相关的引用来源{ragFallbackReason ? `：${ragFallbackReason}` : "。"}
                       </p>
                     ) : null}
 
@@ -947,7 +947,7 @@ export default function DocumentDetailPage() {
               )}
 
               <article className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-                <h2 className="text-base font-bold text-slate-900 mb-3 block">证据引用</h2>
+                <h2 className="text-base font-bold text-slate-900 mb-3 block">引用来源</h2>
                 {qaMode === "rag" ? (
                   <div className="space-y-4">
                     {ragRetrieval ? (
@@ -961,7 +961,7 @@ export default function DocumentDetailPage() {
                     ) : null}
 
                     {ragCitations.length === 0 && !ragRetrieval?.hits?.length ? (
-                      <p className="text-sm text-slate-400 italic">暂无 RAG 引用或召回片段。</p>
+                      <p className="text-sm text-slate-400 italic">暂无引用来源或召回片段。</p>
                     ) : null}
 
                     {ragCitations.length > 0 ? (

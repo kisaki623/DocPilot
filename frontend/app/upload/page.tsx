@@ -336,13 +336,13 @@ export default function UploadPage() {
       <section className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 text-center">
         <h1 className="text-3xl font-bold text-slate-900 mb-4">上传文档</h1>
         <p className="text-slate-600 max-w-2xl mx-auto">
-          上传文件后自动进入文档登记、异步解析和状态追踪流程，完成后可在详情页进行问答与引用查看。
+          上传后会自动创建文档记录并进入解析流程。处理完成后，可在详情页进行问答、查看引用来源并继续组织到知识库。
         </p>
       </section>
 
       {hasToken === false ? (
         <section className="bg-red-50 text-red-600 p-4 rounded-xl mb-8 flex justify-between items-center">
-          <span>当前尚未登录，请先进入演示工作台。</span>
+          <span>系统未检测到有效会话，请先登录工作空间。</span>
           <Link href="/login" className="dp-btn dp-btn-primary whitespace-nowrap px-4 py-2">
             前往登录
           </Link>
@@ -352,7 +352,7 @@ export default function UploadPage() {
       <section className="grid gap-6 lg:grid-cols-2 lg:items-start disabled:opacity-50">
         <article className={`bg-white rounded-2xl p-6 shadow-sm border border-slate-100 ${hasToken === false ? "opacity-50 pointer-events-none" : ""}`}>
           <h2 className="text-xl font-bold text-slate-900 mb-2">选择文件</h2>
-          <p className="text-sm text-slate-500 mb-6">支持 txt / md / pdf 文件；解析效果取决于后端当前解析能力。</p>
+          <p className="text-sm text-slate-500 mb-6">支持 TXT / Markdown / PDF 文件；系统会根据当前解析引擎配置提取文本内容。</p>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <input
@@ -419,7 +419,7 @@ export default function UploadPage() {
 
         <article className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
           <h2 className="text-xl font-bold text-slate-900 mb-2">处理状态追踪</h2>
-          <p className="text-sm text-slate-500 mb-6">实时展示文档的上传与解析进度。</p>
+          <p className="text-sm text-slate-500 mb-6">追踪文件接收、文档登记、解析任务与可问答状态。</p>
 
           <div className="space-y-4">
             <ul className="mt-3 space-y-2">

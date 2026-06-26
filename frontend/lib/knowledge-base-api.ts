@@ -45,6 +45,10 @@ export interface KnowledgeBaseCitationItem {
   contentHash?: string;
   snippet?: string;
   score?: number;
+  vectorScore?: number;
+  keywordScore?: number;
+  fusedScore?: number;
+  rerankScore?: number;
 }
 
 export interface KnowledgeBaseRetrievalHitItem {
@@ -62,6 +66,10 @@ export interface KnowledgeBaseRetrievalHitItem {
   endOffset?: number;
   tokenCount?: number;
   embeddingModel?: string;
+  vectorScore?: number;
+  keywordScore?: number;
+  fusedScore?: number;
+  rerankScore?: number;
 }
 
 export interface KnowledgeBaseRetrievalData {
@@ -75,6 +83,9 @@ export interface KnowledgeBaseRetrievalData {
   collection?: string;
   embeddingModel?: string;
   documentHitCounts?: Record<string, number>;
+  retrievalMode?: string;
+  rerankApplied?: boolean;
+  rerankModel?: string;
   hits?: KnowledgeBaseRetrievalHitItem[];
   citations?: KnowledgeBaseCitationItem[];
 }

@@ -168,17 +168,17 @@ export default function AgentToolsPage() {
     <main className="dp-page max-w-7xl mx-auto py-8 px-4">
       <section className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-1">ToolCall Console</p>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Agent 工具台</h1>
+          <p className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-1">Tool Registry</p>
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">Agent 工具箱</h1>
           <p className="text-slate-500 max-w-3xl">
-            查看服务端 ToolSpec，并通过受控 ToolCall API 调用文档状态、摘要、问答与 RAG 工具。
+            查看服务端注册的工具定义，并通过受控调用入口运行文档状态、摘要、问答与检索工具。
           </p>
         </div>
         <div className="flex gap-3">
           <button type="button" onClick={loadData} disabled={loading} className="dp-btn dp-btn-secondary">
             {loading ? "刷新中..." : "刷新"}
           </button>
-          <Link href="/agent" className="dp-btn dp-btn-primary">Agent 工作流</Link>
+          <Link href="/agent" className="dp-btn dp-btn-primary">Agent 工具链</Link>
         </div>
       </section>
 
@@ -220,7 +220,7 @@ export default function AgentToolsPage() {
                     <p className="mt-1 line-clamp-2 text-xs text-slate-500">{tool.description || tool.name}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                       <span className={tool.callableByToolCallApi ? "text-emerald-700" : "text-slate-400"}>
-                        {tool.callableByToolCallApi ? "API 可调用" : "API 不可调用"}
+                        {tool.callableByToolCallApi ? "允许直接调用" : "仅供内部选择"}
                       </span>
                       <span className={tool.safeForLlmSelection ? "text-blue-700" : "text-slate-400"}>
                         {tool.safeForLlmSelection ? "可供选择器使用" : "不供选择器使用"}
@@ -280,7 +280,7 @@ export default function AgentToolsPage() {
             ) : null}
 
             <label className="block">
-              <span className="mb-2 block text-sm font-bold text-slate-700">arguments JSON</span>
+              <span className="mb-2 block text-sm font-bold text-slate-700">调用参数 JSON</span>
               <textarea
                 value={argumentsText}
                 onChange={(event) => setArgumentsText(event.target.value)}
@@ -326,7 +326,7 @@ export default function AgentToolsPage() {
             </div>
             {!result ? (
               <p className="rounded-xl border border-slate-100 bg-slate-50 p-5 text-sm text-slate-400">
-                暂无结果。选择工具并提交参数后，这里会展示 ToolCallResult。
+                暂无结果。选择工具并提交参数后，这里会展示本次调用的结构化结果。
               </p>
             ) : (
               <div className="space-y-4">
@@ -367,7 +367,7 @@ export default function AgentToolsPage() {
                     </pre>
                   </details>
                   <details className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                    <summary className="cursor-pointer text-sm font-semibold text-slate-700">citations / retrievalHits</summary>
+                    <summary className="cursor-pointer text-sm font-semibold text-slate-700">引用与检索结果</summary>
                     <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap text-xs leading-5 text-slate-600">
                       {stringifyJson({
                         citations: result.citations || [],

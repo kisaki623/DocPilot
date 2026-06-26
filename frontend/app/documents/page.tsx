@@ -187,7 +187,7 @@ export default function DocumentsPage() {
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">文档库</h1>
           <p className="text-slate-500 max-w-2xl">
-            管理已上传文档，查看解析状态，并进入详情页发起问答与引用证据追踪。
+            管理已上传文档，查看解析状态，并进入详情页发起问答与引用来源追踪。
           </p>
         </div>
         <div className="flex gap-3">
