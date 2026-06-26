@@ -73,5 +73,5 @@
 面试可讲但简历不建议硬写：
 
 - 可以讲“已完成 Function Calling 风格工具抽象、输出协议和默认关闭的 LLM 工具执行模式”，但不要写“真实 Function Calling 已在生产启用”。
-- 可以讲“已完成单文档 / 多文档 RAG、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、scope isolation、citations、trace 和 offline eval”，但不要写“生产级完整向量 RAG / rerank / hybrid search 已上线”。
+- 可以讲“已完成单文档 / 多文档 RAG、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、scope isolation、citations、trace、offline eval，以及默认关闭的 KnowledgeBase Hybrid / Rerank 可选增强”，但不要写“生产级完整向量 RAG / rerank / hybrid search 已上线”。
 - 可以讲“Actuator / Prometheus 有设计和默认关闭 endpoint”，但不要写“生产可观测体系已上线”。

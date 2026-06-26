@@ -1,5 +1,156 @@
 # Progress Log
 
+## 2026-06-26 交付切片本地提交
+
+- 已按审查后的切片完成本地提交：`feat(conversation): add context memory workspace`、`feat(rag): add hybrid retrieval and rerank controls`、`feat(frontend): polish AI workspace presentation`、`docs(workflow): document cloud tunnel workflow`。
+- 剩余展示口径和当前事实源文档将作为最终 `docs(showcase)` 切片提交；本轮仍未执行 `git push`。
+- 最终验证通过：`git diff --check` 仅有 CRLF 提示；中文乱码扫描只命中 AGENTS 规则文字本身；配置敏感词扫描未输出任何真实值；`mvn -DskipTests compile` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests；`mvn test -DskipITs` PASS，728 tests，0 failures，0 errors，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 本轮未启动 tunnel，未操作远程服务器，未做新的云 MySQL / Qdrant runtime smoke；云链路仍以既有 smoke 记录为准。
+
+## 2026-06-26 剩余切片归属确认
+
+- 保持当前 `feat(conversation)` staged 第一包不变；未执行 `git commit` / `git push`。
+- 已确认剩余四包归属：`feat(rag)` 覆盖 Hybrid / Rerank 后端、配置占位、RAG 测试和 `RAG_HYBRID_*`；`feat(frontend)` 覆盖全站产品化 UI、`globals.css` 和 KnowledgeBase 前端类型；`docs(workflow)` 覆盖 agent / tunnel / cleanup / ignore 规则；`docs(showcase)` 覆盖 README、showcase、STATE / CURRENT_TASK / PROGRESS_LOG 和 T013 设计参考资料。
+- 已标注跨切片风险：`frontend/app/globals.css` 支撑 `/conversations` 样式但归入 `feat(frontend)`；`application.yml` 同时承担 `.env` import 上移和 RAG 配置，建议随 `feat(rag)` 提交、由 workflow docs 解释。
+- 已验证：`git diff --cached --check` PASS；`git diff --check` PASS，仅有 CRLF 提示；乱码扫描只命中 AGENTS 规则文本和 archive 历史说明；敏感扫描确认真实配置仍只在 ignored `backend/.env`；`mvn -DskipTests compile` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests；`mvn test -DskipITs` PASS，728 tests，0 failures，0 errors，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 本轮仍未启动 tunnel 或操作远程服务器；全量后端测试中的 scheduled outbox MySQL tunnel refused 和 Surefire fork kill 日志只作为未连 runtime 环境边界记录，最终 Surefire / Maven 为 BUILD SUCCESS。
+
+## 2026-06-26 交付切片执行
+
+- 已执行交付切片第一步：用 `git reset` 清空原混合暂存区，未回滚工作树内容，未删除用户文件，未执行 `git commit` / `git push`。
+- 已暂存第一包 `feat(conversation)`：Conversation Context / Agent Memory 后端包、`007_init_conversation_context.sql`、对应单测、`/conversations` 页面、`conversation-api.ts`、`memory-api.ts` 和必要 `ErrorCode`。
+- RAG、全站前端 UI、workflow docs、showcase docs 仍保留为未暂存 / 未跟踪改动，等待后续按切片继续 review / stage；`frontend/app/globals.css` 因混合了全站和会话样式，暂未放入第一包。
+- 已验证：`git diff --cached --check` 通过；中文 Markdown 乱码扫描只命中 AGENTS 规则文本和 archive 历史说明；`mvn -DskipTests compile` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests；`mvn test -DskipITs` PASS，728 tests，0 failures，0 errors，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 本轮未启动 tunnel，未执行云端 runtime smoke；全量后端测试中的 scheduled outbox 本机 MySQL tunnel 连接失败日志只作为未连 runtime 环境边界记录，不代表云链路验证。
+
+## 2026-06-26 交付切片地图
+
+- 已将当前混合工作区整理为建议提交切片：`feat(conversation)`、`feat(rag)`、`feat(frontend)`、`docs(workflow)`、`docs(showcase)`，用于后续人工 review / 分批提交；本轮未执行 `git add` / `git commit` / `git push`。
+- 已审查暂存的 `docs/ai-dev/会话级上下文管理/` 设计文档：体量较大，适合作为 T013 设计参考资料保留，但不作为当前事实源；后续仍以 `STATE.md`、`CURRENT_TASK.md`、`PROGRESS_LOG.md` 和代码 / 测试为准。
+- 已在 `docs/README.md` 补充 T013 设计资料目录说明，并在 `CURRENT_TASK.md` 写入提交切片、设计文档归属和剩余真实风险。
+
+## 2026-06-26 交付前审查收口
+
+- 继续收束近期新增代码审查结果：当前审查已覆盖 Hybrid / Rerank / Conversation / Memory / 前端 conversations 和 tunnel 文档入口，核心功能问题已修复，但工作区仍是混合 staged / unstaged / untracked 状态，尚未进入 commit-ready 切片。
+- 已将 `.claude/` 和 `test-hybrid-rag.sh` 作为 local-only 产物加入 `.gitignore`；保留本地文件，不删除用户产物，不执行 `git add` / `git commit` / `git push`。
+- 已收窄 `ConversationMessageServiceImpl.send` 的事务边界：上下文装配和模型调用在事务外执行，仅最终 conversation 行锁、连续写入 user / assistant message、更新时间包在事务内；trace best-effort 继续不影响用户回答。
+- 已验证：`mvn "-Dtest=ConversationMessageServiceImplTest" test` PASS，5 tests，0 failures，0 errors；`mvn -DskipTests compile` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests，0 failures，0 errors；`mvn test -DskipITs` PASS，728 tests，0 failures，0 errors，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 仓库卫生检查：`git diff --check` 仅有 CRLF 工作区提示；乱码扫描仅命中 AGENTS 规则文本；脱敏敏感配置扫描确认真实密钥命中位于未跟踪 `backend/.env`，tracked 示例 / yml 为占位、默认本地值或环境变量引用；本轮未启动 SSH tunnel，未做云 MySQL / Qdrant runtime smoke。
+
+## 2026-06-26 Tunnel 入口收口
+
+- 确认 MySQL / Qdrant tunnel 启动说明原本已在 `backend/README.md`，但 `AGENTS.md` 未把它提升到 agent 首屏规则，后续 agent 容易漏。
+- 已在 `AGENTS.md` 增加硬提醒：云 MySQL / Qdrant runtime smoke、后端 health 联调、真实 Qdrant indexing / retrieval 验证前，必须先运行 `scripts/dev/start-cloud-tunnels.ps1`；离线单测、compile、前端 lint/build 和未登录态 Playwright smoke 不要求 tunnel。
+- 已整理 `backend/README.md` 的 tunnel 使用条件、云模式联调顺序、`mvn test -DskipITs` 中 scheduled outbox job 连接失败日志的解释边界。
+- 已将 `scripts/dev/cleanup-agent-processes.ps1` 的端口检查列表补充 `3007`，覆盖本轮前端临时 smoke 端口。
+- 本轮未启动 SSH tunnel、未操作远程服务器、未执行云 MySQL / Qdrant runtime smoke。
+
+## 2026-06-26 收口验证与展示口径修正
+
+- 修正 README / showcase 中过期的 Hybrid / Rerank 表述：当前口径为 KnowledgeBase RAG 默认关闭的可选增强，不写成生产默认能力或真实 provider smoke。
+- 补齐 `backend/.env.example`、`backend/.env.demo.example`、`backend/.env.cloud.example` 中的 `APP_RAG_RETRIEVAL_*` 与 `APP_RAG_RERANK_*` 安全占位配置，默认保持关闭且不包含真实密钥。
+- 已验证：`mvn -DskipTests compile` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests，0 failures，0 errors；`mvn test -DskipITs` PASS，728 tests，0 failures，0 errors，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- Playwright 已打开 `/`、`/dashboard`、`/knowledge-bases`、`/conversations`、`/agent` 桌面页面和移动端 `/`、`/conversations`；页面可渲染，console 仅见既有 favicon / dev Fast Refresh 类日志。全量后端测试结束阶段仍有 scheduled outbox job 访问本机 MySQL tunnel 被拒日志，但 Surefire 最终 BUILD SUCCESS。
+- 本轮未操作远程服务器、未调用真实 provider、未提交代码；`.claude/` 和未归类临时产物仍不作为交付内容。
+
+## 2026-06-26 Hybrid / Rerank / Conversation 修复
+
+- 修复近期新增 Hybrid RAG 质量问题：keyword 检索按 `indexVersion` 过滤，fused hit 不再硬编码版本，keyword-only hit 保留 citation 元数据，最终候选再次经过 KnowledgeBase scope guard。
+- 将 rerank 接入 KnowledgeBase RAG 主链路，默认仍关闭；provider 失败时 identity fallback，不泄露请求正文、密钥或 endpoint。
+- 修复会话消息发送一致性：模型失败不落库，落库阶段通过 conversation 行锁连续写入 user / assistant 消息，避免 `MAX(sequence_no)+1` 并发撞号。
+- 修复前端 memory type 的 `GOAL` / `TASK_GOAL` 不一致，并在 KnowledgeBase 页面补充 retrieval mode、rerank model 和 score breakdown 展示。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,ConversationMessageServiceImplTest,ReciprocalRankFusionTest,BM25ScorerTest" test` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests，0 failures，0 errors；`npm run lint` PASS；`npm run build` PASS。
+
+## 2026-06-14 前端 UI 文案成熟化
+
+- 按用户反馈继续优化前端文案：页面文字从“求职项目自述 / 工程实现说明”收敛为“成熟 AI 产品界面表达”。
+- 已使用 Gemini CLI headless 作为文案方向主导；Codex 负责拦截过度营销和夸大生产能力的表达，并完成代码落地。
+- 首页、Dashboard、KnowledgeBase、Conversations、Agent、工具箱、登录、上传和文档详情页已替换高暴露文案：去掉页面上的“求职 / 面试 / MVP / 演示 / 生产级 / smoke”等内部口径，改为工作空间、引用来源、上下文溯源、会话记忆、工具链等更克制的产品表达。
+- 本轮只改前端 UI 文案和 ai-dev 事实源，不改根 README、不改后端 API、不新增依赖、不操作远程环境。
+- 已验证：`npm run lint` PASS，`npm run build` PASS；前端高暴露词扫描和中文乱码扫描均未命中。Playwright 打开 `/`、`/dashboard`、`/knowledge-bases`、`/conversations`、`/agent`、`/agent/tools` PASS，并检查移动端 `/`、`/conversations` 无明显溢出；console 仅有既有 favicon 404 和一次 dev hot reload RSC fallback，页面已正常渲染。
+
+## 2026-06-14 会话页聊天产品化重做
+
+- 按用户反馈继续专项重做 `/conversations`，目标从“上下文系统控制台”切换为类似 GPT / DeepSeek 的聊天产品页。
+- 已使用 Gemini CLI 正确的 `-p` headless 模式获取设计建议；Gemini 负责页面方向，Codex 负责代码落地、安全审查和验证。`frontend_showcase` 本轮不再使用。
+- 会话页改为左侧深色历史栏、中间居中聊天流、底部悬浮 composer、右侧 Context Inspector 抽屉；Trace / Memory / Summary / KnowledgeBase evidence 保留为辅助信息，不再常驻抢占主聊天区。
+- 新增非流式 pending 体验：发送后展示“检索知识库 / 召回记忆摘要 / 装配上下文预算 / 撰写回答”的前端等待状态，但不伪装成真实 SSE。
+- 已验证：`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `/conversations` 桌面 / 移动端 PASS，未登录态为居中聊天产品入口，登录态布局烟测确认左侧会话栏、聊天主区、底部 composer 和右侧 Inspector 抽屉可渲染；console 仅有既有 `favicon.ico` 404。
+
+## 2026-06-13 会话页核心展示精修
+
+- 按用户反馈将 `/conversations` 作为前端核心页二次精修，并按已沉淀规则使用 Gemini CLI 做只读专项审阅；Gemini 识别出会话管理、对话、KnowledgeBase 绑定、Agent Memory、Summary / Context Trace 五个核心模块。
+- 会话页首屏重构为 Agent Memory Workspace：新增 `Conversation -> Summary -> Memory -> KB Evidence -> Trace` 上下文装配流程，强调这是 DocPilot 前端最核心的 AI 产品页。
+- 未登录态改为产品预览 + 登录 CTA：展示核心能力卡片和登录入口，但不暴露空工作台表单。
+- 登录态工作区调整为三栏：左侧会话控制，中间消息主舞台，右侧可观测性控制台；助手消息直接展示 citation 数量和 Trace 入口，右侧优先展示 Context Trace，再展示 Summary / Memory / Suggestion。
+- 已验证：`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `/conversations` 桌面 / 移动端 PASS，首页 / Dashboard / KnowledgeBase HTTP 200；dev server 重启后 console 无新增页面错误，仅有既有 favicon 类资源问题。
+
+## 2026-06-13 Gemini CLI 协作规则沉淀
+
+- 已将 Gemini CLI 协作方法沉淀为“短入口 + 详细规程”：`AGENTS.md` 写入前端协作入口，`docs/ai-dev/CONSTRAINTS.md` 写入启动检查、环境变量注入、stdin 长 prompt、auto-edit 失败降级、安全边界和验证归属。
+- 本次规则明确：Gemini CLI 负责创意、方案和代码建议，Codex 负责安全审查、落地、验证和文档回写；Gemini 不接触 `.env`、secrets、远程服务器操作、数据库迁移或不相关文件。
+- 本次经验记录：Gemini CLI 可作为协作参考，但 auto-edit 可能出现 503、`INVALID_ARGUMENT`、malformed tool call 或空响应；推荐默认采用 stdin + Codex 集成模式。
+
+## 2026-06-13 前端 AI 产品感重点页精修
+
+- 按“重点页面精修 + AI 产品感”方向二次收口前端展示，由 Codex 直接实现，不依赖 Gemini / frontend_showcase 自动改代码。
+- 首页改为产品级演示入口：首屏展示 DocPilot、CTA 和 `Upload -> Parse -> Index -> Retrieve -> Answer -> Memory` 系统流程面板，并保留求职级 / 非生产级边界口径。
+- Dashboard 改为 Demo Command Center：顶部加入演示链路步骤，状态卡统一为紧凑 KPI，未登录时不再显示“退出登录”按钮。
+- KnowledgeBase 页面强化多文档 RAG 观测：未登录态收敛为登录说明卡，登录后结果区优先展示 provider、collection、evidence、citation、model call 和命中文档分布。
+- Conversations 页面强化 Agent Memory 展示：未登录态只展示说明和登录入口，登录后显示 Bound KB / Summary / Memory 状态卡，并在 Trace 区说明只展示摘要级字段。
+- 已验证：`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `/`、`/dashboard`、`/knowledge-bases`、`/conversations` PASS，桌面和移动端首页无明显重叠；console 仅有既有 `favicon.ico` 404。
+
+## 2026-06-13 前端求职展示收口
+
+- 首页改为 DocPilot 工程链路总览，突出上传 / 解析 / 索引、单文档 RAG + SSE、KnowledgeBase RAG、Agent Memory Context，并保留“求职级工程闭环、非生产级 SLA”的边界口径。
+- Dashboard 增加“会话上下文”入口、推荐演示路径和面试展示检查点，方便按上传解析、单文档 RAG、多文档 KnowledgeBase、会话上下文、Agent / ToolCall 顺序演示。
+- KnowledgeBase 页面增加 retrieval provider / collection、召回 / citation、answer provider / model、modelCallCount、no-evidence 和命中文档分布可观测卡片，不新增后端 API。
+- Conversations 页面增强默认提问模板、非流式 MVP 边界说明、Memory / RAG / Trace 状态条和 Trace 上下文来源展示；仍不接管既有 Agent 主链路。
+- 已验证：`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `/`、`/dashboard`、`/knowledge-bases`、`/conversations` PASS，桌面和移动端首页 / 会话页无明显空白或重叠；console 仅有既有 `favicon.ico` 404。
+- 本轮未改根 README、未调用真实外部服务、未操作远程服务器、未读取或提交 `.env` / secrets / API key。
+
+## 2026-06-13 Prometheus 9090 公网暴露修复
+
+- 已由 `hk-ops` 按用户授权修复腾讯云服务器 Prometheus 9090 暴露：远程 `/opt/docpilot/docker-compose.yml` 中 `docpilot-prometheus` 端口从 `9090:9090` 收口为 `127.0.0.1:9090:9090`，并执行 `docker compose up -d docpilot-prometheus`。
+- 已移除远程 `firewalld` public zone 的 `9090/tcp` 放行并 reload；Prometheus 容器仍保持 ready，本机 `127.0.0.1:9090/-/ready` 可用。
+- 已验证远程监听只剩 `127.0.0.1:9090`，Docker 映射为 `127.0.0.1:9090->9090/tcp`，服务器访问公网 IP `62.234.3.22:9090` 超时；本机 `Test-NetConnection 62.234.3.22 -Port 9090` 返回 `False`。
+- 远程有效备份为 `/opt/docpilot/docker-compose.yml.bak.20260613-112819`；另有一次服务名定位失败前创建的未修改备份 `/opt/docpilot/docker-compose.yml.bak.20260613-112738`。
+- 本轮未修改腾讯云安全组；建议在腾讯云控制台重新检测，并删除或收口仍可能存在的云侧 9090 入站规则作为第二道防线。
+
+## 2026-06-12 T013 Conversation Context Management / Agent Memory Mode
+
+- 完成后端 MVP：新增 conversation / memory / ai.context package，落地会话、消息、摘要、用户记忆实体 / mapper / service / controller，并新增 `007_init_conversation_context.sql`。
+- `ContextAssemblyService` 支持 `RECENT_TURNS` 与 `AGENT_MEMORY` 两种模式，按系统提示、长期记忆、会话摘要、最近轮次、KnowledgeBase evidence 拼接上下文，并输出 response-only trace。
+- KnowledgeBase evidence 复用既有 `KnowledgeBaseRagRetrievalService` / `KnowledgeBaseScopeGuard`，未改现有单文档 RAG、多文档 KnowledgeBase RAG、ToolCallService、Function Calling adapter 或 Agent 主链路。
+- 用户长期记忆仅支持手动创建 / 列表 / 软删除，带敏感内容拦截；未做自动抽取、后台自动摘要、前端页面或 SSE。
+- 已验证：`mvn -DskipTests compile`；`mvn "-Dtest=*Context*,*Conversation*,*Memory*" test`（30/30 pass）；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test`（184/184 pass）；`mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,OpenAi*" test`（186/186 pass）。
+- 此前全量 `mvn test` 记录过 3 个失败：真实 provider harness、需要 Qdrant endpoint 的 manual probe、以及既有 DocumentChunk replacement 单测期望不一致；当时未把全量测试标为通过。
+- 后续已处理默认离线全量测试：当前源码树和 git 索引未包含 `DocumentAgentRealProviderRuntimeHarnessTest` / `ManualKnowledgeBaseRagProbeTest`，clean 前失败来自旧 surefire report 残留；`DocumentChunkServiceImplTest` 已按短块合并式 chunking 策略更新核心断言。已验证 `mvn "-Dtest=DocumentChunkServiceImplTest" test` 8/8 pass、`mvn test` 683 tests / 0 failures / 0 errors / 1 skipped、`mvn clean test` 同样 683 tests / 0 failures / 0 errors / 1 skipped。
+- 继续推进 Phase 2 / Phase 3 后端小闭环：新增 `tb_context_trace`、trace entity / mapper / service、`GET /api/conversations/{conversationId}/messages/{messageId}/trace`，消息发送后 best-effort 持久化摘要级 trace；trace 写入失败不影响回答，不保存完整 prompt 或 evidence 原文。
+- 新增显式 `POST /api/conversations/{conversationId}/summary/refresh`，使用本地 extractive 摘要压缩最近消息；这是手动触发的安全起步版本，不调用真实外部模型，也不做后台自动摘要。
+- 已验证追加实现：`mvn "-Dtest=*Context*,*Conversation*,*Memory*" test`（40/40 pass）；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test`（184/184 pass）；`mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,OpenAi*" test`（186/186 pass）；`mvn test`（693 tests / 0 failures / 0 errors / 1 skipped）。
+- 继续推进 Phase 2 长期记忆候选机制：新增 `SUGGESTED` / `IGNORED` 状态、规则式 `MemoryExtractionService`、候选列表 / 提取 / 接受 / 忽略 API；候选记忆默认不进入 prompt，用户接受后才转为 `ACTIVE`。
+- 已验证候选记忆实现：`mvn "-Dtest=*Context*,*Conversation*,*Memory*" test`（49/49 pass）；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test`（184/184 pass）；`mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,OpenAi*" test`（186/186 pass）；`mvn test`（702 tests / 0 failures / 0 errors / 1 skipped）。
+- 本轮补充 Agent Memory + KnowledgeBase RAG 连接点防回归：新增 `KnowledgeBaseEvidenceContextBuilderTest`，覆盖中文必需触发、英文可选触发、no-evidence fallback、禁用 RAG 不检索和长 evidence 截断。已验证 `mvn "-Dtest=*Context*,*Conversation*,*Memory*" test`（54/54 pass）、`mvn "-Dtest=*Rag*,*KnowledgeBase*" test`（189/189 pass）、`mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,OpenAi*" test`（186/186 pass）、`mvn test`（707 tests / 0 failures / 0 errors / 1 skipped；结束阶段有 scheduled task 访问云端 MySQL 的本机 SSH tunnel 入口被拒日志，说明当时 tunnel / 转发端口未连通，但构建通过）。
+- 补齐前端会话工作台 MVP：新增 `frontend/lib/conversation-api.ts`、`frontend/lib/memory-api.ts`、`frontend/app/conversations/page.tsx`，并在顶部导航加入“会话”；页面支持会话创建、非流式消息、KnowledgeBase 绑定、summary / trace 查看、ACTIVE 记忆维护和候选记忆接受 / 忽略。
+- 已验证前端：`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `http://localhost:3007/conversations` PASS，未登录态页面正常渲染，console 仅有既有 `favicon.ico` 404。
+- 2026-06-13 已按用户授权，通过当前本机 SSH tunnel 入口对云服务器 Docker MySQL 执行 `backend/src/main/resources/sql/007_init_conversation_context.sql`，并确认 `tb_conversation` / `tb_conversation_message` / `tb_conversation_summary` / `tb_context_trace` / `tb_user_memory` 五张表存在。
+- 2026-06-13 完成迁移后登录态 runtime smoke：backend health `UP`，frontend `/conversations` HTTP 200；页面完成创建会话、发送消息、查看 Context Trace、刷新摘要、提取候选记忆、接受候选记忆，并通过第二轮消息验证 ACTIVE 记忆进入 Agent Memory 上下文（trace 显示 `Memory=1`、`summaryUsed=是`、最近消息 `2` 条 / `1` 轮、无截断 / fallback / model skipped）。KnowledgeBase 绑定 UI 已渲染，但本次 smoke 用户无可绑定知识库，未覆盖带真实 KB 文档 evidence 的浏览器端到端验证。
+- 2026-06-13 继续完成 T013 KnowledgeBase-bound evidence 收口：新建临时用户、上传 txt、创建文档、解析到 `SUCCESS`、创建 KnowledgeBase 并添加文档；KnowledgeBase retrieval 命中 1 条 evidence。绑定该 KB 的 Agent Memory 会话发送知识库问题后，API trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=1`、`documentHitCounts={93:1}`、citation `1`、无 fallback / model skipped。浏览器 `/conversations` 端到端复验中文“根据知识库”问题：助手回答引用 `t013-ui-kb-0613093939.txt`，页面 Trace 显示 `Evidence=1`、`RAG 触发=是`、`RAG 必需=是`、`No Evidence=否`，命中文档分布为 `#94: 1`。
+
+## 2026-06-08 环境恢复诊断
+
+- 尝试恢复本地后端通过 SSH tunnel 连接云端 MySQL / Qdrant：本地 `.env` 已指向 `127.0.0.1:13306` 和 `127.0.0.1:6333`，临时 tunnel TCP 可达。
+- MySQL 登录探测仍失败：`docpilot_app` 经 tunnel 连接 `docpilot` 时被远程 MySQL 拒绝，来源显示为 Docker 网关侧地址，说明问题在远程 MySQL 用户认证 / host 授权，不是 Spring datasource 地址解析。
+- `hk-ops` 停在安全点：确认 `docpilot-mysql` running/healthy、数据目录为 `/data/docpilot/mysql` bind mount，但备份未确认完成；未修改账号、权限、密码、compose/env 或容器状态。
+- 本轮未启动后端做健康验证；已清理本轮新建的 `13306` / `6333` tunnel，保留用户已有 `23306` / `26379` tunnel。
+- 后续已确认有效 MySQL datadir 备份 `/data/docpilot/backups/mysql-datadir-20260607-010918.tar`，基础 tar 完整性校验通过。
+- 已修复远程 `docpilot_app` 认证 / 授权，并将 Docker MySQL host 端口收口到远程本机 `127.0.0.1:13306`；`docpilot-mysql` 保持 healthy，未修改业务表结构或业务数据。
+- 本地重新建立 `13306` / `6333` SSH tunnel 后，MySQL CLI `SELECT 1` 成功，Qdrant `/collections` 可达；后端 local profile 启动成功，HikariPool 初始化完成，`/actuator/health` 返回 `UP`。
+- 继续完成最小业务 smoke：临时用户注册、txt 上传、文档创建、RocketMQ parse create、解析 `SUCCESS`、RAG retrieve 命中 1 条、RAG QA 返回 1 条 citation 且命中本次 marker；记录 ID 为 user `88`、file `89`、document `87`、parseTask `83`。
+- 新增 `scripts/dev/start-cloud-tunnels.ps1`，将 MySQL / Qdrant tunnel 启动与基础连通性检查固化；`backend/README.md` 已同步启动顺序和“不要公网直连 MySQL 13306”的排障说明。
+- 定位前端多文档问答 `knowledge base RAG answer generation failed`：KnowledgeBase retrieve 成功，QA 失败耗时贴近 `AI_REAL_READ_TIMEOUT_MS=12000`，根因是真实回答模型生成超时被统一错误包装。已为 KnowledgeBase QA 增加 answer 生成失败兜底，保留 citations，并将本机 real model read timeout 调整为 `30000`；复验 KB `5` 问答 code `0`、citation `2`、modelCallCount `1`。
+
 ## 2026-06-06 KnowledgeBase RAG 质量修复
 
 - 修复“总结资料集”类问题的后端质量瓶颈：chunking 改为合并 Markdown / 文本块后切分，默认窗口调整为 `800/120`，避免大量短泛 chunk。
@@ -8,6 +159,7 @@
 - 配置兼容 `RAG_VECTOR_PROVIDER` / `RAG_VECTOR_DIMENSION`；授权后已对 KnowledgeBase `3` 的文档 `83/84/85/86` 执行 rebuild / reindex，写入 collection `docpilot_kb_quality_20260606`。
 - Reindex 验证：chunk / vector 数分别为 `35/35`、`18/18`、`10/10`、`16/16`；“总结资料集”检索 hit 数为 `6`，`documentHitCounts={83:2,84:1,85:1,86:2}`。
 - 后续已将本地运行 `.env` 切到稳定 collection `docpilot_rag_v2` 并再次 rebuild / reindex；Spring local profile 实际读取到 `qdrant` / `docpilot_rag_v2` / `1024`，四文档 chunk / vector 和检索分布保持一致。临时 collection `docpilot_kb_quality_20260606` 不再作为运行目标。
+- 已整理后端配置读取职责：`application.yml` 默认导入 `backend/.env` 并允许 `SPRING_CONFIG_IMPORT` 覆盖；`application-local.yml` 不再负责 `.env` 导入，只保留 local profile 差异。
 - 已验证：targeted backend tests 36/36 pass，`mvn "-Dtest=*Rag*" test` 164/164 pass，`mvn -DskipTests compile` pass，`frontend npm run lint` pass。
 
 ## 2026-06-06 AGENTS 协作入口修正

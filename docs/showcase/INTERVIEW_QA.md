@@ -126,7 +126,7 @@
 
 面试官追问：引用一定准确吗？
 
-诚实边界：不能保证绝对准确；当前是轻量检索增强，不是完整语义检索和 rerank，需要 eval 和更多样本持续校准。
+诚实边界：不能保证绝对准确；当前是轻量检索增强。KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，但真实 provider 效果、阈值策略和更多样本仍需要持续校准。
 
 对应位置：`DocumentQaServiceImpl`、`frontend/app/documents/[documentId]/page.tsx`。
 
@@ -230,7 +230,7 @@
 
 面试官追问：那它还缺什么？
 
-诚实边界：缺生产级 rerank、hybrid search、线上治理和固定 SLA；离线 eval 仍使用 mock embedding + in-memory vector store，真实 embedding + Qdrant 是 smoke 证据，不包装成线上生产能力。
+诚实边界：缺生产默认开启的 rerank / hybrid search、线上治理和固定 SLA；离线 eval 仍使用 mock embedding + in-memory vector store，真实 embedding + Qdrant 是 smoke 证据，KnowledgeBase Hybrid / Rerank 目前是默认关闭的可选增强，不包装成线上生产能力。
 
 对应位置：`RagIndexingServiceImpl`、`RagDocumentRetrievalServiceImpl`、`QdrantVectorStoreClient`、`docs/showcase/DEMO_SMOKE_RECORD.md`。
 

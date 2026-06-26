@@ -26,6 +26,7 @@
 - `docs/ai-dev/DECISIONS.md`：ADR 简版。记录认证、异步解析、存储、AI 模式、RAG 选型等关键决策。
 - `docs/ai-dev/CONSTRAINTS.md`：项目协作约束和安全边界。
 - `docs/ai-dev/PROGRESS_LOG.md`：简短进度记录。不要把它写成新的大 changelog。
+- `docs/ai-dev/会话级上下文管理/`：T013 Conversation Context / Agent Memory 的设计参考资料；只作为实现追溯和方案说明，不覆盖 `STATE.md` / `CURRENT_TASK.md` 的当前事实。
 - `docs/ai-dev/archive/`：旧状态快照或归档文件。只有追溯历史时读取。
 - `docs/ai-dev/benchmarks/`：eval / benchmark 产物和方法记录。用于验证或展示证据，不等同线上 SLA。
 

@@ -238,7 +238,7 @@ DocPilot/
 - 完整上传解析 runtime 依赖可用 RocketMQ NameServer / Broker / consumer；演示环境已跑通 active MQ smoke，若关闭 MQ，会进入 no-op producer 路径，适合做接口联调但不会推进真实异步解析。
 - AI 默认可使用 mock answer service；真实回答模型已完成一次 smoke，复现仍依赖本地环境变量和可用 OpenAI-compatible provider。
 - PDF 解析能力有限，当前更适合展示 `txt / md` 文档链路。
-- RAG 测试 / eval 仍可使用 fake embedding + in-memory vector store；真实 embedding provider + Qdrant 已在 smoke collection 验证，但这不等同于生产级完整向量 RAG、rerank、hybrid search 或线上 SLA。
+- RAG 测试 / eval 仍可使用 fake embedding + in-memory vector store；真实 embedding provider + Qdrant 已在 smoke collection 验证，KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，但这不等同于生产级完整向量 RAG、生产默认 rerank / hybrid search 或线上 SLA。
 - Agent 当前围绕文档业务工具形成同步 API 闭环，MQ 异步 Agent 和多 Agent 编排属于后续演进方向。
 - `llm_execute` 是默认关闭的 OpenAI-compatible chat completions JSON 选择方案，再由服务端 allowlist 执行已有工具；尚未切换到官方 tools/function_call 接口。
 - selector Prometheus metrics 目前仍处于设计 / demo 边界，完整生产监控闭环留作后续扩展。

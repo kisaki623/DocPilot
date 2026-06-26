@@ -31,7 +31,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 
 ## 3. 当前半实现能力
 
-- RAG 测试 / eval 仍保留 fake embedding + in-memory vector store，便于稳定复现；真实 embedding + Qdrant 已在 smoke collection 验证，但不是向量数据库 + rerank + hybrid search + 线上治理的完整生产 RAG。
+- RAG 测试 / eval 仍保留 fake embedding + in-memory vector store，便于稳定复现；真实 embedding + Qdrant 已在 smoke collection 验证；KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，但不是线上治理完整的生产 RAG。
 - PDF 支持偏占位，主能力更适合 txt / md 文档。
 - Agent 是同步 API 下的最小工具链闭环，不是异步多 Agent 编排。
 - LLM execute mode 只在显式配置时启用；默认仍是 keyword selector。真实 provider / execute 类验证必须在用户授权、配置可用和日志脱敏边界下运行。
@@ -41,7 +41,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 ## 4. 当前仍不能夸大的能力
 
 - T030 鉴权测试：BLOCKED，原因是项目当前只有 `spring-security-crypto`，缺少 Spring Security Web 鉴权体系、`spring-security-test` 和 `SecurityFilterChain`。
-- 生产级完整向量 RAG、rerank、hybrid search、线上 SLA、生产权限体系、多 Agent 编排和 MCP 仍不是当前能力。
+- 生产级完整向量 RAG、默认开启的 rerank / hybrid search、线上 SLA、生产权限体系、多 Agent 编排和 MCP 仍不是当前能力。
 - OpenAI-compatible Function Calling adapter / `llm_execute` 仍是显式开启或 mock/offline 边界，不能写成生产默认接管。
 
 ## 5. 不能写成已完成的能力
@@ -75,7 +75,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 
 ### 你这个是完整 RAG 吗？
 
-不是生产级完整 RAG。当前已做出求职展示用 RAG 闭环：chunk 持久化、EmbeddingProvider、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、scope isolation、citations、脱敏 trace / debug snapshot、index lifecycle 和 offline eval。但还没有 rerank、hybrid search、线上治理或固定 SLA，我会把它描述为 RAG 工程化展示链路，不包装成生产完整向量 RAG。
+不是生产级完整 RAG。当前已做出求职展示用 RAG 闭环：chunk 持久化、EmbeddingProvider、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、scope isolation、citations、脱敏 trace / debug snapshot、index lifecycle 和 offline eval。KnowledgeBase RAG 还有默认关闭的 Hybrid / Rerank 可选增强，但真实 provider smoke、线上治理和固定 SLA 仍要单独验证；我会把它描述为 RAG 工程化展示链路，不包装成生产完整向量 RAG。
 
 ### Agent 是多 Agent 吗？
 

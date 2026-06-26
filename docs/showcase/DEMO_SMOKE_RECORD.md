@@ -1,6 +1,6 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-06-06
+> Last updated: 2026-06-26
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
@@ -311,7 +311,45 @@ Results:
 
 Boundary: this eval is offline/mock-oriented evidence, not a real external model eval.
 
-## 8. Permission Boundary Cases
+## 8. Conversation Context / Agent Memory Smoke
+
+Status: PASS
+
+Runtime setup:
+
+- Local backend and frontend were started.
+- Cloud MySQL and Qdrant were reached through the current local SSH tunnel entries.
+- No real secrets, prompts, or evidence source text were copied into this record.
+
+API smoke:
+
+| Check | Result |
+| --- | --- |
+| Temporary user | `userId=94` |
+| Uploaded / parsed document | `documentId=93`, parse `SUCCESS` |
+| KnowledgeBase | `knowledgeBaseId=7` |
+| KnowledgeBase retrieval | `1` hit, `noEvidence=false`, `documentHitCounts={93:1}` |
+| Bound conversation | `conversationId=3`, mode `AGENT_MEMORY` |
+| Conversation trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=1` |
+| Conversation citations | `1` |
+| Fallback / model skipped | `false / false` |
+
+Browser smoke:
+
+| Check | Result |
+| --- | --- |
+| Page | `/conversations` |
+| Bound KnowledgeBase | `#8` |
+| Parsed document | `documentId=94` |
+| User question | Chinese `根据知识库` intent |
+| Assistant answer | Referenced `t013-ui-kb-0613093939.txt` |
+| Trace evidence | `Evidence=1` |
+| Trace RAG flags | `RAG triggered=yes`, `RAG required=yes`, `No Evidence=no` |
+| Document hit distribution | `#94: 1` |
+
+Boundary: this verifies Conversation Context / Agent Memory MVP with KnowledgeBase-bound evidence in a non-streaming conversation path. It does not mean the existing Agent main chain has been replaced, and it does not add background automatic summaries or real-model memory extraction.
+
+## 9. Permission Boundary Cases
 
 Verified failures:
 
@@ -324,7 +362,7 @@ Verified failures:
 
 Boundary: before S2, some Chinese error messages were garbled in API output. Error codes were valid, but display text needed cleanup.
 
-## 9. Current Boundaries
+## 10. Current Boundaries
 
 What can be safely claimed:
 
@@ -333,9 +371,11 @@ What can be safely claimed:
 - Scope isolation has been smoke tested for ToolCall, KnowledgeBase access, and cross-user document add.
 - Real answer generation model has been smoke tested.
 - Real embedding provider + Qdrant indexing / retrieval has been smoke tested.
+- Conversation Context / Agent Memory with accepted user memory and KnowledgeBase-bound evidence has been smoke tested.
 - MinIO active storage has been smoke tested through upload and parse readback.
 - RocketMQ + Outbox active parse flow has been smoke tested through producer, consumer and final parse status.
 - Offline Function Calling adapter tests and multi-document eval artifact have passed.
+- KnowledgeBase Hybrid / Rerank optional enhancement has local unit/build evidence and remains disabled by default.
 
 What should be described with caveats:
 
@@ -343,3 +383,4 @@ What should be described with caveats:
 - Function Calling is currently an OpenAI-compatible mock/offline adapter flow, not a live external model tool-call loop.
 - Real answer model and real embedding were verified in separate smoke runs, not in one combined run.
 - Populated KnowledgeBase no-evidence detection needs a score threshold or equivalent policy before it can be presented as robust.
+- KnowledgeBase Hybrid / Rerank has not been re-smoked with a real rerank provider in this record.

@@ -67,7 +67,7 @@ flowchart LR
 
 当前 RAG 链路已覆盖 `parsed text -> chunk -> embedding -> vector store -> retrieve topK -> prompt assemble -> answer -> citations / score display`。已完成单文档 RAG、多文档 KnowledgeBase RAG、真实 embedding + Qdrant smoke 和离线 eval；测试 / eval 仍可使用 fake embedding + in-memory vector store 保证稳定复现。
 
-边界：这仍是求职展示级 RAG 工程闭环，不是生产级完整向量 RAG；rerank、hybrid search、线上治理和固定 SLA 不在当前能力内。
+边界：这仍是求职展示级 RAG 工程闭环，不是生产级完整向量 RAG；KnowledgeBase RAG 的 Hybrid / Rerank 是默认关闭的可选增强，真实 provider smoke、线上治理和固定 SLA 不在当前能力内。
 
 ### SSE 流式输出
 
@@ -138,7 +138,7 @@ sequenceDiagram
 
 不要把以下内容讲成已完成：
 
-- 生产级完整向量 RAG、rerank 或 hybrid search 已上线。
+- 生产级完整向量 RAG、默认开启的 rerank / hybrid search 或线上治理已上线。
 - Spring Security 已保护 Actuator endpoint。
 - selector metrics 已接 Prometheus。
 - Actuator endpoint 已在生产开启。
