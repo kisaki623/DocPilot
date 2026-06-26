@@ -20,10 +20,35 @@ public record KnowledgeBaseRagRetrievalHit(
         Integer startOffset,
         Integer endOffset,
         Integer tokenCount,
-        String embeddingModel
+        String embeddingModel,
+        Double vectorScore,
+        Double keywordScore,
+        Double fusedScore,
+        Double rerankScore
 ) {
 
     private static final int SNIPPET_MAX_LENGTH = 320;
+
+    public KnowledgeBaseRagRetrievalHit(int citationIndex,
+                                        Long knowledgeBaseId,
+                                        String vectorId,
+                                        double score,
+                                        Long userId,
+                                        Long documentId,
+                                        String documentTitle,
+                                        Integer indexVersion,
+                                        Long chunkId,
+                                        Integer chunkIndex,
+                                        String content,
+                                        String contentHash,
+                                        Integer startOffset,
+                                        Integer endOffset,
+                                        Integer tokenCount,
+                                        String embeddingModel) {
+        this(citationIndex, knowledgeBaseId, vectorId, score, userId, documentId, documentTitle,
+                indexVersion, chunkId, chunkIndex, content, contentHash, startOffset, endOffset,
+                tokenCount, embeddingModel, null, null, null, null);
+    }
 
     public KnowledgeBaseRagRetrievalHit {
         if (citationIndex <= 0) {
@@ -54,6 +79,10 @@ public record KnowledgeBaseRagRetrievalHit(
         content = content == null ? "" : content.trim();
         contentHash = contentHash == null ? "" : contentHash.trim();
         embeddingModel = embeddingModel == null ? "" : embeddingModel.trim();
+        vectorScore = finiteOrNull(vectorScore);
+        keywordScore = finiteOrNull(keywordScore);
+        fusedScore = finiteOrNull(fusedScore);
+        rerankScore = finiteOrNull(rerankScore);
     }
 
     public static KnowledgeBaseRagRetrievalHit fromVectorHit(int citationIndex,
@@ -77,7 +106,11 @@ public record KnowledgeBaseRagRetrievalHit(
                 intValue(payload.get("startOffset")),
                 intValue(payload.get("endOffset")),
                 intValue(payload.get("tokenCount")),
-                stringValue(payload.get("embeddingModel"))
+                stringValue(payload.get("embeddingModel")),
+                doubleValue(payload.get("vectorScore")),
+                doubleValue(payload.get("keywordScore")),
+                doubleValue(payload.get("fusedScore")),
+                doubleValue(payload.get("rerankScore"))
         );
     }
 
@@ -94,7 +127,11 @@ public record KnowledgeBaseRagRetrievalHit(
                 endOffset,
                 contentHash,
                 snippet(),
-                score
+                score,
+                vectorScore,
+                keywordScore,
+                fusedScore,
+                rerankScore
         );
     }
 
@@ -135,5 +172,23 @@ public record KnowledgeBaseRagRetrievalHit(
 
     private static String stringValue(Object value) {
         return value == null ? "" : String.valueOf(value).trim();
+    }
+
+    private static Double doubleValue(Object value) {
+        if (value instanceof Number number) {
+            return finiteOrNull(number.doubleValue());
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return finiteOrNull(Double.parseDouble(text.trim()));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static Double finiteOrNull(Double value) {
+        return value != null && Double.isFinite(value) ? value : null;
     }
 }

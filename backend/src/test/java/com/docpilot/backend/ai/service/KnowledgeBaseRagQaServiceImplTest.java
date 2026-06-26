@@ -96,6 +96,33 @@ class KnowledgeBaseRagQaServiceImplTest {
     }
 
     @Test
+    void shouldFallbackWithEvidenceWhenAnswerGenerationFails() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(retrieval(false));
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenThrow(new IllegalStateException("model timeout"));
+        when(aiAnswerService.provider()).thenReturn("real");
+        when(aiAnswerService.model()).thenReturn("real-model");
+
+        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "summary?",
+                3,
+                1,
+                "s1"
+        ));
+
+        assertThat(answer.noEvidence()).isFalse();
+        assertThat(answer.fallbackUsed()).isTrue();
+        assertThat(answer.fallbackReason()).isEqualTo("answer_generation_failed");
+        assertThat(answer.answer()).contains("回答模型本次生成失败");
+        assertThat(answer.retrieval().citations()).hasSize(1);
+        assertThat(answer.answerProvider()).isEqualTo("real");
+        assertThat(answer.answerModel()).isEqualTo("real-model");
+        assertThat(answer.modelCallCount()).isEqualTo(1);
+    }
+
+    @Test
     void shouldNotMaskScopeExceptionWithFallback() {
         when(retrievalService.retrieve(org.mockito.Mockito.any()))
                 .thenThrow(new BusinessException(ErrorCode.KNOWLEDGE_BASE_FORBIDDEN));

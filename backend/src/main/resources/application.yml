@@ -7,6 +7,8 @@ server:
       force-response: true
 
 spring:
+  config:
+    import: ${SPRING_CONFIG_IMPORT:optional:file:./.env[.properties]}
   application:
     name: docpilot-backend
   profiles:
@@ -85,6 +87,18 @@ app:
       connect-timeout-ms: ${APP_RAG_EMBEDDING_CONNECT_TIMEOUT_MS:5000}
       request-timeout-ms: ${APP_RAG_EMBEDDING_REQUEST_TIMEOUT_MS:30000}
       dimension: ${APP_RAG_EMBEDDING_DIMENSION:32}
+    retrieval:
+      hybrid-enabled: ${APP_RAG_RETRIEVAL_HYBRID_ENABLED:false}
+      min-similarity-threshold: ${APP_RAG_RETRIEVAL_MIN_SIMILARITY_THRESHOLD:0.0}
+      rrf-k: ${APP_RAG_RETRIEVAL_RRF_K:60}
+    rerank:
+      enabled: ${APP_RAG_RERANK_ENABLED:false}
+      provider: ${APP_RAG_RERANK_PROVIDER:disabled}
+      base-url: ${APP_RAG_RERANK_BASE_URL:}
+      api-key: ${APP_RAG_RERANK_API_KEY:}
+      model: ${APP_RAG_RERANK_MODEL:}
+      connect-timeout-ms: ${APP_RAG_RERANK_CONNECT_TIMEOUT_MS:5000}
+      request-timeout-ms: ${APP_RAG_RERANK_REQUEST_TIMEOUT_MS:30000}
     vector-store:
       provider: ${RAG_VECTOR_STORE_PROVIDER:${RAG_VECTOR_PROVIDER:${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}}}
       qdrant:

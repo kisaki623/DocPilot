@@ -12,7 +12,11 @@ public record KnowledgeBaseRagEvidenceCitation(
         Integer endOffset,
         String contentHash,
         String snippet,
-        double score
+        double score,
+        Double vectorScore,
+        Double keywordScore,
+        Double fusedScore,
+        Double rerankScore
 ) {
 
     public KnowledgeBaseRagEvidenceCitation {
@@ -37,5 +41,13 @@ public record KnowledgeBaseRagEvidenceCitation(
         documentTitle = documentTitle == null ? "" : documentTitle.trim();
         contentHash = contentHash == null ? "" : contentHash.trim();
         snippet = snippet == null ? "" : snippet.trim();
+        vectorScore = finiteOrNull(vectorScore);
+        keywordScore = finiteOrNull(keywordScore);
+        fusedScore = finiteOrNull(fusedScore);
+        rerankScore = finiteOrNull(rerankScore);
+    }
+
+    private static Double finiteOrNull(Double value) {
+        return value != null && Double.isFinite(value) ? value : null;
     }
 }

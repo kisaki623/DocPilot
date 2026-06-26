@@ -2,8 +2,6 @@ server:
   port: ${SERVER_PORT:8081}
 
 spring:
-  config:
-    import: optional:file:./.env[.properties]
   datasource:
     # Local development connects to the cloud DB by default; credentials are injected via env vars.
     url: jdbc:mysql://${MYSQL_HOST:${CLOUD_HOST:localhost}}:${MYSQL_PORT:3306}/${MYSQL_DB:${MYSQL_DATABASE:docpilot}}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true

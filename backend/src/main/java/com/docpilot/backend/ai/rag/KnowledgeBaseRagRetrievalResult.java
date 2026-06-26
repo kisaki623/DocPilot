@@ -18,8 +18,28 @@ public record KnowledgeBaseRagRetrievalResult(
         String provider,
         String collection,
         String embeddingModel,
-        Map<Long, Integer> documentHitCounts
+        Map<Long, Integer> documentHitCounts,
+        String retrievalMode,
+        Boolean rerankApplied,
+        String rerankModel
 ) {
+
+    public KnowledgeBaseRagRetrievalResult(Long userId,
+                                           Long knowledgeBaseId,
+                                           String query,
+                                           int topK,
+                                           int indexVersion,
+                                           List<Long> documentIds,
+                                           List<KnowledgeBaseRagRetrievalHit> hits,
+                                           List<KnowledgeBaseRagEvidenceCitation> citations,
+                                           boolean noEvidence,
+                                           String provider,
+                                           String collection,
+                                           String embeddingModel,
+                                           Map<Long, Integer> documentHitCounts) {
+        this(userId, knowledgeBaseId, query, topK, indexVersion, documentIds, hits, citations,
+                noEvidence, provider, collection, embeddingModel, documentHitCounts, "vector", false, "");
+    }
 
     public KnowledgeBaseRagRetrievalResult {
         if (userId == null) {
@@ -43,6 +63,9 @@ public record KnowledgeBaseRagRetrievalResult(
         collection = collection == null ? "" : collection.trim();
         embeddingModel = embeddingModel == null ? "" : embeddingModel.trim();
         documentHitCounts = normalizeDocumentHitCounts(documentIds, hits, documentHitCounts);
+        retrievalMode = retrievalMode == null ? "vector" : retrievalMode.trim();
+        rerankApplied = Boolean.TRUE.equals(rerankApplied);
+        rerankModel = rerankModel == null ? "" : rerankModel.trim();
     }
 
     private static Map<Long, Integer> normalizeDocumentHitCounts(List<Long> documentIds,

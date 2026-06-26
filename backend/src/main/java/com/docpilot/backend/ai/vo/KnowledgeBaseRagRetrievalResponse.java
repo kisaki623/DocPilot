@@ -17,6 +17,9 @@ public class KnowledgeBaseRagRetrievalResponse {
     private String collection;
     private String embeddingModel;
     private Map<Long, Integer> documentHitCounts;
+    private String retrievalMode;
+    private Boolean rerankApplied;
+    private String rerankModel;
     private List<KnowledgeBaseRagRetrievalHitResponse> hits;
     private List<KnowledgeBaseRagCitationResponse> citations;
 
@@ -32,6 +35,9 @@ public class KnowledgeBaseRagRetrievalResponse {
         response.setCollection(result.collection());
         response.setEmbeddingModel(result.embeddingModel());
         response.setDocumentHitCounts(result.documentHitCounts());
+        response.setRetrievalMode(result.retrievalMode());
+        response.setRerankApplied(result.rerankApplied());
+        response.setRerankModel(result.rerankModel());
         response.setHits(result.hits().stream().map(KnowledgeBaseRagRetrievalHitResponse::from).toList());
         response.setCitations(result.citations().stream().map(KnowledgeBaseRagCitationResponse::from).toList());
         return response;
@@ -115,6 +121,30 @@ public class KnowledgeBaseRagRetrievalResponse {
 
     public void setDocumentHitCounts(Map<Long, Integer> documentHitCounts) {
         this.documentHitCounts = documentHitCounts;
+    }
+
+    public String getRetrievalMode() {
+        return retrievalMode;
+    }
+
+    public void setRetrievalMode(String retrievalMode) {
+        this.retrievalMode = retrievalMode;
+    }
+
+    public Boolean getRerankApplied() {
+        return rerankApplied;
+    }
+
+    public void setRerankApplied(Boolean rerankApplied) {
+        this.rerankApplied = rerankApplied;
+    }
+
+    public String getRerankModel() {
+        return rerankModel;
+    }
+
+    public void setRerankModel(String rerankModel) {
+        this.rerankModel = rerankModel;
     }
 
     public List<KnowledgeBaseRagRetrievalHitResponse> getHits() {

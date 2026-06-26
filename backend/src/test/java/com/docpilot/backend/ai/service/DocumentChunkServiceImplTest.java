@@ -109,16 +109,21 @@ class DocumentChunkServiceImplTest {
 
         List<DocumentChunkEntity> saved = service.replaceChunks(101L, 7L, "first paragraph\n\nsecond paragraph", 2);
 
-        assertThat(saved).hasSize(2);
+        assertThat(saved).hasSize(1);
         InOrder inOrder = inOrder(documentChunkMapper);
         inOrder.verify(documentChunkMapper).deleteByDocumentIdAndVersion(101L, 2);
-        inOrder.verify(documentChunkMapper, times(2)).insert(any(DocumentChunkEntity.class));
+        inOrder.verify(documentChunkMapper).insert(any(DocumentChunkEntity.class));
         ArgumentCaptor<DocumentChunkEntity> captor = ArgumentCaptor.forClass(DocumentChunkEntity.class);
-        verify(documentChunkMapper, times(2)).insert(captor.capture());
-        assertThat(captor.getAllValues()).extracting(DocumentChunkEntity::getIndexVersion)
-                .containsExactly(2, 2);
-        assertThat(captor.getAllValues()).extracting(DocumentChunkEntity::getChunkIndex)
-                .containsExactly(0, 1);
+        verify(documentChunkMapper).insert(captor.capture());
+        DocumentChunkEntity chunk = captor.getValue();
+        assertThat(chunk.getIndexVersion()).isEqualTo(2);
+        assertThat(chunk.getChunkIndex()).isZero();
+        assertThat(chunk.getContent()).isEqualTo("first paragraph\n\nsecond paragraph");
+        assertThat(chunk.getContentHash()).isEqualTo("d3e86e2c325e6f122ba6539b850872a56be544cc7891f145d9901734d3f5944b");
+        assertThat(chunk.getStartOffset()).isZero();
+        assertThat(chunk.getEndOffset()).isEqualTo(33);
+        assertThat(chunk.getTokenCount()).isEqualTo(33);
+        assertThat(chunk.getIndexStatus()).isEqualTo(DocumentChunkIndexStatus.PENDING);
     }
 
     @Test

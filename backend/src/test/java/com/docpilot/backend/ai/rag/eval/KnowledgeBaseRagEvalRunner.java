@@ -14,6 +14,7 @@ import com.docpilot.backend.ai.rag.MockEmbeddingProvider;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagIndexingRequest;
 import com.docpilot.backend.ai.rag.RagQaProperties;
+import com.docpilot.backend.ai.rag.RagRetrievalProperties;
 import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
 import com.docpilot.backend.ai.rag.vector.inmemory.InMemoryVectorStoreClient;
 import com.docpilot.backend.ai.service.AiAnswerService;
@@ -307,8 +308,12 @@ public class KnowledgeBaseRagEvalRunner {
                     scopeGuard,
                     embeddingProvider,
                     vectorStoreClient,
+                    null, // hybridRetrievalService - not needed for eval
                     embeddingProperties,
-                    qaProperties
+                    qaProperties,
+                    new RagRetrievalProperties(), // default retrieval properties
+                    null,
+                    null
             );
             AiAnswerService aiAnswerService = mock(AiAnswerService.class);
             when(aiAnswerService.answer(any(), any())).thenReturn("Synthetic eval answer. [1]");

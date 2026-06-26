@@ -97,6 +97,7 @@ class RagVectorStorePropertiesTest {
     void applicationYamlShouldPreferRecommendedQdrantEnvNamesWithLegacyFallback() throws IOException {
         String yaml = Files.readString(Path.of("src/main/resources/application.yml"), StandardCharsets.UTF_8);
 
+        assertThat(yaml).contains("import: ${SPRING_CONFIG_IMPORT:optional:file:./.env[.properties]}");
         assertThat(yaml).contains("provider: ${RAG_VECTOR_STORE_PROVIDER:${RAG_VECTOR_PROVIDER:${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}}}");
         assertThat(yaml).contains("collection: ${RAG_QDRANT_COLLECTION:${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION:docpilot_rag_demo}}");
         assertThat(yaml).contains("endpoint: ${RAG_QDRANT_ENDPOINT:${APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT:}}");
@@ -108,6 +109,14 @@ class RagVectorStorePropertiesTest {
         assertThat(yaml).contains("collection-init-enabled: ${RAG_QDRANT_COLLECTION_INIT_ENABLED:${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION_INIT_ENABLED:false}}");
         assertThat(yaml).contains("connect-timeout-ms: ${RAG_QDRANT_CONNECT_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_CONNECT_TIMEOUT_MS:5000}}");
         assertThat(yaml).contains("request-timeout-ms: ${RAG_QDRANT_REQUEST_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_REQUEST_TIMEOUT_MS:30000}}");
+    }
+
+    @Test
+    void localProfileYamlShouldNotOwnEnvFileImport() throws IOException {
+        String yaml = Files.readString(Path.of("src/main/resources/application-local.yml"), StandardCharsets.UTF_8);
+
+        assertThat(yaml).doesNotContain("spring.config.import");
+        assertThat(yaml).doesNotContain("optional:file:./.env");
     }
 
     @Test

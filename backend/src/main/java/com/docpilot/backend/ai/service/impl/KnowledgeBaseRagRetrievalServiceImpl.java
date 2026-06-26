@@ -9,6 +9,13 @@ import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalQuery;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagQaProperties;
+import com.docpilot.backend.ai.rag.RagRetrievalProperties;
+import com.docpilot.backend.ai.rag.fusion.FusedSearchHit;
+import com.docpilot.backend.ai.rag.fusion.HybridRetrievalService;
+import com.docpilot.backend.ai.rag.rerank.RerankProperties;
+import com.docpilot.backend.ai.rag.rerank.RerankRequest;
+import com.docpilot.backend.ai.rag.rerank.RerankResult;
+import com.docpilot.backend.ai.rag.rerank.RerankService;
 import com.docpilot.backend.ai.rag.vector.VectorSearchHit;
 import com.docpilot.backend.ai.rag.vector.VectorSearchRequest;
 import com.docpilot.backend.ai.rag.vector.VectorSearchResult;
@@ -57,19 +64,31 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
     private final KnowledgeBaseScopeGuard knowledgeBaseScopeGuard;
     private final EmbeddingProvider embeddingProvider;
     private final VectorStoreClient vectorStoreClient;
+    private final HybridRetrievalService hybridRetrievalService;
     private final RagEmbeddingProperties embeddingProperties;
     private final RagQaProperties ragQaProperties;
+    private final RagRetrievalProperties retrievalProperties;
+    private final RerankService rerankService;
+    private final RerankProperties rerankProperties;
 
     public KnowledgeBaseRagRetrievalServiceImpl(KnowledgeBaseScopeGuard knowledgeBaseScopeGuard,
                                                 EmbeddingProvider embeddingProvider,
                                                 VectorStoreClient vectorStoreClient,
+                                                HybridRetrievalService hybridRetrievalService,
                                                 RagEmbeddingProperties embeddingProperties,
-                                                RagQaProperties ragQaProperties) {
+                                                RagQaProperties ragQaProperties,
+                                                RagRetrievalProperties retrievalProperties,
+                                                RerankService rerankService,
+                                                RerankProperties rerankProperties) {
         this.knowledgeBaseScopeGuard = knowledgeBaseScopeGuard;
         this.embeddingProvider = embeddingProvider;
         this.vectorStoreClient = vectorStoreClient;
+        this.hybridRetrievalService = hybridRetrievalService;
         this.embeddingProperties = embeddingProperties == null ? new RagEmbeddingProperties() : embeddingProperties;
         this.ragQaProperties = ragQaProperties == null ? new RagQaProperties() : ragQaProperties;
+        this.retrievalProperties = retrievalProperties == null ? new RagRetrievalProperties() : retrievalProperties;
+        this.rerankService = rerankService == null ? KnowledgeBaseRagRetrievalServiceImpl::identityRerank : rerankService;
+        this.rerankProperties = rerankProperties == null ? new RerankProperties() : rerankProperties;
     }
 
     @Override
@@ -103,8 +122,24 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                         (left, right) -> left,
                         LinkedHashMap::new
                 ));
+
         List<VectorSearchHit> scopedHits = scopedHits(resolved, documentById.keySet(), searchResult.hits());
-        List<VectorSearchHit> selectedHits = selectDiverseHits(resolved, documentIds, scopedHits);
+
+        // Apply similarity threshold filtering
+        List<VectorSearchHit> filteredHits = applySimilarityThreshold(scopedHits);
+
+        // Use hybrid retrieval if enabled, otherwise use vector-only
+        String retrievalMode = retrievalProperties.isHybridEnabled() ? "hybrid" : "vector";
+        List<VectorSearchHit> candidates;
+        if (retrievalProperties.isHybridEnabled()) {
+            candidates = hybridRetrieve(resolved, documentIds, filteredHits);
+        } else {
+            candidates = filteredHits;
+        }
+        List<VectorSearchHit> finalScopedCandidates = scopedHits(resolved, documentById.keySet(), candidates);
+        RerankOutcome rerankOutcome = rerankCandidates(resolved, finalScopedCandidates);
+        List<VectorSearchHit> selectedHits = selectDiverseHits(resolved, documentIds, rerankOutcome.hits());
+
         List<KnowledgeBaseRagRetrievalHit> hits = toHits(resolved.knowledgeBaseId(), selectedHits, documentById);
         List<KnowledgeBaseRagEvidenceCitation> citations = hits.stream()
                 .map(KnowledgeBaseRagRetrievalHit::toCitation)
@@ -123,7 +158,10 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 searchResult.provider(),
                 searchResult.collection(),
                 embeddingModel,
-                documentHitCounts(documentIds, hits)
+                documentHitCounts(documentIds, hits),
+                retrievalMode,
+                rerankOutcome.applied(),
+                rerankOutcome.model()
         );
     }
 
@@ -174,7 +212,10 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 provider,
                 collection,
                 embeddingModel,
-                documentHitCounts(documentIds, List.of())
+                documentHitCounts(documentIds, List.of()),
+                "vector",
+                false,
+                ""
         );
     }
 
@@ -310,6 +351,147 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         return Collections.unmodifiableMap(new LinkedHashMap<>(counts));
     }
 
+    /**
+     * Apply similarity threshold filtering to vector search hits.
+     * Filters out hits with scores below the configured threshold.
+     */
+    private List<VectorSearchHit> applySimilarityThreshold(List<VectorSearchHit> hits) {
+        double threshold = retrievalProperties.getMinSimilarityThreshold();
+        if (threshold <= 0.0) {
+            return hits;
+        }
+        return hits.stream()
+                .filter(hit -> hit.score() >= threshold)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Hybrid retrieval combining vector and keyword search using RRF.
+     */
+    private List<VectorSearchHit> hybridRetrieve(ResolvedQuery resolved,
+                                                  List<Long> documentIds,
+                                                  List<VectorSearchHit> vectorHits) {
+        // Perform hybrid search with RRF fusion
+        List<FusedSearchHit> fusedHits = hybridRetrievalService.hybridSearch(
+                resolved.query(),
+                resolved.userId(),
+                documentIds,
+                resolved.indexVersion(),
+                vectorHits,
+                candidateTopK(resolved, documentIds.size())
+        );
+
+        // Convert fused hits back to VectorSearchHit for diversity selection
+        List<VectorSearchHit> hybridHits = fusedHits.stream()
+                .map(this::fusedToVectorHit)
+                .collect(Collectors.toList());
+        return List.copyOf(hybridHits);
+    }
+
+    /**
+     * Convert FusedSearchHit back to VectorSearchHit for downstream processing.
+     */
+    private VectorSearchHit fusedToVectorHit(FusedSearchHit fused) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("chunkId", fused.chunkId());
+        payload.put("fusedScore", fused.fusedScore());
+        payload.put("vectorScore", fused.vectorScore());
+        payload.put("keywordScore", fused.keywordScore());
+        putIfNotNull(payload, "startOffset", fused.startOffset());
+        putIfNotNull(payload, "endOffset", fused.endOffset());
+        putIfNotNull(payload, "tokenCount", fused.tokenCount());
+        if (fused.embeddingModel() != null && !fused.embeddingModel().isBlank()) {
+            payload.put("embeddingModel", fused.embeddingModel());
+        }
+
+        return new VectorSearchHit(
+                fused.vectorId() != null ? fused.vectorId() : "fused_" + fused.chunkId(),
+                fused.fusedScore(), // Use fused score as the primary score
+                fused.userId(),
+                fused.documentId(),
+                fused.indexVersion(),
+                fused.chunkIndex(),
+                fused.content(),
+                fused.contentHash() == null ? "" : fused.contentHash(),
+                payload
+        );
+    }
+
+    private RerankOutcome rerankCandidates(ResolvedQuery resolved, List<VectorSearchHit> candidates) {
+        if (candidates.isEmpty() || !rerankProperties.isEnabled()) {
+            return new RerankOutcome(candidates, false, "");
+        }
+        try {
+            RerankResult result = rerankService.rerank(new RerankRequest(
+                    resolved.query(),
+                    candidates.stream().map(VectorSearchHit::content).toList(),
+                    candidates.size()
+            ));
+            if (result.hits().isEmpty() || "identity".equalsIgnoreCase(result.model())) {
+                return new RerankOutcome(candidates, false, result.model());
+            }
+            List<VectorSearchHit> reranked = applyRerankResult(candidates, result);
+            if (reranked.isEmpty()) {
+                return new RerankOutcome(candidates, false, result.model());
+            }
+            return new RerankOutcome(reranked, true, result.model());
+        } catch (RuntimeException ex) {
+            return new RerankOutcome(candidates, false, "fallback");
+        }
+    }
+
+    private List<VectorSearchHit> applyRerankResult(List<VectorSearchHit> candidates, RerankResult result) {
+        List<VectorSearchHit> reranked = new ArrayList<>(candidates.size());
+        Set<Integer> selectedIndexes = new HashSet<>();
+        for (RerankResult.RerankHit rerankHit : result.hits()) {
+            int index = rerankHit.index();
+            if (index < 0 || index >= candidates.size() || !selectedIndexes.add(index)) {
+                continue;
+            }
+            reranked.add(withScoreAndPayload(candidates.get(index), rerankHit.relevanceScore(), Map.of(
+                    "rerankScore", rerankHit.relevanceScore(),
+                    "rerankModel", result.model()
+            )));
+        }
+        for (int i = 0; i < candidates.size(); i++) {
+            if (!selectedIndexes.contains(i)) {
+                reranked.add(candidates.get(i));
+            }
+        }
+        return List.copyOf(reranked);
+    }
+
+    private VectorSearchHit withScoreAndPayload(VectorSearchHit hit, double score, Map<String, Object> extraPayload) {
+        Map<String, Object> payload = new LinkedHashMap<>(hit.payload());
+        payload.putAll(extraPayload);
+        return new VectorSearchHit(
+                hit.id(),
+                score,
+                hit.userId(),
+                hit.documentId(),
+                hit.indexVersion(),
+                hit.chunkIndex(),
+                hit.content(),
+                hit.contentHash(),
+                payload
+        );
+    }
+
+    private static RerankResult identityRerank(RerankRequest request) {
+        List<RerankResult.RerankHit> hits = new ArrayList<>();
+        int topK = Math.min(request.topK(), request.documents().size());
+        for (int i = 0; i < topK; i++) {
+            hits.add(new RerankResult.RerankHit(i, 1.0D - (i * 0.01D)));
+        }
+        return new RerankResult(hits, "identity");
+    }
+
+    private void putIfNotNull(Map<String, Object> payload, String key, Object value) {
+        if (value != null) {
+            payload.put(key, value);
+        }
+    }
+
     private record ResolvedQuery(
             Long userId,
             Long knowledgeBaseId,
@@ -318,5 +500,16 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
             int indexVersion,
             String embeddingModel
     ) {
+    }
+
+    private record RerankOutcome(
+            List<VectorSearchHit> hits,
+            boolean applied,
+            String model
+    ) {
+        private RerankOutcome {
+            hits = hits == null ? List.of() : List.copyOf(hits);
+            model = model == null ? "" : model.trim();
+        }
     }
 }

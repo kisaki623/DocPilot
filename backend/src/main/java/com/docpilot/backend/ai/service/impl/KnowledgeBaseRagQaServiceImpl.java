@@ -13,16 +13,22 @@ import com.docpilot.backend.ai.service.KnowledgeBaseRagRetrievalService;
 import com.docpilot.backend.common.constant.CommonConstants;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
 public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService {
 
+    private static final Logger log = LoggerFactory.getLogger(KnowledgeBaseRagQaServiceImpl.class);
+
     public static final String NO_EVIDENCE_ANSWER =
             "未在当前知识库索引中检索到足够证据，无法基于知识库回答该问题。";
     public static final String RETRIEVAL_UNAVAILABLE_ANSWER =
             "知识库 RAG 检索暂不可用，暂时无法基于知识库索引回答该问题。";
+    public static final String ANSWER_GENERATION_FAILED_ANSWER =
+            "知识库已检索到相关证据，但回答模型本次生成失败。请先查看下方引用证据，或稍后重试。";
 
     private final KnowledgeBaseRagRetrievalService retrievalService;
     private final AiAnswerService aiAnswerService;
@@ -87,7 +93,17 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
             String answerText = aiAnswerService.answer(prompt.evidenceContext(), prompt.userPrompt());
             return answer(resolved, answerText, retrieval, false, false, "", 1);
         } catch (RuntimeException ex) {
-            throw new BusinessException(ErrorCode.AI_CALL_FAILED, "knowledge base RAG answer generation failed");
+            log.warn("Knowledge base RAG answer generation failed. userId={}, knowledgeBaseId={}, questionLength={}, hitCount={}, reason={}",
+                    resolved.userId(),
+                    resolved.knowledgeBaseId(),
+                    resolved.question().length(),
+                    retrieval.hits().size(),
+                    ex.getMessage());
+            if (!ragQaProperties.isFallbackEnabled()) {
+                throw new BusinessException(ErrorCode.AI_CALL_FAILED, "knowledge base RAG answer generation failed");
+            }
+            return answer(resolved, ANSWER_GENERATION_FAILED_ANSWER, retrieval, false, true,
+                    "answer_generation_failed", 1);
         }
     }
 

@@ -9,6 +9,13 @@ import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalHit;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagQaProperties;
+import com.docpilot.backend.ai.rag.RagRetrievalProperties;
+import com.docpilot.backend.ai.rag.fusion.FusedSearchHit;
+import com.docpilot.backend.ai.rag.fusion.HybridRetrievalService;
+import com.docpilot.backend.ai.rag.rerank.RerankProperties;
+import com.docpilot.backend.ai.rag.rerank.RerankRequest;
+import com.docpilot.backend.ai.rag.rerank.RerankResult;
+import com.docpilot.backend.ai.rag.rerank.RerankService;
 import com.docpilot.backend.ai.rag.vector.VectorSearchHit;
 import com.docpilot.backend.ai.rag.vector.VectorSearchRequest;
 import com.docpilot.backend.ai.rag.vector.VectorSearchResult;
@@ -28,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,13 +46,21 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
     private final KnowledgeBaseScopeGuard scopeGuard = mock(KnowledgeBaseScopeGuard.class);
     private final EmbeddingProvider embeddingProvider = mock(EmbeddingProvider.class);
     private final VectorStoreClient vectorStoreClient = mock(VectorStoreClient.class);
+    private final HybridRetrievalService hybridRetrievalService = mock(HybridRetrievalService.class);
+    private final RerankService rerankService = mock(RerankService.class);
     private final RagQaProperties ragQaProperties = new RagQaProperties();
+    private final RagRetrievalProperties ragRetrievalProperties = new RagRetrievalProperties();
+    private final RerankProperties rerankProperties = new RerankProperties();
     private final KnowledgeBaseRagRetrievalServiceImpl service = new KnowledgeBaseRagRetrievalServiceImpl(
             scopeGuard,
             embeddingProvider,
             vectorStoreClient,
+            hybridRetrievalService,
             new RagEmbeddingProperties(),
-            ragQaProperties
+            ragQaProperties,
+            ragRetrievalProperties,
+            rerankService,
+            rerankProperties
     );
 
     @Test
@@ -140,6 +156,90 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         assertThat(result.noEvidence()).isTrue();
         verify(embeddingProvider, never()).embed(any());
         verify(vectorStoreClient, never()).search(any());
+    }
+
+    @Test
+    void shouldPreserveIndexVersionAndMetadataForHybridKeywordOnlyHits() {
+        ragRetrievalProperties.setHybridEnabled(true);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Doc")));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(), "in_memory", ""));
+        when(hybridRetrievalService.hybridSearch(eq("question"), eq(7L), eq(List.of(101L)), eq(2), any(), any(Integer.class)))
+                .thenReturn(List.of(new FusedSearchHit(
+                        901L,
+                        101L,
+                        7L,
+                        2,
+                        3,
+                        "keyword content",
+                        "hash-keyword",
+                        10,
+                        25,
+                        6,
+                        "mock-model",
+                        null,
+                        0.42D,
+                        0.0D,
+                        3.2D
+                )));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "question",
+                3,
+                2,
+                ""
+        ));
+
+        assertThat(result.retrievalMode()).isEqualTo("hybrid");
+        assertThat(result.hits()).hasSize(1);
+        KnowledgeBaseRagRetrievalHit hit = result.hits().get(0);
+        assertThat(hit.indexVersion()).isEqualTo(2);
+        assertThat(hit.chunkId()).isEqualTo(901L);
+        assertThat(hit.contentHash()).isEqualTo("hash-keyword");
+        assertThat(hit.fusedScore()).isEqualTo(0.42D);
+        assertThat(hit.keywordScore()).isEqualTo(3.2D);
+        verify(scopeGuard, org.mockito.Mockito.atLeastOnce()).requireHitInKnowledgeBaseScope(
+                eq(7L),
+                eq(10L),
+                org.mockito.Mockito.anySet(),
+                eq(2),
+                any()
+        );
+    }
+
+    @Test
+    void shouldRerankCandidatesWhenRerankIsEnabled() {
+        rerankProperties.setEnabled(true);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
+                doc(101L, "Redis Guide"),
+                doc(102L, "Qdrant Guide")
+        ));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("v1", 7L, 101L, 1, "Redis stores cache", 0.95D),
+                hit("v2", 7L, 102L, 1, "Qdrant stores vectors", 0.90D)
+        ), "in_memory", ""));
+        when(rerankService.rerank(any(RerankRequest.class))).thenReturn(new RerankResult(List.of(
+                new RerankResult.RerankHit(1, 0.99D),
+                new RerankResult.RerankHit(0, 0.60D)
+        ), "mock-reranker"));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "vectors",
+                2,
+                1,
+                ""
+        ));
+
+        assertThat(result.rerankApplied()).isTrue();
+        assertThat(result.rerankModel()).isEqualTo("mock-reranker");
+        assertThat(result.hits()).extracting(KnowledgeBaseRagRetrievalHit::documentId)
+                .containsExactly(102L, 101L);
+        assertThat(result.hits().get(0).rerankScore()).isEqualTo(0.99D);
     }
 
     @Test

@@ -16,6 +16,10 @@ public class KnowledgeBaseRagCitationResponse {
     private String contentHash;
     private String snippet;
     private Double score;
+    private Double vectorScore;
+    private Double keywordScore;
+    private Double fusedScore;
+    private Double rerankScore;
 
     public static KnowledgeBaseRagCitationResponse from(KnowledgeBaseRagEvidenceCitation citation) {
         KnowledgeBaseRagCitationResponse response = new KnowledgeBaseRagCitationResponse();
@@ -31,6 +35,10 @@ public class KnowledgeBaseRagCitationResponse {
         response.setContentHash(citation.contentHash());
         response.setSnippet(citation.snippet());
         response.setScore(citation.score());
+        response.setVectorScore(citation.vectorScore());
+        response.setKeywordScore(citation.keywordScore());
+        response.setFusedScore(citation.fusedScore());
+        response.setRerankScore(citation.rerankScore());
         return response;
     }
 
@@ -128,5 +136,37 @@ public class KnowledgeBaseRagCitationResponse {
 
     public void setScore(Double score) {
         this.score = score;
+    }
+
+    public Double getVectorScore() {
+        return vectorScore;
+    }
+
+    public void setVectorScore(Double vectorScore) {
+        this.vectorScore = vectorScore;
+    }
+
+    public Double getKeywordScore() {
+        return keywordScore;
+    }
+
+    public void setKeywordScore(Double keywordScore) {
+        this.keywordScore = keywordScore;
+    }
+
+    public Double getFusedScore() {
+        return fusedScore;
+    }
+
+    public void setFusedScore(Double fusedScore) {
+        this.fusedScore = fusedScore;
+    }
+
+    public Double getRerankScore() {
+        return rerankScore;
+    }
+
+    public void setRerankScore(Double rerankScore) {
+        this.rerankScore = rerankScore;
     }
 }

@@ -18,6 +18,10 @@ public class KnowledgeBaseRagRetrievalHitResponse {
     private Integer endOffset;
     private Integer tokenCount;
     private String embeddingModel;
+    private Double vectorScore;
+    private Double keywordScore;
+    private Double fusedScore;
+    private Double rerankScore;
 
     public static KnowledgeBaseRagRetrievalHitResponse from(KnowledgeBaseRagRetrievalHit hit) {
         KnowledgeBaseRagRetrievalHitResponse response = new KnowledgeBaseRagRetrievalHitResponse();
@@ -35,6 +39,10 @@ public class KnowledgeBaseRagRetrievalHitResponse {
         response.setEndOffset(hit.endOffset());
         response.setTokenCount(hit.tokenCount());
         response.setEmbeddingModel(hit.embeddingModel());
+        response.setVectorScore(hit.vectorScore());
+        response.setKeywordScore(hit.keywordScore());
+        response.setFusedScore(hit.fusedScore());
+        response.setRerankScore(hit.rerankScore());
         return response;
     }
 
@@ -148,5 +156,37 @@ public class KnowledgeBaseRagRetrievalHitResponse {
 
     public void setEmbeddingModel(String embeddingModel) {
         this.embeddingModel = embeddingModel;
+    }
+
+    public Double getVectorScore() {
+        return vectorScore;
+    }
+
+    public void setVectorScore(Double vectorScore) {
+        this.vectorScore = vectorScore;
+    }
+
+    public Double getKeywordScore() {
+        return keywordScore;
+    }
+
+    public void setKeywordScore(Double keywordScore) {
+        this.keywordScore = keywordScore;
+    }
+
+    public Double getFusedScore() {
+        return fusedScore;
+    }
+
+    public void setFusedScore(Double fusedScore) {
+        this.fusedScore = fusedScore;
+    }
+
+    public Double getRerankScore() {
+        return rerankScore;
+    }
+
+    public void setRerankScore(Double rerankScore) {
+        this.rerankScore = rerankScore;
     }
 }
