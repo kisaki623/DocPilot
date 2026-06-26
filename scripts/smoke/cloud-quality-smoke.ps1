@@ -246,7 +246,7 @@ function Start-BackendIfNeeded() {
   }
 
   $backendDir = Join-Path (Get-Location) "backend"
-  $command = "Set-Location -LiteralPath '$backendDir'; mvn spring-boot:run `"-Dspring-boot.run.profiles=local`""
+  $command = "Set-Location -LiteralPath '$backendDir'; mvn --% spring-boot:run -Dspring-boot.run.profiles=local"
   $process = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command) -WindowStyle Hidden -PassThru
   $script:StartedProcesses += $process
   if (-not (Wait-BackendHealth 120)) {
