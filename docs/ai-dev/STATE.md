@@ -78,6 +78,8 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - 历史记录看 archive 或旧大文件。
 - 不要让旧 TODO 覆盖当前路线。
 - 文档和代码冲突时，以代码、测试和可运行结果为准。
+- 自驱迭代模式采用真实链路优先验证：mock / unit test 只作为快速回归门禁；涉及 RAG、Memory、Conversation Trace、权限隔离和前端体验的质量结论，环境可达时应以真实 smoke / runtime evidence 收口。
+- 用户已授予自驱模式下的受控真实验证权限：允许本地 tunnel / backend / frontend、真实 smoke、临时 smoke 数据、本机已有真实配置和 ignored 脱敏 artifact；远程破坏性操作、删数据、改 schema、push 和大规模高成本 provider eval 仍需单独确认。
 
 ## 6. 最近安全加固
 

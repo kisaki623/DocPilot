@@ -2,6 +2,13 @@
 
 当前任务：RAG Quality Upgrade v8: eval corpus expansion（NEXT）
 
+## 2026-06-27 追加任务：真实链路优先自驱协议
+
+- 目标：把用户长期授权后的自驱模式从“最小 / mock 验证优先”调整为“真实链路优先验证”，让后续 RAG、KnowledgeBase、Conversation Memory、Context Trace、权限隔离和前端关键路径改动尽量以真实用户体验链路收口。
+- 已完成：`AGENTS.md` 与 `docs/ai-dev/CONSTRAINTS.md` 已补充真实链路优先规则；自驱模式下默认允许启动本地 tunnel / backend / frontend、运行真实 smoke、创建带统一 marker 的临时 smoke 数据、使用本机已有真实配置并生成 ignored 脱敏 artifact；`docs/ai-dev/ROADMAP_RAG.md` 已同步 RAG 质量门禁口径。
+- 边界：仍禁止 push、提交 `.env` / secrets / artifact 原文、打印 token / API key / 云地址 / 连接串、删除业务数据、改数据库结构、清空 collection、远程 Docker 启停 / 重启 / 迁移或大规模高成本 provider eval；这些高风险操作仍需单独确认。
+- 下一步：进入 `RAG Quality Upgrade v8: eval corpus expansion`。后续每个 RAG / Memory 质量切片先跑离线门禁；环境可达时继续跑真实链路 smoke，否则只能记录 `REVIEW` 或 `BLOCKED`，不能把用户体验质量写成已真实验证。
+
 ## 2026-06-27 追加任务：自驱迭代推进协议文档化
 
 - 目标：把用户授权后的“连续自驱迭代推进”写入项目协作规则，让后续协作代理能理解：在明确授权后，应自行拆小片、实现、验证、自审、提交、回写文档，并继续推进下一片，直到大目标完成或遇到阻塞。

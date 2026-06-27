@@ -53,7 +53,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/start-cloud-tunnels.ps1
 
 
 
-涉及云服务器 Docker 中间件的查看、启动、停止、重启、日志、网络、端口和数据检查，默认由 `hk-ops` 子代理负责。使用 `hk-ops` 前必须先向用户说明目的、命令类别、是否只读、可能影响，并等待明确授权；不得为了方便绕过本地证据直接操作远程服务器。
+真实链路验证优先走本地 SSH tunnel、后端、前端和 smoke runner。用户明确进入自驱迭代模式后，视为已授权代理在当前大目标内自行启动本地 tunnel、后端、前端，运行真实 smoke，创建带统一 marker 的临时 smoke 用户 / 文档 / KnowledgeBase / Conversation，并生成 ignored 脱敏 artifact；这些操作不再需要逐次等待用户确认。涉及云服务器 Docker / `hk-ops` 时，只读诊断（状态、日志、端口、网络、健康检查、非敏感计数）可在说明目的和命令类别后执行；启动、停止、重启、删除、迁移、改防火墙、改云资源、清空数据或修改数据库结构仍必须单独获得用户明确授权。不得为了方便绕过本地证据直接做远程破坏性操作。
 
 涉及前端开发或改善的工作请和 Gemini CLI 协作，Gemini CLI 负责创意、方案和代码建议，Codex 负责安全审查、代码落地、验证和文档回写；Gemini CLI 不直接接触 `.env`、secrets、远程服务器操作、数据库迁移或不相关文件。详细规则见 `docs/ai-dev/CONSTRAINTS.md`。
 
@@ -101,24 +101,28 @@ curl http://localhost:8081/actuator/health
 10. 不要留下本地服务进程或端口占用；如启动了后端、前端或脚本服务，结束前要清理并说明端口状态。
 11. 如果发现工作区有未提交改动或未跟踪文件，必须先向用户汇报，不要直接执行 `git add` / `git commit` / `git push`。
 12. 每轮开始必须检查 `.env`、`.env.local`、`.env.*`、`application-*.yml`、`*.example` 中是否存在硬编码密钥、密码、token、真实云服务 IP；如有必须先告警，不能把敏感值复制到回复里。
-13. 使用 subagents、context7 MCP、playwright MCP 或远程 `hk-ops` 前，先遵守本文件和 `docs/ai-dev/CONSTRAINTS.md`；旧工具边界可按需参考 `docs/archive/CODEX_TOOLING.md`。远程中间件操作只能通过 `hk-ops` 并在用户明确授权后进行，禁止泄露凭据或执行未经授权的破坏性操作。
+13. 使用 subagents、context7 MCP、playwright MCP 或远程 `hk-ops` 前，先遵守本文件和 `docs/ai-dev/CONSTRAINTS.md`；旧工具边界可按需参考 `docs/archive/CODEX_TOOLING.md`。自驱迭代模式下允许为真实链路验证执行本地 tunnel / smoke / 只读远程诊断；远程破坏性操作仍必须单独授权，禁止泄露凭据或执行未经授权的破坏性操作。
 
 ## 自驱迭代模式
 
 当用户明确表达“连续做直到完成”“自驱迭代推进”“按计划一直往下做”“每完成一部分自审并提交”等意图时，后续协作代理进入自驱迭代模式。该模式用于推进一个已定义的大目标，不用于绕过安全边界或无限扩大范围。
+
+自驱迭代模式默认采用“真实链路优先验证”：mock / unit test 是快速回归门禁，但不能单独证明用户真实体验。涉及 RAG、KnowledgeBase、Conversation Memory、Context Trace、权限隔离、前端关键路径或 cloud smoke 的切片，只要当前本地环境可达，就应优先运行真实 backend / frontend / tunnel / Qdrant / MySQL / provider 链路上的 smoke 或 runtime 验证；没有真实链路验证时，不能把用户体验质量写成 `DONE`。
 
 自驱迭代模式下，代理不需要等待用户逐片发送 `Implement the plan`；每个循环自行选择 `docs/ai-dev/CURRENT_TASK.md` / `docs/ai-dev/ROADMAP_RAG.md` 中最小可交付切片，按以下顺序推进：
 
 1. 读取本文件、`docs/README.md`、`STATE.md`、`CURRENT_TASK.md`、`CONSTRAINTS.md`、`PROGRESS_LOG.md`，检查 `git status` / `git diff` 和敏感配置边界。
 2. 简短说明本片目标、涉及文件、验证方式和不做事项。
 3. 实现切片，优先复用现有模块和测试风格。
-4. 运行与风险匹配的验证；没有真实验证不能标记为 `DONE`。
+4. 运行与风险匹配的验证；RAG / Memory / 前端体验类任务优先跑真实链路 smoke，没有真实验证不能把用户体验质量标记为 `DONE`。
 5. 自审 `git diff --check`、中文 Markdown 乱码、staged 敏感值、artifact / 端口 / 进程状态。
 6. 更新 `CURRENT_TASK.md`、`STATE.md`、`PROGRESS_LOG.md`，必要时更新 `ROADMAP_RAG.md` 和 `DEMO_SMOKE_RECORD.md`。
 7. 精确 `git add` 相关文件并提交一条一行 conventional commit；不得使用 `git add .`。
 8. 再次检查 `git status --short`；若大目标未完成且无阻塞，继续下一片。
 
-自驱迭代模式必须在以下情况停止并向用户汇报：大目标已完成；需要产品取舍；需要改数据库结构、删除业务数据、真实 provider / 付费调用、远程 Docker / `hk-ops` 操作或 push；连续验证失败且本地证据不足；发现影响当前切片的无关未提交改动；用户要求暂停、只读或进入 Plan 阶段。
+自驱迭代模式不需要因为启动本地 tunnel / backend / frontend、创建临时 smoke 数据、运行真实 smoke、使用本机已有 `.env` 中的真实 provider / Qdrant / MySQL 配置而停下来等确认；但任何敏感值只能由应用或脚本读取，禁止复制到回复、文档、commit message 或 artifact。
+
+自驱迭代模式必须在以下情况停止并向用户汇报：大目标已完成；需要产品取舍；需要改数据库结构、删除业务数据、清空 collection、远程 Docker 启停 / 重启 / 迁移、改防火墙或云资源、大规模或高成本真实 provider 调用、push；无法脱敏的证据；连续验证失败且本地证据不足；发现影响当前切片的无关未提交改动；用户要求暂停、只读或进入 Plan 阶段。
 
 自驱迭代提交规则：每个提交必须是小闭环；验证不完整时状态只能写 `REVIEW`；环境或权限缺失写 `BLOCKED`；不得提交 `.env`、artifact 原文、日志、截图、真实密钥、云地址或连接串。
 

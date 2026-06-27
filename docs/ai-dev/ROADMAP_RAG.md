@@ -82,8 +82,8 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 
 ## 5. 质量门禁
 
-- 离线默认门禁：`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test`，不能依赖真实 provider 或远程 Qdrant。
-- 真实链路门禁：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run`，只在本地 tunnel / backend / frontend 可用且用户允许创建临时 smoke 数据时执行。
+- 离线默认门禁：`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test`，不能依赖真实 provider 或远程 Qdrant；它用于快速回归，不单独证明真实用户体验。
+- 真实链路门禁：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run`。自驱迭代模式下，只要本地 tunnel / backend / frontend 可用，默认允许创建带统一 marker 的临时 smoke 数据并执行；RAG / Memory / 前端体验质量结论优先以该类真实链路证据为准。
 - Artifact 规则：只保存脱敏 summary、计数、score summary、门禁状态和安全错误摘要；不保存 `.env`、token、API key、连接串、云地址、文档全文、prompt 或 evidence context。
 - 状态规则：核心链路失败为 `FAILED_CORE_FLOW`，权限隔离失败为 `FAILED_SECURITY_GATE`，质量阈值未达标为 `REVIEW`，环境不可达为 `BLOCKED`。
 

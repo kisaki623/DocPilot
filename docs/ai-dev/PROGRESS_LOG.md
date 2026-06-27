@@ -1,5 +1,10 @@
 # Progress Log
 
+## 2026-06-27 真实链路优先自驱协议
+
+- 已将自驱迭代模式升级为真实链路优先验证：后续 RAG、KnowledgeBase、Conversation Memory、Context Trace、权限隔离和前端关键路径改动，不能只靠 mock / 最小测试证明用户体验质量。
+- `AGENTS.md`、`docs/ai-dev/CONSTRAINTS.md` 和 `docs/ai-dev/ROADMAP_RAG.md` 已同步受控放权规则：默认允许本地 tunnel / backend / frontend、真实 smoke、临时 smoke 数据、本机已有真实配置和 ignored 脱敏 artifact；远程破坏性操作、删数据、改 schema、push、大规模高成本 provider eval 仍需单独确认。
+
 ## 2026-06-27 自驱迭代推进协议
 
 - 已将用户授权后的自驱迭代模式写入 `AGENTS.md` 和 `docs/ai-dev/CONSTRAINTS.md`：明确触发语、每片循环、自动提交条件、停止条件和安全边界。

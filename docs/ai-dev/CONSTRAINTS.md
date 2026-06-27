@@ -23,8 +23,17 @@
 2. 自驱迭代模式允许协作代理在一个大目标内自行拆片、实现、验证、回写文档、精确暂存和提交；普通任务仍不得自动 commit。
 3. 每个切片必须是小闭环：先说明本片目标和验证方式，再改动、验证、自审、回写事实源、提交。
 4. 自动提交只允许使用精确路径；禁止 `git add .`，禁止 push，禁止提交 `.env`、artifact 原文、日志、截图、Playwright 临时目录或任何真实凭据。
-5. 下列情况必须停止并汇报，不能继续硬做：需要用户产品取舍、数据库结构变更、删除业务数据、远程 Docker / `hk-ops`、真实 provider 成本调用、无法脱敏的证据、连续验证失败、工作区出现影响当前切片的无关改动。
-6. 自驱模式不改变状态口径：没有真实验证不能写 `DONE`；验证不完整写 `REVIEW`；环境 / 权限 / 配置缺失写 `BLOCKED`。
+5. 自驱模式默认采用真实链路优先验证：mock / unit test 是快速回归门禁，RAG、Memory、Conversation Trace、权限隔离和前端关键路径的质量结论优先以真实 smoke / runtime evidence 为准。
+6. 自驱模式允许在当前大目标内自行启动本地 tunnel / backend / frontend，运行真实 smoke，创建带统一 marker 的临时 smoke 数据，使用本机已有 `.env` 中的真实 provider / Qdrant / MySQL 配置，并生成 ignored 脱敏 artifact；这些操作不再逐次等待用户确认。
+7. 下列情况必须停止并汇报，不能继续硬做：需要用户产品取舍、数据库结构变更、删除业务数据、清空 collection、远程 Docker 启停 / 重启 / 迁移、改防火墙或云资源、大规模或高成本真实 provider 调用、无法脱敏的证据、连续验证失败、工作区出现影响当前切片的无关改动。
+8. 自驱模式不改变状态口径：没有真实链路验证不能把用户体验质量写 `DONE`；验证不完整写 `REVIEW`；环境 / 权限 / 配置缺失写 `BLOCKED`。
+
+## 2.2 真实链路优先验证权限
+
+1. 默认允许：本地 SSH tunnel、后端、前端、Playwright、cloud / RAG smoke runner、临时 smoke 用户 / 文档 / KnowledgeBase / Conversation、ignored 脱敏 artifact、小规模真实 provider 调用。
+2. 受控允许：通过 `hk-ops` 或等价路径做只读远程诊断，包括容器状态、健康检查、日志摘要、端口、网络、非敏感计数；执行前说明目的和命令类别，输出必须脱敏。
+3. 仍需单独授权：远程 Docker 启动 / 停止 / 重启、数据库结构变更、业务数据删除、collection 清空、云资源或防火墙修改、大规模付费 eval、push。
+4. 敏感值永远不能输出或提交：`.env`、token、API key、账号密码、云地址、连接串、文档全文、prompt、evidence context。真实配置只能由本地应用、脚本或环境变量读取。
 
 ## 3. 后端实现约束
 
