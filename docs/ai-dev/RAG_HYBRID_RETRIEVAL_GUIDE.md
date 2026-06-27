@@ -10,7 +10,7 @@
 - Hybrid retrieval：向量候选与 keyword 候选通过 Reciprocal Rank Fusion 融合，`rrfK` 读取 `APP_RAG_RETRIEVAL_RRF_K`，默认 `60`。
 - Evidence confidence gate：`APP_RAG_RETRIEVAL_MIN_SIMILARITY_THRESHOLD` 默认 `0.50`。vector-only hit 使用 `score` 判断；hybrid hit 如果带 `vectorScore`，使用原始向量相似度做门禁，不把 RRF `fusedScore` 当作 similarity。低置信 keyword-only / fused hit 不进入 grounded QA。
 - Scope guard：向量命中和融合后的最终候选都会经过 KnowledgeBase scope / `indexVersion` 校验，防止跨用户、跨文档、跨版本 evidence。
-- Optional rerank：`APP_RAG_RERANK_ENABLED=true` 时，KnowledgeBase RAG 会在候选融合后、最终多样性选择前调用 `RerankService`。provider disabled、调用失败或返回 identity 时自动保留原候选顺序。
+- Optional rerank：`APP_RAG_RERANK_ENABLED=true` 且 provider 外部配置完整时，KnowledgeBase RAG 会在候选融合后、最终多样性选择前调用 `RerankService`。provider disabled、配置不完整、调用失败或返回 identity 时自动保留原候选顺序，且配置不完整时不发 HTTP。
 - Observability：retrieval response 暴露 `retrievalMode`、`rerankApplied`、`rerankModel`，hit / citation 暴露 `vectorScore`、`keywordScore`、`fusedScore`、`rerankScore`。
 
 ## 配置
@@ -47,6 +47,12 @@ APP_RAG_RERANK_API_KEY=<local-secret>
 
 不要把真实 endpoint、API key 或云服务器地址写入文档、README 或 git commit。
 
+配置完整性边界：
+
+- `APP_RAG_RERANK_PROVIDER=cohere` 需要同时配置 API key 和 model。
+- `APP_RAG_RERANK_PROVIDER=openai_compatible` 需要同时配置 base URL、API key 和 model。
+- 半配置状态只会走 identity fallback，用于保护默认链路、避免误外呼和避免在普通测试中依赖真实 provider。
+
 ## 验证命令
 
 ```powershell
@@ -64,4 +70,4 @@ npm run build
 - Hybrid evidence confidence gate 使用 `vectorScore` 过滤低置信候选，并拒绝低置信 fused hit 进入 citations。
 - Hybrid 最终候选会再次经过 KnowledgeBase scope guard。
 - rerank enabled 时会改变最终候选顺序，并输出 `rerankScore` / `rerankModel`。
-- rerank disabled / provider failed 时回退 identity，不破坏默认检索链路。
+- rerank disabled / 配置不完整 / provider failed 时回退 identity，不破坏默认检索链路。

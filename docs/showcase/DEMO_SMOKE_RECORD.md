@@ -439,20 +439,20 @@ Validation performed:
 | `-Mode plan` | PASS |
 | `-Mode dry-run` | PASS |
 | `-Mode run` overall status | PASS |
-| smoke marker | `docpilot-rag-real-quality-20260627213040-4038e1` |
+| smoke marker | `docpilot-rag-real-quality-20260627214532-e1fb65` |
 | Quality min similarity threshold | `0.50` |
-| Chunk quality | document `138`: `3/3` indexed chunks; document `139`: `3/3` indexed chunks; duplicate hash count `0`; offset order and token/content length checks passed |
+| Chunk quality | document `141`: `3/3` indexed chunks; document `142`: `3/3` indexed chunks; duplicate hash count `0`; offset order and token/content length checks passed |
 | MySQL / Qdrant consistency | both documents matched `3/3` points, `0` missing vector ids, `0` mismatched fields, `0` missing structure fields |
 | Single-document RAG | `3` retrieve hits, `3` QA citations |
-| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{138:3,139:3}` |
-| KnowledgeBase vector score summary | retrieve min `0.65164304`, citation min `0.62551725` |
+| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{141:3,142:3}` |
+| KnowledgeBase vector score summary | retrieve min `0.6432873`, citation min `0.62551725` |
 | No-evidence threshold | PASS: unrelated populated-KB query returned `noEvidence=true`, `0` retrieve hits and `0` QA citations |
-| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, hit distribution `{138:3,139:3}` |
+| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, hit distribution `{141:3,142:3}` |
 | Permission isolation | foreign KB detail, foreign KB retrieve, cross-user document add, and foreign trace access all rejected |
 | Frontend route smoke | `/`, `/login`, `/dashboard`, `/upload`, `/documents`, `/knowledge-bases`, `/conversations` all HTTP 200 and non-blank |
 | Artifact redaction | PASS, local redaction-pattern scan had `0` matches |
 
-Boundary: this is a stronger real-link quality gate than the offline eval because it uses the application upload / parse / indexing / Qdrant path. The v3 gate rejects the specific unrelated populated-KB query used by the smoke, v4 adds answer-audit fields plus offline grounding metrics, and v5 verifies chunk structure metadata enters Qdrant payload without a schema migration. It is still not a broad production relevance benchmark across large corpora or many domains.
+Boundary: this is a stronger real-link quality gate than the offline eval because it uses the application upload / parse / indexing / Qdrant path. The v3 gate rejects the specific unrelated populated-KB query used by the smoke, v4 adds answer-audit fields plus offline grounding metrics, v5 verifies chunk structure metadata enters Qdrant payload without a schema migration, and v6 keeps rerank external calls behind complete explicit provider configuration. It is still not a broad production relevance benchmark across large corpora or many domains.
 
 ## 12. Current Boundaries
 
@@ -469,7 +469,7 @@ What can be safely claimed:
 - MinIO active storage has been smoke tested through upload and parse readback.
 - RocketMQ + Outbox active parse flow has been smoke tested through producer, consumer and final parse status.
 - Offline Function Calling adapter tests and multi-document eval artifact have passed.
-- KnowledgeBase Hybrid / Rerank optional enhancement has local unit/build evidence and remains disabled by default.
+- KnowledgeBase Hybrid / Rerank optional enhancement has local unit/build/eval evidence and remains disabled by default; v6 verifies incomplete rerank provider config falls back without external HTTP.
 
 What should be described with caveats:
 
@@ -478,4 +478,4 @@ What should be described with caveats:
 - Real answer model and real embedding were verified in separate smoke runs, not in one combined run.
 - Populated KnowledgeBase no-evidence has a calibrated smoke threshold, but broader no-evidence precision still needs more eval cases and domain coverage.
 - The current RAG real quality gate result is PASS, but broader no-evidence robustness still requires more eval coverage beyond this smoke fixture.
-- KnowledgeBase Hybrid / Rerank has not been re-smoked with a real rerank provider in this record.
+- KnowledgeBase Hybrid / Rerank has not been re-smoked with a real rerank provider in this record; v6 smoke validates default fallback and core RAG gates, not provider-specific relevance uplift.

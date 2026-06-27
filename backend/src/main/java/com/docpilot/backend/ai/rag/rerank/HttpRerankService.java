@@ -25,10 +25,6 @@ public class HttpRerankService implements RerankService {
 
     private static final Logger log = LoggerFactory.getLogger(HttpRerankService.class);
 
-    private static final String PROVIDER_DISABLED = "disabled";
-    private static final String PROVIDER_COHERE = "cohere";
-    private static final String PROVIDER_OPENAI_COMPATIBLE = "openai_compatible";
-
     private final RerankProperties properties;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -41,19 +37,15 @@ public class HttpRerankService implements RerankService {
 
     @Override
     public RerankResult rerank(RerankRequest request) {
-        if (!properties.isEnabled()) {
+        if (!properties.isExternalProviderConfigured()) {
             return fallbackToIdentityRerank(request);
         }
 
         String provider = properties.getProvider();
-        if (PROVIDER_DISABLED.equals(provider)) {
-            return fallbackToIdentityRerank(request);
-        }
-
         try {
-            if (PROVIDER_COHERE.equals(provider)) {
+            if (RerankProperties.PROVIDER_COHERE.equals(provider)) {
                 return rerankWithCohere(request);
-            } else if (PROVIDER_OPENAI_COMPATIBLE.equals(provider)) {
+            } else if (RerankProperties.PROVIDER_OPENAI_COMPATIBLE.equals(provider)) {
                 return rerankWithOpenAICompatible(request);
             } else {
                 return fallbackToIdentityRerank(request);

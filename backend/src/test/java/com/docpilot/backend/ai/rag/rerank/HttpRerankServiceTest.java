@@ -29,6 +29,25 @@ class HttpRerankServiceTest {
     }
 
     @Test
+    void shouldReturnIdentityWithoutHttpCallWhenExternalProviderConfigIsIncomplete() {
+        RerankProperties properties = new RerankProperties();
+        properties.setEnabled(true);
+        properties.setProvider("openai_compatible");
+        properties.setBaseUrl("http://rerank.local");
+        properties.setModel("mock-reranker");
+        HttpRerankService service = new HttpRerankService(properties);
+        RestTemplate restTemplate = (RestTemplate) ReflectionTestUtils.getField(service, "restTemplate");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+
+        RerankResult result = service.rerank(new RerankRequest("query", List.of("a", "b"), 2));
+
+        server.verify();
+        assertThat(result.model()).isEqualTo("identity");
+        assertThat(result.hits()).extracting(RerankResult.RerankHit::index)
+                .containsExactly(0, 1);
+    }
+
+    @Test
     void shouldParseOpenAiCompatibleRerankResponse() {
         RerankProperties properties = new RerankProperties();
         properties.setEnabled(true);
@@ -67,6 +86,8 @@ class HttpRerankServiceTest {
         properties.setEnabled(true);
         properties.setProvider("openai_compatible");
         properties.setBaseUrl("http://rerank.local");
+        properties.setModel("mock-reranker");
+        properties.setApiKey("test-key");
         HttpRerankService service = new HttpRerankService(properties);
         RestTemplate restTemplate = (RestTemplate) ReflectionTestUtils.getField(service, "restTemplate");
         MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();

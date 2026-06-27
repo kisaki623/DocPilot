@@ -29,7 +29,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - RAG Quality Upgrade v3 已把真实链路 no-evidence 门禁从 `REVIEW` 推到 `PASS`：KnowledgeBase hybrid 检索在融合后继续执行 evidence confidence gate，并对带 `vectorScore` 的 hybrid hit 使用原始向量相似度做阈值判断，避免把 RRF `fusedScore` 当作 similarity；默认质量阈值校准为 `0.50`。2026-06-27 `scripts/smoke/rag-real-quality-smoke.ps1 -Mode run` 默认配置 PASS，marker 为 `docpilot-rag-real-quality-20260627210458-9d0321`，覆盖真实 embedding + Qdrant、chunk、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、populated-KB no-evidence、Conversation Trace、权限隔离、前端 route 和 artifact 脱敏。
 - RAG Quality Upgrade v4 已新增 KnowledgeBase QA answer audit：QA response 暴露脱敏 `audit`，包含 `grounded`、evidence / citation count、documentHitCounts、score / vectorScore / fusedScore / rerankScore summary、retrievalMode、rerank 信息、fallbackReason 和 modelCallCount；离线 eval 新增 `groundedAnswerRate` 与 `noEvidenceCitationFreeRate`。2026-06-27 默认真实 smoke 再次 PASS，marker 为 `docpilot-rag-real-quality-20260627211711-383cda`。
 - RAG Quality Upgrade v5 已新增 chunk structure quality：chunk candidate 生成 section title / ordinal / source block ordinal / structure type / quality flags，索引时透传到 embedding metadata 与 Qdrant payload；真实 smoke 的 chunkQuality gate 已覆盖 MySQL offset order、token/content length 和 duplicate hash，MySQL / Qdrant gate 已校验结构 payload 字段。2026-06-27 默认真实 smoke PASS，marker 为 `docpilot-rag-real-quality-20260627213040-4038e1`。
-- RAG Quality Upgrade v6 已开始：KnowledgeBase 离线 eval artifact 新增 `retrievalModeMetrics`，同一批 case 对比 `vector` 与 `hybrid` 的 hit / citation / multi-document / no-evidence / grounding 指标；该门禁仍使用 mock embedding + in-memory vector store + in-memory keyword retriever，不强制真实 rerank provider。
+- RAG Quality Upgrade v6 已完成：KnowledgeBase 离线 eval artifact 新增 `retrievalModeMetrics`，同一批 case 对比 `vector` 与 `hybrid` 的 hit / citation / multi-document / no-evidence / grounding 指标；rerank provider 现在必须在 `enabled=true` 且外部配置完整时才发 HTTP，否则 identity fallback 且不调用外部服务。2026-06-27 默认真实 smoke PASS，marker 为 `docpilot-rag-real-quality-20260627214532-e1fb65`。
 - 目标 KnowledgeBase `3` 的文档 `83/84/85/86` 已授权重建索引到稳定 Qdrant collection `docpilot_rag_v2`；chunk / vector 数为 `35/35`、`18/18`、`10/10`、`16/16`，总结资料集检索分布为 `{83:2,84:1,85:1,86:2}`。
 - Conversation Context Management / Agent Memory Mode 后端 MVP 已新增会话、消息、摘要、上下文 Trace、用户长期记忆五张新表和对应 API；`ContextAssemblyService` 可按 `RECENT_TURNS` / `AGENT_MEMORY` 组装系统提示、长期记忆、会话摘要、最近轮次与可选 KnowledgeBase evidence，并输出和持久化摘要级 trace。
 - 会话发送链路已按工程化质量收窄事务边界：上下文装配和回答模型调用不在长事务内执行；仅最终 conversation 行锁、连续写入 user / assistant message 和更新时间处于事务内，trace 仍为 best-effort。
@@ -46,7 +46,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 ## 3. 当前边界
 
 - 当前目标是生产化知识库 RAG 核心闭环，但还不是完整商业知识库 SaaS 或已验证线上 SLA 的生产系统。
-- fake embedding / in-memory vector store 仍属于测试、离线 eval 和稳定复现边界；真实 embedding + Qdrant 已在 smoke collection 验证，但不代表线上治理或固定 SLA。Hybrid / Rerank 目前是 KnowledgeBase RAG 的可选增强，默认关闭，真实 provider smoke 需要显式配置和单独验证。
+- fake embedding / in-memory vector store 仍属于测试、离线 eval 和稳定复现边界；真实 embedding + Qdrant 已在 smoke collection 验证，但不代表线上治理或固定 SLA。Hybrid / Rerank 目前是 KnowledgeBase RAG 的可选增强，默认关闭；v6 已验证“未完整配置不外呼 + identity fallback”，真实 rerank provider 效果仍需要显式配置和单独 smoke。
 - RAG Quality Upgrade v1 的新增 eval 仍是 `MockEmbeddingProvider` + `InMemoryVectorStoreClient` + synthetic answer 的离线门禁；它可以防止明显的 retrieval / citation / answer coverage 退化，但不代表真实 embedding、真实 rerank 或真实回答模型的效果评测已经完成。
 - RAG Quality Upgrade v3 已在真实 embedding + Qdrant 链路上证明 smoke 级 populated-KB no-evidence 可拒答：低于 `0.50` 的候选不进入 grounded QA，QA 返回 no-evidence 且不生成 citation。该结论仍是 smoke 级门禁，不等于跨大规模语料、复杂领域和全部问法的生产 relevance benchmark。
 - Qdrant 已有 adapter、payload mapping、fake server 测试、preflight 参考和真实 tunnel smoke；普通测试不依赖远程 Qdrant，复现真实 Qdrant 仍需通过本地 `.env` 显式配置可用 endpoint / tunnel、`RAG_VECTOR_STORE_PROVIDER=qdrant` 和 `RAG_QDRANT_COLLECTION`。
@@ -65,9 +65,9 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 
 ## 4. 当前生产化推进优先级
 
-1. 推进 v6 hybrid / rerank production gate：把 optional hybrid / rerank 从“能跑”变成可比较、可降级、可评测的质量门禁。
+1. 推进 v7 memory-aware RAG：继续把 Conversation Memory 与 KnowledgeBase evidence 分清，确保短期上下文、长期记忆、RAG evidence 和 trace 各自可解释。
 2. 增加更多 no-evidence eval case，覆盖语义相近但无证据、跨主题、跨文档干扰和 hybrid keyword-only 噪声。
-3. 继续把 Conversation Memory 与 KnowledgeBase evidence 分清：短期上下文、长期记忆、RAG evidence 和 trace 各自可解释。
+3. 在用户显式提供真实 provider 配置后，单独验证真实 rerank provider 效果和失败降级。
 4. 保持 README / docs 展示口径与真实 smoke 证据一致，不把 smoke 级 PASS 写成线上 SLA 或大规模生产 benchmark。
 
 ## 5. 事实源规则

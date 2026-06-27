@@ -7,8 +7,12 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "app.rag.rerank")
 public class RerankProperties {
 
+    public static final String PROVIDER_DISABLED = "disabled";
+    public static final String PROVIDER_COHERE = "cohere";
+    public static final String PROVIDER_OPENAI_COMPATIBLE = "openai_compatible";
+
     private boolean enabled = false;
-    private String provider = "disabled"; // disabled, cohere, openai_compatible
+    private String provider = PROVIDER_DISABLED; // disabled, cohere, openai_compatible
     private String baseUrl = "";
     private String apiKey = "";
     private String model = "";
@@ -28,7 +32,7 @@ public class RerankProperties {
     }
 
     public void setProvider(String provider) {
-        this.provider = provider == null ? "disabled" : provider.trim().toLowerCase();
+        this.provider = provider == null ? PROVIDER_DISABLED : provider.trim().toLowerCase();
     }
 
     public String getBaseUrl() {
@@ -75,5 +79,18 @@ public class RerankProperties {
             throw new IllegalArgumentException("request-timeout-ms must be positive");
         }
         this.requestTimeoutMs = requestTimeoutMs;
+    }
+
+    public boolean isExternalProviderConfigured() {
+        if (!enabled) {
+            return false;
+        }
+        if (PROVIDER_COHERE.equals(provider)) {
+            return !apiKey.isBlank() && !model.isBlank();
+        }
+        if (PROVIDER_OPENAI_COMPATIBLE.equals(provider)) {
+            return !baseUrl.isBlank() && !apiKey.isBlank() && !model.isBlank();
+        }
+        return false;
     }
 }

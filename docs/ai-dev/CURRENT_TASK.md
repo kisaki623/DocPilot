@@ -1,6 +1,12 @@
 # Current Task
 
-当前任务：RAG Quality Upgrade v6: hybrid / rerank production gate
+当前任务：RAG Quality Upgrade v7: memory-aware RAG
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v7
+
+- 目标：把 Conversation Context / User Memory / RAG Evidence / Context Trace 的边界做清楚，避免把 RAG evidence 当作长期记忆，也避免长期记忆污染知识库证据。
+- 成功标准：Conversation Trace 能区分 `conversationContext`、`userMemory`、`ragEvidence` 和 fallback；RAG evidence 不自动写入长期记忆；长期记忆候选仍需要用户接受后才进入上下文；相关离线测试和真实 smoke 能证明 KB evidence 与 memory 同时存在时上下文可解释。
+- 明确不做：本轮不引入复杂多 Agent 编排、不改数据库结构、不操作远程 Docker、不删除业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v5
 
@@ -21,7 +27,9 @@
 - 已完成 v6 第一片：KnowledgeBase RAG 离线 eval 现在同一批 case 同时跑 `vector` 与 `hybrid` 两种 retrieval mode，并在脱敏 artifact 中输出 `retrievalModeMetrics.vector` / `retrievalModeMetrics.hybrid`。
 - 默认 eval 仍使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient`，不依赖真实 rerank provider；hybrid eval 使用内存 keyword retriever，只服务质量门禁，不改变线上默认 `hybridEnabled=false`。
 - 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，4 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
-- v6 剩余：补充 rerank 显式 opt-in / fallback 质量门禁，继续保持真实 rerank provider 默认不强制。
+- 已完成 v6 第二片：rerank provider 现在必须外部配置完整才发 HTTP；`enabled=true` 但缺少 provider 所需字段时直接 identity fallback，避免半配置状态误触发外部调用。
+- 已验证：`mvn "-Dtest=*Rerank*,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，14 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627214532-e1fb65`。
+- v6 结论：DONE。真实 rerank provider 效果仍未强制验证，后续必须在用户显式提供配置后单独 smoke。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v4
 
