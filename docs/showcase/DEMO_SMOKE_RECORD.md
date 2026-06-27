@@ -364,9 +364,9 @@ Boundary: before S2, some Chinese error messages were garbled in API output. Err
 
 ## 10. Cloud Quality Gate Smoke Runner
 
-Status: REVIEW
+Status: PASS
 
-Evidence source: local runner implementation and non-mutating checks on 2026-06-27.
+Evidence source: `backend/target/smoke/docpilot-cloud-quality-20260627022219-37efd4/artifact.json`.
 
 Runner:
 
@@ -400,9 +400,23 @@ Validation performed:
 | Windows PowerShell parser | PASS |
 | `-Mode plan` | PASS |
 | `-Mode dry-run` | PASS |
-| `dry-run` tunnel status | 13306 / 6333 not listening, expected because this check did not start tunnel |
+| `-Mode run` overall status | PASS |
+| smoke marker | `docpilot-cloud-quality-20260627022219-37efd4` |
+| Temporary users | user A `102`, user B `103` |
+| User A documents | `102`, `103` |
+| User B document | `104` |
+| KnowledgeBase | `10` |
+| Conversation / message | `9` / `18` |
+| Chunk quality | document `102`: `3/3` indexed chunks; document `103`: `3/3` indexed chunks |
+| MySQL / Qdrant consistency | both documents matched `3/3` points, `0` missing vector ids |
+| Single-document RAG | `3` retrieve hits, `3` QA citations |
+| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{102:3,103:3}` |
+| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, hit distribution `{102:3,103:3}` |
+| Permission isolation | foreign KB detail, foreign KB retrieve, cross-user document add, and foreign trace access all rejected |
+| Frontend route smoke | `/`, `/login`, `/dashboard`, `/upload`, `/documents`, `/knowledge-bases`, `/conversations` all HTTP 200 and non-blank |
+| Artifact redaction | PASS, `0` local redaction-pattern matches in post-run scan |
 
-Boundary: `-Mode run` has not been executed yet, so this is not a PASS record for the full cloud quality gate. It proves the runner exists and the non-mutating preflight works, but no new temporary cloud business data or real artifact was created in this record.
+Boundary: this run created temporary smoke business data and a local redacted artifact under `backend/target/smoke`. The artifact is not intended to be committed. The run did not operate remote Docker, did not use `hk-ops`, did not delete business data, did not change database schema, and did not push.
 
 ## 11. Current Boundaries
 
@@ -414,6 +428,7 @@ What can be safely claimed:
 - Real answer generation model has been smoke tested.
 - Real embedding provider + Qdrant indexing / retrieval has been smoke tested.
 - Conversation Context / Agent Memory with accepted user memory and KnowledgeBase-bound evidence has been smoke tested.
+- Unified cloud quality gate smoke has passed once, covering two-document upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, two-document KnowledgeBase RAG, Conversation Trace, permission isolation, frontend routes, and redacted artifact output.
 - MinIO active storage has been smoke tested through upload and parse readback.
 - RocketMQ + Outbox active parse flow has been smoke tested through producer, consumer and final parse status.
 - Offline Function Calling adapter tests and multi-document eval artifact have passed.

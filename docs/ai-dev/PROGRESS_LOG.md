@@ -4,8 +4,9 @@
 
 - 已新增 `scripts/smoke/cloud-quality-smoke.ps1`，支持 `plan` / `dry-run` / `run` 三种执行模式，并统一使用 `smokeMarker` 串联临时用户、两份 txt 文档、KnowledgeBase、Conversation、问题文本和 ignored artifact。
 - `run` 模式设计为完整质量门禁：tunnel、backend health、frontend route、注册 / 登录、两文档上传 / parse / indexing、MySQL chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、权限隔离负向检查、脱敏 artifact、清理和最终 `git status`。
-- 已验证：Windows PowerShell 5 parser PASS；`powershell -File scripts/smoke/cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS。`dry-run` 显示当前 13306 / 6333 未监听，符合本轮未启动 tunnel 的预期。
-- 本轮未启动服务、未创建业务数据、未执行 `run` 模式、未生成真实 cloud quality smoke artifact、未提交 artifact、未 push；当前状态只能写为 runner 已落地且待授权 runtime 验证，不能写成云质量门禁 PASS。
+- 已验证：Windows PowerShell 5 parser PASS；`powershell -File scripts/smoke/cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run -ArtifactRoot backend/target/smoke -FrontendBaseUrl http://127.0.0.1:3007` PASS。
+- 本次 run marker 为 `docpilot-cloud-quality-20260627022219-37efd4`，artifact 为 `backend/target/smoke/docpilot-cloud-quality-20260627022219-37efd4/artifact.json`；post-run redaction scan 为 `0` 命中。质量门禁覆盖两文档 chunk `3/3 + 3/3`、MySQL / Qdrant `3/3 + 3/3`、单文档 RAG `3` hits / `3` citations、KB RAG `6` hits / `6` citations、Conversation Trace `ragTriggered=true` / `ragRequired=true` / `evidenceCount=6`、四个权限隔离负向检查和七个前端 route。
+- 执行过程未操作远程 Docker、未使用 `hk-ops`、未删除业务数据、未改数据库结构、未 push；本地 backend / frontend / tunnel 已在收尾时清理。为适配 Windows PowerShell，本轮追加修复 runner 的 backend 启动参数、顺序 indexing、chunk length 统计和 frontend `npm.cmd` 启动。
 
 ## 2026-06-26 交付切片本地提交
 

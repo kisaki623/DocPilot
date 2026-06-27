@@ -34,7 +34,7 @@ DocPilot 是 Java Spring Boot + Next.js 的 AI 文档解析与问答工程化项
 - `/conversations` 已作为前端核心页按 GPT / DeepSeek 风格重做：页面主视觉改为居中聊天流、底部悬浮 composer 和左侧会话历史；Trace、Memory、Summary、KnowledgeBase evidence 收进右侧 Context Inspector 抽屉，保留会话上下文可观测性但不再把工程控制台作为主界面。
 - 前端 UI 文案已完成一轮成熟化收口：产品页面不再直接暴露“求职 / 面试 / MVP / 演示 / 生产级 / smoke”等内部口径，改为工作空间、引用来源、上下文溯源、会话记忆、工具链等更克制的产品表达；详细边界仍保留在 docs / README / 面试材料中。
 - A1 / S 系列真实链路 smoke 已补齐：单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、MinIO active storage、RocketMQ + Outbox active parse、真实 embedding + Qdrant、ToolCall API 和权限越界失败案例均有记录。
-- 云端完整业务 smoke 质量门禁 runner 已落地为 `scripts/smoke/cloud-quality-smoke.ps1`，支持 `plan` / `dry-run` / `run` 三种模式；设计覆盖 tunnel、backend health、frontend route、临时用户、两文档上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、权限隔离负向检查、脱敏 artifact 和最终 git status 检查。当前只完成脚本语法与 `plan` / `dry-run` 验证，尚未执行会创建业务数据的 `run` 模式。
+- 云端完整业务 smoke 质量门禁 runner 已落地并完成一次 `run` 模式验证：`scripts/smoke/cloud-quality-smoke.ps1` 支持 `plan` / `dry-run` / `run`，2026-06-27 使用 marker `docpilot-cloud-quality-20260627022219-37efd4` 跑通 tunnel、backend health、frontend route、临时用户、两文档上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、权限隔离负向检查、脱敏 artifact 和最终 git status 检查，整体状态 PASS。
 
 ## 3. 当前边界
 
@@ -48,7 +48,7 @@ DocPilot 是 Java Spring Boot + Next.js 的 AI 文档解析与问答工程化项
 - Conversation Context Management 当前仍为非流式 MVP：不做后台自动摘要生成、不做真实模型长期记忆抽取、不持久化完整 prompt / evidence 原文、不接管现有 Agent 主链路；KnowledgeBase evidence 只通过既有 retrieval service 获取。
 - 前端重点页面已完成产品化文案收口：页面层不再使用“求职 / 面试 / MVP / smoke / 生产级”等内部或过度承诺表达，改为工作空间、引用来源、上下文溯源、会话记忆、工具链等用户可感知口径；工程边界仍保留在 ai-dev 文档中。
 - Conversation Context Management 登录态 runtime smoke 已完成核心 MVP 链路：2026-06-13 已按用户授权通过当前本机 SSH tunnel 入口对云服务器 Docker MySQL 执行 `007_init_conversation_context.sql` 并确认五张 T013 表存在；随后本地前后端启动、健康检查、`/conversations` 登录态页面、创建会话、发送消息、trace、summary refresh、候选记忆提取 / 接受、ACTIVE 记忆进入第二轮 Agent Memory 上下文均验证通过。2026-06-13 追加完成带真实 KnowledgeBase 文档 evidence 的 API + 浏览器端到端 smoke：绑定 KB 的 Agent Memory 会话可触发 RAG evidence，trace 显示 `Evidence=1`、`ragTriggered=true`、`ragRequired=true`、命中文档分布 `#94: 1`。
-- `scripts/smoke/cloud-quality-smoke.ps1 -Mode run` 会创建临时用户、临时文档、KnowledgeBase、Conversation 和 ignored artifact；执行前必须确认可以启动本地 backend / frontend 和 MySQL / Qdrant tunnel。当前不能把该 runner 写成已通过的云质量门禁，只能写成已落地、待授权运行。
+- `scripts/smoke/cloud-quality-smoke.ps1 -Mode run` 会创建临时用户、临时文档、KnowledgeBase、Conversation 和本地脱敏 artifact；artifact 默认不提交。2026-06-27 的 PASS 记录位于 `docs/showcase/DEMO_SMOKE_RECORD.md`，本地 artifact 位于 `backend/target/smoke/docpilot-cloud-quality-20260627022219-37efd4/artifact.json`。
 - 新 chunking 策略只影响后续 indexing；除已重建的 `83/84/85/86` 外，其他既有文档必须 rebuild / reindex 后，MySQL chunk 和 Qdrant 向量 payload 才会反映新的 chunk 质量。
 - Agent 不是多智能体自主规划。
 - `llm_execute` / real provider 等能力如果默认关闭，要视为待显式配置和 runtime 验证，不能写成默认生产能力；Function Calling 不能写成生产默认接管。

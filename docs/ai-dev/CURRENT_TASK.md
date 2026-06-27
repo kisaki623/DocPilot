@@ -8,8 +8,9 @@
 - runner 支持 `-Mode plan`、`-Mode dry-run`、`-Mode run`：`plan` 只输出门禁清单，`dry-run` 只做本地前置检查，`run` 才会启动 / 复用 tunnel、backend、frontend 并创建临时业务数据。
 - 统一 `smokeMarker` 贯穿临时用户、两份 txt 文档、KnowledgeBase、Conversation、问题文本和 artifact；artifact 默认写入 ignored 路径 `tmp-e2e/docpilot-cloud-quality-smoke/<smokeMarker>/artifact.json`。
 - `run` 模式门禁覆盖 tunnel 连通、backend health、frontend route、注册 / 登录、两文档上传 / parse / indexing、MySQL chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、至少四个权限隔离负向检查、artifact 脱敏扫描、清理和最终 `git status`。
-- 当前已验证：Windows PowerShell 5 parser PASS；`-Mode plan` PASS；`-Mode dry-run` PASS。`dry-run` 显示当前 13306 / 6333 未监听，符合本轮未启动 tunnel 的预期。
-- 当前未执行：`-Mode run` 未跑，未启动服务，未创建临时业务数据，未生成真实 cloud quality smoke artifact，不能标记为云质量门禁 PASS。
+- 当前已验证：Windows PowerShell 5 parser PASS；`-Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run -ArtifactRoot backend/target/smoke -FrontendBaseUrl http://127.0.0.1:3007` PASS。
+- 本次 `run` marker 为 `docpilot-cloud-quality-20260627022219-37efd4`，脱敏 artifact 位于 `backend/target/smoke/docpilot-cloud-quality-20260627022219-37efd4/artifact.json`，artifact 不提交。
+- 本次 `run` 生成临时用户、文档、KnowledgeBase 和 Conversation；没有操作远程 Docker，没有使用 `hk-ops`，没有删除业务数据，没有改数据库结构，没有 push。
 
 ## T013 本轮已完成
 
