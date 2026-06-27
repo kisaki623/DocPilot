@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-27 RAG Quality Upgrade v1
+
+- 完成 RAG 质量门禁第一版小步落地：`RagDocumentRetrievalServiceImpl` 接入统一 `RagRetrievalProperties.minSimilarityThreshold`，补齐此前单文档 retrieval 未使用相似度阈值的问题，默认阈值仍为 `0.0`，不改变未配置场景行为。
+- 增强 KnowledgeBase RAG 离线 eval：fixture 新增答案事实标记、禁止泄漏标记、最少 citation 数和多文档覆盖要求；metrics / artifact 新增 `answerHitRate`、`citationCountRate`、`multiDocumentCoverageRate`、`forbiddenAnswerLeakRate`，并继续只输出脱敏 summary。
+- 当前生成的 `backend/target/rag-eval/knowledge-base-rag-eval-latest.json` 显示 caseCount `5`、`answerHitRate=1.0000`、`citationCountRate=1.0000`、`multiDocumentCoverageRate=1.0000`、`forbiddenAnswerLeakRate=0.0000`、`noEvidenceModelCallCount=0`；artifact 不提交。
+- 已验证：`mvn "-Dtest=RagDocumentRetrievalServiceImplTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagEvalFixtureTest" test` PASS，12 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，192 tests；`mvn -DskipTests compile` PASS；`mvn test -DskipITs` PASS，729 tests，0 failures，0 errors，1 skipped。
+- 本轮未启动 tunnel，未调用真实 provider，未创建业务数据，未改数据库结构，未改前端；真实 embedding / rerank / answer provider 效果评测仍是后续任务。
+
 ## 2026-06-27 云端完整业务 Smoke 质量门禁 runner
 
 - 已新增 `scripts/smoke/cloud-quality-smoke.ps1`，支持 `plan` / `dry-run` / `run` 三种执行模式，并统一使用 `smokeMarker` 串联临时用户、两份 txt 文档、KnowledgeBase、Conversation、问题文本和 ignored artifact。

@@ -12,8 +12,12 @@ public record KnowledgeBaseRagEvalCase(
         List<EvalDocument> documents,
         List<EvalDocument> outOfScopeDocuments,
         List<String> expectedMarkers,
+        List<String> expectedAnswerMarkers,
+        List<String> forbiddenAnswerMarkers,
         List<Long> expectedDocumentIds,
         List<Long> forbiddenDocumentIds,
+        Integer minCitationCount,
+        Boolean requiresMultiDocumentCoverage,
         boolean expectedNoEvidence
 ) {
 
@@ -43,8 +47,18 @@ public record KnowledgeBaseRagEvalCase(
         documents = documents == null ? List.of() : List.copyOf(documents);
         outOfScopeDocuments = outOfScopeDocuments == null ? List.of() : List.copyOf(outOfScopeDocuments);
         expectedMarkers = expectedMarkers == null ? List.of() : normalizeStrings(expectedMarkers);
+        expectedAnswerMarkers = expectedAnswerMarkers == null
+                ? expectedMarkers
+                : normalizeStrings(expectedAnswerMarkers);
+        forbiddenAnswerMarkers = forbiddenAnswerMarkers == null ? List.of() : normalizeStrings(forbiddenAnswerMarkers);
         expectedDocumentIds = expectedDocumentIds == null ? List.of() : normalizeIds(expectedDocumentIds);
         forbiddenDocumentIds = forbiddenDocumentIds == null ? List.of() : normalizeIds(forbiddenDocumentIds);
+        minCitationCount = minCitationCount == null
+                ? (expectedNoEvidence ? 0 : expectedDocumentIds.size())
+                : Math.max(0, minCitationCount);
+        requiresMultiDocumentCoverage = requiresMultiDocumentCoverage == null
+                ? expectedDocumentIds.size() > 1
+                : requiresMultiDocumentCoverage;
     }
 
     public List<Long> activeDocumentIds() {

@@ -13,6 +13,7 @@ import com.docpilot.backend.ai.rag.MockEmbeddingProvider;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagIndexingRequest;
 import com.docpilot.backend.ai.rag.RagQaProperties;
+import com.docpilot.backend.ai.rag.RagRetrievalProperties;
 import com.docpilot.backend.ai.rag.RagRetrievalQuery;
 import com.docpilot.backend.ai.rag.RagRetrievalResult;
 import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
@@ -111,6 +112,41 @@ class RagDocumentRetrievalServiceImplTest {
         assertThat(searchCaptor.getValue().topK()).isEqualTo(4);
         assertThat(searchCaptor.getValue().indexVersion()).isEqualTo(2);
         assertThat(result.noEvidence()).isTrue();
+        assertThat(result.citations()).isEmpty();
+    }
+
+    @Test
+    void shouldApplyConfiguredSimilarityThreshold() {
+        when(documentMapper.selectById(101L)).thenReturn(document(101L, 7L));
+        when(embeddingProvider.embed(any())).thenReturn(embedding("mock-model"));
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(
+                List.of(hit(7L, 101L, 1, 0.42D)),
+                "in_memory",
+                ""
+        ));
+        RagRetrievalProperties retrievalProperties = new RagRetrievalProperties();
+        retrievalProperties.setMinSimilarityThreshold(0.8D);
+        RagDocumentRetrievalServiceImpl service = new RagDocumentRetrievalServiceImpl(
+                documentMapper,
+                embeddingProvider,
+                vectorStoreClient,
+                new RagEmbeddingProperties(),
+                new RagQaProperties(),
+                retrievalProperties,
+                new RagScopeGuard(documentMapper)
+        );
+
+        RagRetrievalResult result = service.retrieve(new RagRetrievalQuery(
+                7L,
+                101L,
+                "unrelated query",
+                3,
+                1,
+                "mock-model"
+        ));
+
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.hits()).isEmpty();
         assertThat(result.citations()).isEmpty();
     }
 
@@ -243,9 +279,13 @@ class RagDocumentRetrievalServiceImplTest {
     }
 
     private VectorSearchHit hit(Long userId, Long documentId, Integer indexVersion) {
+        return hit(userId, documentId, indexVersion, 0.91D);
+    }
+
+    private VectorSearchHit hit(Long userId, Long documentId, Integer indexVersion, double score) {
         return new VectorSearchHit(
                 "vector-1",
-                0.91D,
+                score,
                 userId,
                 documentId,
                 indexVersion,

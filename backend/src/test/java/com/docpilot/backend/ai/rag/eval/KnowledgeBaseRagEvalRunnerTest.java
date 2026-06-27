@@ -22,6 +22,10 @@ class KnowledgeBaseRagEvalRunnerTest {
         assertThat(result.metrics().hitAtK()).isEqualTo(1.0D);
         assertThat(result.metrics().documentHitRate()).isEqualTo(1.0D);
         assertThat(result.metrics().citationHitRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().answerHitRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().citationCountRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().multiDocumentCoverageRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().forbiddenAnswerLeakRate()).isEqualTo(0.0D);
         assertThat(result.metrics().noEvidenceRate()).isEqualTo(1.0D);
         assertThat(result.metrics().scopeViolationRate()).isEqualTo(0.0D);
         assertThat(result.noEvidenceModelCallCount()).isZero();
@@ -29,6 +33,10 @@ class KnowledgeBaseRagEvalRunnerTest {
         assertThat(result.caseEvaluations()).allSatisfy(evaluation -> assertThat(evaluation.passed()).isTrue());
         assertThat(result.caseEvaluations())
                 .anySatisfy(evaluation -> assertThat(evaluation.citationDocumentIds()).contains(3201L, 3202L))
+                .anySatisfy(evaluation -> {
+                    assertThat(evaluation.multiDocumentCoverageRequired()).isTrue();
+                    assertThat(evaluation.multiDocumentCoverageHit()).isTrue();
+                })
                 .anySatisfy(evaluation -> assertThat(evaluation.noEvidenceHit()).isTrue());
     }
 
@@ -45,8 +53,12 @@ class KnowledgeBaseRagEvalRunnerTest {
                 .contains("\"provider\" : \"in_memory\"")
                 .contains("\"embeddingProvider\" : \"mock\"")
                 .contains("\"scopeViolationRate\" : \"0.0000\"")
+                .contains("\"answerHitRate\" : \"1.0000\"")
+                .contains("\"multiDocumentCoverageRate\" : \"1.0000\"")
+                .contains("\"forbiddenAnswerLeakRate\" : \"0.0000\"")
                 .contains("knowledge-base RAG eval cases")
                 .doesNotContain("documentText")
+                .doesNotContain("answerText")
                 .doesNotContain("DocPilot redis session cache evidence")
                 .doesNotContain("prompt")
                 .doesNotContain("evidenceContext")

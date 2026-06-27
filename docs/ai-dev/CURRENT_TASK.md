@@ -2,6 +2,14 @@
 
 当前任务：T013 Conversation Context Management / Agent Memory Mode MVP
 
+## 2026-06-27 追加任务：RAG Quality Upgrade v1
+
+- 已完成第一版“从玩具 RAG 到求职级真实效果 RAG”的小步落地：单文档 retrieval 接入统一 `app.rag.retrieval.min-similarity-threshold`，避免配置只对 KnowledgeBase 生效、单文档链路仍对无关问题返回最近 chunk。
+- 已增强 KnowledgeBase RAG 离线 eval：case fixture 可声明 `expectedAnswerMarkers`、`forbiddenAnswerMarkers`、`minCitationCount` 和 `requiresMultiDocumentCoverage`；eval result / artifact 新增 `answerHitRate`、`citationCountRate`、`multiDocumentCoverageRate`、`forbiddenAnswerLeakRate`。
+- 当前离线 artifact 仍写入 ignored 路径 `backend/target/rag-eval/knowledge-base-rag-eval-latest.json`，只保存 case summary、计数和布尔指标，不保存文档原文、prompt、evidence context、模型输出、token 或密钥。
+- 已验证：`mvn "-Dtest=RagDocumentRetrievalServiceImplTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagEvalFixtureTest" test` PASS，12 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，192 tests；`mvn -DskipTests compile` PASS；`mvn test -DskipITs` PASS，729 tests，0 failures，0 errors，1 skipped。
+- 当前边界：本轮不调用真实 embedding / rerank / answer provider，不启动 tunnel，不创建业务数据，不改数据库结构，不改前端；该 v1 是离线质量门禁增强，不等于真实 provider 效果评测已完成。
+
 ## 2026-06-27 追加任务：云端完整业务 Smoke 质量门禁增强
 
 - 已新增 `scripts/smoke/cloud-quality-smoke.ps1`，把 cloud smoke 从“链路能跑通”扩展为可执行质量门禁 runner。

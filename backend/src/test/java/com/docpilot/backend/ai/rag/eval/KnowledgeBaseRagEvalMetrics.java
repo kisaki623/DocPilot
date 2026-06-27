@@ -10,6 +10,10 @@ public record KnowledgeBaseRagEvalMetrics(
         double hitAtK,
         double documentHitRate,
         double citationHitRate,
+        double answerHitRate,
+        double citationCountRate,
+        double multiDocumentCoverageRate,
+        double forbiddenAnswerLeakRate,
         double noEvidenceRate,
         double scopeViolationRate
 ) {
@@ -22,6 +26,17 @@ public record KnowledgeBaseRagEvalMetrics(
         int hitCount = (int) resolved.stream().filter(item -> !item.expectedNoEvidence() && item.hit()).count();
         int documentHitCount = (int) resolved.stream().filter(item -> !item.expectedNoEvidence() && item.documentHit()).count();
         int citationHitCount = (int) resolved.stream().filter(item -> !item.expectedNoEvidence() && item.citationHit()).count();
+        int answerHitCount = (int) resolved.stream().filter(item -> !item.expectedNoEvidence() && item.answerHit()).count();
+        int citationCountHitCount = (int) resolved.stream().filter(item -> !item.expectedNoEvidence() && item.citationCountHit()).count();
+        List<KnowledgeBaseRagEvalResult.CaseEvaluation> multiDocumentCases = resolved.stream()
+                .filter(KnowledgeBaseRagEvalResult.CaseEvaluation::multiDocumentCoverageRequired)
+                .toList();
+        int multiDocumentCoverageHitCount = (int) multiDocumentCases.stream()
+                .filter(KnowledgeBaseRagEvalResult.CaseEvaluation::multiDocumentCoverageHit)
+                .count();
+        int forbiddenAnswerLeakCount = (int) resolved.stream()
+                .filter(KnowledgeBaseRagEvalResult.CaseEvaluation::forbiddenAnswerHit)
+                .count();
         int noEvidenceHitCount = (int) resolved.stream().filter(item -> item.expectedNoEvidence() && item.noEvidenceHit()).count();
         int scopeViolationCount = (int) resolved.stream().filter(KnowledgeBaseRagEvalResult.CaseEvaluation::scopeViolation).count();
         return new KnowledgeBaseRagEvalMetrics(
@@ -29,6 +44,10 @@ public record KnowledgeBaseRagEvalMetrics(
                 rate(hitCount, positiveCases),
                 rate(documentHitCount, positiveCases),
                 rate(citationHitCount, positiveCases),
+                rate(answerHitCount, positiveCases),
+                rate(citationCountHitCount, positiveCases),
+                rate(multiDocumentCoverageHitCount, multiDocumentCases.size()),
+                resolved.isEmpty() ? 0.0D : (double) forbiddenAnswerLeakCount / resolved.size(),
                 rate(noEvidenceHitCount, noEvidenceCases),
                 resolved.isEmpty() ? 0.0D : (double) scopeViolationCount / resolved.size()
         );
@@ -40,6 +59,10 @@ public record KnowledgeBaseRagEvalMetrics(
         value.put("hitAtK", format(hitAtK));
         value.put("documentHitRate", format(documentHitRate));
         value.put("citationHitRate", format(citationHitRate));
+        value.put("answerHitRate", format(answerHitRate));
+        value.put("citationCountRate", format(citationCountRate));
+        value.put("multiDocumentCoverageRate", format(multiDocumentCoverageRate));
+        value.put("forbiddenAnswerLeakRate", format(forbiddenAnswerLeakRate));
         value.put("noEvidenceRate", format(noEvidenceRate));
         value.put("scopeViolationRate", format(scopeViolationRate));
         return value;

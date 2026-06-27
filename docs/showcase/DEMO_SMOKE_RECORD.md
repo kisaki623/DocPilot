@@ -306,10 +306,14 @@ Results:
 | hitAtK | `1.0000` |
 | documentHitRate | `1.0000` |
 | citationHitRate | `1.0000` |
+| answerHitRate | `1.0000` |
+| citationCountRate | `1.0000` |
+| multiDocumentCoverageRate | `1.0000` |
+| forbiddenAnswerLeakRate | `0.0000` |
 | noEvidenceRate | `1.0000` |
 | scopeViolationRate | `0.0000` |
 
-Boundary: this eval is offline/mock-oriented evidence, not a real external model eval.
+Boundary: this eval is offline/mock-oriented evidence, not a real external model eval. The v1 quality gate now checks retrieval markers, citation alignment, answer marker coverage, minimum citation count, multi-document coverage and forbidden answer leakage, but it still uses `MockEmbeddingProvider`, `InMemoryVectorStoreClient` and a synthetic answer service.
 
 ## 8. Conversation Context / Agent Memory Smoke
 

@@ -20,11 +20,18 @@ class KnowledgeBaseRagEvalFixtureTest {
             assertThat(evalCase.indexVersion()).isPositive();
             assertThat(evalCase.topK()).isPositive();
             assertThat(evalCase.query()).isNotBlank();
+            assertThat(evalCase.minCitationCount()).isNotNegative();
         });
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.id()).contains("multi-document"));
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.expectedNoEvidence()).isTrue());
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.outOfScopeDocuments()).isNotEmpty());
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.expectedDocumentIds()).hasSizeGreaterThan(1));
+        assertThat(cases).anySatisfy(evalCase -> {
+            assertThat(evalCase.requiresMultiDocumentCoverage()).isTrue();
+            assertThat(evalCase.minCitationCount()).isGreaterThanOrEqualTo(2);
+        });
+        assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.expectedAnswerMarkers()).isNotEmpty());
+        assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.forbiddenAnswerMarkers()).isNotEmpty());
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.id()).contains("citation"));
     }
 }

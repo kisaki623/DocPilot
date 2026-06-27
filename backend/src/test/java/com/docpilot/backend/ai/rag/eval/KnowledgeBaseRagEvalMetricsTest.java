@@ -23,6 +23,10 @@ class KnowledgeBaseRagEvalMetricsTest {
         assertThat(metrics.hitAtK()).isEqualTo(2.0D / 3.0D);
         assertThat(metrics.documentHitRate()).isEqualTo(2.0D / 3.0D);
         assertThat(metrics.citationHitRate()).isEqualTo(1.0D / 3.0D);
+        assertThat(metrics.answerHitRate()).isEqualTo(2.0D / 3.0D);
+        assertThat(metrics.citationCountRate()).isEqualTo(2.0D / 3.0D);
+        assertThat(metrics.multiDocumentCoverageRate()).isEqualTo(1.0D);
+        assertThat(metrics.forbiddenAnswerLeakRate()).isEqualTo(0.0D);
         assertThat(metrics.noEvidenceRate()).isEqualTo(1.0D);
         assertThat(metrics.scopeViolationRate()).isEqualTo(0.25D);
         assertThat(metrics.toSafeMap()).containsEntry("scopeViolationRate", "0.2500");
@@ -36,6 +40,10 @@ class KnowledgeBaseRagEvalMetricsTest {
         assertThat(metrics.hitAtK()).isEqualTo(1.0D);
         assertThat(metrics.documentHitRate()).isEqualTo(1.0D);
         assertThat(metrics.citationHitRate()).isEqualTo(1.0D);
+        assertThat(metrics.answerHitRate()).isEqualTo(1.0D);
+        assertThat(metrics.citationCountRate()).isEqualTo(1.0D);
+        assertThat(metrics.multiDocumentCoverageRate()).isEqualTo(1.0D);
+        assertThat(metrics.forbiddenAnswerLeakRate()).isEqualTo(0.0D);
         assertThat(metrics.noEvidenceRate()).isEqualTo(1.0D);
         assertThat(metrics.scopeViolationRate()).isEqualTo(0.0D);
     }
@@ -58,11 +66,17 @@ class KnowledgeBaseRagEvalMetricsTest {
                 hit,
                 documentHit,
                 citationHit,
+                hit,
+                false,
+                citationHit || "citation-miss".equals(id),
+                id.contains("hit"),
+                id.contains("hit"),
                 noEvidenceHit,
                 scopeViolation,
                 false,
                 !scopeViolation,
-                ""
+                "",
+                List.of()
         );
     }
 }

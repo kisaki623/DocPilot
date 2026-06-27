@@ -47,6 +47,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -62,6 +64,8 @@ public class KnowledgeBaseRagEvalRunner {
     );
 
     private static final String EMBEDDING_MODEL = "mock-t012";
+    private static final Pattern SYNTHETIC_MARKER_PATTERN =
+            Pattern.compile("\\b[a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)+-marker\\b");
 
     private final ObjectMapper objectMapper;
 
@@ -149,12 +153,35 @@ public class KnowledgeBaseRagEvalRunner {
                 && evalCase.expectedMarkers().stream()
                 .allMatch(marker -> citations.stream().anyMatch(item -> item.snippet().contains(marker)))
                 && citationsAlign(hits, citations);
+        boolean answerHit = evalCase.expectedAnswerMarkers().stream()
+                .allMatch(marker -> answer.answer().contains(marker));
+        boolean forbiddenAnswerHit = evalCase.forbiddenAnswerMarkers().stream()
+                .anyMatch(marker -> answer.answer().contains(marker));
+        boolean citationCountHit = citations.size() >= evalCase.minCitationCount();
+        boolean multiDocumentCoverageRequired = Boolean.TRUE.equals(evalCase.requiresMultiDocumentCoverage());
+        boolean multiDocumentCoverageHit = !multiDocumentCoverageRequired
+                || (retrievedDocumentIds.size() >= 2 && citationDocumentIds.size() >= 2);
         boolean noEvidenceHit = retrieval.noEvidence() && answer.noEvidence();
         boolean scopeViolation = scopeViolation(evalCase, hits, citations);
         boolean modelCalledForNoEvidence = evalCase.expectedNoEvidence() && harness.answerCallCount() > 0;
+        List<String> failureReasons = failureReasons(
+                evalCase,
+                hit,
+                documentHit,
+                citationHit,
+                answerHit,
+                forbiddenAnswerHit,
+                citationCountHit,
+                multiDocumentCoverageHit,
+                noEvidenceHit,
+                scopeViolation,
+                modelCalledForNoEvidence
+        );
         boolean passed = evalCase.expectedNoEvidence()
-                ? noEvidenceHit && !scopeViolation && !modelCalledForNoEvidence
-                : hit && documentHit && citationHit && !retrieval.noEvidence() && !scopeViolation;
+                ? noEvidenceHit && !scopeViolation && !modelCalledForNoEvidence && !forbiddenAnswerHit
+                : hit && documentHit && citationHit && answerHit && !forbiddenAnswerHit
+                && citationCountHit && multiDocumentCoverageHit && !retrieval.noEvidence()
+                && !answer.noEvidence() && !scopeViolation;
         return new KnowledgeBaseRagEvalResult.CaseEvaluation(
                 evalCase.id(),
                 evalCase.expectedNoEvidence(),
@@ -166,11 +193,17 @@ public class KnowledgeBaseRagEvalRunner {
                 hit,
                 documentHit,
                 citationHit,
+                answerHit,
+                forbiddenAnswerHit,
+                citationCountHit,
+                multiDocumentCoverageRequired,
+                multiDocumentCoverageHit,
                 noEvidenceHit,
                 scopeViolation,
                 modelCalledForNoEvidence,
                 passed,
-                ""
+                "",
+                failureReasons
         );
     }
 
@@ -187,11 +220,57 @@ public class KnowledgeBaseRagEvalRunner {
                 false,
                 false,
                 false,
+                false,
+                false,
+                Boolean.TRUE.equals(evalCase.requiresMultiDocumentCoverage()),
+                false,
+                false,
                 true,
                 false,
                 false,
-                errorType
+                errorType,
+                List.of("exception")
         );
+    }
+
+    private List<String> failureReasons(KnowledgeBaseRagEvalCase evalCase,
+                                        boolean hit,
+                                        boolean documentHit,
+                                        boolean citationHit,
+                                        boolean answerHit,
+                                        boolean forbiddenAnswerHit,
+                                        boolean citationCountHit,
+                                        boolean multiDocumentCoverageHit,
+                                        boolean noEvidenceHit,
+                                        boolean scopeViolation,
+                                        boolean modelCalledForNoEvidence) {
+        List<String> reasons = new ArrayList<>();
+        if (evalCase.expectedNoEvidence()) {
+            addIfFalse(reasons, noEvidenceHit, "no_evidence_miss");
+            addIfTrue(reasons, modelCalledForNoEvidence, "model_called_for_no_evidence");
+        } else {
+            addIfFalse(reasons, hit, "retrieval_marker_miss");
+            addIfFalse(reasons, documentHit, "document_hit_miss");
+            addIfFalse(reasons, citationHit, "citation_hit_miss");
+            addIfFalse(reasons, answerHit, "answer_marker_miss");
+            addIfFalse(reasons, citationCountHit, "citation_count_miss");
+            addIfFalse(reasons, multiDocumentCoverageHit, "multi_document_coverage_miss");
+        }
+        addIfTrue(reasons, forbiddenAnswerHit, "forbidden_answer_leak");
+        addIfTrue(reasons, scopeViolation, "scope_violation");
+        return List.copyOf(reasons);
+    }
+
+    private void addIfFalse(List<String> reasons, boolean condition, String reason) {
+        if (!condition) {
+            reasons.add(reason);
+        }
+    }
+
+    private void addIfTrue(List<String> reasons, boolean condition, String reason) {
+        if (condition) {
+            reasons.add(reason);
+        }
     }
 
     private KnowledgeBaseRagRetrievalQuery retrievalQuery(KnowledgeBaseRagEvalCase evalCase) {
@@ -316,7 +395,10 @@ public class KnowledgeBaseRagEvalRunner {
                     null
             );
             AiAnswerService aiAnswerService = mock(AiAnswerService.class);
-            when(aiAnswerService.answer(any(), any())).thenReturn("Synthetic eval answer. [1]");
+            when(aiAnswerService.answer(any(), any())).thenAnswer(invocation -> {
+                String evidenceContext = invocation.getArgument(0, String.class);
+                return syntheticAnswer(evidenceContext);
+            });
             KnowledgeBaseRagQaServiceImpl qaService = new KnowledgeBaseRagQaServiceImpl(
                     retrievalService,
                     aiAnswerService,
@@ -396,6 +478,29 @@ public class KnowledgeBaseRagEvalRunner {
                     .stream()
                     .filter(invocation -> "answer".equals(invocation.getMethod().getName()))
                     .count();
+        }
+
+        private static String syntheticAnswer(String evidenceContext) {
+            List<String> markers = extractMarkers(evidenceContext);
+            if (markers.isEmpty()) {
+                return "Synthetic eval answer. [1]";
+            }
+            return "Synthetic eval answer cites " + String.join(", ", markers) + ". [1]";
+        }
+
+        private static List<String> extractMarkers(String value) {
+            if (value == null || value.isBlank()) {
+                return List.of();
+            }
+            Matcher matcher = SYNTHETIC_MARKER_PATTERN.matcher(value);
+            List<String> markers = new ArrayList<>();
+            while (matcher.find()) {
+                String marker = matcher.group();
+                if (!markers.contains(marker)) {
+                    markers.add(marker);
+                }
+            }
+            return List.copyOf(markers);
         }
 
         private static String key(Long userId, Long knowledgeBaseId) {

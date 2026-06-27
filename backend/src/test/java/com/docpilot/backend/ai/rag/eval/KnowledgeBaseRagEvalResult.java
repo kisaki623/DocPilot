@@ -54,17 +54,24 @@ public record KnowledgeBaseRagEvalResult(
             boolean hit,
             boolean documentHit,
             boolean citationHit,
+            boolean answerHit,
+            boolean forbiddenAnswerHit,
+            boolean citationCountHit,
+            boolean multiDocumentCoverageRequired,
+            boolean multiDocumentCoverageHit,
             boolean noEvidenceHit,
             boolean scopeViolation,
             boolean modelCalledForNoEvidence,
             boolean passed,
-            String errorType
+            String errorType,
+            List<String> failureReasons
     ) {
         public CaseEvaluation {
             retrievedDocumentIds = retrievedDocumentIds == null ? List.of() : List.copyOf(retrievedDocumentIds);
             citationDocumentIds = citationDocumentIds == null ? List.of() : List.copyOf(citationDocumentIds);
             expectedDocumentIds = expectedDocumentIds == null ? List.of() : List.copyOf(expectedDocumentIds);
             errorType = errorType == null ? "" : errorType.trim();
+            failureReasons = failureReasons == null ? List.of() : List.copyOf(failureReasons);
         }
 
         public Map<String, Object> toSafeMap() {
@@ -79,12 +86,20 @@ public record KnowledgeBaseRagEvalResult(
             value.put("hit", hit);
             value.put("documentHit", documentHit);
             value.put("citationHit", citationHit);
+            value.put("answerHit", answerHit);
+            value.put("forbiddenAnswerHit", forbiddenAnswerHit);
+            value.put("citationCountHit", citationCountHit);
+            value.put("multiDocumentCoverageRequired", multiDocumentCoverageRequired);
+            value.put("multiDocumentCoverageHit", multiDocumentCoverageHit);
             value.put("noEvidenceHit", noEvidenceHit);
             value.put("scopeViolation", scopeViolation);
             value.put("modelCalledForNoEvidence", modelCalledForNoEvidence);
             value.put("passed", passed);
             if (!errorType.isBlank()) {
                 value.put("errorType", errorType);
+            }
+            if (!failureReasons.isEmpty()) {
+                value.put("failureReasons", failureReasons);
             }
             return value;
         }

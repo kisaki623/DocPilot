@@ -6,6 +6,7 @@ import com.docpilot.backend.ai.rag.EmbeddingResult;
 import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagEvidenceCitation;
 import com.docpilot.backend.ai.rag.RagQaProperties;
+import com.docpilot.backend.ai.rag.RagRetrievalProperties;
 import com.docpilot.backend.ai.rag.RagRetrievalHit;
 import com.docpilot.backend.ai.rag.RagRetrievalQuery;
 import com.docpilot.backend.ai.rag.RagRetrievalResult;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalService {
@@ -37,6 +39,7 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
     private final VectorStoreClient vectorStoreClient;
     private final RagEmbeddingProperties embeddingProperties;
     private final RagQaProperties ragQaProperties;
+    private final RagRetrievalProperties retrievalProperties;
     private final RagScopeGuard ragScopeGuard;
 
     public RagDocumentRetrievalServiceImpl(DocumentMapper documentMapper,
@@ -45,7 +48,18 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
                                            RagEmbeddingProperties embeddingProperties,
                                            RagQaProperties ragQaProperties) {
         this(documentMapper, embeddingProvider, vectorStoreClient, embeddingProperties, ragQaProperties,
+                new RagRetrievalProperties(),
                 new RagScopeGuard(documentMapper));
+    }
+
+    public RagDocumentRetrievalServiceImpl(DocumentMapper documentMapper,
+                                           EmbeddingProvider embeddingProvider,
+                                           VectorStoreClient vectorStoreClient,
+                                           RagEmbeddingProperties embeddingProperties,
+                                           RagQaProperties ragQaProperties,
+                                           RagScopeGuard ragScopeGuard) {
+        this(documentMapper, embeddingProvider, vectorStoreClient, embeddingProperties, ragQaProperties,
+                new RagRetrievalProperties(), ragScopeGuard);
     }
 
     @Autowired
@@ -54,6 +68,7 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
                                            VectorStoreClient vectorStoreClient,
                                            RagEmbeddingProperties embeddingProperties,
                                            RagQaProperties ragQaProperties,
+                                           RagRetrievalProperties retrievalProperties,
                                            RagScopeGuard ragScopeGuard) {
         if (documentMapper == null && ragScopeGuard == null) {
             throw new IllegalArgumentException("documentMapper or ragScopeGuard is required");
@@ -63,6 +78,7 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
         this.vectorStoreClient = vectorStoreClient;
         this.embeddingProperties = embeddingProperties == null ? new RagEmbeddingProperties() : embeddingProperties;
         this.ragQaProperties = ragQaProperties == null ? new RagQaProperties() : ragQaProperties;
+        this.retrievalProperties = retrievalProperties == null ? new RagRetrievalProperties() : retrievalProperties;
         this.ragScopeGuard = ragScopeGuard == null ? new RagScopeGuard(documentMapper) : ragScopeGuard;
     }
 
@@ -83,7 +99,8 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
                 resolved.topK()
         ));
         List<VectorSearchHit> scopedHits = scopedHits(resolved, searchResult.hits());
-        List<RagRetrievalHit> hits = toHits(scopedHits);
+        List<VectorSearchHit> filteredHits = applySimilarityThreshold(scopedHits);
+        List<RagRetrievalHit> hits = toHits(filteredHits);
         List<RagEvidenceCitation> citations = hits.stream()
                 .map(RagRetrievalHit::toCitation)
                 .toList();
@@ -155,6 +172,16 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
             scoped.add(hit);
         }
         return List.copyOf(scoped);
+    }
+
+    private List<VectorSearchHit> applySimilarityThreshold(List<VectorSearchHit> hits) {
+        double threshold = retrievalProperties.getMinSimilarityThreshold();
+        if (threshold <= 0.0D || hits.isEmpty()) {
+            return hits;
+        }
+        return hits.stream()
+                .filter(hit -> hit.score() >= threshold)
+                .collect(Collectors.toList());
     }
 
     private List<RagRetrievalHit> toHits(List<VectorSearchHit> hits) {

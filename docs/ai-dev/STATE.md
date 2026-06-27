@@ -23,6 +23,7 @@ DocPilot 是 Java Spring Boot + Next.js 的 AI 文档解析与问答工程化项
 - 当前 RAG 主线已有持久化 DocumentChunk、ChunkingService、EmbeddingProvider、VectorStoreClient、RagIndexingService、parse success 自动 indexing trigger、RagDocumentRetrievalService、单文档 RAG QA / SSE、KnowledgeBase 多文档 RAG retrieval / 非流式 QA、Agent RAG QA 接入和单文档 / 多文档离线 retrieval quality smoke；旧 Agent RAG showcase 链路仍保留为独立演示路径。
 - KnowledgeBase RAG 已补充总结类问题质量治理：Markdown / 文本块合并式 chunking、摘要意图下的跨文档召回多样性、`documentHitCounts`、回答模型 provider / model / call count 观测字段，以及面向资料集总结的 prompt。
 - KnowledgeBase RAG 已新增默认关闭的 Hybrid / Rerank 增强链路：BM25 keyword 检索按 user、KnowledgeBase 文档集合和 `indexVersion` 过滤；RRF 融合保留 chunk 元数据并经过二次 scope guard；可选 rerank 接入候选排序并输出 `retrievalMode`、`rerankApplied`、`rerankModel`、`vectorScore`、`keywordScore`、`fusedScore`、`rerankScore` 等观测字段；示例配置只提供安全占位，真实 provider 需要本地私有 `.env` 显式配置。
+- RAG Quality Upgrade v1 已完成离线质量门禁增强：单文档 retrieval 与 KnowledgeBase retrieval 一样接入 `app.rag.retrieval.min-similarity-threshold`；KnowledgeBase RAG eval 从 hit / citation 扩展到 answer marker、forbidden answer leak、最少 citation 数和多文档覆盖指标，artifact 仍只保存脱敏 summary。
 - 目标 KnowledgeBase `3` 的文档 `83/84/85/86` 已授权重建索引到稳定 Qdrant collection `docpilot_rag_v2`；chunk / vector 数为 `35/35`、`18/18`、`10/10`、`16/16`，总结资料集检索分布为 `{83:2,84:1,85:1,86:2}`。
 - Conversation Context Management / Agent Memory Mode 后端 MVP 已新增会话、消息、摘要、上下文 Trace、用户长期记忆五张新表和对应 API；`ContextAssemblyService` 可按 `RECENT_TURNS` / `AGENT_MEMORY` 组装系统提示、长期记忆、会话摘要、最近轮次与可选 KnowledgeBase evidence，并输出和持久化摘要级 trace。
 - 会话发送链路已按求职级后端质量收窄事务边界：上下文装配和回答模型调用不在长事务内执行；仅最终 conversation 行锁、连续写入 user / assistant message 和更新时间处于事务内，trace 仍为 best-effort。
@@ -40,6 +41,7 @@ DocPilot 是 Java Spring Boot + Next.js 的 AI 文档解析与问答工程化项
 
 - 当前默认不是生产级完整向量 RAG。
 - fake embedding / in-memory vector store 仍属于测试、离线 eval 和稳定复现边界；真实 embedding + Qdrant 已在 smoke collection 验证，但不代表线上治理或固定 SLA。Hybrid / Rerank 目前是 KnowledgeBase RAG 的可选增强，默认关闭，真实 provider smoke 需要显式配置和单独验证。
+- RAG Quality Upgrade v1 的新增 eval 仍是 `MockEmbeddingProvider` + `InMemoryVectorStoreClient` + synthetic answer 的离线门禁；它可以防止明显的 retrieval / citation / answer coverage 退化，但不代表真实 embedding、真实 rerank 或真实回答模型的效果评测已经完成。
 - Qdrant 已有 adapter、payload mapping、fake server 测试、preflight 参考和真实 tunnel smoke；普通测试不依赖远程 Qdrant，复现真实 Qdrant 仍需通过本地 `.env` 显式配置可用 endpoint / tunnel、`RAG_VECTOR_STORE_PROVIDER=qdrant` 和 `RAG_QDRANT_COLLECTION`。
 - 持久化 RAG chunk 与 indexing workflow 已接入 parse success 自动触发；当前触发器为最小异步 service 调用，尚未独立 MQ / Outbox 化。
 - Agent RAG QA 已接入新 RAG 查询链路，但仍是最小工具路由，不是复杂 LLM planner。
