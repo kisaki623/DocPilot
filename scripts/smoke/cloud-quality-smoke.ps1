@@ -738,7 +738,7 @@ Alpha detail repeat block ten. The security checks must fail closed when another
 $smokeMarker
 Beta operations document. This file proves KnowledgeBase multi document retrieval and Conversation Context Trace behavior.
 Beta fact one: DocPilot cloud quality smoke compares Qdrant payload metadata with MySQL chunk rows.
-Beta fact two: Conversation Trace must report ragTriggered true, ragRequired true, evidenceCount greater than zero, and documentHitCounts.
+Beta fact two: Conversation Trace must report ragTriggered true, ragRequired true, evidenceCount greater than zero, active user memory, source breakdown counts, and documentHitCounts.
 Beta fact three: the expected Beta keyword is BETA-CONTEXT-GATE.
 
 ## Beta Multi Document Evidence
@@ -749,7 +749,7 @@ Beta detail repeat block three. The redacted artifact stores counts and ids, nev
 Beta detail repeat block four. BETA-CONTEXT-GATE remains unique to this temporary document for this run.
 Beta detail repeat block five. The document intentionally contains enough plain text to cross the default chunk window and produce multiple chunks.
 Beta detail repeat block six. The KnowledgeBase summary question should make retrieval cover both Alpha and Beta documents instead of only one nearest document.
-Beta detail repeat block seven. The Conversation Trace gate checks only summary fields and does not persist or print the full prompt or evidence context.
+Beta detail repeat block seven. The Conversation Trace gate checks only summary fields and verifies memory and RAG evidence stay separate without persisting or printing the full prompt or evidence context.
 Beta detail repeat block eight. The Qdrant scroll gate uses with_vector false so the artifact never stores vector values or raw embedding payloads.
 Beta detail repeat block nine. The parser must preserve BETA-CONTEXT-GATE in the indexed content so the KnowledgeBase question has deterministic evidence.
 Beta detail repeat block ten. The final git status check confirms ignored runtime artifacts did not enter tracked repository state.
@@ -840,13 +840,32 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     Set-Gate "noEvidenceThreshold" "REVIEW" $noEvidenceChecks "unrelated populated-KB query still returned nearest evidence; tune minSimilarityThreshold or rerank policy"
   }
 
+  $memory = Invoke-JsonApi "POST" "/api/memories" ([ordered]@{
+      memoryType = "PREFERENCE"
+      content = "For $smokeMarker, prefer concise answers that still cite knowledge-base evidence."
+      priority = 40
+    }) $tokenA
+  if ($memory.data.status -ne "ACTIVE") {
+    Stop-WithStatus "FAILED_CORE_FLOW" "conversationTrace" "temporary smoke memory was not ACTIVE"
+  }
+
   $conversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Cloud Quality $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $kb.data.id }) $tokenA
   $message = Invoke-JsonApi "POST" "/api/conversations/$($conversation.data.conversationId)/messages" ([ordered]@{ content = "Use the bound knowledge base to answer what the two documents prove for $smokeMarker. Cover ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE." }) $tokenA
   $trace = Invoke-JsonApi "GET" "/api/conversations/$($conversation.data.conversationId)/messages/$($message.data.messageId)/trace" $null $tokenA
-  if (-not $trace.data.ragTriggered -or -not $trace.data.ragRequired -or [int]$trace.data.evidenceCount -lt 1 -or (Get-CountValue $trace.data.documentHitCounts ([string]$docA.data.id)) -lt 1 -or (Get-CountValue $trace.data.documentHitCounts ([string]$docB.data.id)) -lt 1) {
-    Stop-WithStatus "FAILED_CORE_FLOW" "conversationTrace" "conversation trace did not include required RAG evidence"
+  $sourceCounts = $trace.data.contextSourceCounts
+  $memorySourceCount = Get-CountValue $sourceCounts "userMemory"
+  $ragSourceCount = Get-CountValue $sourceCounts "ragEvidence"
+  if (-not $trace.data.ragTriggered -or -not $trace.data.ragRequired -or [int]$trace.data.evidenceCount -lt 1 -or [int]$trace.data.memoryCount -lt 1 -or $memorySourceCount -lt 1 -or $ragSourceCount -lt 1 -or (Get-CountValue $trace.data.documentHitCounts ([string]$docA.data.id)) -lt 1 -or (Get-CountValue $trace.data.documentHitCounts ([string]$docB.data.id)) -lt 1) {
+    Stop-WithStatus "FAILED_CORE_FLOW" "conversationTrace" "conversation trace did not include required RAG evidence and active memory"
   }
-  Set-Gate "conversationTrace" "PASS" @([ordered]@{ ragTriggered = $trace.data.ragTriggered; ragRequired = $trace.data.ragRequired; evidenceCount = $trace.data.evidenceCount; documentHitCounts = $trace.data.documentHitCounts })
+  Set-Gate "conversationTrace" "PASS" @([ordered]@{
+      ragTriggered = $trace.data.ragTriggered
+      ragRequired = $trace.data.ragRequired
+      evidenceCount = $trace.data.evidenceCount
+      memoryCount = $trace.data.memoryCount
+      contextSourceCounts = $sourceCounts
+      documentHitCounts = $trace.data.documentHitCounts
+    })
 
   $fileUserB = Upload-SmokeFile $betaPath $tokenB
   $docUserB = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $fileUserB.id }) $tokenB
@@ -905,6 +924,7 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
       userBDocumentId = [long]$docUserB.data.id
       parseTaskIds = @([long]$taskA.data.taskId, [long]$taskB.data.taskId)
       knowledgeBaseId = [long]$kb.data.id
+      memoryId = [long]$memory.data.memoryId
       conversationId = [long]$conversation.data.conversationId
       messageId = [long]$message.data.messageId
     }
