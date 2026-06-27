@@ -77,6 +77,7 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - RAG evidence 不自动写入长期记忆；长期记忆候选需要用户接受后才进入上下文。
 - Conversation Trace 继续记录 `ragTriggered`、`ragRequired`、`evidenceCount`、`documentHitCounts`、`memoryUsed` 和 fallback reason。
 - 2026-06-27 已完成第一片：`ContextTrace` API 新增计算型 `contextSourceCounts` / `contextSourceFlags`，前端 Trace 面板展示会话摘要、最近消息、长期记忆和 RAG evidence 的拆分计数；不改表结构、不保存 prompt 或 evidence 原文。
+- 2026-06-27 已完成第二片：测试门禁覆盖 assistant / RAG evidence 不会自动变成长期记忆，且只有 `ACTIVE` user memory 进入上下文。
 
 ## 5. 质量门禁
 

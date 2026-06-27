@@ -5,6 +5,8 @@
 - 已完成 v7 第一片：`ContextTrace` API 暴露计算型 `contextSourceCounts` / `contextSourceFlags`，把会话摘要、最近消息、长期记忆和 RAG evidence 拆开展示；不改表结构，不持久化 prompt / evidence 原文。
 - `/conversations` Trace 面板新增来源拆分计数，用户能直接看到长期记忆与 RAG 证据是两类上下文来源。
 - 已验证：`mvn "-Dtest=*Context*,*Conversation*,*Memory*" test` PASS，56 tests；`npm run lint` PASS。
+- 已完成 v7 第二片：补充 memory-aware RAG 负向门禁，assistant / RAG evidence 不会被抽取为长期记忆，只有 `ACTIVE` user memory 会进入上下文，`SUGGESTED` / `IGNORED` 不进入 prompt。
+- 已验证：`mvn "-Dtest=RuleBasedMemoryExtractionServiceTest,MemorySelectorTest,ContextAssemblyServiceImplTest" test` PASS，6 tests。
 
 ## 2026-06-27 RAG Quality Upgrade v6
 

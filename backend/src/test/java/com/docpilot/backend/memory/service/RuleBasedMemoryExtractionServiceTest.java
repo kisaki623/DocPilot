@@ -42,6 +42,23 @@ class RuleBasedMemoryExtractionServiceTest {
                 .containsExactly(101L, 103L);
     }
 
+    @Test
+    void shouldNotExtractRagEvidenceFromAssistantMessagesAsMemory() {
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER, "根据知识库总结项目状态。"),
+                message(102L, 2, ConversationMessageRole.ASSISTANT,
+                        "RAG evidence: DocPilot 已完成 Qdrant 检索和知识库引用。"),
+                message(103L, 3, ConversationMessageRole.ASSISTANT,
+                        "引用来源显示当前任务已经实现，下一步是继续 RAG 质量门禁。")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).sourceMessageId()).isEqualTo(101L);
+        assertThat(candidates.get(0).content()).doesNotContain("RAG evidence");
+    }
+
     private ConversationMessage message(Long id, int sequenceNo, String role, String content) {
         ConversationMessage message = new ConversationMessage();
         message.setId(id);
