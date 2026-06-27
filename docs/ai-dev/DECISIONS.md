@@ -64,3 +64,8 @@
 - 决策：当前 fake embedding / in-memory vector store 只作为测试和展示边界，不作为最终求职级 RAG 目标。
 - 原因：它们不能代表真实 embedding、持久化向量库、跨进程索引或生产检索能力。
 - 影响：对外材料前半部分不主动强调这些边界；内部 ai-dev 文档必须诚实记录。
+
+## D-RAG-07 RAG evidence confidence gate
+- 决策：RAG 回答必须经过 evidence confidence gate；低于阈值或判定无关的检索结果不能进入 grounded QA，也不能生成带 citation 的伪证据答案。
+- 原因：生产化知识库 RAG 的核心不是“总能搜到最近 chunk”，而是能判断证据是否足够支撑回答；无关问题必须拒答或降级。
+- 影响：单文档 RAG、KnowledgeBase RAG 和 Conversation KB evidence 应共享 no-evidence / threshold 语义；`rag-real-quality-smoke.ps1` 的 `noEvidenceThreshold` 是后续是否通过的真实链路门禁。

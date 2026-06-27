@@ -1,6 +1,30 @@
 # Current Task
 
-当前任务：T013 Conversation Context Management / Agent Memory Mode MVP
+当前任务：RAG Quality Upgrade v3: no-evidence threshold and grounded refusal
+
+## 2026-06-27 追加任务：RAG / Memory 生产化路线定线
+
+- 本轮目标是先把关键事实源从“求职级展示收口”调整为“生产化知识库 RAG + 会话记忆核心闭环”，避免后续 agent 继续沿旧路线只做展示包装。
+- 文档定线只更新 `AGENTS.md`、`docs/README.md`、`STATE.md`、`CURRENT_TASK.md`、`ROADMAP_RAG.md`、`DECISIONS.md` 和 `PROGRESS_LOG.md`；不启动 tunnel / backend / frontend，不创建业务数据，不改数据库结构，不 push。
+- 当前真实证据仍以 v2 smoke 为准：`rag-real-quality-smoke.ps1 -Mode run` 已验证真实 embedding + Qdrant 链路，但 overallStatus 为 `REVIEW`，因为无关 populated-KB query 仍返回最近 evidence。
+- 下一轮代码任务固定为 v3：实现 no-evidence threshold / grounded refusal，让低置信或无关问题不再生成带 citation 的伪证据答案，并把 `noEvidenceThreshold` 门禁从 `REVIEW` 推到 `PASS`。
+- 本轮不得把项目写成完整商业 SaaS、线上 SLA、大规模多租户计费、高可用运维、成熟多 Agent 或已完成生产级 no-evidence。
+
+## 下一步代码任务：RAG Quality Upgrade v3
+
+- 目标：统一单文档 RAG、KnowledgeBase RAG 和 Conversation KnowledgeBase evidence 的 no-evidence 判定，让没有达到置信阈值的检索结果不进入 grounded QA。
+- 成功标准：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run` 中 `noEvidenceThreshold` gate 变为 `PASS`；单文档 RAG、KB 两文档 RAG、Conversation Trace、权限隔离和 artifact redaction 不能回退。
+- 建议实现方向：先基于已有 `app.rag.retrieval.min-similarity-threshold` 补齐 KnowledgeBase / Conversation 使用路径，再按需要增加安全默认值、score 观测和离线测试；不强制真实 rerank provider。
+- 明确不做：不改数据库结构，不操作远程 Docker，不走 `hk-ops`，不删除业务数据，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v2
+
+- 已新增 `scripts/smoke/rag-real-quality-smoke.ps1`，作为真实 embedding + Qdrant 检索质量门禁入口；脚本支持 `-Mode plan`、`-Mode dry-run`、`-Mode run`，默认 artifact 写入 ignored 路径 `backend/target/rag-quality/<smokeMarker>/artifact.json`。
+- v2 复用并增强 `scripts/smoke/cloud-quality-smoke.ps1`：新增 `-SmokePrefix` 参数，并增加 `noEvidenceThreshold` gate；无关 populated-KB query 如果仍返回最近证据，状态标记为 `REVIEW`，不伪装成 PASS。
+- 已执行 `-Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007`，marker 为 `docpilot-rag-real-quality-20260627195744-d5b6e2`，overallStatus 为 `REVIEW`。
+- 本次真实链路 PASS 项：tunnel、backend health、frontend route、注册、两文档上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、权限隔离、artifact 脱敏。
+- 本次 REVIEW 项：`noEvidenceThreshold`，无关 populated-KB query 仍返回 `3` 个 retrieve hits / `3` 个 QA citations，说明后续需要调 `minSimilarityThreshold`、rerank 或 no-evidence 策略。
+- 本轮同步修复 `scripts/dev/cleanup-agent-processes.ps1` 的进程匹配规则，覆盖 `DocPilotApplication`、`npm run dev` 和带引号的 `next dev` 形态；本轮收尾时已手动确认 8081 / 3007 / 13306 / 6333 均未监听。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v1
 

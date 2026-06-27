@@ -7,7 +7,10 @@ $ErrorActionPreference = 'SilentlyContinue'
 $workspace = (Get-Location).Path
 $patterns = @(
   '*next dev*',
+  '*next*dev*',
+  '*npm*run dev*',
   '*spring-boot:run*',
+  '*com.docpilot.backend.DocPilotApplication*',
   '*@playwright/mcp*',
   '*playwright-mcp*',
   '*mcp-chrome*',
@@ -29,8 +32,9 @@ $targets = Get-CimInstance Win32_Process | Where-Object {
 
   $inWorkspace = $cmd -like "*$workspace*"
   $mcpRelated = ($cmd -like '*@playwright/mcp*') -or ($cmd -like '*playwright-mcp*') -or ($cmd -like '*mcp-chrome*')
+  $docPilotBackend = $cmd -like '*com.docpilot.backend.DocPilotApplication*'
 
-  (Match-AnyPattern $cmd $patterns) -and ($inWorkspace -or $mcpRelated)
+  (Match-AnyPattern $cmd $patterns) -and ($inWorkspace -or $mcpRelated -or $docPilotBackend)
 }
 
 $killed = @()
@@ -84,7 +88,8 @@ $residual = Get-CimInstance Win32_Process | Where-Object {
   if (-not $cmd) { return $false }
   $inWorkspace = $cmd -like "*$workspace*"
   $mcpRelated = ($cmd -like '*@playwright/mcp*') -or ($cmd -like '*playwright-mcp*') -or ($cmd -like '*mcp-chrome*')
-  (Match-AnyPattern $cmd $patterns) -and ($inWorkspace -or $mcpRelated)
+  $docPilotBackend = $cmd -like '*com.docpilot.backend.DocPilotApplication*'
+  (Match-AnyPattern $cmd $patterns) -and ($inWorkspace -or $mcpRelated -or $docPilotBackend)
 }
 
 if ($residual) {

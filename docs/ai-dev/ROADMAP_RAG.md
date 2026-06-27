@@ -1,145 +1,96 @@
-# DocPilot RAG Roadmap
+# DocPilot RAG / Memory Productionization Roadmap
 
 ## 1. 目标
 
-DocPilot 的 RAG 目标不是停留在 fake embedding / in-memory showcase，而是升级为可运行、可截图、可讲源码链路的求职级 RAG 闭环。
+DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会话记忆平台。RAG 不是附属 demo，而是主链路：系统必须能完成文档上传、解析、切片、索引、检索、回答、引用、拒答、上下文追踪和质量门禁。
 
 目标链路：
 
 ```text
 文档上传
--> 文档解析
+-> 异步解析
 -> 文本清洗
--> chunk 切分
--> chunk 元数据落库
+-> 结构化 chunk 切分
+-> MySQL chunk / index 状态落库
 -> embedding 向量化
--> Qdrant 向量写入
--> query embedding
--> metadata filter
--> topK 召回
--> prompt 上下文构造
--> LLM 生成回答
--> SSE 流式返回
+-> Qdrant 向量与 payload 写入
+-> query embedding / hybrid candidate
+-> metadata filter / scope guard
+-> score threshold / rerank / no-evidence gate
+-> grounded context assembly
+-> LLM 生成或拒答
 -> citation 引用证据
--> Agent Trace / eval 记录
+-> Conversation Trace / Memory Trace
+-> eval / smoke artifact 质量门禁
 ```
 
-## 2. 当前已有基础
+当前口径：目标是“生产化知识库 RAG 核心闭环”，不是完整商业 SaaS、线上 SLA、大规模多租户计费、高可用运维或成熟多 Agent 编排系统。
 
-- 上传和解析链路：已有文档创建、上传、分片上传、解析任务和状态流转基础。
-- RocketMQ + Outbox：已有异步解析、outbox relay、scan job、幂等和补偿设计基础。
-- Redis：已有缓存、限流、登录 token、上传会话和问答相关状态管理。
-- MinIO：已有对象存储模式，并保留 local 存储。
-- SSE 问答：已有普通问答与流式问答，支持 citations 和失败降级。
-- Agent / Trace：已有工具选择、AgentTask / AgentStep、routingReason、matchedKeywords、前端 trace 展示。
-- 轻量 RAG 基础：已有 fake embedding、in-memory vector store、chunking policy、retrieval scope isolation、citations、RAG trace/debug snapshot、offline eval 和 Agent RAG showcase。
-- Qdrant / vector store adapter 边界：已有默认关闭的 Qdrant HTTP adapter、payload mapping、fake server 测试、preflight 和 fallback 测试；默认路径仍不是生产 Qdrant runtime，真实 Qdrant 需要显式配置和环境验证。
+## 2. 当前基础
 
-## 3. 选型决策
+- 已完成 T001-T007 基础链路：`DocumentChunk`、`ChunkingService`、`EmbeddingProvider`、`VectorStoreClient`、Qdrant adapter、RAG indexing、单文档 retrieval / QA / SSE、Agent `rag_qa_tool` 和离线 eval。
+- 已完成 KnowledgeBase 多文档 RAG：KnowledgeBase 管理、跨文档 retrieval、非流式 QA、citations、`documentHitCounts`、Hybrid / Rerank 可选增强和前端观测字段。
+- 已完成 Conversation Context / Memory MVP：会话、摘要、长期记忆候选、ACTIVE memory、KnowledgeBase evidence 接入、Context Trace 和前端 `/conversations`。
+- 已完成质量门禁基础：离线 RAG eval、cloud quality smoke、RAG real quality smoke、MySQL / Qdrant 一致性检查、权限隔离负向检查和脱敏 artifact。
+- 2026-06-27 v2 真实链路 smoke 结论：核心链路 PASS，但 populated KnowledgeBase 无关问题仍返回 nearest evidence，`noEvidenceThreshold` 为 `REVIEW`。
 
-- MySQL：存 document、chunk、index status、QA history。
-- Qdrant：存 chunk embedding 和 payload。
-- Redis：缓存、限流、上传会话。
-- RocketMQ + Outbox：解析后异步触发 RAG indexing。
-- MinIO：存原始文件。
-- OpenAI-compatible embedding provider：真实 embedding。
-- MockEmbeddingProvider：测试和本地 fallback。
-- 不优先接 LangChain4j 全家桶，优先自研主链路，后续预留 adapter。
+## 3. 当前关键缺口
 
-## 4. 数据模型建议
+- no-evidence 不够硬：无关问题仍可能拿最近 chunk 生成带 citation 的答案。
+- score / confidence 治理不足：真实 embedding + Qdrant 的 topK score 还没有成为统一 gate。
+- grounded citation 仍需加强：回答层必须只使用通过检索门禁的 evidence，不能把低置信 nearest hit 包装成可靠引用。
+- chunk 质量还偏长度检查：标题继承、结构边界、重复率、异常 chunk、表格 / 段落元数据仍需继续治理。
+- Conversation Memory 与 RAG evidence 需要更清晰分层：长期记忆、短期上下文、知识库证据和 trace 不应互相污染。
 
-### tb_document_chunk
+## 4. 升级阶段
 
-| 字段 | 说明 |
-| --- | --- |
-| id | chunk 主键 |
-| document_id | 文档 ID |
-| user_id | 用户 ID |
-| chunk_index | 文档内 chunk 序号，从 0 连续递增 |
-| content | chunk 原文 |
-| content_hash | chunk 内容 hash |
-| start_offset | 原文起始 offset |
-| end_offset | 原文结束 offset |
-| token_count | 估算或实际 token 数 |
-| index_status | pending / indexing / indexed / failed |
-| index_version | indexing 策略版本 |
-| embedding_model | embedding 模型名 |
-| vector_id | Qdrant point id |
-| create_time | 创建时间 |
-| update_time | 更新时间 |
+### v3 no-evidence threshold and grounded refusal
 
-## 5. 任务拆分
+- 统一单文档 RAG、KnowledgeBase RAG、Conversation KB evidence 的 no-evidence 判定。
+- 基于 `app.rag.retrieval.min-similarity-threshold` 或等价配置过滤低置信结果。
+- QA 层在 no-evidence 时返回安全拒答 / fallback，不调用模型硬编带引用答案。
+- `rag-real-quality-smoke.ps1 -Mode run` 的 `noEvidenceThreshold` 必须从 `REVIEW` 变为 `PASS`。
 
-### T001 RAG 数据模型和 ChunkingService
+### v4 citation grounding and answer audit
 
-- 新增 DocumentChunk 实体 / Mapper / Service。
-- 新增 ChunkingService。
-- 单测覆盖短文本、长文本、overlap、hash、空文本。
+- 回答生成只接收通过 gate 的 evidence。
+- QA response / trace 输出可脱敏的 evidence count、documentHitCounts、score summary、fallback reason。
+- 离线 eval 增加 forbidden answer leak、citation minimum、multi-document coverage 和 no-evidence precision。
 
-### T002 EmbeddingProvider 抽象
+### v5 chunk structure quality
 
-- EmbeddingProvider。
-- MockEmbeddingProvider。
-- OpenAICompatibleEmbeddingProvider。
-- 配置隔离，不提交 key。
+- chunk metadata 增强标题 / section / ordinal / source block 等结构字段，优先不改表结构时通过可复用 metadata 或 parser 输出承接。
+- chunk 质量门禁覆盖空白、过短、重复、异常字符、标题覆盖率和长度分布。
+- 新 chunk 策略必须能通过 MySQL chunk 检查和 Qdrant payload 一致性检查。
 
-### T003 Qdrant VectorStore adapter
+### v6 hybrid / rerank production gate
 
-- docker-compose 增加 qdrant。
-- VectorStoreClient 接口。
-- QdrantVectorStoreClient。
-- InMemoryVectorStoreClient。
-- upsert / search / deleteByDocumentId。
+- 保持 vector retrieval 为主链路，keyword / BM25-like retrieval 作为候选增强。
+- RRF / rerank 默认可关闭，真实 rerank provider 必须显式配置，普通测试不依赖外部服务。
+- eval 比较 vector-only 与 hybrid / rerank 的 hit、citation、multi-doc coverage 和 no-evidence 指标。
 
-### T004 RAG Indexing Workflow
+### v7 memory-aware RAG
 
-- parse success 后触发 indexing。
-- chunk 落库。
-- batch embedding。
-- qdrant upsert。
-- index status。
-- retry / rebuild API。
+- 明确区分 `conversationContext`、`userMemory`、`ragEvidence` 和 `contextTrace`。
+- RAG evidence 不自动写入长期记忆；长期记忆候选需要用户接受后才进入上下文。
+- Conversation Trace 继续记录 `ragTriggered`、`ragRequired`、`evidenceCount`、`documentHitCounts`、`memoryUsed` 和 fallback reason。
 
-### T005 RAG Retrieval + QA + SSE
+## 5. 质量门禁
 
-- `POST /api/rag/retrieve`。
-- `POST /api/documents/{documentId}/qa/rag`。
-- `POST /api/documents/{documentId}/qa/rag/stream`。
-- citations。
-- no-evidence fallback。
-- 前端展示召回片段和引用证据。
+- 离线默认门禁：`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test`，不能依赖真实 provider 或远程 Qdrant。
+- 真实链路门禁：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run`，只在本地 tunnel / backend / frontend 可用且用户允许创建临时 smoke 数据时执行。
+- Artifact 规则：只保存脱敏 summary、计数、score summary、门禁状态和安全错误摘要；不保存 `.env`、token、API key、连接串、云地址、文档全文、prompt 或 evidence context。
+- 状态规则：核心链路失败为 `FAILED_CORE_FLOW`，权限隔离失败为 `FAILED_SECURITY_GATE`，质量阈值未达标为 `REVIEW`，环境不可达为 `BLOCKED`。
 
-### T006 Agent Integration
+## 6. 对外边界
 
-- rag_retrieval_tool 接入 RetrievalService。
-- Agent Step 记录 retrieval hits。
-- Trace 展示 toolName、routingReason、citations。
+可以讲：
 
-### T007 Eval
+- 生产化知识库 RAG 核心闭环建设。
+- 文档切片、embedding provider 抽象、Qdrant 向量检索、metadata filter、scope guard、citation、no-evidence、Conversation Trace 和质量门禁。
+- 真实链路 smoke 能暴露质量问题，而不是只证明接口跑通。
 
-- 离线检索评测集。
-- hit@k / citationHitRate。
-- smoke demo case。
-- README 可复现说明。
+不能硬吹：
 
-## 6. 简历边界
-
-可以写：
-
-- RAG 文档问答链路。
-- 文档切分。
-- embedding provider 抽象。
-- Qdrant 向量检索。
-- metadata filter。
-- 引用证据。
-- SSE 流式回答。
-- Agent Trace。
-
-未实现前不要写：
-
-- 生产级 RAG。
-- 多智能体自主规划。
-- 企业级观测平台。
-- 完整 OpenAI tools 标准接入。
-- 线上 SLA。
-- 大规模压测。
+- 完整商业 SaaS、线上 SLA、大规模压测、高可用运维、复杂 PDF 智能解析、成熟多 Agent 编排。
+- 当前 `REVIEW` 的 populated-KB no-evidence 能力不能写成已可靠通过。

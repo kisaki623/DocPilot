@@ -1,5 +1,21 @@
 # Progress Log
 
+## 2026-06-27 RAG / Memory 生产化路线定线
+
+- 已将关键事实源从“求职级展示收口”调整为“生产化知识库 RAG + 会话记忆核心闭环”方向；RAG 和 Conversation Memory 成为主线，Agent 保持为工具调用与 Trace 辅助层。
+- 已更新 `AGENTS.md`、`docs/README.md`、`STATE.md`、`CURRENT_TASK.md`、`ROADMAP_RAG.md` 和 `DECISIONS.md`，明确下一步代码任务为 `RAG Quality Upgrade v3: no-evidence threshold and grounded refusal`。
+- 保留 v2 真实链路 smoke 的 `REVIEW` 事实：核心链路、chunk、MySQL / Qdrant 一致性、单文档 RAG、KB 两文档 RAG、Conversation Trace、权限隔离和 artifact 脱敏通过；populated-KB 无关问题仍返回 nearest evidence。
+- 本轮只做文档定线，未启动 tunnel / backend / frontend，未创建业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact，未 push。
+
+## 2026-06-27 RAG Quality Upgrade v2
+
+- 新增 `scripts/smoke/rag-real-quality-smoke.ps1` 作为真实 embedding + Qdrant RAG 质量门禁入口，支持 `plan` / `dry-run` / `run`，默认 artifact 位于 ignored 的 `backend/target/rag-quality`。
+- 增强 `scripts/smoke/cloud-quality-smoke.ps1`：新增 `SmokePrefix`，并加入 `noEvidenceThreshold` gate；无关 populated-KB query 若仍返回最近证据，标记 `REVIEW`。
+- 已验证：`rag-real-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker 为 `docpilot-rag-real-quality-20260627195744-d5b6e2`，overallStatus 为 `REVIEW`。
+- 本次 run 的 PASS 项包括 tunnel、backend health、frontend routes、注册、两文档上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、权限隔离和 artifact redaction；artifact 脱敏扫描无命中，artifact 不提交。
+- REVIEW 原因：无关 populated-KB query 仍返回 `3` 个 retrieve hits / `3` 个 QA citations，说明后续需要调 `minSimilarityThreshold`、rerank 或 no-evidence 策略。
+- 本轮发现 `cleanup-agent-processes.ps1` 对 Spring Boot argfile 和部分 Next dev 进程匹配不足，已补充 `DocPilotApplication`、`npm run dev`、`next*dev` 匹配；最终手动确认 8081 / 3007 / 13306 / 6333 均未监听。
+
 ## 2026-06-27 RAG Quality Upgrade v1
 
 - 完成 RAG 质量门禁第一版小步落地：`RagDocumentRetrievalServiceImpl` 接入统一 `RagRetrievalProperties.minSimilarityThreshold`，补齐此前单文档 retrieval 未使用相似度阈值的问题，默认阈值仍为 `0.0`，不改变未配置场景行为。

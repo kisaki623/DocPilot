@@ -4,9 +4,9 @@
 
 ## 项目定位
 
-DocPilot 是一个面向文档上传、异步解析、检索增强问答与最小 Agent 演示的 AI 文档平台。当前项目适合展示 Java 后端工程能力、AI 应用工程链路、前后端联调能力和工程化验证意识。
+DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆平台，核心关注文档上传、异步解析、结构化切片、向量索引、多文档检索增强问答、可信引用、会话上下文追踪、用户记忆沉淀、权限隔离和质量门禁。当前目标是把项目从“可演示 AI 文档系统”推进为“生产化知识库 RAG 核心闭环”，同时继续保留 Java 后端工程、前后端联调和工程化验证能力。
 
-当前口径要克制：项目已有单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、MinIO active storage、RocketMQ + Outbox active parse、真实 embedding + Qdrant smoke 和 Agent `rag_qa_tool` / ToolCall API 记录；但这仍是求职级工程闭环，不是生产级完整向量 RAG 平台。Agent 是基于现有文档业务工具的最小闭环，不是成熟多 Agent 编排系统。
+当前口径要克制但不自降目标：项目已有单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、MinIO active storage、RocketMQ + Outbox active parse、真实 embedding + Qdrant smoke、Conversation Context / Memory、Agent `rag_qa_tool` / ToolCall API 和 cloud quality gate 记录；但仍不能写成完整商业 SaaS、线上 SLA、大规模多租户计费、高可用运维或成熟多 Agent 编排系统。RAG 和会话记忆是主线，Agent 是围绕现有文档业务工具、RAG evidence 和 Trace 的辅助执行与观测层。
 
 ## 技术栈
 
@@ -142,7 +142,7 @@ curl http://localhost:8081/actuator/health
 - 不要删除用户本地文件、日志、截图或临时产物，除非用户明确要求。
 - 不要提交 `.env`、`.env.local`、日志、截图、Playwright 临时目录、测试产物或 IDE 状态文件。
 
-## 面向 Java 后端实习面试的工程化亮点
+## 面向 RAG / 后端实习面试的工程化亮点
 
 可重点讲：
 
@@ -151,8 +151,9 @@ curl http://localhost:8081/actuator/health
 - MinIO 对象存储、分片上传与断点续传思路。
 - Redis 缓存、会话上下文、令牌桶限流与热点链路优化。
 - Spring Boot 分层架构、MyBatis-Plus、Actuator、Prometheus 指标暴露。
-- AI 问答的轻量检索增强闭环：检索、上下文组装、生成、引用展示。
+- 知识库 RAG 主链路：chunk、embedding、Qdrant、metadata filter、retrieval、grounded QA、citation、no-evidence 和质量门禁。
+- Conversation Context / Memory：短期上下文、摘要、长期记忆候选、KnowledgeBase evidence 和 Context Trace。
 - SSE 流式输出与普通问答一致性治理。
 - 可复现 eval / benchmark artifact 与质量门禁意识。
 
-不能硬吹：完整向量数据库 RAG、复杂 PDF 智能解析、生产级多 Agent、生产短信网关、线上 SLA。
+不能硬吹：完整商业 SaaS、复杂 PDF 智能解析、生产级多 Agent、生产短信网关、线上 SLA、大规模压测和当前尚未 PASS 的 populated-KB no-evidence 能力。

@@ -5,6 +5,7 @@ param(
   [string]$FrontendBaseUrl = "http://127.0.0.1:3000",
   [string]$EnvFile = "backend/.env",
   [string]$ArtifactRoot = "tmp-e2e/docpilot-cloud-quality-smoke",
+  [string]$SmokePrefix = "docpilot-cloud-quality",
   [int]$MySqlLocalPort = 13306,
   [int]$QdrantLocalPort = 6333,
   [int]$IndexVersion = 1,
@@ -586,7 +587,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "conversationTrace", "permissionIsolation",
+      "knowledgeBaseRag", "noEvidenceThreshold", "conversationTrace", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -615,7 +616,7 @@ function Invoke-DryRun() {
 function Invoke-Run() {
   $startedAt = (Get-Date).ToString("o")
   $runSuffix = (Get-Date).ToString("yyyyMMddHHmmss") + "-" + ([Guid]::NewGuid().ToString("N").Substring(0, 6))
-  $smokeMarker = "docpilot-cloud-quality-$runSuffix"
+  $smokeMarker = "$SmokePrefix-$runSuffix"
   $artifactDir = Join-Path $ArtifactRoot $smokeMarker
   New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
   $script:ArtifactPath = Join-Path $artifactDir "artifact.json"
@@ -732,6 +733,21 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseRag" "knowledge base RAG did not cover both documents"
   }
   Set-Gate "knowledgeBaseRag" "PASS" @([ordered]@{ retrieveHits = @($kbRetrieve.data.hits).Count; qaCitations = @($kbQa.data.citations).Count; documentHitCounts = $hitCounts })
+
+  $unrelatedQuery = "Which unrelated payroll settlement policy and invoice approval matrix is defined for $smokeMarker?"
+  $noEvidenceRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $unrelatedQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
+  $noEvidenceQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $unrelatedQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
+  $noEvidenceChecks = @([ordered]@{
+    retrieveNoEvidence = [bool]$noEvidenceRetrieve.data.noEvidence
+    qaNoEvidence = [bool]$noEvidenceQa.data.noEvidence
+    retrieveHits = @($noEvidenceRetrieve.data.hits).Count
+    qaCitations = @($noEvidenceQa.data.citations).Count
+  })
+  if ($noEvidenceRetrieve.data.noEvidence -and $noEvidenceQa.data.noEvidence) {
+    Set-Gate "noEvidenceThreshold" "PASS" $noEvidenceChecks
+  } else {
+    Set-Gate "noEvidenceThreshold" "REVIEW" $noEvidenceChecks "unrelated populated-KB query still returned nearest evidence; tune minSimilarityThreshold or rerank policy"
+  }
 
   $conversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Cloud Quality $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $kb.data.id }) $tokenA
   $message = Invoke-JsonApi "POST" "/api/conversations/$($conversation.data.conversationId)/messages" ([ordered]@{ content = "Use the bound knowledge base to answer what the two documents prove for $smokeMarker. Cover ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE." }) $tokenA
