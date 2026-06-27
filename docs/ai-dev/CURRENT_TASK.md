@@ -1,6 +1,20 @@
 # Current Task
 
-当前任务：RAG Quality Upgrade v4: citation grounding and answer audit
+当前任务：RAG Quality Upgrade v5: chunk structure quality
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v4
+
+- 已完成 KnowledgeBase QA answer audit 小步落地：`KnowledgeBaseRagQaAnswer` 新增脱敏 `audit`，记录 `grounded`、evidence / citation count、documentHitCounts、score / vectorScore / fusedScore / rerankScore summary、retrievalMode、rerank 信息、fallbackReason 和 modelCallCount。
+- `KnowledgeBaseRagQaResponse` 已暴露 audit；不保存 prompt、evidence 原文、模型输入输出、token、密钥或连接串。
+- 离线 KnowledgeBase RAG eval 新增 `groundedAnswerRate` 和 `noEvidenceCitationFreeRate`，并把 grounded answer miss / no-evidence citation leak 纳入 case failure reasons。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，21 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 已执行真实链路默认 run：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627211711-383cda`；未提交 artifact 原文，未 push。
+
+## 下一步代码任务：RAG Quality Upgrade v5
+
+- 目标：增强 chunk structure quality，让 chunk 不只满足长度 / hash / INDEXED，还能更清楚表达标题、段落边界、顺序和异常质量信号。
+- 成功标准：离线 chunk / indexing 测试能覆盖结构元数据或结构质量摘要；cloud / RAG real smoke 的 chunkQuality gate 不回退；不把复杂 PDF 智能解析写成已完成。
+- 明确不做：本轮优先不改数据库结构、不操作远程 Docker、不走 `hk-ops`、不删除业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v3
 
@@ -11,10 +25,10 @@
 - 已执行真实链路默认 run：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627210458-9d0321`；`noEvidenceThreshold` 返回 `noEvidence=true`、`0` retrieve hits、`0` QA citations。
 - 本轮创建了临时 smoke 用户、文档、KnowledgeBase 和 Conversation，并写入 ignored artifact；未操作远程 Docker，未走 `hk-ops`，未删除业务数据，未改数据库结构，未提交 artifact 原文，未 push。
 
-## 下一步代码任务：RAG Quality Upgrade v4
+## 已完成代码任务：RAG Quality Upgrade v4
 
 - 目标：强化 citation grounding 与 answer audit，确保回答层只使用通过 evidence confidence gate 的 citations，并把 no-evidence / fallback / score summary / documentHitCounts 以脱敏方式进入 response、trace 或 artifact。
-- 成功标准：离线 eval 增加 citation grounding / no-evidence precision / forbidden answer leak case；真实 smoke 保持 `noEvidenceThreshold=PASS`、单文档 RAG、KB 两文档 RAG、Conversation Trace、权限隔离和 artifact redaction 不回退。
+- 成功标准：离线 eval 增加 citation grounding / no-evidence precision / forbidden answer leak case；真实 smoke 保持 `noEvidenceThreshold=PASS`、单文档 RAG、KB 两文档 RAG、Conversation Trace、权限隔离和 artifact redaction 不回退。该标准已由 marker `docpilot-rag-real-quality-20260627211711-383cda` 验证。
 - 明确不做：不改数据库结构，不操作远程 Docker，不走 `hk-ops`，不删除业务数据，不强制真实 rerank provider，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。
 
 ## 2026-06-27 追加任务：RAG / Memory 生产化路线定线

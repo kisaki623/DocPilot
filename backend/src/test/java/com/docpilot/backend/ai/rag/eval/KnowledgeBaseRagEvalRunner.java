@@ -162,6 +162,15 @@ public class KnowledgeBaseRagEvalRunner {
         boolean multiDocumentCoverageHit = !multiDocumentCoverageRequired
                 || (retrievedDocumentIds.size() >= 2 && citationDocumentIds.size() >= 2);
         boolean noEvidenceHit = retrieval.noEvidence() && answer.noEvidence();
+        boolean answerCitationMarkerHit = evalCase.expectedNoEvidence() || containsCitationMarker(answer.answer());
+        boolean groundedAnswerHit = !evalCase.expectedNoEvidence()
+                && answer.audit().grounded()
+                && answerCitationMarkerHit
+                && answer.audit().citationCount() >= evalCase.minCitationCount();
+        boolean noEvidenceCitationFreeHit = !evalCase.expectedNoEvidence()
+                || (!answer.audit().grounded()
+                && answer.audit().citationCount() == 0
+                && answer.modelCallCount() == 0);
         boolean scopeViolation = scopeViolation(evalCase, hits, citations);
         boolean modelCalledForNoEvidence = evalCase.expectedNoEvidence() && harness.answerCallCount() > 0;
         List<String> failureReasons = failureReasons(
@@ -174,14 +183,16 @@ public class KnowledgeBaseRagEvalRunner {
                 citationCountHit,
                 multiDocumentCoverageHit,
                 noEvidenceHit,
+                groundedAnswerHit,
+                noEvidenceCitationFreeHit,
                 scopeViolation,
                 modelCalledForNoEvidence
         );
         boolean passed = evalCase.expectedNoEvidence()
-                ? noEvidenceHit && !scopeViolation && !modelCalledForNoEvidence && !forbiddenAnswerHit
+                ? noEvidenceHit && noEvidenceCitationFreeHit && !scopeViolation && !modelCalledForNoEvidence && !forbiddenAnswerHit
                 : hit && documentHit && citationHit && answerHit && !forbiddenAnswerHit
                 && citationCountHit && multiDocumentCoverageHit && !retrieval.noEvidence()
-                && !answer.noEvidence() && !scopeViolation;
+                && groundedAnswerHit && !answer.noEvidence() && !scopeViolation;
         return new KnowledgeBaseRagEvalResult.CaseEvaluation(
                 evalCase.id(),
                 evalCase.expectedNoEvidence(),
@@ -199,6 +210,8 @@ public class KnowledgeBaseRagEvalRunner {
                 multiDocumentCoverageRequired,
                 multiDocumentCoverageHit,
                 noEvidenceHit,
+                groundedAnswerHit,
+                noEvidenceCitationFreeHit,
                 scopeViolation,
                 modelCalledForNoEvidence,
                 passed,
@@ -225,6 +238,8 @@ public class KnowledgeBaseRagEvalRunner {
                 Boolean.TRUE.equals(evalCase.requiresMultiDocumentCoverage()),
                 false,
                 false,
+                false,
+                false,
                 true,
                 false,
                 false,
@@ -242,17 +257,21 @@ public class KnowledgeBaseRagEvalRunner {
                                         boolean citationCountHit,
                                         boolean multiDocumentCoverageHit,
                                         boolean noEvidenceHit,
+                                        boolean groundedAnswerHit,
+                                        boolean noEvidenceCitationFreeHit,
                                         boolean scopeViolation,
                                         boolean modelCalledForNoEvidence) {
         List<String> reasons = new ArrayList<>();
         if (evalCase.expectedNoEvidence()) {
             addIfFalse(reasons, noEvidenceHit, "no_evidence_miss");
+            addIfFalse(reasons, noEvidenceCitationFreeHit, "no_evidence_citation_leak");
             addIfTrue(reasons, modelCalledForNoEvidence, "model_called_for_no_evidence");
         } else {
             addIfFalse(reasons, hit, "retrieval_marker_miss");
             addIfFalse(reasons, documentHit, "document_hit_miss");
             addIfFalse(reasons, citationHit, "citation_hit_miss");
             addIfFalse(reasons, answerHit, "answer_marker_miss");
+            addIfFalse(reasons, groundedAnswerHit, "grounded_answer_miss");
             addIfFalse(reasons, citationCountHit, "citation_count_miss");
             addIfFalse(reasons, multiDocumentCoverageHit, "multi_document_coverage_miss");
         }
@@ -313,6 +332,10 @@ public class KnowledgeBaseRagEvalRunner {
             }
         }
         return true;
+    }
+
+    private boolean containsCitationMarker(String answer) {
+        return answer != null && Pattern.compile("\\[\\d+]").matcher(answer).find();
     }
 
     private boolean scopeViolation(KnowledgeBaseRagEvalCase evalCase,

@@ -8,6 +8,7 @@ import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalQuery;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
 import com.docpilot.backend.ai.service.KnowledgeBaseRagQaService;
 import com.docpilot.backend.ai.service.KnowledgeBaseRagRetrievalService;
+import com.docpilot.backend.ai.vo.KnowledgeBaseRagQaResponse;
 import com.docpilot.backend.common.context.UserHolder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +64,7 @@ class KnowledgeBaseRagControllerTest {
         request.setIndexVersion(1);
         request.setSessionId("s1");
 
-        controller.qa(10L, request);
+        KnowledgeBaseRagQaResponse response = controller.qa(10L, request).data();
 
         ArgumentCaptor<KnowledgeBaseRagQaQuery> captor =
                 ArgumentCaptor.forClass(KnowledgeBaseRagQaQuery.class);
@@ -72,6 +73,8 @@ class KnowledgeBaseRagControllerTest {
         assertThat(captor.getValue().knowledgeBaseId()).isEqualTo(10L);
         assertThat(captor.getValue().question()).isEqualTo("cache?");
         assertThat(captor.getValue().sessionId()).isEqualTo("s1");
+        assertThat(response.getAudit()).isNotNull();
+        assertThat(response.getAudit().fallbackReason()).isEqualTo("no_evidence");
     }
 
     private KnowledgeBaseRagRetrievalResult retrieval() {

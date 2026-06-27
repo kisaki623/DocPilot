@@ -13,8 +13,10 @@ public record KnowledgeBaseRagEvalMetrics(
         double answerHitRate,
         double citationCountRate,
         double multiDocumentCoverageRate,
+        double groundedAnswerRate,
         double forbiddenAnswerLeakRate,
         double noEvidenceRate,
+        double noEvidenceCitationFreeRate,
         double scopeViolationRate
 ) {
 
@@ -38,6 +40,12 @@ public record KnowledgeBaseRagEvalMetrics(
                 .filter(KnowledgeBaseRagEvalResult.CaseEvaluation::forbiddenAnswerHit)
                 .count();
         int noEvidenceHitCount = (int) resolved.stream().filter(item -> item.expectedNoEvidence() && item.noEvidenceHit()).count();
+        int groundedAnswerHitCount = (int) resolved.stream()
+                .filter(item -> !item.expectedNoEvidence() && item.groundedAnswerHit())
+                .count();
+        int noEvidenceCitationFreeHitCount = (int) resolved.stream()
+                .filter(item -> item.expectedNoEvidence() && item.noEvidenceCitationFreeHit())
+                .count();
         int scopeViolationCount = (int) resolved.stream().filter(KnowledgeBaseRagEvalResult.CaseEvaluation::scopeViolation).count();
         return new KnowledgeBaseRagEvalMetrics(
                 resolved.size(),
@@ -47,8 +55,10 @@ public record KnowledgeBaseRagEvalMetrics(
                 rate(answerHitCount, positiveCases),
                 rate(citationCountHitCount, positiveCases),
                 rate(multiDocumentCoverageHitCount, multiDocumentCases.size()),
+                rate(groundedAnswerHitCount, positiveCases),
                 resolved.isEmpty() ? 0.0D : (double) forbiddenAnswerLeakCount / resolved.size(),
                 rate(noEvidenceHitCount, noEvidenceCases),
+                rate(noEvidenceCitationFreeHitCount, noEvidenceCases),
                 resolved.isEmpty() ? 0.0D : (double) scopeViolationCount / resolved.size()
         );
     }
@@ -62,8 +72,10 @@ public record KnowledgeBaseRagEvalMetrics(
         value.put("answerHitRate", format(answerHitRate));
         value.put("citationCountRate", format(citationCountRate));
         value.put("multiDocumentCoverageRate", format(multiDocumentCoverageRate));
+        value.put("groundedAnswerRate", format(groundedAnswerRate));
         value.put("forbiddenAnswerLeakRate", format(forbiddenAnswerLeakRate));
         value.put("noEvidenceRate", format(noEvidenceRate));
+        value.put("noEvidenceCitationFreeRate", format(noEvidenceCitationFreeRate));
         value.put("scopeViolationRate", format(scopeViolationRate));
         return value;
     }

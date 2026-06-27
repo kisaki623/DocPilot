@@ -25,8 +25,10 @@ class KnowledgeBaseRagEvalRunnerTest {
         assertThat(result.metrics().answerHitRate()).isEqualTo(1.0D);
         assertThat(result.metrics().citationCountRate()).isEqualTo(1.0D);
         assertThat(result.metrics().multiDocumentCoverageRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().groundedAnswerRate()).isEqualTo(1.0D);
         assertThat(result.metrics().forbiddenAnswerLeakRate()).isEqualTo(0.0D);
         assertThat(result.metrics().noEvidenceRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().noEvidenceCitationFreeRate()).isEqualTo(1.0D);
         assertThat(result.metrics().scopeViolationRate()).isEqualTo(0.0D);
         assertThat(result.noEvidenceModelCallCount()).isZero();
         assertThat(result.failedCaseIds()).isEmpty();
@@ -55,7 +57,9 @@ class KnowledgeBaseRagEvalRunnerTest {
                 .contains("\"scopeViolationRate\" : \"0.0000\"")
                 .contains("\"answerHitRate\" : \"1.0000\"")
                 .contains("\"multiDocumentCoverageRate\" : \"1.0000\"")
+                .contains("\"groundedAnswerRate\" : \"1.0000\"")
                 .contains("\"forbiddenAnswerLeakRate\" : \"0.0000\"")
+                .contains("\"noEvidenceCitationFreeRate\" : \"1.0000\"")
                 .contains("knowledge-base RAG eval cases")
                 .doesNotContain("documentText")
                 .doesNotContain("answerText")

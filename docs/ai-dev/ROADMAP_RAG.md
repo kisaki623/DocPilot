@@ -51,11 +51,11 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - KnowledgeBase hybrid hit 使用原始 `vectorScore` 做门禁，不把 RRF `fusedScore` 当作 similarity；keyword-only 低置信结果不会进入 grounded QA。
 - `rag-real-quality-smoke.ps1 -Mode run` 的 `noEvidenceThreshold` 已从 `REVIEW` 变为 `PASS`，marker 为 `docpilot-rag-real-quality-20260627210458-9d0321`。
 
-### v4 citation grounding and answer audit
+### v4 citation grounding and answer audit（DONE）
 
 - 回答生成只接收通过 gate 的 evidence。
-- QA response / trace 输出可脱敏的 evidence count、documentHitCounts、score summary、fallback reason。
-- 离线 eval 增加 forbidden answer leak、citation minimum、multi-document coverage 和 no-evidence precision。
+- QA response 已输出脱敏 answer audit：grounded、evidence count、citation count、documentHitCounts、score summary、fallback reason、retrieval / rerank 信息和 modelCallCount。
+- 离线 eval 已增加 `groundedAnswerRate` 和 `noEvidenceCitationFreeRate`，继续保留 forbidden answer leak、citation minimum、multi-document coverage 和 no-evidence precision。
 
 ### v5 chunk structure quality
 

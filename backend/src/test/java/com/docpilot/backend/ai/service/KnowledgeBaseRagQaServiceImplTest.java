@@ -55,6 +55,11 @@ class KnowledgeBaseRagQaServiceImplTest {
         assertThat(answer.answerProvider()).isEqualTo("mock");
         assertThat(answer.answerModel()).isEqualTo("mock-model");
         assertThat(answer.modelCallCount()).isEqualTo(1);
+        assertThat(answer.audit().grounded()).isTrue();
+        assertThat(answer.audit().evidenceCount()).isEqualTo(1);
+        assertThat(answer.audit().citationCount()).isEqualTo(1);
+        assertThat(answer.audit().scoreSummary().min()).isEqualTo(0.9D);
+        assertThat(answer.audit().documentHitCounts()).containsEntry(101L, 1);
     }
 
     @Test
@@ -73,6 +78,9 @@ class KnowledgeBaseRagQaServiceImplTest {
         assertThat(answer.noEvidence()).isTrue();
         assertThat(answer.answer()).contains("未在当前知识库索引中检索到足够证据");
         assertThat(answer.modelCallCount()).isZero();
+        assertThat(answer.audit().grounded()).isFalse();
+        assertThat(answer.audit().citationCount()).isZero();
+        assertThat(answer.audit().fallbackReason()).isEqualTo("no_evidence");
         verify(aiAnswerService, never()).answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString());
     }
 
@@ -92,6 +100,9 @@ class KnowledgeBaseRagQaServiceImplTest {
         assertThat(answer.fallbackUsed()).isTrue();
         assertThat(answer.fallbackReason()).isEqualTo("retrieval_unavailable");
         assertThat(answer.modelCallCount()).isZero();
+        assertThat(answer.audit().grounded()).isFalse();
+        assertThat(answer.audit().evidenceCount()).isZero();
+        assertThat(answer.audit().fallbackReason()).isEqualTo("retrieval_unavailable");
         verify(aiAnswerService, never()).answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString());
     }
 
@@ -120,6 +131,9 @@ class KnowledgeBaseRagQaServiceImplTest {
         assertThat(answer.answerProvider()).isEqualTo("real");
         assertThat(answer.answerModel()).isEqualTo("real-model");
         assertThat(answer.modelCallCount()).isEqualTo(1);
+        assertThat(answer.audit().grounded()).isFalse();
+        assertThat(answer.audit().citationCount()).isEqualTo(1);
+        assertThat(answer.audit().fallbackReason()).isEqualTo("answer_generation_failed");
     }
 
     @Test

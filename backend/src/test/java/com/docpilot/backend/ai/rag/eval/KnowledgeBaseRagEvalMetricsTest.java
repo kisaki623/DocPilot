@@ -26,8 +26,10 @@ class KnowledgeBaseRagEvalMetricsTest {
         assertThat(metrics.answerHitRate()).isEqualTo(2.0D / 3.0D);
         assertThat(metrics.citationCountRate()).isEqualTo(2.0D / 3.0D);
         assertThat(metrics.multiDocumentCoverageRate()).isEqualTo(1.0D);
+        assertThat(metrics.groundedAnswerRate()).isEqualTo(2.0D / 3.0D);
         assertThat(metrics.forbiddenAnswerLeakRate()).isEqualTo(0.0D);
         assertThat(metrics.noEvidenceRate()).isEqualTo(1.0D);
+        assertThat(metrics.noEvidenceCitationFreeRate()).isEqualTo(1.0D);
         assertThat(metrics.scopeViolationRate()).isEqualTo(0.25D);
         assertThat(metrics.toSafeMap()).containsEntry("scopeViolationRate", "0.2500");
     }
@@ -43,8 +45,10 @@ class KnowledgeBaseRagEvalMetricsTest {
         assertThat(metrics.answerHitRate()).isEqualTo(1.0D);
         assertThat(metrics.citationCountRate()).isEqualTo(1.0D);
         assertThat(metrics.multiDocumentCoverageRate()).isEqualTo(1.0D);
+        assertThat(metrics.groundedAnswerRate()).isEqualTo(1.0D);
         assertThat(metrics.forbiddenAnswerLeakRate()).isEqualTo(0.0D);
         assertThat(metrics.noEvidenceRate()).isEqualTo(1.0D);
+        assertThat(metrics.noEvidenceCitationFreeRate()).isEqualTo(1.0D);
         assertThat(metrics.scopeViolationRate()).isEqualTo(0.0D);
     }
 
@@ -72,6 +76,8 @@ class KnowledgeBaseRagEvalMetricsTest {
                 id.contains("hit"),
                 id.contains("hit"),
                 noEvidenceHit,
+                !expectedNoEvidence && hit,
+                expectedNoEvidence && noEvidenceHit,
                 scopeViolation,
                 false,
                 !scopeViolation,

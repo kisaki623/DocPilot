@@ -60,6 +60,8 @@ public record KnowledgeBaseRagEvalResult(
             boolean multiDocumentCoverageRequired,
             boolean multiDocumentCoverageHit,
             boolean noEvidenceHit,
+            boolean groundedAnswerHit,
+            boolean noEvidenceCitationFreeHit,
             boolean scopeViolation,
             boolean modelCalledForNoEvidence,
             boolean passed,
@@ -92,6 +94,8 @@ public record KnowledgeBaseRagEvalResult(
             value.put("multiDocumentCoverageRequired", multiDocumentCoverageRequired);
             value.put("multiDocumentCoverageHit", multiDocumentCoverageHit);
             value.put("noEvidenceHit", noEvidenceHit);
+            value.put("groundedAnswerHit", groundedAnswerHit);
+            value.put("noEvidenceCitationFreeHit", noEvidenceCitationFreeHit);
             value.put("scopeViolation", scopeViolation);
             value.put("modelCalledForNoEvidence", modelCalledForNoEvidence);
             value.put("passed", passed);

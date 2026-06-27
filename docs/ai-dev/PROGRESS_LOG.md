@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-27 RAG Quality Upgrade v4
+
+- 新增 KnowledgeBase QA answer audit：response 暴露脱敏 `audit`，记录 grounded、evidence / citation count、documentHitCounts、score / vectorScore / fusedScore / rerankScore summary、retrievalMode、rerank 信息、fallbackReason 和 modelCallCount；不保存 prompt、evidence 原文或模型输入输出。
+- 增强离线 KnowledgeBase RAG eval：新增 `groundedAnswerRate` 和 `noEvidenceCitationFreeRate`，正例必须有 grounded answer 与 citation marker，no-evidence 例子必须无 citation 且不调用模型。
+- 已验证：v4 targeted tests 21/21 pass；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` 198/198 pass；默认 `rag-real-quality-smoke.ps1 -Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260627211711-383cda`。
+- 本轮真实 run 创建临时 smoke 数据和 ignored artifact，未操作远程 Docker，未走 `hk-ops`，未删除业务数据，未改数据库结构，未提交 artifact 原文，未 push。
+
 ## 2026-06-27 RAG Quality Upgrade v3
 
 - 完成 evidence confidence gate 收口：KnowledgeBase hybrid retrieval 在融合后继续执行阈值过滤，并对带 `vectorScore` 的 hybrid hit 使用原始向量相似度做门禁，避免把 RRF `fusedScore` 当作 similarity；低置信 keyword / fused 结果不进入 grounded QA。

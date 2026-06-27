@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.vo;
 
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaAnswer;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagAnswerAudit;
 
 import java.util.List;
 
@@ -16,6 +17,7 @@ public class KnowledgeBaseRagQaResponse {
     private String answerProvider;
     private String answerModel;
     private Integer modelCallCount;
+    private KnowledgeBaseRagAnswerAudit audit;
     private KnowledgeBaseRagRetrievalResponse retrieval;
     private List<KnowledgeBaseRagCitationResponse> citations;
 
@@ -31,6 +33,7 @@ public class KnowledgeBaseRagQaResponse {
         response.setAnswerProvider(answer.answerProvider());
         response.setAnswerModel(answer.answerModel());
         response.setModelCallCount(answer.modelCallCount());
+        response.setAudit(answer.audit());
         if (answer.retrieval() != null) {
             response.setRetrieval(KnowledgeBaseRagRetrievalResponse.from(answer.retrieval()));
             response.setCitations(response.getRetrieval().getCitations());
@@ -118,6 +121,14 @@ public class KnowledgeBaseRagQaResponse {
 
     public void setModelCallCount(Integer modelCallCount) {
         this.modelCallCount = modelCallCount;
+    }
+
+    public KnowledgeBaseRagAnswerAudit getAudit() {
+        return audit;
+    }
+
+    public void setAudit(KnowledgeBaseRagAnswerAudit audit) {
+        this.audit = audit;
     }
 
     public KnowledgeBaseRagRetrievalResponse getRetrieval() {
