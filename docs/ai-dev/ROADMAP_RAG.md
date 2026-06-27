@@ -64,11 +64,12 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 新 chunk 策略必须能通过 MySQL chunk 检查和 Qdrant payload 一致性检查。
 - 2026-06-27 已完成小步版本：section title / ordinal / source block ordinal / structure type / quality flags 已进入 chunk candidate、embedding metadata 和 Qdrant payload；真实 smoke `docpilot-rag-real-quality-20260627213040-4038e1` PASS，覆盖 MySQL offset / duplicate hash / token length 和 Qdrant 结构 payload 字段。
 
-### v6 hybrid / rerank production gate
+### v6 hybrid / rerank production gate（IN PROGRESS）
 
 - 保持 vector retrieval 为主链路，keyword / BM25-like retrieval 作为候选增强。
 - RRF / rerank 默认可关闭，真实 rerank provider 必须显式配置，普通测试不依赖外部服务。
 - eval 比较 vector-only 与 hybrid / rerank 的 hit、citation、multi-doc coverage 和 no-evidence 指标。
+- 2026-06-27 已完成第一片：KnowledgeBase 离线 eval artifact 输出 `retrievalModeMetrics.vector` / `retrievalModeMetrics.hybrid`，可比较两种 retrieval mode 的核心质量指标；真实 rerank provider 仍未强制、未 smoke。
 
 ### v7 memory-aware RAG
 

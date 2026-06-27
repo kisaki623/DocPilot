@@ -16,6 +16,9 @@ import com.docpilot.backend.ai.rag.RagIndexingRequest;
 import com.docpilot.backend.ai.rag.RagQaProperties;
 import com.docpilot.backend.ai.rag.RagRetrievalProperties;
 import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
+import com.docpilot.backend.ai.rag.fusion.HybridRetrievalService;
+import com.docpilot.backend.ai.rag.keyword.KeywordRetrievalService;
+import com.docpilot.backend.ai.rag.keyword.KeywordSearchHit;
 import com.docpilot.backend.ai.rag.vector.inmemory.InMemoryVectorStoreClient;
 import com.docpilot.backend.ai.service.AiAnswerService;
 import com.docpilot.backend.ai.service.DocumentChunkService;
@@ -42,11 +45,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -93,11 +99,28 @@ public class KnowledgeBaseRagEvalRunner {
 
     public KnowledgeBaseRagEvalResult evaluate(List<KnowledgeBaseRagEvalCase> cases) {
         List<KnowledgeBaseRagEvalCase> resolvedCases = cases == null ? List.of() : List.copyOf(cases);
+        ModeEvaluation vector = evaluateMode(resolvedCases, RetrievalEvalMode.VECTOR);
+        ModeEvaluation hybrid = evaluateMode(resolvedCases, RetrievalEvalMode.HYBRID);
+        Map<String, KnowledgeBaseRagEvalMetrics> modeMetrics = new LinkedHashMap<>();
+        modeMetrics.put("vector", vector.metrics());
+        modeMetrics.put("hybrid", hybrid.metrics());
+        return new KnowledgeBaseRagEvalResult(
+                "in_memory",
+                MockEmbeddingProvider.PROVIDER,
+                vector.metrics(),
+                vector.modelCallCount(),
+                vector.noEvidenceModelCallCount(),
+                vector.evaluations(),
+                modeMetrics
+        );
+    }
+
+    private ModeEvaluation evaluateMode(List<KnowledgeBaseRagEvalCase> resolvedCases, RetrievalEvalMode mode) {
         List<KnowledgeBaseRagEvalResult.CaseEvaluation> evaluations = new ArrayList<>();
         int modelCallCount = 0;
         int noEvidenceModelCallCount = 0;
         for (KnowledgeBaseRagEvalCase evalCase : resolvedCases) {
-            Harness harness = Harness.create(evalCase);
+            Harness harness = Harness.create(evalCase, mode);
             KnowledgeBaseRagEvalResult.CaseEvaluation evaluation = evaluateCase(evalCase, harness);
             modelCallCount += harness.answerCallCount();
             if (evaluation.modelCalledForNoEvidence()) {
@@ -105,14 +128,8 @@ public class KnowledgeBaseRagEvalRunner {
             }
             evaluations.add(evaluation);
         }
-        return new KnowledgeBaseRagEvalResult(
-                "in_memory",
-                MockEmbeddingProvider.PROVIDER,
-                KnowledgeBaseRagEvalMetrics.from(evaluations),
-                modelCallCount,
-                noEvidenceModelCallCount,
-                evaluations
-        );
+        return new ModeEvaluation(KnowledgeBaseRagEvalMetrics.from(evaluations),
+                modelCallCount, noEvidenceModelCallCount, evaluations);
     }
 
     public void writeArtifact(KnowledgeBaseRagEvalResult result, Path path) throws IOException {
@@ -381,7 +398,7 @@ public class KnowledgeBaseRagEvalRunner {
             this.aiAnswerService = aiAnswerService;
         }
 
-        private static Harness create(KnowledgeBaseRagEvalCase evalCase) {
+        private static Harness create(KnowledgeBaseRagEvalCase evalCase, RetrievalEvalMode mode) {
             KnowledgeBaseMapper knowledgeBaseMapper = mock(KnowledgeBaseMapper.class);
             KnowledgeBaseDocumentMapper knowledgeBaseDocumentMapper = mock(KnowledgeBaseDocumentMapper.class);
             DocumentMapper documentMapper = mock(DocumentMapper.class);
@@ -406,14 +423,19 @@ public class KnowledgeBaseRagEvalRunner {
                     knowledgeBaseDocumentMapper,
                     documentMapper
             );
+            RagRetrievalProperties retrievalProperties = new RagRetrievalProperties();
+            retrievalProperties.setHybridEnabled(mode == RetrievalEvalMode.HYBRID);
+            HybridRetrievalService hybridRetrievalService = mode == RetrievalEvalMode.HYBRID
+                    ? new HybridRetrievalService(new InMemoryKeywordRetrievalService(chunkService), retrievalProperties)
+                    : null;
             KnowledgeBaseRagRetrievalService retrievalService = new KnowledgeBaseRagRetrievalServiceImpl(
                     scopeGuard,
                     embeddingProvider,
                     vectorStoreClient,
-                    null, // hybridRetrievalService - not needed for eval
+                    hybridRetrievalService,
                     embeddingProperties,
                     qaProperties,
-                    new RagRetrievalProperties(), // default retrieval properties
+                    retrievalProperties,
                     null,
                     null
             );
@@ -528,6 +550,95 @@ public class KnowledgeBaseRagEvalRunner {
 
         private static String key(Long userId, Long knowledgeBaseId) {
             return userId + ":" + knowledgeBaseId;
+        }
+    }
+
+    private enum RetrievalEvalMode {
+        VECTOR,
+        HYBRID
+    }
+
+    private record ModeEvaluation(KnowledgeBaseRagEvalMetrics metrics,
+                                  int modelCallCount,
+                                  int noEvidenceModelCallCount,
+                                  List<KnowledgeBaseRagEvalResult.CaseEvaluation> evaluations) {
+    }
+
+    private static final class InMemoryKeywordRetrievalService implements KeywordRetrievalService {
+
+        private final InMemoryDocumentChunkService chunkService;
+
+        private InMemoryKeywordRetrievalService(InMemoryDocumentChunkService chunkService) {
+            this.chunkService = chunkService;
+        }
+
+        @Override
+        public List<KeywordSearchHit> search(String query,
+                                             Long userId,
+                                             List<Long> documentIds,
+                                             Integer indexVersion,
+                                             int topK) {
+            List<String> terms = terms(query);
+            if (terms.isEmpty() || documentIds == null || documentIds.isEmpty() || topK <= 0) {
+                return List.of();
+            }
+            List<KeywordSearchHit> hits = new ArrayList<>();
+            for (Long documentId : documentIds) {
+                for (DocumentChunkEntity chunk : chunkService.listByDocumentIdAndVersion(documentId, indexVersion)) {
+                    if (!userId.equals(chunk.getUserId())
+                            || !DocumentChunkIndexStatus.INDEXED.equals(chunk.getIndexStatus())) {
+                        continue;
+                    }
+                    double score = keywordScore(chunk.getContent(), terms);
+                    if (score <= 0.0D) {
+                        continue;
+                    }
+                    hits.add(new KeywordSearchHit(
+                            chunk.getId(),
+                            chunk.getDocumentId(),
+                            chunk.getUserId(),
+                            chunk.getIndexVersion(),
+                            chunk.getChunkIndex(),
+                            chunk.getContent(),
+                            chunk.getContentHash(),
+                            chunk.getStartOffset(),
+                            chunk.getEndOffset(),
+                            chunk.getTokenCount(),
+                            chunk.getEmbeddingModel(),
+                            score
+                    ));
+                }
+            }
+            return hits.stream()
+                    .sorted(Comparator.comparingDouble(KeywordSearchHit::getScore).reversed()
+                            .thenComparing(KeywordSearchHit::getDocumentId)
+                            .thenComparing(KeywordSearchHit::getChunkIndex))
+                    .limit(topK)
+                    .toList();
+        }
+
+        private static double keywordScore(String content, List<String> terms) {
+            String normalized = content == null ? "" : content.toLowerCase(Locale.ROOT);
+            double score = 0.0D;
+            for (String term : terms) {
+                if (normalized.contains(term)) {
+                    score += 1.0D;
+                }
+            }
+            return score;
+        }
+
+        private static List<String> terms(String query) {
+            if (query == null || query.isBlank()) {
+                return List.of();
+            }
+            return Pattern.compile("[\\p{L}\\p{N}-]+")
+                    .matcher(query.toLowerCase(Locale.ROOT))
+                    .results()
+                    .map(MatchResult::group)
+                    .filter(term -> term.length() >= 3)
+                    .distinct()
+                    .toList();
         }
     }
 

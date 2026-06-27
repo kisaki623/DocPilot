@@ -16,6 +16,13 @@
 - 成功标准：默认离线测试不依赖真实 rerank provider；eval / smoke 能区分 vector-only、hybrid 和 rerank 的 hit / citation / multi-document coverage / no-evidence 指标；真实 rerank provider 仍必须显式配置。
 - 明确不做：本轮不强制真实 rerank provider、不操作远程 Docker、不改数据库结构、不删除业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
 
+## 2026-06-27 追加任务：RAG Quality Upgrade v6
+
+- 已完成 v6 第一片：KnowledgeBase RAG 离线 eval 现在同一批 case 同时跑 `vector` 与 `hybrid` 两种 retrieval mode，并在脱敏 artifact 中输出 `retrievalModeMetrics.vector` / `retrievalModeMetrics.hybrid`。
+- 默认 eval 仍使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient`，不依赖真实 rerank provider；hybrid eval 使用内存 keyword retriever，只服务质量门禁，不改变线上默认 `hybridEnabled=false`。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，4 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- v6 剩余：补充 rerank 显式 opt-in / fallback 质量门禁，继续保持真实 rerank provider 默认不强制。
+
 ## 2026-06-27 追加任务：RAG Quality Upgrade v4
 
 - 已完成 KnowledgeBase QA answer audit 小步落地：`KnowledgeBaseRagQaAnswer` 新增脱敏 `audit`，记录 `grounded`、evidence / citation count、documentHitCounts、score / vectorScore / fusedScore / rerankScore summary、retrievalMode、rerank 信息、fallbackReason 和 modelCallCount。

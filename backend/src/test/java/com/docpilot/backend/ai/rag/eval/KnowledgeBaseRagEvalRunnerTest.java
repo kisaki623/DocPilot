@@ -30,6 +30,11 @@ class KnowledgeBaseRagEvalRunnerTest {
         assertThat(result.metrics().noEvidenceRate()).isEqualTo(1.0D);
         assertThat(result.metrics().noEvidenceCitationFreeRate()).isEqualTo(1.0D);
         assertThat(result.metrics().scopeViolationRate()).isEqualTo(0.0D);
+        assertThat(result.retrievalModeMetrics()).containsKeys("vector", "hybrid");
+        assertThat(result.retrievalModeMetrics().get("vector").hitAtK()).isEqualTo(1.0D);
+        assertThat(result.retrievalModeMetrics().get("hybrid").hitAtK()).isEqualTo(1.0D);
+        assertThat(result.retrievalModeMetrics().get("hybrid").multiDocumentCoverageRate()).isEqualTo(1.0D);
+        assertThat(result.retrievalModeMetrics().get("hybrid").noEvidenceCitationFreeRate()).isEqualTo(1.0D);
         assertThat(result.noEvidenceModelCallCount()).isZero();
         assertThat(result.failedCaseIds()).isEmpty();
         assertThat(result.caseEvaluations()).allSatisfy(evaluation -> assertThat(evaluation.passed()).isTrue());
@@ -55,6 +60,9 @@ class KnowledgeBaseRagEvalRunnerTest {
                 .contains("\"provider\" : \"in_memory\"")
                 .contains("\"embeddingProvider\" : \"mock\"")
                 .contains("\"scopeViolationRate\" : \"0.0000\"")
+                .contains("\"retrievalModeMetrics\"")
+                .contains("\"vector\"")
+                .contains("\"hybrid\"")
                 .contains("\"answerHitRate\" : \"1.0000\"")
                 .contains("\"multiDocumentCoverageRate\" : \"1.0000\"")
                 .contains("\"groundedAnswerRate\" : \"1.0000\"")

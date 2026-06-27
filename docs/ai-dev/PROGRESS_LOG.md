@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-27 RAG Quality Upgrade v6
+
+- 已完成 v6 第一片：KnowledgeBase RAG 离线 eval 现在同一批 case 同时跑 `vector` 与 `hybrid` 两种 retrieval mode，并在脱敏 artifact 中输出 `retrievalModeMetrics.vector` / `retrievalModeMetrics.hybrid`。
+- eval harness 新增 in-memory keyword retriever，只用于质量门禁；默认线上 `hybridEnabled=false` 不变，真实 rerank provider 仍不强制。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，4 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 剩余：补 rerank 显式 opt-in / fallback 门禁，再决定是否跑真实 smoke。
+
 ## 2026-06-27 RAG Quality Upgrade v5
 
 - 已落地 chunk structure quality：`DocumentChunkCandidate` 记录 section title / ordinal / source block ordinal / structure type / quality flags；`ChunkingServiceImpl` 基于 Markdown heading、文本块和基础异常信号生成结构 metadata。
