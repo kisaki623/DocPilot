@@ -1,5 +1,10 @@
 # Progress Log
 
+## 2026-06-27 自驱迭代推进协议
+
+- 已将用户授权后的自驱迭代模式写入 `AGENTS.md` 和 `docs/ai-dev/CONSTRAINTS.md`：明确触发语、每片循环、自动提交条件、停止条件和安全边界。
+- `CURRENT_TASK.md` 已切换下一步为 `RAG Quality Upgrade v8: eval corpus expansion（NEXT）`，后续可按自驱模式继续拆片推进。
+
 ## 2026-06-27 RAG Quality Upgrade v7
 
 - 已完成 v7 第一片：`ContextTrace` API 暴露计算型 `contextSourceCounts` / `contextSourceFlags`，把会话摘要、最近消息、长期记忆和 RAG evidence 拆开展示；不改表结构，不持久化 prompt / evidence 原文。

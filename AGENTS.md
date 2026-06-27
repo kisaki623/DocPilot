@@ -97,11 +97,30 @@ curl http://localhost:8081/actuator/health
 6. 代码已改但验证不完整，只能把任务标记为 `REVIEW`。
 7. 缺环境、账号、密钥、数据库、中间件或用户确认时，任务标记为 `BLOCKED`，并说明阻塞原因。
 8. 每轮结束后按任务性质更新当前事实源：任务状态写入 `docs/ai-dev/CURRENT_TASK.md`，当前项目事实写入 `docs/ai-dev/STATE.md`，简短进度写入 `docs/ai-dev/PROGRESS_LOG.md`。旧的 `docs/archive/TODO_NEXT.md`、`docs/archive/CODEX_HANDOFF.md`、`docs/archive/CHANGELOG_CODING.md` 只用于历史追溯，不再作为默认回写目标。
-9. 不要自动执行 `git commit` / `git push`，除非用户明确要求。
+9. 不要自动执行 `git commit` / `git push`，除非用户明确要求；若用户明确激活“自驱迭代模式”，则按下方自驱迭代规则允许每个完成切片自动提交，但仍禁止 push。
 10. 不要留下本地服务进程或端口占用；如启动了后端、前端或脚本服务，结束前要清理并说明端口状态。
 11. 如果发现工作区有未提交改动或未跟踪文件，必须先向用户汇报，不要直接执行 `git add` / `git commit` / `git push`。
 12. 每轮开始必须检查 `.env`、`.env.local`、`.env.*`、`application-*.yml`、`*.example` 中是否存在硬编码密钥、密码、token、真实云服务 IP；如有必须先告警，不能把敏感值复制到回复里。
 13. 使用 subagents、context7 MCP、playwright MCP 或远程 `hk-ops` 前，先遵守本文件和 `docs/ai-dev/CONSTRAINTS.md`；旧工具边界可按需参考 `docs/archive/CODEX_TOOLING.md`。远程中间件操作只能通过 `hk-ops` 并在用户明确授权后进行，禁止泄露凭据或执行未经授权的破坏性操作。
+
+## 自驱迭代模式
+
+当用户明确表达“连续做直到完成”“自驱迭代推进”“按计划一直往下做”“每完成一部分自审并提交”等意图时，后续协作代理进入自驱迭代模式。该模式用于推进一个已定义的大目标，不用于绕过安全边界或无限扩大范围。
+
+自驱迭代模式下，代理不需要等待用户逐片发送 `Implement the plan`；每个循环自行选择 `docs/ai-dev/CURRENT_TASK.md` / `docs/ai-dev/ROADMAP_RAG.md` 中最小可交付切片，按以下顺序推进：
+
+1. 读取本文件、`docs/README.md`、`STATE.md`、`CURRENT_TASK.md`、`CONSTRAINTS.md`、`PROGRESS_LOG.md`，检查 `git status` / `git diff` 和敏感配置边界。
+2. 简短说明本片目标、涉及文件、验证方式和不做事项。
+3. 实现切片，优先复用现有模块和测试风格。
+4. 运行与风险匹配的验证；没有真实验证不能标记为 `DONE`。
+5. 自审 `git diff --check`、中文 Markdown 乱码、staged 敏感值、artifact / 端口 / 进程状态。
+6. 更新 `CURRENT_TASK.md`、`STATE.md`、`PROGRESS_LOG.md`，必要时更新 `ROADMAP_RAG.md` 和 `DEMO_SMOKE_RECORD.md`。
+7. 精确 `git add` 相关文件并提交一条一行 conventional commit；不得使用 `git add .`。
+8. 再次检查 `git status --short`；若大目标未完成且无阻塞，继续下一片。
+
+自驱迭代模式必须在以下情况停止并向用户汇报：大目标已完成；需要产品取舍；需要改数据库结构、删除业务数据、真实 provider / 付费调用、远程 Docker / `hk-ops` 操作或 push；连续验证失败且本地证据不足；发现影响当前切片的无关未提交改动；用户要求暂停、只读或进入 Plan 阶段。
+
+自驱迭代提交规则：每个提交必须是小闭环；验证不完整时状态只能写 `REVIEW`；环境或权限缺失写 `BLOCKED`；不得提交 `.env`、artifact 原文、日志、截图、真实密钥、云地址或连接串。
 
 ## Commit Message 规则
 

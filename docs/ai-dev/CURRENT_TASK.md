@@ -1,6 +1,13 @@
 # Current Task
 
-当前任务：RAG Quality Upgrade v7: memory-aware RAG（DONE）
+当前任务：RAG Quality Upgrade v8: eval corpus expansion（NEXT）
+
+## 2026-06-27 追加任务：自驱迭代推进协议文档化
+
+- 目标：把用户授权后的“连续自驱迭代推进”写入项目协作规则，让后续协作代理能理解：在明确授权后，应自行拆小片、实现、验证、自审、提交、回写文档，并继续推进下一片，直到大目标完成或遇到阻塞。
+- 已完成：`AGENTS.md` 新增自驱迭代模式入口、循环步骤、停止条件和提交规则；`docs/ai-dev/CONSTRAINTS.md` 新增自驱迭代安全边界。
+- 边界：该模式不允许绕过安全限制；仍禁止 push、远程 Docker / `hk-ops` 未授权操作、删除业务数据、提交真实密钥或 artifact 原文。
+- 下一步：进入 `RAG Quality Upgrade v8: eval corpus expansion`，优先扩大 no-evidence / grounding / multi-document 干扰 eval case。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v7
 
