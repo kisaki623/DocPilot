@@ -1013,6 +1013,14 @@ export default function ConversationsPage() {
                   <div><span>记忆</span><strong>{trace.memoryCount}</strong></div>
                   <div><span>来源</span><strong>{trace.evidenceCount}</strong></div>
                 </div>
+                {trace.contextSourceCounts ? (
+                  <div className="dp-chat-metrics">
+                    <div><span>会话摘要</span><strong>{trace.contextSourceCounts.conversationSummary ?? 0}</strong></div>
+                    <div><span>最近消息</span><strong>{trace.contextSourceCounts.recentMessages ?? 0}</strong></div>
+                    <div><span>长期记忆</span><strong>{trace.contextSourceCounts.userMemory ?? 0}</strong></div>
+                    <div><span>RAG 证据</span><strong>{trace.contextSourceCounts.ragEvidence ?? 0}</strong></div>
+                  </div>
+                ) : null}
                 <dl className="dp-chat-trace-list">
                   <div><dt>摘要使用</dt><dd>{formatBoolean(trace.summaryUsed)}</dd></div>
                   <div><dt>最近消息</dt><dd>{trace.recentMessageCount} 条 / {trace.recentTurnCount} 轮</dd></div>

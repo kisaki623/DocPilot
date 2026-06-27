@@ -20,6 +20,8 @@ export interface ContextTraceData {
   evidenceCount: number;
   noEvidence: boolean;
   documentHitCounts: Record<string, number>;
+  contextSourceCounts?: Record<string, number>;
+  contextSourceFlags?: Record<string, boolean>;
   maxPromptTokens: number;
   estimatedPromptTokens: number;
   truncated: boolean;

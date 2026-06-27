@@ -95,6 +95,15 @@ class ContextAssemblyServiceImplTest {
         assertThat(result.trace().memoryCount()).isEqualTo(1);
         assertThat(result.trace().ragTriggered()).isTrue();
         assertThat(result.trace().evidenceCount()).isEqualTo(1);
+        assertThat(result.trace().getContextSourceCounts())
+                .containsEntry("conversationSummary", 1)
+                .containsEntry("recentMessages", 1)
+                .containsEntry("userMemory", 1)
+                .containsEntry("ragEvidence", 1);
+        assertThat(result.trace().getContextSourceFlags())
+                .containsEntry("conversationContext", true)
+                .containsEntry("userMemory", true)
+                .containsEntry("ragEvidence", true);
         assertThat(result.modelCallSkipped()).isFalse();
     }
 

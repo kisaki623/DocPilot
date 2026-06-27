@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.context;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public record ContextTrace(
@@ -60,5 +61,24 @@ public record ContextTrace(
                 fallbackReason,
                 modelCallSkipped
         );
+    }
+
+    public Map<String, Integer> getContextSourceCounts() {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        counts.put("conversationSummary", summaryUsed ? 1 : 0);
+        counts.put("recentMessages", Math.max(0, recentMessageCount));
+        counts.put("userMemory", Math.max(0, memoryCount));
+        counts.put("ragEvidence", Math.max(0, evidenceCount));
+        return counts;
+    }
+
+    public Map<String, Boolean> getContextSourceFlags() {
+        Map<String, Boolean> flags = new LinkedHashMap<>();
+        flags.put("conversationContext", summaryUsed || recentMessageCount > 0);
+        flags.put("userMemory", memoryUsed && memoryCount > 0);
+        flags.put("ragEvidence", evidenceCount > 0);
+        flags.put("ragRequired", ragRequired);
+        flags.put("fallback", fallbackUsed || modelCallSkipped);
+        return flags;
     }
 }

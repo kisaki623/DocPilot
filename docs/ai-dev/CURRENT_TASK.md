@@ -7,6 +7,9 @@
 - 目标：把 Conversation Context / User Memory / RAG Evidence / Context Trace 的边界做清楚，避免把 RAG evidence 当作长期记忆，也避免长期记忆污染知识库证据。
 - 成功标准：Conversation Trace 能区分 `conversationContext`、`userMemory`、`ragEvidence` 和 fallback；RAG evidence 不自动写入长期记忆；长期记忆候选仍需要用户接受后才进入上下文；相关离线测试和真实 smoke 能证明 KB evidence 与 memory 同时存在时上下文可解释。
 - 明确不做：本轮不引入复杂多 Agent 编排、不改数据库结构、不操作远程 Docker、不删除业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 已完成 v7 第一片：`ContextTrace` API 新增计算型 `contextSourceCounts` / `contextSourceFlags`，基于既有 summary / recent / memory / RAG evidence 字段生成，不改表结构、不持久化 prompt 或 evidence 原文；`/conversations` 右侧 Trace 面板展示会话摘要、最近消息、长期记忆和 RAG 证据拆分。
+- 已验证：`mvn "-Dtest=*Context*,*Conversation*,*Memory*" test` PASS，56 tests；`npm run lint` PASS。
+- v7 剩余：补充 memory-aware RAG 的负向测试，证明 RAG evidence 不会自动写入长期记忆，且只有 `ACTIVE` user memory 进入上下文。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v5
 

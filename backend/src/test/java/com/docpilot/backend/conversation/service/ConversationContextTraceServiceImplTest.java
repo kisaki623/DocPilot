@@ -59,6 +59,26 @@ class ConversationContextTraceServiceImplTest {
         assertThat(trace.memoryTypes()).containsExactly("PREFERENCE");
         assertThat(trace.documentHitCounts()).containsEntry(83L, 2);
         assertThat(trace.truncatedTypes()).containsExactly("MEMORY");
+        assertThat(trace.getContextSourceCounts())
+                .containsEntry("conversationSummary", 1)
+                .containsEntry("recentMessages", 4)
+                .containsEntry("userMemory", 1)
+                .containsEntry("ragEvidence", 2);
+        assertThat(trace.getContextSourceFlags())
+                .containsEntry("conversationContext", true)
+                .containsEntry("userMemory", true)
+                .containsEntry("ragEvidence", true);
+    }
+
+    @Test
+    void shouldExposeDerivedSourceBreakdownWithoutPersistingPromptContent() throws Exception {
+        String json = new ObjectMapper().writeValueAsString(trace());
+
+        assertThat(json).contains("contextSourceCounts");
+        assertThat(json).contains("contextSourceFlags");
+        assertThat(json).contains("ragEvidence");
+        assertThat(json).doesNotContain("prompt");
+        assertThat(json).doesNotContain("doc evidence");
     }
 
     @Test
