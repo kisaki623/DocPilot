@@ -1,6 +1,6 @@
 # Current Task
 
-当前任务：RAG Quality Upgrade v7: memory-aware RAG
+当前任务：RAG Quality Upgrade v7: memory-aware RAG（DONE）
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v7
 
@@ -11,7 +11,9 @@
 - 已验证：`mvn "-Dtest=*Context*,*Conversation*,*Memory*" test` PASS，56 tests；`npm run lint` PASS。
 - 已完成 v7 第二片：新增 memory-aware RAG 负向测试，证明 assistant / RAG evidence 文本不会被长期记忆抽取为候选，且 `MemorySelector` 只把 `ACTIVE` user memory 放进上下文，`SUGGESTED` / `IGNORED` 不进入 prompt。
 - 已验证：`mvn "-Dtest=RuleBasedMemoryExtractionServiceTest,MemorySelectorTest,ContextAssemblyServiceImplTest" test` PASS，6 tests。
-- v7 剩余：扩大 Conversation Trace / Memory 的端到端 smoke 断言，覆盖 KB evidence 与 ACTIVE memory 同时存在时的 trace 展示。
+- 已完成 v7 第三片：真实 `rag-real-quality-smoke.ps1 -Mode run` 已把 Conversation Trace gate 扩展为同时要求 KB RAG evidence 与 `ACTIVE` user memory，artifact 只保存脱敏 source counts，不保存 prompt 或 evidence 原文。
+- 已验证：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260627220736-8f03b9`，其中 `conversationTrace` 显示 `evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`。
+- v7 结论：DONE。下一步建议是 v8 eval corpus expansion：扩大 no-evidence / grounding / multi-document 干扰 case，而不是继续堆功能。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v5
 

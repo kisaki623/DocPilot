@@ -71,13 +71,14 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - eval 比较 vector-only 与 hybrid / rerank 的 hit、citation、multi-doc coverage 和 no-evidence 指标。
 - 2026-06-27 已完成：KnowledgeBase 离线 eval artifact 输出 `retrievalModeMetrics.vector` / `retrievalModeMetrics.hybrid`，可比较两种 retrieval mode 的核心质量指标；rerank provider 必须外部配置完整才发 HTTP，半配置状态 identity fallback；默认真实 smoke `docpilot-rag-real-quality-20260627214532-e1fb65` PASS。真实 rerank provider 效果仍未强制、未 smoke。
 
-### v7 memory-aware RAG
+### v7 memory-aware RAG（DONE）
 
 - 明确区分 `conversationContext`、`userMemory`、`ragEvidence` 和 `contextTrace`。
 - RAG evidence 不自动写入长期记忆；长期记忆候选需要用户接受后才进入上下文。
 - Conversation Trace 继续记录 `ragTriggered`、`ragRequired`、`evidenceCount`、`documentHitCounts`、`memoryUsed` 和 fallback reason。
 - 2026-06-27 已完成第一片：`ContextTrace` API 新增计算型 `contextSourceCounts` / `contextSourceFlags`，前端 Trace 面板展示会话摘要、最近消息、长期记忆和 RAG evidence 的拆分计数；不改表结构、不保存 prompt 或 evidence 原文。
 - 2026-06-27 已完成第二片：测试门禁覆盖 assistant / RAG evidence 不会自动变成长期记忆，且只有 `ACTIVE` user memory 进入上下文。
+- 2026-06-27 已完成第三片：真实 smoke `docpilot-rag-real-quality-20260627220736-8f03b9` PASS，Conversation Trace 同时验证 `evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`。
 
 ## 5. 质量门禁
 

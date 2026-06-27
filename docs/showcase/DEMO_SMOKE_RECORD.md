@@ -439,20 +439,20 @@ Validation performed:
 | `-Mode plan` | PASS |
 | `-Mode dry-run` | PASS |
 | `-Mode run` overall status | PASS |
-| smoke marker | `docpilot-rag-real-quality-20260627214532-e1fb65` |
+| smoke marker | `docpilot-rag-real-quality-20260627220736-8f03b9` |
 | Quality min similarity threshold | `0.50` |
-| Chunk quality | document `141`: `3/3` indexed chunks; document `142`: `3/3` indexed chunks; duplicate hash count `0`; offset order and token/content length checks passed |
+| Chunk quality | document `144`: `3/3` indexed chunks; document `145`: `3/3` indexed chunks; duplicate hash count `0`; offset order and token/content length checks passed |
 | MySQL / Qdrant consistency | both documents matched `3/3` points, `0` missing vector ids, `0` mismatched fields, `0` missing structure fields |
 | Single-document RAG | `3` retrieve hits, `3` QA citations |
-| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{141:3,142:3}` |
-| KnowledgeBase vector score summary | retrieve min `0.6432873`, citation min `0.62551725` |
+| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{144:3,145:3}` |
+| KnowledgeBase vector score summary | retrieve min `0.6527018`, citation min `0.6255937` |
 | No-evidence threshold | PASS: unrelated populated-KB query returned `noEvidence=true`, `0` retrieve hits and `0` QA citations |
-| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, hit distribution `{141:3,142:3}` |
+| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, `memoryCount=1`, `contextSourceCounts={userMemory:1, ragEvidence:6}`, hit distribution `{144:3,145:3}` |
 | Permission isolation | foreign KB detail, foreign KB retrieve, cross-user document add, and foreign trace access all rejected |
 | Frontend route smoke | `/`, `/login`, `/dashboard`, `/upload`, `/documents`, `/knowledge-bases`, `/conversations` all HTTP 200 and non-blank |
 | Artifact redaction | PASS, local redaction-pattern scan had `0` matches |
 
-Boundary: this is a stronger real-link quality gate than the offline eval because it uses the application upload / parse / indexing / Qdrant path. The v3 gate rejects the specific unrelated populated-KB query used by the smoke, v4 adds answer-audit fields plus offline grounding metrics, v5 verifies chunk structure metadata enters Qdrant payload without a schema migration, and v6 keeps rerank external calls behind complete explicit provider configuration. It is still not a broad production relevance benchmark across large corpora or many domains.
+Boundary: this is a stronger real-link quality gate than the offline eval because it uses the application upload / parse / indexing / Qdrant path. The v3 gate rejects the specific unrelated populated-KB query used by the smoke, v4 adds answer-audit fields plus offline grounding metrics, v5 verifies chunk structure metadata enters Qdrant payload without a schema migration, v6 keeps rerank external calls behind complete explicit provider configuration, and v7 verifies active user memory and KB RAG evidence remain separately visible in Conversation Trace. It is still not a broad production relevance benchmark across large corpora or many domains.
 
 ## 12. Current Boundaries
 

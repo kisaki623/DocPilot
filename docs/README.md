@@ -7,7 +7,7 @@
 现在项目推进的重点是 RAG Quality / Memory Quality 生产化升级：把核心路线从“可演示 RAG”推进到“可拒答、可引用、可追踪、可评测的知识库 RAG + 会话记忆闭环”。阅读顺序建议如下：
 
 1. `docs/ai-dev/STATE.md`：先确认项目当前真实状态和边界。
-2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。现在优先推进 `RAG Quality Upgrade v7: memory-aware RAG`。
+2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。`RAG Quality Upgrade v7: memory-aware RAG` 已完成；下一步优先考虑扩大 no-evidence / grounding / multi-document 干扰 eval corpus。
 3. `docs/showcase/DEMO_SMOKE_RECORD.md`：确认最近真实链路 smoke 证据。
 4. `docs/ai-dev/ROADMAP_RAG.md`：确认 RAG 长期路线和任务拆分。
 5. `docs/ai-dev/DECISIONS.md`：确认关键技术决策，例如 RAG 主链路自研、Qdrant、MySQL/Qdrant 分工。
@@ -88,7 +88,7 @@
 
 - `docs/assets/screenshots/`：README、项目展示、求职展示用截图资源。
 
-当前截图主要服务已有 showcase。RAG no-evidence、answer audit、chunk structure quality 和 v6 hybrid / rerank gate 已有 smoke / eval 证据；等 Conversation Memory 质量门禁继续增强后，再补新的 RAG / Memory 截图会更有价值。
+当前截图主要服务已有 showcase。RAG no-evidence、answer audit、chunk structure quality、v6 hybrid / rerank gate 和 v7 memory-aware trace 已有 smoke / eval 证据；等 eval corpus 和面试展示材料继续增强后，再补新的 RAG / Memory 截图会更有价值。
 
 ## 8. 使用规则
 

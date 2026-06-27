@@ -7,6 +7,9 @@
 - 已验证：`mvn "-Dtest=*Context*,*Conversation*,*Memory*" test` PASS，56 tests；`npm run lint` PASS。
 - 已完成 v7 第二片：补充 memory-aware RAG 负向门禁，assistant / RAG evidence 不会被抽取为长期记忆，只有 `ACTIVE` user memory 会进入上下文，`SUGGESTED` / `IGNORED` 不进入 prompt。
 - 已验证：`mvn "-Dtest=RuleBasedMemoryExtractionServiceTest,MemorySelectorTest,ContextAssemblyServiceImplTest" test` PASS，6 tests。
+- 已完成 v7 第三片：`cloud-quality-smoke.ps1` / `rag-real-quality-smoke.ps1` 的 Conversation Trace gate 现在要求 KB RAG evidence 与 ACTIVE user memory 同时进入 trace，并输出脱敏 `contextSourceCounts`。
+- 已验证：`rag-real-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；默认 `-Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260627220736-8f03b9`；`conversationTrace` 显示 `evidenceCount=6`、`memoryCount=1`、`userMemory=1`、`ragEvidence=6`。
+- 结论：v7 DONE。
 
 ## 2026-06-27 RAG Quality Upgrade v6
 
