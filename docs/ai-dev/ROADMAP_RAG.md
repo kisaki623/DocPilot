@@ -32,24 +32,24 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 已完成 KnowledgeBase 多文档 RAG：KnowledgeBase 管理、跨文档 retrieval、非流式 QA、citations、`documentHitCounts`、Hybrid / Rerank 可选增强和前端观测字段。
 - 已完成 Conversation Context / Memory MVP：会话、摘要、长期记忆候选、ACTIVE memory、KnowledgeBase evidence 接入、Context Trace 和前端 `/conversations`。
 - 已完成质量门禁基础：离线 RAG eval、cloud quality smoke、RAG real quality smoke、MySQL / Qdrant 一致性检查、权限隔离负向检查和脱敏 artifact。
-- 2026-06-27 v2 真实链路 smoke 结论：核心链路 PASS，但 populated KnowledgeBase 无关问题仍返回 nearest evidence，`noEvidenceThreshold` 为 `REVIEW`。
+- 2026-06-27 v3 真实链路 smoke 结论：默认 `0.50` evidence confidence gate 下整体 PASS，populated KnowledgeBase 无关问题返回 `noEvidence=true`、`0` hits、`0` citations。
 
 ## 3. 当前关键缺口
 
-- no-evidence 不够硬：无关问题仍可能拿最近 chunk 生成带 citation 的答案。
-- score / confidence 治理不足：真实 embedding + Qdrant 的 topK score 还没有成为统一 gate。
-- grounded citation 仍需加强：回答层必须只使用通过检索门禁的 evidence，不能把低置信 nearest hit 包装成可靠引用。
+- no-evidence 已有 smoke 级门禁，但 eval 覆盖还不够：仍需更多语义相近、跨主题、跨文档干扰和 hybrid keyword-only case。
+- score / confidence 治理已有 `0.50` 默认阈值和 hybrid `vectorScore` 门禁，但不同 embedding 模型 / 语料域仍需要校准记录。
+- grounded citation 仍需加强：回答层必须继续只使用通过检索门禁的 evidence，并输出更清晰的 answer audit。
 - chunk 质量还偏长度检查：标题继承、结构边界、重复率、异常 chunk、表格 / 段落元数据仍需继续治理。
 - Conversation Memory 与 RAG evidence 需要更清晰分层：长期记忆、短期上下文、知识库证据和 trace 不应互相污染。
 
 ## 4. 升级阶段
 
-### v3 no-evidence threshold and grounded refusal
+### v3 no-evidence threshold and grounded refusal（DONE）
 
-- 统一单文档 RAG、KnowledgeBase RAG、Conversation KB evidence 的 no-evidence 判定。
-- 基于 `app.rag.retrieval.min-similarity-threshold` 或等价配置过滤低置信结果。
-- QA 层在 no-evidence 时返回安全拒答 / fallback，不调用模型硬编带引用答案。
-- `rag-real-quality-smoke.ps1 -Mode run` 的 `noEvidenceThreshold` 必须从 `REVIEW` 变为 `PASS`。
+- 已统一单文档 RAG、KnowledgeBase RAG、Conversation KB evidence 的 no-evidence 判定。
+- 已基于 `app.rag.retrieval.min-similarity-threshold` 过滤低置信结果；默认阈值校准为 `0.50`。
+- KnowledgeBase hybrid hit 使用原始 `vectorScore` 做门禁，不把 RRF `fusedScore` 当作 similarity；keyword-only 低置信结果不会进入 grounded QA。
+- `rag-real-quality-smoke.ps1 -Mode run` 的 `noEvidenceThreshold` 已从 `REVIEW` 变为 `PASS`，marker 为 `docpilot-rag-real-quality-20260627210458-9d0321`。
 
 ### v4 citation grounding and answer audit
 
@@ -93,4 +93,4 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 不能硬吹：
 
 - 完整商业 SaaS、线上 SLA、大规模压测、高可用运维、复杂 PDF 智能解析、成熟多 Agent 编排。
-- 当前 `REVIEW` 的 populated-KB no-evidence 能力不能写成已可靠通过。
+- 当前 v3 smoke PASS 不能写成线上 SLA 或跨大规模语料的完整 relevance benchmark。

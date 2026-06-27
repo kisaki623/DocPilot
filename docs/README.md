@@ -7,7 +7,7 @@
 现在项目推进的重点是 RAG Quality / Memory Quality 生产化升级：把核心路线从“可演示 RAG”推进到“可拒答、可引用、可追踪、可评测的知识库 RAG + 会话记忆闭环”。阅读顺序建议如下：
 
 1. `docs/ai-dev/STATE.md`：先确认项目当前真实状态和边界。
-2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。现在优先推进 `RAG Quality Upgrade v3: no-evidence threshold and grounded refusal`。
+2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。现在优先推进 `RAG Quality Upgrade v4: citation grounding and answer audit`。
 3. `docs/showcase/DEMO_SMOKE_RECORD.md`：确认最近真实链路 smoke 证据。
 4. `docs/ai-dev/ROADMAP_RAG.md`：确认 RAG 长期路线和任务拆分。
 5. `docs/ai-dev/DECISIONS.md`：确认关键技术决策，例如 RAG 主链路自研、Qdrant、MySQL/Qdrant 分工。
@@ -22,7 +22,7 @@
 
 - `docs/ai-dev/STATE.md`：当前项目状态。写清楚已实现能力、默认关闭能力、RAG/Agent 边界。
 - `docs/ai-dev/CURRENT_TASK.md`：当前任务卡。后续实现时优先按它推进，不被旧 TODO 带偏。
-- `docs/ai-dev/ROADMAP_RAG.md`：RAG / Memory 生产化升级路线。包含当前真实基础、质量缺口、v3-v7 任务拆分和 smoke / eval 门禁。
+- `docs/ai-dev/ROADMAP_RAG.md`：RAG / Memory 生产化升级路线。包含当前真实基础、质量缺口、v3-v7 任务拆分和 smoke / eval 门禁；v3 no-evidence gate 已完成 smoke 级 PASS。
 - `docs/ai-dev/DECISIONS.md`：ADR 简版。记录认证、异步解析、存储、AI 模式、RAG 选型等关键决策。
 - `docs/ai-dev/CONSTRAINTS.md`：项目协作约束和安全边界。
 - `docs/ai-dev/PROGRESS_LOG.md`：简短进度记录。不要把它写成新的大 changelog。
@@ -88,7 +88,7 @@
 
 - `docs/assets/screenshots/`：README、项目展示、求职展示用截图资源。
 
-当前截图主要服务已有 showcase。等 RAG no-evidence、grounded citation、Conversation Memory 质量门禁从 `REVIEW` 推到 `PASS` 后，再补新的 RAG / Memory 截图会更有价值。
+当前截图主要服务已有 showcase。RAG no-evidence 已有 v3 smoke 级 PASS；等 v4 grounded citation / answer audit 和 Conversation Memory 质量门禁继续增强后，再补新的 RAG / Memory 截图会更有价值。
 
 ## 8. 使用规则
 
@@ -97,4 +97,4 @@
 - 文档和代码冲突时，以代码、测试和可运行结果为准。
 - 当前开发优先推进 `docs/ai-dev/CURRENT_TASK.md`。
 - 长期 RAG 方向以 `docs/ai-dev/ROADMAP_RAG.md` 为准。
-- 面试材料只讲已实现或能诚实解释的能力；可以讲“生产化 RAG 核心闭环建设”，不能写线上 SLA、完整商业 SaaS、多智能体自主规划或当前尚未 PASS 的 no-evidence 能力。
+- 面试材料只讲已实现或能诚实解释的能力；可以讲“生产化 RAG 核心闭环建设”和 v3 smoke 级 no-evidence PASS，不能写线上 SLA、完整商业 SaaS、多智能体自主规划或大规模 relevance benchmark。

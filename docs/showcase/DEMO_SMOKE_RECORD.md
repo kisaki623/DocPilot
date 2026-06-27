@@ -120,7 +120,7 @@ No-evidence results:
 | Empty KB retrieve | `noEvidence=true`, hit count `0` |
 | Empty KB QA | `noEvidence=true`, `fallbackUsed=true`, `fallbackReason=no_evidence` |
 
-Boundary: populated KnowledgeBase no-evidence is not thresholded yet. The current vector retrieval can return nearest hits even for unrelated questions.
+Boundary: this older smoke predates the v3 evidence confidence gate. Populated KnowledgeBase no-evidence is now covered by the RAG real quality gate in section 11.
 
 ## 3. Real Model Smoke
 
@@ -424,9 +424,9 @@ Boundary: this run created temporary smoke business data and a local redacted ar
 
 ## 11. RAG Real Quality Gate Smoke
 
-Status: REVIEW
+Status: PASS
 
-Evidence source: `backend/target/rag-quality/docpilot-rag-real-quality-20260627195744-d5b6e2/artifact.json`.
+Evidence source: `backend/target/rag-quality/docpilot-rag-real-quality-20260627210458-9d0321/artifact.json`.
 
 Runner:
 
@@ -438,19 +438,21 @@ Validation performed:
 | --- | --- |
 | `-Mode plan` | PASS |
 | `-Mode dry-run` | PASS |
-| `-Mode run` overall status | REVIEW |
-| smoke marker | `docpilot-rag-real-quality-20260627195744-d5b6e2` |
-| Chunk quality | document `105`: `3/3` indexed chunks; document `106`: `3/3` indexed chunks |
+| `-Mode run` overall status | PASS |
+| smoke marker | `docpilot-rag-real-quality-20260627210458-9d0321` |
+| Quality min similarity threshold | `0.50` |
+| Chunk quality | document `130`: `3/3` indexed chunks; document `131`: `3/3` indexed chunks |
 | MySQL / Qdrant consistency | both documents matched `3/3` points, `0` missing vector ids |
 | Single-document RAG | `3` retrieve hits, `3` QA citations |
-| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{105:3,106:3}` |
-| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, hit distribution `{105:3,106:3}` |
+| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{130:3,131:3}` |
+| KnowledgeBase vector score summary | retrieve min `0.6537904`, citation min `0.6255937` |
+| No-evidence threshold | PASS: unrelated populated-KB query returned `noEvidence=true`, `0` retrieve hits and `0` QA citations |
+| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, hit distribution `{130:3,131:3}` |
 | Permission isolation | foreign KB detail, foreign KB retrieve, cross-user document add, and foreign trace access all rejected |
 | Frontend route smoke | `/`, `/login`, `/dashboard`, `/upload`, `/documents`, `/knowledge-bases`, `/conversations` all HTTP 200 and non-blank |
 | Artifact redaction | PASS, local redaction-pattern scan had `0` matches |
-| No-evidence threshold | REVIEW: unrelated populated-KB query still returned `3` retrieve hits and `3` QA citations |
 
-Boundary: this is a stronger real-link quality gate than the offline eval because it uses the application upload / parse / indexing / Qdrant path. It is not a full PASS because populated KnowledgeBase no-evidence behavior still needs `minSimilarityThreshold`, rerank, or equivalent rejection policy tuning.
+Boundary: this is a stronger real-link quality gate than the offline eval because it uses the application upload / parse / indexing / Qdrant path. The v3 gate now rejects the specific unrelated populated-KB query used by the smoke. It is still not a broad production relevance benchmark across large corpora or many domains.
 
 ## 12. Current Boundaries
 
@@ -463,7 +465,7 @@ What can be safely claimed:
 - Real embedding provider + Qdrant indexing / retrieval has been smoke tested.
 - Conversation Context / Agent Memory with accepted user memory and KnowledgeBase-bound evidence has been smoke tested.
 - Unified cloud quality gate smoke has passed once, covering two-document upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, two-document KnowledgeBase RAG, Conversation Trace, permission isolation, frontend routes, and redacted artifact output.
-- RAG real quality gate has been run once and correctly surfaced populated-KB no-evidence as REVIEW rather than hiding it behind nearest-neighbor hits.
+- RAG real quality gate now passes with the v3 evidence confidence gate and rejects the smoke unrelated populated-KB query as no-evidence.
 - MinIO active storage has been smoke tested through upload and parse readback.
 - RocketMQ + Outbox active parse flow has been smoke tested through producer, consumer and final parse status.
 - Offline Function Calling adapter tests and multi-document eval artifact have passed.
@@ -474,6 +476,6 @@ What should be described with caveats:
 - Offline eval still uses mock embedding + in-memory vector store.
 - Function Calling is currently an OpenAI-compatible mock/offline adapter flow, not a live external model tool-call loop.
 - Real answer model and real embedding were verified in separate smoke runs, not in one combined run.
-- Populated KnowledgeBase no-evidence detection needs a score threshold or equivalent policy before it can be presented as robust.
-- The current RAG real quality gate result is REVIEW, not PASS, because unrelated populated-KB questions still return nearest evidence.
+- Populated KnowledgeBase no-evidence has a calibrated smoke threshold, but broader no-evidence precision still needs more eval cases and domain coverage.
+- The current RAG real quality gate result is PASS, but broader no-evidence robustness still requires more eval coverage beyond this smoke fixture.
 - KnowledgeBase Hybrid / Rerank has not been re-smoked with a real rerank provider in this record.

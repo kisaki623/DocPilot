@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-27 RAG Quality Upgrade v3
+
+- 完成 evidence confidence gate 收口：KnowledgeBase hybrid retrieval 在融合后继续执行阈值过滤，并对带 `vectorScore` 的 hybrid hit 使用原始向量相似度做门禁，避免把 RRF `fusedScore` 当作 similarity；低置信 keyword / fused 结果不进入 grounded QA。
+- 默认质量阈值校准为 `0.50`，已同步 `application.yml`、`.env*.example`、`scripts/smoke/cloud-quality-smoke.ps1`、`scripts/smoke/rag-real-quality-smoke.ps1` 和 `RAG_HYBRID_RETRIEVAL_GUIDE.md`；`RagRetrievalProperties` 程序化默认仍保持 `0.0` 以兼容离线 harness。
+- smoke artifact 新增 KB `vectorScoreSummary`，并修复失败时覆盖已有 gate checks 的问题，确保失败也能保留 score / citation / hit 分布用于诊断。
+- 已验证：targeted RAG / KB / Conversation tests 33/33 pass；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` 198/198 pass；`rag-real-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；默认 `-Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260627210458-9d0321`。
+- 本轮真实 run 创建临时 smoke 数据和 ignored artifact，未操作远程 Docker，未走 `hk-ops`，未删除业务数据，未改数据库结构，未提交 artifact 原文，未 push。
+
 ## 2026-06-27 RAG / Memory 生产化路线定线
 
 - 已将关键事实源从“求职级展示收口”调整为“生产化知识库 RAG + 会话记忆核心闭环”方向；RAG 和 Conversation Memory 成为主线，Agent 保持为工具调用与 Trace 辅助层。

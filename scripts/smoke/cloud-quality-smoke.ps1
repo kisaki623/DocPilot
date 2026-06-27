@@ -6,6 +6,8 @@ param(
   [string]$EnvFile = "backend/.env",
   [string]$ArtifactRoot = "tmp-e2e/docpilot-cloud-quality-smoke",
   [string]$SmokePrefix = "docpilot-cloud-quality",
+  [ValidateRange(0.0, 1.0)]
+  [double]$QualityMinSimilarityThreshold = 0.50,
   [int]$MySqlLocalPort = 13306,
   [int]$QdrantLocalPort = 6333,
   [int]$IndexVersion = 1,
@@ -46,7 +48,9 @@ function Set-Gate([string]$name, [string]$status, [array]$checks = @(), [string]
 }
 
 function Stop-WithStatus([string]$status, [string]$gate, [string]$message) {
-  Set-Gate $gate $status @() $message
+  if (-not $script:Gates.Contains($gate)) {
+    Set-Gate $gate $status @() $message
+  }
   throw "${status}|${gate}|${message}"
 }
 
@@ -163,7 +167,7 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
     }
     $ok = ($response.code -eq 0)
     if ((-not $AllowFailure) -and (-not $ok)) {
-      throw "api returned non-zero code"
+      throw "api returned non-zero code at $method $path"
     }
     return [ordered]@{
       ok = $ok
@@ -176,7 +180,7 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
     if ($AllowFailure) {
       return ConvertTo-SafeApiFailure $_
     }
-    throw
+    throw "api request failed at $method $path"
   }
 }
 
@@ -247,7 +251,8 @@ function Start-BackendIfNeeded() {
   }
 
   $backendDir = Join-Path (Get-Location) "backend"
-  $command = "Set-Location -LiteralPath '$backendDir'; mvn --% spring-boot:run -Dspring-boot.run.profiles=local"
+  $threshold = $QualityMinSimilarityThreshold.ToString([System.Globalization.CultureInfo]::InvariantCulture)
+  $command = "`$env:APP_RAG_RETRIEVAL_MIN_SIMILARITY_THRESHOLD='$threshold'; Set-Location -LiteralPath '$backendDir'; mvn --% spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments=--app.rag.retrieval.min-similarity-threshold=$threshold"
   $process = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command) -WindowStyle Hidden -PassThru
   $script:StartedProcesses += $process
   if (-not (Wait-BackendHealth 120)) {
@@ -580,6 +585,29 @@ function Get-CountValue($source, [string]$key) {
   return 0
 }
 
+function Get-ScoreSummary($items) {
+  $scores = @($items | ForEach-Object { [double]$_.score })
+  if ($scores.Count -eq 0) {
+    return [ordered]@{ count = 0; min = $null; max = $null }
+  }
+  $measure = $scores | Measure-Object -Minimum -Maximum
+  return [ordered]@{ count = $scores.Count; min = $measure.Minimum; max = $measure.Maximum }
+}
+
+function Get-FieldScoreSummary($items, [string]$field) {
+  $scores = @($items | ForEach-Object {
+    $value = $_.$field
+    if ($null -ne $value) {
+      [double]$value
+    }
+  })
+  if ($scores.Count -eq 0) {
+    return [ordered]@{ count = 0; min = $null; max = $null }
+  }
+  $measure = $scores | Measure-Object -Minimum -Maximum
+  return [ordered]@{ count = $scores.Count; min = $measure.Minimum; max = $measure.Maximum }
+}
+
 function Show-PlanMode() {
   [PSCustomObject][ordered]@{
     mode = "plan"
@@ -591,6 +619,7 @@ function Show-PlanMode() {
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
+    qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
     statuses = @("PASS", "REVIEW", "BLOCKED", "FAILED_CORE_FLOW", "FAILED_SECURITY_GATE")
   } | ConvertTo-Json -Depth 5
 }
@@ -632,7 +661,7 @@ function Invoke-Run() {
     Stop-WithStatus "BLOCKED" "configConsistency" "qdrant vector provider is not configured"
   }
   $configStatus = if ($embeddingProvider -eq "fake") { "REVIEW" } else { "PASS" }
-  Set-Gate "configConsistency" $configStatus @("qdrant provider configured", "embedding provider classified", "dimension configured")
+  Set-Gate "configConsistency" $configStatus @("qdrant provider configured", "embedding provider classified", "dimension configured", "quality threshold override configured")
 
   Start-TunnelsIfNeeded $EnvFile
   Start-BackendIfNeeded
@@ -719,22 +748,41 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
 
   $singleRetrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $docA.data.id; query = "What does ALPHA-CLOUD-GATE prove for $smokeMarker?"; topK = 5; indexVersion = $IndexVersion }) $tokenA
   $singleQa = Invoke-JsonApi "POST" "/api/documents/$($docA.data.id)/qa/rag" ([ordered]@{ question = "Explain ALPHA-CLOUD-GATE for $smokeMarker and cite the document."; topK = 5; indexVersion = $IndexVersion }) $tokenA
+  $singleChecks = @([ordered]@{
+    retrieveHits = @($singleRetrieve.data.hits).Count
+    qaCitations = @($singleQa.data.citations).Count
+    retrieveScoreSummary = Get-ScoreSummary $singleRetrieve.data.hits
+    citationScoreSummary = Get-ScoreSummary $singleQa.data.citations
+    qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
+  })
   if ($singleRetrieve.data.noEvidence -or @($singleRetrieve.data.hits).Count -lt 1 -or @($singleQa.data.citations).Count -lt 1) {
+    Set-Gate "singleDocumentRag" "FAILED_CORE_FLOW" $singleChecks "single document RAG did not return evidence and citation"
     Stop-WithStatus "FAILED_CORE_FLOW" "singleDocumentRag" "single document RAG did not return evidence and citation"
   }
-  Set-Gate "singleDocumentRag" "PASS" @([ordered]@{ retrieveHits = @($singleRetrieve.data.hits).Count; qaCitations = @($singleQa.data.citations).Count })
+  Set-Gate "singleDocumentRag" "PASS" $singleChecks
 
   $kb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Cloud Quality KB $smokeMarker"; description = "temporary smoke kb" }) $tokenA
   $addKb = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/documents" ([ordered]@{ documentIds = @($docA.data.id, $docB.data.id) }) $tokenA
   $kbRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = "Summarize all documents for $smokeMarker and cover ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE."; topK = 6; indexVersion = $IndexVersion }) $tokenA
   $kbQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = "Summarize both documents in this knowledge base, explain ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE, and cite evidence."; topK = 6; indexVersion = $IndexVersion }) $tokenA
   $hitCounts = $kbRetrieve.data.documentHitCounts
+  $kbChecks = @([ordered]@{
+    retrieveHits = @($kbRetrieve.data.hits).Count
+    qaCitations = @($kbQa.data.citations).Count
+    documentHitCounts = $hitCounts
+    retrieveScoreSummary = Get-ScoreSummary $kbRetrieve.data.hits
+    citationScoreSummary = Get-ScoreSummary $kbQa.data.citations
+    retrieveVectorScoreSummary = Get-FieldScoreSummary $kbRetrieve.data.hits "vectorScore"
+    citationVectorScoreSummary = Get-FieldScoreSummary $kbQa.data.citations "vectorScore"
+    qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
+  })
   if (@($kbRetrieve.data.hits).Count -lt 2 -or @($kbQa.data.citations).Count -lt 2 -or (Get-CountValue $hitCounts ([string]$docA.data.id)) -lt 1 -or (Get-CountValue $hitCounts ([string]$docB.data.id)) -lt 1) {
+    Set-Gate "knowledgeBaseRag" "FAILED_CORE_FLOW" $kbChecks "knowledge base RAG did not cover both documents"
     Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseRag" "knowledge base RAG did not cover both documents"
   }
-  Set-Gate "knowledgeBaseRag" "PASS" @([ordered]@{ retrieveHits = @($kbRetrieve.data.hits).Count; qaCitations = @($kbQa.data.citations).Count; documentHitCounts = $hitCounts })
+  Set-Gate "knowledgeBaseRag" "PASS" $kbChecks
 
-  $unrelatedQuery = "Which unrelated payroll settlement policy and invoice approval matrix is defined for $smokeMarker?"
+  $unrelatedQuery = "Which payroll settlement policy and invoice approval matrix is defined for employee reimbursements?"
   $noEvidenceRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $unrelatedQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
   $noEvidenceQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $unrelatedQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
   $noEvidenceChecks = @([ordered]@{
@@ -742,6 +790,11 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     qaNoEvidence = [bool]$noEvidenceQa.data.noEvidence
     retrieveHits = @($noEvidenceRetrieve.data.hits).Count
     qaCitations = @($noEvidenceQa.data.citations).Count
+    retrieveScoreSummary = Get-ScoreSummary $noEvidenceRetrieve.data.hits
+    citationScoreSummary = Get-ScoreSummary $noEvidenceQa.data.citations
+    retrieveVectorScoreSummary = Get-FieldScoreSummary $noEvidenceRetrieve.data.hits "vectorScore"
+    citationVectorScoreSummary = Get-FieldScoreSummary $noEvidenceQa.data.citations "vectorScore"
+    qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
   })
   if ($noEvidenceRetrieve.data.noEvidence -and $noEvidenceQa.data.noEvidence) {
     Set-Gate "noEvidenceThreshold" "PASS" $noEvidenceChecks

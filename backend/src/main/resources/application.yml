@@ -89,7 +89,7 @@ app:
       dimension: ${APP_RAG_EMBEDDING_DIMENSION:32}
     retrieval:
       hybrid-enabled: ${APP_RAG_RETRIEVAL_HYBRID_ENABLED:false}
-      min-similarity-threshold: ${APP_RAG_RETRIEVAL_MIN_SIMILARITY_THRESHOLD:0.0}
+      min-similarity-threshold: ${APP_RAG_RETRIEVAL_MIN_SIMILARITY_THRESHOLD:0.50}
       rrf-k: ${APP_RAG_RETRIEVAL_RRF_K:60}
     rerank:
       enabled: ${APP_RAG_RERANK_ENABLED:false}

@@ -159,6 +159,124 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldReturnNoEvidenceWhenAllVectorHitsAreBelowSimilarityThreshold() {
+        ragRetrievalProperties.setMinSimilarityThreshold(0.80D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
+                doc(101L, "Payroll"),
+                doc(102L, "Invoice")
+        ));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("v1", 7L, 101L, 1, "payroll settlement unrelated nearest chunk", 0.52D),
+                hit("v2", 7L, 102L, 1, "invoice approval unrelated nearest chunk", 0.48D)
+        ), "in_memory", ""));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "Which employee reimbursement matrix is defined?",
+                3,
+                1,
+                ""
+        ));
+
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.hits()).isEmpty();
+        assertThat(result.citations()).isEmpty();
+        assertThat(result.documentHitCounts()).containsEntry(101L, 0).containsEntry(102L, 0);
+        verify(rerankService, never()).rerank(any());
+    }
+
+    @Test
+    void shouldReturnNoEvidenceWhenHybridFusedHitsAreBelowSimilarityThreshold() {
+        ragRetrievalProperties.setHybridEnabled(true);
+        ragRetrievalProperties.setMinSimilarityThreshold(0.05D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Payroll")));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("v1", 7L, 101L, 1, "nearest vector chunk", 0.00015D)
+        ), "in_memory", ""));
+        when(hybridRetrievalService.hybridSearch(eq("Which reimbursement matrix is defined?"),
+                eq(7L), eq(List.of(101L)), eq(1), any(), any(Integer.class)))
+                .thenReturn(List.of(new FusedSearchHit(
+                        901L,
+                        101L,
+                        7L,
+                        1,
+                        0,
+                        "nearest keyword chunk",
+                        "hash-keyword",
+                        0,
+                        21,
+                        4,
+                        "mock-model",
+                        "vector-low",
+                        0.00012D,
+                        0.00015D,
+                        0.00008D
+                )));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "Which reimbursement matrix is defined?",
+                3,
+                1,
+                ""
+        ));
+
+        assertThat(result.retrievalMode()).isEqualTo("hybrid");
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.hits()).isEmpty();
+        assertThat(result.citations()).isEmpty();
+        assertThat(result.documentHitCounts()).containsEntry(101L, 0);
+        verify(rerankService, never()).rerank(any());
+    }
+
+    @Test
+    void shouldUseVectorScoreForHybridSimilarityThreshold() {
+        ragRetrievalProperties.setHybridEnabled(true);
+        ragRetrievalProperties.setMinSimilarityThreshold(0.05D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Doc")));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("v1", 7L, 101L, 1, "vector-supported chunk", 0.82D)
+        ), "in_memory", ""));
+        when(hybridRetrievalService.hybridSearch(eq("question"), eq(7L), eq(List.of(101L)), eq(1), any(), any(Integer.class)))
+                .thenReturn(List.of(new FusedSearchHit(
+                        901L,
+                        101L,
+                        7L,
+                        1,
+                        0,
+                        "vector-supported chunk",
+                        "hash-keyword",
+                        0,
+                        21,
+                        4,
+                        "mock-model",
+                        "v1",
+                        0.016D,
+                        0.82D,
+                        0.0D
+                )));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "question",
+                3,
+                1,
+                ""
+        ));
+
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.hits()).hasSize(1);
+        assertThat(result.hits().get(0).score()).isEqualTo(0.016D);
+        assertThat(result.hits().get(0).vectorScore()).isEqualTo(0.82D);
+    }
+
+    @Test
     void shouldPreserveIndexVersionAndMetadataForHybridKeywordOnlyHits() {
         ragRetrievalProperties.setHybridEnabled(true);
         when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Doc")));

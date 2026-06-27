@@ -5,6 +5,8 @@ param(
   [string]$FrontendBaseUrl = "http://127.0.0.1:3000",
   [string]$EnvFile = "backend/.env",
   [string]$ArtifactRoot = "backend/target/rag-quality",
+  [ValidateRange(0.0, 1.0)]
+  [double]$QualityMinSimilarityThreshold = 0.50,
   [int]$MySqlLocalPort = 13306,
   [int]$QdrantLocalPort = 6333,
   [int]$IndexVersion = 1,
@@ -21,6 +23,7 @@ function Show-RagPlan {
     delegatesTo = "scripts/smoke/cloud-quality-smoke.ps1"
     smokePrefix = "docpilot-rag-real-quality"
     artifactRoot = $ArtifactRoot
+    qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
     gates = @(
       "tunnel",
       "backendHealth",
@@ -66,6 +69,7 @@ $argsList = @(
   "-EnvFile", $EnvFile,
   "-ArtifactRoot", $ArtifactRoot,
   "-SmokePrefix", "docpilot-rag-real-quality",
+  "-QualityMinSimilarityThreshold", $QualityMinSimilarityThreshold,
   "-MySqlLocalPort", $MySqlLocalPort,
   "-QdrantLocalPort", $QdrantLocalPort,
   "-IndexVersion", $IndexVersion

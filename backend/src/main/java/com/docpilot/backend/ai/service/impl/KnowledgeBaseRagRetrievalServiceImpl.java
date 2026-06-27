@@ -136,6 +136,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         } else {
             candidates = filteredHits;
         }
+        candidates = applySimilarityThreshold(candidates);
         List<VectorSearchHit> finalScopedCandidates = scopedHits(resolved, documentById.keySet(), candidates);
         RerankOutcome rerankOutcome = rerankCandidates(resolved, finalScopedCandidates);
         List<VectorSearchHit> selectedHits = selectDiverseHits(resolved, documentIds, rerankOutcome.hits());
@@ -361,8 +362,30 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
             return hits;
         }
         return hits.stream()
-                .filter(hit -> hit.score() >= threshold)
+                .filter(hit -> scoreForThreshold(hit) >= threshold)
                 .collect(Collectors.toList());
+    }
+
+    private double scoreForThreshold(VectorSearchHit hit) {
+        Object vectorScore = hit.payload().get("vectorScore");
+        if (vectorScore instanceof Number number) {
+            return finiteOrZero(number.doubleValue());
+        }
+        if (vectorScore instanceof String text && !text.isBlank()) {
+            try {
+                return finiteOrZero(Double.parseDouble(text.trim()));
+            } catch (NumberFormatException ignored) {
+                return 0.0D;
+            }
+        }
+        if (hit.payload().containsKey("vectorScore")) {
+            return 0.0D;
+        }
+        return hit.score();
+    }
+
+    private double finiteOrZero(double value) {
+        return Double.isFinite(value) ? value : 0.0D;
     }
 
     /**

@@ -156,4 +156,4 @@ curl http://localhost:8081/actuator/health
 - SSE 流式输出与普通问答一致性治理。
 - 可复现 eval / benchmark artifact 与质量门禁意识。
 
-不能硬吹：完整商业 SaaS、复杂 PDF 智能解析、生产级多 Agent、生产短信网关、线上 SLA、大规模压测和当前尚未 PASS 的 populated-KB no-evidence 能力。
+不能硬吹：完整商业 SaaS、复杂 PDF 智能解析、生产级多 Agent、生产短信网关、线上 SLA、大规模压测；v3 populated-KB no-evidence 仅是 smoke 级 PASS，不能写成大规模生产 relevance benchmark。
