@@ -54,6 +54,7 @@ public class ChunkingServiceImpl implements ChunkingService {
             TextSpan chunkSpan = trimSpan(normalizedText, start, end);
             if (!chunkSpan.isEmpty()) {
                 String content = normalizedText.substring(chunkSpan.startOffset(), chunkSpan.endOffset()).trim();
+                SectionContext section = sectionContext(normalizedText, chunkSpan.startOffset());
                 chunks.add(new DocumentChunkCandidate(
                         documentId,
                         userId,
@@ -62,7 +63,12 @@ public class ChunkingServiceImpl implements ChunkingService {
                         sha256(content),
                         chunkSpan.startOffset(),
                         chunkSpan.endOffset(),
-                        content.length()
+                        content.length(),
+                        section.title(),
+                        section.ordinal(),
+                        paragraph.startBlockOrdinal(),
+                        structureType(content),
+                        qualityFlags(content, options)
                 ));
             }
             if (end == paragraphEnd) {
@@ -77,6 +83,7 @@ public class ChunkingServiceImpl implements ChunkingService {
         int blockStart = -1;
         int lineStart = 0;
         boolean inFence = false;
+        int blockOrdinal = 0;
         while (lineStart <= text.length()) {
             int lineEnd = text.indexOf('\n', lineStart);
             if (lineEnd < 0) {
@@ -94,7 +101,7 @@ public class ChunkingServiceImpl implements ChunkingService {
                 blockStart = lineStart;
             }
             if (!inFence && line.isBlank()) {
-                addTrimmedBlock(text, blockStart, lineStart, blocks);
+                blockOrdinal = addTrimmedBlock(text, blockStart, lineStart, blockOrdinal, blocks);
                 blockStart = -1;
             }
             if (lineEnd == text.length()) {
@@ -102,18 +109,20 @@ public class ChunkingServiceImpl implements ChunkingService {
             }
             lineStart = lineEnd + 1;
         }
-        addTrimmedBlock(text, blockStart, text.length(), blocks);
+        addTrimmedBlock(text, blockStart, text.length(), blockOrdinal, blocks);
         return blocks;
     }
 
-    private void addTrimmedBlock(String text, int start, int end, List<TextSpan> blocks) {
+    private int addTrimmedBlock(String text, int start, int end, int blockOrdinal, List<TextSpan> blocks) {
         if (start < 0) {
-            return;
+            return blockOrdinal;
         }
-        TextSpan span = trimSpan(text, start, end);
+        TextSpan span = trimSpan(text, start, end, blockOrdinal, blockOrdinal);
         if (!span.isEmpty()) {
             blocks.add(span);
+            return blockOrdinal + 1;
         }
+        return blockOrdinal;
     }
 
     private boolean isFenceLine(String line) {
@@ -132,7 +141,8 @@ public class ChunkingServiceImpl implements ChunkingService {
                 current = block;
                 continue;
             }
-            TextSpan merged = trimSpan(text, current.startOffset(), block.endOffset());
+            TextSpan merged = trimSpan(text, current.startOffset(), block.endOffset(),
+                    current.startBlockOrdinal(), block.endBlockOrdinal());
             if (merged.length() <= options.chunkSize()) {
                 current = merged;
                 continue;
@@ -147,6 +157,10 @@ public class ChunkingServiceImpl implements ChunkingService {
     }
 
     private TextSpan trimSpan(String text, int start, int end) {
+        return trimSpan(text, start, end, 0, 0);
+    }
+
+    private TextSpan trimSpan(String text, int start, int end, int startBlockOrdinal, int endBlockOrdinal) {
         int resolvedStart = start;
         int resolvedEnd = end;
         while (resolvedStart < resolvedEnd && Character.isWhitespace(text.charAt(resolvedStart))) {
@@ -155,7 +169,77 @@ public class ChunkingServiceImpl implements ChunkingService {
         while (resolvedEnd > resolvedStart && Character.isWhitespace(text.charAt(resolvedEnd - 1))) {
             resolvedEnd--;
         }
-        return new TextSpan(resolvedStart, resolvedEnd);
+        return new TextSpan(resolvedStart, resolvedEnd, startBlockOrdinal, endBlockOrdinal);
+    }
+
+    private SectionContext sectionContext(String text, int offset) {
+        int ordinal = 0;
+        String title = "";
+        int lineStart = 0;
+        while (lineStart <= text.length() && lineStart <= offset) {
+            int lineEnd = text.indexOf('\n', lineStart);
+            if (lineEnd < 0) {
+                lineEnd = text.length();
+            }
+            String heading = markdownHeadingTitle(text.substring(lineStart, lineEnd));
+            if (!heading.isBlank()) {
+                ordinal++;
+                title = heading;
+            }
+            if (lineEnd == text.length()) {
+                break;
+            }
+            lineStart = lineEnd + 1;
+        }
+        return new SectionContext(title, ordinal);
+    }
+
+    private String markdownHeadingTitle(String line) {
+        if (line == null) {
+            return "";
+        }
+        String trimmed = line.trim();
+        int depth = 0;
+        while (depth < trimmed.length() && trimmed.charAt(depth) == '#') {
+            depth++;
+        }
+        if (depth == 0 || depth > 6 || depth >= trimmed.length() || !Character.isWhitespace(trimmed.charAt(depth))) {
+            return "";
+        }
+        return trimmed.substring(depth).trim();
+    }
+
+    private String structureType(String content) {
+        String firstLine = firstNonBlankLine(content);
+        if (!markdownHeadingTitle(firstLine).isBlank()) {
+            return "section";
+        }
+        if (content.lines().anyMatch(this::isFenceLine)) {
+            return "code";
+        }
+        return "paragraph";
+    }
+
+    private String qualityFlags(String content, ChunkingOptions options) {
+        List<String> flags = new ArrayList<>();
+        if (content.length() < Math.min(80, Math.max(1, options.chunkSize() / 4))) {
+            flags.add("short");
+        }
+        if (content.indexOf('\uFFFD') >= 0) {
+            flags.add("replacement_char");
+        }
+        return flags.isEmpty() ? "none" : String.join(",", flags);
+    }
+
+    private String firstNonBlankLine(String content) {
+        if (content == null || content.isBlank()) {
+            return "";
+        }
+        return content.lines()
+                .map(String::trim)
+                .filter(line -> !line.isBlank())
+                .findFirst()
+                .orElse("");
     }
 
     private String normalize(String text) {
@@ -175,7 +259,7 @@ public class ChunkingServiceImpl implements ChunkingService {
         }
     }
 
-    private record TextSpan(int startOffset, int endOffset) {
+    private record TextSpan(int startOffset, int endOffset, int startBlockOrdinal, int endBlockOrdinal) {
 
         private boolean isEmpty() {
             return endOffset <= startOffset;
@@ -184,5 +268,8 @@ public class ChunkingServiceImpl implements ChunkingService {
         private int length() {
             return Math.max(0, endOffset - startOffset);
         }
+    }
+
+    private record SectionContext(String title, int ordinal) {
     }
 }

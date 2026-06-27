@@ -28,6 +28,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - RAG Quality Upgrade v1 已完成离线质量门禁增强：单文档 retrieval 与 KnowledgeBase retrieval 一样接入 `app.rag.retrieval.min-similarity-threshold`；KnowledgeBase RAG eval 从 hit / citation 扩展到 answer marker、forbidden answer leak、最少 citation 数和多文档覆盖指标，artifact 仍只保存脱敏 summary。
 - RAG Quality Upgrade v3 已把真实链路 no-evidence 门禁从 `REVIEW` 推到 `PASS`：KnowledgeBase hybrid 检索在融合后继续执行 evidence confidence gate，并对带 `vectorScore` 的 hybrid hit 使用原始向量相似度做阈值判断，避免把 RRF `fusedScore` 当作 similarity；默认质量阈值校准为 `0.50`。2026-06-27 `scripts/smoke/rag-real-quality-smoke.ps1 -Mode run` 默认配置 PASS，marker 为 `docpilot-rag-real-quality-20260627210458-9d0321`，覆盖真实 embedding + Qdrant、chunk、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、populated-KB no-evidence、Conversation Trace、权限隔离、前端 route 和 artifact 脱敏。
 - RAG Quality Upgrade v4 已新增 KnowledgeBase QA answer audit：QA response 暴露脱敏 `audit`，包含 `grounded`、evidence / citation count、documentHitCounts、score / vectorScore / fusedScore / rerankScore summary、retrievalMode、rerank 信息、fallbackReason 和 modelCallCount；离线 eval 新增 `groundedAnswerRate` 与 `noEvidenceCitationFreeRate`。2026-06-27 默认真实 smoke 再次 PASS，marker 为 `docpilot-rag-real-quality-20260627211711-383cda`。
+- RAG Quality Upgrade v5 已新增 chunk structure quality：chunk candidate 生成 section title / ordinal / source block ordinal / structure type / quality flags，索引时透传到 embedding metadata 与 Qdrant payload；真实 smoke 的 chunkQuality gate 已覆盖 MySQL offset order、token/content length 和 duplicate hash，MySQL / Qdrant gate 已校验结构 payload 字段。2026-06-27 默认真实 smoke PASS，marker 为 `docpilot-rag-real-quality-20260627213040-4038e1`。
 - 目标 KnowledgeBase `3` 的文档 `83/84/85/86` 已授权重建索引到稳定 Qdrant collection `docpilot_rag_v2`；chunk / vector 数为 `35/35`、`18/18`、`10/10`、`16/16`，总结资料集检索分布为 `{83:2,84:1,85:1,86:2}`。
 - Conversation Context Management / Agent Memory Mode 后端 MVP 已新增会话、消息、摘要、上下文 Trace、用户长期记忆五张新表和对应 API；`ContextAssemblyService` 可按 `RECENT_TURNS` / `AGENT_MEMORY` 组装系统提示、长期记忆、会话摘要、最近轮次与可选 KnowledgeBase evidence，并输出和持久化摘要级 trace。
 - 会话发送链路已按工程化质量收窄事务边界：上下文装配和回答模型调用不在长事务内执行；仅最终 conversation 行锁、连续写入 user / assistant message 和更新时间处于事务内，trace 仍为 best-effort。
@@ -63,7 +64,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 
 ## 4. 当前生产化推进优先级
 
-1. 推进 v5 chunk structure quality：补充标题 / section / ordinal / source block 等结构元数据方案，优先复用现有字段和 artifact，不急于改表。
+1. 推进 v6 hybrid / rerank production gate：把 optional hybrid / rerank 从“能跑”变成可比较、可降级、可评测的质量门禁。
 2. 增加更多 no-evidence eval case，覆盖语义相近但无证据、跨主题、跨文档干扰和 hybrid keyword-only 噪声。
 3. 继续把 Conversation Memory 与 KnowledgeBase evidence 分清：短期上下文、长期记忆、RAG evidence 和 trace 各自可解释。
 4. 保持 README / docs 展示口径与真实 smoke 证据一致，不把 smoke 级 PASS 写成线上 SLA 或大规模生产 benchmark。

@@ -51,6 +51,24 @@ class VectorPointTest {
                 .containsEntry("indexVersion", 1);
     }
 
+    @Test
+    void shouldCarryChunkStructureMetadataInPayload() {
+        VectorPoint point = VectorPoint.fromDocumentChunk(chunk("hash-a"), vector(), "mock-model", Map.of(
+                "sectionTitle", "Alpha Section",
+                "sectionOrdinal", "1",
+                "sourceBlockOrdinal", "0",
+                "structureType", "section",
+                "qualityFlags", "none"
+        ));
+
+        assertThat(point.payload())
+                .containsEntry("sectionTitle", "Alpha Section")
+                .containsEntry("sectionOrdinal", "1")
+                .containsEntry("sourceBlockOrdinal", "0")
+                .containsEntry("structureType", "section")
+                .containsEntry("qualityFlags", "none");
+    }
+
     private DocumentChunkEntity chunk(String contentHash) {
         DocumentChunkEntity chunk = new DocumentChunkEntity();
         chunk.setId(10L);

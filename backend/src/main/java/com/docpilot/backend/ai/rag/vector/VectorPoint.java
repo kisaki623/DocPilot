@@ -58,6 +58,13 @@ public record VectorPoint(
     public static VectorPoint fromDocumentChunk(DocumentChunkEntity chunk,
                                                 EmbeddingVector vector,
                                                 String embeddingModel) {
+        return fromDocumentChunk(chunk, vector, embeddingModel, Map.of());
+    }
+
+    public static VectorPoint fromDocumentChunk(DocumentChunkEntity chunk,
+                                                EmbeddingVector vector,
+                                                String embeddingModel,
+                                                Map<String, String> structureMetadata) {
         if (chunk == null) {
             throw new IllegalArgumentException("chunk must not be null");
         }
@@ -75,7 +82,7 @@ public record VectorPoint(
                 chunk.getContent(),
                 chunk.getContentHash(),
                 vector,
-                metadata(chunk, embeddingModel)
+                metadata(chunk, embeddingModel, structureMetadata)
         );
     }
 
@@ -102,13 +109,18 @@ public record VectorPoint(
         return UUID.nameUUIDFromBytes(raw.getBytes(StandardCharsets.UTF_8)).toString();
     }
 
-    private static Map<String, Object> metadata(DocumentChunkEntity chunk, String embeddingModel) {
+    private static Map<String, Object> metadata(DocumentChunkEntity chunk,
+                                                String embeddingModel,
+                                                Map<String, String> structureMetadata) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         putIfNotNull(metadata, "chunkId", chunk.getId());
         putIfNotNull(metadata, "startOffset", chunk.getStartOffset());
         putIfNotNull(metadata, "endOffset", chunk.getEndOffset());
         putIfNotNull(metadata, "tokenCount", chunk.getTokenCount());
         putIfNotBlank(metadata, "embeddingModel", embeddingModel);
+        if (structureMetadata != null) {
+            structureMetadata.forEach((key, value) -> putIfNotBlank(metadata, key, value));
+        }
         return metadata;
     }
 

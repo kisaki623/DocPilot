@@ -1,5 +1,8 @@
 package com.docpilot.backend.ai.rag;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public record DocumentChunkCandidate(
         Long documentId,
         Long userId,
@@ -8,8 +11,25 @@ public record DocumentChunkCandidate(
         String contentHash,
         int startOffset,
         int endOffset,
-        int tokenCount
+        int tokenCount,
+        String sectionTitle,
+        int sectionOrdinal,
+        int sourceBlockOrdinal,
+        String structureType,
+        String qualityFlags
 ) {
+
+    public DocumentChunkCandidate(Long documentId,
+                                  Long userId,
+                                  int chunkIndex,
+                                  String content,
+                                  String contentHash,
+                                  int startOffset,
+                                  int endOffset,
+                                  int tokenCount) {
+        this(documentId, userId, chunkIndex, content, contentHash, startOffset, endOffset, tokenCount,
+                "", 0, chunkIndex, "paragraph", "none");
+    }
 
     public DocumentChunkCandidate {
         if (documentId == null) {
@@ -33,5 +53,34 @@ public record DocumentChunkCandidate(
         if (tokenCount < 0) {
             throw new IllegalArgumentException("tokenCount must be non-negative");
         }
+        sectionTitle = safeText(sectionTitle);
+        if (sectionOrdinal < 0) {
+            throw new IllegalArgumentException("sectionOrdinal must be non-negative");
+        }
+        if (sourceBlockOrdinal < 0) {
+            throw new IllegalArgumentException("sourceBlockOrdinal must be non-negative");
+        }
+        structureType = safeText(structureType);
+        if (structureType.isBlank()) {
+            structureType = "paragraph";
+        }
+        qualityFlags = safeText(qualityFlags);
+        if (qualityFlags.isBlank()) {
+            qualityFlags = "none";
+        }
+    }
+
+    public Map<String, String> structureMetadata() {
+        Map<String, String> metadata = new LinkedHashMap<>();
+        metadata.put("sectionTitle", sectionTitle);
+        metadata.put("sectionOrdinal", String.valueOf(sectionOrdinal));
+        metadata.put("sourceBlockOrdinal", String.valueOf(sourceBlockOrdinal));
+        metadata.put("structureType", structureType);
+        metadata.put("qualityFlags", qualityFlags);
+        return metadata;
+    }
+
+    private static String safeText(String value) {
+        return value == null ? "" : value.trim();
     }
 }

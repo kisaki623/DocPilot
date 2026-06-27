@@ -222,6 +222,7 @@ public class RagIndexingServiceImpl implements RagIndexingService {
         metadata.put("indexVersion", String.valueOf(request.indexVersion()));
         metadata.put("chunkIndex", String.valueOf(candidate.chunkIndex()));
         metadata.put("contentHash", candidate.contentHash());
+        metadata.putAll(candidate.structureMetadata());
         return metadata;
     }
 
@@ -261,12 +262,38 @@ public class RagIndexingServiceImpl implements RagIndexingService {
         for (int i = 0; i < chunks.size(); i++) {
             DocumentChunkEntity chunk = chunks.get(i);
             EmbeddingVector vector = embeddings.get(i).vector();
-            VectorPoint point = VectorPoint.fromDocumentChunk(chunk, vector, embeddingModel);
+            VectorPoint point = VectorPoint.fromDocumentChunk(chunk, vector, embeddingModel,
+                    candidateStructureMetadata(i, embeddings));
             chunk.setVectorId(point.id());
             chunk.setEmbeddingModel(embeddingModel);
             points.add(point);
         }
         return points;
+    }
+
+    private Map<String, String> candidateStructureMetadata(int index,
+                                                           List<EmbeddingResult> embeddings) {
+        if (index < 0 || index >= embeddings.size()) {
+            return Map.of();
+        }
+        Map<String, String> metadata = embeddings.get(index).metadata();
+        if (metadata == null || metadata.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> structure = new LinkedHashMap<>();
+        copyMetadata(metadata, structure, "sectionTitle");
+        copyMetadata(metadata, structure, "sectionOrdinal");
+        copyMetadata(metadata, structure, "sourceBlockOrdinal");
+        copyMetadata(metadata, structure, "structureType");
+        copyMetadata(metadata, structure, "qualityFlags");
+        return structure;
+    }
+
+    private void copyMetadata(Map<String, String> source, Map<String, String> target, String key) {
+        String value = source.get(key);
+        if (value != null && !value.isBlank()) {
+            target.put(key, value);
+        }
     }
 
     private String requestedEmbeddingModel(RagIndexingRequest request) {

@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-27 RAG Quality Upgrade v5
+
+- 已落地 chunk structure quality：`DocumentChunkCandidate` 记录 section title / ordinal / source block ordinal / structure type / quality flags；`ChunkingServiceImpl` 基于 Markdown heading、文本块和基础异常信号生成结构 metadata。
+- 索引链路已把结构 metadata 透传到 embedding metadata 与 Qdrant payload；未改数据库结构，MySQL 仍保存现有 chunk 字段。
+- 已增强真实 smoke：`chunkQuality` gate 检查 MySQL offset order、token/content length 和 duplicate hash；`mysqlQdrantConsistency` gate 校验 Qdrant payload 结构字段。
+- 已验证：targeted tests 28/28 pass；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` 198/198 pass；`rag-real-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；默认 `-Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260627213040-4038e1`。
+- 边界：这不是复杂 PDF 智能解析，也不是大规模 chunk relevance benchmark；当前证明的是标题 / 段落结构信号已进入 chunk / Qdrant payload，并被 smoke 质量门禁覆盖。
+
 ## 2026-06-27 RAG Quality Upgrade v4
 
 - 新增 KnowledgeBase QA answer audit：response 暴露脱敏 `audit`，记录 grounded、evidence / citation count、documentHitCounts、score / vectorScore / fusedScore / rerankScore summary、retrievalMode、rerank 信息、fallbackReason 和 modelCallCount；不保存 prompt、evidence 原文或模型输入输出。

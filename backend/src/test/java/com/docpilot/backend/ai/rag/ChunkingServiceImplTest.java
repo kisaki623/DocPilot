@@ -120,14 +120,40 @@ class ChunkingServiceImplTest {
 
     @Test
     void shouldPackMarkdownHeadingWithFollowingContent() {
-        String text = "# RAG\n\n系统检索数据库文档后回答。\n\n## MCP\n\n工具协议说明。";
+        String text = "# RAG\n\nRetrieval backed answers use evidence.\n\n## MCP\n\nTool protocol notes.";
 
         List<DocumentChunkCandidate> chunks = chunkingService.chunk(101L, 7L, text, new ChunkingOptions(100, 10));
 
         assertThat(chunks).hasSize(1);
         assertThat(chunks.get(0).content()).contains("# RAG");
-        assertThat(chunks.get(0).content()).contains("系统检索数据库文档后回答。");
+        assertThat(chunks.get(0).content()).contains("Retrieval backed answers use evidence.");
         assertThat(chunks.get(0).content()).contains("## MCP");
+        assertThat(chunks.get(0).sectionTitle()).isEqualTo("RAG");
+        assertThat(chunks.get(0).sectionOrdinal()).isEqualTo(1);
+        assertThat(chunks.get(0).sourceBlockOrdinal()).isZero();
+        assertThat(chunks.get(0).structureType()).isEqualTo("section");
+        assertThat(chunks.get(0).qualityFlags()).isEqualTo("none");
+    }
+
+    @Test
+    void shouldCarryNearestMarkdownSectionForLaterSplitChunks() {
+        String text = "# Alpha Section\n\n" + "alpha detail ".repeat(15);
+
+        List<DocumentChunkCandidate> chunks = chunkingService.chunk(101L, 7L, text, new ChunkingOptions(60, 5));
+
+        assertThat(chunks).hasSizeGreaterThan(1);
+        assertThat(chunks).allSatisfy(chunk -> {
+            assertThat(chunk.sectionTitle()).isEqualTo("Alpha Section");
+            assertThat(chunk.sectionOrdinal()).isEqualTo(1);
+            assertThat(chunk.sourceBlockOrdinal()).isGreaterThanOrEqualTo(0);
+            assertThat(chunk.structureMetadata())
+                    .containsEntry("sectionTitle", "Alpha Section")
+                    .containsEntry("structureType", chunk.structureType());
+        });
+        assertThat(chunks).extracting(DocumentChunkCandidate::sourceBlockOrdinal)
+                .containsExactly(0, 1, 1, 1, 1);
+        assertThat(chunks.get(0).structureType()).isEqualTo("section");
+        assertThat(chunks.get(1).structureType()).isEqualTo("paragraph");
     }
 
     @Test

@@ -35,7 +35,8 @@ class RagIndexingServiceImplTest {
     void shouldIndexChunksWithEmbeddingAndVectorMetadataInOrder() {
         List<String> events = new ArrayList<>();
         FakeChunkingService chunkingService = new FakeChunkingService(events, List.of(
-                candidate(0, "alpha chunk", "hash-a", 0, 11, 11),
+                structuredCandidate(0, "alpha chunk", "hash-a", 0, 11, 11,
+                        "Alpha Section", 1, 0, "section", "none"),
                 candidate(1, "beta chunk", "hash-b", 12, 22, 10)
         ));
         FakeDocumentChunkService chunkService = new FakeDocumentChunkService(events);
@@ -63,6 +64,12 @@ class RagIndexingServiceImplTest {
                 .containsExactly("alpha chunk", "beta chunk");
         assertThat(embeddingProvider.requests).extracting(EmbeddingRequest::model)
                 .containsExactly("model-a", "model-a");
+        assertThat(embeddingProvider.requests.get(0).metadata())
+                .containsEntry("sectionTitle", "Alpha Section")
+                .containsEntry("sectionOrdinal", "1")
+                .containsEntry("sourceBlockOrdinal", "0")
+                .containsEntry("structureType", "section")
+                .containsEntry("qualityFlags", "none");
         assertThat(vectorClient.points).hasSize(2);
 
         VectorPoint firstPoint = vectorClient.points.get(0);
@@ -78,6 +85,11 @@ class RagIndexingServiceImplTest {
                 .containsEntry("endOffset", 11)
                 .containsEntry("tokenCount", 11)
                 .containsEntry("embeddingModel", "model-a")
+                .containsEntry("sectionTitle", "Alpha Section")
+                .containsEntry("sectionOrdinal", "1")
+                .containsEntry("sourceBlockOrdinal", "0")
+                .containsEntry("structureType", "section")
+                .containsEntry("qualityFlags", "none")
                 .containsEntry("content", "alpha chunk");
         assertThat(chunkService.indexedChunks).hasSize(2);
         assertThat(chunkService.indexedChunks).extracting(DocumentChunkEntity::getIndexStatus)
@@ -310,6 +322,21 @@ class RagIndexingServiceImplTest {
         return new DocumentChunkCandidate(61L, 7L, chunkIndex, content, contentHash, startOffset, endOffset, tokenCount);
     }
 
+    private static DocumentChunkCandidate structuredCandidate(int chunkIndex,
+                                                              String content,
+                                                              String contentHash,
+                                                              int startOffset,
+                                                              int endOffset,
+                                                              int tokenCount,
+                                                              String sectionTitle,
+                                                              int sectionOrdinal,
+                                                              int sourceBlockOrdinal,
+                                                              String structureType,
+                                                              String qualityFlags) {
+        return new DocumentChunkCandidate(61L, 7L, chunkIndex, content, contentHash, startOffset, endOffset, tokenCount,
+                sectionTitle, sectionOrdinal, sourceBlockOrdinal, structureType, qualityFlags);
+    }
+
     private static EmbeddingResult embedding(String model, Double... values) {
         EmbeddingVector vector = new EmbeddingVector(List.of(values));
         return new EmbeddingResult(vector, "fake", model, vector.dimension(), Map.of());
@@ -361,7 +388,14 @@ class RagIndexingServiceImplTest {
                 throw failure;
             }
             this.requests.addAll(requests);
-            return results;
+            List<EmbeddingResult> resolved = new ArrayList<>(results.size());
+            for (int i = 0; i < results.size(); i++) {
+                EmbeddingResult result = results.get(i);
+                Map<String, String> metadata = i < requests.size() ? requests.get(i).metadata() : result.metadata();
+                resolved.add(new EmbeddingResult(result.vector(), result.provider(), result.model(),
+                        result.dimension(), metadata));
+            }
+            return resolved;
         }
     }
 

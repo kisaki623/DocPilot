@@ -1,6 +1,20 @@
 # Current Task
 
-当前任务：RAG Quality Upgrade v5: chunk structure quality
+当前任务：RAG Quality Upgrade v6: hybrid / rerank production gate
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v5
+
+- 已完成 chunk structure quality 小步落地：`DocumentChunkCandidate` 新增 section title / ordinal / source block ordinal / structure type / quality flags；`ChunkingServiceImpl` 从 Markdown heading、文本块和基础异常信号生成结构元数据。
+- `RagIndexingServiceImpl` 将结构 metadata 透传到 embedding metadata 与 Qdrant `VectorPoint` payload；不改数据库结构，不保存 prompt、token、密钥、连接串或云地址。
+- `scripts/smoke/cloud-quality-smoke.ps1` 的 `chunkQuality` gate 已增强 MySQL 侧 offset order、token/content length、duplicate hash 检查；`mysqlQdrantConsistency` gate 已校验 Qdrant payload 中的结构字段。
+- 已验证：`mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,VectorPointTest" test` PASS，28 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 已执行真实链路默认 run：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627213040-4038e1`；chunkQuality、MySQL / Qdrant payload 结构字段、单文档 RAG、KB 两文档 RAG、no-evidence、Conversation Trace、权限隔离、前端 route 和 artifact redaction 均 PASS。
+
+## 下一步代码任务：RAG Quality Upgrade v6
+
+- 目标：把 hybrid / rerank 从“可选增强”推进到有明确默认边界、质量对比和失败降级策略的 production gate。
+- 成功标准：默认离线测试不依赖真实 rerank provider；eval / smoke 能区分 vector-only、hybrid 和 rerank 的 hit / citation / multi-document coverage / no-evidence 指标；真实 rerank provider 仍必须显式配置。
+- 明确不做：本轮不强制真实 rerank provider、不操作远程 Docker、不改数据库结构、不删除业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v4
 
@@ -9,12 +23,6 @@
 - 离线 KnowledgeBase RAG eval 新增 `groundedAnswerRate` 和 `noEvidenceCitationFreeRate`，并把 grounded answer miss / no-evidence citation leak 纳入 case failure reasons。
 - 已验证：`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，21 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
 - 已执行真实链路默认 run：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627211711-383cda`；未提交 artifact 原文，未 push。
-
-## 下一步代码任务：RAG Quality Upgrade v5
-
-- 目标：增强 chunk structure quality，让 chunk 不只满足长度 / hash / INDEXED，还能更清楚表达标题、段落边界、顺序和异常质量信号。
-- 成功标准：离线 chunk / indexing 测试能覆盖结构元数据或结构质量摘要；cloud / RAG real smoke 的 chunkQuality gate 不回退；不把复杂 PDF 智能解析写成已完成。
-- 明确不做：本轮优先不改数据库结构、不操作远程 Docker、不走 `hk-ops`、不删除业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
 
 ## 2026-06-27 追加任务：RAG Quality Upgrade v3
 

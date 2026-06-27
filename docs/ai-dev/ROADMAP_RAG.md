@@ -57,11 +57,12 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - QA response 已输出脱敏 answer audit：grounded、evidence count、citation count、documentHitCounts、score summary、fallback reason、retrieval / rerank 信息和 modelCallCount。
 - 离线 eval 已增加 `groundedAnswerRate` 和 `noEvidenceCitationFreeRate`，继续保留 forbidden answer leak、citation minimum、multi-document coverage 和 no-evidence precision。
 
-### v5 chunk structure quality
+### v5 chunk structure quality（DONE）
 
 - chunk metadata 增强标题 / section / ordinal / source block 等结构字段，优先不改表结构时通过可复用 metadata 或 parser 输出承接。
 - chunk 质量门禁覆盖空白、过短、重复、异常字符、标题覆盖率和长度分布。
 - 新 chunk 策略必须能通过 MySQL chunk 检查和 Qdrant payload 一致性检查。
+- 2026-06-27 已完成小步版本：section title / ordinal / source block ordinal / structure type / quality flags 已进入 chunk candidate、embedding metadata 和 Qdrant payload；真实 smoke `docpilot-rag-real-quality-20260627213040-4038e1` PASS，覆盖 MySQL offset / duplicate hash / token length 和 Qdrant 结构 payload 字段。
 
 ### v6 hybrid / rerank production gate
 

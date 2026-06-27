@@ -377,6 +377,9 @@ function Test-ChunkQuality([array]$chunks, [long]$documentId) {
     Stop-WithStatus "FAILED_CORE_FLOW" "chunkQuality" "document ${documentId} has fewer than two chunks"
   }
   $expected = 0
+  $previousStart = -1
+  $hashes = New-Object System.Collections.Generic.HashSet[string]
+  $duplicateHashes = 0
   foreach ($chunk in $chunks) {
     if ($chunk.chunkIndex -ne $expected) {
       Stop-WithStatus "FAILED_CORE_FLOW" "chunkQuality" "document ${documentId} chunk indexes are not contiguous"
@@ -384,7 +387,23 @@ function Test-ChunkQuality([array]$chunks, [long]$documentId) {
     if ($chunk.contentLength -le 0 -or $chunk.indexStatus -ne "INDEXED" -or -not $chunk.contentHash -or -not $chunk.vectorId) {
       Stop-WithStatus "FAILED_CORE_FLOW" "chunkQuality" "document ${documentId} has invalid chunk metadata"
     }
+    if ($null -eq $chunk.startOffset -or $null -eq $chunk.endOffset -or $chunk.startOffset -lt 0 -or $chunk.endOffset -le $chunk.startOffset) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "chunkQuality" "document ${documentId} has invalid chunk offsets"
+    }
+    if ($chunk.startOffset -le $previousStart) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "chunkQuality" "document ${documentId} chunk offsets are not ordered"
+    }
+    if ($null -eq $chunk.tokenCount -or $chunk.tokenCount -ne $chunk.contentLength) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "chunkQuality" "document ${documentId} chunk token count does not match content length"
+    }
+    if (-not $hashes.Add([string]$chunk.contentHash)) {
+      $duplicateHashes++
+    }
+    $previousStart = $chunk.startOffset
     $expected++
+  }
+  if ($duplicateHashes -gt 0) {
+    Stop-WithStatus "FAILED_CORE_FLOW" "chunkQuality" "document ${documentId} has duplicate chunk hashes"
   }
   $shortChunks = @($chunks | Where-Object { $_.contentLength -lt 80 })
   if (($shortChunks.Count / [double]$chunks.Count) -gt 0.25) {
@@ -398,6 +417,9 @@ function Test-ChunkQuality([array]$chunks, [long]$documentId) {
     vectorIdCount = @($chunks | Where-Object { $_.vectorId }).Count
     minContentLength = ($lengths | Measure-Object -Minimum).Minimum
     maxContentLength = ($lengths | Measure-Object -Maximum).Maximum
+    duplicateHashCount = $duplicateHashes
+    offsetsOrdered = $true
+    tokenCountMatchesContentLength = $true
   }
 }
 
@@ -438,6 +460,7 @@ function Test-QdrantConsistency([array]$chunks, [array]$points, [long]$documentI
   }
   $missing = 0
   $mismatchedFields = New-Object System.Collections.Generic.List[string]
+  $missingStructureFields = New-Object System.Collections.Generic.List[string]
   foreach ($chunk in $chunks) {
     if (-not $pointsById.ContainsKey($chunk.vectorId)) {
       $missing++
@@ -460,8 +483,14 @@ function Test-QdrantConsistency([array]$chunks, [array]$points, [long]$documentI
         $mismatchedFields.Add($field)
       }
     }
+    foreach ($field in @("sectionTitle", "sectionOrdinal", "sourceBlockOrdinal", "structureType", "qualityFlags")) {
+      $actual = $payload.$field
+      if ($null -eq $actual -or [string]::IsNullOrWhiteSpace([string]$actual)) {
+        $missingStructureFields.Add($field)
+      }
+    }
   }
-  if ($missing -gt 0 -or $mismatchedFields.Count -gt 0 -or $points.Count -ne $chunks.Count) {
+  if ($missing -gt 0 -or $mismatchedFields.Count -gt 0 -or $missingStructureFields.Count -gt 0 -or $points.Count -ne $chunks.Count) {
     Stop-WithStatus "FAILED_SECURITY_GATE" "mysqlQdrantConsistency" "document ${documentId} mysql/qdrant payload mismatch"
   }
   return [ordered]@{
@@ -471,6 +500,7 @@ function Test-QdrantConsistency([array]$chunks, [array]$points, [long]$documentI
     matchedCount = $chunks.Count - $missing
     missingVectorIds = $missing
     mismatchedFields = @($mismatchedFields | Select-Object -Unique)
+    missingStructureFields = @($missingStructureFields | Select-Object -Unique)
   }
 }
 
@@ -681,11 +711,15 @@ function Invoke-Run() {
   Set-Gate "auth" "PASS" @("registered user A", "registered user B")
 
   $alphaText = @"
+# Alpha Cloud Quality
+
 $smokeMarker
 Alpha architecture document. This file proves upload parse chunk index retrieve answer and citation behavior.
 Alpha fact one: DocPilot cloud quality smoke verifies chunk metadata from MySQL before trusting RAG output.
 Alpha fact two: Alpha coverage must appear in single document RAG and in the KnowledgeBase multi document answer.
 Alpha fact three: the expected Alpha keyword is ALPHA-CLOUD-GATE.
+
+## Alpha Chunk Structure
 
 Alpha detail repeat block one. Upload creates a file record, document create binds the file, parse task dispatches async parsing, and successful parsing triggers indexing.
 Alpha detail repeat block two. The smoke runner checks chunk index continuity, vector ids, hashes, positive lengths, and indexed status.
@@ -699,11 +733,15 @@ Alpha detail repeat block nine. The parser must preserve ALPHA-CLOUD-GATE in the
 Alpha detail repeat block ten. The security checks must fail closed when another user attempts to read or retrieve data outside their own scope.
 "@
   $betaText = @"
+# Beta Context Trace
+
 $smokeMarker
 Beta operations document. This file proves KnowledgeBase multi document retrieval and Conversation Context Trace behavior.
 Beta fact one: DocPilot cloud quality smoke compares Qdrant payload metadata with MySQL chunk rows.
 Beta fact two: Conversation Trace must report ragTriggered true, ragRequired true, evidenceCount greater than zero, and documentHitCounts.
 Beta fact three: the expected Beta keyword is BETA-CONTEXT-GATE.
+
+## Beta Multi Document Evidence
 
 Beta detail repeat block one. The KnowledgeBase answer must cite both Alpha and Beta documents when asked to summarize all documents.
 Beta detail repeat block two. Permission isolation rejects user B reading user A knowledge base and user A adding user B documents.

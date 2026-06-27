@@ -426,7 +426,7 @@ Boundary: this run created temporary smoke business data and a local redacted ar
 
 Status: PASS
 
-Evidence source: `backend/target/rag-quality/docpilot-rag-real-quality-20260627211711-383cda/artifact.json`.
+Evidence source: `backend/target/rag-quality/docpilot-rag-real-quality-20260627213040-4038e1/artifact.json`.
 
 Runner:
 
@@ -439,20 +439,20 @@ Validation performed:
 | `-Mode plan` | PASS |
 | `-Mode dry-run` | PASS |
 | `-Mode run` overall status | PASS |
-| smoke marker | `docpilot-rag-real-quality-20260627211711-383cda` |
+| smoke marker | `docpilot-rag-real-quality-20260627213040-4038e1` |
 | Quality min similarity threshold | `0.50` |
-| Chunk quality | document `133`: `3/3` indexed chunks; document `134`: `3/3` indexed chunks |
-| MySQL / Qdrant consistency | both documents matched `3/3` points, `0` missing vector ids |
+| Chunk quality | document `138`: `3/3` indexed chunks; document `139`: `3/3` indexed chunks; duplicate hash count `0`; offset order and token/content length checks passed |
+| MySQL / Qdrant consistency | both documents matched `3/3` points, `0` missing vector ids, `0` mismatched fields, `0` missing structure fields |
 | Single-document RAG | `3` retrieve hits, `3` QA citations |
-| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{133:3,134:3}` |
-| KnowledgeBase vector score summary | retrieve min `0.6535075`, citation min `0.62551725` |
+| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{138:3,139:3}` |
+| KnowledgeBase vector score summary | retrieve min `0.65164304`, citation min `0.62551725` |
 | No-evidence threshold | PASS: unrelated populated-KB query returned `noEvidence=true`, `0` retrieve hits and `0` QA citations |
-| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, hit distribution `{133:3,134:3}` |
+| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, hit distribution `{138:3,139:3}` |
 | Permission isolation | foreign KB detail, foreign KB retrieve, cross-user document add, and foreign trace access all rejected |
 | Frontend route smoke | `/`, `/login`, `/dashboard`, `/upload`, `/documents`, `/knowledge-bases`, `/conversations` all HTTP 200 and non-blank |
 | Artifact redaction | PASS, local redaction-pattern scan had `0` matches |
 
-Boundary: this is a stronger real-link quality gate than the offline eval because it uses the application upload / parse / indexing / Qdrant path. The v3 gate rejects the specific unrelated populated-KB query used by the smoke, and v4 adds answer-audit fields plus offline grounding metrics. It is still not a broad production relevance benchmark across large corpora or many domains.
+Boundary: this is a stronger real-link quality gate than the offline eval because it uses the application upload / parse / indexing / Qdrant path. The v3 gate rejects the specific unrelated populated-KB query used by the smoke, v4 adds answer-audit fields plus offline grounding metrics, and v5 verifies chunk structure metadata enters Qdrant payload without a schema migration. It is still not a broad production relevance benchmark across large corpora or many domains.
 
 ## 12. Current Boundaries
 
@@ -465,7 +465,7 @@ What can be safely claimed:
 - Real embedding provider + Qdrant indexing / retrieval has been smoke tested.
 - Conversation Context / Agent Memory with accepted user memory and KnowledgeBase-bound evidence has been smoke tested.
 - Unified cloud quality gate smoke has passed once, covering two-document upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, two-document KnowledgeBase RAG, Conversation Trace, permission isolation, frontend routes, and redacted artifact output.
-- RAG real quality gate now passes with the v3 evidence confidence gate and rejects the smoke unrelated populated-KB query as no-evidence.
+- RAG real quality gate now passes with evidence confidence, answer audit, chunk structure payload checks, and rejects the smoke unrelated populated-KB query as no-evidence.
 - MinIO active storage has been smoke tested through upload and parse readback.
 - RocketMQ + Outbox active parse flow has been smoke tested through producer, consumer and final parse status.
 - Offline Function Calling adapter tests and multi-document eval artifact have passed.
