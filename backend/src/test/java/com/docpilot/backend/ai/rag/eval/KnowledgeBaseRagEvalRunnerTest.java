@@ -18,7 +18,7 @@ class KnowledgeBaseRagEvalRunnerTest {
 
         assertThat(result.provider()).isEqualTo("in_memory");
         assertThat(result.embeddingProvider()).isEqualTo("mock");
-        assertThat(result.metrics().caseCount()).isGreaterThanOrEqualTo(5);
+        assertThat(result.metrics().caseCount()).isGreaterThanOrEqualTo(11);
         assertThat(result.metrics().hitAtK()).isEqualTo(1.0D);
         assertThat(result.metrics().documentHitRate()).isEqualTo(1.0D);
         assertThat(result.metrics().citationHitRate()).isEqualTo(1.0D);
@@ -45,6 +45,16 @@ class KnowledgeBaseRagEvalRunnerTest {
                     assertThat(evaluation.multiDocumentCoverageHit()).isTrue();
                 })
                 .anySatisfy(evaluation -> assertThat(evaluation.noEvidenceHit()).isTrue());
+        assertThat(result.caseEvaluations())
+                .extracting(KnowledgeBaseRagEvalResult.CaseEvaluation::id)
+                .contains(
+                        "semantic-no-evidence-populated-kb",
+                        "hybrid-keyword-noise-no-evidence",
+                        "multi-document-three-way-summary",
+                        "grounded-answer-distractor-suppression",
+                        "cross-topic-distractor-routing",
+                        "out-of-scope-semantic-distractor"
+                );
     }
 
     @Test

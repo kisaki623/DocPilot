@@ -18,7 +18,8 @@ public record KnowledgeBaseRagEvalCase(
         List<Long> forbiddenDocumentIds,
         Integer minCitationCount,
         Boolean requiresMultiDocumentCoverage,
-        boolean expectedNoEvidence
+        boolean expectedNoEvidence,
+        Double minSimilarityThreshold
 ) {
 
     public KnowledgeBaseRagEvalCase {
@@ -59,6 +60,10 @@ public record KnowledgeBaseRagEvalCase(
         requiresMultiDocumentCoverage = requiresMultiDocumentCoverage == null
                 ? expectedDocumentIds.size() > 1
                 : requiresMultiDocumentCoverage;
+        minSimilarityThreshold = minSimilarityThreshold == null ? 0.0D : minSimilarityThreshold;
+        if (minSimilarityThreshold < 0.0D || minSimilarityThreshold > 1.0D) {
+            throw new IllegalArgumentException("minSimilarityThreshold must be between 0 and 1");
+        }
     }
 
     public List<Long> activeDocumentIds() {

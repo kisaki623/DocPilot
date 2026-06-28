@@ -1,8 +1,26 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-06-27
+> Last updated: 2026-06-28
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
+
+## 2026-06-28 RAG Quality Smoke
+
+Status: PASS
+
+Marker: `docpilot-rag-real-quality-20260628141419-fb7c21`
+
+Verified gates:
+
+- Reused local MySQL / Qdrant tunnel.
+- Backend health and frontend routes passed.
+- Temporary users, txt documents, KnowledgeBase and Conversation were created by smoke runner.
+- Chunk quality and MySQL / Qdrant payload consistency passed.
+- Single-document RAG, KnowledgeBase two-document RAG and populated-KB no-evidence gate passed.
+- Conversation Trace showed `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, `memoryCount=1`, and separated `userMemory=1` / `ragEvidence=6`.
+- Permission isolation negative checks and artifact redaction passed.
+
+Boundary: artifact is stored under ignored `backend/target/rag-quality/.../artifact.json`; do not commit artifact raw content, prompts, evidence context, credentials, connection strings or cloud addresses.
 
 ## 1. Single Document Smoke
 

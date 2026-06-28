@@ -31,6 +31,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - RAG Quality Upgrade v5 已新增 chunk structure quality：chunk candidate 生成 section title / ordinal / source block ordinal / structure type / quality flags，索引时透传到 embedding metadata 与 Qdrant payload；真实 smoke 的 chunkQuality gate 已覆盖 MySQL offset order、token/content length 和 duplicate hash，MySQL / Qdrant gate 已校验结构 payload 字段。2026-06-27 默认真实 smoke PASS，marker 为 `docpilot-rag-real-quality-20260627213040-4038e1`。
 - RAG Quality Upgrade v6 已完成：KnowledgeBase 离线 eval artifact 新增 `retrievalModeMetrics`，同一批 case 对比 `vector` 与 `hybrid` 的 hit / citation / multi-document / no-evidence / grounding 指标；rerank provider 现在必须在 `enabled=true` 且外部配置完整时才发 HTTP，否则 identity fallback 且不调用外部服务。2026-06-27 默认真实 smoke PASS，marker 为 `docpilot-rag-real-quality-20260627214532-e1fb65`。
 - RAG Quality Upgrade v7 已完成：`ContextTrace` API 暴露计算型 `contextSourceCounts` / `contextSourceFlags`，前端 `/conversations` Trace 面板展示会话摘要、最近消息、长期记忆和 RAG evidence 的拆分计数；测试门禁覆盖 assistant / RAG evidence 不会自动变成长期记忆，且只有 `ACTIVE` user memory 进入上下文；真实 smoke `docpilot-rag-real-quality-20260627220736-8f03b9` PASS，Conversation Trace 同时验证 `evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`；不改数据库结构，不保存 prompt 或 evidence 原文。
+- RAG Quality Upgrade v8 第一片已完成：KnowledgeBase RAG 离线 eval corpus 从 5 个 case 扩到 11 个 case，新增 case 级 `minSimilarityThreshold`，覆盖 populated-KB no-evidence、hybrid keyword 噪声、多文档总结、grounding 干扰、跨主题路由和 scope 干扰；2026-06-28 `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；真实 smoke `docpilot-rag-real-quality-20260628141419-fb7c21` PASS。
 - 目标 KnowledgeBase `3` 的文档 `83/84/85/86` 已授权重建索引到稳定 Qdrant collection `docpilot_rag_v2`；chunk / vector 数为 `35/35`、`18/18`、`10/10`、`16/16`，总结资料集检索分布为 `{83:2,84:1,85:1,86:2}`。
 - Conversation Context Management / Agent Memory Mode 后端 MVP 已新增会话、消息、摘要、上下文 Trace、用户长期记忆五张新表和对应 API；`ContextAssemblyService` 可按 `RECENT_TURNS` / `AGENT_MEMORY` 组装系统提示、长期记忆、会话摘要、最近轮次与可选 KnowledgeBase evidence，并输出和持久化摘要级 trace。
 - 会话发送链路已按工程化质量收窄事务边界：上下文装配和回答模型调用不在长事务内执行；仅最终 conversation 行锁、连续写入 user / assistant message 和更新时间处于事务内，trace 仍为 best-effort。
@@ -66,7 +67,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 
 ## 4. 当前生产化推进优先级
 
-1. 推进 v8 eval corpus expansion：增加更多 no-evidence / grounding / multi-document 干扰 case，覆盖语义相近但无证据、跨主题和 hybrid keyword-only 噪声。
+1. 继续推进 v8 eval corpus expansion 第二片：检查单文档 RAG eval / smoke case，补 no-evidence、grounding 和 distractor 覆盖。
 2. 继续保持 Conversation Memory 与 KnowledgeBase evidence 分层：短期上下文、长期记忆、RAG evidence 和 trace 各自可解释。
 3. 在用户显式提供真实 provider 配置后，单独验证真实 rerank provider 效果和失败降级。
 4. 保持 README / docs 展示口径与真实 smoke 证据一致，不把 smoke 级 PASS 写成线上 SLA 或大规模生产 benchmark。

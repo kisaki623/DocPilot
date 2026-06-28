@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：RAG Quality Upgrade v8: eval corpus expansion（NEXT）
+当前任务：RAG Quality Upgrade v8: single-document eval expansion（NEXT）
+
+## 2026-06-28 追加任务：RAG Quality Upgrade v8 第一片
+
+- 目标：先把 KnowledgeBase RAG 离线 eval corpus 从“少量链路样例”扩展为更像质量门禁的 case 集，覆盖 no-evidence、grounding、多文档干扰、hybrid keyword 噪声和 scope 干扰。
+- 已完成：`knowledge-base-rag-eval-cases.json` 从 5 个 case 扩到 11 个 case；新增 case 级 `minSimilarityThreshold`，用于稳定模拟真实链路 confidence gate；补充 `semantic-no-evidence-populated-kb`、`hybrid-keyword-noise-no-evidence`、`multi-document-three-way-summary`、`grounded-answer-distractor-suppression`、`cross-topic-distractor-routing` 和 `out-of-scope-semantic-distractor`。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalFixtureTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagEvalRunnerTest" test` PASS，5 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；真实 `scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260628141419-fb7c21`。
+- 边界：本片不改生产 API、不改数据库结构、不强制真实 rerank provider、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 下一步：继续 v8 第二片，检查并扩展单文档 RAG eval / smoke case，补 no-evidence、grounding 和 distractor 覆盖，然后再进入 Phase 2 真实体验审计。
 
 ## 2026-06-27 追加任务：真实链路优先自驱协议
 

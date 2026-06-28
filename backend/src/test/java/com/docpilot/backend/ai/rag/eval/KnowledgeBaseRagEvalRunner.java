@@ -424,6 +424,7 @@ public class KnowledgeBaseRagEvalRunner {
                     documentMapper
             );
             RagRetrievalProperties retrievalProperties = new RagRetrievalProperties();
+            retrievalProperties.setMinSimilarityThreshold(evalCase.minSimilarityThreshold());
             retrievalProperties.setHybridEnabled(mode == RetrievalEvalMode.HYBRID);
             HybridRetrievalService hybridRetrievalService = mode == RetrievalEvalMode.HYBRID
                     ? new HybridRetrievalService(new InMemoryKeywordRetrievalService(chunkService), retrievalProperties)

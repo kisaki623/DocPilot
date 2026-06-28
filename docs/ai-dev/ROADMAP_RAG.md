@@ -80,6 +80,13 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 2026-06-27 已完成第二片：测试门禁覆盖 assistant / RAG evidence 不会自动变成长期记忆，且只有 `ACTIVE` user memory 进入上下文。
 - 2026-06-27 已完成第三片：真实 smoke `docpilot-rag-real-quality-20260627220736-8f03b9` PASS，Conversation Trace 同时验证 `evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`。
 
+### v8 eval corpus expansion（IN PROGRESS）
+
+- 第一片已完成：KnowledgeBase RAG eval corpus 从 5 个 case 扩到 11 个 case，并新增 case 级 `minSimilarityThreshold`，用于在离线 eval 中稳定覆盖 confidence gate。
+- 新增覆盖：populated-KB no-evidence、hybrid keyword 噪声、多文档三文档总结、grounded answer 干扰抑制、跨主题 distractor 路由和 out-of-scope semantic distractor。
+- 2026-06-28 已验证：`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；真实 smoke `docpilot-rag-real-quality-20260628141419-fb7c21` PASS。
+- 下一片：补单文档 RAG eval / smoke case，再进入 Phase 2 真实体验审计。
+
 ## 5. 质量门禁
 
 - 离线默认门禁：`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test`，不能依赖真实 provider 或远程 Qdrant；它用于快速回归，不单独证明真实用户体验。

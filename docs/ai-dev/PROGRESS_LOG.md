@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-06-28 RAG Quality Upgrade v8
+
+- 已完成 v8 第一片：KnowledgeBase RAG eval corpus 从 5 个 case 扩到 11 个 case，新增 case 级 `minSimilarityThreshold`，覆盖 populated-KB no-evidence、hybrid keyword 噪声、多文档总结、grounding 干扰、跨主题路由和 scope 干扰。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalFixtureTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagEvalRunnerTest" test` PASS，5 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 已补真实链路验证：`rag-real-quality-smoke.ps1 -Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260628141419-fb7c21`；artifact 写入 ignored `backend/target/rag-quality/.../artifact.json`，不提交原文。
+
 ## 2026-06-27 真实链路优先自驱协议
 
 - 已将自驱迭代模式升级为真实链路优先验证：后续 RAG、KnowledgeBase、Conversation Memory、Context Trace、权限隔离和前端关键路径改动，不能只靠 mock / 最小测试证明用户体验质量。
