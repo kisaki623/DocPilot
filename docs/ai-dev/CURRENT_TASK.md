@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v3.2：Memory Governance 第一片（DONE）
+当前任务：DocPilot Quality Loop v3.3：RAG Real Corpus 真实链路代表性三文档门禁（DONE）
+
+## 2026-06-28 追加任务：Quality Loop v3.3 RAG Real Corpus 真实链路代表性三文档门禁
+
+- 目标：把 RAG Real Corpus 的代表性企业问答样例从离线 eval 小规模迁移进真实链路 smoke，让 RAG Real QA 专项 smoke 不只复用两文档通用门禁，还能验证三文档代表 corpus 的多文档覆盖、citation grounding 和脱敏 artifact。
+- 已完成：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRepresentativeCorpusGate`，额外创建一份 incident review Gamma 文档，并与既有 Alpha / Beta 两文档组成 Representative Corpus KB；gate 要求 retrieve 和 QA citation 都覆盖 Alpha / Beta / Gamma 三份文档，artifact 只记录 ids、count、documentHitCounts 和 score summary。
+- 已完成专项入口：`rag-real-qa-eval-smoke.ps1` 默认打开 representative corpus gate，并提供 `-SkipRepresentativeCorpusGate` 跳过开关，避免通用 cloud smoke 默认增加真实链路成本；plan 输出包含 `representative_corpus` 和 `representativeCorpusEnabledByDefault=true`。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，9 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260628234235-5c1b94`。
+- 关键结果：代表性三文档 gate 返回 `8` retrieve hits / `8` citations，documentHitCounts 覆盖 Gamma `196:2`、Beta `195:3`、Alpha `194:3`；no-evidence、Conversation Trace、权限隔离、前端 routes、cleanup 和 artifact 脱敏均保持 PASS。
+- 边界：本片只增强 smoke runner 和脚本安全测试，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。真实 smoke 创建了临时用户、三份文档、KnowledgeBase 和 Conversation 数据，artifact 位于 ignored `backend/target/rag-real-qa/.../artifact.json`；该结论是小规模真实链路代表性门禁，不是大规模 relevance benchmark。
+- 下一步：可进入 Memory 编辑 / 合并交互与门禁，或继续 RAG 方向做 answer grounding 审计 / hard negative corpus / README 与 showcase 面试口径同步。
 
 ## 2026-06-28 追加任务：Quality Loop v3.2 Memory Governance 第一片
 

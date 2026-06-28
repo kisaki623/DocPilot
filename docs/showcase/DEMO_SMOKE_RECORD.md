@@ -4,6 +4,28 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-28 RAG Real Corpus Representative Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260628234235-5c1b94`
+
+Verified gates:
+
+- `rag-real-qa-eval-smoke.ps1` now defaults to the representative corpus gate and can skip it with `-SkipRepresentativeCorpusGate`.
+- Delegated cloud quality gates passed: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase RAG, populated-KB no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+- Representative Corpus KB contained Alpha, Beta and Gamma temporary documents.
+- Representative gate returned `8` retrieve hits and `8` citations.
+- documentHitCounts covered all three documents: Gamma `196:2`, Beta `195:3`, Alpha `194:3`.
+- Conversation Trace still showed `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, `memoryCount=1`, `contextSourceCounts.userMemory=1`, `contextSourceCounts.ragEvidence=6`.
+- Permission isolation negative checks and artifact redaction remained PASS.
+
+Boundary: artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This is a small real-link representative corpus gate, not a large-scale relevance benchmark or online SLA.
+
 ## 2026-06-28 RAG Real QA Eval Smoke
 
 Status: PASS

@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-28 Quality Loop v3.3 / RAG Real Corpus 真实链路代表性三文档门禁
+
+- 已给 `cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRepresentativeCorpusGate`：真实链路中额外上传 incident review Gamma 文档，并与既有 Alpha / Beta 两文档组成 Representative Corpus KB。
+- Representative corpus gate 要求 KnowledgeBase retrieve 和 QA citation 都覆盖 Alpha / Beta / Gamma 三份文档；artifact 只记录 ids、count、documentHitCounts 和 score summary，不保存文档全文、prompt、evidence context 或凭据。
+- 已增强 `scripts/smoke/rag-real-qa-eval-smoke.ps1`：RAG Real QA 专项 smoke 默认打开 representative corpus gate，并提供 `-SkipRepresentativeCorpusGate` 跳过开关；plan 输出包含 `representative_corpus` 和 `representativeCorpusEnabledByDefault=true`。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，9 tests。
+- 真实链路验证：`rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260628234235-5c1b94`；representative gate 返回 `8` hits / `8` citations，documentHitCounts 覆盖 Gamma `196:2`、Beta `195:3`、Alpha `194:3`，no-evidence、Conversation Trace、权限隔离、前端 routes、cleanup 和 artifact 脱敏均保持 PASS。
+- 边界：本片不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push；结论是小规模真实链路代表性门禁，不写成大规模 relevance benchmark。
+
 ## 2026-06-28 Quality Loop v3.2 / Memory Governance 第一片
 
 - 已新增 Memory 治理响应字段：`duplicateOfId`、`conflictWithId`、`governanceHint`、`similarityScore`，用于让候选记忆在进入 ACTIVE 前说明疑似重复、近似重复或明确偏好冲突。

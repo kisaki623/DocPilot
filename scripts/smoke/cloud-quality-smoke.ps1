@@ -14,7 +14,8 @@ param(
   [switch]$SkipFrontend,
   [switch]$ReuseRunningServices,
   [switch]$EnableMemoryQualityGate,
-  [switch]$EnableRerankHardGate
+  [switch]$EnableRerankHardGate,
+  [switch]$EnableRepresentativeCorpusGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -688,7 +689,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "representativeCorpus(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -752,6 +753,7 @@ function Invoke-Run() {
   $userAId = [long]$regA.data.userId
   $userBId = [long]$regB.data.userId
   $rerankHardResources = $null
+  $representativeCorpusResources = $null
   Set-Gate "auth" "PASS" @("registered user A", "registered user B")
 
   $alphaText = @"
@@ -868,6 +870,71 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseRag" "knowledge base RAG did not cover both documents"
   }
   Set-Gate "knowledgeBaseRag" "PASS" $kbChecks
+
+  if ($EnableRepresentativeCorpusGate) {
+    $gammaText = @"
+# Incident Review Corpus
+
+$smokeMarker
+Incident review evidence document. This representative corpus note is modeled after the real QA eval multi document incident review cases.
+Incident detection marker real-incident-detection-marker says alert correlation found the checkout issue.
+Incident mitigation marker real-incident-mitigation-marker says the team disabled the faulty worker queue.
+Customer communication marker real-customer-communication-marker says support posted the final status update.
+
+## Grounding Notes
+
+The answer should cite this incident review document together with the Alpha chunk metadata document and the Beta context trace document.
+Forbidden appendix marker real-marketing-export-forbidden-marker is unrelated marketing export noise and must not be used as incident evidence.
+The representative gate stores only ids, counts, ranks, and score summaries in the artifact.
+"@
+    $gammaPath = Join-Path $artifactDir "gamma-incident-review.txt"
+    [System.IO.File]::WriteAllText($gammaPath, $gammaText, [System.Text.UTF8Encoding]::new($false))
+
+    $fileC = Upload-SmokeFile $gammaPath $tokenA
+    $docC = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $fileC.id }) $tokenA
+    $taskC = Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $docC.data.id }) $tokenA
+    Wait-ParseSuccess ([long]$docC.data.id) $tokenA | Out-Null
+    Wait-IndexedChunks $envValues $userAId ([long]$docC.data.id) | Out-Null
+
+    $representativeKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Representative Corpus KB $smokeMarker"; description = "temporary representative real qa smoke kb" }) $tokenA
+    Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/documents" ([ordered]@{ documentIds = @($docA.data.id, $docB.data.id, $docC.data.id) }) $tokenA | Out-Null
+    $representativeQuery = "Summarize the representative corpus for $smokeMarker. Cover Alpha chunk metadata, Beta context trace, and incident review evidence across all three documents."
+    $representativeRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/rag/retrieve" ([ordered]@{ query = $representativeQuery; topK = 8; indexVersion = $IndexVersion }) $tokenA
+    $representativeQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/qa/rag" ([ordered]@{ question = $representativeQuery; topK = 8; indexVersion = $IndexVersion }) $tokenA
+    $representativeHits = @($representativeRetrieve.data.hits)
+    $representativeCitations = @($representativeQa.data.citations)
+    $representativeHitCounts = $representativeRetrieve.data.documentHitCounts
+    $representativeChecks = @([ordered]@{
+        retrieveHits = $representativeHits.Count
+        qaCitations = $representativeCitations.Count
+        documentHitCounts = $representativeHitCounts
+        alphaRetrieveCount = Get-DocumentHitCount $representativeHits ([long]$docA.data.id)
+        betaRetrieveCount = Get-DocumentHitCount $representativeHits ([long]$docB.data.id)
+        gammaRetrieveCount = Get-DocumentHitCount $representativeHits ([long]$docC.data.id)
+        alphaCitationCount = Get-DocumentHitCount $representativeCitations ([long]$docA.data.id)
+        betaCitationCount = Get-DocumentHitCount $representativeCitations ([long]$docB.data.id)
+        gammaCitationCount = Get-DocumentHitCount $representativeCitations ([long]$docC.data.id)
+        retrievalMode = $representativeRetrieve.data.retrievalMode
+        rerankApplied = [bool]$representativeRetrieve.data.rerankApplied
+        retrieveScoreSummary = Get-ScoreSummary $representativeHits
+        citationScoreSummary = Get-ScoreSummary $representativeCitations
+        retrieveVectorScoreSummary = Get-FieldScoreSummary $representativeHits "vectorScore"
+        citationVectorScoreSummary = Get-FieldScoreSummary $representativeCitations "vectorScore"
+        qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
+      })
+    if ($representativeHits.Count -lt 3 -or $representativeCitations.Count -lt 3 -or
+      $representativeChecks[0].alphaRetrieveCount -lt 1 -or $representativeChecks[0].betaRetrieveCount -lt 1 -or $representativeChecks[0].gammaRetrieveCount -lt 1 -or
+      $representativeChecks[0].alphaCitationCount -lt 1 -or $representativeChecks[0].betaCitationCount -lt 1 -or $representativeChecks[0].gammaCitationCount -lt 1) {
+      Set-Gate "representativeCorpus" "FAILED_CORE_FLOW" $representativeChecks "representative corpus gate did not cover all three documents"
+      Stop-WithStatus "FAILED_CORE_FLOW" "representativeCorpus" "representative corpus gate did not cover all three documents"
+    }
+    Set-Gate "representativeCorpus" "PASS" $representativeChecks
+    $representativeCorpusResources = [ordered]@{
+      knowledgeBaseId = [long]$representativeKb.data.id
+      documentIds = @([long]$docA.data.id, [long]$docB.data.id, [long]$docC.data.id)
+      parseTaskId = [long]$taskC.data.taskId
+    }
+  }
 
   $unrelatedQuery = "Which payroll settlement policy and invoice approval matrix is defined for employee reimbursements?"
   $noEvidenceRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $unrelatedQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
@@ -1130,6 +1197,8 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
       parseTaskIds = @([long]$taskA.data.taskId, [long]$taskB.data.taskId)
       knowledgeBaseId = [long]$kb.data.id
       memoryId = [long]$memory.data.memoryId
+      representativeCorpusGateEnabled = [bool]$EnableRepresentativeCorpusGate
+      representativeCorpusGate = $representativeCorpusResources
       memoryQualityGateEnabled = [bool]$EnableMemoryQualityGate
       rerankHardGateEnabled = [bool]$EnableRerankHardGate
       rerankHardGate = $rerankHardResources

@@ -11,7 +11,8 @@ param(
   [int]$QdrantLocalPort = 6333,
   [int]$IndexVersion = 1,
   [switch]$SkipFrontend,
-  [switch]$ReuseRunningServices
+  [switch]$ReuseRunningServices,
+  [switch]$SkipRepresentativeCorpusGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +25,7 @@ function Show-RagRealQaPlan {
     smokePrefix = "docpilot-rag-real-qa"
     artifactRoot = $ArtifactRoot
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
+    representativeCorpusEnabledByDefault = (-not [bool]$SkipRepresentativeCorpusGate)
     caseTypes = @(
       "factual_lookup",
       "cross_document_summary",
@@ -32,7 +34,8 @@ function Show-RagRealQaPlan {
       "no_evidence",
       "semantic_distractor",
       "hybrid_keyword_noise",
-      "rerank_uplift_candidate"
+      "rerank_uplift_candidate",
+      "representative_corpus"
     )
     gates = @(
       "tunnel",
@@ -44,6 +47,7 @@ function Show-RagRealQaPlan {
       "mysqlQdrantConsistency",
       "singleDocumentRag",
       "knowledgeBaseRag",
+      "representativeCorpus",
       "noEvidenceThreshold",
       "conversationTrace",
       "permissionIsolation",
@@ -87,6 +91,9 @@ if ($SkipFrontend) {
 }
 if ($ReuseRunningServices) {
   $argsList += "-ReuseRunningServices"
+}
+if (-not $SkipRepresentativeCorpusGate) {
+  $argsList += "-EnableRepresentativeCorpusGate"
 }
 
 & powershell.exe @argsList
