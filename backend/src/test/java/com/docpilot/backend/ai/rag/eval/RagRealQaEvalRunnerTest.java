@@ -16,7 +16,7 @@ class RagRealQaEvalRunnerTest {
 
         assertThat(result.provider()).isEqualTo("in_memory");
         assertThat(result.embeddingProvider()).isEqualTo("mock");
-        assertThat(result.metrics().caseCount()).isGreaterThanOrEqualTo(8);
+        assertThat(result.metrics().caseCount()).isGreaterThanOrEqualTo(20);
         assertThat(result.metrics().casePassRate()).isEqualTo(1.0D);
         assertThat(result.metrics().answerCorrectnessRate()).isEqualTo(1.0D);
         assertThat(result.metrics().citationGroundingRate()).isEqualTo(1.0D);
@@ -25,6 +25,10 @@ class RagRealQaEvalRunnerTest {
         assertThat(result.metrics().scopeViolationRate()).isEqualTo(0.0D);
         assertThat(result.metrics().rerankUpliftCandidateRate()).isGreaterThan(0.0D);
         assertThat(result.metrics().rerankUpliftCandidatePassRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().longDocumentCasePassRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().nearMissNoEvidenceRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().multiDocSummaryPassRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().distractorSuppressionRate()).isEqualTo(1.0D);
         assertThat(result.failedCaseIds()).isEmpty();
     }
 
@@ -43,7 +47,12 @@ class RagRealQaEvalRunnerTest {
                 .contains("citationGroundingRate")
                 .contains("rerankUpliftCandidateRate")
                 .contains("rerankUpliftCandidatePassRate")
+                .contains("longDocumentCasePassRate")
+                .contains("nearMissNoEvidenceRate")
+                .contains("multiDocSummaryPassRate")
+                .contains("distractorSuppressionRate")
                 .doesNotContain("DocPilot parse status marker")
+                .doesNotContain("Security access policy overview")
                 .doesNotContain("Which evidence")
                 .doesNotContain("prompt")
                 .doesNotContain("evidenceContext")

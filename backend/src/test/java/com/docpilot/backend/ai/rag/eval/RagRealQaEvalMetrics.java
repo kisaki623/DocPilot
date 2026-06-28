@@ -15,7 +15,11 @@ public record RagRealQaEvalMetrics(
         double forbiddenLeakRate,
         double scopeViolationRate,
         double rerankUpliftCandidateRate,
-        double rerankUpliftCandidatePassRate
+        double rerankUpliftCandidatePassRate,
+        double longDocumentCasePassRate,
+        double nearMissNoEvidenceRate,
+        double multiDocSummaryPassRate,
+        double distractorSuppressionRate
 ) {
 
     public static RagRealQaEvalMetrics from(List<RagRealQaEvalResult.CaseEvaluation> evaluations) {
@@ -39,6 +43,15 @@ public record RagRealQaEvalMetrics(
                 .filter(RagRealQaEvalResult.CaseEvaluation::rerankUpliftCandidate)
                 .filter(RagRealQaEvalResult.CaseEvaluation::passed)
                 .count();
+        List<RagRealQaEvalResult.CaseEvaluation> longDocumentCases = byCategory(resolved, "long_document");
+        List<RagRealQaEvalResult.CaseEvaluation> nearMissNoEvidenceCases = byCategory(resolved, "near_miss_no_evidence");
+        List<RagRealQaEvalResult.CaseEvaluation> multiDocSummaryCases = resolved.stream()
+                .filter(item -> "multi_doc_summary".equals(item.category())
+                        || "cross_document_summary".equals(item.category()))
+                .toList();
+        List<RagRealQaEvalResult.CaseEvaluation> distractorCases = resolved.stream()
+                .filter(RagRealQaEvalMetrics::isDistractorCase)
+                .toList();
         return new RagRealQaEvalMetrics(
                 resolved.size(),
                 rate(passed, resolved.size()),
@@ -49,7 +62,13 @@ public record RagRealQaEvalMetrics(
                 resolved.isEmpty() ? 0.0D : (double) forbiddenLeak / resolved.size(),
                 resolved.isEmpty() ? 0.0D : (double) scopeViolation / resolved.size(),
                 resolved.isEmpty() ? 0.0D : (double) rerankCandidates / resolved.size(),
-                rate(rerankCandidatePassed, rerankCandidates)
+                rate(rerankCandidatePassed, rerankCandidates),
+                passRate(longDocumentCases),
+                rate((int) nearMissNoEvidenceCases.stream()
+                        .filter(RagRealQaEvalResult.CaseEvaluation::noEvidenceHit)
+                        .count(), nearMissNoEvidenceCases.size()),
+                passRate(multiDocSummaryCases),
+                passRate(distractorCases)
         );
     }
 
@@ -65,6 +84,10 @@ public record RagRealQaEvalMetrics(
         value.put("scopeViolationRate", format(scopeViolationRate));
         value.put("rerankUpliftCandidateRate", format(rerankUpliftCandidateRate));
         value.put("rerankUpliftCandidatePassRate", format(rerankUpliftCandidatePassRate));
+        value.put("longDocumentCasePassRate", format(longDocumentCasePassRate));
+        value.put("nearMissNoEvidenceRate", format(nearMissNoEvidenceRate));
+        value.put("multiDocSummaryPassRate", format(multiDocSummaryPassRate));
+        value.put("distractorSuppressionRate", format(distractorSuppressionRate));
         return value;
     }
 
@@ -74,5 +97,29 @@ public record RagRealQaEvalMetrics(
 
     private static double rate(int numerator, int denominator) {
         return denominator == 0 ? 1.0D : (double) numerator / denominator;
+    }
+
+    private static List<RagRealQaEvalResult.CaseEvaluation> byCategory(
+            List<RagRealQaEvalResult.CaseEvaluation> evaluations,
+            String category
+    ) {
+        return evaluations.stream()
+                .filter(item -> category.equals(item.category()))
+                .toList();
+    }
+
+    private static boolean isDistractorCase(RagRealQaEvalResult.CaseEvaluation evaluation) {
+        String category = evaluation.category();
+        return category.contains("distractor")
+                || category.contains("noise")
+                || category.contains("near_miss")
+                || category.contains("semantic")
+                || category.contains("rerank");
+    }
+
+    private static double passRate(List<RagRealQaEvalResult.CaseEvaluation> evaluations) {
+        List<RagRealQaEvalResult.CaseEvaluation> resolved = evaluations == null ? List.of() : evaluations;
+        int passed = (int) resolved.stream().filter(RagRealQaEvalResult.CaseEvaluation::passed).count();
+        return rate(passed, resolved.size());
     }
 }

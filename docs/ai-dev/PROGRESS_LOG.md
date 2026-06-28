@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-28 Quality Loop v3.1 / RAG Real Corpus Eval 第一片
+
+- 已将 `real-qa-eval-cases.json` 从 9 个 case 扩到 22 个 case，新增 security policy、runbook、onboarding、expense policy、contract clause、incident review、API policy、access audit 等脱敏企业知识库样例。
+- 新增 case 类型覆盖 `long_document`、`near_miss_no_evidence`、`multi_doc_summary`、`citation_grounding`、`scope_isolation`，并继续保留 factual lookup、comparison、multi-hop、semantic distractor、hybrid keyword noise 和 rerank uplift candidate。
+- 已增强 `RagRealQaEvalMetrics`：新增 `longDocumentCasePassRate`、`nearMissNoEvidenceRate`、`multiDocSummaryPassRate`、`distractorSuppressionRate`；artifact 继续只保存脱敏 summary、计数、文档 ID、类别和失败原因，不保存文档全文、query 原文、prompt、evidence context、模型输出或 secrets。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
+- 边界：本片只做离线 test-side eval，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文、不 push；结论是 RAG 质量门禁覆盖度提升，不是大规模真实 provider benchmark。下一片进入 Memory Governance v1。
+
 ## 2026-06-28 Quality Loop v2.3 / Memory 产品化第一片
 
 - 已增强 `/conversations` Memory 抽屉：新增生效 / 候选 / 重复提示 KPI、类型分布、来源说明（手动添加 / 系统候选 + 会话 / 消息来源）、priority、confidence、更新时间、ACTIVE 重复提示和候选已存在提示；生效记忆按 priority / 更新时间排序，候选按 priority / confidence 排序。

@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v2.3：Memory 产品化第一片（DONE）
+当前任务：DocPilot Quality Loop v3.1：RAG Real Corpus Eval 第一片（DONE）
+
+## 2026-06-28 追加任务：Quality Loop v3.1 RAG Real Corpus Eval 第一片
+
+- 目标：把 RAG Real QA Eval 从 9 个偏 synthetic marker 的小样例扩展为更贴近企业知识库真实问答形态的离线质量门禁，先覆盖长文档、近义 no-evidence、多文档总结、citation grounding、scope isolation 和 hybrid / rerank 干扰。
+- 已完成：`real-qa-eval-cases.json` 从 9 个 case 扩到 22 个 case，新增 security policy、runbook、onboarding、expense policy、contract clause、incident review、API policy、access audit 等脱敏企业场景样例；新增 `long_document`、`near_miss_no_evidence`、`multi_doc_summary`、`citation_grounding`、`scope_isolation` 等类别。
+- 已完成指标增强：`RagRealQaEvalMetrics` 新增 `longDocumentCasePassRate`、`nearMissNoEvidenceRate`、`multiDocSummaryPassRate`、`distractorSuppressionRate`，artifact 仍只输出脱敏 summary，不保存文档全文、query 原文、prompt、evidence context、模型输出或 secrets。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
+- 边界：本片只增强离线 test-side eval，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果提升 RAG 质量门禁覆盖度，但仍不是大规模真实语料 benchmark。
+- 下一步：进入 Memory Governance v1 第一片，优先做重复 / 冲突记忆检测、接受候选前的治理提示和对应离线 / API 门禁；后续再把代表性 RAG case 小规模迁移进真实链路 smoke。
 
 ## 2026-06-28 追加任务：Quality Loop v2.3 Memory 产品化第一片
 

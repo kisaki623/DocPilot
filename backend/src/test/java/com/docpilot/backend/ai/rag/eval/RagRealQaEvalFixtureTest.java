@@ -12,7 +12,7 @@ class RagRealQaEvalFixtureTest {
     void shouldLoadRealQaEvalCases() throws Exception {
         List<RagRealQaEvalCase> cases = new RagRealQaEvalRunner().loadCases();
 
-        assertThat(cases).hasSizeGreaterThanOrEqualTo(8);
+        assertThat(cases).hasSizeGreaterThanOrEqualTo(20);
         assertThat(cases).allSatisfy(evalCase -> {
             assertThat(evalCase.id()).isNotBlank();
             assertThat(evalCase.category()).isNotBlank();
@@ -29,10 +29,17 @@ class RagRealQaEvalFixtureTest {
                 "no_evidence",
                 "semantic_distractor",
                 "hybrid_keyword_noise",
-                "rerank_uplift_candidate"
+                "rerank_uplift_candidate",
+                "long_document",
+                "near_miss_no_evidence",
+                "multi_doc_summary",
+                "citation_grounding",
+                "scope_isolation"
         );
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.expectedNoEvidence()).isTrue());
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.minDocumentCoverage()).isGreaterThanOrEqualTo(3));
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.rerankUpliftCandidate()).isTrue());
+        assertThat(cases).filteredOn(evalCase -> "long_document".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(3);
+        assertThat(cases).filteredOn(evalCase -> "near_miss_no_evidence".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
     }
 }
