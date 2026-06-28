@@ -59,6 +59,21 @@ class RuleBasedMemoryExtractionServiceTest {
         assertThat(candidates.get(0).content()).doesNotContain("RAG evidence");
     }
 
+    @Test
+    void shouldExtractEnglishAnswerStyleAndTaskGoalForSmokeMessages() {
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER,
+                        "Please answer with the conclusion first, then explain tradeoffs."),
+                message(102L, 2, ConversationMessageRole.USER,
+                        "Current goal is finishing the Memory Quality smoke phase.")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).extracting(MemorySuggestionCandidate::memoryType)
+                .containsExactly(UserMemoryType.ANSWER_STYLE, UserMemoryType.TASK_GOAL);
+    }
+
     private ConversationMessage message(Long id, int sequenceNo, String role, String content) {
         ConversationMessage message = new ConversationMessage();
         message.setId(id);

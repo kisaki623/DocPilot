@@ -31,6 +31,27 @@ Verified gates:
 
 Boundary: artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This is a small real-link smoke quality gate, not a large-scale relevance benchmark or online SLA.
 
+## 2026-06-28 Memory Quality Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/memory-quality-smoke.ps1`
+
+Marker: `docpilot-memory-quality-20260628193150-625bf6`
+
+Verified gates:
+
+- Local MySQL / Qdrant tunnel, backend health and seven frontend routes passed.
+- Temporary user A / user B, two txt documents, KnowledgeBase, Conversation and memory records were created by the runner.
+- Delegated cloud quality gates passed: upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase two-document RAG, populated-KB no-evidence, Conversation Trace, permission isolation and artifact redaction.
+- Memory quality gate extracted `2` suggestions from a real temporary conversation.
+- Accepted suggestion became `ACTIVE`; ignored suggestion became `IGNORED` and was absent from the ACTIVE memory list.
+- Bound-KB trace showed `recentMessages=2`, `userMemory=1`, `ragEvidence=6`, `memoryCount=1`, `evidenceCount=6`, and documentHitCounts covering both temporary documents.
+
+Boundary: artifact is stored under ignored `backend/target/memory-quality/.../artifact.json`; do not commit artifact raw content, conversation text, memory content, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This validates rule-based memory quality gates and trace separation; it does not claim real-model long-term memory extraction or large-scale personalization quality.
+
 ## 2026-06-28 Phase 2 Real Experience Audit
 
 Status: PASS after follow-up fixes

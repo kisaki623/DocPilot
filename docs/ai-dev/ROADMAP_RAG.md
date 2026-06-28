@@ -99,12 +99,17 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 第二片已完成：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，使用 `docpilot-rag-real-qa` marker 和 `backend/target/rag-real-qa` artifact root 承接真实链路质量证据；wrapper 复用 cloud quality gate 并已通过 plan / dry-run / 脚本安全测试。
 - 第三片已完成：`rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260628164757-ac2a1d`；临时用户、两份临时文档、KnowledgeBase、Conversation Trace、权限隔离和脱敏 artifact 均通过完整 gate。
 
-### Quality Loop v2 / Memory Quality Eval（IN PROGRESS）
+### Quality Loop v2 / Memory Quality Eval（DONE）
 
 - 目标：把 Conversation Memory 从功能可用推进到质量可解释，验证长期记忆候选、ACTIVE / SUGGESTED / IGNORED 分层、summary / recent messages / user memory / RAG evidence 的 trace 计数，以及 RAG evidence 不污染长期记忆。
 - 第一片已完成：补离线 memory quality eval / tests，覆盖用户偏好抽取、项目目标抽取、敏感内容拦截、assistant / RAG evidence 不抽取为 memory、只有 ACTIVE memory 进入 context，以及 trace source counts。2026-06-28 已验证 `mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，48 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，249 tests。
-- 第二片建议：补真实链路 memory smoke，创建临时会话并接受一条 memory，绑定 KnowledgeBase 后验证 `contextSourceCounts.userMemory>0`、`contextSourceCounts.ragEvidence>0`、`documentHitCounts` 不为空，且 artifact 只保存脱敏计数。
-- 后续：继续 Frontend UX Audit，重点从用户视角检查 memory / trace / citation 是否好理解，而不是只看 API gate。
+- 第二片已完成：补真实链路 memory smoke，创建临时会话并验证候选抽取、接受 / 忽略状态分层、ACTIVE memory list 隔离，绑定 KnowledgeBase 后 trace 同时包含 `contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6` 和两文档 documentHitCounts。2026-06-28 `memory-quality-smoke.ps1 -Mode run` PASS，marker 为 `docpilot-memory-quality-20260628193150-625bf6`。
+
+### Quality Loop v2 / Frontend UX Audit（NEXT）
+
+- 目标：从真实用户视角检查 RAG、Memory、Trace 和 citation 展示效果，而不是只依赖 API gate。
+- 第一片建议：使用真实 backend / frontend / tunnel 和浏览器打开 `/conversations`，围绕已通过的 Memory smoke 数据或新临时数据检查 trace inspector、memory panel、citation footer、KB evidence 文字、移动端布局和空 / loading / error 状态。
+- 后续：若发现展示不一致，优先修正用户能看到的 trace / citation / memory 状态，再补 Playwright 或 smoke 证据。
 
 ## 5. 质量门禁
 

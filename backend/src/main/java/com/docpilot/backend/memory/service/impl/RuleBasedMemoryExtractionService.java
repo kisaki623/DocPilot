@@ -76,19 +76,24 @@ public class RuleBasedMemoryExtractionService implements MemoryExtractionService
     }
 
     private String classify(String normalized) {
-        if (containsAny(normalized, "回答", "结论", "简洁", "详细", "中文", "风格", "格式")) {
+        if (containsAny(normalized, "回答", "结论", "简洁", "详细", "中文", "风格", "格式",
+                "answer", "conclusion", "concise", "detailed", "style", "format")) {
             return UserMemoryType.ANSWER_STYLE;
         }
-        if (containsAny(normalized, "偏好", "喜欢", "习惯", "以后请", "希望你", "不要")) {
+        if (containsAny(normalized, "偏好", "喜欢", "习惯", "以后请", "希望你", "不要",
+                "prefer", "preference", "habit", "please", "do not")) {
             return UserMemoryType.PREFERENCE;
         }
-        if (containsAny(normalized, "目标", "计划", "下一步", "待办", "完成", "阶段")) {
+        if (containsAny(normalized, "目标", "计划", "下一步", "待办", "完成", "阶段",
+                "goal", "plan", "next step", "todo", "finish", "phase")) {
             return UserMemoryType.TASK_GOAL;
         }
-        if (containsAny(normalized, "docpilot", "项目", "当前任务", "已经实现", "已完成")) {
+        if (containsAny(normalized, "docpilot", "项目", "当前任务", "已经实现", "已完成",
+                "project", "current task", "implemented", "completed")) {
             return UserMemoryType.PROJECT_STATE;
         }
-        if (containsAny(normalized, "spring", "rag", "agent", "qdrant", "rocketmq", "redis", "mysql", "知识库")) {
+        if (containsAny(normalized, "spring", "rag", "agent", "qdrant", "rocketmq", "redis", "mysql", "知识库",
+                "knowledge base", "retrieval", "evidence")) {
             return UserMemoryType.TECH_CONTEXT;
         }
         return null;

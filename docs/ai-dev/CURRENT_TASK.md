@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v2：Memory Quality Eval v1（IN PROGRESS）
+当前任务：DocPilot Quality Loop v2：Frontend UX Audit v1（NEXT）
+
+## 2026-06-28 追加任务：Memory Quality Eval v1 真实链路 smoke 第二片
+
+- 目标：把 Memory Quality Eval 从离线 test-side 门禁推进到真实链路 smoke，验证临时会话中候选记忆抽取、接受 / 忽略状态分层、ACTIVE 列表隔离，以及绑定 KnowledgeBase 后 trace 同时包含 userMemory 和 ragEvidence。
+- 已完成：新增 `scripts/smoke/memory-quality-smoke.ps1`，并给 `cloud-quality-smoke.ps1` 增加默认关闭的 `-EnableMemoryQualityGate`；Memory 专项 wrapper 默认使用 `SmokePrefix=docpilot-memory-quality`、artifact root `backend/target/memory-quality` 并打开 memory gate。`RuleBasedMemoryExtractionService` 同步补充英文 smoke 消息关键词识别，避免真实 smoke 必须依赖中文脚本字符串。
+- 已验证：`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest,RuleBasedMemoryExtractionServiceTest" test` PASS，5 tests；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-memory-quality-20260628193150-625bf6`；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，252 tests。
+- 关键结果：Memory 专项 gate 抽取候选 `2` 条，accepted suggestion 变为 `ACTIVE`，ignored suggestion 变为 `IGNORED` 且不出现在 ACTIVE 列表；trace 显示 `contextSourceCounts.recentMessages=2`、`userMemory=1`、`ragEvidence=6`、`memoryCount=1`、`evidenceCount=6`，documentHitCounts 覆盖两份临时文档。完整 delegated gates 中 tunnel、backend health、frontend routes、两文档 parse/index、chunk 质量、MySQL/Qdrant 一致性、单文档 RAG、KB RAG、no-evidence、Conversation Trace、权限隔离和 artifact 脱敏均 PASS。
+- 边界：本片创建了临时 smoke 用户、文档、KnowledgeBase、Conversation 和 memory 数据，但未操作远程 Docker、未走 `hk-ops`、未删除业务数据、未改数据库结构、未提交 artifact 原文、未打印 `.env` / token / API key / 云地址 / 连接串、未 push。早期失败 run 只留下 ignored artifact，用于本地诊断，不提交。
+- 下一步：进入 Frontend UX Audit v1，使用真实前后端链路和浏览器检查 `/conversations` memory / trace / citation 展示、KnowledgeBase evidence 可读性、移动端布局和关键路径，不只看 API gate。
 
 ## 2026-06-28 追加任务：Memory Quality Eval v1 离线基线第一片
 
@@ -8,7 +17,7 @@
 - 已完成：新增 `backend/src/test/resources/memory/memory-quality-eval-cases.json`，以及 `MemoryQualityEvalCase` / `MemoryQualityEvalRunner` / `MemoryQualityEvalResult` / `MemoryQualityEvalMetrics` 和 fixture / runner 测试；runner 复用真实 `RuleBasedMemoryExtractionService`、`MemorySelector`、`ContextAssemblyServiceImpl` 和 `MemorySafetyValidator`，用 test double 提供会话消息、记忆和 RAG evidence。
 - 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，48 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，249 tests。
 - 边界：本片只做离线 test-side eval，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。artifact 只保存 case id、计数、布尔指标和失败原因，不保存对话全文、memory content、prompt、evidence context、token 或密钥。
-- 下一步：进入 Memory Quality Eval v1 真实链路 smoke，创建临时会话并接受一条 memory，绑定 KnowledgeBase 后验证 `contextSourceCounts.userMemory>0`、`contextSourceCounts.ragEvidence>0`、`documentHitCounts` 不为空、RAG evidence 不污染 memory；如果真实链路不可达，只记录 `BLOCKED` 和本地证据。
+- 下一步：已由第二片真实 `memory-quality-smoke.ps1 -Mode run` 收口为 PASS。
 
 ## 2026-06-28 追加任务：RAG Real QA Eval v1 真实链路 run 第三片
 

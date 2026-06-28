@@ -6,7 +6,11 @@
 - fixture 覆盖用户回答风格偏好抽取、assistant RAG evidence 不进入 memory、ACTIVE / SUGGESTED / IGNORED 状态分层、敏感内容拦截，以及 summary / recent messages / user memory / RAG evidence 的 trace source counts。
 - runner 复用现有 `RuleBasedMemoryExtractionService`、`MemorySelector`、`ContextAssemblyServiceImpl` 和 `MemorySafetyValidator`，只用 test double 提供会话消息、记忆和 RAG evidence；artifact 只保存脱敏 summary，不保存对话全文、memory content、prompt、evidence context 或敏感配置。
 - 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，48 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，249 tests。
-- 边界：本片未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL；下一片应做真实链路 Memory smoke，再进入 Frontend UX Audit。
+- 边界：离线第一片未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL。
+- 已完成真实链路第二片：新增 `scripts/smoke/memory-quality-smoke.ps1`，并给 `cloud-quality-smoke.ps1` 增加默认关闭的 `-EnableMemoryQualityGate`；Memory 专项 wrapper 默认打开该 gate，覆盖真实候选抽取、接受 / 忽略、ACTIVE 列表隔离和绑定 KB 后 trace source counts。
+- 为支撑 ASCII smoke 文本，`RuleBasedMemoryExtractionService` 补充英文关键词识别；同时 smoke runner API timeout 从 `60s` 提高到 `180s`，避免真实回答 provider 偶发慢响应误伤质量门禁，并在 API 失败时输出脱敏 status / code / message。
+- 已验证：`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest,RuleBasedMemoryExtractionServiceTest" test` PASS，5 tests；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-memory-quality-20260628193150-625bf6`；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，252 tests。
+- 真实 run 结果：memoryQuality gate 抽取候选 `2` 条，accepted suggestion 为 `ACTIVE`，ignored suggestion 为 `IGNORED` 且不进入 ACTIVE memory list；trace source counts 为 `recentMessages=2`、`userMemory=1`、`ragEvidence=6`，documentHitCounts 覆盖两份临时文档。下一片进入 Frontend UX Audit。
 
 ## 2026-06-28 Quality Loop v2 / RAG Real QA Eval v1
 

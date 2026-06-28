@@ -12,7 +12,8 @@ param(
   [int]$QdrantLocalPort = 6333,
   [int]$IndexVersion = 1,
   [switch]$SkipFrontend,
-  [switch]$ReuseRunningServices
+  [switch]$ReuseRunningServices,
+  [switch]$EnableMemoryQualityGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -157,7 +158,7 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
         Method = $method
         Uri = $uri
         Headers = $headers
-        TimeoutSec = 60
+        TimeoutSec = 180
       }
       if ($null -ne $body) {
         $params["ContentType"] = "application/json"
@@ -180,7 +181,8 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
     if ($AllowFailure) {
       return ConvertTo-SafeApiFailure $_
     }
-    throw "api request failed at $method $path"
+    $failure = ConvertTo-SafeApiFailure $_
+    throw "api request failed at $method $path status=$($failure.httpStatus) code=$($failure.code) message=$($failure.message)"
   }
 }
 
@@ -645,7 +647,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "noEvidenceThreshold", "conversationTrace", "permissionIsolation",
+      "knowledgeBaseRag", "noEvidenceThreshold", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -872,6 +874,61 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
       documentHitCounts = $trace.data.documentHitCounts
     })
 
+  if ($EnableMemoryQualityGate) {
+    $memoryConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Memory Quality $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $kb.data.id }) $tokenA
+    $memoryMessageA = Invoke-JsonApi "POST" "/api/conversations/$($memoryConversation.data.conversationId)/messages" ([ordered]@{ content = "Please answer with the conclusion first, then explain tradeoffs. Use ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE for $smokeMarker." }) $tokenA
+    $memoryMessageB = Invoke-JsonApi "POST" "/api/conversations/$($memoryConversation.data.conversationId)/messages" ([ordered]@{ content = "Use the knowledge base based on documents for ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE. Current goal is finishing the Memory Quality smoke phase while keeping user memory separate from RAG proof." }) $tokenA
+    $suggestions = Invoke-JsonApi "POST" "/api/memories/suggestions/extract" ([ordered]@{ conversationId = $memoryConversation.data.conversationId; limit = 20 }) $tokenA
+    $suggestionList = @($suggestions.data)
+    $answerStyleSuggestion = $suggestionList | Where-Object { $_.memoryType -eq "ANSWER_STYLE" } | Select-Object -First 1
+    $taskGoalSuggestion = $suggestionList | Where-Object { $_.memoryType -eq "TASK_GOAL" } | Select-Object -First 1
+    if (-not $answerStyleSuggestion -or -not $taskGoalSuggestion) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          extractedSuggestionCount = $suggestionList.Count
+          suggestionTypes = @($suggestionList | ForEach-Object { $_.memoryType })
+          hasAnswerStyle = [bool]$answerStyleSuggestion
+          hasTaskGoal = [bool]$taskGoalSuggestion
+        }) "memory suggestion extraction did not produce answer style and task goal candidates"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory suggestion extraction did not produce answer style and task goal candidates"
+    }
+    $acceptedMemory = Invoke-JsonApi "POST" "/api/memories/suggestions/$($answerStyleSuggestion.memoryId)/accept" $null $tokenA
+    $ignoredMemory = Invoke-JsonApi "POST" "/api/memories/suggestions/$($taskGoalSuggestion.memoryId)/ignore" $null $tokenA
+    $activeMemories = Invoke-JsonApi "GET" "/api/memories?limit=50" $null $tokenA
+    $activeMemoryIds = @($activeMemories.data | ForEach-Object { [long]$_.memoryId })
+    if ($acceptedMemory.data.status -ne "ACTIVE" -or $ignoredMemory.data.status -ne "IGNORED" -or ($activeMemoryIds -notcontains [long]$acceptedMemory.data.memoryId) -or ($activeMemoryIds -contains [long]$ignoredMemory.data.memoryId)) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "accepted and ignored memory status isolation failed"
+    }
+    $memoryTrace = Invoke-JsonApi "GET" "/api/conversations/$($memoryConversation.data.conversationId)/messages/$($memoryMessageB.data.messageId)/trace" $null $tokenA
+    $memoryTraceCounts = $memoryTrace.data.contextSourceCounts
+    if ((Get-CountValue $memoryTraceCounts "userMemory") -lt 1 -or (Get-CountValue $memoryTraceCounts "ragEvidence") -lt 1 -or [int]$memoryTrace.data.evidenceCount -lt 1 -or [int]$memoryTrace.data.memoryCount -lt 1 -or @($memoryTrace.data.memoryTypes).Count -lt 1) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          extractedSuggestionCount = $suggestionList.Count
+          acceptedStatus = $acceptedMemory.data.status
+          ignoredStatus = $ignoredMemory.data.status
+          activeMemoryContainsAccepted = ($activeMemoryIds -contains [long]$acceptedMemory.data.memoryId)
+          activeMemoryContainsIgnored = ($activeMemoryIds -contains [long]$ignoredMemory.data.memoryId)
+          contextSourceCounts = $memoryTraceCounts
+          ragTriggered = $memoryTrace.data.ragTriggered
+          ragRequired = $memoryTrace.data.ragRequired
+          memoryCount = $memoryTrace.data.memoryCount
+          evidenceCount = $memoryTrace.data.evidenceCount
+          documentHitCounts = $memoryTrace.data.documentHitCounts
+        }) "memory quality trace did not include accepted memory and RAG evidence"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory quality trace did not include accepted memory and RAG evidence"
+    }
+    Set-Gate "memoryQuality" "PASS" @([ordered]@{
+        extractedSuggestionCount = $suggestionList.Count
+        acceptedStatus = $acceptedMemory.data.status
+        ignoredStatus = $ignoredMemory.data.status
+        activeMemoryContainsAccepted = ($activeMemoryIds -contains [long]$acceptedMemory.data.memoryId)
+        activeMemoryContainsIgnored = ($activeMemoryIds -contains [long]$ignoredMemory.data.memoryId)
+        contextSourceCounts = $memoryTraceCounts
+        memoryCount = $memoryTrace.data.memoryCount
+        evidenceCount = $memoryTrace.data.evidenceCount
+        documentHitCounts = $memoryTrace.data.documentHitCounts
+      })
+  }
+
   $fileUserB = Upload-SmokeFile $betaPath $tokenB
   $docUserB = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $fileUserB.id }) $tokenB
   $negativeChecks = @(
@@ -930,6 +987,7 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
       parseTaskIds = @([long]$taskA.data.taskId, [long]$taskB.data.taskId)
       knowledgeBaseId = [long]$kb.data.id
       memoryId = [long]$memory.data.memoryId
+      memoryQualityGateEnabled = [bool]$EnableMemoryQualityGate
       conversationId = [long]$conversation.data.conversationId
       messageId = [long]$message.data.messageId
     }
