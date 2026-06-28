@@ -6,6 +6,8 @@
 - 新增测试侧 `RagRealQaEvalRunner` / `RagRealQaEvalMetrics` / `RagRealQaEvalResult` / `RagRealQaEvalCase`，复用既有 KnowledgeBase eval harness，artifact 只输出脱敏 summary，不保存文档原文、query、模型输入、evidence context 或模型输出。
 - 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，7 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，202 tests。
 - 边界：本片未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL；下一片应进入真实链路 RAG Real QA smoke runner，然后继续 Memory Quality Eval 和 Frontend UX Audit。
+- 已完成第二片真实链路入口：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，默认 `SmokePrefix=docpilot-rag-real-qa`、artifact root `backend/target/rag-real-qa`，plan 输出 real-QA case 类型，dry-run 只检查本地前置条件。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS（当前 MySQL / Qdrant local ports 未监听，仅记录可达性）；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests。尚未执行会创建业务数据的 `run`。
 
 ## 2026-06-28 Phase 2 真实体验审计
 

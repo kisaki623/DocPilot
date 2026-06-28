@@ -96,7 +96,8 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 第一片已完成：新增 RAG Real QA Eval v1 离线基线，覆盖事实查找、跨文档总结、比较、多跳式证据、no-evidence、语义干扰、hybrid keyword 噪声和 rerank uplift shaped case。
 - 新增指标：`casePassRate`、`answerCorrectnessRate`、`citationGroundingRate`、`noEvidencePrecision`、`multiDocumentCoverageRate`、`forbiddenLeakRate`、`scopeViolationRate`、`rerankUpliftCandidateRate`。
 - 当前边界：该基线仍使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient` 和 synthetic answer，只能证明离线回归门禁，不代表真实 provider / Qdrant / 浏览器体验；artifact 不保存文档原文、query、模型输入、evidence context 或模型输出。
-- 下一片：新增真实链路 RAG Real QA smoke runner，把同类问答 case 迁移到临时用户、临时文档、KnowledgeBase、Conversation Trace 和脱敏 artifact 中验证；随后继续 Memory Quality Eval 与 Frontend UX Audit。
+- 第二片已完成：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，使用 `docpilot-rag-real-qa` marker 和 `backend/target/rag-real-qa` artifact root 承接真实链路质量证据；当前 wrapper 复用 cloud quality gate 并已通过 plan / dry-run / 脚本安全测试。
+- 下一片：执行 `rag-real-qa-eval-smoke.ps1 -Mode run`，把临时用户、临时文档、KnowledgeBase、Conversation Trace、权限隔离和脱敏 artifact 跑成真实链路证据；随后继续 Memory Quality Eval 与 Frontend UX Audit。
 
 ## 5. 质量门禁
 

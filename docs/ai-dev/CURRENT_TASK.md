@@ -10,6 +10,14 @@
 - 边界：本片只做离线质量基线，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。
 - 下一步：进入真实链路 RAG Real QA smoke runner，把同类 case 小规模迁移到临时用户 / 文档 / KB / Conversation 的真实链路验证；随后继续 Memory Quality Eval 和 Frontend UX Audit。
 
+## 2026-06-28 追加任务：RAG Real QA Eval v1 真实链路入口第二片
+
+- 目标：为 RAG Real QA Eval 建立独立真实链路 smoke 入口，后续可以用专属 marker / artifact 路径收口真实临时用户、文档、KnowledgeBase、Conversation Trace 和权限门禁，而不是把所有证据混在通用 cloud quality smoke 下。
+- 已完成：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`，默认 `SmokePrefix=docpilot-rag-real-qa`、artifact 根目录 `backend/target/rag-real-qa`；当前 wrapper 委托 `cloud-quality-smoke.ps1` 执行完整业务质量门禁，并在 plan 输出 real-QA case 类型清单。
+- 已验证：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS，当前记录 MySQL / Qdrant local ports 未监听但 dry-run 本身 PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests。
+- 边界：本片只新增真实链路入口和脚本安全测试；未执行 `run`，未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。
+- 下一步：提交入口后执行 `rag-real-qa-eval-smoke.ps1 -Mode run`。若 tunnel / backend / Qdrant / MySQL 不可达，只记录 `BLOCKED` 和本地证据；若 PASS，再回写 `DEMO_SMOKE_RECORD.md` / `STATE.md` / `PROGRESS_LOG.md`。
+
 ## 2026-06-28 追加任务：Phase 3 small real rerank provider validation 收口
 
 - 目标：做小规模真实 rerank provider 实效验证，判断 rerank / hybrid 是否实际改善召回与 citation，同时不默认扩大能力范围。
