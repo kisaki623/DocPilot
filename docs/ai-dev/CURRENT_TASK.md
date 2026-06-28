@@ -10,8 +10,9 @@
 - KnowledgeBase 页面验证：页面内点击“查看引用来源”后展示 provider / 索引集合、`来源不足: 否`、来源文档分布 `#175: 1 / #176: 1`、召回片段和引用来源卡片；两份临时文档 marker 均可见。桌面 `/conversations`、`/knowledge-bases` 均无横向溢出。
 - 移动端验证：`390x844` 下 `/conversations` 的 `.dp-chat-shell`、`.dp-chat-main`、`.dp-chat-topbar`、`.dp-chat-thread`、`.dp-chat-composer-wrap` 均约束在 `346px`，页面 `scrollWidth=clientWidth=375`；`/knowledge-bases` 同样 `scrollWidth=clientWidth=375`。
 - Gemini 轻量 UX sanity review 提醒：继续关注技术观测字段对非技术用户的认知负担、Trace / Memory 数据量增长后的可读性，以及 `390px` 以下更窄移动端视口。
+- 追加 v1.1 验证：同一临时用户下新增一条包含长标识符的 ACTIVE memory，检查 `360x780` 与 `320x740` 极窄移动端。`/conversations` Memory 抽屉可打开，长 memory 未撑破页面；`360px` 下页面 `scrollWidth=clientWidth=345`，`320px` 下页面 `scrollWidth=clientWidth=305`；`/knowledge-bases` 同样无横向溢出。
 - 边界：本片创建了临时审计数据，但未改后端 / 前端业务代码，未删除业务数据，未改数据库结构，未操作远程 Docker，未提交 artifact / 截图 / 日志原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
-- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，优先进入 Frontend UX Audit v1.1，补 `360px` 极窄移动端、Trace / Memory 长列表可读性，以及 KnowledgeBase 技术字段的产品化降噪。
+- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，优先进入 KnowledgeBase 技术字段产品化降噪，保留面向工程审计的 provider / collection / score 信息，但避免普通用户第一眼被底层名词淹没。
 
 ## 2026-06-28 追加任务：Memory Quality Eval v1 真实链路 smoke 第二片
 

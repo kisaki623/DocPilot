@@ -7,7 +7,8 @@
 - 页面侧证据：`/conversations` 显示 `2 条来源`，Trace 面板和 Memory 面板均可通过真实点击打开，ACTIVE memory 内容可见；`/knowledge-bases` 点击“查看引用来源”后展示 provider / 索引集合、来源文档分布、召回片段和两条引用来源。
 - 移动端证据：`390x844` 下 `/conversations` 关键容器均约束在 `346px`，页面 `scrollWidth=clientWidth=375`；`/knowledge-bases` 同样无横向溢出。
 - Gemini 轻量 UX sanity review 提醒继续关注：技术观测字段对普通用户的认知负担、Trace / Memory 数据量增长后的可读性，以及 `390px` 以下更窄移动端视口。
-- 结论：Frontend UX Audit v1 PASS，本片未发现需要改代码的阻断问题；下一片建议进入 Frontend UX Audit v1.1，补极窄移动端和 Trace / Memory 长列表压力体验。
+- 已补 v1.1 极窄移动端和长 memory 检查：新增一条包含长标识符的 ACTIVE memory，`360x780` 下 `/conversations` Memory 抽屉可打开且 `scrollWidth=clientWidth=345`，`320x740` 下 `scrollWidth=clientWidth=305`；`/knowledge-bases` 在两种窄视口同样无横向溢出。
+- 结论：Frontend UX Audit v1 / v1.1 PASS，本片未发现需要改代码的阻断问题；下一片建议进入 KnowledgeBase 技术观测字段产品化降噪。
 
 ## 2026-06-28 Quality Loop v2 / Memory Quality Eval v1
 

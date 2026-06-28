@@ -66,6 +66,7 @@ Verified flow:
 - `/conversations` displayed the assistant footer as `2 条来源`; Trace and Memory tabs were reachable through real clicks, and the ACTIVE memory was visible.
 - `/knowledge-bases` displayed provider / collection fields, `来源不足: 否`, document distribution `#175: 1 / #176: 1`, retrieved snippets and citation cards containing both temporary document markers.
 - Mobile `390x844` checks found no horizontal overflow on `/conversations` or `/knowledge-bases`.
+- Follow-up `360x780` and `320x740` checks added a long ACTIVE memory and confirmed the Memory drawer and KnowledgeBase page still had no horizontal overflow.
 
 Boundary: this is a real-browser user-experience audit over temporary smoke data. It did not change backend or frontend code, did not delete business data, did not alter schema, did not operate remote Docker, and did not commit artifacts, screenshots, raw logs, tokens, cloud addresses or connection strings.
 
