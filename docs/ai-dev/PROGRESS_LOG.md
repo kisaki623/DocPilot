@@ -7,7 +7,10 @@
 - 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，7 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，202 tests。
 - 边界：本片未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL；下一片应进入真实链路 RAG Real QA smoke runner，然后继续 Memory Quality Eval 和 Frontend UX Audit。
 - 已完成第二片真实链路入口：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，默认 `SmokePrefix=docpilot-rag-real-qa`、artifact root `backend/target/rag-real-qa`，plan 输出 real-QA case 类型，dry-run 只检查本地前置条件。
-- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS（当前 MySQL / Qdrant local ports 未监听，仅记录可达性）；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests。尚未执行会创建业务数据的 `run`。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS（当前 MySQL / Qdrant local ports 未监听，仅记录可达性）；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests。
+- 已完成第三片真实链路 run：`rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260628164757-ac2a1d`；本次启动本地 tunnel / backend / frontend，创建临时 smoke 用户、两份 txt 文档、KnowledgeBase、Conversation 和 ignored 脱敏 artifact。
+- 本次真实 run 覆盖：配置一致性、tunnel、backend health、frontend route、注册、两文档上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、populated-KB no-evidence、Conversation Trace、四个权限隔离负向检查、artifact 脱敏和清理。结果为整体 PASS，artifact 路径位于 ignored `backend/target/rag-real-qa/.../artifact.json`，未提交原文。
+- 结论：RAG Real QA Eval v1 已从离线基线推进到真实链路 smoke 证据；下一片进入 Memory Quality Eval，重点验证长期记忆候选 / ACTIVE / IGNORED 分层、RAG evidence 不污染 memory、trace source counts 和真实会话体验。
 
 ## 2026-06-28 Phase 2 真实体验审计
 

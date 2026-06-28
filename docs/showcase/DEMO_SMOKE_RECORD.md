@@ -4,6 +4,33 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-28 RAG Real QA Eval Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260628164757-ac2a1d`
+
+Verified gates:
+
+- Local MySQL / Qdrant tunnel was started by the runner.
+- Backend health and seven frontend routes passed.
+- Temporary user A / user B, two txt documents, KnowledgeBase and Conversation were created by the runner.
+- Two documents parsed and indexed successfully; each had `3` MySQL chunks and `3` matched Qdrant points.
+- Chunk quality passed offset ordering, length/token checks, duplicate hash checks and indexed vector id checks.
+- MySQL / Qdrant payload consistency passed with no missing vector IDs or structure payload fields.
+- Single-document RAG returned `3` hits and `3` citations.
+- KnowledgeBase RAG returned `6` hits and `6` citations, with document distribution covering both temporary documents.
+- Populated-KB no-evidence gate returned `0` hits and `0` citations.
+- Conversation Trace showed `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, `memoryCount=1`, `contextSourceCounts.userMemory=1`, `contextSourceCounts.ragEvidence=6`, and two-document hit distribution.
+- Permission isolation negative checks passed for foreign KB detail, foreign KB retrieve, foreign document add and foreign trace access.
+- Artifact redaction and cleanup gates passed.
+
+Boundary: artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This is a small real-link smoke quality gate, not a large-scale relevance benchmark or online SLA.
+
 ## 2026-06-28 Phase 2 Real Experience Audit
 
 Status: PASS after follow-up fixes

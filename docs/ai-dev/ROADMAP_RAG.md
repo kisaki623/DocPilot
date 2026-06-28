@@ -91,13 +91,20 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - Phase 3 小规模真实 rerank provider 验证已完成：`scripts/smoke/rerank-effect-smoke.ps1 -Mode run` 通过两轮真实 cloud quality smoke 对比 hybrid-only 与 hybrid+real-rerank。rerank run 显示 `rerankApplied=true`、rerank score count `6`，KB hit / citation / coveredDocumentCount 与 baseline 持平，no-evidence 和权限隔离无回退。结论是 provider 可用且无回退，但当前满分 fixture 未证明覆盖率 uplift。
 - 结论：v8 三阶段已完成；下一阶段进入 DocPilot Quality Loop v2，把 RAG / Memory / Frontend UX 分别做成更接近真实用户体验的持续质量循环。
 
-### Quality Loop v2 / RAG Real QA Eval（IN PROGRESS）
+### Quality Loop v2 / RAG Real QA Eval（DONE）
 
 - 第一片已完成：新增 RAG Real QA Eval v1 离线基线，覆盖事实查找、跨文档总结、比较、多跳式证据、no-evidence、语义干扰、hybrid keyword 噪声和 rerank uplift shaped case。
 - 新增指标：`casePassRate`、`answerCorrectnessRate`、`citationGroundingRate`、`noEvidencePrecision`、`multiDocumentCoverageRate`、`forbiddenLeakRate`、`scopeViolationRate`、`rerankUpliftCandidateRate`。
 - 当前边界：该基线仍使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient` 和 synthetic answer，只能证明离线回归门禁，不代表真实 provider / Qdrant / 浏览器体验；artifact 不保存文档原文、query、模型输入、evidence context 或模型输出。
-- 第二片已完成：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，使用 `docpilot-rag-real-qa` marker 和 `backend/target/rag-real-qa` artifact root 承接真实链路质量证据；当前 wrapper 复用 cloud quality gate 并已通过 plan / dry-run / 脚本安全测试。
-- 下一片：执行 `rag-real-qa-eval-smoke.ps1 -Mode run`，把临时用户、临时文档、KnowledgeBase、Conversation Trace、权限隔离和脱敏 artifact 跑成真实链路证据；随后继续 Memory Quality Eval 与 Frontend UX Audit。
+- 第二片已完成：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，使用 `docpilot-rag-real-qa` marker 和 `backend/target/rag-real-qa` artifact root 承接真实链路质量证据；wrapper 复用 cloud quality gate 并已通过 plan / dry-run / 脚本安全测试。
+- 第三片已完成：`rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260628164757-ac2a1d`；临时用户、两份临时文档、KnowledgeBase、Conversation Trace、权限隔离和脱敏 artifact 均通过完整 gate。
+
+### Quality Loop v2 / Memory Quality Eval（NEXT）
+
+- 目标：把 Conversation Memory 从功能可用推进到质量可解释，验证长期记忆候选、ACTIVE / SUGGESTED / IGNORED 分层、summary / recent messages / user memory / RAG evidence 的 trace 计数，以及 RAG evidence 不污染长期记忆。
+- 第一片建议：补离线 memory quality eval / tests，覆盖用户偏好抽取、项目目标抽取、敏感内容拦截、assistant / RAG evidence 不抽取为 memory、只有 ACTIVE memory 进入 context。
+- 第二片建议：补真实链路 memory smoke，创建临时会话并接受一条 memory，绑定 KnowledgeBase 后验证 `contextSourceCounts.userMemory>0`、`contextSourceCounts.ragEvidence>0`、`documentHitCounts` 不为空，且 artifact 只保存脱敏计数。
+- 后续：继续 Frontend UX Audit，重点从用户视角检查 memory / trace / citation 是否好理解，而不是只看 API gate。
 
 ## 5. 质量门禁
 

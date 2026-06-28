@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v2：RAG Real QA Eval v1（IN PROGRESS）
+当前任务：DocPilot Quality Loop v2：Memory Quality Eval v1（NEXT）
+
+## 2026-06-28 追加任务：RAG Real QA Eval v1 真实链路 run 第三片
+
+- 目标：把 RAG Real QA Eval 从离线基线和 wrapper 验证推进到真实链路证据，确认临时用户、两文档、KnowledgeBase、Conversation Trace、权限隔离和脱敏 artifact 在完整 cloud quality gate 中保持通过。
+- 已完成：执行 `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker 为 `docpilot-rag-real-qa-20260628164757-ac2a1d`；runner 启动本地 tunnel / backend / frontend，创建临时 smoke 用户、两份 txt 文档、KnowledgeBase、Conversation，并生成 ignored 脱敏 artifact。
+- 已验证：整体 `PASS`；覆盖配置一致性、tunnel、backend health、frontend route、注册、上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、populated-KB no-evidence、Conversation Trace、四个权限隔离负向检查、artifact 脱敏扫描和 cleanup。
+- 关键结果：两份文档均为 `3/3` chunks indexed 且 MySQL / Qdrant matched；单文档 RAG `3` hits / `3` citations；KnowledgeBase RAG `6` hits / `6` citations，documentHitCounts 覆盖两文档；no-evidence gate 返回 `0` hits / `0` citations；Conversation Trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`。
+- 边界：本片创建了临时 smoke 数据，但未操作远程 Docker、未走 `hk-ops`、未删除业务数据、未改数据库结构、未提交 artifact 原文、未打印 `.env` / token / API key / 云地址 / 连接串、未 push。
+- 下一步：进入 Memory Quality Eval v1，先做离线 / runtime 小闭环，验证长期记忆候选、ACTIVE / SUGGESTED / IGNORED 分层、RAG evidence 不污染 memory、trace source counts 和真实会话体验；随后继续 Frontend UX Audit。
 
 ## 2026-06-28 追加任务：RAG Real QA Eval v1 离线基线第一片
 
@@ -16,7 +25,7 @@
 - 已完成：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`，默认 `SmokePrefix=docpilot-rag-real-qa`、artifact 根目录 `backend/target/rag-real-qa`；当前 wrapper 委托 `cloud-quality-smoke.ps1` 执行完整业务质量门禁，并在 plan 输出 real-QA case 类型清单。
 - 已验证：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS，当前记录 MySQL / Qdrant local ports 未监听但 dry-run 本身 PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests。
 - 边界：本片只新增真实链路入口和脚本安全测试；未执行 `run`，未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。
-- 下一步：提交入口后执行 `rag-real-qa-eval-smoke.ps1 -Mode run`。若 tunnel / backend / Qdrant / MySQL 不可达，只记录 `BLOCKED` 和本地证据；若 PASS，再回写 `DEMO_SMOKE_RECORD.md` / `STATE.md` / `PROGRESS_LOG.md`。
+- 下一步：已由第三片执行 `rag-real-qa-eval-smoke.ps1 -Mode run` 并收口为 PASS。
 
 ## 2026-06-28 追加任务：Phase 3 small real rerank provider validation 收口
 
