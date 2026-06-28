@@ -133,10 +133,10 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         List<VectorSearchHit> candidates;
         if (retrievalProperties.isHybridEnabled()) {
             candidates = hybridRetrieve(resolved, documentIds, filteredHits);
+            candidates = applyHybridConfidenceGate(resolved, candidates);
         } else {
             candidates = filteredHits;
         }
-        candidates = applySimilarityThreshold(candidates);
         List<VectorSearchHit> finalScopedCandidates = scopedHits(resolved, documentById.keySet(), candidates);
         RerankOutcome rerankOutcome = rerankCandidates(resolved, finalScopedCandidates);
         List<VectorSearchHit> selectedHits = selectDiverseHits(resolved, documentIds, rerankOutcome.hits());
@@ -364,6 +364,33 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         return hits.stream()
                 .filter(hit -> scoreForThreshold(hit) >= threshold)
                 .collect(Collectors.toList());
+    }
+
+    private List<VectorSearchHit> applyHybridConfidenceGate(ResolvedQuery query, List<VectorSearchHit> hits) {
+        double threshold = retrievalProperties.getMinSimilarityThreshold();
+        if (threshold <= 0.0) {
+            return hits;
+        }
+        boolean summaryIntent = isSummaryIntent(query.query());
+        return hits.stream()
+                .filter(hit -> scoreForThreshold(hit) >= threshold
+                        || (summaryIntent && positiveKeywordScore(hit)))
+                .collect(Collectors.toList());
+    }
+
+    private boolean positiveKeywordScore(VectorSearchHit hit) {
+        Object keywordScore = hit.payload().get("keywordScore");
+        if (keywordScore instanceof Number number) {
+            return finiteOrZero(number.doubleValue()) > 0.0D;
+        }
+        if (keywordScore instanceof String text && !text.isBlank()) {
+            try {
+                return finiteOrZero(Double.parseDouble(text.trim())) > 0.0D;
+            } catch (NumberFormatException ignored) {
+                return false;
+            }
+        }
+        return false;
     }
 
     private double scoreForThreshold(VectorSearchHit hit) {

@@ -277,6 +277,76 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldPreserveKeywordSupportedSummaryHitsAcrossDocumentsWhenHybridThresholdIsEnabled() {
+        ragRetrievalProperties.setHybridEnabled(true);
+        ragRetrievalProperties.setMinSimilarityThreshold(0.50D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
+                doc(101L, "Alpha Guide"),
+                doc(102L, "Beta Guide")
+        ));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("alpha-vector", 7L, 101L, 1, "PHASE2-ALPHA-GATE approved", 0.62D)
+        ), "in_memory", ""));
+        String query = "请总结这两个文档，必须覆盖 PHASE2-ALPHA-GATE 和 PHASE2-BETA-GATE，并列出引用来源。";
+        when(hybridRetrievalService.hybridSearch(eq(query), eq(7L), eq(List.of(101L, 102L)), eq(1), any(), any(Integer.class)))
+                .thenReturn(List.of(
+                        new FusedSearchHit(
+                                901L,
+                                101L,
+                                7L,
+                                1,
+                                0,
+                                "PHASE2-ALPHA-GATE approved",
+                                "hash-alpha",
+                                0,
+                                28,
+                                4,
+                                "mock-model",
+                                "alpha-vector",
+                                0.020D,
+                                0.62D,
+                                0.0D
+                        ),
+                        new FusedSearchHit(
+                                902L,
+                                102L,
+                                7L,
+                                1,
+                                0,
+                                "PHASE2-BETA-GATE approved",
+                                "hash-beta",
+                                0,
+                                27,
+                                4,
+                                "mock-model",
+                                null,
+                                0.018D,
+                                0.0D,
+                                4.5D
+                        )
+                ));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                query,
+                4,
+                1,
+                ""
+        ));
+
+        assertThat(result.retrievalMode()).isEqualTo("hybrid");
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.hits()).hasSize(2);
+        assertThat(result.documentHitCounts()).containsEntry(101L, 1).containsEntry(102L, 1);
+        assertThat(result.hits()).extracting(KnowledgeBaseRagRetrievalHit::documentId)
+                .containsExactly(101L, 102L);
+        assertThat(result.hits().get(1).keywordScore()).isEqualTo(4.5D);
+        assertThat(result.hits().get(1).vectorScore()).isEqualTo(0.0D);
+    }
+
+    @Test
     void shouldPreserveIndexVersionAndMetadataForHybridKeywordOnlyHits() {
         ragRetrievalProperties.setHybridEnabled(true);
         when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Doc")));

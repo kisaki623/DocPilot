@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：Phase 2: KB multi-document coverage（NEXT）
+当前任务：Phase 3: small real rerank provider validation（NEXT）
+
+## 2026-06-28 追加任务：Phase 2 KB multi-document coverage 收口
+
+- 目标：修复真实体验审计中 KnowledgeBase 手动两文档总结问题只召回 Alpha 文档、漏掉 Beta 文档的问题，同时不破坏 populated-KB no-evidence 门禁。
+- 已完成：KnowledgeBase hybrid retrieval 的二次 confidence gate 改为 summary intent 感知；summary / all-documents 类问题中，`keywordScore>0` 的 hybrid 候选可进入后续 scope guard、rerank 和多文档 diversity selection，普通非 summary 问法仍按 `vectorScore` / similarity threshold 阻断低置信 keyword 噪声。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，11 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，199 tests；真实 `scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007 -ReuseRunningServices` PASS，marker 为 `docpilot-rag-real-quality-20260628150434-2b7b39`，KnowledgeBase 两文档 gate 命中分布 `{152:3,153:3}`，no-evidence gate、Conversation Trace、权限隔离和前端 route smoke 均 PASS。
+- 边界：本片只改 KnowledgeBase retrieval gate 和对应单测；不改数据库结构、不删除业务数据、不提交 artifact / 日志 / 截图、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 下一步：进入 Phase 3 小规模真实 rerank provider 实效验证；只验证 rerank / hybrid 是否改善召回与 citation，不默认扩大能力范围，不做大规模付费 eval。
 
 ## 2026-06-28 追加任务：Phase 2 mobile conversation layout 第一片
 

@@ -9,6 +9,8 @@
 - 已修复 Conversation citation 展示第一片：历史消息加载时 best-effort 拉取最新助手消息 trace，并用 `contextTrace.evidenceCount` 作为来源数量兜底；`npm run lint` PASS，Playwright 刷新 `/conversations` 后 footer 显示 `2 条来源`，与 Trace `RAG 证据=2` 一致。
 - 已修复文档详情 citation 展示第一片：前端 RAG SSE 客户端消费 `retrieval` / `citation` 事件，文档详情页流式回答后右侧引用来源显示 `检索命中 1 条`、`引用 1`、score、chunk version 和 snippet；`npm run lint` PASS。
 - 已修复移动端 `/conversations` 横向溢出：移动端主聊天区、topbar、thread 与 composer wrapper 均被约束到主区宽度；Playwright `390x844` 测量 shell/main/topbar/thread/composer 均为 `346px` 宽，页面不再被长 KB label 撑出 viewport；`npm run lint` PASS。
+- 已修复 KnowledgeBase 手动两文档总结问法漏召回 Beta 文档：hybrid retrieval 的 confidence gate 对 summary intent 保留 `keywordScore>0` 的候选进入 scope guard、rerank 和多文档 diversity selection，同时普通非 summary keyword 噪声仍被 similarity threshold 阻断。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，11 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，199 tests；真实 `rag-real-quality-smoke.ps1 -Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260628150434-2b7b39`，KnowledgeBase 两文档 gate `{152:3,153:3}`，no-evidence、Conversation Trace、权限隔离和前端 route smoke 均 PASS。Phase 2 当前收口为 PASS，下一阶段进入 Phase 3 小规模真实 rerank provider 实效验证。
 
 ## 2026-06-28 RAG Quality Upgrade v8
 

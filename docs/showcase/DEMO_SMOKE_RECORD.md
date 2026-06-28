@@ -6,7 +6,7 @@ This file records the demo smoke evidence collected during the A1 real-link veri
 
 ## 2026-06-28 Phase 2 Real Experience Audit
 
-Status: REVIEW
+Status: PASS after follow-up fixes
 
 Marker: `docpilot-phase2-ui-audit-1782628501578`
 
@@ -32,6 +32,8 @@ Follow-up fix in the same Phase 2 cycle: `/conversations` now loads the latest a
 Follow-up fix in the same Phase 2 cycle: document detail RAG streaming now consumes `retrieval` and `citation` SSE events, so the citation panel updates during a streamed answer and shows hit count, citation score, chunk version and snippet.
 
 Follow-up fix in the same Phase 2 cycle: mobile `/conversations` now constrains the chat main area, topbar, thread and composer to the viewport width; the long KB label is clipped instead of stretching the page.
+
+Follow-up fix in the same Phase 2 cycle: KnowledgeBase hybrid retrieval now keeps keyword-supported summary-intent candidates long enough for scope guard, rerank and multi-document diversity selection. Real smoke `docpilot-rag-real-quality-20260628150434-2b7b39` passed with KnowledgeBase document distribution `{152:3,153:3}`, no-evidence threshold PASS, Conversation Trace PASS, permission isolation PASS and frontend route smoke PASS.
 
 Boundary: no raw artifact, token, password, prompt, evidence context, cloud address or connection string is committed. Temporary data was created only for this real-link audit.
 
@@ -488,15 +490,15 @@ Validation performed:
 | `-Mode plan` | PASS |
 | `-Mode dry-run` | PASS |
 | `-Mode run` overall status | PASS |
-| smoke marker | `docpilot-rag-real-quality-20260627220736-8f03b9` |
+| smoke marker | `docpilot-rag-real-quality-20260628150434-2b7b39` |
 | Quality min similarity threshold | `0.50` |
-| Chunk quality | document `144`: `3/3` indexed chunks; document `145`: `3/3` indexed chunks; duplicate hash count `0`; offset order and token/content length checks passed |
+| Chunk quality | document `152`: `3/3` indexed chunks; document `153`: `3/3` indexed chunks; duplicate hash count `0`; offset order and token/content length checks passed |
 | MySQL / Qdrant consistency | both documents matched `3/3` points, `0` missing vector ids, `0` mismatched fields, `0` missing structure fields |
 | Single-document RAG | `3` retrieve hits, `3` QA citations |
-| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{144:3,145:3}` |
-| KnowledgeBase vector score summary | retrieve min `0.6527018`, citation min `0.6255937` |
+| KnowledgeBase RAG | `6` retrieve hits, `6` QA citations, hit distribution `{152:3,153:3}` |
+| KnowledgeBase vector score summary | retrieve min `0.65310615`, citation min `0.6255937` |
 | No-evidence threshold | PASS: unrelated populated-KB query returned `noEvidence=true`, `0` retrieve hits and `0` QA citations |
-| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, `memoryCount=1`, `contextSourceCounts={userMemory:1, ragEvidence:6}`, hit distribution `{144:3,145:3}` |
+| Conversation Trace | `ragTriggered=true`, `ragRequired=true`, `evidenceCount=6`, `memoryCount=1`, `contextSourceCounts={userMemory:1, ragEvidence:6}`, hit distribution `{152:3,153:3}` |
 | Permission isolation | foreign KB detail, foreign KB retrieve, cross-user document add, and foreign trace access all rejected |
 | Frontend route smoke | `/`, `/login`, `/dashboard`, `/upload`, `/documents`, `/knowledge-bases`, `/conversations` all HTTP 200 and non-blank |
 | Artifact redaction | PASS, local redaction-pattern scan had `0` matches |
