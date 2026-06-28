@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-28 Quality Loop v2.2 / Rerank Hard Smoke
+
+- 已将 `scripts/smoke/cloud-quality-smoke.ps1` 增加默认关闭的 `-EnableRerankHardGate`：真实链路 hard gate 复用 Alpha / Beta 临时文档作为目标 / 支撑文档，只额外上传 1 份关键词干扰文档，避免触发 `60s / 3 uploads / user` 文件上传限流；artifact 只记录 doc id、rank、count 和 score summary，不保存文档原文、prompt、evidence context 或凭据。
+- 已增强 `scripts/smoke/rerank-effect-smoke.ps1`：两轮 cloud quality smoke 都打开 hard gate，最终根据 `rerankApplied`、target rank、distractor rank、citation delta、no-evidence regression 和 security regression 输出 PASS / REVIEW / FAILED；新增 `RerankEffectSmokeScriptSafetyTest` 覆盖 plan 输出、委托关系、hard gate 标记和敏感输出边界。
+- 已验证：`rerank-effect-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RerankEffectSmokeScriptSafetyTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，4 tests；真实 `rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS。baseline marker 为 `docpilot-rerank-effect-hybrid-20260628204120-3e9f69`，rerank marker 为 `docpilot-rerank-effect-rerank-20260628204339-7aac45`；hard fixture 中 target rank `2 -> 1`，distractor rank `3 -> 4`，`hardUpliftObserved=true`，no-evidence 和权限隔离无回退。
+- 回归：`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。边界：本片不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push；结论只写成小规模 hard smoke uplift 证据，不写成大规模 relevance benchmark。下一片进入 Memory 产品化。
+
 ## 2026-06-28 Quality Loop v2 / Frontend UX Audit v1
 
 - 已完成真实浏览器前端体验审计：本地 backend / frontend 可达，使用浏览器上下文创建临时用户、两份 txt 文档、KnowledgeBase、ACTIVE memory 和绑定 KB 的 Conversation，marker 为 `docpilot-frontend-ux-2647184760`。

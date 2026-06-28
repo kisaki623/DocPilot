@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v2：Frontend UX Audit v1（DONE）
+当前任务：DocPilot Quality Loop v2.2：Rerank Hard Smoke（DONE），下一片进入 Memory 产品化
+
+## 2026-06-28 追加任务：Quality Loop v2.2 Rerank Hard Smoke
+
+- 目标：把 Phase 3 rerank 验证从“provider 可调用且无回退”推进到“hard fixture 能观察排序 uplift”，避免继续用满分通用 KB smoke 宣称真实效果提升。
+- 已完成：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRerankHardGate`，在真实链路中复用 Alpha / Beta 两份临时文档作为目标 / 支撑文档，并只额外上传 1 份关键词干扰文档，避免触发 `60s / 3 uploads / user` 文件上传限流；`rerank-effect-smoke.ps1` 默认开启 hard gate，并输出 target / support / distractor 的 retrieve count、best rank、citation count 和 rerank score summary。
+- 已验证：`rerank-effect-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RerankEffectSmokeScriptSafetyTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，4 tests；真实 `rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS。baseline marker 为 `docpilot-rerank-effect-hybrid-20260628204120-3e9f69`，rerank marker 为 `docpilot-rerank-effect-rerank-20260628204339-7aac45`；hard fixture 中 target rank `2 -> 1`，distractor rank `3 -> 4`，`rerankApplied=true`，`hardUpliftObserved=true`，no-evidence 和权限隔离无回退；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
+- 边界：本片只改 smoke runner 和脚本安全测试，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。该结果是小规模 hard smoke uplift 证据，仍不是大规模 relevance benchmark。
+- 下一步：进入 Memory 产品化，优先检查并改善 Memory 的来源解释、候选管理、重复 / 冲突记忆呈现、Trace 可读性和真实会话体验。
 
 ## 2026-06-28 追加任务：Frontend UX Audit v1 真实浏览器审计
 
@@ -17,7 +25,7 @@
 - 已完成更难 rerank uplift fixture 第一片：RAG Real QA Eval 新增 `real-rerank-distractor-ordering`，用 export / audit / retention 词面干扰文档检验 citation 和 forbidden marker；metrics 新增 `rerankUpliftCandidatePassRate`，不再只统计候选 case 占比。
 - 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
 - 已完成 Memory 长列表交互审计：重新注册临时用户并创建 `16` 条 ACTIVE memory，marker 为 `docpilot-memory-ui-1782649237433`，Conversation `37`；`390x844` 下 Memory 抽屉可打开、列表可滚动、`memoryItemCount=17`、`deleteButtonCount=16`、`scrollWidth=clientWidth=390`，桌面 `1036x850` 同样无横向溢出。中途发现本地 Next dev 与 `npm run build` 混用后 `.next` chunk 缓存失效，已清理生成目录并重启本地 frontend；未改业务代码。
-- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，可进入真实 rerank smoke harder fixture，或 README / showcase 面试口径同步收口。
+- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环；真实 rerank smoke harder fixture 已由 v2.2 收口为 PASS，后续继续进入 Memory 产品化或 README / showcase 面试口径同步收口。
 
 ## 2026-06-28 追加任务：Memory Quality Eval v1 真实链路 smoke 第二片
 

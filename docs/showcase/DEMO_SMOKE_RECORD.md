@@ -123,7 +123,7 @@ Boundary: artifact is stored under ignored `backend/target/rag-quality/.../artif
 
 ## 2026-06-28 Rerank Effect Smoke
 
-Status: PASS with no measured coverage uplift
+Status: PASS with small hard-fixture ranking uplift
 
 Runner:
 
@@ -143,8 +143,13 @@ Validation performed:
 | rerank provider evidence | `rerankApplied=true`, rerank score count `6`, score min `0.61774837970733643`, max `0.997183620929718` |
 | no-evidence regression | `false` |
 | security regression | `false` |
+| hard fixture baseline marker | `docpilot-rerank-effect-hybrid-20260628204120-3e9f69` |
+| hard fixture rerank marker | `docpilot-rerank-effect-rerank-20260628204339-7aac45` |
+| hard fixture target rank | `2 -> 1` |
+| hard fixture distractor rank | `3 -> 4` |
+| hard fixture uplift observed | `true` |
 
-Boundary: this proves the configured real rerank provider was called and did not regress the core RAG/security gates in a small smoke fixture. It does not prove broader relevance uplift because the hybrid-only baseline already achieved full two-document coverage and citation count.
+Boundary: this proves the configured real rerank provider was called, did not regress the core RAG/security gates, and improved target/distractor ordering in a small hard smoke fixture. It does not prove broad relevance uplift or production-scale ranking quality.
 
 ## 1. Single Document Smoke
 

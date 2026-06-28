@@ -88,7 +88,7 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 2026-06-28 已验证：`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；真实 smoke `docpilot-rag-real-quality-20260628141419-fb7c21` PASS。
 - Phase 2 真实体验审计修复已完成：真实浏览器链路跑通注册、两文档 parse、单文档 RAG、KnowledgeBase API 多文档 RAG、Conversation Trace 和 ACTIVE memory；后续修复了 citation 展示不同步、手动 KB 两文档问法覆盖不稳、Conversation 气泡引用数错误和移动端会话页横向溢出。
 - 2026-06-28 真实 smoke `docpilot-rag-real-quality-20260628150434-2b7b39` PASS，KnowledgeBase 两文档 gate 命中分布 `{152:3,153:3}`，no-evidence、Conversation Trace、权限隔离和前端 route smoke 均保持通过。
-- Phase 3 小规模真实 rerank provider 验证已完成：`scripts/smoke/rerank-effect-smoke.ps1 -Mode run` 通过两轮真实 cloud quality smoke 对比 hybrid-only 与 hybrid+real-rerank。rerank run 显示 `rerankApplied=true`、rerank score count `6`，KB hit / citation / coveredDocumentCount 与 baseline 持平，no-evidence 和权限隔离无回退。结论是 provider 可用且无回退，但当前满分 fixture 未证明覆盖率 uplift。
+- Phase 3 小规模真实 rerank provider 验证已完成，并在 Quality Loop v2.2 补过真实 hard fixture：`scripts/smoke/rerank-effect-smoke.ps1 -Mode run` 先通过两轮真实 cloud quality smoke 对比 hybrid-only 与 hybrid+real-rerank，证明 provider 可调用且核心 gate 无回退；随后 `-EnableRerankHardGate` 用目标 / 支撑 / 干扰三文档场景观察排序差异。2026-06-28 hard run PASS，baseline marker `docpilot-rerank-effect-hybrid-20260628204120-3e9f69`，rerank marker `docpilot-rerank-effect-rerank-20260628204339-7aac45`，target rank `2 -> 1`，distractor rank `3 -> 4`，`hardUpliftObserved=true`。结论是小规模 hard smoke 下观察到排序 uplift，但仍不是大规模 relevance benchmark。
 - 结论：v8 三阶段已完成；下一阶段进入 DocPilot Quality Loop v2，把 RAG / Memory / Frontend UX 分别做成更接近真实用户体验的持续质量循环。
 
 ### Quality Loop v2 / RAG Real QA Eval（DONE）
@@ -110,7 +110,7 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 目标：从真实用户视角检查 RAG、Memory、Trace 和 citation 展示效果，而不是只依赖 API gate。
 - 第一片已完成：2026-06-28 使用真实 backend / frontend / tunnel 和浏览器创建临时数据，marker 为 `docpilot-frontend-ux-2647184760`。`/conversations` 显示 citation footer `2 条来源`，Trace 面板展示 `userMemory=1` / `ragEvidence=2`，Memory 面板展示 ACTIVE memory；`/knowledge-bases` 页面展示 provider / collection、来源文档分布 `#175:1 / #176:1`、召回片段和 citation 卡片。
 - 移动端 `390x844`、`360x780`、`320x740` 检查 `/conversations` 与 `/knowledge-bases` 均无横向溢出；长 ACTIVE memory 未撑破 Memory 抽屉。本片未发现需要改代码的阻断问题。
-- 后续 v2.1 已补三片：KnowledgeBase 问答结果区默认展示用户语义 KPI，并把 provider / collection / retrieval / rerank / model 信息收进“工程观测”折叠区；RAG Real QA Eval 新增更难 rerank candidate fixture 和 `rerankUpliftCandidatePassRate`；Memory 长列表真实 UI 审计验证 `16` 条 ACTIVE memory 下抽屉可滚动且桌面 / 移动端无横向溢出。继续可选方向是真实 rerank smoke harder fixture 或 README / showcase 口径同步。
+- 后续 v2.1 已补三片：KnowledgeBase 问答结果区默认展示用户语义 KPI，并把 provider / collection / retrieval / rerank / model 信息收进“工程观测”折叠区；RAG Real QA Eval 新增更难 rerank candidate fixture 和 `rerankUpliftCandidatePassRate`；Memory 长列表真实 UI 审计验证 `16` 条 ACTIVE memory 下抽屉可滚动且桌面 / 移动端无横向溢出。v2.2 已补真实 rerank hard smoke，观察到 target rank 提升和 distractor 降权。继续可选方向是 Memory 产品化或 README / showcase 口径同步。
 
 ## 5. 质量门禁
 

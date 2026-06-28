@@ -13,7 +13,8 @@ param(
   [int]$IndexVersion = 1,
   [switch]$SkipFrontend,
   [switch]$ReuseRunningServices,
-  [switch]$EnableMemoryQualityGate
+  [switch]$EnableMemoryQualityGate,
+  [switch]$EnableRerankHardGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -640,6 +641,21 @@ function Get-FieldScoreSummary($items, [string]$field) {
   return [ordered]@{ count = $scores.Count; min = $measure.Minimum; max = $measure.Maximum }
 }
 
+function Get-DocumentHitCount($items, [long]$documentId) {
+  return @($items | Where-Object { [long]$_.documentId -eq $documentId }).Count
+}
+
+function Get-FirstDocumentRank($items, [long]$documentId) {
+  $rank = 1
+  foreach ($item in @($items)) {
+    if ([long]$item.documentId -eq $documentId) {
+      return $rank
+    }
+    $rank++
+  }
+  return 0
+}
+
 function Show-PlanMode() {
   [PSCustomObject][ordered]@{
     mode = "plan"
@@ -647,7 +663,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "noEvidenceThreshold", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -710,6 +726,7 @@ function Invoke-Run() {
   $tokenB = [string]$regB.data.token
   $userAId = [long]$regA.data.userId
   $userBId = [long]$regB.data.userId
+  $rerankHardResources = $null
   Set-Gate "auth" "PASS" @("registered user A", "registered user B")
 
   $alphaText = @"
@@ -845,6 +862,74 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     Set-Gate "noEvidenceThreshold" "PASS" $noEvidenceChecks
   } else {
     Set-Gate "noEvidenceThreshold" "REVIEW" $noEvidenceChecks "unrelated populated-KB query still returned nearest evidence; tune minSimilarityThreshold or rerank policy"
+  }
+
+  if ($EnableRerankHardGate) {
+    $hardDistractorText = @"
+# Hard Rerank Distractor
+
+$smokeMarker
+This distractor repeats upload parse chunk index retrieve answer citation context trace evidence terms many times.
+Upload parse chunk index retrieve answer citation context trace evidence terms are repeated again for keyword retrieval pressure.
+Upload parse chunk index retrieve answer citation context trace evidence terms appear a third time, but this note is marketing noise.
+HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha or Beta policy evidence.
+"@
+    $hardDistractorPath = Join-Path $artifactDir "hard-distractor.txt"
+    [System.IO.File]::WriteAllText($hardDistractorPath, $hardDistractorText, [System.Text.UTF8Encoding]::new($false))
+
+    $hardDistractorFile = Upload-SmokeFile $hardDistractorPath $tokenA
+    $hardTargetDoc = $docA
+    $hardSupportDoc = $docB
+    $hardDistractorDoc = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $hardDistractorFile.id }) $tokenA
+    Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $hardDistractorDoc.data.id }) $tokenA | Out-Null
+    Wait-ParseSuccess ([long]$hardDistractorDoc.data.id) $tokenA | Out-Null
+    Wait-IndexedChunks $envValues $userAId ([long]$hardDistractorDoc.data.id) | Out-Null
+
+    $hardKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Rerank Hard KB $smokeMarker"; description = "temporary rerank hard fixture" }) $tokenA
+    Invoke-JsonApi "POST" "/api/knowledge-bases/$($hardKb.data.id)/documents" ([ordered]@{ documentIds = @($hardTargetDoc.data.id, $hardSupportDoc.data.id, $hardDistractorDoc.data.id) }) $tokenA | Out-Null
+    $hardQuestion = "Which evidence explains upload parse chunk indexing and conversation context trace behavior?"
+    $hardRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($hardKb.data.id)/rag/retrieve" ([ordered]@{ query = $hardQuestion; topK = 6; indexVersion = $IndexVersion }) $tokenA
+    $hardQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($hardKb.data.id)/qa/rag" ([ordered]@{ question = $hardQuestion; topK = 6; indexVersion = $IndexVersion }) $tokenA
+    $hardHits = @($hardRetrieve.data.hits)
+    $hardCitations = @($hardQa.data.citations)
+    $hardChecks = @([ordered]@{
+        targetDocumentId = [long]$hardTargetDoc.data.id
+        supportDocumentId = [long]$hardSupportDoc.data.id
+        distractorDocumentId = [long]$hardDistractorDoc.data.id
+        retrievalMode = $hardRetrieve.data.retrievalMode
+        rerankApplied = [bool]$hardRetrieve.data.rerankApplied
+        rerankModel = $hardRetrieve.data.rerankModel
+        retrieveHits = $hardHits.Count
+        qaCitations = $hardCitations.Count
+        targetRetrieveCount = Get-DocumentHitCount $hardHits ([long]$hardTargetDoc.data.id)
+        supportRetrieveCount = Get-DocumentHitCount $hardHits ([long]$hardSupportDoc.data.id)
+        distractorRetrieveCount = Get-DocumentHitCount $hardHits ([long]$hardDistractorDoc.data.id)
+        targetBestRank = Get-FirstDocumentRank $hardHits ([long]$hardTargetDoc.data.id)
+        supportBestRank = Get-FirstDocumentRank $hardHits ([long]$hardSupportDoc.data.id)
+        distractorBestRank = Get-FirstDocumentRank $hardHits ([long]$hardDistractorDoc.data.id)
+        targetCitationCount = Get-DocumentHitCount $hardCitations ([long]$hardTargetDoc.data.id)
+        supportCitationCount = Get-DocumentHitCount $hardCitations ([long]$hardSupportDoc.data.id)
+        distractorCitationCount = Get-DocumentHitCount $hardCitations ([long]$hardDistractorDoc.data.id)
+        retrieveScoreSummary = Get-ScoreSummary $hardHits
+        retrieveVectorScoreSummary = Get-FieldScoreSummary $hardHits "vectorScore"
+        retrieveRerankScoreSummary = Get-FieldScoreSummary $hardHits "rerankScore"
+        citationRerankScoreSummary = Get-FieldScoreSummary $hardCitations "rerankScore"
+      })
+    if ($hardRetrieve.data.noEvidence -or $hardHits.Count -lt 1) {
+      Set-Gate "rerankHardFixture" "FAILED_CORE_FLOW" $hardChecks "hard rerank fixture returned no evidence"
+      Stop-WithStatus "FAILED_CORE_FLOW" "rerankHardFixture" "hard rerank fixture returned no evidence"
+    }
+    $hardStatus = "PASS"
+    if ($hardChecks[0].targetRetrieveCount -lt 1 -or $hardChecks[0].targetCitationCount -lt 1) {
+      $hardStatus = "REVIEW"
+    }
+    Set-Gate "rerankHardFixture" $hardStatus $hardChecks
+    $rerankHardResources = [ordered]@{
+      knowledgeBaseId = [long]$hardKb.data.id
+      targetDocumentId = [long]$hardTargetDoc.data.id
+      supportDocumentId = [long]$hardSupportDoc.data.id
+      distractorDocumentId = [long]$hardDistractorDoc.data.id
+    }
   }
 
   $memory = Invoke-JsonApi "POST" "/api/memories" ([ordered]@{
@@ -988,6 +1073,8 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
       knowledgeBaseId = [long]$kb.data.id
       memoryId = [long]$memory.data.memoryId
       memoryQualityGateEnabled = [bool]$EnableMemoryQualityGate
+      rerankHardGateEnabled = [bool]$EnableRerankHardGate
+      rerankHardGate = $rerankHardResources
       conversationId = [long]$conversation.data.conversationId
       messageId = [long]$message.data.messageId
     }

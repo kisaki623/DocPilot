@@ -24,6 +24,7 @@ function Show-Plan {
     gates = @(
       "cloud quality smoke baseline",
       "cloud quality smoke rerank",
+      "hard fixture target/distractor comparison",
       "knowledgeBaseRag coverage comparison",
       "noEvidence regression comparison",
       "rerankApplied check",
@@ -126,7 +127,8 @@ function Invoke-CloudSmokeVariant([string]$label, [bool]$rerankEnabled) {
       "-QualityMinSimilarityThreshold", $QualityMinSimilarityThreshold,
       "-MySqlLocalPort", $MySqlLocalPort,
       "-QdrantLocalPort", $QdrantLocalPort,
-      "-IndexVersion", $IndexVersion
+      "-IndexVersion", $IndexVersion,
+      "-EnableRerankHardGate"
     )
     if ($SkipFrontend) {
       $argsList += "-SkipFrontend"
@@ -154,6 +156,13 @@ function Get-KbCheck($result) {
   return $result.gates.knowledgeBaseRag.checks[0]
 }
 
+function Get-HardCheck($result) {
+  if ($null -eq $result.gates.rerankHardFixture) {
+    return $null
+  }
+  return $result.gates.rerankHardFixture.checks[0]
+}
+
 function Get-CountValue($map, [string]$key) {
   if ($null -eq $map) {
     return 0
@@ -163,6 +172,20 @@ function Get-CountValue($map, [string]$key) {
     return 0
   }
   return [int]$property.Value
+}
+
+function Test-RankImproved([int]$baselineRank, [int]$candidateRank) {
+  if ($candidateRank -le 0) {
+    return $false
+  }
+  return $baselineRank -le 0 -or $candidateRank -lt $baselineRank
+}
+
+function Test-RankDemoted([int]$baselineRank, [int]$candidateRank) {
+  if ($baselineRank -le 0) {
+    return $false
+  }
+  return $candidateRank -le 0 -or $candidateRank -gt $baselineRank
 }
 
 function Write-SafeArtifact($summary) {
@@ -212,6 +235,8 @@ $rerank = Invoke-CloudSmokeVariant "rerank" $true
 
 $baselineKb = Get-KbCheck $baseline
 $rerankKb = Get-KbCheck $rerank
+$baselineHard = Get-HardCheck $baseline
+$rerankHard = Get-HardCheck $rerank
 $baselineDocs = $baselineKb.documentHitCounts
 $rerankDocs = $rerankKb.documentHitCounts
 
@@ -223,12 +248,30 @@ $hitDelta = [int]$rerankKb.retrieveHits - [int]$baselineKb.retrieveHits
 $rerankApplied = [bool]$rerankKb.rerankApplied
 $noEvidenceRegression = $baseline.gates.noEvidenceThreshold.status -ne "PASS" -or $rerank.gates.noEvidenceThreshold.status -ne "PASS"
 $securityRegression = $baseline.gates.permissionIsolation.status -ne "PASS" -or $rerank.gates.permissionIsolation.status -ne "PASS"
+$hardGateAvailable = $null -ne $baselineHard -and $null -ne $rerankHard
+$hardTargetRankImproved = $false
+$hardDistractorDemoted = $false
+$hardTargetCitationDelta = 0
+$hardDistractorCitationDelta = 0
+$hardUpliftObserved = $false
+$hardCoreRegression = $false
+if ($hardGateAvailable) {
+  $hardTargetRankImproved = Test-RankImproved ([int]$baselineHard.targetBestRank) ([int]$rerankHard.targetBestRank)
+  $hardDistractorDemoted = Test-RankDemoted ([int]$baselineHard.distractorBestRank) ([int]$rerankHard.distractorBestRank)
+  $hardTargetCitationDelta = [int]$rerankHard.targetCitationCount - [int]$baselineHard.targetCitationCount
+  $hardDistractorCitationDelta = [int]$rerankHard.distractorCitationCount - [int]$baselineHard.distractorCitationCount
+  $hardUpliftObserved = $hardTargetRankImproved -or $hardDistractorDemoted -or ($hardTargetCitationDelta -gt 0) -or ($hardDistractorCitationDelta -lt 0)
+  $hardCoreRegression = ([int]$rerankHard.targetRetrieveCount -lt 1) -or ([int]$rerankHard.targetCitationCount -lt 1)
+}
 
 $status = "PASS"
 if (-not $rerankApplied) {
   $status = "REVIEW"
 }
-if ($coverageDelta -lt 0 -or $citationDelta -lt 0 -or $noEvidenceRegression -or $securityRegression) {
+if (-not $hardGateAvailable -or (-not $hardUpliftObserved -and $status -eq "PASS")) {
+  $status = "REVIEW"
+}
+if ($coverageDelta -lt 0 -or $citationDelta -lt 0 -or $noEvidenceRegression -or $securityRegression -or $hardCoreRegression) {
   $status = "FAILED_CORE_FLOW"
 }
 
@@ -246,6 +289,11 @@ $summary = [PSCustomObject][ordered]@{
     documentHitCounts = $baselineKb.documentHitCounts
     retrieveVectorScoreSummary = $baselineKb.retrieveVectorScoreSummary
     retrieveRerankScoreSummary = $baselineKb.retrieveRerankScoreSummary
+  }
+  hardFixture = [ordered]@{
+    available = $hardGateAvailable
+    baseline = $baselineHard
+    rerank = $rerankHard
   }
   rerank = [ordered]@{
     overallStatus = $rerank.overallStatus
@@ -266,6 +314,12 @@ $summary = [PSCustomObject][ordered]@{
     rerankApplied = $rerankApplied
     noEvidenceRegression = $noEvidenceRegression
     securityRegression = $securityRegression
+    hardTargetRankImproved = $hardTargetRankImproved
+    hardDistractorDemoted = $hardDistractorDemoted
+    hardTargetCitationDelta = $hardTargetCitationDelta
+    hardDistractorCitationDelta = $hardDistractorCitationDelta
+    hardUpliftObserved = $hardUpliftObserved
+    hardCoreRegression = $hardCoreRegression
   }
 }
 
