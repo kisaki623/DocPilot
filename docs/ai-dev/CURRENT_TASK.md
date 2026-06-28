@@ -12,7 +12,9 @@
 - Gemini 轻量 UX sanity review 提醒：继续关注技术观测字段对非技术用户的认知负担、Trace / Memory 数据量增长后的可读性，以及 `390px` 以下更窄移动端视口。
 - 追加 v1.1 验证：同一临时用户下新增一条包含长标识符的 ACTIVE memory，检查 `360x780` 与 `320x740` 极窄移动端。`/conversations` Memory 抽屉可打开，长 memory 未撑破页面；`360px` 下页面 `scrollWidth=clientWidth=345`，`320px` 下页面 `scrollWidth=clientWidth=305`；`/knowledge-bases` 同样无横向溢出。
 - 边界：本片创建了临时审计数据，但未改后端 / 前端业务代码，未删除业务数据，未改数据库结构，未操作远程 Docker，未提交 artifact / 截图 / 日志原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
-- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，优先进入 KnowledgeBase 技术字段产品化降噪，保留面向工程审计的 provider / collection / score 信息，但避免普通用户第一眼被底层名词淹没。
+- 已完成 KnowledgeBase 技术字段产品化降噪：`/knowledge-bases` 问答结果区默认展示“来源覆盖 / 引用来源 / 回答状态 / 生成次数”，把 provider、collection、retrieval mode、rerank、answer provider / model 收进“工程观测”折叠区；工程审计信息仍可展开查看。
+- 已验证：`npm run lint` PASS；真实浏览器页面检索后默认态不显示 Provider / Collection 细节，展开“工程观测”后可见 `Provider / Collection / Retrieval / Rerank / Answer / Model`；`360px` 移动端无横向溢出；`npm run build` PASS。
+- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，可进入更难的 rerank uplift fixture、Memory 长列表交互，或 README / showcase 面试口径同步收口。
 
 ## 2026-06-28 追加任务：Memory Quality Eval v1 真实链路 smoke 第二片
 

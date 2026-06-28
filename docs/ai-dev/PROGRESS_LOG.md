@@ -8,7 +8,9 @@
 - 移动端证据：`390x844` 下 `/conversations` 关键容器均约束在 `346px`，页面 `scrollWidth=clientWidth=375`；`/knowledge-bases` 同样无横向溢出。
 - Gemini 轻量 UX sanity review 提醒继续关注：技术观测字段对普通用户的认知负担、Trace / Memory 数据量增长后的可读性，以及 `390px` 以下更窄移动端视口。
 - 已补 v1.1 极窄移动端和长 memory 检查：新增一条包含长标识符的 ACTIVE memory，`360x780` 下 `/conversations` Memory 抽屉可打开且 `scrollWidth=clientWidth=345`，`320x740` 下 `scrollWidth=clientWidth=305`；`/knowledge-bases` 在两种窄视口同样无横向溢出。
-- 结论：Frontend UX Audit v1 / v1.1 PASS，本片未发现需要改代码的阻断问题；下一片建议进入 KnowledgeBase 技术观测字段产品化降噪。
+- 已完成 KnowledgeBase 技术观测字段产品化降噪：问答结果区默认展示来源覆盖、引用来源、回答状态和生成次数；provider、collection、retrieval mode、rerank、answer provider / model 收进“工程观测”折叠区，展开后仍可审计。
+- 已验证：`npm run lint` PASS；真实浏览器检索后默认态不显示 Provider / Collection，展开后工程字段可见；`360px` 移动端无横向溢出；`npm run build` PASS。
+- 结论：Frontend UX Audit v1 / v1.1 PASS，KnowledgeBase 结果区已完成一轮产品化降噪；下一片建议进入更难 rerank uplift fixture 或 Memory 长列表交互。
 
 ## 2026-06-28 Quality Loop v2 / Memory Quality Eval v1
 

@@ -80,6 +80,10 @@ function formatHitCounts(counts?: Record<string, number>): string {
     .join(" / ");
 }
 
+function countHitDocuments(counts?: Record<string, number>): number {
+  return Object.keys(counts || {}).length;
+}
+
 function buildSessionId(knowledgeBaseId: number): string {
   return `kb${knowledgeBaseId}-${Date.now().toString(36)}`;
 }
@@ -780,47 +784,54 @@ export default function KnowledgeBasesPage() {
                       </span>
                     </div>
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="dp-kpi-card">
-                      <p className="dp-kpi-label">检索通道</p>
-                      <p className="dp-kpi-value text-base">
-                        {retrieval?.provider || "-"}
-                      </p>
-                      <p className="mt-1 truncate text-xs text-slate-500">
-                        {retrieval?.collection || "索引集合 -"}
-                      </p>
-                    </div>
-                    <div className="dp-kpi-card">
-                      <p className="dp-kpi-label">引用来源</p>
-                      <p className="dp-kpi-value text-base">
-                        {retrieval?.hits?.length || 0} / {citations.length}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">片段 / 引用</p>
-                    </div>
-                    <div className="dp-kpi-card">
-                      <p className="dp-kpi-label">回答引擎</p>
-                      <p className="dp-kpi-value text-base">
-                        {qaResult?.answerProvider || "-"}
-                      </p>
-                      <p className="mt-1 truncate text-xs text-slate-500">
-                        {qaResult?.answerModel || "模型 -"}
-                      </p>
-                    </div>
-                    <div className="dp-kpi-card">
-                      <p className="dp-kpi-label">生成次数</p>
-                      <p className="dp-kpi-value text-base">
-                        {qaResult?.modelCallCount ?? "-"}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        来源不足: {noEvidence ? "是" : "否"}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600 md:col-span-2 xl:col-span-4">
-                      来源文档分布：{formatHitCounts(retrieval?.documentHitCounts)}
-                      <span className="mx-2 text-slate-300">/</span>
-                      模式：{retrieval?.retrievalMode || "vector"}
-                      <span className="mx-2 text-slate-300">/</span>
-                      Rerank：{retrieval?.rerankApplied ? retrieval.rerankModel || "enabled" : "未启用"}
-                    </div>
+                      <div className="dp-kpi-card">
+                        <p className="dp-kpi-label">来源覆盖</p>
+                        <p className="dp-kpi-value text-base">
+                          {countHitDocuments(retrieval?.documentHitCounts)}
+                          <span className="ml-1 text-sm text-slate-500">份文档</span>
+                        </p>
+                        <p className="mt-1 truncate text-xs text-slate-500">
+                          {formatHitCounts(retrieval?.documentHitCounts)}
+                        </p>
+                      </div>
+                      <div className="dp-kpi-card">
+                        <p className="dp-kpi-label">引用来源</p>
+                        <p className="dp-kpi-value text-base">
+                          {retrieval?.hits?.length || 0} / {citations.length}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">片段 / 引用</p>
+                      </div>
+                      <div className="dp-kpi-card">
+                        <p className="dp-kpi-label">回答状态</p>
+                        <p className="dp-kpi-value text-base">
+                          {noEvidence ? "来源不足" : "可回答"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          基于当前资料集判断
+                        </p>
+                      </div>
+                      <div className="dp-kpi-card">
+                        <p className="dp-kpi-label">生成次数</p>
+                        <p className="dp-kpi-value text-base">
+                          {qaResult?.modelCallCount ?? "-"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          本次回答调用
+                        </p>
+                      </div>
+                      <details className="rounded-lg border border-slate-200 bg-white p-3 text-xs leading-5 text-slate-600 md:col-span-2 xl:col-span-4">
+                        <summary className="cursor-pointer font-bold text-slate-700">
+                          工程观测
+                        </summary>
+                        <div className="mt-2 grid gap-2 md:grid-cols-2">
+                          <p>Provider：{retrieval?.provider || "-"}</p>
+                          <p>Collection：{retrieval?.collection || "-"}</p>
+                          <p>Retrieval：{retrieval?.retrievalMode || "vector"}</p>
+                          <p>Rerank：{retrieval?.rerankApplied ? retrieval.rerankModel || "enabled" : "未启用"}</p>
+                          <p>Answer：{qaResult?.answerProvider || "-"}</p>
+                          <p>Model：{qaResult?.answerModel || "-"}</p>
+                        </div>
+                      </details>
                     </div>
                   </div>
                 ) : null}
