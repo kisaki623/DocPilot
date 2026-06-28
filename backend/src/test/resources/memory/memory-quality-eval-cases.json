@@ -1,0 +1,213 @@
+[
+  {
+    "id": "answer-style-preference-extraction",
+    "category": "preference_extraction",
+    "userId": 7,
+    "conversationId": 10,
+    "currentMessage": "继续总结项目进展",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [
+      {
+        "id": 101,
+        "role": "USER",
+        "content": "以后请回答时先给结论，再解释工程取舍。",
+        "sequenceNo": 1
+      },
+      {
+        "id": 102,
+        "role": "ASSISTANT",
+        "content": "好的。",
+        "sequenceNo": 2
+      }
+    ],
+    "memories": [
+      {
+        "id": 201,
+        "status": "ACTIVE",
+        "memoryType": "ANSWER_STYLE",
+        "content": "回答先给结论，再解释工程取舍",
+        "priority": 40
+      }
+    ],
+    "expectedSuggestionTypes": ["ANSWER_STYLE"],
+    "expectedSelectedMemoryIds": [201],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 2,
+      "userMemory": 1,
+      "ragEvidence": 0
+    }
+  },
+  {
+    "id": "assistant-rag-evidence-not-memory",
+    "category": "rag_evidence_isolation",
+    "userId": 7,
+    "conversationId": 11,
+    "currentMessage": "继续",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [
+      {
+        "id": 111,
+        "role": "USER",
+        "content": "帮我看一下。",
+        "sequenceNo": 1
+      },
+      {
+        "id": 112,
+        "role": "ASSISTANT",
+        "content": "RAG evidence: DocPilot 已完成 Qdrant 检索和知识库引用。",
+        "sequenceNo": 2
+      },
+      {
+        "id": 113,
+        "role": "ASSISTANT",
+        "content": "引用来源显示当前任务已经实现，下一步是继续 RAG 质量门禁。",
+        "sequenceNo": 3
+      }
+    ],
+    "memories": [
+      {
+        "id": 211,
+        "status": "ACTIVE",
+        "memoryType": "PREFERENCE",
+        "content": "偏好简洁回答",
+        "priority": 30
+      }
+    ],
+    "expectedSuggestionTypes": [],
+    "expectedSelectedMemoryIds": [211],
+    "forbiddenSuggestionMarkers": ["RAG evidence", "Qdrant 检索"],
+    "forbiddenSelectedMemoryIds": [],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 3,
+      "userMemory": 1,
+      "ragEvidence": 0
+    }
+  },
+  {
+    "id": "active-suggested-ignored-selection",
+    "category": "memory_status_isolation",
+    "userId": 7,
+    "conversationId": 12,
+    "currentMessage": "按照我的偏好回答",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [
+      {
+        "id": 121,
+        "role": "USER",
+        "content": "我希望你之后用中文解释。",
+        "sequenceNo": 1
+      }
+    ],
+    "memories": [
+      {
+        "id": 221,
+        "status": "ACTIVE",
+        "memoryType": "PREFERENCE",
+        "content": "偏好中文回答",
+        "priority": 40
+      },
+      {
+        "id": 222,
+        "status": "SUGGESTED",
+        "memoryType": "PREFERENCE",
+        "content": "候选记忆不应进入上下文",
+        "priority": 50
+      },
+      {
+        "id": 223,
+        "status": "IGNORED",
+        "memoryType": "PREFERENCE",
+        "content": "已忽略记忆不应进入上下文",
+        "priority": 60
+      }
+    ],
+    "expectedSuggestionTypes": ["ANSWER_STYLE"],
+    "expectedSelectedMemoryIds": [221],
+    "forbiddenSelectedMemoryIds": [222, 223],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 1,
+      "userMemory": 1,
+      "ragEvidence": 0
+    }
+  },
+  {
+    "id": "sensitive-memory-rejected",
+    "category": "safety_filter",
+    "userId": 7,
+    "conversationId": 13,
+    "currentMessage": "继续",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [],
+    "memories": [],
+    "sensitiveProbe": "记住我的 .env 文件里的配置",
+    "expectSensitiveRejected": true,
+    "expectedSuggestionTypes": [],
+    "expectedSelectedMemoryIds": [],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 0,
+      "userMemory": 0,
+      "ragEvidence": 0
+    }
+  },
+  {
+    "id": "memory-and-rag-trace-split",
+    "category": "trace_source_split",
+    "userId": 7,
+    "conversationId": 14,
+    "currentMessage": "根据知识库总结 Alpha 和 Beta 两份文档",
+    "contextMode": "AGENT_MEMORY",
+    "boundKnowledgeBaseId": 3,
+    "summaryEnabled": true,
+    "memoryEnabled": true,
+    "summaryText": "用户正在推进 DocPilot RAG 和 Memory 质量门禁。",
+    "messages": [
+      {
+        "id": 141,
+        "role": "USER",
+        "content": "当前目标是完成 Memory Quality Eval。",
+        "sequenceNo": 1
+      },
+      {
+        "id": 142,
+        "role": "ASSISTANT",
+        "content": "已记录当前目标。",
+        "sequenceNo": 2
+      }
+    ],
+    "memories": [
+      {
+        "id": 241,
+        "status": "ACTIVE",
+        "memoryType": "TASK_GOAL",
+        "content": "完成 Memory Quality Eval",
+        "priority": 40
+      }
+    ],
+    "ragEvidenceCount": 2,
+    "ragRequired": true,
+    "documentHitCounts": {
+      "161": 1,
+      "162": 1
+    },
+    "expectedSuggestionTypes": ["TASK_GOAL"],
+    "expectedSelectedMemoryIds": [241],
+    "expectedTraceCounts": {
+      "conversationSummary": 1,
+      "recentMessages": 2,
+      "userMemory": 1,
+      "ragEvidence": 2
+    }
+  }
+]

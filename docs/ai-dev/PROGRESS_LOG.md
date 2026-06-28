@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-28 Quality Loop v2 / Memory Quality Eval v1
+
+- 已启动 Memory Quality Eval v1 离线基线：新增 `memory-quality-eval-cases.json` 和 `MemoryQualityEvalRunner` / `MemoryQualityEvalMetrics` / `MemoryQualityEvalResult` / `MemoryQualityEvalCase`。
+- fixture 覆盖用户回答风格偏好抽取、assistant RAG evidence 不进入 memory、ACTIVE / SUGGESTED / IGNORED 状态分层、敏感内容拦截，以及 summary / recent messages / user memory / RAG evidence 的 trace source counts。
+- runner 复用现有 `RuleBasedMemoryExtractionService`、`MemorySelector`、`ContextAssemblyServiceImpl` 和 `MemorySafetyValidator`，只用 test double 提供会话消息、记忆和 RAG evidence；artifact 只保存脱敏 summary，不保存对话全文、memory content、prompt、evidence context 或敏感配置。
+- 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，48 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，249 tests。
+- 边界：本片未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL；下一片应做真实链路 Memory smoke，再进入 Frontend UX Audit。
+
 ## 2026-06-28 Quality Loop v2 / RAG Real QA Eval v1
 
 - 已启动下一轮自驱质量循环第一片：新增 RAG Real QA Eval v1 离线基线，覆盖事实查找、跨文档总结、比较、多跳式证据、no-evidence、语义干扰、hybrid keyword 噪声和 rerank uplift shaped case。

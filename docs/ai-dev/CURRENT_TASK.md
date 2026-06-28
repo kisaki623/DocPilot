@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v2：Memory Quality Eval v1（NEXT）
+当前任务：DocPilot Quality Loop v2：Memory Quality Eval v1（IN PROGRESS）
+
+## 2026-06-28 追加任务：Memory Quality Eval v1 离线基线第一片
+
+- 目标：把 Conversation Memory 从零散单测推进为可重复质量门禁，先离线覆盖候选抽取、敏感内容拦截、ACTIVE / SUGGESTED / IGNORED 状态分层、RAG evidence 不进入 memory、Context Trace source counts。
+- 已完成：新增 `backend/src/test/resources/memory/memory-quality-eval-cases.json`，以及 `MemoryQualityEvalCase` / `MemoryQualityEvalRunner` / `MemoryQualityEvalResult` / `MemoryQualityEvalMetrics` 和 fixture / runner 测试；runner 复用真实 `RuleBasedMemoryExtractionService`、`MemorySelector`、`ContextAssemblyServiceImpl` 和 `MemorySafetyValidator`，用 test double 提供会话消息、记忆和 RAG evidence。
+- 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，48 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，249 tests。
+- 边界：本片只做离线 test-side eval，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。artifact 只保存 case id、计数、布尔指标和失败原因，不保存对话全文、memory content、prompt、evidence context、token 或密钥。
+- 下一步：进入 Memory Quality Eval v1 真实链路 smoke，创建临时会话并接受一条 memory，绑定 KnowledgeBase 后验证 `contextSourceCounts.userMemory>0`、`contextSourceCounts.ragEvidence>0`、`documentHitCounts` 不为空、RAG evidence 不污染 memory；如果真实链路不可达，只记录 `BLOCKED` 和本地证据。
 
 ## 2026-06-28 追加任务：RAG Real QA Eval v1 真实链路 run 第三片
 
