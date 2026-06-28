@@ -80,7 +80,7 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 2026-06-27 已完成第二片：测试门禁覆盖 assistant / RAG evidence 不会自动变成长期记忆，且只有 `ACTIVE` user memory 进入上下文。
 - 2026-06-27 已完成第三片：真实 smoke `docpilot-rag-real-quality-20260627220736-8f03b9` PASS，Conversation Trace 同时验证 `evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`。
 
-### v8 eval corpus expansion（IN PROGRESS）
+### v8 eval corpus expansion（DONE）
 
 - 第一片已完成：KnowledgeBase RAG eval corpus 从 5 个 case 扩到 11 个 case，并新增 case 级 `minSimilarityThreshold`，用于在离线 eval 中稳定覆盖 confidence gate。
 - 新增覆盖：populated-KB no-evidence、hybrid keyword 噪声、多文档三文档总结、grounded answer 干扰抑制、跨主题 distractor 路由和 out-of-scope semantic distractor。
@@ -89,7 +89,14 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - Phase 2 真实体验审计修复已完成：真实浏览器链路跑通注册、两文档 parse、单文档 RAG、KnowledgeBase API 多文档 RAG、Conversation Trace 和 ACTIVE memory；后续修复了 citation 展示不同步、手动 KB 两文档问法覆盖不稳、Conversation 气泡引用数错误和移动端会话页横向溢出。
 - 2026-06-28 真实 smoke `docpilot-rag-real-quality-20260628150434-2b7b39` PASS，KnowledgeBase 两文档 gate 命中分布 `{152:3,153:3}`，no-evidence、Conversation Trace、权限隔离和前端 route smoke 均保持通过。
 - Phase 3 小规模真实 rerank provider 验证已完成：`scripts/smoke/rerank-effect-smoke.ps1 -Mode run` 通过两轮真实 cloud quality smoke 对比 hybrid-only 与 hybrid+real-rerank。rerank run 显示 `rerankApplied=true`、rerank score count `6`，KB hit / citation / coveredDocumentCount 与 baseline 持平，no-evidence 和权限隔离无回退。结论是 provider 可用且无回退，但当前满分 fixture 未证明覆盖率 uplift。
-- 下一阶段：若继续提升真实效果，优先设计更难的 rerank uplift eval / smoke case，而不是把当前小规模 provider smoke 写成大规模 relevance benchmark。
+- 结论：v8 三阶段已完成；下一阶段进入 DocPilot Quality Loop v2，把 RAG / Memory / Frontend UX 分别做成更接近真实用户体验的持续质量循环。
+
+### Quality Loop v2 / RAG Real QA Eval（IN PROGRESS）
+
+- 第一片已完成：新增 RAG Real QA Eval v1 离线基线，覆盖事实查找、跨文档总结、比较、多跳式证据、no-evidence、语义干扰、hybrid keyword 噪声和 rerank uplift shaped case。
+- 新增指标：`casePassRate`、`answerCorrectnessRate`、`citationGroundingRate`、`noEvidencePrecision`、`multiDocumentCoverageRate`、`forbiddenLeakRate`、`scopeViolationRate`、`rerankUpliftCandidateRate`。
+- 当前边界：该基线仍使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient` 和 synthetic answer，只能证明离线回归门禁，不代表真实 provider / Qdrant / 浏览器体验；artifact 不保存文档原文、query、模型输入、evidence context 或模型输出。
+- 下一片：新增真实链路 RAG Real QA smoke runner，把同类问答 case 迁移到临时用户、临时文档、KnowledgeBase、Conversation Trace 和脱敏 artifact 中验证；随后继续 Memory Quality Eval 与 Frontend UX Audit。
 
 ## 5. 质量门禁
 

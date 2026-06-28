@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：RAG Quality Upgrade v1 三阶段收口（DONE）
+当前任务：DocPilot Quality Loop v2：RAG Real QA Eval v1（IN PROGRESS）
+
+## 2026-06-28 追加任务：RAG Real QA Eval v1 离线基线第一片
+
+- 目标：把下一轮质量循环从单纯 smoke / 少量 synthetic case，推进到更贴近真实问答类型的离线 RAG QA eval 基线，先覆盖事实查找、跨文档总结、比较、多跳式证据、no-evidence、语义干扰、hybrid keyword 噪声和 rerank uplift shaped case。
+- 已完成：新增 `real-qa-eval-cases.json`，以及 `RagRealQaEvalCase` / `RagRealQaEvalRunner` / `RagRealQaEvalResult` / `RagRealQaEvalMetrics` 和对应 fixture / runner 测试；runner 复用既有 KnowledgeBase RAG eval harness，继续使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient`，artifact 只输出脱敏 summary，不保存文档原文、query、模型输入、evidence context 或模型输出。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，7 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，202 tests。
+- 边界：本片只做离线质量基线，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。
+- 下一步：进入真实链路 RAG Real QA smoke runner，把同类 case 小规模迁移到临时用户 / 文档 / KB / Conversation 的真实链路验证；随后继续 Memory Quality Eval 和 Frontend UX Audit。
 
 ## 2026-06-28 追加任务：Phase 3 small real rerank provider validation 收口
 

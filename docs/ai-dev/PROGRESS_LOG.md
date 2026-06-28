@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-28 Quality Loop v2 / RAG Real QA Eval v1
+
+- 已启动下一轮自驱质量循环第一片：新增 RAG Real QA Eval v1 离线基线，覆盖事实查找、跨文档总结、比较、多跳式证据、no-evidence、语义干扰、hybrid keyword 噪声和 rerank uplift shaped case。
+- 新增测试侧 `RagRealQaEvalRunner` / `RagRealQaEvalMetrics` / `RagRealQaEvalResult` / `RagRealQaEvalCase`，复用既有 KnowledgeBase eval harness，artifact 只输出脱敏 summary，不保存文档原文、query、模型输入、evidence context 或模型输出。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，7 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，202 tests。
+- 边界：本片未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL；下一片应进入真实链路 RAG Real QA smoke runner，然后继续 Memory Quality Eval 和 Frontend UX Audit。
+
 ## 2026-06-28 Phase 2 真实体验审计
 
 - 已启动真实链路：本地 SSH tunnel、backend、frontend，并通过浏览器执行登录态审计。

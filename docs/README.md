@@ -7,7 +7,7 @@
 现在项目推进的重点是 RAG Quality / Memory Quality 生产化升级：把核心路线从“可演示 RAG”推进到“可拒答、可引用、可追踪、可评测的知识库 RAG + 会话记忆闭环”。阅读顺序建议如下：
 
 1. `docs/ai-dev/STATE.md`：先确认项目当前真实状态和边界。
-2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。`RAG Quality Upgrade v8`、Phase 2 真实体验审计修复和 Phase 3 小规模真实 rerank provider 验证已完成；下一步若继续提升真实效果，优先设计更难的 rerank uplift eval / smoke case。
+2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。`RAG Quality Upgrade v8`、Phase 2 真实体验审计修复和 Phase 3 小规模真实 rerank provider 验证已完成；当前进入 DocPilot Quality Loop v2，先推进 RAG Real QA Eval，再继续 Memory Quality Eval 和 Frontend UX Audit。
 3. `docs/showcase/DEMO_SMOKE_RECORD.md`：确认最近真实链路 smoke 证据。
 4. `docs/ai-dev/ROADMAP_RAG.md`：确认 RAG 长期路线和任务拆分。
 5. `docs/ai-dev/DECISIONS.md`：确认关键技术决策，例如 RAG 主链路自研、Qdrant、MySQL/Qdrant 分工。

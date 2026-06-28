@@ -1,0 +1,183 @@
+[
+  {
+    "id": "real-factual-parser-status",
+    "category": "factual_lookup",
+    "userId": 1400,
+    "knowledgeBaseId": 2400,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Where is docpilot parse status marker described?",
+    "documents": [
+      {"documentId": 4401, "title": "Parse Status Runbook", "text": "DocPilot parse status marker real-parse-status-marker explains SUCCESS and retry visibility."},
+      {"documentId": 4402, "title": "Upload Note", "text": "Upload session marker real-upload-session-marker explains chunk upload progress only."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-parse-status-marker"],
+    "expectedAnswerMarkers": ["real-parse-status-marker"],
+    "requiredCitationMarkers": ["real-parse-status-marker"],
+    "forbiddenAnswerMarkers": ["real-upload-session-marker"],
+    "expectedDocumentIds": [4401],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 1,
+    "minDocumentCoverage": 1,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "real-cross-document-summary",
+    "category": "cross_document_summary",
+    "userId": 1401,
+    "knowledgeBaseId": 2401,
+    "indexVersion": 1,
+    "topK": 3,
+    "query": "Summarize all documents about qdrant payload, memory trace, and answer citation.",
+    "documents": [
+      {"documentId": 4411, "title": "Qdrant Payload", "text": "Qdrant payload marker real-qdrant-payload-marker explains vector metadata filters."},
+      {"documentId": 4412, "title": "Memory Trace", "text": "Memory trace marker real-memory-trace-marker explains accepted user memory sources."},
+      {"documentId": 4413, "title": "Answer Citation", "text": "Answer citation marker real-answer-citation-marker explains grounded citation output."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-qdrant-payload-marker", "real-memory-trace-marker", "real-answer-citation-marker"],
+    "expectedAnswerMarkers": ["real-qdrant-payload-marker", "real-memory-trace-marker", "real-answer-citation-marker"],
+    "expectedDocumentIds": [4411, 4412, 4413],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 3,
+    "minDocumentCoverage": 3,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "real-comparison-storage-vs-cache",
+    "category": "comparison",
+    "userId": 1402,
+    "knowledgeBaseId": 2402,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Compare minio storage evidence with redis cache evidence.",
+    "documents": [
+      {"documentId": 4421, "title": "MinIO Storage", "text": "Minio storage evidence marker real-minio-storage-marker explains object readback."},
+      {"documentId": 4422, "title": "Redis Cache", "text": "Redis cache evidence marker real-redis-cache-marker explains login session state."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-minio-storage-marker", "real-redis-cache-marker"],
+    "expectedAnswerMarkers": ["real-minio-storage-marker", "real-redis-cache-marker"],
+    "expectedDocumentIds": [4421, 4422],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 2,
+    "minDocumentCoverage": 2,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "real-multi-hop-indexing-trace",
+    "category": "multi_hop",
+    "userId": 1403,
+    "knowledgeBaseId": 2403,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Which evidence links indexing trigger and context trace counts?",
+    "documents": [
+      {"documentId": 4431, "title": "Indexing Trigger", "text": "Indexing trigger evidence marker real-indexing-trigger-marker explains parse success indexing."},
+      {"documentId": 4432, "title": "Context Trace Counts", "text": "Context trace count evidence marker real-context-count-marker explains evidenceCount and memoryCount."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-indexing-trigger-marker", "real-context-count-marker"],
+    "expectedAnswerMarkers": ["real-indexing-trigger-marker", "real-context-count-marker"],
+    "expectedDocumentIds": [4431, 4432],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 2,
+    "minDocumentCoverage": 2,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "real-no-evidence-vendor-invoice",
+    "category": "no_evidence",
+    "userId": 1404,
+    "knowledgeBaseId": 2404,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Which evidence describes vendor invoice settlement and payment sla?",
+    "documents": [
+      {"documentId": 4441, "title": "Conversation Summary", "text": "Conversation summary marker real-conversation-summary-marker explains recent turn compression."},
+      {"documentId": 4442, "title": "Chunk Structure", "text": "Chunk structure marker real-chunk-structure-marker explains section title metadata."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": [],
+    "expectedAnswerMarkers": [],
+    "forbiddenAnswerMarkers": ["real-conversation-summary-marker", "real-chunk-structure-marker", "vendor invoice settlement"],
+    "expectedDocumentIds": [],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 0,
+    "minDocumentCoverage": 0,
+    "expectedNoEvidence": true,
+    "minSimilarityThreshold": 0.95
+  },
+  {
+    "id": "real-semantic-distractor-routing",
+    "category": "semantic_distractor",
+    "userId": 1405,
+    "knowledgeBaseId": 2405,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Where is permission isolation evidence for cross user knowledge base access?",
+    "documents": [
+      {"documentId": 4451, "title": "Permission Isolation", "text": "Permission isolation evidence marker real-permission-isolation-marker explains cross user rejection."},
+      {"documentId": 4452, "title": "Route Smoke Distractor", "text": "Route smoke marker real-route-smoke-forbidden-marker explains frontend page availability."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-permission-isolation-marker"],
+    "expectedAnswerMarkers": ["real-permission-isolation-marker"],
+    "forbiddenAnswerMarkers": ["real-route-smoke-forbidden-marker"],
+    "expectedDocumentIds": [4451],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 1,
+    "minDocumentCoverage": 1,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "real-hybrid-keyword-noise",
+    "category": "hybrid_keyword_noise",
+    "userId": 1406,
+    "knowledgeBaseId": 2406,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Which enterprise billing invoice contract threshold explains payment renewal?",
+    "documents": [
+      {"documentId": 4461, "title": "Agent Contract Trace", "text": "Agent contract trace marker real-agent-contract-marker explains tool call status, not billing."},
+      {"documentId": 4462, "title": "Invoice Keyword Note", "text": "Invoice keyword note marker real-invoice-keyword-marker is an unrelated lexical distractor."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": [],
+    "expectedAnswerMarkers": [],
+    "forbiddenAnswerMarkers": ["real-agent-contract-marker", "real-invoice-keyword-marker", "enterprise billing"],
+    "expectedDocumentIds": [],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 0,
+    "minDocumentCoverage": 0,
+    "expectedNoEvidence": true,
+    "minSimilarityThreshold": 0.95,
+    "retrievalMode": "hybrid"
+  },
+  {
+    "id": "real-rerank-uplift-shaped",
+    "category": "rerank_uplift_candidate",
+    "userId": 1407,
+    "knowledgeBaseId": 2407,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Which evidence names the exact incident rollback runbook and citation audit?",
+    "documents": [
+      {"documentId": 4471, "title": "Incident Rollback Runbook", "text": "Incident rollback runbook evidence marker real-rollback-runbook-marker explains exact recovery steps."},
+      {"documentId": 4472, "title": "Citation Audit", "text": "Citation audit evidence marker real-citation-audit-marker explains answer grounding checks."},
+      {"documentId": 4473, "title": "Incident Noise", "text": "Incident noise marker real-incident-noise-forbidden-marker repeats incident terms without rollback evidence."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-rollback-runbook-marker", "real-citation-audit-marker"],
+    "expectedAnswerMarkers": ["real-rollback-runbook-marker", "real-citation-audit-marker"],
+    "forbiddenAnswerMarkers": ["real-incident-noise-forbidden-marker"],
+    "expectedDocumentIds": [4471, 4472],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 2,
+    "minDocumentCoverage": 2,
+    "expectedNoEvidence": false,
+    "retrievalMode": "both",
+    "rerankUpliftCandidate": true
+  }
+]
