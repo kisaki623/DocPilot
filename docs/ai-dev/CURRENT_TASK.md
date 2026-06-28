@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：Phase 2: mobile conversation layout / KB multi-document coverage（NEXT）
+当前任务：Phase 2: KB multi-document coverage（NEXT）
+
+## 2026-06-28 追加任务：Phase 2 mobile conversation layout 第一片
+
+- 目标：修复移动端 `/conversations` 在 `390x844` 视口下横向溢出，主聊天区被长标题 / KB label / composer 控件撑到视口外的问题。
+- 已完成：移动端 `.dp-chat-main` 增加 inline-size containment、overflow 和宽度约束；主区直接子项强制 `min-width:0` / `max-width:100%` / stretch；topbar pill 支持单行截断；thread 与 composer wrapper 限制在主区宽度内。
+- 已验证：`npm run lint` PASS；Playwright 在 `390x844` 下测量 `.dp-chat-shell`、`.dp-chat-main`、`.dp-chat-topbar`、`.dp-chat-thread`、`.dp-chat-composer-wrap` 均为 `346px` 宽，页面整体 `scrollWidth` 不再超过 viewport；composer meta 内部保留横向滚动但不撑开页面。
+- 边界：本片只修移动端会话页响应式 CSS，不改 API、不改业务逻辑、不改数据库结构、不提交截图 / 日志 / artifact、不 push。
+- 下一步：处理 KnowledgeBase 页面手动两文档问题只召回单文档的问题，优先分析 retrieval 参数、问题改写、多文档覆盖策略与 rerank/hybrid 交互。
 
 ## 2026-06-28 追加任务：Phase 2 document detail citation 第一片
 

@@ -1373,6 +1373,19 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .dp-chat-main {
+    contain: inline-size;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .dp-chat-main > * {
+    min-width: 0;
+    max-width: 100%;
+    justify-self: stretch;
+  }
+
   .dp-chat-sidebar {
     position: fixed;
     inset: 64px auto 0 0;
@@ -1394,10 +1407,23 @@ a {
   }
 
   .dp-chat-topbar {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
     padding: 0.65rem 0.75rem;
   }
 
+  .dp-chat-topbar .dp-chat-pill {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .dp-chat-thread {
+    width: 100%;
+    max-width: 100%;
     padding: 1.25rem 0.75rem 1rem;
   }
 
@@ -1432,6 +1458,8 @@ a {
   }
 
   .dp-chat-composer-wrap {
+    width: 100%;
+    max-width: 100%;
     padding: 0.65rem 0.65rem max(0.75rem, env(safe-area-inset-bottom));
   }
 
