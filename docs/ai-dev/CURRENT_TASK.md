@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Phase 2: real experience audit（NEXT）
+当前任务：Phase 2: real experience audit fixes（NEXT）
+
+## 2026-06-28 追加任务：Phase 2 真实体验审计第一片
+
+- 目标：用真实浏览器和真实 backend / frontend / tunnel 链路，从用户视角检查 RAG、Memory、Trace 和前端关键路径，而不是只看 smoke runner 的 API gate。
+- 已完成：启动本地 tunnel、backend、frontend；修复 `WebMvcConfig` 中本地 smoke 端口 `3007` / `3100` 未被 CORS allowlist 覆盖导致浏览器登录 / 注册 403 的问题；使用 marker `docpilot-phase2-ui-audit-1782628501578` 创建两份临时 txt 文档、KnowledgeBase、Conversation 和 ACTIVE memory。
+- 已验证：浏览器 UI 注册成功；两文档 `150/151` parse `SUCCESS`；单文档 RAG `1` hit / `1` citation；KnowledgeBase API 多文档 RAG `2` hits / `2` citations 且 documentHitCounts 为 `{150:1,151:1}`；Conversation Trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=2`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=2`。
+- 发现问题：文档详情实时 RAG 回答有 `[1]` 但右侧引用来源仍为空；KnowledgeBase 页面手动两文档问题只召回 `150`、漏掉 `151`；Conversation 回答正文有 `[1]` / `[2]` 且 Trace evidence 为 `2`，但气泡 footer 显示 `0` 条引用；移动端 `/conversations` 在 `390x844` 下横向溢出。
+- 边界：本片创建了临时审计数据，但不删除业务数据、不改数据库结构、不提交 artifact / 截图 / 日志原文、不打印或提交 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 下一步：优先修复前端 citation / Trace 展示一致性和移动端会话页布局，再回到 KnowledgeBase 多文档召回稳定性；这些完成后再进入 Phase 3 小规模真实 rerank provider 效果验证。
 
 ## 2026-06-28 追加任务：RAG Quality Upgrade v8 第二片
 

@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-28 Phase 2 真实体验审计
+
+- 已启动真实链路：本地 SSH tunnel、backend、frontend，并通过浏览器执行登录态审计。
+- 已修复本地真实体验阻断点：`WebMvcConfig` 增加 `localhost/127.0.0.1:3007` 与 `:3100`，避免 smoke / Playwright 常用前端端口因 CORS 被后端 403。
+- 已创建临时审计数据，marker 为 `docpilot-phase2-ui-audit-1782628501578`：两文档 parse `SUCCESS`，单文档 RAG `1` hit / `1` citation，KnowledgeBase API 多文档 RAG `2` hits / `2` citations，Conversation Trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=2`、`memoryCount=1`、`userMemory=1`、`ragEvidence=2`。
+- 真实体验结论为 `REVIEW`：文档详情 citation 面板未同步、KnowledgeBase 手动问法漏召回 Beta 文档、Conversation 气泡显示 `0` 条引用但 Trace 有 2 条 evidence、移动端 `/conversations` 横向溢出。
+
 ## 2026-06-28 RAG Quality Upgrade v8
 
 - 已完成 v8 第一片：KnowledgeBase RAG eval corpus 从 5 个 case 扩到 11 个 case，新增 case 级 `minSimilarityThreshold`，覆盖 populated-KB no-evidence、hybrid keyword 噪声、多文档总结、grounding 干扰、跨主题路由和 scope 干扰。

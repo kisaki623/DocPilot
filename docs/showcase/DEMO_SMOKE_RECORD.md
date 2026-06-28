@@ -4,6 +4,31 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-28 Phase 2 Real Experience Audit
+
+Status: REVIEW
+
+Marker: `docpilot-phase2-ui-audit-1782628501578`
+
+Verified flow:
+
+- Local MySQL / Qdrant tunnel, backend and frontend were running locally.
+- Browser UI registration on `localhost:3007` succeeded after the local CORS allowlist was extended for smoke ports.
+- Two temporary txt documents parsed successfully: `150`, `151`.
+- Single-document RAG returned `1` hit and `1` citation.
+- KnowledgeBase API path returned `2` hits and `2` citations with document distribution `{150:1,151:1}`.
+- Conversation bound to KB `26` returned an answer with two evidence references; Trace showed `ragTriggered=true`, `ragRequired=true`, `evidenceCount=2`, `memoryCount=1`, `contextSourceCounts.userMemory=1`, `contextSourceCounts.ragEvidence=2`, and `documentHitCounts={150:1,151:1}`.
+
+Experience findings:
+
+- Fixed during audit: browser requests from frontend dev ports `3007` / `3100` were blocked by backend CORS before `WebMvcConfig` was updated.
+- Single-document detail page can generate an answer with `[1]`, but the right-side citation panel still says no citation source.
+- KnowledgeBase page exposes provider, collection, model, scores, citations and document distribution, but a manual two-document question only retrieved document `150`; `151` was missed even though the prompt requested both markers.
+- Conversation answer text displayed `[1]` / `[2]` and Trace showed two RAG evidence items, but the chat bubble footer showed `0` citations.
+- Mobile `/conversations` at `390x844` had horizontal overflow: the main chat area remained wider than the viewport while side panels were off-canvas.
+
+Boundary: no raw artifact, token, password, prompt, evidence context, cloud address or connection string is committed. Temporary data was created only for this real-link audit.
+
 ## 2026-06-28 RAG Quality Smoke
 
 Status: PASS

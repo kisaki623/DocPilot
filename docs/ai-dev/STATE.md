@@ -1,6 +1,6 @@
 # DocPilot 当前状态
 
-最后更新：2026-06-27
+最后更新：2026-06-28
 
 旧状态快照已保留在 `docs/ai-dev/archive/STATE_2026-04-18.md`。本文件只维护当前事实，不追加流水账。
 
@@ -32,6 +32,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - RAG Quality Upgrade v6 已完成：KnowledgeBase 离线 eval artifact 新增 `retrievalModeMetrics`，同一批 case 对比 `vector` 与 `hybrid` 的 hit / citation / multi-document / no-evidence / grounding 指标；rerank provider 现在必须在 `enabled=true` 且外部配置完整时才发 HTTP，否则 identity fallback 且不调用外部服务。2026-06-27 默认真实 smoke PASS，marker 为 `docpilot-rag-real-quality-20260627214532-e1fb65`。
 - RAG Quality Upgrade v7 已完成：`ContextTrace` API 暴露计算型 `contextSourceCounts` / `contextSourceFlags`，前端 `/conversations` Trace 面板展示会话摘要、最近消息、长期记忆和 RAG evidence 的拆分计数；测试门禁覆盖 assistant / RAG evidence 不会自动变成长期记忆，且只有 `ACTIVE` user memory 进入上下文；真实 smoke `docpilot-rag-real-quality-20260627220736-8f03b9` PASS，Conversation Trace 同时验证 `evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`；不改数据库结构，不保存 prompt 或 evidence 原文。
 - RAG Quality Upgrade v8 已完成前两片：KnowledgeBase RAG 离线 eval corpus 从 5 个 case 扩到 11 个 case，新增 case 级 `minSimilarityThreshold`，覆盖 populated-KB no-evidence、hybrid keyword 噪声、多文档总结、grounding 干扰、跨主题路由和 scope 干扰；单文档 RAG smoke case 从 4 个扩到 7 个 case，补充 populated-document no-evidence、grounding citation marker 和 distractor 抑制；2026-06-28 `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；真实 smoke `docpilot-rag-real-quality-20260628141419-fb7c21` PASS。
+- Phase 2 真实体验审计已完成第一轮 `REVIEW`：2026-06-28 使用 marker `docpilot-phase2-ui-audit-1782628501578` 跑通浏览器注册、两文档上传 / parse、单文档 RAG、KnowledgeBase API 多文档 RAG、Conversation Trace 和 ACTIVE memory；Trace 证据为 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=2`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=2`。本轮同步修复本地 smoke 常用端口 `3007` / `3100` 的后端 CORS allowlist。仍需修复真实体验问题：文档详情 citation 面板不同步、KnowledgeBase 手动两文档问题召回只覆盖单文档、Conversation 气泡 citation 数显示 `0`、移动端 `/conversations` 横向溢出。
 - 目标 KnowledgeBase `3` 的文档 `83/84/85/86` 已授权重建索引到稳定 Qdrant collection `docpilot_rag_v2`；chunk / vector 数为 `35/35`、`18/18`、`10/10`、`16/16`，总结资料集检索分布为 `{83:2,84:1,85:1,86:2}`。
 - Conversation Context Management / Agent Memory Mode 后端 MVP 已新增会话、消息、摘要、上下文 Trace、用户长期记忆五张新表和对应 API；`ContextAssemblyService` 可按 `RECENT_TURNS` / `AGENT_MEMORY` 组装系统提示、长期记忆、会话摘要、最近轮次与可选 KnowledgeBase evidence，并输出和持久化摘要级 trace。
 - 会话发送链路已按工程化质量收窄事务边界：上下文装配和回答模型调用不在长事务内执行；仅最终 conversation 行锁、连续写入 user / assistant message 和更新时间处于事务内，trace 仍为 best-effort。
@@ -67,9 +68,9 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 
 ## 4. 当前生产化推进优先级
 
-1. 进入 Phase 2 真实体验审计：按真实用户路径跑上传、解析、单文档 RAG、KnowledgeBase RAG、Conversation Memory / Trace 和前端关键路径，记录体验问题并拆下一轮修复。
+1. Phase 2 下一片优先修复真实体验审计暴露的问题：Conversation citation 数显示、文档详情引用来源同步、KnowledgeBase 多文档召回覆盖和移动端 `/conversations` 横向溢出。
 2. 继续保持 Conversation Memory 与 KnowledgeBase evidence 分层：短期上下文、长期记忆、RAG evidence 和 trace 各自可解释。
-3. 在用户显式提供真实 provider 配置后，单独验证真实 rerank provider 效果和失败降级。
+3. Phase 2 修复完成并通过真实浏览器审计后，再进入 Phase 3 小规模真实 rerank provider 实效验证。
 4. 保持 README / docs 展示口径与真实 smoke 证据一致，不把 smoke 级 PASS 写成线上 SLA 或大规模生产 benchmark。
 
 ## 5. 事实源规则
