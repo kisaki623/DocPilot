@@ -82,6 +82,7 @@ class UserMemoryServiceImplTest {
     void shouldAcceptSuggestedMemory() {
         UserMemory memory = memory(99L, UserMemoryStatus.SUGGESTED);
         when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of());
         when(memoryMapper.updateStatus(7L, 99L, UserMemoryStatus.SUGGESTED, UserMemoryStatus.ACTIVE)).thenReturn(1);
 
         UserMemoryResponse response = service.acceptSuggestion(7L, 99L);
@@ -106,6 +107,52 @@ class UserMemoryServiceImplTest {
 
         assertThatThrownBy(() -> service.acceptSuggestion(7L, 99L))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void shouldExposeConflictHintForSuggestedMemory() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        active.setContent("回答保持简洁");
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        suggested.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        suggested.setContent("回答要详细解释");
+        when(memoryMapper.selectByUserAndStatus(7L, UserMemoryStatus.SUGGESTED, null, 50))
+                .thenReturn(List.of(suggested));
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.ANSWER_STYLE, 100)).thenReturn(List.of(active));
+
+        List<UserMemoryResponse> responses = service.listSuggestions(7L, null, null);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).conflictWithId()).isEqualTo(88L);
+        assertThat(responses.get(0).governanceHint()).isEqualTo("conflict_active_memory");
+    }
+
+    @Test
+    void shouldRejectAcceptingConflictingSuggestion() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        active.setContent("回答保持简洁");
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        suggested.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        suggested.setContent("回答要详细解释");
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(suggested);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.ANSWER_STYLE, 100)).thenReturn(List.of(active));
+
+        assertThatThrownBy(() -> service.acceptSuggestion(7L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("conflict_active_memory");
+    }
+
+    @Test
+    void shouldRejectCreatingDuplicateActiveMemory() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of(active));
+
+        assertThatThrownBy(() -> service.create(7L, UserMemoryType.PREFERENCE, "偏好中文回答", 10, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("duplicate active memory");
+        verify(memoryMapper, never()).insert(any(UserMemory.class));
     }
 
     private UserMemory memory(Long id, String status) {

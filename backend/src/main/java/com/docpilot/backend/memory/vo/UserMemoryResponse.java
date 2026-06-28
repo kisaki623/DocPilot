@@ -15,6 +15,10 @@ public record UserMemoryResponse(
         String status,
         Integer priority,
         BigDecimal confidence,
+        Long duplicateOfId,
+        Long conflictWithId,
+        String governanceHint,
+        BigDecimal similarityScore,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -33,6 +37,37 @@ public record UserMemoryResponse(
                 memory.getStatus(),
                 memory.getPriority(),
                 memory.getConfidence(),
+                null,
+                null,
+                "",
+                null,
+                memory.getCreateTime(),
+                memory.getUpdateTime()
+        );
+    }
+
+    public static UserMemoryResponse from(UserMemory memory,
+                                          Long duplicateOfId,
+                                          Long conflictWithId,
+                                          String governanceHint,
+                                          BigDecimal similarityScore) {
+        if (memory == null) {
+            return null;
+        }
+        return new UserMemoryResponse(
+                memory.getId(),
+                memory.getMemoryType(),
+                memory.getContent(),
+                memory.getSourceType(),
+                memory.getSourceConversationId(),
+                memory.getSourceMessageId(),
+                memory.getStatus(),
+                memory.getPriority(),
+                memory.getConfidence(),
+                duplicateOfId,
+                conflictWithId,
+                governanceHint == null ? "" : governanceHint,
+                similarityScore,
                 memory.getCreateTime(),
                 memory.getUpdateTime()
         );

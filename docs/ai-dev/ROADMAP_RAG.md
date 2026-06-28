@@ -105,6 +105,7 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 目标：把 Conversation Memory 从功能可用推进到质量可解释，验证长期记忆候选、ACTIVE / SUGGESTED / IGNORED 分层、summary / recent messages / user memory / RAG evidence 的 trace 计数，以及 RAG evidence 不污染长期记忆。
 - 第一片已完成：补离线 memory quality eval / tests，覆盖用户偏好抽取、项目目标抽取、敏感内容拦截、assistant / RAG evidence 不抽取为 memory、只有 ACTIVE memory 进入 context，以及 trace source counts。2026-06-28 已验证 `mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，48 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，249 tests。
 - 第二片已完成：补真实链路 memory smoke，创建临时会话并验证候选抽取、接受 / 忽略状态分层、ACTIVE memory list 隔离，绑定 KnowledgeBase 后 trace 同时包含 `contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6` 和两文档 documentHitCounts。2026-06-28 `memory-quality-smoke.ps1 -Mode run` PASS，marker 为 `docpilot-memory-quality-20260628193150-625bf6`。
+- Quality Loop v3.2 第一片已完成：Memory Governance 新增 API 级重复 / 冲突提示和接受前门禁，`UserMemoryResponse` 暴露 `duplicateOfId`、`conflictWithId`、`governanceHint`、`similarityScore`，`/conversations` Memory 抽屉展示冲突 / 重复提示。2026-06-28 Memory / Context targeted tests 54/54 PASS，RAG / KB / Conversation / Memory 回归 255/255 PASS，前端 lint / build PASS。下一片应补真实链路冲突候选 smoke / browser audit；仍不写成真实模型长期记忆质量已成熟。
 
 ### Quality Loop v2 / Frontend UX Audit（DONE）
 

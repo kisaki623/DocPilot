@@ -95,6 +95,6 @@ class UserMemoryControllerTest {
 
     private UserMemoryResponse response() {
         return new UserMemoryResponse(99L, "PREFERENCE", "content", "MANUAL",
-                null, null, "ACTIVE", 0, null, null, null);
+                null, null, "ACTIVE", 0, null, null, null, "", null, null, null);
     }
 }

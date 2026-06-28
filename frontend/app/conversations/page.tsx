@@ -145,6 +145,26 @@ function memorySourceText(memory: UserMemoryItem): string {
   return parts.join(" · ");
 }
 
+function memoryGovernanceText(memory: UserMemoryItem): string {
+  if (memory.conflictWithId) {
+    return `与 #${memory.conflictWithId} 存在偏好冲突，接受前请先处理旧记忆。`;
+  }
+  if (memory.duplicateOfId) {
+    const score = formatConfidence(memory.similarityScore);
+    return `疑似重复 #${memory.duplicateOfId}${score === "-" ? "" : `，相似度 ${score}`}。`;
+  }
+  if (memory.governanceHint === "conflict_active_memory") {
+    return "存在记忆冲突，接受前需要人工确认。";
+  }
+  if (memory.governanceHint === "similar_active_memory") {
+    return "与现有记忆高度相似，建议合并或忽略。";
+  }
+  if (memory.governanceHint === "duplicate_active_memory") {
+    return "与现有记忆重复，建议保留一条。";
+  }
+  return "";
+}
+
 function formatBoolean(value?: boolean): string {
   return value ? "是" : "否";
 }
@@ -291,7 +311,7 @@ export default function ConversationsPage() {
     const activeKeys = new Set(memories.map((memory) => normalizeMemoryContent(memory.content)).filter(Boolean));
     return new Set(
       suggestions
-        .filter((memory) => activeKeys.has(normalizeMemoryContent(memory.content)))
+        .filter((memory) => activeKeys.has(normalizeMemoryContent(memory.content)) || Boolean(memory.duplicateOfId))
         .map((memory) => memory.memoryId),
     );
   }, [memories, suggestions]);
@@ -1181,8 +1201,10 @@ export default function ConversationsPage() {
             <div className="mt-4 flex items-center justify-between gap-2"><h3 className="text-sm font-bold text-slate-900">生效的长期记忆</h3><span className="dp-chat-pill">{memories.length} 条</span></div>
             <ul className="dp-chat-memory-list">
               {memories.length === 0 ? <li>暂无生效记忆。</li> : null}
-              {sortedMemories.map((memory) => (
-                <li key={memory.memoryId} className={duplicateActiveMemoryIds.has(memory.memoryId) ? "has-warning" : ""}>
+              {sortedMemories.map((memory) => {
+                const governanceText = memoryGovernanceText(memory);
+                return (
+                <li key={memory.memoryId} className={duplicateActiveMemoryIds.has(memory.memoryId) || governanceText ? "has-warning" : ""}>
                   <div className="dp-chat-memory-card-head">
                     <span>{memoryTypeLabel(memory.memoryType)}</span>
                     <button type="button" onClick={() => handleDeleteMemory(memory.memoryId)} disabled={memoryLoading}>删除</button>
@@ -1194,16 +1216,19 @@ export default function ConversationsPage() {
                     <span>更新 {formatDateTime(memory.updatedAt || memory.createdAt)}</span>
                   </div>
                   {duplicateActiveMemoryIds.has(memory.memoryId) ? <small className="dp-chat-memory-warning">内容与另一条生效记忆重复，后续可合并。</small> : null}
+                  {governanceText ? <small className="dp-chat-memory-warning">{governanceText}</small> : null}
                 </li>
-              ))}
+                );
+              })}
             </ul>
             <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-bold text-slate-900">待确认的记忆候选</h3><button type="button" onClick={handleExtractSuggestions} disabled={!selectedConversationId || memoryLoading || messages.length === 0} className="dp-chat-small-btn">提取候选</button></div>
             <ul className="dp-chat-memory-list">
               {suggestions.length === 0 ? <li>暂无候选记忆。</li> : null}
               {sortedSuggestions.map((memory) => {
                 const alreadyActive = suggestionAlreadyActiveIds.has(memory.memoryId);
+                const governanceText = memoryGovernanceText(memory);
                 return (
-                <li key={memory.memoryId} className={`is-suggestion ${alreadyActive ? "has-warning" : ""}`}>
+                <li key={memory.memoryId} className={`is-suggestion ${alreadyActive || governanceText ? "has-warning" : ""}`}>
                   <div className="dp-chat-memory-card-head">
                     <span>{memoryTypeLabel(memory.memoryType)}</span>
                     <span className={statusBadge(memory.status)}>{memory.status || "SUGGESTED"}</span>
@@ -1216,6 +1241,7 @@ export default function ConversationsPage() {
                     <span>更新 {formatDateTime(memory.updatedAt || memory.createdAt)}</span>
                   </div>
                   {alreadyActive ? <small className="dp-chat-memory-warning">与生效记忆内容相同，接受前建议先确认是否需要保留两条。</small> : null}
+                  {governanceText ? <small className="dp-chat-memory-warning">{governanceText}</small> : null}
                   <div className="mt-3 flex gap-2"><button type="button" onClick={() => handleAcceptSuggestion(memory.memoryId)} disabled={memoryLoading}>接受</button><button type="button" onClick={() => handleIgnoreSuggestion(memory.memoryId)} disabled={memoryLoading}>忽略</button></div>
                 </li>
                 );

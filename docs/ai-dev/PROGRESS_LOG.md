@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-28 Quality Loop v3.2 / Memory Governance 第一片
+
+- 已新增 Memory 治理响应字段：`duplicateOfId`、`conflictWithId`、`governanceHint`、`similarityScore`，用于让候选记忆在进入 ACTIVE 前说明疑似重复、近似重复或明确偏好冲突。
+- 后端在手动创建 memory 时拒绝同类型 ACTIVE 精确重复；接受候选前检查同类型 ACTIVE memory 的精确重复、近似重复和少量明确冲突词，冲突候选不会直接变为 ACTIVE。
+- `/conversations` Memory 抽屉已读取治理字段，展示冲突 / 重复的 memory id 与相似度提示；Gemini CLI 提供轻量 UX sanity 建议，Codex 只落地紧凑提示，不新增未实现的合并按钮。
+- 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，54 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，255 tests；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不改数据库结构，不做真实 LLM memory extraction，不做自动合并 / 自动删除，不启动真实链路 smoke，不提交 artifact 原文，不 push；下一片应补真实临时用户下的冲突候选 API / 浏览器审计。
+
 ## 2026-06-28 Quality Loop v3.1 / RAG Real Corpus Eval 第一片
 
 - 已将 `real-qa-eval-cases.json` 从 9 个 case 扩到 22 个 case，新增 security policy、runbook、onboarding、expense policy、contract clause、incident review、API policy、access audit 等脱敏企业知识库样例。

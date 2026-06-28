@@ -21,6 +21,10 @@ export interface UserMemoryItem {
   status: UserMemoryStatus;
   priority?: number | null;
   confidence?: number | null;
+  duplicateOfId?: number | null;
+  conflictWithId?: number | null;
+  governanceHint?: string | null;
+  similarityScore?: number | null;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
