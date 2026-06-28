@@ -52,6 +52,23 @@ Verified gates:
 
 Boundary: artifact is stored under ignored `backend/target/memory-quality/.../artifact.json`; do not commit artifact raw content, conversation text, memory content, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This validates rule-based memory quality gates and trace separation; it does not claim real-model long-term memory extraction or large-scale personalization quality.
 
+## 2026-06-28 Frontend UX Audit
+
+Status: PASS
+
+Marker: `docpilot-frontend-ux-2647184760`
+
+Verified flow:
+
+- Browser context created a temporary user, two txt documents, KnowledgeBase, ACTIVE memory and a KnowledgeBase-bound Conversation.
+- Documents `175` and `176` parsed successfully.
+- Conversation Trace showed `ragTriggered=true`, `ragRequired=true`, `evidenceCount=2`, `memoryCount=1`, `contextSourceCounts.userMemory=1`, `contextSourceCounts.ragEvidence=2`, and document distribution `{175:1,176:1}`.
+- `/conversations` displayed the assistant footer as `2 条来源`; Trace and Memory tabs were reachable through real clicks, and the ACTIVE memory was visible.
+- `/knowledge-bases` displayed provider / collection fields, `来源不足: 否`, document distribution `#175: 1 / #176: 1`, retrieved snippets and citation cards containing both temporary document markers.
+- Mobile `390x844` checks found no horizontal overflow on `/conversations` or `/knowledge-bases`.
+
+Boundary: this is a real-browser user-experience audit over temporary smoke data. It did not change backend or frontend code, did not delete business data, did not alter schema, did not operate remote Docker, and did not commit artifacts, screenshots, raw logs, tokens, cloud addresses or connection strings.
+
 ## 2026-06-28 Phase 2 Real Experience Audit
 
 Status: PASS after follow-up fixes

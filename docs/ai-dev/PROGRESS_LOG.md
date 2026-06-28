@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-28 Quality Loop v2 / Frontend UX Audit v1
+
+- 已完成真实浏览器前端体验审计：本地 backend / frontend 可达，使用浏览器上下文创建临时用户、两份 txt 文档、KnowledgeBase、ACTIVE memory 和绑定 KB 的 Conversation，marker 为 `docpilot-frontend-ux-2647184760`。
+- API 侧证据：两文档 parse `SUCCESS`；Conversation Trace 为 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=2`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=2`、`documentHitCounts={175:1,176:1}`；KnowledgeBase QA citation `2` 且 `documentHitCounts={175:1,176:1}`。
+- 页面侧证据：`/conversations` 显示 `2 条来源`，Trace 面板和 Memory 面板均可通过真实点击打开，ACTIVE memory 内容可见；`/knowledge-bases` 点击“查看引用来源”后展示 provider / 索引集合、来源文档分布、召回片段和两条引用来源。
+- 移动端证据：`390x844` 下 `/conversations` 关键容器均约束在 `346px`，页面 `scrollWidth=clientWidth=375`；`/knowledge-bases` 同样无横向溢出。
+- Gemini 轻量 UX sanity review 提醒继续关注：技术观测字段对普通用户的认知负担、Trace / Memory 数据量增长后的可读性，以及 `390px` 以下更窄移动端视口。
+- 结论：Frontend UX Audit v1 PASS，本片未发现需要改代码的阻断问题；下一片建议进入 Frontend UX Audit v1.1，补极窄移动端和 Trace / Memory 长列表压力体验。
+
 ## 2026-06-28 Quality Loop v2 / Memory Quality Eval v1
 
 - 已启动 Memory Quality Eval v1 离线基线：新增 `memory-quality-eval-cases.json` 和 `MemoryQualityEvalRunner` / `MemoryQualityEvalMetrics` / `MemoryQualityEvalResult` / `MemoryQualityEvalCase`。

@@ -105,11 +105,12 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 第一片已完成：补离线 memory quality eval / tests，覆盖用户偏好抽取、项目目标抽取、敏感内容拦截、assistant / RAG evidence 不抽取为 memory、只有 ACTIVE memory 进入 context，以及 trace source counts。2026-06-28 已验证 `mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，48 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，249 tests。
 - 第二片已完成：补真实链路 memory smoke，创建临时会话并验证候选抽取、接受 / 忽略状态分层、ACTIVE memory list 隔离，绑定 KnowledgeBase 后 trace 同时包含 `contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6` 和两文档 documentHitCounts。2026-06-28 `memory-quality-smoke.ps1 -Mode run` PASS，marker 为 `docpilot-memory-quality-20260628193150-625bf6`。
 
-### Quality Loop v2 / Frontend UX Audit（NEXT）
+### Quality Loop v2 / Frontend UX Audit（DONE）
 
 - 目标：从真实用户视角检查 RAG、Memory、Trace 和 citation 展示效果，而不是只依赖 API gate。
-- 第一片建议：使用真实 backend / frontend / tunnel 和浏览器打开 `/conversations`，围绕已通过的 Memory smoke 数据或新临时数据检查 trace inspector、memory panel、citation footer、KB evidence 文字、移动端布局和空 / loading / error 状态。
-- 后续：若发现展示不一致，优先修正用户能看到的 trace / citation / memory 状态，再补 Playwright 或 smoke 证据。
+- 第一片已完成：2026-06-28 使用真实 backend / frontend / tunnel 和浏览器创建临时数据，marker 为 `docpilot-frontend-ux-2647184760`。`/conversations` 显示 citation footer `2 条来源`，Trace 面板展示 `userMemory=1` / `ragEvidence=2`，Memory 面板展示 ACTIVE memory；`/knowledge-bases` 页面展示 provider / collection、来源文档分布 `#175:1 / #176:1`、召回片段和 citation 卡片。
+- 移动端 `390x844` 检查 `/conversations` 与 `/knowledge-bases` 均无横向溢出。本片未发现需要改代码的阻断问题。
+- 后续 v2.1：继续关注 `360px` 极窄移动端、Trace / Memory 长列表可读性，以及 KnowledgeBase 技术观测字段对普通用户的认知负担。
 
 ## 5. 质量门禁
 
