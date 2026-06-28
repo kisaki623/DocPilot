@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v2.2：Rerank Hard Smoke（DONE），下一片进入 Memory 产品化
+当前任务：DocPilot Quality Loop v2.3：Memory 产品化第一片（DONE）
+
+## 2026-06-28 追加任务：Quality Loop v2.3 Memory 产品化第一片
+
+- 目标：把 `/conversations` 的 Memory 抽屉从“能看到 ACTIVE / SUGGESTED 列表”推进到“用户能理解来源、置信度、优先级和重复风险”，提升候选接受 / 忽略前的判断质量。
+- 已完成：Memory 面板新增生效 / 候选 / 重复提示 KPI、类型分布、来源说明（手动添加 / 系统候选 + 会话 / 消息来源）、priority、confidence、更新时间、ACTIVE 重复提示和候选已存在提示；候选按 priority / confidence 排序，生效记忆按 priority / 更新时间排序。Gemini CLI 只用于轻量 UX sanity 建议，Codex 落地代码与安全验证。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；真实浏览器创建临时用户、3 条 ACTIVE memory、2 条 suggestion，marker 为 `docpilot-memory-ui-product-1782651263292`，Conversation `41`。桌面 Memory 面板显示 KPI、来源、confidence 和重复提示，`cardCount=5`，`scrollWidth=clientWidth=1265`；`390x844` 下 `scrollWidth=clientWidth=375`，`metaCount=17`，`cardCount=5`；`320x740` 下 `scrollWidth=clientWidth=305`，`kpiCount=3`，`metaCount=17`，`cardCount=5`。
+- 边界：本片只改前端 Memory 展示和 CSS，不改后端 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交截图 / artifact / 日志原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。该结果证明 Memory 管理体验更可解释，不代表真实模型长期记忆抽取能力提升。
+- 下一步候选：README / showcase 面试口径同步，或继续做 Memory 冲突 / 合并 / 编辑能力设计与门禁。
 
 ## 2026-06-28 追加任务：Quality Loop v2.2 Rerank Hard Smoke
 
@@ -8,7 +16,7 @@
 - 已完成：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRerankHardGate`，在真实链路中复用 Alpha / Beta 两份临时文档作为目标 / 支撑文档，并只额外上传 1 份关键词干扰文档，避免触发 `60s / 3 uploads / user` 文件上传限流；`rerank-effect-smoke.ps1` 默认开启 hard gate，并输出 target / support / distractor 的 retrieve count、best rank、citation count 和 rerank score summary。
 - 已验证：`rerank-effect-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RerankEffectSmokeScriptSafetyTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，4 tests；真实 `rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS。baseline marker 为 `docpilot-rerank-effect-hybrid-20260628204120-3e9f69`，rerank marker 为 `docpilot-rerank-effect-rerank-20260628204339-7aac45`；hard fixture 中 target rank `2 -> 1`，distractor rank `3 -> 4`，`rerankApplied=true`，`hardUpliftObserved=true`，no-evidence 和权限隔离无回退；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
 - 边界：本片只改 smoke runner 和脚本安全测试，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。该结果是小规模 hard smoke uplift 证据，仍不是大规模 relevance benchmark。
-- 下一步：进入 Memory 产品化，优先检查并改善 Memory 的来源解释、候选管理、重复 / 冲突记忆呈现、Trace 可读性和真实会话体验。
+- 下一步：已进入 v2.3 Memory 产品化第一片并收口为 DONE。
 
 ## 2026-06-28 追加任务：Frontend UX Audit v1 真实浏览器审计
 

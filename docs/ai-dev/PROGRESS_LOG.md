@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-28 Quality Loop v2.3 / Memory 产品化第一片
+
+- 已增强 `/conversations` Memory 抽屉：新增生效 / 候选 / 重复提示 KPI、类型分布、来源说明（手动添加 / 系统候选 + 会话 / 消息来源）、priority、confidence、更新时间、ACTIVE 重复提示和候选已存在提示；生效记忆按 priority / 更新时间排序，候选按 priority / confidence 排序。
+- Gemini CLI 参与轻量 UX sanity 建议，Codex 落地低风险子集：不做深链接、不做内联编辑、不做乐观状态更新，先补用户接受 / 忽略前最需要的 provenance 与重复风险信息。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；真实浏览器创建临时用户、3 条 ACTIVE memory、2 条 suggestion，marker 为 `docpilot-memory-ui-product-1782651263292`，Conversation `41`。桌面 Memory 面板显示 KPI、来源、confidence 和重复提示，`cardCount=5`，`scrollWidth=clientWidth=1265`；`390x844` 下 `scrollWidth=clientWidth=375`，`metaCount=17`，`cardCount=5`；`320x740` 下 `scrollWidth=clientWidth=305`，`kpiCount=3`，`metaCount=17`，`cardCount=5`。
+- 边界：本片只改前端 Memory 展示和 CSS，不改后端 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交截图 / artifact / 日志原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push；结论是 Memory 管理体验更可解释，不代表真实模型长期记忆抽取能力提升。
+
 ## 2026-06-28 Quality Loop v2.2 / Rerank Hard Smoke
 
 - 已将 `scripts/smoke/cloud-quality-smoke.ps1` 增加默认关闭的 `-EnableRerankHardGate`：真实链路 hard gate 复用 Alpha / Beta 临时文档作为目标 / 支撑文档，只额外上传 1 份关键词干扰文档，避免触发 `60s / 3 uploads / user` 文件上传限流；artifact 只记录 doc id、rank、count 和 score summary，不保存文档原文、prompt、evidence context 或凭据。

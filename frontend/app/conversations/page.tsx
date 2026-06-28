@@ -109,6 +109,42 @@ function memoryTypeLabel(type?: string): string {
   );
 }
 
+function memorySourceLabel(sourceType?: string | null): string {
+  if (sourceType === "SYSTEM_EXTRACTED") {
+    return "系统候选";
+  }
+  if (sourceType === "MANUAL") {
+    return "手动添加";
+  }
+  return sourceType || "未知来源";
+}
+
+function formatConfidence(value?: number | null): string {
+  if (value === undefined || value === null) {
+    return "-";
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "-";
+  }
+  return numeric <= 1 ? `${Math.round(numeric * 100)}%` : String(numeric);
+}
+
+function normalizeMemoryContent(content?: string | null): string {
+  return (content || "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function memorySourceText(memory: UserMemoryItem): string {
+  const parts = [memorySourceLabel(memory.sourceType)];
+  if (memory.sourceConversationId) {
+    parts.push(`会话 #${memory.sourceConversationId}`);
+  }
+  if (memory.sourceMessageId) {
+    parts.push(`消息 #${memory.sourceMessageId}`);
+  }
+  return parts.join(" · ");
+}
+
 function formatBoolean(value?: boolean): string {
   return value ? "是" : "否";
 }
@@ -204,6 +240,61 @@ export default function ConversationsPage() {
       trace.recentMessageCount > 0 ? "最近对话" : null,
     ].filter(Boolean) as string[];
   }, [trace]);
+
+  const sortedMemories = useMemo(() => {
+    return [...memories].sort((left, right) => {
+      const priorityDelta = (right.priority ?? 0) - (left.priority ?? 0);
+      if (priorityDelta !== 0) {
+        return priorityDelta;
+      }
+      return new Date(right.updatedAt || right.createdAt || 0).getTime()
+        - new Date(left.updatedAt || left.createdAt || 0).getTime();
+    });
+  }, [memories]);
+
+  const sortedSuggestions = useMemo(() => {
+    return [...suggestions].sort((left, right) => {
+      const priorityDelta = (right.priority ?? 0) - (left.priority ?? 0);
+      if (priorityDelta !== 0) {
+        return priorityDelta;
+      }
+      return Number(right.confidence ?? 0) - Number(left.confidence ?? 0);
+    });
+  }, [suggestions]);
+
+  const memoryTypeSummary = useMemo(() => {
+    return MEMORY_TYPES.map((item) => ({
+      ...item,
+      count: memories.filter((memory) => memory.memoryType === item.value).length,
+    })).filter((item) => item.count > 0);
+  }, [memories]);
+
+  const duplicateActiveMemoryIds = useMemo(() => {
+    const byContent = new Map<string, UserMemoryItem[]>();
+    memories.forEach((memory) => {
+      const key = normalizeMemoryContent(memory.content);
+      if (!key) {
+        return;
+      }
+      byContent.set(key, [...(byContent.get(key) || []), memory]);
+    });
+    const ids = new Set<number>();
+    byContent.forEach((items) => {
+      if (items.length > 1) {
+        items.forEach((item) => ids.add(item.memoryId));
+      }
+    });
+    return ids;
+  }, [memories]);
+
+  const suggestionAlreadyActiveIds = useMemo(() => {
+    const activeKeys = new Set(memories.map((memory) => normalizeMemoryContent(memory.content)).filter(Boolean));
+    return new Set(
+      suggestions
+        .filter((memory) => activeKeys.has(normalizeMemoryContent(memory.content)))
+        .map((memory) => memory.memoryId),
+    );
+  }, [memories, suggestions]);
 
   const loadMemoryState = useCallback(async () => {
     setMemoryLoading(true);
@@ -1077,25 +1168,58 @@ export default function ConversationsPage() {
               <input value={newMemoryPriority} onChange={(event) => setNewMemoryPriority(event.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" aria-label="记忆优先级" />
               <button type="button" onClick={handleCreateMemory} disabled={memoryLoading || !newMemoryContent.trim()}>添加</button>
             </div>
+            <div className="dp-chat-memory-kpis">
+              <span>生效 {memories.length}</span>
+              <span>候选 {suggestions.length}</span>
+              <span>重复提示 {duplicateActiveMemoryIds.size + suggestionAlreadyActiveIds.size}</span>
+            </div>
+            {memoryTypeSummary.length > 0 ? (
+              <div className="dp-chat-memory-type-row">
+                {memoryTypeSummary.map((item) => <span key={item.value}>{item.label} {item.count}</span>)}
+              </div>
+            ) : null}
             <div className="mt-4 flex items-center justify-between gap-2"><h3 className="text-sm font-bold text-slate-900">生效的长期记忆</h3><span className="dp-chat-pill">{memories.length} 条</span></div>
             <ul className="dp-chat-memory-list">
               {memories.length === 0 ? <li>暂无生效记忆。</li> : null}
-              {memories.map((memory) => (
-                <li key={memory.memoryId}>
-                  <div className="flex items-center justify-between gap-2"><span>{memoryTypeLabel(memory.memoryType)}</span><button type="button" onClick={() => handleDeleteMemory(memory.memoryId)} disabled={memoryLoading}>删除</button></div>
+              {sortedMemories.map((memory) => (
+                <li key={memory.memoryId} className={duplicateActiveMemoryIds.has(memory.memoryId) ? "has-warning" : ""}>
+                  <div className="dp-chat-memory-card-head">
+                    <span>{memoryTypeLabel(memory.memoryType)}</span>
+                    <button type="button" onClick={() => handleDeleteMemory(memory.memoryId)} disabled={memoryLoading}>删除</button>
+                  </div>
                   <p>{memory.content}</p><small>priority {memory.priority ?? "-"}</small>
+                  <div className="dp-chat-memory-meta">
+                    <span>{memorySourceText(memory)}</span>
+                    <span>confidence {formatConfidence(memory.confidence)}</span>
+                    <span>更新 {formatDateTime(memory.updatedAt || memory.createdAt)}</span>
+                  </div>
+                  {duplicateActiveMemoryIds.has(memory.memoryId) ? <small className="dp-chat-memory-warning">内容与另一条生效记忆重复，后续可合并。</small> : null}
                 </li>
               ))}
             </ul>
             <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-bold text-slate-900">待确认的记忆候选</h3><button type="button" onClick={handleExtractSuggestions} disabled={!selectedConversationId || memoryLoading || messages.length === 0} className="dp-chat-small-btn">提取候选</button></div>
             <ul className="dp-chat-memory-list">
               {suggestions.length === 0 ? <li>暂无候选记忆。</li> : null}
-              {suggestions.map((memory) => (
-                <li key={memory.memoryId} className="is-suggestion">
-                  <span>{memoryTypeLabel(memory.memoryType)} · confidence {memory.confidence ?? "-"}</span><p>{memory.content}</p>
+              {sortedSuggestions.map((memory) => {
+                const alreadyActive = suggestionAlreadyActiveIds.has(memory.memoryId);
+                return (
+                <li key={memory.memoryId} className={`is-suggestion ${alreadyActive ? "has-warning" : ""}`}>
+                  <div className="dp-chat-memory-card-head">
+                    <span>{memoryTypeLabel(memory.memoryType)}</span>
+                    <span className={statusBadge(memory.status)}>{memory.status || "SUGGESTED"}</span>
+                  </div>
+                  <p>{memory.content}</p>
+                  <div className="dp-chat-memory-meta">
+                    <span>{memorySourceText(memory)}</span>
+                    <span>priority {memory.priority ?? "-"}</span>
+                    <span>confidence {formatConfidence(memory.confidence)}</span>
+                    <span>更新 {formatDateTime(memory.updatedAt || memory.createdAt)}</span>
+                  </div>
+                  {alreadyActive ? <small className="dp-chat-memory-warning">与生效记忆内容相同，接受前建议先确认是否需要保留两条。</small> : null}
                   <div className="mt-3 flex gap-2"><button type="button" onClick={() => handleAcceptSuggestion(memory.memoryId)} disabled={memoryLoading}>接受</button><button type="button" onClick={() => handleIgnoreSuggestion(memory.memoryId)} disabled={memoryLoading}>忽略</button></div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         ) : null}

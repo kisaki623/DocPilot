@@ -70,6 +70,22 @@ Verified flow:
 
 Boundary: this is a real-browser user-experience audit over temporary smoke data. It did not change backend or frontend code, did not delete business data, did not alter schema, did not operate remote Docker, and did not commit artifacts, screenshots, raw logs, tokens, cloud addresses or connection strings.
 
+## 2026-06-28 Memory Product UI Audit
+
+Status: PASS
+
+Marker: `docpilot-memory-ui-product-1782651263292`
+
+Verified flow:
+
+- Browser context created a temporary user, `3` ACTIVE memories, `2` suggested memories and a Conversation `41`.
+- `/conversations` Memory drawer displayed active / suggested / duplicate KPI badges, memory type distribution, source labels, priority, confidence, updated time and duplicate warnings.
+- Desktop check showed `cardCount=5`, `scrollWidth=clientWidth=1265`.
+- Mobile `390x844` check showed `scrollWidth=clientWidth=375`, `metaCount=17`, `cardCount=5`.
+- Mobile `320x740` check showed `scrollWidth=clientWidth=305`, `kpiCount=3`, `metaCount=17`, `cardCount=5`.
+
+Boundary: this validates Memory management UX over temporary data. It does not claim real-model long-term memory extraction quality, large-scale personalization quality or conflict-resolution automation.
+
 ## 2026-06-28 Phase 2 Real Experience Audit
 
 Status: PASS after follow-up fixes
