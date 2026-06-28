@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：RAG Quality Upgrade v8: single-document eval expansion（NEXT）
+当前任务：Phase 2: real experience audit（NEXT）
+
+## 2026-06-28 追加任务：RAG Quality Upgrade v8 第二片
+
+- 目标：补齐单文档 RAG 离线 smoke case，让单文档链路也覆盖 populated-document no-evidence、grounding citation marker 和单文档 distractor 抑制，而不是只靠空文档 no-evidence。
+- 已完成：`rag-document-retrieval-smoke-cases.json` 从 4 个 case 扩到 7 个 case；`RagDocumentRetrievalQualitySmokeTest` 新增 case 级 `minSimilarityThreshold` 和可选 `forbiddenMarker` 检查，验证低置信结果过滤与 distractor 不进入 hit / citation。
+- 已验证：`mvn "-Dtest=RagDocumentRetrievalQualitySmokeTest" test` PASS，2 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 边界：本片只增强离线 smoke harness / case，不改生产 API、不改数据库结构、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 结论：v8 eval corpus expansion 当前两片已完成，KnowledgeBase 与单文档 RAG 离线质量门禁均已扩容；下一阶段进入 Phase 2 真实体验审计，从用户视角跑完整业务链路并检查 RAG、Memory、前端路径和 trace 展示效果。
 
 ## 2026-06-28 追加任务：RAG Quality Upgrade v8 第一片
 

@@ -7,6 +7,7 @@ import com.docpilot.backend.ai.rag.vector.inmemory.InMemoryVectorStoreClient;
 import com.docpilot.backend.ai.service.AiAnswerService;
 import com.docpilot.backend.ai.service.DocumentChunkService;
 import com.docpilot.backend.ai.service.RagDocumentRetrievalService;
+import com.docpilot.backend.ai.service.RagScopeGuard;
 import com.docpilot.backend.ai.service.impl.RagDocumentRetrievalServiceImpl;
 import com.docpilot.backend.ai.service.impl.RagIndexingServiceImpl;
 import com.docpilot.backend.ai.service.impl.RagQaServiceImpl;
@@ -56,6 +57,7 @@ class RagDocumentRetrievalQualitySmokeTest {
         int noEvidenceHits = 0;
 
         for (SmokeCase smokeCase : cases) {
+            harness.retrievalProperties.setMinSimilarityThreshold(smokeCase.minSimilarityThreshold());
             RagRetrievalResult result = harness.retrievalService.retrieve(new RagRetrievalQuery(
                     smokeCase.userId(),
                     smokeCase.documentId(),
@@ -67,6 +69,9 @@ class RagDocumentRetrievalQualitySmokeTest {
             boolean hit = containsMarker(result.hits(), smokeCase.expectedMarker());
             boolean citationHit = containsMarkerInCitations(result.citations(), smokeCase.expectedMarker())
                     && citationIndexesAlign(result);
+            boolean forbiddenHit = !smokeCase.forbiddenMarker().isBlank()
+                    && (containsMarker(result.hits(), smokeCase.forbiddenMarker())
+                    || containsMarkerInCitations(result.citations(), smokeCase.forbiddenMarker()));
             if (smokeCase.expectedHit()) {
                 positiveCases++;
                 if (hit) {
@@ -90,8 +95,11 @@ class RagDocumentRetrievalQualitySmokeTest {
                     result.citations().size(),
                     hit,
                     citationHit,
+                    forbiddenHit,
                     result.noEvidence(),
-                    smokeCase.expectedHit() == hit && smokeCase.expectedNoEvidence() == result.noEvidence()
+                    smokeCase.expectedHit() == hit
+                            && !forbiddenHit
+                            && smokeCase.expectedNoEvidence() == result.noEvidence()
             ));
         }
 
@@ -140,6 +148,7 @@ class RagDocumentRetrievalQualitySmokeTest {
                 .filter(SmokeCase::expectedHit)
                 .findFirst()
                 .orElseThrow();
+        harness.retrievalProperties.setMinSimilarityThreshold(hitCase.minSimilarityThreshold());
         RagQaAnswer answer = harness.qaService.answer(new RagQaQuery(
                 hitCase.userId(),
                 hitCase.documentId(),
@@ -159,6 +168,7 @@ class RagDocumentRetrievalQualitySmokeTest {
                 .filter(SmokeCase::expectedNoEvidence)
                 .findFirst()
                 .orElseThrow();
+        harness.retrievalProperties.setMinSimilarityThreshold(noEvidenceCase.minSimilarityThreshold());
         RagQaAnswer noEvidence = harness.qaService.answer(new RagQaQuery(
                 noEvidenceCase.userId(),
                 noEvidenceCase.documentId(),
@@ -260,14 +270,21 @@ class RagDocumentRetrievalQualitySmokeTest {
             String query,
             Integer topK,
             String expectedMarker,
+            String forbiddenMarker,
             boolean expectedHit,
-            boolean expectedNoEvidence
+            boolean expectedNoEvidence,
+            Double minSimilarityThreshold
     ) {
         SmokeCase {
             id = id == null ? "" : id.trim();
             documentText = documentText == null ? "" : documentText;
             query = query == null ? "" : query.trim();
             expectedMarker = expectedMarker == null ? "" : expectedMarker.trim();
+            forbiddenMarker = forbiddenMarker == null ? "" : forbiddenMarker.trim();
+            minSimilarityThreshold = minSimilarityThreshold == null ? 0.0D : minSimilarityThreshold;
+            if (minSimilarityThreshold < 0.0D || minSimilarityThreshold > 1.0D) {
+                throw new IllegalArgumentException("minSimilarityThreshold must be between 0 and 1");
+            }
         }
     }
 
@@ -279,6 +296,7 @@ class RagDocumentRetrievalQualitySmokeTest {
             int citationCount,
             boolean hit,
             boolean citationHit,
+            boolean forbiddenHit,
             boolean noEvidence,
             boolean passed
     ) {
@@ -291,6 +309,7 @@ class RagDocumentRetrievalQualitySmokeTest {
             value.put("citationCount", citationCount);
             value.put("hit", hit);
             value.put("citationHit", citationHit);
+            value.put("forbiddenHit", forbiddenHit);
             value.put("noEvidence", noEvidence);
             value.put("passed", passed);
             return value;
@@ -338,6 +357,7 @@ class RagDocumentRetrievalQualitySmokeTest {
         private final AiAnswerService aiAnswerService;
         private final DocumentQaHistoryMapper documentQaHistoryMapper;
         private final InMemoryDocumentChunkService chunkService;
+        private final RagRetrievalProperties retrievalProperties;
         private final RagIndexingServiceImpl indexingService;
         private final RagDocumentRetrievalService retrievalService;
         private final RagQaServiceImpl qaService;
@@ -347,6 +367,7 @@ class RagDocumentRetrievalQualitySmokeTest {
                              AiAnswerService aiAnswerService,
                              DocumentQaHistoryMapper documentQaHistoryMapper,
                              InMemoryDocumentChunkService chunkService,
+                             RagRetrievalProperties retrievalProperties,
                              RagIndexingServiceImpl indexingService,
                              RagDocumentRetrievalService retrievalService,
                              RagQaServiceImpl qaService) {
@@ -354,6 +375,7 @@ class RagDocumentRetrievalQualitySmokeTest {
             this.aiAnswerService = aiAnswerService;
             this.documentQaHistoryMapper = documentQaHistoryMapper;
             this.chunkService = chunkService;
+            this.retrievalProperties = retrievalProperties;
             this.indexingService = indexingService;
             this.retrievalService = retrievalService;
             this.qaService = qaService;
@@ -370,6 +392,7 @@ class RagDocumentRetrievalQualitySmokeTest {
             RagQaProperties qaProperties = new RagQaProperties();
             qaProperties.setTopK(3);
             qaProperties.setFallbackEnabled(true);
+            RagRetrievalProperties retrievalProperties = new RagRetrievalProperties();
 
             RagIndexingServiceImpl indexingService = new RagIndexingServiceImpl(
                     new ChunkingServiceImpl(),
@@ -384,7 +407,9 @@ class RagDocumentRetrievalQualitySmokeTest {
                     embeddingProvider,
                     vectorStoreClient,
                     embeddingProperties,
-                    qaProperties
+                    qaProperties,
+                    retrievalProperties,
+                    new RagScopeGuard(documentMapper)
             );
             RagQaServiceImpl qaService = new RagQaServiceImpl(
                     retrievalService,
@@ -397,6 +422,7 @@ class RagDocumentRetrievalQualitySmokeTest {
                     aiAnswerService,
                     historyMapper,
                     chunkService,
+                    retrievalProperties,
                     indexingService,
                     retrievalService,
                     qaService

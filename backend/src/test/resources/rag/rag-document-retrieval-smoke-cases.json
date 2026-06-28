@@ -46,5 +46,43 @@
     "expectedMarker": "blank-document-marker",
     "expectedHit": false,
     "expectedNoEvidence": true
+  },
+  {
+    "id": "populated-document-no-evidence-threshold",
+    "userId": 103,
+    "documentId": 7005,
+    "indexVersion": 1,
+    "documentText": "Conversation trace stores summary counts and accepted memory source flags for a workspace. Parser chunk metadata records markdown headings, block ordinal values, content hashes, token counts, offset ordering, and payload fields for indexing diagnostics.",
+    "query": "Which refund gateway settlement policy defines vendor payout reconciliation?",
+    "topK": 3,
+    "expectedMarker": "refund-gateway-marker",
+    "expectedHit": false,
+    "expectedNoEvidence": true,
+    "minSimilarityThreshold": 0.5
+  },
+  {
+    "id": "single-document-distractor-suppression",
+    "userId": 104,
+    "documentId": 7006,
+    "indexVersion": 1,
+    "documentText": "Retention policy evidence marker single-retention-policy-marker explains audit artifact retention without raw prompts. Retention policy evidence marker single-retention-policy-marker explains audit artifact retention without raw prompts. Retention policy evidence marker single-retention-policy-marker explains audit artifact retention without raw prompts. Retention policy evidence marker single-retention-policy-marker explains audit artifact retention without raw prompts. Retention policy evidence marker single-retention-policy-marker explains audit artifact retention without raw prompts.\n\nBilling invoice distractor marker single-billing-forbidden-marker explains payment terms and vendor invoicing. Billing invoice distractor marker single-billing-forbidden-marker explains payment terms and vendor invoicing. Billing invoice distractor marker single-billing-forbidden-marker explains payment terms and vendor invoicing. Billing invoice distractor marker single-billing-forbidden-marker explains payment terms and vendor invoicing. Billing invoice distractor marker single-billing-forbidden-marker explains payment terms and vendor invoicing.",
+    "query": "Where is retention policy evidence described?",
+    "topK": 1,
+    "expectedMarker": "single-retention-policy-marker",
+    "forbiddenMarker": "single-billing-forbidden-marker",
+    "expectedHit": true,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "single-document-grounded-citation-marker",
+    "userId": 105,
+    "documentId": 7007,
+    "indexVersion": 1,
+    "documentText": "Grounded citation marker single-grounded-citation-marker records chunk citation index alignment and score summary for single document QA.",
+    "query": "Which marker records chunk citation index alignment?",
+    "topK": 2,
+    "expectedMarker": "single-grounded-citation-marker",
+    "expectedHit": true,
+    "expectedNoEvidence": false
   }
 ]

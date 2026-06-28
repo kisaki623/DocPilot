@@ -5,6 +5,8 @@
 - 已完成 v8 第一片：KnowledgeBase RAG eval corpus 从 5 个 case 扩到 11 个 case，新增 case 级 `minSimilarityThreshold`，覆盖 populated-KB no-evidence、hybrid keyword 噪声、多文档总结、grounding 干扰、跨主题路由和 scope 干扰。
 - 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalFixtureTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagEvalRunnerTest" test` PASS，5 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
 - 已补真实链路验证：`rag-real-quality-smoke.ps1 -Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260628141419-fb7c21`；artifact 写入 ignored `backend/target/rag-quality/.../artifact.json`，不提交原文。
+- 已完成 v8 第二片：单文档 RAG smoke case 从 4 个扩到 7 个 case，新增 case 级 confidence gate 和 forbidden marker 检查，覆盖 populated-document no-evidence、grounding citation marker 和 distractor 抑制。
+- 已验证：`mvn "-Dtest=RagDocumentRetrievalQualitySmokeTest" test` PASS，2 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。下一阶段进入 Phase 2 真实体验审计。
 
 ## 2026-06-27 真实链路优先自驱协议
 

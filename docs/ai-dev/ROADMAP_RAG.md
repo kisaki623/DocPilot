@@ -84,8 +84,9 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 
 - 第一片已完成：KnowledgeBase RAG eval corpus 从 5 个 case 扩到 11 个 case，并新增 case 级 `minSimilarityThreshold`，用于在离线 eval 中稳定覆盖 confidence gate。
 - 新增覆盖：populated-KB no-evidence、hybrid keyword 噪声、多文档三文档总结、grounded answer 干扰抑制、跨主题 distractor 路由和 out-of-scope semantic distractor。
+- 第二片已完成：单文档 RAG smoke case 从 4 个扩到 7 个 case，新增 case 级 confidence gate 和 forbidden marker 检查，覆盖 populated-document no-evidence、grounding citation marker 和 distractor 抑制。
 - 2026-06-28 已验证：`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；真实 smoke `docpilot-rag-real-quality-20260628141419-fb7c21` PASS。
-- 下一片：补单文档 RAG eval / smoke case，再进入 Phase 2 真实体验审计。
+- 下一阶段：Phase 2 真实体验审计，再进入 Phase 3 小规模真实 rerank provider 实效验证。
 
 ## 5. 质量门禁
 
