@@ -27,6 +27,8 @@ Experience findings:
 - Conversation answer text displayed `[1]` / `[2]` and Trace showed two RAG evidence items, but the chat bubble footer showed `0` citations.
 - Mobile `/conversations` at `390x844` had horizontal overflow: the main chat area remained wider than the viewport while side panels were off-canvas.
 
+Follow-up fix in the same Phase 2 cycle: `/conversations` now loads the latest assistant trace for historical messages and displays `2 条来源` from `contextTrace.evidenceCount` when citation details are not embedded in the message list response.
+
 Boundary: no raw artifact, token, password, prompt, evidence context, cloud address or connection string is committed. Temporary data was created only for this real-link audit.
 
 ## 2026-06-28 RAG Quality Smoke

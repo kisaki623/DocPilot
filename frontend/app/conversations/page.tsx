@@ -305,15 +305,39 @@ export default function ConversationsPage() {
             : "",
         );
       }
-      setMessages(messagesResponse.data || []);
+      let nextMessages = messagesResponse.data || [];
       setSummary(summaryResponse.data || null);
-      const latestTrace = [...(messagesResponse.data || [])]
+      const latestTrace = [...nextMessages]
         .reverse()
         .find((item) => item.contextTrace);
       if (latestTrace?.contextTrace) {
         setTrace(latestTrace.contextTrace);
         setSelectedTraceMessageId(latestTrace.messageId);
+      } else {
+        const latestAssistant = [...nextMessages]
+          .reverse()
+          .find((item) => item.role === "ASSISTANT");
+        if (latestAssistant) {
+          try {
+            const traceResponse = await getConversationMessageTrace(
+              conversationId,
+              latestAssistant.messageId,
+            );
+            if (traceResponse.data) {
+              nextMessages = nextMessages.map((item) =>
+                item.messageId === latestAssistant.messageId
+                  ? { ...item, contextTrace: traceResponse.data }
+                  : item,
+              );
+              setTrace(traceResponse.data);
+              setSelectedTraceMessageId(latestAssistant.messageId);
+            }
+          } catch {
+            // Trace is best-effort for historical messages; the chat should still render.
+          }
+        }
       }
+      setMessages(nextMessages);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "加载会话详情失败";
@@ -896,6 +920,9 @@ export default function ConversationsPage() {
           ) : (
             messages.map((message) => {
               const isAssistant = message.role === "ASSISTANT";
+              const citationCount = message.citations?.length || 0;
+              const evidenceCount = message.contextTrace?.evidenceCount || 0;
+              const sourceCount = citationCount > 0 ? citationCount : evidenceCount;
               return (
                 <article key={message.messageId} className={`dp-chat-message ${isAssistant ? "is-assistant" : "is-user"}`}>
                   <div className="dp-chat-avatar" aria-hidden="true">{isAssistant ? "AI" : "你"}</div>
@@ -932,7 +959,7 @@ export default function ConversationsPage() {
                         <button type="button" onClick={() => handleLoadTrace(message.messageId)} disabled={traceLoading}>
                           {selectedTraceMessageId === message.messageId && traceLoading ? "加载溯源..." : "上下文溯源"}
                         </button>
-                        <span>{message.citations?.length || 0} 条引用</span>
+                        <span>{sourceCount} 条来源</span>
                       </div>
                     ) : null}
                   </div>

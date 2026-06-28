@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：Phase 2: real experience audit fixes（NEXT）
+当前任务：Phase 2: document detail citations / mobile conversation layout（NEXT）
+
+## 2026-06-28 追加任务：Phase 2 citation display 第一片
+
+- 目标：修复 `/conversations` 历史消息重新加载后，回答正文含 `[1]` / `[2]`、Trace 有 RAG evidence，但气泡 footer 显示 `0` 条引用的真实体验问题。
+- 已完成：前端加载会话历史时会 best-effort 拉取最新助手消息的 `ContextTrace`，并把 `message.citations.length` 或 `contextTrace.evidenceCount` 作为来源数量展示；无 trace 时仍保持聊天消息可渲染。
+- 已验证：`npm run lint` PASS；Playwright 刷新 `http://localhost:3007/conversations` 后，临时会话 `docpilot-phase2-ui-audit-1782628501578` 的助手消息 footer 从 `0 条引用` 修正为 `2 条来源`，右侧 Trace 同时显示 `RAG 证据=2`、`长期记忆=1`。
+- 边界：本片只修 `/conversations` 前端展示一致性，不改后端 API、不改数据库结构、不保存 prompt / evidence 原文、不提交 artifact / 日志 / 截图、不 push。
+- 下一步：继续修文档详情页 citation 面板不同步，随后处理移动端 `/conversations` 横向溢出；KnowledgeBase 手动两文档覆盖不稳作为 Phase 2 后续检索质量切片。
 
 ## 2026-06-28 追加任务：Phase 2 真实体验审计第一片
 
