@@ -29,6 +29,8 @@ Experience findings:
 
 Follow-up fix in the same Phase 2 cycle: `/conversations` now loads the latest assistant trace for historical messages and displays `2 条来源` from `contextTrace.evidenceCount` when citation details are not embedded in the message list response.
 
+Follow-up fix in the same Phase 2 cycle: document detail RAG streaming now consumes `retrieval` and `citation` SSE events, so the citation panel updates during a streamed answer and shows hit count, citation score, chunk version and snippet.
+
 Boundary: no raw artifact, token, password, prompt, evidence context, cloud address or connection string is committed. Temporary data was created only for this real-link audit.
 
 ## 2026-06-28 RAG Quality Smoke

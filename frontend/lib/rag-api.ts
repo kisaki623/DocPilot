@@ -34,6 +34,7 @@ export interface RagRetrievalData {
   topK?: number;
   indexVersion?: number;
   noEvidence?: boolean;
+  hitCount?: number;
   provider?: string;
   collection?: string;
   embeddingModel?: string;
@@ -79,6 +80,8 @@ export interface RagStreamPayload {
 
 export interface RagStreamCallbacks {
   onMeta?: (payload: RagStreamPayload) => void;
+  onRetrieval?: (payload: RagRetrievalData) => void;
+  onCitation?: (payload: RagCitationItem) => void;
   onChunk?: (chunk: string) => void;
   onDone?: (payload?: RagStreamPayload) => void;
   onError?: (message: string) => void;
@@ -238,6 +241,10 @@ export async function askDocumentRagQuestionStream(
         callbacks.onChunk?.(item.data);
       } else if (item.event === "meta") {
         callbacks.onMeta?.(parseStreamPayload(item.data) || {});
+      } else if (item.event === "retrieval") {
+        callbacks.onRetrieval?.((parseStreamPayload(item.data) || {}) as RagRetrievalData);
+      } else if (item.event === "citation") {
+        callbacks.onCitation?.((parseStreamPayload(item.data) || {}) as RagCitationItem);
       } else if (item.event === "done") {
         callbacks.onDone?.(parseStreamPayload(item.data));
       } else if (item.event === "error") {
@@ -258,6 +265,10 @@ export async function askDocumentRagQuestionStream(
         callbacks.onChunk?.(item.data);
       } else if (item.event === "meta") {
         callbacks.onMeta?.(parseStreamPayload(item.data) || {});
+      } else if (item.event === "retrieval") {
+        callbacks.onRetrieval?.((parseStreamPayload(item.data) || {}) as RagRetrievalData);
+      } else if (item.event === "citation") {
+        callbacks.onCitation?.((parseStreamPayload(item.data) || {}) as RagCitationItem);
       } else if (item.event === "done") {
         callbacks.onDone?.(parseStreamPayload(item.data));
       } else if (item.event === "error") {

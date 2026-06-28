@@ -473,6 +473,13 @@ export default function DocumentDetailPage() {
                 nextSessionId = payloadSessionId;
               }
             },
+            onRetrieval: (payload) => {
+              setRagRetrieval(payload);
+              setRagNoEvidence(Boolean(payload.noEvidence));
+            },
+            onCitation: (payload) => {
+              setRagCitations((current) => [...current, payload]);
+            },
             onChunk: (chunk) => {
               if (!chunk) {
                 return;
@@ -954,7 +961,7 @@ export default function DocumentDetailPage() {
                       <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs text-slate-600">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold text-blue-700">检索命中</span>
-                          <span>{ragRetrieval.hits?.length || 0} 条</span>
+                          <span>{ragRetrieval.hits?.length ?? ragRetrieval.hitCount ?? 0} 条</span>
                         </div>
                         <p className="mt-1">TopK: {ragRetrieval.topK ?? "-"} / Index: {ragRetrieval.indexVersion ?? "-"}</p>
                       </div>

@@ -7,6 +7,7 @@
 - 已创建临时审计数据，marker 为 `docpilot-phase2-ui-audit-1782628501578`：两文档 parse `SUCCESS`，单文档 RAG `1` hit / `1` citation，KnowledgeBase API 多文档 RAG `2` hits / `2` citations，Conversation Trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=2`、`memoryCount=1`、`userMemory=1`、`ragEvidence=2`。
 - 真实体验结论为 `REVIEW`：文档详情 citation 面板未同步、KnowledgeBase 手动问法漏召回 Beta 文档、Conversation 气泡显示 `0` 条引用但 Trace 有 2 条 evidence、移动端 `/conversations` 横向溢出。
 - 已修复 Conversation citation 展示第一片：历史消息加载时 best-effort 拉取最新助手消息 trace，并用 `contextTrace.evidenceCount` 作为来源数量兜底；`npm run lint` PASS，Playwright 刷新 `/conversations` 后 footer 显示 `2 条来源`，与 Trace `RAG 证据=2` 一致。
+- 已修复文档详情 citation 展示第一片：前端 RAG SSE 客户端消费 `retrieval` / `citation` 事件，文档详情页流式回答后右侧引用来源显示 `检索命中 1 条`、`引用 1`、score、chunk version 和 snippet；`npm run lint` PASS。
 
 ## 2026-06-28 RAG Quality Upgrade v8
 

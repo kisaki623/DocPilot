@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：Phase 2: document detail citations / mobile conversation layout（NEXT）
+当前任务：Phase 2: mobile conversation layout / KB multi-document coverage（NEXT）
+
+## 2026-06-28 追加任务：Phase 2 document detail citation 第一片
+
+- 目标：修复文档详情页流式 RAG 回答出现 `[1]`，但右侧“引用来源”仍显示暂无引用的问题。
+- 已完成：`rag-api.ts` 支持 RAG SSE 的 `retrieval` 与逐条 `citation` 事件；文档详情页在流式回答期间实时更新 `ragRetrieval` 与 `ragCitations`；SSE retrieval 摘要只有 `hitCount` 时，引用面板用 `hitCount` 兜底显示命中数量。
+- 已验证：`npm run lint` PASS；Playwright 在 `http://localhost:3007/documents/150` 发送流式 RAG 问题后，右侧“引用来源”显示 `检索命中 1 条`、`引用 1`、score、chunk version 与 snippet。
+- 边界：本片只修前端 RAG SSE 事件消费和展示，不改后端 API、不改数据库结构、不保存 prompt / evidence 原文、不提交 artifact / 日志 / 截图、不 push。
+- 下一步：修移动端 `/conversations` 横向溢出；随后处理 KnowledgeBase 手动两文档问法只召回单文档的问题。
 
 ## 2026-06-28 追加任务：Phase 2 citation display 第一片
 
