@@ -11,6 +11,8 @@
 - 已修复移动端 `/conversations` 横向溢出：移动端主聊天区、topbar、thread 与 composer wrapper 均被约束到主区宽度；Playwright `390x844` 测量 shell/main/topbar/thread/composer 均为 `346px` 宽，页面不再被长 KB label 撑出 viewport；`npm run lint` PASS。
 - 已修复 KnowledgeBase 手动两文档总结问法漏召回 Beta 文档：hybrid retrieval 的 confidence gate 对 summary intent 保留 `keywordScore>0` 的候选进入 scope guard、rerank 和多文档 diversity selection，同时普通非 summary keyword 噪声仍被 similarity threshold 阻断。
 - 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，11 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，199 tests；真实 `rag-real-quality-smoke.ps1 -Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260628150434-2b7b39`，KnowledgeBase 两文档 gate `{152:3,153:3}`，no-evidence、Conversation Trace、权限隔离和前端 route smoke 均 PASS。Phase 2 当前收口为 PASS，下一阶段进入 Phase 3 小规模真实 rerank provider 实效验证。
+- 已完成 Phase 3 小规模真实 rerank provider 验证：新增 `scripts/smoke/rerank-effect-smoke.ps1`，两轮运行 cloud quality smoke 对比 hybrid-only baseline 与 hybrid+real-rerank candidate；`cloud-quality-smoke.ps1` 同步输出 rerankApplied / rerankModel / rerank score summary。
+- 已验证：PowerShell parser PASS；`rerank-effect-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `-Mode run` PASS。baseline marker 为 `docpilot-rerank-effect-hybrid-20260628151134-170d38`，rerank marker 为 `docpilot-rerank-effect-rerank-20260628151301-6b0060`；rerank run `rerankApplied=true`、rerank score count `6`，KB hit / citation / coveredDocumentCount 与 baseline 持平，no-evidence 和权限隔离无回退。结论：provider 可用且无回退，但当前满分 fixture 没有证明覆盖率 uplift。
 
 ## 2026-06-28 RAG Quality Upgrade v8
 

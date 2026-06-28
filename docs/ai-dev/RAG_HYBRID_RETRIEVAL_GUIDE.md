@@ -12,6 +12,7 @@
 - Scope guard：向量命中和融合后的最终候选都会经过 KnowledgeBase scope / `indexVersion` 校验，防止跨用户、跨文档、跨版本 evidence。
 - Optional rerank：`APP_RAG_RERANK_ENABLED=true` 且 provider 外部配置完整时，KnowledgeBase RAG 会在候选融合后、最终多样性选择前调用 `RerankService`。provider disabled、配置不完整、调用失败或返回 identity 时自动保留原候选顺序，且配置不完整时不发 HTTP。
 - Observability：retrieval response 暴露 `retrievalMode`、`rerankApplied`、`rerankModel`，hit / citation 暴露 `vectorScore`、`keywordScore`、`fusedScore`、`rerankScore`。
+- Real-effect smoke：`scripts/smoke/rerank-effect-smoke.ps1` 可用同一 cloud quality gate 对比 hybrid-only 与 hybrid+real-rerank。2026-06-28 小规模真实 provider smoke 已证明 provider 可调用且核心 gate 无回退，但当前 fixture baseline 已满分，不能宣称 rerank 带来大规模 relevance uplift。
 
 ## 配置
 
@@ -62,6 +63,9 @@ mvn "-Dtest=*Rag*,*KnowledgeBase*,*Rerank*" test
 cd frontend
 npm run lint
 npm run build
+
+cd ..
+powershell -ExecutionPolicy Bypass -File scripts/smoke/rerank-effect-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007
 ```
 
 已覆盖的关键回归：

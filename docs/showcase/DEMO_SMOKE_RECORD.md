@@ -55,6 +55,31 @@ Verified gates:
 
 Boundary: artifact is stored under ignored `backend/target/rag-quality/.../artifact.json`; do not commit artifact raw content, prompts, evidence context, credentials, connection strings or cloud addresses.
 
+## 2026-06-28 Rerank Effect Smoke
+
+Status: PASS with no measured coverage uplift
+
+Runner:
+
+- `scripts/smoke/rerank-effect-smoke.ps1`
+
+Validation performed:
+
+| Check | Result |
+| --- | --- |
+| `-Mode plan` | PASS |
+| `-Mode dry-run` | PASS |
+| `-Mode run` overall status | PASS |
+| hybrid-only baseline marker | `docpilot-rerank-effect-hybrid-20260628151134-170d38` |
+| hybrid + rerank marker | `docpilot-rerank-effect-rerank-20260628151301-6b0060` |
+| baseline KB gate | `6` retrieve hits, `6` QA citations, `2` covered documents |
+| rerank KB gate | `6` retrieve hits, `6` QA citations, `2` covered documents |
+| rerank provider evidence | `rerankApplied=true`, rerank score count `6`, score min `0.61774837970733643`, max `0.997183620929718` |
+| no-evidence regression | `false` |
+| security regression | `false` |
+
+Boundary: this proves the configured real rerank provider was called and did not regress the core RAG/security gates in a small smoke fixture. It does not prove broader relevance uplift because the hybrid-only baseline already achieved full two-document coverage and citation count.
+
 ## 1. Single Document Smoke
 
 Status: PASS
@@ -517,10 +542,11 @@ What can be safely claimed:
 - Conversation Context / Agent Memory with accepted user memory and KnowledgeBase-bound evidence has been smoke tested.
 - Unified cloud quality gate smoke has passed once, covering two-document upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, two-document KnowledgeBase RAG, Conversation Trace, permission isolation, frontend routes, and redacted artifact output.
 - RAG real quality gate now passes with evidence confidence, answer audit, chunk structure payload checks, and rejects the smoke unrelated populated-KB query as no-evidence.
+- Small real rerank effect smoke confirms the configured rerank provider can be called and returns rerank scores without regressing KB coverage, no-evidence or security gates.
 - MinIO active storage has been smoke tested through upload and parse readback.
 - RocketMQ + Outbox active parse flow has been smoke tested through producer, consumer and final parse status.
 - Offline Function Calling adapter tests and multi-document eval artifact have passed.
-- KnowledgeBase Hybrid / Rerank optional enhancement has local unit/build/eval evidence and remains disabled by default; v6 verifies incomplete rerank provider config falls back without external HTTP.
+- KnowledgeBase Hybrid / Rerank optional enhancement has local unit/build/eval evidence and remains disabled by default; v6 verifies incomplete rerank provider config falls back without external HTTP, and the 2026-06-28 rerank effect smoke verifies a configured real provider can be called without core-gate regression.
 
 What should be described with caveats:
 
@@ -529,4 +555,4 @@ What should be described with caveats:
 - Real answer model and real embedding were verified in separate smoke runs, not in one combined run.
 - Populated KnowledgeBase no-evidence has a calibrated smoke threshold, but broader no-evidence precision still needs more eval cases and domain coverage.
 - The current RAG real quality gate result is PASS, but broader no-evidence robustness still requires more eval coverage beyond this smoke fixture.
-- KnowledgeBase Hybrid / Rerank has not been re-smoked with a real rerank provider in this record; v6 smoke validates default fallback and core RAG gates, not provider-specific relevance uplift.
+- KnowledgeBase Hybrid / Rerank has only been smoke-tested with a small real rerank provider comparison; current fixture shows no regression but no measured coverage uplift, so broader rerank relevance uplift still needs harder eval cases.

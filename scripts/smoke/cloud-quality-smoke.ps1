@@ -808,10 +808,15 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     retrieveHits = @($kbRetrieve.data.hits).Count
     qaCitations = @($kbQa.data.citations).Count
     documentHitCounts = $hitCounts
+    retrievalMode = $kbRetrieve.data.retrievalMode
+    rerankApplied = [bool]$kbRetrieve.data.rerankApplied
+    rerankModel = $kbRetrieve.data.rerankModel
     retrieveScoreSummary = Get-ScoreSummary $kbRetrieve.data.hits
     citationScoreSummary = Get-ScoreSummary $kbQa.data.citations
     retrieveVectorScoreSummary = Get-FieldScoreSummary $kbRetrieve.data.hits "vectorScore"
     citationVectorScoreSummary = Get-FieldScoreSummary $kbQa.data.citations "vectorScore"
+    retrieveRerankScoreSummary = Get-FieldScoreSummary $kbRetrieve.data.hits "rerankScore"
+    citationRerankScoreSummary = Get-FieldScoreSummary $kbQa.data.citations "rerankScore"
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
   })
   if (@($kbRetrieve.data.hits).Count -lt 2 -or @($kbQa.data.citations).Count -lt 2 -or (Get-CountValue $hitCounts ([string]$docA.data.id)) -lt 1 -or (Get-CountValue $hitCounts ([string]$docB.data.id)) -lt 1) {

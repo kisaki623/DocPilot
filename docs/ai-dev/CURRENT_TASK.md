@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Phase 3: small real rerank provider validation（NEXT）
+当前任务：RAG Quality Upgrade v1 三阶段收口（DONE）
+
+## 2026-06-28 追加任务：Phase 3 small real rerank provider validation 收口
+
+- 目标：做小规模真实 rerank provider 实效验证，判断 rerank / hybrid 是否实际改善召回与 citation，同时不默认扩大能力范围。
+- 已完成：新增 `scripts/smoke/rerank-effect-smoke.ps1`，支持 `plan` / `dry-run` / `run`；`run` 通过环境变量覆盖执行两轮 cloud quality smoke：hybrid-only baseline 与 hybrid+real-rerank candidate，并输出脱敏对比 artifact。`cloud-quality-smoke.ps1` 的 KnowledgeBase gate 同步输出 `retrievalMode`、`rerankApplied`、`rerankModel`、rerank score summary。
+- 已验证：PowerShell parser PASS；`rerank-effect-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `-Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS。baseline marker 为 `docpilot-rerank-effect-hybrid-20260628151134-170d38`，rerank marker 为 `docpilot-rerank-effect-rerank-20260628151301-6b0060`；rerank run 显示 `rerankApplied=true`、rerank score count `6`，KB hit / citation / coveredDocumentCount 与 baseline 均持平，no-evidence 和权限隔离无回退。
+- 结论：当前 smoke fixture 下 baseline 已达到两文档覆盖和 6 citations，真实 rerank provider 没有带来可量化覆盖提升，但证明了 provider 可用、rerank score 进入 response / artifact、且核心 RAG / security gate 无回退；不能把该结果写成大规模 relevance uplift。
+- 边界：本片只新增 smoke runner 和脱敏观测字段；不改数据库结构、不删除业务数据、不提交 artifact / 日志 / 截图、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 下一步候选：若继续提升真实效果，优先设计更难的 rerank eval / smoke case（baseline 会排序错误或被干扰文档诱导），再判断 rerank 是否带来正向 uplift；不要仅靠当前满分 fixture 宣称 rerank 显著提升。
 
 ## 2026-06-28 追加任务：Phase 2 KB multi-document coverage 收口
 

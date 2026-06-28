@@ -33,6 +33,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - RAG Quality Upgrade v7 已完成：`ContextTrace` API 暴露计算型 `contextSourceCounts` / `contextSourceFlags`，前端 `/conversations` Trace 面板展示会话摘要、最近消息、长期记忆和 RAG evidence 的拆分计数；测试门禁覆盖 assistant / RAG evidence 不会自动变成长期记忆，且只有 `ACTIVE` user memory 进入上下文；真实 smoke `docpilot-rag-real-quality-20260627220736-8f03b9` PASS，Conversation Trace 同时验证 `evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`；不改数据库结构，不保存 prompt 或 evidence 原文。
 - RAG Quality Upgrade v8 已完成前两片：KnowledgeBase RAG 离线 eval corpus 从 5 个 case 扩到 11 个 case，新增 case 级 `minSimilarityThreshold`，覆盖 populated-KB no-evidence、hybrid keyword 噪声、多文档总结、grounding 干扰、跨主题路由和 scope 干扰；单文档 RAG smoke case 从 4 个扩到 7 个 case，补充 populated-document no-evidence、grounding citation marker 和 distractor 抑制；2026-06-28 `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；真实 smoke `docpilot-rag-real-quality-20260628141419-fb7c21` PASS。
 - Phase 2 真实体验审计已完成并收口：2026-06-28 使用 marker `docpilot-phase2-ui-audit-1782628501578` 跑通浏览器注册、两文档上传 / parse、单文档 RAG、KnowledgeBase API 多文档 RAG、Conversation Trace 和 ACTIVE memory；Trace 证据为 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=2`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=2`。本轮同步修复本地 smoke 常用端口 `3007` / `3100` 的后端 CORS allowlist、`/conversations` 历史消息 footer 引用数和 Trace evidence 不一致、文档详情页 RAG SSE 引用来源不同步、移动端 `/conversations` 横向溢出，以及 KnowledgeBase 手动两文档总结问法只召回单文档的问题。后续真实 smoke `docpilot-rag-real-quality-20260628150434-2b7b39` PASS，KnowledgeBase 两文档 gate 命中分布 `{152:3,153:3}`，no-evidence、Conversation Trace、权限隔离和前端 route smoke 均保持通过。
+- Phase 3 小规模真实 rerank provider 验证已完成：新增 `scripts/smoke/rerank-effect-smoke.ps1`，用两轮真实 cloud quality smoke 对比 hybrid-only baseline 与 hybrid+real-rerank candidate；2026-06-28 run PASS，baseline marker `docpilot-rerank-effect-hybrid-20260628151134-170d38`，rerank marker `docpilot-rerank-effect-rerank-20260628151301-6b0060`。rerank run 显示 `rerankApplied=true`、rerank score count `6`，KB hit / citation / coveredDocumentCount 与 baseline 持平，no-evidence 和权限隔离无回退。该结论证明真实 provider 可用和无回退，不证明当前 fixture 有覆盖率 uplift 或大规模 relevance 提升。
 - 目标 KnowledgeBase `3` 的文档 `83/84/85/86` 已授权重建索引到稳定 Qdrant collection `docpilot_rag_v2`；chunk / vector 数为 `35/35`、`18/18`、`10/10`、`16/16`，总结资料集检索分布为 `{83:2,84:1,85:1,86:2}`。
 - Conversation Context Management / Agent Memory Mode 后端 MVP 已新增会话、消息、摘要、上下文 Trace、用户长期记忆五张新表和对应 API；`ContextAssemblyService` 可按 `RECENT_TURNS` / `AGENT_MEMORY` 组装系统提示、长期记忆、会话摘要、最近轮次与可选 KnowledgeBase evidence，并输出和持久化摘要级 trace。
 - 会话发送链路已按工程化质量收窄事务边界：上下文装配和回答模型调用不在长事务内执行；仅最终 conversation 行锁、连续写入 user / assistant message 和更新时间处于事务内，trace 仍为 best-effort。
@@ -49,7 +50,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 ## 3. 当前边界
 
 - 当前目标是生产化知识库 RAG 核心闭环，但还不是完整商业知识库 SaaS 或已验证线上 SLA 的生产系统。
-- fake embedding / in-memory vector store 仍属于测试、离线 eval 和稳定复现边界；真实 embedding + Qdrant 已在 smoke collection 验证，但不代表线上治理或固定 SLA。Hybrid / Rerank 目前是 KnowledgeBase RAG 的可选增强，默认关闭；v6 已验证“未完整配置不外呼 + identity fallback”，真实 rerank provider 效果仍需要显式配置和单独 smoke。
+- fake embedding / in-memory vector store 仍属于测试、离线 eval 和稳定复现边界；真实 embedding + Qdrant 已在 smoke collection 验证，但不代表线上治理或固定 SLA。Hybrid / Rerank 目前是 KnowledgeBase RAG 的可选增强，默认关闭；v6 已验证“未完整配置不外呼 + identity fallback”，Phase 3 已小规模验证真实 rerank provider 可调用且不破坏核心 gate，但当前 fixture 未证明覆盖率 uplift。
 - RAG Quality Upgrade v1 的新增 eval 仍是 `MockEmbeddingProvider` + `InMemoryVectorStoreClient` + synthetic answer 的离线门禁；它可以防止明显的 retrieval / citation / answer coverage 退化，但不代表真实 embedding、真实 rerank 或真实回答模型的效果评测已经完成。
 - RAG Quality Upgrade v3 已在真实 embedding + Qdrant 链路上证明 smoke 级 populated-KB no-evidence 可拒答：低于 `0.50` 的候选不进入 grounded QA，QA 返回 no-evidence 且不生成 citation。该结论仍是 smoke 级门禁，不等于跨大规模语料、复杂领域和全部问法的生产 relevance benchmark。
 - Qdrant 已有 adapter、payload mapping、fake server 测试、preflight 参考和真实 tunnel smoke；普通测试不依赖远程 Qdrant，复现真实 Qdrant 仍需通过本地 `.env` 显式配置可用 endpoint / tunnel、`RAG_VECTOR_STORE_PROVIDER=qdrant` 和 `RAG_QDRANT_COLLECTION`。
@@ -68,9 +69,9 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 
 ## 4. 当前生产化推进优先级
 
-1. Phase 3 下一片优先做小规模真实 rerank provider 实效验证，判断 rerank / hybrid 是否实际改善召回与 citation，而不是默认扩大能力范围。
+1. 下一阶段若继续提升真实效果，优先设计更难的 rerank uplift eval / smoke case：baseline 会排序错误或被干扰文档诱导，rerank 应改善 citation order、document coverage 或 forbidden-marker 抑制。
 2. 继续保持 Conversation Memory 与 KnowledgeBase evidence 分层：短期上下文、长期记忆、RAG evidence 和 trace 各自可解释。
-3. 保持 Phase 2 真实体验问题的回归门禁：citation 展示、移动端会话布局、KB 多文档覆盖、Conversation Trace 和 artifact 脱敏都要继续以真实 smoke / runtime evidence 收口。
+3. 保持真实体验回归门禁：citation 展示、移动端会话布局、KB 多文档覆盖、Conversation Trace、权限隔离和 artifact 脱敏都要继续以真实 smoke / runtime evidence 收口。
 4. 保持 README / docs 展示口径与真实 smoke 证据一致，不把 smoke 级 PASS 写成线上 SLA 或大规模生产 benchmark。
 
 ## 5. 事实源规则
