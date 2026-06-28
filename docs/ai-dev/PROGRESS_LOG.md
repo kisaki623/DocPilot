@@ -12,7 +12,8 @@
 - 已验证：`npm run lint` PASS；真实浏览器检索后默认态不显示 Provider / Collection，展开后工程字段可见；`360px` 移动端无横向溢出；`npm run build` PASS。
 - 已完成更难 rerank uplift fixture 第一片：`real-qa-eval-cases.json` 新增 `real-rerank-distractor-ordering`，检验 export / audit / retention 词面干扰下仍命中 compliance export 与 audit retention 两份 evidence；`RagRealQaEvalMetrics` 新增 `rerankUpliftCandidatePassRate`。
 - 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
-- 结论：Frontend UX Audit v1 / v1.1 PASS，KnowledgeBase 结果区已完成一轮产品化降噪，RAG Real QA Eval 对 rerank 候选的离线门禁更清晰；下一片建议进入 Memory 长列表交互或真实 rerank smoke harder fixture。
+- 已完成 Memory 长列表交互审计：新临时用户下创建 `16` 条 ACTIVE memory，marker 为 `docpilot-memory-ui-1782649237433`，Conversation `37`；`390x844` 下 Memory 抽屉可打开且列表可滚动，`memoryItemCount=17`、`deleteButtonCount=16`、`scrollWidth=clientWidth=390`，桌面 `1036x850` 同样无横向溢出。中途本地 Next dev 与 `npm run build` 混用导致 `.next` chunk 缓存失效，已清理生成目录并重启本地 frontend，未改业务代码。
+- 结论：Frontend UX Audit v1 / v1.1 PASS，KnowledgeBase 结果区已完成一轮产品化降噪，RAG Real QA Eval 对 rerank 候选的离线门禁更清晰，Memory 长列表 UI 已完成一轮真实压力审计；下一片建议进入真实 rerank smoke harder fixture或 README / showcase 口径同步。
 
 ## 2026-06-28 Quality Loop v2 / Memory Quality Eval v1
 

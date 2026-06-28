@@ -16,7 +16,8 @@
 - 已验证：`npm run lint` PASS；真实浏览器页面检索后默认态不显示 Provider / Collection 细节，展开“工程观测”后可见 `Provider / Collection / Retrieval / Rerank / Answer / Model`；`360px` 移动端无横向溢出；`npm run build` PASS。
 - 已完成更难 rerank uplift fixture 第一片：RAG Real QA Eval 新增 `real-rerank-distractor-ordering`，用 export / audit / retention 词面干扰文档检验 citation 和 forbidden marker；metrics 新增 `rerankUpliftCandidatePassRate`，不再只统计候选 case 占比。
 - 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
-- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，可进入 Memory 长列表交互、真实 rerank smoke harder fixture，或 README / showcase 面试口径同步收口。
+- 已完成 Memory 长列表交互审计：重新注册临时用户并创建 `16` 条 ACTIVE memory，marker 为 `docpilot-memory-ui-1782649237433`，Conversation `37`；`390x844` 下 Memory 抽屉可打开、列表可滚动、`memoryItemCount=17`、`deleteButtonCount=16`、`scrollWidth=clientWidth=390`，桌面 `1036x850` 同样无横向溢出。中途发现本地 Next dev 与 `npm run build` 混用后 `.next` chunk 缓存失效，已清理生成目录并重启本地 frontend；未改业务代码。
+- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，可进入真实 rerank smoke harder fixture，或 README / showcase 面试口径同步收口。
 
 ## 2026-06-28 追加任务：Memory Quality Eval v1 真实链路 smoke 第二片
 
