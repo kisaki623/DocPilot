@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v3.4 / RAG Answer Grounding Gate v1
+
+- 已给 `cloud-quality-smoke.ps1` 新增 `Test-AnswerGrounding` 与 `answerGrounding` gate：对单文档 RAG、KnowledgeBase 两文档 RAG、representative corpus 三文档 RAG 的最终回答检查 answer present、预期 evidence marker 命中、forbidden marker 未泄漏和 citation marker 存在。
+- Artifact 只记录回答长度、marker 数量、命中计数和布尔结果；不保存回答原文、prompt、evidence context、response 原文、token、云地址或连接串。
+- 已增强 `scripts/smoke/rag-real-qa-eval-smoke.ps1`：plan 输出新增 `answer_grounding` case type 和 `answerGrounding` gate；Representative Corpus 问题文本明确要求逐字包含 `ALPHA-CLOUD-GATE`、`BETA-CONTEXT-GATE`、`real-incident-detection-marker`，让真实回答门禁检查更公平。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests。
+- 真实链路验证：首次 run 在 `answerGrounding` 暴露 representative answer 只命中 `2/3` 个预期 marker，说明门禁有效；调整问题后再次执行 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629003157-630db5`。三个 scope 均 `expectedMarkersSatisfied=true`、`forbiddenMarkerHit=false`、`citationMarkerPresent=true`；representative gate 返回 `8` hits / `8` citations，documentHitCounts 覆盖 Gamma `203:2`、Beta `202:3`、Alpha `201:3`。
+- 边界：本片不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push；结论是小规模真实链路回答落证门禁，不写成大规模 answer faithfulness benchmark 或线上 SLA。
+
 ## 2026-06-28 Quality Loop v3.3 / RAG Real Corpus 真实链路代表性三文档门禁
 
 - 已给 `cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRepresentativeCorpusGate`：真实链路中额外上传 incident review Gamma 文档，并与既有 Alpha / Beta 两文档组成 Representative Corpus KB。

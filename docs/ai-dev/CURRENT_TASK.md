@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v3.3：RAG Real Corpus 真实链路代表性三文档门禁（DONE）
+当前任务：DocPilot Quality Loop v3.4：RAG Answer Grounding Gate v1（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v3.4 RAG Answer Grounding Gate v1
+
+- 目标：把真实 RAG smoke 从“检索和 citation 数量达标”继续推进到“最终回答文本确实落在 evidence 上”，要求回答包含预期 evidence marker、不包含 forbidden marker，并带 citation marker。
+- 已完成：`cloud-quality-smoke.ps1` 新增 `Test-AnswerGrounding`，在单文档 RAG、KnowledgeBase 两文档 RAG 和 representative corpus 三文档 RAG 后检查 `answerPresent`、`expectedMarkerHits`、`forbiddenMarkerHit` 和 `citationMarkerPresent`；artifact 只保存长度、计数和布尔结果，不保存回答原文、prompt、evidence context 或 response 原文。
+- 已完成专项入口：`rag-real-qa-eval-smoke.ps1` 的 plan 输出新增 `answer_grounding` case type 和 `answerGrounding` gate；Representative Corpus 问题文本已明确要求逐字带出 `ALPHA-CLOUD-GATE`、`BETA-CONTEXT-GATE` 和 `real-incident-detection-marker`，使 gate 检查对象与测试目标对齐。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629003157-630db5`。
+- 关键结果：`answerGrounding` gate 覆盖 `singleDocumentRag`、`knowledgeBaseRag` 和 `representativeCorpus` 三个 scope；三者均 `answerPresent=true`、`expectedMarkersSatisfied=true`、`forbiddenMarkerHit=false`、`citationMarkerPresent=true`。Representative corpus 同轮返回 `8` retrieve hits / `8` citations，documentHitCounts 覆盖 Gamma `203:2`、Beta `202:3`、Alpha `201:3`；no-evidence、Conversation Trace、权限隔离、前端 routes、cleanup 和 artifact 脱敏均保持 PASS。
+- 边界：本片只增强 smoke runner、脚本安全测试和脱敏记录，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。真实 smoke 创建了临时用户、三份文档、KnowledgeBase 和 Conversation 数据，artifact 位于 ignored `backend/target/rag-real-qa/.../artifact.json`；该结论是小规模真实链路回答落证门禁，不是大规模真实语料 benchmark 或线上 SLA。
+- 下一步：可进入 Memory 编辑 / 合并交互与门禁，或继续 RAG 方向做 hard negative corpus、answer faithfulness 更细粒度审计、README / showcase 面试口径同步。
 
 ## 2026-06-28 追加任务：Quality Loop v3.3 RAG Real Corpus 真实链路代表性三文档门禁
 

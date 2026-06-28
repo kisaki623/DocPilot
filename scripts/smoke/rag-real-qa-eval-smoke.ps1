@@ -35,7 +35,8 @@ function Show-RagRealQaPlan {
       "semantic_distractor",
       "hybrid_keyword_noise",
       "rerank_uplift_candidate",
-      "representative_corpus"
+      "representative_corpus",
+      "answer_grounding"
     )
     gates = @(
       "tunnel",
@@ -48,6 +49,7 @@ function Show-RagRealQaPlan {
       "singleDocumentRag",
       "knowledgeBaseRag",
       "representativeCorpus",
+      "answerGrounding",
       "noEvidenceThreshold",
       "conversationTrace",
       "permissionIsolation",

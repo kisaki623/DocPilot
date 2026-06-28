@@ -1,8 +1,29 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-06-28
+> Last updated: 2026-06-29
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
+
+## 2026-06-29 RAG Answer Grounding Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260629003157-630db5`
+
+Verified gates:
+
+- `cloud-quality-smoke.ps1` now includes `answerGrounding` for single-document RAG, KnowledgeBase RAG and representative corpus QA answers.
+- `rag-real-qa-eval-smoke.ps1` plan output includes `answer_grounding` and `answerGrounding`.
+- Single-document, KnowledgeBase and representative corpus answer checks all passed: answer present, expected evidence markers satisfied, forbidden marker absent and citation marker present.
+- Representative Corpus KB still returned `8` retrieve hits and `8` citations.
+- documentHitCounts covered all three temporary documents: Gamma `203:2`, Beta `202:3`, Alpha `201:3`.
+- Delegated cloud quality gates passed: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase RAG, representative corpus, populated-KB no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+
+Boundary: artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, answer text, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This is a small real-link answer grounding gate, not a large-scale answer faithfulness benchmark or online SLA.
 
 ## 2026-06-28 RAG Real Corpus Representative Smoke
 

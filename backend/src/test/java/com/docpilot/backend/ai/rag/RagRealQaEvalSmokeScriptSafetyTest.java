@@ -36,7 +36,9 @@ class RagRealQaEvalSmokeScriptSafetyTest {
                 .contains("factual_lookup")
                 .contains("no_evidence")
                 .contains("representative_corpus")
+                .contains("answer_grounding")
                 .contains("representativeCorpus")
+                .contains("answerGrounding")
                 .contains("representativeCorpusEnabledByDefault")
                 .contains("artifactRedaction")
                 .doesNotContain("Authorization")
@@ -58,6 +60,8 @@ class RagRealQaEvalSmokeScriptSafetyTest {
                 .contains("QualityMinSimilarityThreshold")
                 .contains("SkipRepresentativeCorpusGate")
                 .contains("EnableRepresentativeCorpusGate")
+                .contains("answer_grounding")
+                .contains("answerGrounding")
                 .doesNotContain("Remove-Item -Recurse")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer")
@@ -66,11 +70,32 @@ class RagRealQaEvalSmokeScriptSafetyTest {
                 .doesNotContain("Write-Output $EnvFile");
     }
 
+    @Test
+    void shouldKeepAnswerGroundingArtifactSanitized() throws Exception {
+        String script = Files.readString(delegateScriptPath(), StandardCharsets.UTF_8);
+
+        assertThat(script)
+                .contains("Test-AnswerGrounding")
+                .contains("answerGrounding")
+                .contains("expectedMarkerHits")
+                .contains("forbiddenMarkerHit")
+                .contains("citationMarkerPresent")
+                .doesNotContain("answerText =")
+                .doesNotContain("rawAnswer =")
+                .doesNotContain("rawResponse =")
+                .doesNotContain("prompt =")
+                .doesNotContain("evidenceContext =");
+    }
+
     private static String readAll(InputStream inputStream) throws Exception {
         return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
 
     private static Path scriptPath() {
         return Path.of("..", "scripts", "smoke", "rag-real-qa-eval-smoke.ps1");
+    }
+
+    private static Path delegateScriptPath() {
+        return Path.of("..", "scripts", "smoke", "cloud-quality-smoke.ps1");
     }
 }

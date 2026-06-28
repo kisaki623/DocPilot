@@ -682,6 +682,34 @@ function Get-FirstDocumentRank($items, [long]$documentId) {
   return 0
 }
 
+function Test-AnswerGrounding([string]$scope, [string]$answer, [string[]]$expectedMarkers, [string[]]$forbiddenMarkers) {
+  $resolvedAnswer = if ($null -eq $answer) { "" } else { [string]$answer }
+  $expectedHitCount = 0
+  foreach ($marker in @($expectedMarkers)) {
+    if (-not [string]::IsNullOrWhiteSpace($marker) -and $resolvedAnswer.Contains($marker)) {
+      $expectedHitCount++
+    }
+  }
+  $forbiddenHitCount = 0
+  foreach ($marker in @($forbiddenMarkers)) {
+    if (-not [string]::IsNullOrWhiteSpace($marker) -and $resolvedAnswer.Contains($marker)) {
+      $forbiddenHitCount++
+    }
+  }
+  return [ordered]@{
+    scope = $scope
+    answerPresent = -not [string]::IsNullOrWhiteSpace($resolvedAnswer)
+    answerLength = $resolvedAnswer.Length
+    expectedMarkerCount = @($expectedMarkers).Count
+    expectedMarkerHits = $expectedHitCount
+    expectedMarkersSatisfied = ($expectedHitCount -eq @($expectedMarkers).Count)
+    forbiddenMarkerCount = @($forbiddenMarkers).Count
+    forbiddenMarkerHits = $forbiddenHitCount
+    forbiddenMarkerHit = ($forbiddenHitCount -gt 0)
+    citationMarkerPresent = ($resolvedAnswer -match '\[\d+\]')
+  }
+}
+
 function Show-PlanMode() {
   [PSCustomObject][ordered]@{
     mode = "plan"
@@ -689,7 +717,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "representativeCorpus(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "representativeCorpus(optional)", "answerGrounding", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -726,6 +754,7 @@ function Invoke-Run() {
   $envValues = Read-EnvFile $EnvFile
   $gitStatusBefore = git status --short
   Set-Gate "gitStatus" "PASS" @("initial git status checked")
+  $answerGroundingChecks = @()
 
   $provider = Get-EnvValue $envValues @("RAG_VECTOR_STORE_PROVIDER", "RAG_VECTOR_PROVIDER", "APP_RAG_VECTOR_STORE_PROVIDER") "in_memory"
   $embeddingProvider = Get-EnvValue $envValues @("APP_RAG_EMBEDDING_PROVIDER") "fake"
@@ -843,6 +872,7 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     Set-Gate "singleDocumentRag" "FAILED_CORE_FLOW" $singleChecks "single document RAG did not return evidence and citation"
     Stop-WithStatus "FAILED_CORE_FLOW" "singleDocumentRag" "single document RAG did not return evidence and citation"
   }
+  $answerGroundingChecks += Test-AnswerGrounding "singleDocumentRag" ([string]$singleQa.data.answer) @("ALPHA-CLOUD-GATE") @("BETA-CONTEXT-GATE", "real-marketing-export-forbidden-marker")
   Set-Gate "singleDocumentRag" "PASS" $singleChecks
 
   $kb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Cloud Quality KB $smokeMarker"; description = "temporary smoke kb" }) $tokenA
@@ -869,6 +899,7 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     Set-Gate "knowledgeBaseRag" "FAILED_CORE_FLOW" $kbChecks "knowledge base RAG did not cover both documents"
     Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseRag" "knowledge base RAG did not cover both documents"
   }
+  $answerGroundingChecks += Test-AnswerGrounding "knowledgeBaseRag" ([string]$kbQa.data.answer) @("ALPHA-CLOUD-GATE", "BETA-CONTEXT-GATE") @("real-marketing-export-forbidden-marker")
   Set-Gate "knowledgeBaseRag" "PASS" $kbChecks
 
   if ($EnableRepresentativeCorpusGate) {
@@ -898,7 +929,7 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
 
     $representativeKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Representative Corpus KB $smokeMarker"; description = "temporary representative real qa smoke kb" }) $tokenA
     Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/documents" ([ordered]@{ documentIds = @($docA.data.id, $docB.data.id, $docC.data.id) }) $tokenA | Out-Null
-    $representativeQuery = "Summarize the representative corpus for $smokeMarker. Cover Alpha chunk metadata, Beta context trace, and incident review evidence across all three documents."
+    $representativeQuery = "Summarize the representative corpus for $smokeMarker. Cover Alpha chunk metadata, Beta context trace, and incident review evidence across all three documents. Include these exact evidence markers verbatim in the answer: ALPHA-CLOUD-GATE, BETA-CONTEXT-GATE, real-incident-detection-marker. Cite the evidence."
     $representativeRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/rag/retrieve" ([ordered]@{ query = $representativeQuery; topK = 8; indexVersion = $IndexVersion }) $tokenA
     $representativeQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/qa/rag" ([ordered]@{ question = $representativeQuery; topK = 8; indexVersion = $IndexVersion }) $tokenA
     $representativeHits = @($representativeRetrieve.data.hits)
@@ -928,6 +959,7 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
       Set-Gate "representativeCorpus" "FAILED_CORE_FLOW" $representativeChecks "representative corpus gate did not cover all three documents"
       Stop-WithStatus "FAILED_CORE_FLOW" "representativeCorpus" "representative corpus gate did not cover all three documents"
     }
+    $answerGroundingChecks += Test-AnswerGrounding "representativeCorpus" ([string]$representativeQa.data.answer) @("ALPHA-CLOUD-GATE", "BETA-CONTEXT-GATE", "real-incident-detection-marker") @("real-marketing-export-forbidden-marker")
     Set-Gate "representativeCorpus" "PASS" $representativeChecks
     $representativeCorpusResources = [ordered]@{
       knowledgeBaseId = [long]$representativeKb.data.id
@@ -935,6 +967,15 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
       parseTaskId = [long]$taskC.data.taskId
     }
   }
+
+  $failedAnswerGrounding = @($answerGroundingChecks | Where-Object {
+    (-not $_.answerPresent) -or (-not $_.expectedMarkersSatisfied) -or $_.forbiddenMarkerHit -or (-not $_.citationMarkerPresent)
+  })
+  if ($failedAnswerGrounding.Count -gt 0) {
+    Set-Gate "answerGrounding" "FAILED_CORE_FLOW" $answerGroundingChecks "RAG answer did not satisfy expected marker/citation grounding"
+    Stop-WithStatus "FAILED_CORE_FLOW" "answerGrounding" "RAG answer did not satisfy expected marker/citation grounding"
+  }
+  Set-Gate "answerGrounding" "PASS" $answerGroundingChecks
 
   $unrelatedQuery = "Which payroll settlement policy and invoice approval matrix is defined for employee reimbursements?"
   $noEvidenceRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $unrelatedQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA

@@ -1,6 +1,6 @@
 # DocPilot 当前状态
 
-最后更新：2026-06-28
+最后更新：2026-06-29
 
 旧状态快照已保留在 `docs/ai-dev/archive/STATE_2026-04-18.md`。本文件只维护当前事实，不追加流水账。
 
@@ -43,6 +43,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - RAG Real QA Eval 已补更难 rerank uplift 候选：新增 `real-rerank-distractor-ordering`，覆盖 export / audit / retention 词面干扰但缺少目标 evidence marker 的情况；metrics 新增 `rerankUpliftCandidatePassRate`，用于单独观察 rerank 候选 case 是否通过，而不是只记录候选 case 占比。2026-06-28 targeted eval 9/9 PASS，`*Rag*,*KnowledgeBase*` 回归 204/204 PASS。
 - RAG Real Corpus Eval 第一片已完成：`real-qa-eval-cases.json` 从 9 个 case 扩到 22 个 case，新增长文档、近义 no-evidence、多文档总结、citation grounding、scope isolation、hybrid keyword noise 和 rerank distractor 企业场景样例；`RagRealQaEvalMetrics` 新增 `longDocumentCasePassRate`、`nearMissNoEvidenceRate`、`multiDocSummaryPassRate`、`distractorSuppressionRate`。2026-06-28 已验证 `mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。该结果仍是脱敏离线门禁，不代表大规模真实 provider benchmark。
 - RAG Real Corpus 真实链路代表性三文档门禁已完成：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRepresentativeCorpusGate`，额外上传 incident review Gamma 文档，并与 Alpha / Beta 组成 Representative Corpus KB；`rag-real-qa-eval-smoke.ps1` 默认打开该 gate，另提供 `-SkipRepresentativeCorpusGate`。2026-06-28 已验证 plan / dry-run PASS，脚本安全测试 2/2 PASS，Real QA targeted tests 9/9 PASS；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260628234235-5c1b94`，representative gate 返回 `8` hits / `8` citations，documentHitCounts 覆盖 Gamma `196:2`、Beta `195:3`、Alpha `194:3`，no-evidence、Conversation Trace、权限隔离、前端 routes、cleanup 和 artifact 脱敏均保持 PASS。该结果是小规模真实链路代表性门禁，不是大规模 relevance benchmark。
+- RAG Answer Grounding Gate v1 已完成：`cloud-quality-smoke.ps1` 新增 `answerGrounding` gate，对单文档 RAG、KnowledgeBase 两文档 RAG 和 representative corpus 三文档 RAG 的最终回答做 evidence marker / forbidden marker / citation marker 检查；artifact 只保存回答长度、marker 命中计数和布尔结果，不保存回答原文、prompt、evidence context 或 response 原文。2026-06-29 已验证 plan / dry-run PASS，`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629003157-630db5`，三个 scope 均 `expectedMarkersSatisfied=true`、`forbiddenMarkerHit=false`、`citationMarkerPresent=true`；no-evidence、Conversation Trace、权限隔离、前端 routes、cleanup 和 artifact 脱敏均保持 PASS。该结果是小规模真实链路回答落证门禁，不是大规模 answer faithfulness benchmark。
 - Memory 长列表交互已完成一轮真实 UI 审计：2026-06-28 使用 marker `docpilot-memory-ui-1782649237433` 创建临时会话和 `16` 条 ACTIVE memory，`390x844` 下 Memory 抽屉可打开、列表可滚动、`memoryItemCount=17`、`deleteButtonCount=16`、`scrollWidth=clientWidth=390`；桌面 `1036x850` 同样无横向溢出。该审计不改变业务代码，不代表长期记忆真实模型抽取能力。
 - Memory 产品化第一片已完成：`/conversations` Memory 抽屉新增生效 / 候选 / 重复提示 KPI、类型分布、来源说明、priority、confidence、更新时间、ACTIVE 重复提示和候选已存在提示；2026-06-28 真实浏览器 marker `docpilot-memory-ui-product-1782651263292` 验证桌面、`390x844`、`320x740` 均无横向溢出，5 张 memory / suggestion 卡片和 17 个 meta badge 可见。该结果只代表前端管理体验更可解释，不代表真实模型长期记忆抽取能力提升。
 - Memory Governance 第一片已完成：`UserMemoryResponse` 暴露 `duplicateOfId`、`conflictWithId`、`governanceHint`、`similarityScore`，后端在手动创建和接受候选前检查同类型 ACTIVE memory 的精确重复、近似重复和明确偏好冲突；`/conversations` Memory 抽屉展示重复 / 冲突提示。2026-06-28 已验证 Memory / Context targeted tests 54/54 PASS，RAG / KnowledgeBase / Conversation / Memory 回归 255/255 PASS，`npm run lint` PASS，`npm run build` PASS；随后 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 真实链路 PASS，marker 为 `docpilot-memory-quality-20260628223255-0a06e6`，覆盖冲突 `ANSWER_STYLE` suggestion 返回 `governanceHint=conflict_active_memory`、`conflictWithId` 非空，以及直接 accept 被治理门禁阻止。该片仍不等于完整 Memory 合并 / 编辑能力或真实模型长期记忆抽取质量。
@@ -84,7 +85,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 ## 4. 当前生产化推进优先级
 
 1. Quality Loop v2 已完成一轮 RAG Real QA Eval、Memory Quality Eval 和 Frontend UX Audit 闭环，并补过 `360px` / `320px` 极窄移动端、长 memory 检查、KnowledgeBase 技术字段产品化降噪、更难 rerank uplift 离线 fixture、真实 rerank hard smoke 和 Memory 产品化第一片。
-2. 下一阶段可进入 README / showcase 面试口径同步，或继续做 Memory 编辑 / 合并交互设计与质量门禁；如果继续 RAG 方向，则优先做 answer grounding 审计、hard negative corpus 或更窄的小规模真实 provider 对比。
+2. 下一阶段可进入 README / showcase 面试口径同步，或继续做 Memory 编辑 / 合并交互设计与质量门禁；如果继续 RAG 方向，则优先做 hard negative corpus、answer faithfulness 更细粒度审计或更窄的小规模真实 provider 对比。
 3. 继续保持 Conversation Memory 与 KnowledgeBase evidence 分层：短期上下文、长期记忆、RAG evidence 和 trace 各自可解释。
 4. 保持真实体验回归门禁：citation 展示、移动端会话布局、KB 多文档覆盖、Conversation Trace、权限隔离和 artifact 脱敏都要继续以真实 smoke / runtime evidence 收口。
 5. 保持 README / docs 展示口径与真实 smoke 证据一致，不把 smoke 级 PASS 写成线上 SLA 或大规模生产 benchmark。
