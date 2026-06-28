@@ -35,6 +35,8 @@ class MemoryQualitySmokeScriptSafetyTest {
                 .contains("docpilot-memory-quality")
                 .contains("accepted suggestion becomes ACTIVE")
                 .contains("ignored suggestion stays out of active memory list")
+                .contains("conflicting answer-style suggestion reports governance hint")
+                .contains("conflicting suggestion accept is blocked before ACTIVE")
                 .contains("userMemory")
                 .contains("ragEvidence")
                 .doesNotContain("Authorization")
@@ -63,6 +65,10 @@ class MemoryQualitySmokeScriptSafetyTest {
                 .contains("memoryQuality")
                 .contains("/api/memories/suggestions/extract")
                 .contains("activeMemoryContainsIgnored")
+                .contains("conflict_active_memory")
+                .contains("conflictWithId")
+                .contains("conflictAcceptBlocked")
+                .contains("memory suggestion requires governance before accept")
                 .doesNotContain("Remove-Item -Recurse")
                 .doesNotContain("apiKey =");
     }

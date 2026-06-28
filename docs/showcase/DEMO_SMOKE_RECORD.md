@@ -52,6 +52,26 @@ Verified gates:
 
 Boundary: artifact is stored under ignored `backend/target/memory-quality/.../artifact.json`; do not commit artifact raw content, conversation text, memory content, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This validates rule-based memory quality gates and trace separation; it does not claim real-model long-term memory extraction or large-scale personalization quality.
 
+## 2026-06-28 Memory Governance Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/memory-quality-smoke.ps1`
+
+Marker: `docpilot-memory-quality-20260628223255-0a06e6`
+
+Verified gates:
+
+- Delegated cloud quality gates passed: tunnel, backend health, frontend routes, two-document upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase RAG, populated-KB no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+- Memory quality gate extracted `2` suggestions; accepted suggestion became `ACTIVE`, ignored suggestion became `IGNORED`, and the ignored suggestion was absent from the ACTIVE memory list.
+- Bound-KB trace kept user memory and RAG evidence separated, with `userMemory=1`, `ragEvidence=6`, `memoryCount=1`, `evidenceCount=6`, and two-document hit distribution.
+- Memory governance gate created a temporary ACTIVE `ANSWER_STYLE` baseline, extracted a conflicting answer-style suggestion, and verified `governanceHint=conflict_active_memory` with non-empty `conflictWithId`.
+- Direct accept of the conflicting suggestion was blocked before it could become ACTIVE, and the blocked reason matched the governance requirement.
+
+Boundary: artifact is stored under ignored `backend/target/memory-quality/.../artifact.json`; do not commit artifact raw content, conversation text, memory content, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This validates the first accept-before-ACTIVE governance gate for rule-based memory suggestions; it does not claim automatic memory merge/edit workflows or real-model long-term memory extraction quality.
+
 ## 2026-06-28 Frontend UX Audit
 
 Status: PASS

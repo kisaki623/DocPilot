@@ -7,9 +7,10 @@
 - 目标：把 Memory 从“能接受 / 忽略候选”推进到“接受前有治理门禁”，先阻止明显重复 ACTIVE memory 和同类型偏好冲突候选直接生效，同时让前端能展示治理提示。
 - 已完成：`UserMemoryResponse` 新增脱敏治理字段 `duplicateOfId`、`conflictWithId`、`governanceHint`、`similarityScore`；`UserMemoryServiceImpl` 在手动创建和接受候选前检查同类型 ACTIVE memory 的精确重复、近似重复和少量明确冲突词；候选列表 / 提取结果会带重复或冲突提示。
 - 已完成前端展示：`/conversations` Memory 抽屉读取治理字段，显示疑似重复、冲突 memory id 和相似度提示；不新增“自动合并”按钮，不删除旧记忆，不改表结构。
-- 已验证：Gemini CLI 做轻量 UX sanity 建议；`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，54 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，255 tests；`npm run lint` PASS；`npm run build` PASS。
-- 边界：本片不做真实 LLM memory extraction，不做自动合并 / 自动删除，不改数据库结构，不启动真实链路 smoke，不创建业务数据，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果证明 Memory 治理 API 和 UI 展示具备第一道门禁；真实浏览器冲突候选体验仍需下一片审计。
-- 下一步：补 Memory Governance 真实链路 smoke / browser audit，创建临时用户、ACTIVE memory、冲突 suggestion，验证 API 阻止直接 accept，前端显示 conflict / duplicate 提示；随后再考虑编辑 / 合并交互。
+- 已完成真实 smoke 门禁：`memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 新增 Memory Governance 检查，先创建 ACTIVE `ANSWER_STYLE` 基线，再从临时会话抽取冲突 answer-style suggestion，要求返回 `governanceHint=conflict_active_memory`、`conflictWithId` 非空，并验证直接 accept 被阻止，错误原因匹配治理门禁。
+- 已验证：Gemini CLI 做轻量 UX sanity 建议；`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-memory-quality-20260628223255-0a06e6`；`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，54 tests；此前 `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，255 tests；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不做真实 LLM memory extraction，不做自动合并 / 自动删除，不改数据库结构，不删除业务数据，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。真实 smoke 创建了临时 smoke 用户、文档、KnowledgeBase、Conversation 和 memory 数据，artifact 位于 ignored `backend/target/memory-quality/.../artifact.json`。
+- 下一步：进入下一轮自驱切片，可优先做 Memory 编辑 / 合并交互设计与门禁，或回到 RAG Real Corpus 的真实链路代表 case 迁移；继续避免把 smoke 级 PASS 写成大规模个性化效果评测。
 
 ## 2026-06-28 追加任务：Quality Loop v3.1 RAG Real Corpus Eval 第一片
 

@@ -332,6 +332,31 @@ function Invoke-MysqlQuery([hashtable]$envValues, [string]$query) {
   }
 }
 
+function ConvertTo-MysqlStringLiteral([string]$value) {
+  if ($null -eq $value) {
+    return "NULL"
+  }
+  $escaped = $value.Replace("\", "\\").Replace("'", "''")
+  return "'" + $escaped + "'"
+}
+
+function Add-SmokeConversationUserMessages([hashtable]$envValues, [long]$userId, [long]$conversationId, [string[]]$messages) {
+  $values = @()
+  $sequenceNo = 1
+  foreach ($content in $messages) {
+    $contentLiteral = ConvertTo-MysqlStringLiteral $content
+    $values += "(${conversationId},${userId},'USER',${contentLiteral},${sequenceNo},CHAR_LENGTH(${contentLiteral}),'ACTIVE')"
+    $sequenceNo++
+  }
+  $joinedValues = $values -join ","
+  $query = @"
+INSERT INTO tb_conversation_message (conversation_id,user_id,role,content,sequence_no,token_count,status)
+VALUES ${joinedValues};
+UPDATE tb_conversation SET last_message_time = NOW() WHERE id = ${conversationId} AND user_id = ${userId};
+"@
+  Invoke-MysqlQuery $envValues $query | Out-Null
+}
+
 function Get-MysqlChunks([hashtable]$envValues, [long]$userId, [long]$documentId) {
   $query = @"
 SELECT id,document_id,user_id,chunk_index,CHAR_LENGTH(content),content_hash,start_offset,end_offset,token_count,index_status,index_version,embedding_model,vector_id
@@ -961,8 +986,10 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
 
   if ($EnableMemoryQualityGate) {
     $memoryConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Memory Quality $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $kb.data.id }) $tokenA
-    $memoryMessageA = Invoke-JsonApi "POST" "/api/conversations/$($memoryConversation.data.conversationId)/messages" ([ordered]@{ content = "Please answer with the conclusion first, then explain tradeoffs. Use ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE for $smokeMarker." }) $tokenA
-    $memoryMessageB = Invoke-JsonApi "POST" "/api/conversations/$($memoryConversation.data.conversationId)/messages" ([ordered]@{ content = "Use the knowledge base based on documents for ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE. Current goal is finishing the Memory Quality smoke phase while keeping user memory separate from RAG proof." }) $tokenA
+    Add-SmokeConversationUserMessages $envValues $userAId ([long]$memoryConversation.data.conversationId) @(
+      "Please answer with the conclusion first, then explain tradeoffs for $smokeMarker.",
+      "Current goal is finishing the Memory Quality smoke phase while keeping user memory separate from RAG proof for $smokeMarker."
+    )
     $suggestions = Invoke-JsonApi "POST" "/api/memories/suggestions/extract" ([ordered]@{ conversationId = $memoryConversation.data.conversationId; limit = 20 }) $tokenA
     $suggestionList = @($suggestions.data)
     $answerStyleSuggestion = $suggestionList | Where-Object { $_.memoryType -eq "ANSWER_STYLE" } | Select-Object -First 1
@@ -983,23 +1010,50 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
     if ($acceptedMemory.data.status -ne "ACTIVE" -or $ignoredMemory.data.status -ne "IGNORED" -or ($activeMemoryIds -notcontains [long]$acceptedMemory.data.memoryId) -or ($activeMemoryIds -contains [long]$ignoredMemory.data.memoryId)) {
       Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "accepted and ignored memory status isolation failed"
     }
-    $memoryTrace = Invoke-JsonApi "GET" "/api/conversations/$($memoryConversation.data.conversationId)/messages/$($memoryMessageB.data.messageId)/trace" $null $tokenA
-    $memoryTraceCounts = $memoryTrace.data.contextSourceCounts
-    if ((Get-CountValue $memoryTraceCounts "userMemory") -lt 1 -or (Get-CountValue $memoryTraceCounts "ragEvidence") -lt 1 -or [int]$memoryTrace.data.evidenceCount -lt 1 -or [int]$memoryTrace.data.memoryCount -lt 1 -or @($memoryTrace.data.memoryTypes).Count -lt 1) {
+    $governanceActive = Invoke-JsonApi "POST" "/api/memories" ([ordered]@{
+        memoryType = "ANSWER_STYLE"
+        content = "Concise style for $smokeMarker."
+        priority = 45
+      }) $tokenA
+    if ($governanceActive.data.status -ne "ACTIVE") {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "temporary governance baseline memory was not ACTIVE"
+    }
+    $governanceConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Memory Governance $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $kb.data.id }) $tokenA
+    Add-SmokeConversationUserMessages $envValues $userAId ([long]$governanceConversation.data.conversationId) @(
+      "Please answer with detailed explanations for $smokeMarker."
+    )
+    $governanceSuggestions = Invoke-JsonApi "POST" "/api/memories/suggestions/extract" ([ordered]@{ conversationId = $governanceConversation.data.conversationId; limit = 10 }) $tokenA
+    $governanceSuggestionList = @($governanceSuggestions.data)
+    $conflictingSuggestion = $governanceSuggestionList |
+      Where-Object { $_.memoryType -eq "ANSWER_STYLE" -and $_.governanceHint -eq "conflict_active_memory" -and $null -ne $_.conflictWithId } |
+      Select-Object -First 1
+    if (-not $conflictingSuggestion) {
       Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
-          extractedSuggestionCount = $suggestionList.Count
-          acceptedStatus = $acceptedMemory.data.status
-          ignoredStatus = $ignoredMemory.data.status
-          activeMemoryContainsAccepted = ($activeMemoryIds -contains [long]$acceptedMemory.data.memoryId)
-          activeMemoryContainsIgnored = ($activeMemoryIds -contains [long]$ignoredMemory.data.memoryId)
-          contextSourceCounts = $memoryTraceCounts
-          ragTriggered = $memoryTrace.data.ragTriggered
-          ragRequired = $memoryTrace.data.ragRequired
-          memoryCount = $memoryTrace.data.memoryCount
-          evidenceCount = $memoryTrace.data.evidenceCount
-          documentHitCounts = $memoryTrace.data.documentHitCounts
-        }) "memory quality trace did not include accepted memory and RAG evidence"
-      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory quality trace did not include accepted memory and RAG evidence"
+          governanceSuggestionCount = $governanceSuggestionList.Count
+          governanceHints = @($governanceSuggestionList | ForEach-Object { $_.governanceHint })
+          conflictWithIds = @($governanceSuggestionList | ForEach-Object { $_.conflictWithId })
+        }) "memory governance did not flag conflicting answer-style suggestion"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory governance did not flag conflicting answer-style suggestion"
+    }
+    $conflictAccept = Invoke-JsonApi "POST" "/api/memories/suggestions/$($conflictingSuggestion.memoryId)/accept" $null $tokenA -AllowFailure
+    if ($conflictAccept.ok) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          conflictingSuggestionId = $conflictingSuggestion.memoryId
+          governanceHint = $conflictingSuggestion.governanceHint
+          conflictWithIdPresent = ($null -ne $conflictingSuggestion.conflictWithId)
+          conflictAcceptBlocked = (-not $conflictAccept.ok)
+      }) "conflicting memory suggestion was accepted without governance"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "conflicting memory suggestion was accepted without governance"
+    }
+    if (([string]$conflictAccept.message) -notlike "*memory suggestion requires governance before accept*") {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          conflictingSuggestionId = $conflictingSuggestion.memoryId
+          governanceHint = $conflictingSuggestion.governanceHint
+          conflictWithIdPresent = ($null -ne $conflictingSuggestion.conflictWithId)
+          conflictAcceptBlocked = (-not $conflictAccept.ok)
+          conflictAcceptCode = $conflictAccept.code
+        }) "conflicting memory suggestion was blocked by an unexpected error"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "conflicting memory suggestion was blocked by an unexpected error"
     }
     Set-Gate "memoryQuality" "PASS" @([ordered]@{
         extractedSuggestionCount = $suggestionList.Count
@@ -1007,10 +1061,14 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
         ignoredStatus = $ignoredMemory.data.status
         activeMemoryContainsAccepted = ($activeMemoryIds -contains [long]$acceptedMemory.data.memoryId)
         activeMemoryContainsIgnored = ($activeMemoryIds -contains [long]$ignoredMemory.data.memoryId)
-        contextSourceCounts = $memoryTraceCounts
-        memoryCount = $memoryTrace.data.memoryCount
-        evidenceCount = $memoryTrace.data.evidenceCount
-        documentHitCounts = $memoryTrace.data.documentHitCounts
+        governanceHint = $conflictingSuggestion.governanceHint
+        conflictWithIdPresent = ($null -ne $conflictingSuggestion.conflictWithId)
+        conflictAcceptBlocked = (-not $conflictAccept.ok)
+        conflictAcceptReasonMatched = (([string]$conflictAccept.message) -like "*memory suggestion requires governance before accept*")
+        contextSourceCounts = $sourceCounts
+        memoryCount = $trace.data.memoryCount
+        evidenceCount = $trace.data.evidenceCount
+        documentHitCounts = $trace.data.documentHitCounts
       })
   }
 

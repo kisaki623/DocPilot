@@ -5,8 +5,9 @@
 - 已新增 Memory 治理响应字段：`duplicateOfId`、`conflictWithId`、`governanceHint`、`similarityScore`，用于让候选记忆在进入 ACTIVE 前说明疑似重复、近似重复或明确偏好冲突。
 - 后端在手动创建 memory 时拒绝同类型 ACTIVE 精确重复；接受候选前检查同类型 ACTIVE memory 的精确重复、近似重复和少量明确冲突词，冲突候选不会直接变为 ACTIVE。
 - `/conversations` Memory 抽屉已读取治理字段，展示冲突 / 重复的 memory id 与相似度提示；Gemini CLI 提供轻量 UX sanity 建议，Codex 只落地紧凑提示，不新增未实现的合并按钮。
-- 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，54 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，255 tests；`npm run lint` PASS；`npm run build` PASS。
-- 边界：本片不改数据库结构，不做真实 LLM memory extraction，不做自动合并 / 自动删除，不启动真实链路 smoke，不提交 artifact 原文，不 push；下一片应补真实临时用户下的冲突候选 API / 浏览器审计。
+- 已补真实链路治理 smoke：`memory-quality-smoke.ps1` 委托 `cloud-quality-smoke.ps1 -EnableMemoryQualityGate`，创建临时 ACTIVE `ANSWER_STYLE` 基线和冲突 answer-style suggestion，要求 `governanceHint=conflict_active_memory`、`conflictWithId` 非空，并验证直接 accept 被治理门禁阻止。
+- 已验证：`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-memory-quality-20260628223255-0a06e6`；`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，54 tests；此前 `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，255 tests；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不改数据库结构，不做真实 LLM memory extraction，不做自动合并 / 自动删除，不删除业务数据，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push；真实 smoke 创建了临时 smoke 用户、文档、KnowledgeBase、Conversation 和 memory 数据，artifact 位于 ignored `backend/target/memory-quality/.../artifact.json`。下一片可进入 Memory 编辑 / 合并交互，或把 RAG Real Corpus 代表 case 迁移进真实链路 smoke。
 
 ## 2026-06-28 Quality Loop v3.1 / RAG Real Corpus Eval 第一片
 

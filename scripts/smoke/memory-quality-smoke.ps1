@@ -29,6 +29,8 @@ function Show-MemoryQualityPlan {
       "suggestion extraction produces answer style and task goal candidates",
       "accepted suggestion becomes ACTIVE",
       "ignored suggestion stays out of active memory list",
+      "conflicting answer-style suggestion reports governance hint",
+      "conflicting suggestion accept is blocked before ACTIVE",
       "bound-KB conversation trace separates userMemory and ragEvidence",
       "artifact redaction"
     )
