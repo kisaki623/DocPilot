@@ -14,7 +14,9 @@
 - 边界：本片创建了临时审计数据，但未改后端 / 前端业务代码，未删除业务数据，未改数据库结构，未操作远程 Docker，未提交 artifact / 截图 / 日志原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
 - 已完成 KnowledgeBase 技术字段产品化降噪：`/knowledge-bases` 问答结果区默认展示“来源覆盖 / 引用来源 / 回答状态 / 生成次数”，把 provider、collection、retrieval mode、rerank、answer provider / model 收进“工程观测”折叠区；工程审计信息仍可展开查看。
 - 已验证：`npm run lint` PASS；真实浏览器页面检索后默认态不显示 Provider / Collection 细节，展开“工程观测”后可见 `Provider / Collection / Retrieval / Rerank / Answer / Model`；`360px` 移动端无横向溢出；`npm run build` PASS。
-- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，可进入更难的 rerank uplift fixture、Memory 长列表交互，或 README / showcase 面试口径同步收口。
+- 已完成更难 rerank uplift fixture 第一片：RAG Real QA Eval 新增 `real-rerank-distractor-ordering`，用 export / audit / retention 词面干扰文档检验 citation 和 forbidden marker；metrics 新增 `rerankUpliftCandidatePassRate`，不再只统计候选 case 占比。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
+- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环。若继续自驱推进，可进入 Memory 长列表交互、真实 rerank smoke harder fixture，或 README / showcase 面试口径同步收口。
 
 ## 2026-06-28 追加任务：Memory Quality Eval v1 真实链路 smoke 第二片
 

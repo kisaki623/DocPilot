@@ -110,7 +110,7 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 目标：从真实用户视角检查 RAG、Memory、Trace 和 citation 展示效果，而不是只依赖 API gate。
 - 第一片已完成：2026-06-28 使用真实 backend / frontend / tunnel 和浏览器创建临时数据，marker 为 `docpilot-frontend-ux-2647184760`。`/conversations` 显示 citation footer `2 条来源`，Trace 面板展示 `userMemory=1` / `ragEvidence=2`，Memory 面板展示 ACTIVE memory；`/knowledge-bases` 页面展示 provider / collection、来源文档分布 `#175:1 / #176:1`、召回片段和 citation 卡片。
 - 移动端 `390x844`、`360x780`、`320x740` 检查 `/conversations` 与 `/knowledge-bases` 均无横向溢出；长 ACTIVE memory 未撑破 Memory 抽屉。本片未发现需要改代码的阻断问题。
-- 后续 v2.1 已补一片：KnowledgeBase 问答结果区默认展示用户语义 KPI，并把 provider / collection / retrieval / rerank / model 信息收进“工程观测”折叠区；`npm run lint`、真实浏览器和 `npm run build` 均通过。继续可选方向是更难 rerank uplift fixture 或 Memory 长列表交互。
+- 后续 v2.1 已补两片：KnowledgeBase 问答结果区默认展示用户语义 KPI，并把 provider / collection / retrieval / rerank / model 信息收进“工程观测”折叠区；RAG Real QA Eval 新增更难 rerank candidate fixture 和 `rerankUpliftCandidatePassRate`。继续可选方向是 Memory 长列表交互或真实 rerank smoke harder fixture。
 
 ## 5. 质量门禁
 

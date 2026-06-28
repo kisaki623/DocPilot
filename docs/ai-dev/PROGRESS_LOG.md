@@ -10,7 +10,9 @@
 - 已补 v1.1 极窄移动端和长 memory 检查：新增一条包含长标识符的 ACTIVE memory，`360x780` 下 `/conversations` Memory 抽屉可打开且 `scrollWidth=clientWidth=345`，`320x740` 下 `scrollWidth=clientWidth=305`；`/knowledge-bases` 在两种窄视口同样无横向溢出。
 - 已完成 KnowledgeBase 技术观测字段产品化降噪：问答结果区默认展示来源覆盖、引用来源、回答状态和生成次数；provider、collection、retrieval mode、rerank、answer provider / model 收进“工程观测”折叠区，展开后仍可审计。
 - 已验证：`npm run lint` PASS；真实浏览器检索后默认态不显示 Provider / Collection，展开后工程字段可见；`360px` 移动端无横向溢出；`npm run build` PASS。
-- 结论：Frontend UX Audit v1 / v1.1 PASS，KnowledgeBase 结果区已完成一轮产品化降噪；下一片建议进入更难 rerank uplift fixture 或 Memory 长列表交互。
+- 已完成更难 rerank uplift fixture 第一片：`real-qa-eval-cases.json` 新增 `real-rerank-distractor-ordering`，检验 export / audit / retention 词面干扰下仍命中 compliance export 与 audit retention 两份 evidence；`RagRealQaEvalMetrics` 新增 `rerankUpliftCandidatePassRate`。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
+- 结论：Frontend UX Audit v1 / v1.1 PASS，KnowledgeBase 结果区已完成一轮产品化降噪，RAG Real QA Eval 对 rerank 候选的离线门禁更清晰；下一片建议进入 Memory 长列表交互或真实 rerank smoke harder fixture。
 
 ## 2026-06-28 Quality Loop v2 / Memory Quality Eval v1
 

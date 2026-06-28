@@ -179,5 +179,31 @@
     "expectedNoEvidence": false,
     "retrievalMode": "both",
     "rerankUpliftCandidate": true
+  },
+  {
+    "id": "real-rerank-distractor-ordering",
+    "category": "rerank_uplift_candidate",
+    "userId": 1408,
+    "knowledgeBaseId": 2408,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Which evidence names the compliance export checkpoint and audit trail retention?",
+    "documents": [
+      {"documentId": 4481, "title": "Compliance Export Checkpoint", "text": "Compliance export checkpoint evidence marker real-compliance-export-marker explains export approval checks."},
+      {"documentId": 4482, "title": "Audit Trail Retention", "text": "Audit trail retention evidence marker real-audit-retention-marker explains retention proof for exports."},
+      {"documentId": 4483, "title": "Marketing Export Noise", "text": "Marketing export noise marker real-marketing-export-forbidden-marker repeats export audit retention words without compliance evidence."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-compliance-export-marker", "real-audit-retention-marker"],
+    "expectedAnswerMarkers": ["real-compliance-export-marker", "real-audit-retention-marker"],
+    "forbiddenAnswerMarkers": ["real-marketing-export-forbidden-marker"],
+    "expectedDocumentIds": [4481, 4482],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 2,
+    "minDocumentCoverage": 2,
+    "expectedNoEvidence": false,
+    "retrievalMode": "both",
+    "rerankUpliftCandidate": true,
+    "notes": ["lexical distractor repeats export/audit/retention but lacks the requested evidence markers"]
   }
 ]

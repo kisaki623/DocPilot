@@ -24,6 +24,7 @@ class RagRealQaEvalRunnerTest {
         assertThat(result.metrics().forbiddenLeakRate()).isEqualTo(0.0D);
         assertThat(result.metrics().scopeViolationRate()).isEqualTo(0.0D);
         assertThat(result.metrics().rerankUpliftCandidateRate()).isGreaterThan(0.0D);
+        assertThat(result.metrics().rerankUpliftCandidatePassRate()).isEqualTo(1.0D);
         assertThat(result.failedCaseIds()).isEmpty();
     }
 
@@ -41,6 +42,7 @@ class RagRealQaEvalRunnerTest {
                 .contains("answerCorrectnessRate")
                 .contains("citationGroundingRate")
                 .contains("rerankUpliftCandidateRate")
+                .contains("rerankUpliftCandidatePassRate")
                 .doesNotContain("DocPilot parse status marker")
                 .doesNotContain("Which evidence")
                 .doesNotContain("prompt")

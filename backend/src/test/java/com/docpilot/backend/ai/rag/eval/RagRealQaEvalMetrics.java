@@ -14,7 +14,8 @@ public record RagRealQaEvalMetrics(
         double multiDocumentCoverageRate,
         double forbiddenLeakRate,
         double scopeViolationRate,
-        double rerankUpliftCandidateRate
+        double rerankUpliftCandidateRate,
+        double rerankUpliftCandidatePassRate
 ) {
 
     public static RagRealQaEvalMetrics from(List<RagRealQaEvalResult.CaseEvaluation> evaluations) {
@@ -34,6 +35,10 @@ public record RagRealQaEvalMetrics(
         int forbiddenLeak = (int) resolved.stream().filter(RagRealQaEvalResult.CaseEvaluation::forbiddenAnswerHit).count();
         int scopeViolation = (int) resolved.stream().filter(RagRealQaEvalResult.CaseEvaluation::scopeViolation).count();
         int rerankCandidates = (int) resolved.stream().filter(RagRealQaEvalResult.CaseEvaluation::rerankUpliftCandidate).count();
+        int rerankCandidatePassed = (int) resolved.stream()
+                .filter(RagRealQaEvalResult.CaseEvaluation::rerankUpliftCandidate)
+                .filter(RagRealQaEvalResult.CaseEvaluation::passed)
+                .count();
         return new RagRealQaEvalMetrics(
                 resolved.size(),
                 rate(passed, resolved.size()),
@@ -43,7 +48,8 @@ public record RagRealQaEvalMetrics(
                 rate(multiDocumentHit, multiDocumentRequired),
                 resolved.isEmpty() ? 0.0D : (double) forbiddenLeak / resolved.size(),
                 resolved.isEmpty() ? 0.0D : (double) scopeViolation / resolved.size(),
-                resolved.isEmpty() ? 0.0D : (double) rerankCandidates / resolved.size()
+                resolved.isEmpty() ? 0.0D : (double) rerankCandidates / resolved.size(),
+                rate(rerankCandidatePassed, rerankCandidates)
         );
     }
 
@@ -58,6 +64,7 @@ public record RagRealQaEvalMetrics(
         value.put("forbiddenLeakRate", format(forbiddenLeakRate));
         value.put("scopeViolationRate", format(scopeViolationRate));
         value.put("rerankUpliftCandidateRate", format(rerankUpliftCandidateRate));
+        value.put("rerankUpliftCandidatePassRate", format(rerankUpliftCandidatePassRate));
         return value;
     }
 

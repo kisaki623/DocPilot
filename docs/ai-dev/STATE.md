@@ -40,6 +40,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - Memory Quality Eval v1 已补真实链路 smoke：新增 `scripts/smoke/memory-quality-smoke.ps1`，复用 cloud quality gate 并打开默认关闭的 `-EnableMemoryQualityGate`；2026-06-28 run PASS，marker 为 `docpilot-memory-quality-20260628193150-625bf6`。本次覆盖真实候选抽取、accepted suggestion -> `ACTIVE`、ignored suggestion -> `IGNORED` 且不进入 ACTIVE list、绑定 KB 后 trace 同时包含 `userMemory=1` 与 `ragEvidence=6`、documentHitCounts 覆盖两份临时文档；完整 delegated gates 中 tunnel、backend health、frontend routes、chunk / MySQL / Qdrant、单文档 RAG、KB RAG、no-evidence、权限隔离和 artifact 脱敏均 PASS。
 - Frontend UX Audit v1 已完成真实浏览器审计：2026-06-28 使用 marker `docpilot-frontend-ux-2647184760` 创建临时用户、两份 txt 文档、KnowledgeBase、ACTIVE memory 和绑定 KB 的 Conversation；Conversation 页面真实显示 `2 条来源`、Trace 的 `userMemory=1` / `ragEvidence=2`、Memory 面板中的 ACTIVE memory；KnowledgeBase 页面真实展示 provider / 索引集合、来源文档分布 `#175:1 / #176:1`、召回片段和引用卡片。`390x844`、`360x780`、`320x740` 移动端 `/conversations` 与 `/knowledge-bases` 均无横向溢出；长 ACTIVE memory 未撑破 Memory 抽屉。本轮未发现需要改代码的阻断问题。
 - KnowledgeBase 问答结果区已做产品化降噪：默认主 KPI 聚焦“来源覆盖 / 引用来源 / 回答状态 / 生成次数”，provider、collection、retrieval mode、rerank、answer provider / model 收进“工程观测”折叠区，既保留工程审计信息，又降低普通用户第一眼的底层名词负担。`npm run lint`、`npm run build` 和真实浏览器桌面 / `360px` 验证均通过。
+- RAG Real QA Eval 已补更难 rerank uplift 候选：新增 `real-rerank-distractor-ordering`，覆盖 export / audit / retention 词面干扰但缺少目标 evidence marker 的情况；metrics 新增 `rerankUpliftCandidatePassRate`，用于单独观察 rerank 候选 case 是否通过，而不是只记录候选 case 占比。2026-06-28 targeted eval 9/9 PASS，`*Rag*,*KnowledgeBase*` 回归 204/204 PASS。
 - 目标 KnowledgeBase `3` 的文档 `83/84/85/86` 已授权重建索引到稳定 Qdrant collection `docpilot_rag_v2`；chunk / vector 数为 `35/35`、`18/18`、`10/10`、`16/16`，总结资料集检索分布为 `{83:2,84:1,85:1,86:2}`。
 - Conversation Context Management / Agent Memory Mode 后端 MVP 已新增会话、消息、摘要、上下文 Trace、用户长期记忆五张新表和对应 API；`ContextAssemblyService` 可按 `RECENT_TURNS` / `AGENT_MEMORY` 组装系统提示、长期记忆、会话摘要、最近轮次与可选 KnowledgeBase evidence，并输出和持久化摘要级 trace。
 - 会话发送链路已按工程化质量收窄事务边界：上下文装配和回答模型调用不在长事务内执行；仅最终 conversation 行锁、连续写入 user / assistant message 和更新时间处于事务内，trace 仍为 best-effort。
@@ -77,7 +78,7 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 
 ## 4. 当前生产化推进优先级
 
-1. Quality Loop v2 已完成一轮 RAG Real QA Eval、Memory Quality Eval 和 Frontend UX Audit 闭环，并补过 `360px` / `320px` 极窄移动端、长 memory 检查和 KnowledgeBase 技术字段产品化降噪；下一步建议进入更难的 rerank uplift fixture 或 Memory 长列表交互。
+1. Quality Loop v2 已完成一轮 RAG Real QA Eval、Memory Quality Eval 和 Frontend UX Audit 闭环，并补过 `360px` / `320px` 极窄移动端、长 memory 检查、KnowledgeBase 技术字段产品化降噪和更难 rerank uplift 离线 fixture；下一步建议进入 Memory 长列表交互或真实 rerank smoke harder fixture。
 2. 下一阶段若继续提升真实效果，优先设计更难的 rerank uplift eval / smoke case：baseline 会排序错误或被干扰文档诱导，rerank 应改善 citation order、document coverage 或 forbidden-marker 抑制。
 3. 继续保持 Conversation Memory 与 KnowledgeBase evidence 分层：短期上下文、长期记忆、RAG evidence 和 trace 各自可解释。
 4. 保持真实体验回归门禁：citation 展示、移动端会话布局、KB 多文档覆盖、Conversation Trace、权限隔离和 artifact 脱敏都要继续以真实 smoke / runtime evidence 收口。
