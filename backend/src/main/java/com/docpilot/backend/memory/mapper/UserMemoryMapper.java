@@ -65,7 +65,8 @@ public interface UserMemoryMapper extends BaseMapper<UserMemory> {
 
     @Update("""
             UPDATE tb_user_memory
-               SET status = #{toStatus}
+               SET status = #{toStatus},
+                   update_time = CURRENT_TIMESTAMP
              WHERE id = #{memoryId}
                AND user_id = #{userId}
                AND status = #{fromStatus}
@@ -74,6 +75,21 @@ public interface UserMemoryMapper extends BaseMapper<UserMemory> {
                      @Param("memoryId") Long memoryId,
                      @Param("fromStatus") String fromStatus,
                      @Param("toStatus") String toStatus);
+
+    @Update("""
+            UPDATE tb_user_memory
+               SET content = #{content},
+                   priority = #{priority},
+                   update_time = CURRENT_TIMESTAMP
+             WHERE id = #{memoryId}
+               AND user_id = #{userId}
+               AND status = #{status}
+            """)
+    int updateContentAndPriority(@Param("userId") Long userId,
+                                 @Param("memoryId") Long memoryId,
+                                 @Param("status") String status,
+                                 @Param("content") String content,
+                                 @Param("priority") Integer priority);
 
     @Update("""
             UPDATE tb_user_memory

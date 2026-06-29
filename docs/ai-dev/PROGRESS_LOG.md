@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v3.9 / Memory Governance Edit and Resolve
+
+- 已新增用户可控 Memory 治理闭环：`PATCH /api/memories/{memoryId}` 支持编辑 ACTIVE memory；`POST /api/memories/suggestions/{memoryId}/resolve` 支持 `KEEP_ACTIVE`、`REPLACE_ACTIVE`、`MERGE_WITH_ACTIVE`。
+- 后端治理边界：所有 edit / resolve 路径校验当前用户、ACTIVE / SUGGESTED 状态、同类型、敏感内容和重复 / 冲突治理；不改表结构、不 hard delete、不做自动 LLM merge。
+- `/conversations` Memory 抽屉已支持 ACTIVE 记忆编辑，以及冲突 / 重复候选的保留、替换、手动合并；合并文本由用户确认。
+- Smoke gate 已扩展：Memory 专项真实链路覆盖冲突 accept 被拦、keep -> `IGNORED`、replace 更新 ACTIVE、敏感 edit 被拒、普通 edit 成功、merge 更新 ACTIVE；artifact 只保存状态 / code / count / length，不保存记忆正文。
+- 已验证：Memory / Context targeted tests 63/63 PASS；RAG / KnowledgeBase / Conversation / Memory 回归 267/267 PASS；脚本安全测试 5/5 PASS；`npm run lint` PASS；`npm run build` PASS；`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 run PASS，marker 为 `docpilot-memory-quality-20260629140941-6668d9`。
+- 首次真实 run 暴露 KB answer grounding 问题：KB QA 问题没有明确要求逐字包含 evidence marker，真实回答未命中 marker；已把 KB gate 问法对齐到代表性 corpus 的“include exact evidence markers verbatim”标准，并在随后真实 run 中 PASS。
+- 边界：本片不做真实模型长期记忆抽取、不做自动合并、不新增 memory 审计表、不改 schema、不删业务数据、不提交 artifact 原文、不打印 secrets、不 push。
+
 ## 2026-06-29 Quality Loop v3.8 / RAG Quality Interview Docs Sync
 
 - 已同步 `README.md`：补充 RAG no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace、MySQL / Qdrant 一致性、权限隔离和脱敏 artifact 质量门禁口径。

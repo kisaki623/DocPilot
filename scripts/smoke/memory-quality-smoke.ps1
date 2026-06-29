@@ -31,6 +31,8 @@ function Show-MemoryQualityPlan {
       "ignored suggestion stays out of active memory list",
       "conflicting answer-style suggestion reports governance hint",
       "conflicting suggestion accept is blocked before ACTIVE",
+      "conflicting suggestion can be kept, replaced, and merged by explicit governance action",
+      "active memory edit succeeds while sensitive edit is blocked",
       "bound-KB conversation trace separates userMemory and ragEvidence",
       "artifact redaction"
     )

@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v3.8：RAG Quality Interview Docs Sync（DONE）
+当前任务：DocPilot Quality Loop v3.9：Memory Governance Edit / Resolve（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v3.9 Memory Governance Edit / Resolve
+
+- 目标：把 Memory Governance 从“发现重复 / 冲突并阻断直接 accept”推进到“用户能处理冲突”：支持编辑 ACTIVE memory、保留旧记忆、用候选替换旧记忆、手动合并候选，并用真实 smoke 验证治理闭环。
+- 已完成后端：新增 `PATCH /api/memories/{memoryId}` 编辑 ACTIVE memory；新增 `POST /api/memories/suggestions/{memoryId}/resolve`，支持 `KEEP_ACTIVE`、`REPLACE_ACTIVE`、`MERGE_WITH_ACTIVE`。所有路径都校验当前用户、状态、同类型、敏感内容、重复 / 冲突治理；不改数据库结构、不 hard delete。
+- 已完成前端：`/conversations` Memory 抽屉中 ACTIVE memory 可编辑 / 保存 / 取消；带 `duplicateOfId` 或 `conflictWithId` 的候选显示“保留旧记忆 / 替换旧记忆 / 合并”，合并文本由用户确认，不做自动 LLM merge。
+- 已完成 smoke：`memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 新增 Memory resolution gate，覆盖冲突候选直接 accept 被拦截、`KEEP_ACTIVE` 后候选变 `IGNORED`、`REPLACE_ACTIVE` 更新旧 ACTIVE、敏感编辑被拒、普通编辑成功、`MERGE_WITH_ACTIVE` 更新旧 ACTIVE，artifact 只保存状态、计数、长度和错误 code，不保存记忆正文。
+- 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，63 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，267 tests；`mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，5 tests；`npm run lint` PASS；`npm run build` PASS；`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-memory-quality-20260629140941-6668d9`。
+- 追加修复：首次真实 run 在 `answerGrounding` 暴露 KnowledgeBase QA 回答未逐字带出 `ALPHA-CLOUD-GATE` / `BETA-CONTEXT-GATE`，已把 KB gate 的问题文本改为明确要求逐字包含 evidence marker，随后真实 run PASS。
+- 边界：本片不做真实 LLM memory extraction，不做自动合并，不新增版本历史 / 审计表，不改数据库结构，不删除业务数据，不操作远程 Docker，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果证明用户可控的 Memory 治理闭环，不代表大规模长期记忆个性化效果评测。
 
 ## 2026-06-29 追加任务：Quality Loop v3.8 RAG Quality Interview Docs Sync
 

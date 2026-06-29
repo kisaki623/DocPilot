@@ -35,6 +35,9 @@ import {
   ignoreMemorySuggestion,
   listMemorySuggestions,
   listUserMemories,
+  resolveMemorySuggestion,
+  updateUserMemory,
+  type MemorySuggestionResolveAction,
   type UserMemoryItem,
   type UserMemoryType,
 } from "@/lib/memory-api";
@@ -165,6 +168,10 @@ function memoryGovernanceText(memory: UserMemoryItem): string {
   return "";
 }
 
+function memoryGovernanceTargetId(memory: UserMemoryItem): number | null {
+  return memory.conflictWithId ?? memory.duplicateOfId ?? null;
+}
+
 function formatBoolean(value?: boolean): string {
   return value ? "是" : "否";
 }
@@ -224,6 +231,11 @@ export default function ConversationsPage() {
   const [newMemoryType, setNewMemoryType] = useState<UserMemoryType>("CUSTOM");
   const [newMemoryContent, setNewMemoryContent] = useState("");
   const [newMemoryPriority, setNewMemoryPriority] = useState("50");
+  const [editingMemoryId, setEditingMemoryId] = useState<number | null>(null);
+  const [editingMemoryContent, setEditingMemoryContent] = useState("");
+  const [editingMemoryPriority, setEditingMemoryPriority] = useState("50");
+  const [mergeSuggestionId, setMergeSuggestionId] = useState<number | null>(null);
+  const [mergeContent, setMergeContent] = useState("");
 
   const [newTitle, setNewTitle] = useState("会话记忆");
   const [newContextMode, setNewContextMode] =
@@ -789,6 +801,78 @@ export default function ConversationsPage() {
     }
   }
 
+  function handleStartEditMemory(memory: UserMemoryItem) {
+    setEditingMemoryId(memory.memoryId);
+    setEditingMemoryContent(memory.content || "");
+    setEditingMemoryPriority(String(memory.priority ?? 50));
+  }
+
+  async function handleSaveMemory(memoryId: number) {
+    const content = editingMemoryContent.trim();
+    if (!content) {
+      setErrorMessage("请输入记忆内容");
+      return;
+    }
+    setMemoryLoading(true);
+    setErrorMessage("");
+    try {
+      await updateUserMemory(memoryId, {
+        content,
+        priority: Number(editingMemoryPriority) || 50,
+      });
+      setEditingMemoryId(null);
+      setEditingMemoryContent("");
+      await loadMemoryState();
+      setStatusMessage("长期记忆已更新。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "更新记忆失败";
+      setErrorMessage(message);
+    } finally {
+      setMemoryLoading(false);
+    }
+  }
+
+  function handleStartMergeSuggestion(memory: UserMemoryItem) {
+    const activeMemoryId = memoryGovernanceTargetId(memory);
+    const activeMemory = memories.find((item) => item.memoryId === activeMemoryId);
+    setMergeSuggestionId(memory.memoryId);
+    setMergeContent([activeMemory?.content, memory.content].filter(Boolean).join("\n"));
+  }
+
+  async function handleResolveSuggestion(
+    memory: UserMemoryItem,
+    action: MemorySuggestionResolveAction,
+  ) {
+    const activeMemoryId = memoryGovernanceTargetId(memory);
+    if (!activeMemoryId) {
+      setErrorMessage("缺少需要处理的生效记忆");
+      return;
+    }
+    const mergedText = mergeContent.trim();
+    if (action === "MERGE_WITH_ACTIVE" && !mergedText) {
+      setErrorMessage("请输入合并后的记忆内容");
+      return;
+    }
+    setMemoryLoading(true);
+    setErrorMessage("");
+    try {
+      await resolveMemorySuggestion(memory.memoryId, {
+        action,
+        activeMemoryId,
+        mergedContent: action === "MERGE_WITH_ACTIVE" ? mergedText : undefined,
+      });
+      setMergeSuggestionId(null);
+      setMergeContent("");
+      await loadMemoryState();
+      setStatusMessage(action === "KEEP_ACTIVE" ? "已保留旧记忆并忽略候选。" : "记忆冲突已处理。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "处理候选记忆失败";
+      setErrorMessage(message);
+    } finally {
+      setMemoryLoading(false);
+    }
+  }
+
   async function handleDeleteMemory(memoryId: number) {
     setMemoryLoading(true);
     setErrorMessage("");
@@ -1203,13 +1287,34 @@ export default function ConversationsPage() {
               {memories.length === 0 ? <li>暂无生效记忆。</li> : null}
               {sortedMemories.map((memory) => {
                 const governanceText = memoryGovernanceText(memory);
+                const isEditing = editingMemoryId === memory.memoryId;
                 return (
                 <li key={memory.memoryId} className={duplicateActiveMemoryIds.has(memory.memoryId) || governanceText ? "has-warning" : ""}>
                   <div className="dp-chat-memory-card-head">
                     <span>{memoryTypeLabel(memory.memoryType)}</span>
-                    <button type="button" onClick={() => handleDeleteMemory(memory.memoryId)} disabled={memoryLoading}>删除</button>
+                    <div className="dp-chat-memory-actions">
+                      {isEditing ? (
+                        <>
+                          <button type="button" onClick={() => handleSaveMemory(memory.memoryId)} disabled={memoryLoading || !editingMemoryContent.trim()}>保存</button>
+                          <button type="button" onClick={() => setEditingMemoryId(null)} disabled={memoryLoading}>取消</button>
+                        </>
+                      ) : (
+                        <>
+                          <button type="button" onClick={() => handleStartEditMemory(memory)} disabled={memoryLoading}>编辑</button>
+                          <button type="button" onClick={() => handleDeleteMemory(memory.memoryId)} disabled={memoryLoading}>删除</button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                  <p>{memory.content}</p><small>priority {memory.priority ?? "-"}</small>
+                  {isEditing ? (
+                    <div className="dp-chat-memory-edit">
+                      <textarea value={editingMemoryContent} onChange={(event) => setEditingMemoryContent(event.target.value)} />
+                      <input value={editingMemoryPriority} onChange={(event) => setEditingMemoryPriority(event.target.value.replace(/\D/g, "").slice(0, 3))} inputMode="numeric" aria-label="编辑记忆优先级" />
+                    </div>
+                  ) : (
+                    <p>{memory.content}</p>
+                  )}
+                  <small>priority {memory.priority ?? "-"}</small>
                   <div className="dp-chat-memory-meta">
                     <span>{memorySourceText(memory)}</span>
                     <span>confidence {formatConfidence(memory.confidence)}</span>
@@ -1227,6 +1332,8 @@ export default function ConversationsPage() {
               {sortedSuggestions.map((memory) => {
                 const alreadyActive = suggestionAlreadyActiveIds.has(memory.memoryId);
                 const governanceText = memoryGovernanceText(memory);
+                const targetMemoryId = memoryGovernanceTargetId(memory);
+                const isMerging = mergeSuggestionId === memory.memoryId;
                 return (
                 <li key={memory.memoryId} className={`is-suggestion ${alreadyActive || governanceText ? "has-warning" : ""}`}>
                   <div className="dp-chat-memory-card-head">
@@ -1242,7 +1349,29 @@ export default function ConversationsPage() {
                   </div>
                   {alreadyActive ? <small className="dp-chat-memory-warning">与生效记忆内容相同，接受前建议先确认是否需要保留两条。</small> : null}
                   {governanceText ? <small className="dp-chat-memory-warning">{governanceText}</small> : null}
-                  <div className="mt-3 flex gap-2"><button type="button" onClick={() => handleAcceptSuggestion(memory.memoryId)} disabled={memoryLoading}>接受</button><button type="button" onClick={() => handleIgnoreSuggestion(memory.memoryId)} disabled={memoryLoading}>忽略</button></div>
+                  {isMerging ? (
+                    <div className="dp-chat-memory-edit">
+                      <textarea value={mergeContent} onChange={(event) => setMergeContent(event.target.value)} />
+                      <div className="dp-chat-memory-actions">
+                        <button type="button" onClick={() => handleResolveSuggestion(memory, "MERGE_WITH_ACTIVE")} disabled={memoryLoading || !mergeContent.trim()}>确认合并</button>
+                        <button type="button" onClick={() => setMergeSuggestionId(null)} disabled={memoryLoading}>取消</button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {targetMemoryId ? (
+                      <>
+                        <button type="button" onClick={() => handleResolveSuggestion(memory, "KEEP_ACTIVE")} disabled={memoryLoading}>保留旧记忆</button>
+                        <button type="button" onClick={() => handleResolveSuggestion(memory, "REPLACE_ACTIVE")} disabled={memoryLoading}>替换旧记忆</button>
+                        <button type="button" onClick={() => handleStartMergeSuggestion(memory)} disabled={memoryLoading}>合并</button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" onClick={() => handleAcceptSuggestion(memory.memoryId)} disabled={memoryLoading}>接受</button>
+                        <button type="button" onClick={() => handleIgnoreSuggestion(memory.memoryId)} disabled={memoryLoading}>忽略</button>
+                      </>
+                    )}
+                  </div>
                 </li>
                 );
               })}

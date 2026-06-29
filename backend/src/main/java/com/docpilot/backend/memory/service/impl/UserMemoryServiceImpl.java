@@ -14,6 +14,7 @@ import com.docpilot.backend.memory.service.MemorySuggestionCandidate;
 import com.docpilot.backend.memory.service.UserMemoryService;
 import com.docpilot.backend.memory.vo.UserMemoryResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -35,6 +36,12 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     private final MemorySafetyValidator memorySafetyValidator;
     private final MemoryExtractionService memoryExtractionService;
 
+    private enum ResolveAction {
+        KEEP_ACTIVE,
+        REPLACE_ACTIVE,
+        MERGE_WITH_ACTIVE
+    }
+
     public UserMemoryServiceImpl(UserMemoryMapper userMemoryMapper,
                                  MemorySafetyValidator memorySafetyValidator,
                                  MemoryExtractionService memoryExtractionService) {
@@ -44,6 +51,7 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     }
 
     @Override
+    @Transactional
     public UserMemoryResponse create(Long userId,
                                      String memoryType,
                                      String content,
@@ -51,20 +59,13 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                                      Long sourceConversationId,
                                      Long sourceMessageId) {
         ValidationUtils.requireNonNull(userId, "userId");
-        ValidationUtils.requireNonBlank(content, "content");
-        String normalizedContent = content.trim();
-        if (normalizedContent.length() > CONTENT_MAX_CHARS) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "memory content is too long");
-        }
-        memorySafetyValidator.validate(normalizedContent);
-        UserMemory duplicate = findDuplicateActive(userId, UserMemoryType.normalizeOrDefault(memoryType), normalizedContent, null);
-        if (duplicate != null) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "duplicate active memory already exists");
-        }
+        String resolvedType = UserMemoryType.normalizeOrDefault(memoryType);
+        String normalizedContent = normalizeAndValidateContent(content);
+        ensureNoBlockingGovernance(userId, resolvedType, normalizedContent, null, "duplicate active memory already exists");
 
         UserMemory memory = new UserMemory();
         memory.setUserId(userId);
-        memory.setMemoryType(UserMemoryType.normalizeOrDefault(memoryType));
+        memory.setMemoryType(resolvedType);
         memory.setContent(normalizedContent);
         memory.setSourceType(UserMemorySourceType.MANUAL);
         memory.setSourceConversationId(sourceConversationId);
@@ -123,6 +124,7 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     }
 
     @Override
+    @Transactional
     public UserMemoryResponse acceptSuggestion(Long userId, Long memoryId) {
         UserMemory memory = requireMemory(userId, memoryId);
         if (!UserMemoryStatus.SUGGESTED.equals(memory.getStatus())) {
@@ -141,6 +143,7 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     }
 
     @Override
+    @Transactional
     public UserMemoryResponse ignoreSuggestion(Long userId, Long memoryId) {
         UserMemory memory = requireMemory(userId, memoryId);
         if (!UserMemoryStatus.SUGGESTED.equals(memory.getStatus())) {
@@ -154,6 +157,84 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     }
 
     @Override
+    @Transactional
+    public UserMemoryResponse resolveSuggestion(Long userId,
+                                                Long memoryId,
+                                                String action,
+                                                Long activeMemoryId,
+                                                String mergedContent,
+                                                Integer priority) {
+        UserMemory suggestion = requireMemory(userId, memoryId);
+        if (!UserMemoryStatus.SUGGESTED.equals(suggestion.getStatus())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "memory is not a suggestion");
+        }
+        ValidationUtils.requireNonNull(activeMemoryId, "activeMemoryId");
+        UserMemory active = requireMemory(userId, activeMemoryId);
+        if (!UserMemoryStatus.ACTIVE.equals(active.getStatus())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "target memory is not active");
+        }
+        if (!active.getMemoryType().equals(suggestion.getMemoryType())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "memory type mismatch");
+        }
+
+        ResolveAction resolvedAction = resolveAction(action);
+        if (resolvedAction == ResolveAction.KEEP_ACTIVE) {
+            markSuggestionIgnored(userId, memoryId, suggestion);
+            return UserMemoryResponse.from(suggestion);
+        }
+
+        String nextContent = resolvedAction == ResolveAction.REPLACE_ACTIVE
+                ? suggestion.getContent()
+                : normalizeAndValidateContent(mergedContent);
+        if (resolvedAction == ResolveAction.REPLACE_ACTIVE) {
+            nextContent = normalizeAndValidateContent(nextContent);
+        }
+        Integer nextPriority = priority == null ? active.getPriority() : Math.max(0, priority);
+        ensureNoBlockingGovernance(userId, active.getMemoryType(), nextContent, activeMemoryId,
+                "memory resolve requires governance");
+
+        if (userMemoryMapper.updateContentAndPriority(
+                userId,
+                activeMemoryId,
+                UserMemoryStatus.ACTIVE,
+                nextContent,
+                nextPriority
+        ) <= 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to update active memory");
+        }
+        active.setContent(nextContent);
+        active.setPriority(nextPriority);
+        markSuggestionIgnored(userId, memoryId, suggestion);
+        return toResponse(active, governanceFor(userId, active));
+    }
+
+    @Override
+    @Transactional
+    public UserMemoryResponse update(Long userId, Long memoryId, String content, Integer priority) {
+        UserMemory memory = requireMemory(userId, memoryId);
+        if (!UserMemoryStatus.ACTIVE.equals(memory.getStatus())) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "only active memory can be edited");
+        }
+        String normalizedContent = normalizeAndValidateContent(content);
+        Integer nextPriority = priority == null ? memory.getPriority() : Math.max(0, priority);
+        ensureNoBlockingGovernance(userId, memory.getMemoryType(), normalizedContent, memoryId,
+                "memory edit requires governance");
+        if (userMemoryMapper.updateContentAndPriority(
+                userId,
+                memoryId,
+                UserMemoryStatus.ACTIVE,
+                normalizedContent,
+                nextPriority
+        ) <= 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to update user memory");
+        }
+        memory.setContent(normalizedContent);
+        memory.setPriority(nextPriority);
+        return toResponse(memory, governanceFor(userId, memory));
+    }
+
+    @Override
+    @Transactional
     public UserMemoryResponse delete(Long userId, Long memoryId) {
         ValidationUtils.requireNonNull(userId, "userId");
         ValidationUtils.requireNonNull(memoryId, "memoryId");
@@ -163,6 +244,45 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         }
         memory.setStatus(UserMemoryStatus.DELETED);
         return UserMemoryResponse.from(memory);
+    }
+
+    private String normalizeAndValidateContent(String content) {
+        ValidationUtils.requireNonBlank(content, "content");
+        String normalizedContent = content.trim();
+        if (normalizedContent.length() > CONTENT_MAX_CHARS) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "memory content is too long");
+        }
+        memorySafetyValidator.validate(normalizedContent);
+        return normalizedContent;
+    }
+
+    private void ensureNoBlockingGovernance(Long userId,
+                                            String memoryType,
+                                            String content,
+                                            Long excludeMemoryId,
+                                            String message) {
+        MemoryGovernance governance = governanceFor(userId, memoryType, content, excludeMemoryId);
+        if (governance.hasBlockingIssue()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, message + ": " + governance.hint());
+        }
+    }
+
+    private ResolveAction resolveAction(String action) {
+        if (action == null || action.isBlank()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "resolve action is required");
+        }
+        try {
+            return ResolveAction.valueOf(action.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "resolve action is invalid");
+        }
+    }
+
+    private void markSuggestionIgnored(Long userId, Long memoryId, UserMemory suggestion) {
+        if (userMemoryMapper.updateStatus(userId, memoryId, UserMemoryStatus.SUGGESTED, UserMemoryStatus.IGNORED) <= 0) {
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to resolve memory suggestion");
+        }
+        suggestion.setStatus(UserMemoryStatus.IGNORED);
     }
 
     private UserMemory saveSuggestion(Long userId, MemorySuggestionCandidate candidate) {

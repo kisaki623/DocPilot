@@ -29,6 +29,8 @@ export interface UserMemoryItem {
   updatedAt?: string | null;
 }
 
+export type MemorySuggestionResolveAction = "KEEP_ACTIVE" | "REPLACE_ACTIVE" | "MERGE_WITH_ACTIVE";
+
 function buildQuery(params: { memoryType?: string; limit?: number } = {}): string {
   const searchParams = new URLSearchParams();
   if (params.memoryType) {
@@ -62,6 +64,22 @@ export function createUserMemory(payload: {
 }): Promise<ApiResponse<UserMemoryItem>> {
   return apiRequest<UserMemoryItem>("/api/memories", {
     method: "POST",
+    headers: {
+      ...buildAuthorizationHeader()
+    },
+    body: JSON.stringify(payload)
+  });
+}
+
+export function updateUserMemory(
+  memoryId: number,
+  payload: {
+    content: string;
+    priority?: number;
+  },
+): Promise<ApiResponse<UserMemoryItem>> {
+  return apiRequest<UserMemoryItem>(`/api/memories/${memoryId}`, {
+    method: "PATCH",
     headers: {
       ...buildAuthorizationHeader()
     },
@@ -109,6 +127,24 @@ export function ignoreMemorySuggestion(memoryId: number): Promise<ApiResponse<Us
     headers: {
       ...buildAuthorizationHeader()
     }
+  });
+}
+
+export function resolveMemorySuggestion(
+  memoryId: number,
+  payload: {
+    action: MemorySuggestionResolveAction;
+    activeMemoryId: number;
+    mergedContent?: string;
+    priority?: number;
+  },
+): Promise<ApiResponse<UserMemoryItem>> {
+  return apiRequest<UserMemoryItem>(`/api/memories/suggestions/${memoryId}/resolve`, {
+    method: "POST",
+    headers: {
+      ...buildAuthorizationHeader()
+    },
+    body: JSON.stringify(payload)
   });
 }
 

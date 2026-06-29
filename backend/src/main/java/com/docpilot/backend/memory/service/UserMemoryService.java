@@ -23,5 +23,14 @@ public interface UserMemoryService {
 
     UserMemoryResponse ignoreSuggestion(Long userId, Long memoryId);
 
+    UserMemoryResponse resolveSuggestion(Long userId,
+                                         Long memoryId,
+                                         String action,
+                                         Long activeMemoryId,
+                                         String mergedContent,
+                                         Integer priority);
+
+    UserMemoryResponse update(Long userId, Long memoryId, String content, Integer priority);
+
     UserMemoryResponse delete(Long userId, Long memoryId);
 }

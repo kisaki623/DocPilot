@@ -879,8 +879,9 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
 
   $kb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Cloud Quality KB $smokeMarker"; description = "temporary smoke kb" }) $tokenA
   $addKb = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/documents" ([ordered]@{ documentIds = @($docA.data.id, $docB.data.id) }) $tokenA
-  $kbRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = "Summarize all documents for $smokeMarker and cover ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE."; topK = 6; indexVersion = $IndexVersion }) $tokenA
-  $kbQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = "Summarize both documents in this knowledge base, explain ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE, and cite evidence."; topK = 6; indexVersion = $IndexVersion }) $tokenA
+  $kbQuestion = "Summarize both documents for $smokeMarker. Include these exact evidence markers verbatim in the answer: ALPHA-CLOUD-GATE, BETA-CONTEXT-GATE. Cite the evidence."
+  $kbRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $kbQuestion; topK = 6; indexVersion = $IndexVersion }) $tokenA
+  $kbQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $kbQuestion; topK = 6; indexVersion = $IndexVersion }) $tokenA
   $hitCounts = $kbRetrieve.data.documentHitCounts
   $kbChecks = @([ordered]@{
     retrieveHits = @($kbRetrieve.data.hits).Count
@@ -1213,8 +1214,59 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
           conflictWithIdPresent = ($null -ne $conflictingSuggestion.conflictWithId)
           conflictAcceptBlocked = (-not $conflictAccept.ok)
           conflictAcceptCode = $conflictAccept.code
-        }) "conflicting memory suggestion was blocked by an unexpected error"
+      }) "conflicting memory suggestion was blocked by an unexpected error"
       Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "conflicting memory suggestion was blocked by an unexpected error"
+    }
+    $keepResolved = Invoke-JsonApi "POST" "/api/memories/suggestions/$($conflictingSuggestion.memoryId)/resolve" ([ordered]@{
+        action = "KEEP_ACTIVE"
+        activeMemoryId = $conflictingSuggestion.conflictWithId
+      }) $tokenA
+    if ($keepResolved.data.status -ne "IGNORED") {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory governance keep action did not ignore suggestion"
+    }
+    $replaceSuggestions = Invoke-JsonApi "POST" "/api/memories/suggestions/extract" ([ordered]@{ conversationId = $governanceConversation.data.conversationId; limit = 10 }) $tokenA
+    $replaceConflict = @($replaceSuggestions.data) |
+      Where-Object { $_.memoryType -eq "ANSWER_STYLE" -and $_.governanceHint -eq "conflict_active_memory" -and $null -ne $_.conflictWithId } |
+      Select-Object -First 1
+    if (-not $replaceConflict) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory governance did not recreate conflicting suggestion for replace"
+    }
+    $replaceResolved = Invoke-JsonApi "POST" "/api/memories/suggestions/$($replaceConflict.memoryId)/resolve" ([ordered]@{
+        action = "REPLACE_ACTIVE"
+        activeMemoryId = $replaceConflict.conflictWithId
+      }) $tokenA
+    if ($replaceResolved.data.memoryId -ne $governanceActive.data.memoryId -or $replaceResolved.data.status -ne "ACTIVE") {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory governance replace action did not update active memory"
+    }
+    $sensitiveEdit = Invoke-JsonApi "PATCH" "/api/memories/$($governanceActive.data.memoryId)" ([ordered]@{
+        content = "password token should never become user memory for $smokeMarker"
+        priority = 46
+      }) $tokenA -AllowFailure
+    if ($sensitiveEdit.ok) {
+      Stop-WithStatus "FAILED_SECURITY_GATE" "memoryQuality" "sensitive memory edit was accepted"
+    }
+    $editedActive = Invoke-JsonApi "PATCH" "/api/memories/$($governanceActive.data.memoryId)" ([ordered]@{
+        content = "Concise style reset for $smokeMarker."
+        priority = 46
+      }) $tokenA
+    if ($editedActive.data.status -ne "ACTIVE" -or [int]$editedActive.data.priority -ne 46) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "active memory edit did not persist"
+    }
+    $mergeSuggestions = Invoke-JsonApi "POST" "/api/memories/suggestions/extract" ([ordered]@{ conversationId = $governanceConversation.data.conversationId; limit = 10 }) $tokenA
+    $mergeConflict = @($mergeSuggestions.data) |
+      Where-Object { $_.memoryType -eq "ANSWER_STYLE" -and $_.governanceHint -eq "conflict_active_memory" -and $null -ne $_.conflictWithId } |
+      Select-Object -First 1
+    if (-not $mergeConflict) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory governance did not recreate conflicting suggestion for merge"
+    }
+    $mergedContent = "Use conclusion first and detailed explanation for $smokeMarker."
+    $mergeResolved = Invoke-JsonApi "POST" "/api/memories/suggestions/$($mergeConflict.memoryId)/resolve" ([ordered]@{
+        action = "MERGE_WITH_ACTIVE"
+        activeMemoryId = $mergeConflict.conflictWithId
+        mergedContent = $mergedContent
+      }) $tokenA
+    if ($mergeResolved.data.memoryId -ne $governanceActive.data.memoryId -or $mergeResolved.data.status -ne "ACTIVE" -or [int]$mergeResolved.data.content.Length -ne $mergedContent.Length) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory governance merge action did not update active memory"
     }
     Set-Gate "memoryQuality" "PASS" @([ordered]@{
         extractedSuggestionCount = $suggestionList.Count
@@ -1226,6 +1278,13 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
         conflictWithIdPresent = ($null -ne $conflictingSuggestion.conflictWithId)
         conflictAcceptBlocked = (-not $conflictAccept.ok)
         conflictAcceptReasonMatched = (([string]$conflictAccept.message) -like "*memory suggestion requires governance before accept*")
+        keepResolvedStatus = $keepResolved.data.status
+        replaceResolvedActive = ($replaceResolved.data.memoryId -eq $governanceActive.data.memoryId)
+        sensitiveEditBlocked = (-not $sensitiveEdit.ok)
+        sensitiveEditCode = $sensitiveEdit.code
+        editedActivePriority = $editedActive.data.priority
+        mergeResolvedActive = ($mergeResolved.data.memoryId -eq $governanceActive.data.memoryId)
+        mergedContentLength = $mergeResolved.data.content.Length
         contextSourceCounts = $sourceCounts
         memoryCount = $trace.data.memoryCount
         evidenceCount = $trace.data.evidenceCount

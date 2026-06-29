@@ -102,6 +102,124 @@ class UserMemoryServiceImplTest {
     }
 
     @Test
+    void shouldUpdateActiveMemory() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ACTIVE);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of(memory));
+        when(memoryMapper.updateContentAndPriority(7L, 99L, UserMemoryStatus.ACTIVE, "偏好先给结论", 55))
+                .thenReturn(1);
+
+        UserMemoryResponse response = service.update(7L, 99L, "  偏好先给结论  ", 55);
+
+        assertThat(response.content()).isEqualTo("偏好先给结论");
+        assertThat(response.priority()).isEqualTo(55);
+    }
+
+    @Test
+    void shouldRejectEditingSuggestedMemory() {
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory(99L, UserMemoryStatus.SUGGESTED));
+
+        assertThatThrownBy(() -> service.update(7L, 99L, "偏好先给结论", 55))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("only active memory can be edited");
+    }
+
+    @Test
+    void shouldRejectEditingIntoDuplicateActiveMemory() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ACTIVE);
+        memory.setContent("偏好英文回答");
+        UserMemory duplicate = memory(88L, UserMemoryStatus.ACTIVE);
+        duplicate.setContent("偏好中文回答");
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of(memory, duplicate));
+
+        assertThatThrownBy(() -> service.update(7L, 99L, "偏好中文回答", null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("memory edit requires governance");
+        verify(memoryMapper, never()).updateContentAndPriority(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldKeepActiveMemoryAndIgnoreConflictingSuggestion() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        suggested.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(suggested);
+        when(memoryMapper.selectByIdAndUserId(7L, 88L)).thenReturn(active);
+        when(memoryMapper.updateStatus(7L, 99L, UserMemoryStatus.SUGGESTED, UserMemoryStatus.IGNORED)).thenReturn(1);
+
+        UserMemoryResponse response = service.resolveSuggestion(7L, 99L, "KEEP_ACTIVE", 88L, null, null);
+
+        assertThat(response.status()).isEqualTo(UserMemoryStatus.IGNORED);
+        verify(memoryMapper, never()).updateContentAndPriority(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldReplaceActiveMemoryWithSuggestion() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        active.setContent("回答保持简洁");
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        suggested.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        suggested.setContent("回答要详细解释");
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(suggested);
+        when(memoryMapper.selectByIdAndUserId(7L, 88L)).thenReturn(active);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.ANSWER_STYLE, 100)).thenReturn(List.of(active));
+        when(memoryMapper.updateContentAndPriority(7L, 88L, UserMemoryStatus.ACTIVE, "回答要详细解释", 40))
+                .thenReturn(1);
+        when(memoryMapper.updateStatus(7L, 99L, UserMemoryStatus.SUGGESTED, UserMemoryStatus.IGNORED)).thenReturn(1);
+
+        UserMemoryResponse response = service.resolveSuggestion(7L, 99L, "REPLACE_ACTIVE", 88L, null, null);
+
+        assertThat(response.memoryId()).isEqualTo(88L);
+        assertThat(response.content()).isEqualTo("回答要详细解释");
+        assertThat(suggested.getStatus()).isEqualTo(UserMemoryStatus.IGNORED);
+    }
+
+    @Test
+    void shouldMergeSuggestionIntoActiveMemoryWithUserContent() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        active.setContent("回答保持简洁");
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        suggested.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        suggested.setContent("先给结论");
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(suggested);
+        when(memoryMapper.selectByIdAndUserId(7L, 88L)).thenReturn(active);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.ANSWER_STYLE, 100)).thenReturn(List.of(active));
+        when(memoryMapper.updateContentAndPriority(7L, 88L, UserMemoryStatus.ACTIVE, "回答保持简洁，并先给结论", 80))
+                .thenReturn(1);
+        when(memoryMapper.updateStatus(7L, 99L, UserMemoryStatus.SUGGESTED, UserMemoryStatus.IGNORED)).thenReturn(1);
+
+        UserMemoryResponse response = service.resolveSuggestion(
+                7L,
+                99L,
+                "MERGE_WITH_ACTIVE",
+                88L,
+                "回答保持简洁，并先给结论",
+                80
+        );
+
+        assertThat(response.content()).isEqualTo("回答保持简洁，并先给结论");
+        assertThat(response.priority()).isEqualTo(80);
+    }
+
+    @Test
+    void shouldRejectResolveWhenMemoryTypesMismatch() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setMemoryType(UserMemoryType.PREFERENCE);
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        suggested.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(suggested);
+        when(memoryMapper.selectByIdAndUserId(7L, 88L)).thenReturn(active);
+
+        assertThatThrownBy(() -> service.resolveSuggestion(7L, 99L, "REPLACE_ACTIVE", 88L, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("memory type mismatch");
+    }
+
+    @Test
     void shouldRejectAcceptingActiveMemoryAsSuggestion() {
         when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory(99L, UserMemoryStatus.ACTIVE));
 

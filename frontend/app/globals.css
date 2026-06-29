@@ -1346,6 +1346,39 @@ a {
   overflow-wrap: anywhere;
 }
 
+.dp-chat-memory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.dp-chat-memory-edit {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+  min-width: 0;
+}
+
+.dp-chat-memory-edit textarea,
+.dp-chat-memory-edit input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--dp-border);
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  padding: 0.55rem 0.65rem;
+}
+
+.dp-chat-memory-edit textarea {
+  min-height: 5.2rem;
+  resize: vertical;
+}
+
 .dp-chat-memory-list p {
   margin-top: 0.45rem;
   word-break: break-word;

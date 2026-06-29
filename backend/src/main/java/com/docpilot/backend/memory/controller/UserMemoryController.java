@@ -3,11 +3,14 @@ package com.docpilot.backend.memory.controller;
 import com.docpilot.backend.common.api.ApiResponse;
 import com.docpilot.backend.common.context.UserHolder;
 import com.docpilot.backend.memory.dto.MemorySuggestionExtractRequest;
+import com.docpilot.backend.memory.dto.MemorySuggestionResolveRequest;
 import com.docpilot.backend.memory.dto.UserMemoryCreateRequest;
+import com.docpilot.backend.memory.dto.UserMemoryUpdateRequest;
 import com.docpilot.backend.memory.service.UserMemoryService;
 import com.docpilot.backend.memory.vo.UserMemoryResponse;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -75,6 +78,32 @@ public class UserMemoryController {
     public ApiResponse<UserMemoryResponse> ignoreSuggestion(@PathVariable("memoryId") Long memoryId) {
         Long userId = UserHolder.requireUserId();
         return ApiResponse.success(userMemoryService.ignoreSuggestion(userId, memoryId));
+    }
+
+    @PostMapping("/suggestions/{memoryId}/resolve")
+    public ApiResponse<UserMemoryResponse> resolveSuggestion(@PathVariable("memoryId") Long memoryId,
+                                                             @RequestBody MemorySuggestionResolveRequest request) {
+        Long userId = UserHolder.requireUserId();
+        return ApiResponse.success(userMemoryService.resolveSuggestion(
+                userId,
+                memoryId,
+                request == null ? null : request.getAction(),
+                request == null ? null : request.getActiveMemoryId(),
+                request == null ? null : request.getMergedContent(),
+                request == null ? null : request.getPriority()
+        ));
+    }
+
+    @PatchMapping("/{memoryId}")
+    public ApiResponse<UserMemoryResponse> update(@PathVariable("memoryId") Long memoryId,
+                                                  @RequestBody UserMemoryUpdateRequest request) {
+        Long userId = UserHolder.requireUserId();
+        return ApiResponse.success(userMemoryService.update(
+                userId,
+                memoryId,
+                request == null ? null : request.getContent(),
+                request == null ? null : request.getPriority()
+        ));
     }
 
     @DeleteMapping("/{memoryId}")

@@ -4,6 +4,25 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-29 Memory Governance Edit / Resolve Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/memory-quality-smoke.ps1`
+
+Marker: `docpilot-memory-quality-20260629140941-6668d9`
+
+Verified gates:
+
+- Memory governance now supports explicit user actions for conflicting suggestions: keep the active memory, replace the active memory with the suggestion, or merge with user-confirmed content.
+- `memoryQuality` passed: conflicting suggestion direct accept was blocked, `KEEP_ACTIVE` moved the suggestion to `IGNORED`, `REPLACE_ACTIVE` updated the active memory, sensitive edit was rejected with code `1028`, normal edit persisted with priority `46`, and `MERGE_WITH_ACTIVE` updated the active memory.
+- Core real-link gates remained PASS: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase RAG, answer grounding, no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+- Conversation Trace still separated memory and RAG evidence: `contextSourceCounts.userMemory=1`, `contextSourceCounts.ragEvidence=6`, `memoryCount=1`, `evidenceCount=6`.
+
+Boundary: artifact is stored under ignored `backend/target/memory-quality/.../artifact.json`; do not commit artifact raw content, memory text, answer text, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This is a user-controlled memory governance smoke, not a large-scale personalization benchmark or real-model memory extraction evaluation.
+
 ## 2026-06-29 RAG Hard Negative Support Gate Smoke
 
 Status: PASS

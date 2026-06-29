@@ -2,7 +2,9 @@ package com.docpilot.backend.memory.controller;
 
 import com.docpilot.backend.common.context.UserHolder;
 import com.docpilot.backend.memory.dto.MemorySuggestionExtractRequest;
+import com.docpilot.backend.memory.dto.MemorySuggestionResolveRequest;
 import com.docpilot.backend.memory.dto.UserMemoryCreateRequest;
+import com.docpilot.backend.memory.dto.UserMemoryUpdateRequest;
 import com.docpilot.backend.memory.service.UserMemoryService;
 import com.docpilot.backend.memory.vo.UserMemoryResponse;
 import org.junit.jupiter.api.AfterEach;
@@ -91,6 +93,35 @@ class UserMemoryControllerTest {
         controller.ignoreSuggestion(99L);
 
         verify(userMemoryService).ignoreSuggestion(7L, 99L);
+    }
+
+    @Test
+    void shouldResolveSuggestionWithCurrentUser() {
+        UserHolder.setUserId(7L);
+        MemorySuggestionResolveRequest request = new MemorySuggestionResolveRequest();
+        request.setAction("MERGE_WITH_ACTIVE");
+        request.setActiveMemoryId(88L);
+        request.setMergedContent("merged");
+        request.setPriority(60);
+        when(userMemoryService.resolveSuggestion(7L, 99L, "MERGE_WITH_ACTIVE", 88L, "merged", 60))
+                .thenReturn(response());
+
+        controller.resolveSuggestion(99L, request);
+
+        verify(userMemoryService).resolveSuggestion(7L, 99L, "MERGE_WITH_ACTIVE", 88L, "merged", 60);
+    }
+
+    @Test
+    void shouldUpdateMemoryWithCurrentUser() {
+        UserHolder.setUserId(7L);
+        UserMemoryUpdateRequest request = new UserMemoryUpdateRequest();
+        request.setContent("updated");
+        request.setPriority(70);
+        when(userMemoryService.update(7L, 99L, "updated", 70)).thenReturn(response());
+
+        controller.update(99L, request);
+
+        verify(userMemoryService).update(7L, 99L, "updated", 70);
     }
 
     private UserMemoryResponse response() {
