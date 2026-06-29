@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v4.3 / RAG Real QA Semantic Gate Smoke
+
+- 已把 v4.2 离线 `claim_support` / `numeric_faithfulness` 迁移进真实 RAG Real QA smoke：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealQaSemanticGate`，`rag-real-qa-eval-smoke.ps1` 默认开启并支持 `-SkipRealQaSemanticGate`。
+- 临时 Alpha / Beta KnowledgeBase 现在包含目标 evidence marker 与语义 / 数字干扰 marker；真实 gate 检查 retrieve / QA no-evidence、hit / citation 数、target / forbidden citation count、score summary、marker 命中、citation marker 和 answer length。
+- Artifact 仍只保存脱敏 summary、计数、分数和布尔值；不保存回答原文、prompt、文档原文、evidence context、token、云地址或连接串。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629183549-4aafc3`。
+- 真实结果：`realQaSemanticGate` PASS；`claimSupport` 与 `numericFaithfulness` 均为 `1` retrieve hit、`1` QA citation、target citation `1`、forbidden citation `0`、expected marker satisfied、forbidden marker absent、citation marker present。hard negative、representative corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 均保持 PASS。
+- 边界：这是小规模真实链路语义支持门禁，不是通用语义蕴含模型、大规模真实 provider benchmark 或线上 SLA；本片不改生产 API、不改 schema、不删数据、不提交 artifact 原文、不打印 secrets、不 push。
+
 ## 2026-06-29 Quality Loop v4.2 / RAG Claim Support and Numeric Faithfulness Eval
 
 - 已扩展 RAG Real QA Eval：新增 `claim_support` 和 `numeric_faithfulness` 两类脱敏 case，分别验证目标 evidence 支持的 manager approval 结论，以及 seven-year retention 不被 three-year 干扰文档污染。

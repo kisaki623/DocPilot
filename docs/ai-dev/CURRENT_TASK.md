@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v4.2：RAG Claim Support / Numeric Faithfulness Eval（DONE）
+当前任务：DocPilot Quality Loop v4.3：RAG Real QA Semantic Gate Smoke（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v4.3 RAG Real QA Semantic Gate Smoke
+
+- 目标：把 v4.2 离线 `claim_support` / `numeric_faithfulness` 语义支持门禁迁移到真实 RAG Real QA smoke，让真实链路同时检查“结论必须由目标 evidence 支持”和“数字 / 年限不能被相近文档带偏”。
+- 已完成 smoke runner 增强：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealQaSemanticGate`，在 Alpha / Beta 临时 KnowledgeBase 中加入目标 evidence marker 和干扰 marker；`rag-real-qa-eval-smoke.ps1` 默认打开该 gate，并提供 `-SkipRealQaSemanticGate`。
+- 已完成脱敏边界：artifact 只保存 no-evidence 布尔值、hit / citation 数、target / forbidden citation count、score summary、answer length 和 marker / citation 布尔结果，不保存回答原文、prompt、文档原文、evidence context、token、云地址或连接串。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629183549-4aafc3`。
+- 关键结果：`realQaSemanticGate` PASS；`claimSupport` 与 `numericFaithfulness` 均为 `1` retrieve hit、`1` QA citation、target citation count `1`、forbidden citation count `0`、expected marker satisfied、forbidden marker absent、citation marker present。`realQaHardGate`、representative corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 均保持 PASS。
+- 边界：本片只增强 smoke runner / wrapper / 安全测试和文档记录，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。该结果是小规模真实链路语义支持门禁，不代表通用语义蕴含模型、大规模真实 provider benchmark 或线上 SLA。
+- 下一步：可继续 RAG 方向做更难的真实 provider 小样本 answer faithfulness / citation support 对比；也可转入 Memory 方向做真实 provider 抽取质量小样本，或做前端 Trace / Evidence 可解释性二次审计。
 
 ## 2026-06-29 追加任务：Quality Loop v4.2 RAG Claim Support / Numeric Faithfulness Eval
 

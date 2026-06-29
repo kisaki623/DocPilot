@@ -16,7 +16,8 @@ param(
   [switch]$EnableMemoryQualityGate,
   [switch]$EnableRerankHardGate,
   [switch]$EnableRepresentativeCorpusGate,
-  [switch]$EnableRealQaHardGate
+  [switch]$EnableRealQaHardGate,
+  [switch]$EnableRealQaSemanticGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -718,7 +719,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -785,6 +786,7 @@ function Invoke-Run() {
   $rerankHardResources = $null
   $representativeCorpusResources = $null
   $realQaHardGateChecks = $null
+  $realQaSemanticGateChecks = $null
   Set-Gate "auth" "PASS" @("registered user A", "registered user B")
 
   $alphaText = @"
@@ -801,9 +803,9 @@ Alpha fact three: the expected Alpha keyword is ALPHA-CLOUD-GATE.
 Alpha detail repeat block one. Upload creates a file record, document create binds the file, parse task dispatches async parsing, and successful parsing triggers indexing.
 Alpha detail repeat block two. The smoke runner checks chunk index continuity, vector ids, hashes, positive lengths, and indexed status.
 Alpha detail repeat block three. The answer should cite Alpha evidence and never expose tokens or cloud endpoints in the artifact.
-Alpha detail repeat block four. ALPHA-CLOUD-GATE remains unique to this temporary document for this run.
+Alpha detail repeat block four. ALPHA-CLOUD-GATE remains unique to this temporary document for this run, and semantic support marker real-claim-support-manager-approval-marker says vendor access renewal requires manager approval before the quarterly review.
 Alpha detail repeat block five. The document intentionally contains enough plain text to cross the default chunk window and produce multiple chunks.
-Alpha detail repeat block six. The quality gate should not trust a single retrieval response until MySQL chunk rows and Qdrant payload metadata agree.
+Alpha detail repeat block six. The quality gate should not trust a single retrieval response until MySQL chunk rows and Qdrant payload metadata agree; numeric faithfulness marker real-invoice-retention-seven-year-marker says invoice archives are retained for seven years.
 Alpha detail repeat block seven. The smoke marker ties this temporary document to a single run while the artifact stores only ids, counts, hashes, and gate status.
 Alpha detail repeat block eight. The frontend route smoke is separate from the RAG quality gate, but both results belong to one redacted run summary.
 Alpha detail repeat block nine. The parser must preserve ALPHA-CLOUD-GATE in the indexed content so the single document question has deterministic evidence.
@@ -823,9 +825,9 @@ Beta fact three: the expected Beta keyword is BETA-CONTEXT-GATE.
 Beta detail repeat block one. The KnowledgeBase answer must cite both Alpha and Beta documents when asked to summarize all documents.
 Beta detail repeat block two. Permission isolation rejects user B reading user A knowledge base and user A adding user B documents.
 Beta detail repeat block three. The redacted artifact stores counts and ids, never raw chunk content, tokens, API keys, cloud addresses, or connection strings.
-Beta detail repeat block four. BETA-CONTEXT-GATE remains unique to this temporary document for this run.
+Beta detail repeat block four. BETA-CONTEXT-GATE remains unique to this temporary document for this run, while semantic distractor marker real-claim-support-schedule-forbidden-marker mentions quarterly review scheduling but does not mention manager approval.
 Beta detail repeat block five. The document intentionally contains enough plain text to cross the default chunk window and produce multiple chunks.
-Beta detail repeat block six. The KnowledgeBase summary question should make retrieval cover both Alpha and Beta documents instead of only one nearest document.
+Beta detail repeat block six. The KnowledgeBase summary question should make retrieval cover both Alpha and Beta documents instead of only one nearest document, while numeric distractor marker real-invoice-retention-three-year-forbidden-marker says staging cache expires after three years.
 Beta detail repeat block seven. The Conversation Trace gate checks only summary fields and verifies memory and RAG evidence stay separate without persisting or printing the full prompt or evidence context.
 Beta detail repeat block eight. The Qdrant scroll gate uses with_vector false so the artifact never stores vector values or raw embedding payloads.
 Beta detail repeat block nine. The parser must preserve BETA-CONTEXT-GATE in the indexed content so the KnowledgeBase question has deterministic evidence.
@@ -932,7 +934,7 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
 
     $representativeKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Representative Corpus KB $smokeMarker"; description = "temporary representative real qa smoke kb" }) $tokenA
     Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/documents" ([ordered]@{ documentIds = @($docA.data.id, $docB.data.id, $docC.data.id) }) $tokenA | Out-Null
-    $representativeQuery = "Summarize the representative corpus for $smokeMarker. Cover Alpha chunk metadata, Beta context trace, and incident review evidence across all three documents. Include these exact evidence markers verbatim in the answer: ALPHA-CLOUD-GATE, BETA-CONTEXT-GATE, real-incident-detection-marker. Cite the evidence."
+    $representativeQuery = "Summarize the representative corpus for $smokeMarker. The retrieved evidence contains these exact markers: ALPHA-CLOUD-GATE, BETA-CONTEXT-GATE, real-incident-detection-marker. Copy all three markers verbatim in the final answer and cite the evidence with citation markers."
     $representativeRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/rag/retrieve" ([ordered]@{ query = $representativeQuery; topK = 8; indexVersion = $IndexVersion }) $tokenA
     $representativeQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($representativeKb.data.id)/qa/rag" ([ordered]@{ question = $representativeQuery; topK = 8; indexVersion = $IndexVersion }) $tokenA
     $representativeHits = @($representativeRetrieve.data.hits)
@@ -981,7 +983,7 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
   Set-Gate "answerGrounding" "PASS" $answerGroundingChecks
 
   if ($EnableRealQaHardGate) {
-    $realQaHardNegativeQuery = "Which evidence says payroll tax remittance approval is delegated to the context trace owner after chunk metadata verification?"
+    $realQaHardNegativeQuery = "Which evidence says payroll tax remittance is delegated to the context trace custodian after chunk metadata verification?"
     $realQaHardNegativeRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $realQaHardNegativeQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
     $realQaHardNegativeQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $realQaHardNegativeQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
     $hardNegativeCheck = [ordered]@{
@@ -1028,6 +1030,71 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
       Set-Gate "realQaHardGate" "REVIEW" $realQaHardGateChecks "hard negative query still returned evidence; tune threshold or grounding policy"
     } else {
       Set-Gate "realQaHardGate" "PASS" $realQaHardGateChecks
+    }
+  }
+
+  if ($EnableRealQaSemanticGate) {
+    $claimSupportQuestion = "Which evidence says vendor access renewal requires manager approval before the quarterly review? Include real-claim-support-manager-approval-marker verbatim and cite the exact evidence."
+    $claimSupportRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $claimSupportQuestion; topK = 1; indexVersion = $IndexVersion }) $tokenA
+    $claimSupportQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $claimSupportQuestion; topK = 1; indexVersion = $IndexVersion }) $tokenA
+    $claimSupportGrounding = Test-AnswerGrounding "claimSupport" ([string]$claimSupportQa.data.answer) @("real-claim-support-manager-approval-marker") @("real-claim-support-schedule-forbidden-marker", "does not mention manager approval")
+    $claimSupportCitations = @($claimSupportQa.data.citations)
+    $claimSupportCheck = [ordered]@{
+      scope = "claimSupport"
+      retrieveNoEvidence = [bool]$claimSupportRetrieve.data.noEvidence
+      qaNoEvidence = [bool]$claimSupportQa.data.noEvidence
+      retrieveHits = @($claimSupportRetrieve.data.hits).Count
+      qaCitations = $claimSupportCitations.Count
+      targetCitationCount = Get-DocumentHitCount $claimSupportCitations ([long]$docA.data.id)
+      forbiddenCitationCount = Get-DocumentHitCount $claimSupportCitations ([long]$docB.data.id)
+      retrieveScoreSummary = Get-ScoreSummary $claimSupportRetrieve.data.hits
+      citationScoreSummary = Get-ScoreSummary $claimSupportCitations
+      retrieveVectorScoreSummary = Get-FieldScoreSummary $claimSupportRetrieve.data.hits "vectorScore"
+      citationVectorScoreSummary = Get-FieldScoreSummary $claimSupportCitations "vectorScore"
+      expectedMarkersSatisfied = [bool]$claimSupportGrounding.expectedMarkersSatisfied
+      forbiddenMarkerHit = [bool]$claimSupportGrounding.forbiddenMarkerHit
+      citationMarkerPresent = [bool]$claimSupportGrounding.citationMarkerPresent
+      answerLength = $claimSupportGrounding.answerLength
+      passed = ((-not [bool]$claimSupportRetrieve.data.noEvidence) -and (-not [bool]$claimSupportQa.data.noEvidence) -and
+        [bool]$claimSupportGrounding.answerPresent -and [bool]$claimSupportGrounding.expectedMarkersSatisfied -and
+        (-not [bool]$claimSupportGrounding.forbiddenMarkerHit) -and [bool]$claimSupportGrounding.citationMarkerPresent -and
+        $claimSupportCitations.Count -ge 1 -and (Get-DocumentHitCount $claimSupportCitations ([long]$docA.data.id)) -ge 1 -and
+        (Get-DocumentHitCount $claimSupportCitations ([long]$docB.data.id)) -eq 0)
+    }
+
+    $numericFaithfulnessQuestion = "Which evidence states the invoice archive retention window is seven years? Include real-invoice-retention-seven-year-marker verbatim and cite the exact evidence."
+    $numericFaithfulnessRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $numericFaithfulnessQuestion; topK = 1; indexVersion = $IndexVersion }) $tokenA
+    $numericFaithfulnessQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $numericFaithfulnessQuestion; topK = 1; indexVersion = $IndexVersion }) $tokenA
+    $numericFaithfulnessGrounding = Test-AnswerGrounding "numericFaithfulness" ([string]$numericFaithfulnessQa.data.answer) @("real-invoice-retention-seven-year-marker") @("real-invoice-retention-three-year-forbidden-marker", "three years")
+    $numericFaithfulnessCitations = @($numericFaithfulnessQa.data.citations)
+    $numericFaithfulnessCheck = [ordered]@{
+      scope = "numericFaithfulness"
+      retrieveNoEvidence = [bool]$numericFaithfulnessRetrieve.data.noEvidence
+      qaNoEvidence = [bool]$numericFaithfulnessQa.data.noEvidence
+      retrieveHits = @($numericFaithfulnessRetrieve.data.hits).Count
+      qaCitations = $numericFaithfulnessCitations.Count
+      targetCitationCount = Get-DocumentHitCount $numericFaithfulnessCitations ([long]$docA.data.id)
+      forbiddenCitationCount = Get-DocumentHitCount $numericFaithfulnessCitations ([long]$docB.data.id)
+      retrieveScoreSummary = Get-ScoreSummary $numericFaithfulnessRetrieve.data.hits
+      citationScoreSummary = Get-ScoreSummary $numericFaithfulnessCitations
+      retrieveVectorScoreSummary = Get-FieldScoreSummary $numericFaithfulnessRetrieve.data.hits "vectorScore"
+      citationVectorScoreSummary = Get-FieldScoreSummary $numericFaithfulnessCitations "vectorScore"
+      expectedMarkersSatisfied = [bool]$numericFaithfulnessGrounding.expectedMarkersSatisfied
+      forbiddenMarkerHit = [bool]$numericFaithfulnessGrounding.forbiddenMarkerHit
+      citationMarkerPresent = [bool]$numericFaithfulnessGrounding.citationMarkerPresent
+      answerLength = $numericFaithfulnessGrounding.answerLength
+      passed = ((-not [bool]$numericFaithfulnessRetrieve.data.noEvidence) -and (-not [bool]$numericFaithfulnessQa.data.noEvidence) -and
+        [bool]$numericFaithfulnessGrounding.answerPresent -and [bool]$numericFaithfulnessGrounding.expectedMarkersSatisfied -and
+        (-not [bool]$numericFaithfulnessGrounding.forbiddenMarkerHit) -and [bool]$numericFaithfulnessGrounding.citationMarkerPresent -and
+        $numericFaithfulnessCitations.Count -ge 1 -and (Get-DocumentHitCount $numericFaithfulnessCitations ([long]$docA.data.id)) -ge 1 -and
+        (Get-DocumentHitCount $numericFaithfulnessCitations ([long]$docB.data.id)) -eq 0)
+    }
+
+    $realQaSemanticGateChecks = @($claimSupportCheck, $numericFaithfulnessCheck)
+    if (-not $claimSupportCheck.passed -or -not $numericFaithfulnessCheck.passed) {
+      Set-Gate "realQaSemanticGate" "REVIEW" $realQaSemanticGateChecks "claim support or numeric faithfulness gate did not satisfy grounded answer checks"
+    } else {
+      Set-Gate "realQaSemanticGate" "PASS" $realQaSemanticGateChecks
     }
   }
 
@@ -1357,6 +1424,8 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
       rerankHardGate = $rerankHardResources
       realQaHardGateEnabled = [bool]$EnableRealQaHardGate
       realQaHardGate = $realQaHardGateChecks
+      realQaSemanticGateEnabled = [bool]$EnableRealQaSemanticGate
+      realQaSemanticGate = $realQaSemanticGateChecks
       conversationId = [long]$conversation.data.conversationId
       messageId = [long]$message.data.messageId
     }

@@ -4,6 +4,25 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-29 RAG Real QA Semantic Gate Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260629183549-4aafc3`
+
+Verified gates:
+
+- `realQaSemanticGate` is now enabled by default in the RAG Real QA smoke wrapper and can be skipped with `-SkipRealQaSemanticGate`.
+- `claimSupport` passed: retrieve hit count `1`, QA citation count `1`, target citation count `1`, forbidden citation count `0`, expected marker satisfied, forbidden marker absent and citation marker present.
+- `numericFaithfulness` passed: retrieve hit count `1`, QA citation count `1`, target citation count `1`, forbidden citation count `0`, expected marker satisfied, forbidden marker absent and citation marker present.
+- Core real-link gates remained PASS: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, hard negative gate, ordinary no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+
+Boundary: artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, answer text, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This is a small real-link semantic support gate, not a general entailment model, large-scale provider benchmark or online SLA.
+
 ## 2026-06-29 Memory Governance Edit / Resolve Smoke
 
 Status: PASS

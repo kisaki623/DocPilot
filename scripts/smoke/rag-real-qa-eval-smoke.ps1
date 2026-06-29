@@ -13,7 +13,8 @@ param(
   [switch]$SkipFrontend,
   [switch]$ReuseRunningServices,
   [switch]$SkipRepresentativeCorpusGate,
-  [switch]$SkipRealQaHardGate
+  [switch]$SkipRealQaHardGate,
+  [switch]$SkipRealQaSemanticGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,6 +29,7 @@ function Show-RagRealQaPlan {
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
     representativeCorpusEnabledByDefault = (-not [bool]$SkipRepresentativeCorpusGate)
     realQaHardGateEnabledByDefault = (-not [bool]$SkipRealQaHardGate)
+    realQaSemanticGateEnabledByDefault = (-not [bool]$SkipRealQaSemanticGate)
     caseTypes = @(
       "factual_lookup",
       "cross_document_summary",
@@ -39,6 +41,8 @@ function Show-RagRealQaPlan {
       "rerank_uplift_candidate",
       "hard_negative",
       "answer_faithfulness",
+      "claim_support",
+      "numeric_faithfulness",
       "representative_corpus",
       "answer_grounding"
     )
@@ -55,6 +59,7 @@ function Show-RagRealQaPlan {
       "representativeCorpus",
       "answerGrounding",
       "realQaHardGate",
+      "realQaSemanticGate",
       "noEvidenceThreshold",
       "conversationTrace",
       "permissionIsolation",
@@ -104,6 +109,9 @@ if (-not $SkipRepresentativeCorpusGate) {
 }
 if (-not $SkipRealQaHardGate) {
   $argsList += "-EnableRealQaHardGate"
+}
+if (-not $SkipRealQaSemanticGate) {
+  $argsList += "-EnableRealQaSemanticGate"
 }
 
 & powershell.exe @argsList
