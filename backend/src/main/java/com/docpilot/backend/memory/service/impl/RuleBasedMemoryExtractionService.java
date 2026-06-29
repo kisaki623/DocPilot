@@ -54,6 +54,9 @@ public class RuleBasedMemoryExtractionService implements MemoryExtractionService
         }
         String content = compact(message.getContent());
         String normalized = content.toLowerCase(Locale.ROOT);
+        if (looksSensitive(normalized) || looksTemporaryInstruction(normalized)) {
+            return Optional.empty();
+        }
 
         String memoryType = classify(normalized);
         if (memoryType == null) {
@@ -97,6 +100,19 @@ public class RuleBasedMemoryExtractionService implements MemoryExtractionService
             return UserMemoryType.TECH_CONTEXT;
         }
         return null;
+    }
+
+    private boolean looksSensitive(String normalized) {
+        return containsAny(normalized,
+                "api_key", "apikey", "secret", "password", "passwd", "token", "bearer ",
+                "authorization:", "jdbc:", ".env", "ssh-rsa", "private key", "access_key", "accesskey");
+    }
+
+    private boolean looksTemporaryInstruction(String normalized) {
+        return containsAny(normalized,
+                "这一次", "这次", "本次", "临时", "不用记住", "不要记住", "别记住",
+                "only this time", "for this answer", "for this response", "do not remember",
+                "don't remember", "temporary");
     }
 
     private boolean containsAny(String text, String... keywords) {

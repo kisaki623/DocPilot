@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v3.9：Memory Governance Edit / Resolve（DONE）
+当前任务：DocPilot Quality Loop v4.1：Memory Extraction Quality Eval（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v4.1 Memory Extraction Quality Eval
+
+- 目标：把 Memory Quality Eval 从“状态分层 / trace 计数可用”推进到“能拦住更多低质量长期记忆候选”，覆盖多信号抽取、assistant 指令污染、低价值寒暄、一次性回答风格、敏感 token/API key 指令等 case。
+- 已完成规则收窄：`RuleBasedMemoryExtractionService` 在抽取候选前过滤敏感内容和一次性 / 临时指令，避免把 token/API key 占位指令或“这一次回答详细一点，后面不用记住”沉淀为长期记忆候选；正常用户长期偏好和任务目标抽取保持不变。
+- 已完成离线 eval：`memory-quality-eval-cases.json` 新增 `multi_signal_extraction`、`assistant_contamination`、`low_value_suppression`、`temporary_instruction_suppression`、`sensitive_suggestion_suppression` 五类脱敏 case；`MemoryQualityEvalMetrics` 新增 `suggestionSafetyRate`、`userSignalExtractionRate`、`noiseSuppressionRate`、`temporaryInstructionSuppressionRate`，artifact 仍只保存脱敏 summary、布尔值、类型和计数，不保存会话正文或 memory 正文。
+- 已验证：`mvn "-Dtest=MemoryQualityEvalFixtureTest,MemoryQualityEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*Memory*,*Context*" test` PASS，63 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，267 tests。
+- 边界：本片不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 LLM memory extraction，不改数据库结构，不删除业务数据，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果是规则式 Memory 候选抽取的离线质量门禁增强，不代表真实 provider 长期记忆抽取质量或大规模个性化效果评测。
 
 ## 2026-06-29 追加任务：Quality Loop v3.9 Memory Governance Edit / Resolve
 

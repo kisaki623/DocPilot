@@ -21,7 +21,11 @@ class MemoryQualityEvalRunnerTest {
         assertThat(result.metrics().suggestionTypeRecallRate()).isEqualTo(1.0D);
         assertThat(result.metrics().activeMemoryPrecisionRate()).isEqualTo(1.0D);
         assertThat(result.metrics().sensitiveRejectionRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().suggestionSafetyRate()).isEqualTo(1.0D);
         assertThat(result.metrics().ragEvidenceIsolationRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().userSignalExtractionRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().noiseSuppressionRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().temporaryInstructionSuppressionRate()).isEqualTo(1.0D);
         assertThat(result.metrics().traceSourceCountRate()).isEqualTo(1.0D);
 
         Path artifact = Path.of("target", "memory-eval", "memory-quality-eval-test.json");
@@ -29,6 +33,8 @@ class MemoryQualityEvalRunnerTest {
         String json = Files.readString(artifact);
 
         assertThat(json).contains("casePassRate");
+        assertThat(json).contains("suggestionSafetyRate");
+        assertThat(json).contains("noiseSuppressionRate");
         assertThat(json).contains("traceSourceCountRate");
         assertThat(json).doesNotContain(".env");
         assertThat(json).doesNotContain("RAG evidence:");

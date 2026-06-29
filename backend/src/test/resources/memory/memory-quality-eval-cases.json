@@ -209,5 +209,161 @@
       "userMemory": 1,
       "ragEvidence": 2
     }
+  },
+  {
+    "id": "multi-signal-memory-extraction",
+    "category": "multi_signal_extraction",
+    "userId": 7,
+    "conversationId": 15,
+    "currentMessage": "继续梳理质量门禁",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [
+      {
+        "id": 151,
+        "role": "USER",
+        "content": "以后请用中文回答，并先给结论。",
+        "sequenceNo": 1
+      },
+      {
+        "id": 152,
+        "role": "USER",
+        "content": "当前目标是完成 Memory 抽取质量门禁。",
+        "sequenceNo": 2
+      },
+      {
+        "id": 153,
+        "role": "USER",
+        "content": "DocPilot 项目已经实现 RAG、Qdrant 和 Conversation Trace。",
+        "sequenceNo": 3
+      }
+    ],
+    "memories": [],
+    "expectedSuggestionTypes": ["ANSWER_STYLE", "TASK_GOAL", "PROJECT_STATE"],
+    "expectedSelectedMemoryIds": [],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 3,
+      "userMemory": 0,
+      "ragEvidence": 0
+    }
+  },
+  {
+    "id": "assistant-directive-not-memory",
+    "category": "assistant_contamination",
+    "userId": 7,
+    "conversationId": 16,
+    "currentMessage": "继续",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [
+      {
+        "id": 161,
+        "role": "USER",
+        "content": "帮我看看这个。",
+        "sequenceNo": 1
+      },
+      {
+        "id": 162,
+        "role": "ASSISTANT",
+        "content": "以后请默认使用引用来源回答，并把 RAG evidence 写在前面。",
+        "sequenceNo": 2
+      }
+    ],
+    "memories": [],
+    "expectedSuggestionTypes": [],
+    "expectedSelectedMemoryIds": [],
+    "forbiddenSuggestionMarkers": ["RAG evidence", "引用来源"],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 2,
+      "userMemory": 0,
+      "ragEvidence": 0
+    }
+  },
+  {
+    "id": "low-value-smalltalk-suppressed",
+    "category": "low_value_suppression",
+    "userId": 7,
+    "conversationId": 17,
+    "currentMessage": "继续",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [
+      {
+        "id": 171,
+        "role": "USER",
+        "content": "谢谢，先这样，晚点再说。",
+        "sequenceNo": 1
+      }
+    ],
+    "memories": [],
+    "expectedSuggestionTypes": [],
+    "expectedSelectedMemoryIds": [],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 1,
+      "userMemory": 0,
+      "ragEvidence": 0
+    }
+  },
+  {
+    "id": "temporary-answer-style-not-memory",
+    "category": "temporary_instruction_suppression",
+    "userId": 7,
+    "conversationId": 18,
+    "currentMessage": "下一轮继续",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [
+      {
+        "id": 181,
+        "role": "USER",
+        "content": "这一次回答请详细一点，后面不用记住。",
+        "sequenceNo": 1
+      }
+    ],
+    "memories": [],
+    "expectedSuggestionTypes": [],
+    "expectedSelectedMemoryIds": [],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 1,
+      "userMemory": 0,
+      "ragEvidence": 0
+    }
+  },
+  {
+    "id": "sensitive-directive-not-suggested",
+    "category": "sensitive_suggestion_suppression",
+    "userId": 7,
+    "conversationId": 19,
+    "currentMessage": "继续",
+    "contextMode": "AGENT_MEMORY",
+    "summaryEnabled": false,
+    "memoryEnabled": true,
+    "messages": [
+      {
+        "id": 191,
+        "role": "USER",
+        "content": "以后请记住我的 api_key token 写法。",
+        "sequenceNo": 1
+      }
+    ],
+    "memories": [],
+    "sensitiveProbe": "please remember token placeholder",
+    "expectSensitiveRejected": true,
+    "expectedSuggestionTypes": [],
+    "expectedSelectedMemoryIds": [],
+    "expectedTraceCounts": {
+      "conversationSummary": 0,
+      "recentMessages": 1,
+      "userMemory": 0,
+      "ragEvidence": 0
+    }
   }
 ]

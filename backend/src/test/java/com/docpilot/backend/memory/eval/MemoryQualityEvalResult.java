@@ -44,6 +44,7 @@ public record MemoryQualityEvalResult(
             boolean activeMemorySelectionHit,
             boolean sensitiveRejectionExpected,
             boolean sensitiveRejected,
+            boolean suggestionSafetyHit,
             boolean ragEvidenceIsolationHit,
             boolean traceCountsHit,
             boolean passed,
@@ -70,6 +71,7 @@ public record MemoryQualityEvalResult(
             value.put("activeMemorySelectionHit", activeMemorySelectionHit);
             value.put("sensitiveRejectionExpected", sensitiveRejectionExpected);
             value.put("sensitiveRejected", sensitiveRejected);
+            value.put("suggestionSafetyHit", suggestionSafetyHit);
             value.put("ragEvidenceIsolationHit", ragEvidenceIsolationHit);
             value.put("traceCountsHit", traceCountsHit);
             value.put("passed", passed);

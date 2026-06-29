@@ -122,6 +122,18 @@ public class MemoryQualityEvalRunner {
             failureReasons.add("sensitive_probe_not_rejected");
         }
 
+        boolean suggestionSafetyHit = suggestions.stream().allMatch(candidate -> {
+            try {
+                harness.safetyValidator.validate(candidate.content());
+                return true;
+            } catch (BusinessException ex) {
+                return false;
+            }
+        });
+        if (!suggestionSafetyHit) {
+            failureReasons.add("unsafe_memory_suggestion_extracted");
+        }
+
         ContextAssemblyResult context = harness.contextAssemblyService.buildContext(new ContextAssemblyRequest(
                 evalCase.userId(), evalCase.conversationId(), evalCase.currentMessage(), null));
         List<Long> selectedMemoryIds = context.usedItems().stream()
@@ -147,6 +159,7 @@ public class MemoryQualityEvalRunner {
         boolean passed = suggestionTypesHit
                 && activeMemorySelectionHit
                 && (!evalCase.expectSensitiveRejected() || sensitiveRejected)
+                && suggestionSafetyHit
                 && ragEvidenceIsolationHit
                 && traceCountsHit;
 
@@ -161,6 +174,7 @@ public class MemoryQualityEvalRunner {
                 activeMemorySelectionHit,
                 evalCase.expectSensitiveRejected(),
                 sensitiveRejected,
+                suggestionSafetyHit,
                 ragEvidenceIsolationHit,
                 traceCountsHit,
                 passed,

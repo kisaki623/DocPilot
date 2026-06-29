@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v4.1 / Memory Extraction Quality Eval
+
+- 已扩展 Memory Quality Eval：新增多信号抽取、assistant 指令污染、低价值寒暄、一次性回答风格、敏感 token/API key 指令五类脱敏离线 case。
+- 已增强规则式候选抽取：`RuleBasedMemoryExtractionService` 在生成 memory suggestion 前过滤敏感内容和一次性 / 临时指令，避免把 token/API key 占位指令或“这一次回答详细一点，后面不用记住”沉淀为长期记忆。
+- 已增强 eval 指标和脱敏 artifact：新增 `suggestionSafetyRate`、`userSignalExtractionRate`、`noiseSuppressionRate`、`temporaryInstructionSuppressionRate`，并对每个候选执行 `MemorySafetyValidator` 检查；artifact 仍不保存会话正文、memory 正文、prompt、token 或连接信息。
+- 已验证：`mvn "-Dtest=MemoryQualityEvalFixtureTest,MemoryQualityEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*Memory*,*Context*" test` PASS，63 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，267 tests。
+- 边界：本片不启动真实 tunnel / backend / frontend，不创建业务数据，不调用真实 LLM memory extraction，不改数据库结构，不删除业务数据，不提交 artifact 原文，不打印 secrets，不 push；结论是规则式离线质量门禁增强，不是长期记忆真实 provider 效果评测。
+
 ## 2026-06-29 Quality Loop v3.9 / Memory Governance Edit and Resolve
 
 - 已新增用户可控 Memory 治理闭环：`PATCH /api/memories/{memoryId}` 支持编辑 ACTIVE memory；`POST /api/memories/suggestions/{memoryId}/resolve` 支持 `KEEP_ACTIVE`、`REPLACE_ACTIVE`、`MERGE_WITH_ACTIVE`。

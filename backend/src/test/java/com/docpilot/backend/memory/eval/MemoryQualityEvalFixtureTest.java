@@ -24,7 +24,12 @@ class MemoryQualityEvalFixtureTest {
         });
         assertThat(cases).extracting(MemoryQualityEvalCase::category).contains(
                 "preference_extraction",
+                "multi_signal_extraction",
                 "rag_evidence_isolation",
+                "assistant_contamination",
+                "low_value_suppression",
+                "temporary_instruction_suppression",
+                "sensitive_suggestion_suppression",
                 "memory_status_isolation",
                 "safety_filter",
                 "trace_source_split"
