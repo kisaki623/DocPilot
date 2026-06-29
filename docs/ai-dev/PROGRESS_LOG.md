@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v4.2 / RAG Claim Support and Numeric Faithfulness Eval
+
+- 已扩展 RAG Real QA Eval：新增 `claim_support` 和 `numeric_faithfulness` 两类脱敏 case，分别验证目标 evidence 支持的 manager approval 结论，以及 seven-year retention 不被 three-year 干扰文档污染。
+- 已增强指标：`RagRealQaEvalMetrics` 新增 `claimSupportPassRate` 与 `numericFaithfulnessPassRate`，safe artifact 同步输出两个指标；仍只保存 case summary、类别、计数、文档 ID 和布尔结果，不保存文档全文、query、prompt、evidence context 或模型输出。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 test-side eval，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API 或数据库结构，不提交 artifact 原文，不打印 secrets，不 push；结论是离线语义支持门禁增强，不是大规模真实 answer faithfulness benchmark。
+
 ## 2026-06-29 Quality Loop v4.1 / Memory Extraction Quality Eval
 
 - 已扩展 Memory Quality Eval：新增多信号抽取、assistant 指令污染、低价值寒暄、一次性回答风格、敏感 token/API key 指令五类脱敏离线 case。

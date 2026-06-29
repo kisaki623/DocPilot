@@ -36,7 +36,9 @@ class RagRealQaEvalFixtureTest {
                 "citation_grounding",
                 "scope_isolation",
                 "hard_negative",
-                "answer_faithfulness"
+                "answer_faithfulness",
+                "claim_support",
+                "numeric_faithfulness"
         );
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.expectedNoEvidence()).isTrue());
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.minDocumentCoverage()).isGreaterThanOrEqualTo(3));
@@ -45,5 +47,7 @@ class RagRealQaEvalFixtureTest {
         assertThat(cases).filteredOn(evalCase -> "near_miss_no_evidence".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
         assertThat(cases).filteredOn(evalCase -> "hard_negative".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(1);
         assertThat(cases).filteredOn(evalCase -> "answer_faithfulness".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(1);
+        assertThat(cases).filteredOn(evalCase -> "claim_support".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(1);
+        assertThat(cases).filteredOn(evalCase -> "numeric_faithfulness".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(1);
     }
 }

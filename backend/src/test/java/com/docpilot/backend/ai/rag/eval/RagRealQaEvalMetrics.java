@@ -21,7 +21,9 @@ public record RagRealQaEvalMetrics(
         double multiDocSummaryPassRate,
         double distractorSuppressionRate,
         double hardNegativePassRate,
-        double answerFaithfulnessPassRate
+        double answerFaithfulnessPassRate,
+        double claimSupportPassRate,
+        double numericFaithfulnessPassRate
 ) {
 
     public static RagRealQaEvalMetrics from(List<RagRealQaEvalResult.CaseEvaluation> evaluations) {
@@ -56,6 +58,8 @@ public record RagRealQaEvalMetrics(
                 .toList();
         List<RagRealQaEvalResult.CaseEvaluation> hardNegativeCases = byCategory(resolved, "hard_negative");
         List<RagRealQaEvalResult.CaseEvaluation> answerFaithfulnessCases = byCategory(resolved, "answer_faithfulness");
+        List<RagRealQaEvalResult.CaseEvaluation> claimSupportCases = byCategory(resolved, "claim_support");
+        List<RagRealQaEvalResult.CaseEvaluation> numericFaithfulnessCases = byCategory(resolved, "numeric_faithfulness");
         return new RagRealQaEvalMetrics(
                 resolved.size(),
                 rate(passed, resolved.size()),
@@ -74,7 +78,9 @@ public record RagRealQaEvalMetrics(
                 passRate(multiDocSummaryCases),
                 passRate(distractorCases),
                 passRate(hardNegativeCases),
-                passRate(answerFaithfulnessCases)
+                passRate(answerFaithfulnessCases),
+                passRate(claimSupportCases),
+                passRate(numericFaithfulnessCases)
         );
     }
 
@@ -96,6 +102,8 @@ public record RagRealQaEvalMetrics(
         value.put("distractorSuppressionRate", format(distractorSuppressionRate));
         value.put("hardNegativePassRate", format(hardNegativePassRate));
         value.put("answerFaithfulnessPassRate", format(answerFaithfulnessPassRate));
+        value.put("claimSupportPassRate", format(claimSupportPassRate));
+        value.put("numericFaithfulnessPassRate", format(numericFaithfulnessPassRate));
         return value;
     }
 

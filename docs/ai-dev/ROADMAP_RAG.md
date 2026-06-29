@@ -99,6 +99,7 @@ DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会�
 - 第二片已完成：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，使用 `docpilot-rag-real-qa` marker 和 `backend/target/rag-real-qa` artifact root 承接真实链路质量证据；wrapper 复用 cloud quality gate 并已通过 plan / dry-run / 脚本安全测试。
 - 第三片已完成：`rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260628164757-ac2a1d`；临时用户、两份临时文档、KnowledgeBase、Conversation Trace、权限隔离和脱敏 artifact 均通过完整 gate。
 - Quality Loop v3.1 第一片已完成：RAG Real Corpus Eval 从 9 个 case 扩到 22 个 case，新增长文档、近义 no-evidence、多文档总结、citation grounding、scope isolation、hybrid keyword noise 和 rerank distractor 场景；metrics 新增 `longDocumentCasePassRate`、`nearMissNoEvidenceRate`、`multiDocSummaryPassRate`、`distractorSuppressionRate`。2026-06-28 targeted eval 9/9 PASS，`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。边界仍是脱敏离线门禁，不写成大规模真实 provider benchmark。
+- Quality Loop v4.2 已完成 RAG Claim Support / Numeric Faithfulness Eval 第一片：Real QA eval 新增 `claim_support` 与 `numeric_faithfulness` 两类 case，覆盖目标 evidence 支持结论和数字 / 年限忠实度；metrics 新增 `claimSupportPassRate` 与 `numericFaithfulnessPassRate`。2026-06-29 targeted eval 3/3 PASS，Real QA / KnowledgeBase eval 10/10 PASS，`*Rag*,*KnowledgeBase*` 回归 207/207 PASS。该片仍是离线语义支持门禁，不代表真实 provider 大规模 benchmark。
 
 ### Quality Loop v2 / Memory Quality Eval（DONE）
 

@@ -544,5 +544,51 @@
     "minCitationCount": 1,
     "minDocumentCoverage": 1,
     "expectedNoEvidence": false
+  },
+  {
+    "id": "real-claim-support-vendor-renewal",
+    "category": "claim_support",
+    "userId": 1424,
+    "knowledgeBaseId": 2424,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Which evidence says vendor access renewal requires manager approval before the quarterly review?",
+    "documents": [
+      {"documentId": 4641, "title": "Vendor Access Renewal Control", "text": "Vendor access renewal support marker real-vendor-renewal-manager-approval-marker says manager approval is required before the quarterly access review."},
+      {"documentId": 4642, "title": "Vendor Access Review Calendar", "text": "Vendor access review calendar marker real-vendor-renewal-schedule-forbidden-marker mentions quarterly review timing but does not mention manager approval."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-vendor-renewal-manager-approval-marker"],
+    "expectedAnswerMarkers": ["real-vendor-renewal-manager-approval-marker"],
+    "requiredCitationMarkers": ["real-vendor-renewal-manager-approval-marker"],
+    "forbiddenAnswerMarkers": ["real-vendor-renewal-schedule-forbidden-marker", "does not mention manager approval"],
+    "expectedDocumentIds": [4641],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 1,
+    "minDocumentCoverage": 1,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "real-numeric-faithfulness-invoice-retention",
+    "category": "numeric_faithfulness",
+    "userId": 1425,
+    "knowledgeBaseId": 2425,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Which evidence states the invoice archive retention window is seven years?",
+    "documents": [
+      {"documentId": 4651, "title": "Invoice Archive Retention Policy", "text": "Invoice archive retention marker real-invoice-retention-seven-year-marker states finance keeps invoice archives for seven years."},
+      {"documentId": 4652, "title": "Invoice Archive Migration Cache", "text": "Invoice archive migration marker real-invoice-retention-three-year-forbidden-marker states staging cache expires after three years."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-invoice-retention-seven-year-marker"],
+    "expectedAnswerMarkers": ["real-invoice-retention-seven-year-marker"],
+    "requiredCitationMarkers": ["real-invoice-retention-seven-year-marker"],
+    "forbiddenAnswerMarkers": ["real-invoice-retention-three-year-forbidden-marker", "three years"],
+    "expectedDocumentIds": [4651],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 1,
+    "minDocumentCoverage": 1,
+    "expectedNoEvidence": false
   }
 ]

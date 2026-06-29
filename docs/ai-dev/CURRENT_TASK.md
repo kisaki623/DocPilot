@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v4.1：Memory Extraction Quality Eval（DONE）
+当前任务：DocPilot Quality Loop v4.2：RAG Claim Support / Numeric Faithfulness Eval（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v4.2 RAG Claim Support / Numeric Faithfulness Eval
+
+- 目标：继续把 RAG Real QA Eval 从普通 answer faithfulness 推进到更细的语义支持门禁，覆盖“结论必须由目标 evidence 支持”和“数字 / 年限不能被相近文档带偏”两类常见面试追问。
+- 已完成离线 eval：`real-qa-eval-cases.json` 新增 `claim_support` 与 `numeric_faithfulness` 两个脱敏企业场景；前者验证 vendor access renewal 的 manager approval 只能来自目标 evidence，后者验证 invoice archive retention 的 seven-year evidence 不被 three-year 干扰文档污染。
+- 已完成指标增强：`RagRealQaEvalMetrics` 新增 `claimSupportPassRate` 与 `numericFaithfulnessPassRate`，safe artifact 同步输出两个指标，仍不保存文档全文、query 原文、prompt、evidence context 或模型输出。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 Real QA eval / fixture / metrics，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果是离线语义支持门禁增强，不代表真实 provider 大规模 answer faithfulness benchmark。
 
 ## 2026-06-29 追加任务：Quality Loop v4.1 Memory Extraction Quality Eval
 
