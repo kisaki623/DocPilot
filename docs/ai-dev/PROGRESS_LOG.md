@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v5.4 / RAG Retrieval Error Analysis Report
+
+- Added a redacted `RagRetrievalErrorAnalysis` summary to KnowledgeBase RAG eval and RAG Real QA eval artifacts.
+- The summary groups missed retrieval, wrong retrieval, no-evidence refusal, unsupported citation, unsupported answer, forbidden leak, scope violation and ranking candidate pass counts without storing raw query, document, model instruction/evidence or answer content.
+- Verified: `mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest,KnowledgeBaseRagEvalRunnerTest" test` PASS, 5 tests.
+- Boundary: offline eval/reporting gate only; no tunnel/backend/frontend run, no business data creation and no real provider call in this slice.
+
 ## 2026-06-29 Quality Loop v5.3 / RAG Real Provider Faithfulness Smoke
 
 - 已给 `cloud-quality-smoke.ps1` 增加 `-EnableRealProviderFaithfulnessGate`，并让 `rag-real-qa-eval-smoke.ps1` 默认开启该 gate、支持 `-SkipRealProviderFaithfulnessGate`。

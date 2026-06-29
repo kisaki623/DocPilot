@@ -1,5 +1,16 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v5.4: RAG Retrieval Error Analysis Report (DONE)
+
+## 2026-06-29 Addendum: Quality Loop v5.4 RAG Retrieval Error Analysis Report
+
+- Goal: land A4 by turning offline RAG eval output from aggregate pass rates into a redacted retrieval error analysis report.
+- Done: `RagRetrievalErrorAnalysis` now summarizes missed retrieval, wrong retrieval, no-evidence refusal, citation unsupported, answer unsupported, forbidden leak, scope violation and ranking candidate pass counts for both KnowledgeBase RAG eval and RAG Real QA eval artifacts.
+- Safety boundary: the report stores counts, booleans, failure reason buckets and case ids only; it does not store document text, query text, answer text, model instructions, evidence context, credentials, cloud addresses or connection strings.
+- Verified: `mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest,KnowledgeBaseRagEvalRunnerTest" test` PASS, 5 tests.
+- Boundary: this is an offline `MockEmbeddingProvider` + `InMemoryVectorStoreClient` eval/reporting gate, not a real provider benchmark, online SLA or broad relevance dashboard.
+- Next: continue A5 Chunk Quality v2, then A6 default-off KnowledgeBase multi-query retrieval.
+
 当前任务：DocPilot Quality Loop v5.3：RAG Real Provider Faithfulness Smoke（DONE）
 
 ## 2026-06-29 追加任务：Quality Loop v5.3 RAG Real Provider Faithfulness Smoke

@@ -40,6 +40,7 @@ public record KnowledgeBaseRagEvalResult(
         value.put("provider", provider);
         value.put("embeddingProvider", embeddingProvider);
         value.put("metrics", metrics.toSafeMap());
+        value.put("errorAnalysis", RagRetrievalErrorAnalysis.fromKnowledgeBase(caseEvaluations).toSafeMap());
         value.put("retrievalModeMetrics", retrievalModeMetrics.entrySet().stream()
                 .collect(LinkedHashMap::new,
                         (map, entry) -> map.put(entry.getKey(), entry.getValue().toSafeMap()),

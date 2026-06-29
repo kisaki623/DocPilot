@@ -1,5 +1,12 @@
 # DocPilot 当前状态
 
+## 2026-06-29 Current Addendum
+
+- RAG Retrieval Error Analysis Report v1 is implemented for offline KnowledgeBase RAG eval and RAG Real QA eval artifacts. It adds redacted buckets for missed retrieval, wrong retrieval, no-evidence refusal, unsupported citation, unsupported answer, forbidden leak, scope violation and ranking candidate pass counts.
+- The report is count / status / failure-reason only. It does not store document text, query text, answer text, model instructions, evidence context, credentials, cloud addresses or connection strings.
+- Verification: `mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest,KnowledgeBaseRagEvalRunnerTest" test` PASS, 5 tests.
+- Boundary: this is offline quality-gate evidence using mock embedding and in-memory vector store; it is not a real-provider relevance benchmark or production SLA.
+
 最后更新：2026-06-29
 
 旧状态快照已保留在 `docs/ai-dev/archive/STATE_2026-04-18.md`。本文件只维护当前事实，不追加流水账。

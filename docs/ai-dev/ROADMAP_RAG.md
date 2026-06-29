@@ -1,5 +1,10 @@
 # DocPilot RAG / Memory Productionization Roadmap
 
+## 2026-06-29 Roadmap Addendum
+
+- A4 Retrieval Error Analysis Report v1 is DONE for offline eval artifacts: KnowledgeBase RAG eval and RAG Real QA eval now output redacted error buckets for retrieval miss, wrong retrieval, no-evidence refusal, citation support, answer support, forbidden leakage, scope isolation and ranking candidate pass counts.
+- This strengthens ML-system evaluation explainability, but remains an offline gate. Real-link quality claims still require cloud smoke / runtime evidence.
+
 ## 1. 目标
 
 DocPilot 的核心目标是建设面向企业文档知识库场景的 RAG + 会话记忆平台。RAG 不是附属 demo，而是主链路：系统必须能完成文档上传、解析、切片、索引、检索、回答、引用、拒答、上下文追踪和质量门禁。
