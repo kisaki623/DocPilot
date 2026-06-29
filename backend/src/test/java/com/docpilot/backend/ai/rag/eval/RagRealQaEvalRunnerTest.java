@@ -16,7 +16,7 @@ class RagRealQaEvalRunnerTest {
 
         assertThat(result.provider()).isEqualTo("in_memory");
         assertThat(result.embeddingProvider()).isEqualTo("mock");
-        assertThat(result.metrics().caseCount()).isGreaterThanOrEqualTo(20);
+        assertThat(result.metrics().caseCount()).isGreaterThanOrEqualTo(40);
         assertThat(result.metrics().casePassRate()).isEqualTo(1.0D);
         assertThat(result.metrics().answerCorrectnessRate()).isEqualTo(1.0D);
         assertThat(result.metrics().citationGroundingRate()).isEqualTo(1.0D);

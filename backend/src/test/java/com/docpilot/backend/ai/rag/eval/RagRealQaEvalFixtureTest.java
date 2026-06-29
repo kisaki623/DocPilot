@@ -12,7 +12,7 @@ class RagRealQaEvalFixtureTest {
     void shouldLoadRealQaEvalCases() throws Exception {
         List<RagRealQaEvalCase> cases = new RagRealQaEvalRunner().loadCases();
 
-        assertThat(cases).hasSizeGreaterThanOrEqualTo(20);
+        assertThat(cases).hasSizeGreaterThanOrEqualTo(40);
         assertThat(cases).allSatisfy(evalCase -> {
             assertThat(evalCase.id()).isNotBlank();
             assertThat(evalCase.category()).isNotBlank();
@@ -45,9 +45,11 @@ class RagRealQaEvalFixtureTest {
         assertThat(cases).anySatisfy(evalCase -> assertThat(evalCase.rerankUpliftCandidate()).isTrue());
         assertThat(cases).filteredOn(evalCase -> "long_document".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(3);
         assertThat(cases).filteredOn(evalCase -> "near_miss_no_evidence".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
-        assertThat(cases).filteredOn(evalCase -> "hard_negative".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(1);
-        assertThat(cases).filteredOn(evalCase -> "answer_faithfulness".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(1);
-        assertThat(cases).filteredOn(evalCase -> "claim_support".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(1);
-        assertThat(cases).filteredOn(evalCase -> "numeric_faithfulness".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(1);
+        assertThat(cases).filteredOn(evalCase -> "hard_negative".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(cases).filteredOn(evalCase -> "answer_faithfulness".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(cases).filteredOn(evalCase -> "claim_support".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(cases).filteredOn(evalCase -> "numeric_faithfulness".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(3);
+        assertThat(cases).filteredOn(evalCase -> "multi_doc_summary".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(cases).filteredOn(evalCase -> "scope_isolation".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
     }
 }

@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v5.1 / RAG Real Corpus Expansion to 40 Cases
+
+- 已进入用户选择的 A1 + A2 + A3 路线，先完成 A3 的离线语料扩容闭环：`real-qa-eval-cases.json` 从 `26` 个 case 扩展到 `40` 个 case。
+- 新增 `14` 个脱敏企业知识库样例，覆盖合同续约、访问变更审批链、SLA 数字忠实度、审计交接、多文档客户事故沟通、hard negative、near-miss no-evidence、answer faithfulness、SSO / MFA 比较、报销限额、scope isolation、长备份 runbook、hybrid keyword 噪声和 citation grounding。
+- Fixture 门禁同步增强：总 case 数下限提高到 `40`，并提高 hard negative、answer faithfulness、claim support、numeric faithfulness、multi-doc summary 和 scope isolation 等类别覆盖要求。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 test-side eval / fixture / 测试和事实源文档；未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL，未改生产 API 或数据库结构，未提交 artifact 原文，未打印 secrets，不能写成大规模真实 provider benchmark。
+
 ## 2026-06-29 Quality Loop v4.3 / RAG Real QA Semantic Gate Smoke
 
 - 已把 v4.2 离线 `claim_support` / `numeric_faithfulness` 迁移进真实 RAG Real QA smoke：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealQaSemanticGate`，`rag-real-qa-eval-smoke.ps1` 默认开启并支持 `-SkipRealQaSemanticGate`。

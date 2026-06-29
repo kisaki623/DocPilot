@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v4.3：RAG Real QA Semantic Gate Smoke（DONE）
+当前任务：DocPilot Quality Loop v5.1：RAG Real Corpus Expansion to 40 Cases（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v5.1 RAG Real Corpus Expansion to 40 Cases
+
+- 目标：进入用户选择的 A1 + A2 + A3 路线后，先落地 A3 的最小闭环，把 RAG Real QA Eval 的脱敏离线语料从 `26` 个 case 扩到 `40` 个 case，让后续 A2 claim / evidence scorer 和 A1 真实 provider 小样本验证有更扎实的覆盖面。
+- 已完成离线语料扩容：`real-qa-eval-cases.json` 新增 `14` 个脱敏企业知识库样例，覆盖合同续约通知、访问变更审批链、SLA 数字忠实度、审计交接、多文档客户事故沟通、API deprecation hard negative、隐私删除 near-miss no-evidence、root cause answer faithfulness、SSO / MFA 比较、报销限额数字忠实度、跨租户 scope isolation、长备份 runbook、hybrid keyword 噪声和 vendor risk citation grounding。
+- 已完成 fixture 门禁增强：`RagRealQaEvalFixtureTest` 要求总 case 数至少 `40`，并提高 `hard_negative`、`answer_faithfulness`、`claim_support`、`numeric_faithfulness`、`multi_doc_summary`、`scope_isolation` 等关键类别的覆盖下限；`RagRealQaEvalRunnerTest` 同步要求 eval case count 至少 `40`。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 test-side eval / JSON fixture / 测试和事实源文档；不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API 或数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果是脱敏离线质量门禁扩容，不代表真实 provider 大规模 answer faithfulness benchmark。
+- 下一步：继续进入 A2，给 Real QA Eval 增加 claim support / evidence support scorer，让指标不只看 marker 和 citation 数，还能显式判断“回答中的关键 claim 是否被目标 evidence marker 支撑、是否泄漏 forbidden claim”。
 
 ## 2026-06-29 追加任务：Quality Loop v4.3 RAG Real QA Semantic Gate Smoke
 
