@@ -20,6 +20,9 @@ public class KnowledgeBaseRagRetrievalResponse {
     private String retrievalMode;
     private Boolean rerankApplied;
     private String rerankModel;
+    private Boolean multiQueryApplied;
+    private Integer queryVariantCount;
+    private Integer queryDedupeCount;
     private List<KnowledgeBaseRagRetrievalHitResponse> hits;
     private List<KnowledgeBaseRagCitationResponse> citations;
 
@@ -38,6 +41,9 @@ public class KnowledgeBaseRagRetrievalResponse {
         response.setRetrievalMode(result.retrievalMode());
         response.setRerankApplied(result.rerankApplied());
         response.setRerankModel(result.rerankModel());
+        response.setMultiQueryApplied(result.multiQueryApplied());
+        response.setQueryVariantCount(result.queryVariantCount());
+        response.setQueryDedupeCount(result.queryDedupeCount());
         response.setHits(result.hits().stream().map(KnowledgeBaseRagRetrievalHitResponse::from).toList());
         response.setCitations(result.citations().stream().map(KnowledgeBaseRagCitationResponse::from).toList());
         return response;
@@ -145,6 +151,30 @@ public class KnowledgeBaseRagRetrievalResponse {
 
     public void setRerankModel(String rerankModel) {
         this.rerankModel = rerankModel;
+    }
+
+    public Boolean getMultiQueryApplied() {
+        return multiQueryApplied;
+    }
+
+    public void setMultiQueryApplied(Boolean multiQueryApplied) {
+        this.multiQueryApplied = multiQueryApplied;
+    }
+
+    public Integer getQueryVariantCount() {
+        return queryVariantCount;
+    }
+
+    public void setQueryVariantCount(Integer queryVariantCount) {
+        this.queryVariantCount = queryVariantCount;
+    }
+
+    public Integer getQueryDedupeCount() {
+        return queryDedupeCount;
+    }
+
+    public void setQueryDedupeCount(Integer queryDedupeCount) {
+        this.queryDedupeCount = queryDedupeCount;
     }
 
     public List<KnowledgeBaseRagRetrievalHitResponse> getHits() {

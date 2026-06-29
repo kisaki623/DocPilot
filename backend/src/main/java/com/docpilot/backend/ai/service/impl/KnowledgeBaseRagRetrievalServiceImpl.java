@@ -16,6 +16,9 @@ import com.docpilot.backend.ai.rag.rerank.RerankProperties;
 import com.docpilot.backend.ai.rag.rerank.RerankRequest;
 import com.docpilot.backend.ai.rag.rerank.RerankResult;
 import com.docpilot.backend.ai.rag.rerank.RerankService;
+import com.docpilot.backend.ai.rag.rewrite.QueryRewriteService;
+import com.docpilot.backend.ai.rag.rewrite.QueryRewriteVariant;
+import com.docpilot.backend.ai.rag.rewrite.RuleBasedQueryRewriteService;
 import com.docpilot.backend.ai.rag.vector.VectorSearchHit;
 import com.docpilot.backend.ai.rag.vector.VectorSearchRequest;
 import com.docpilot.backend.ai.rag.vector.VectorSearchResult;
@@ -25,6 +28,7 @@ import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.knowledge.service.KnowledgeBaseScopeGuard;
 import com.docpilot.backend.knowledge.vo.KnowledgeBaseDocumentResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -84,6 +88,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
     private final RagRetrievalProperties retrievalProperties;
     private final RerankService rerankService;
     private final RerankProperties rerankProperties;
+    private final QueryRewriteService queryRewriteService;
 
     public KnowledgeBaseRagRetrievalServiceImpl(KnowledgeBaseScopeGuard knowledgeBaseScopeGuard,
                                                 EmbeddingProvider embeddingProvider,
@@ -94,6 +99,22 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                                                 RagRetrievalProperties retrievalProperties,
                                                 RerankService rerankService,
                                                 RerankProperties rerankProperties) {
+        this(knowledgeBaseScopeGuard, embeddingProvider, vectorStoreClient, hybridRetrievalService,
+                embeddingProperties, ragQaProperties, retrievalProperties, rerankService, rerankProperties,
+                new RuleBasedQueryRewriteService());
+    }
+
+    @Autowired
+    public KnowledgeBaseRagRetrievalServiceImpl(KnowledgeBaseScopeGuard knowledgeBaseScopeGuard,
+                                                EmbeddingProvider embeddingProvider,
+                                                VectorStoreClient vectorStoreClient,
+                                                HybridRetrievalService hybridRetrievalService,
+                                                RagEmbeddingProperties embeddingProperties,
+                                                RagQaProperties ragQaProperties,
+                                                RagRetrievalProperties retrievalProperties,
+                                                RerankService rerankService,
+                                                RerankProperties rerankProperties,
+                                                QueryRewriteService queryRewriteService) {
         this.knowledgeBaseScopeGuard = knowledgeBaseScopeGuard;
         this.embeddingProvider = embeddingProvider;
         this.vectorStoreClient = vectorStoreClient;
@@ -103,6 +124,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         this.retrievalProperties = retrievalProperties == null ? new RagRetrievalProperties() : retrievalProperties;
         this.rerankService = rerankService == null ? KnowledgeBaseRagRetrievalServiceImpl::identityRerank : rerankService;
         this.rerankProperties = rerankProperties == null ? new RerankProperties() : rerankProperties;
+        this.queryRewriteService = queryRewriteService == null ? new RuleBasedQueryRewriteService() : queryRewriteService;
     }
 
     @Override
@@ -117,18 +139,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
             return noEvidenceResult(resolved, List.of(), "", "", resolved.embeddingModel());
         }
 
-        EmbeddingResult embedding = embeddingProvider.embed(new EmbeddingRequest(
-                resolved.query(),
-                resolved.embeddingModel(),
-                embeddingMetadata(resolved, documentIds)
-        ));
-        VectorSearchResult searchResult = vectorStoreClient.search(VectorSearchRequest.forDocuments(
-                resolved.userId(),
-                documentIds,
-                resolved.indexVersion(),
-                embedding.vector(),
-                candidateTopK(resolved, documentIds.size())
-        ));
+        VectorRetrievalOutcome vectorOutcome = vectorRetrieve(resolved, documentIds);
         Map<Long, KnowledgeBaseDocumentResponse> documentById = documents.stream()
                 .collect(Collectors.toMap(
                         KnowledgeBaseDocumentResponse::getDocumentId,
@@ -137,7 +148,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                         LinkedHashMap::new
                 ));
 
-        List<VectorSearchHit> scopedHits = scopedHits(resolved, documentById.keySet(), searchResult.hits());
+        List<VectorSearchHit> scopedHits = scopedHits(resolved, documentById.keySet(), vectorOutcome.hits());
 
         // Apply similarity threshold filtering
         List<VectorSearchHit> filteredHits = applySimilarityThreshold(scopedHits);
@@ -160,7 +171,9 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         List<KnowledgeBaseRagEvidenceCitation> citations = hits.stream()
                 .map(KnowledgeBaseRagRetrievalHit::toCitation)
                 .toList();
-        String embeddingModel = !embedding.model().isBlank() ? embedding.model() : resolved.embeddingModel();
+        String embeddingModel = !vectorOutcome.embeddingModel().isBlank()
+                ? vectorOutcome.embeddingModel()
+                : resolved.embeddingModel();
         return new KnowledgeBaseRagRetrievalResult(
                 resolved.userId(),
                 resolved.knowledgeBaseId(),
@@ -171,13 +184,16 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 hits,
                 citations,
                 hits.isEmpty(),
-                searchResult.provider(),
-                searchResult.collection(),
+                vectorOutcome.provider(),
+                vectorOutcome.collection(),
                 embeddingModel,
                 documentHitCounts(documentIds, hits),
                 retrievalMode,
                 rerankOutcome.applied(),
-                rerankOutcome.model()
+                rerankOutcome.model(),
+                vectorOutcome.multiQueryApplied(),
+                vectorOutcome.queryVariantCount(),
+                vectorOutcome.queryDedupeCount()
         );
     }
 
@@ -243,6 +259,106 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         metadata.put("indexVersion", String.valueOf(query.indexVersion()));
         metadata.put("usage", "knowledge_base_rag_query");
         return metadata;
+    }
+
+    private Map<String, String> embeddingMetadata(ResolvedQuery query,
+                                                  List<Long> documentIds,
+                                                  QueryRewriteVariant variant,
+                                                  int variantCount) {
+        Map<String, String> metadata = new LinkedHashMap<>(embeddingMetadata(query, documentIds));
+        if (retrievalProperties.isMultiQueryEnabled()) {
+            metadata.put("queryVariantOrdinal", String.valueOf(variant.ordinal()));
+            metadata.put("queryVariantCount", String.valueOf(variantCount));
+            metadata.put("queryRewriteStrategy", variant.strategy());
+        }
+        return metadata;
+    }
+
+    private VectorRetrievalOutcome vectorRetrieve(ResolvedQuery resolved, List<Long> documentIds) {
+        List<QueryRewriteVariant> variants = queryVariants(resolved.query());
+        Map<String, VectorSearchHit> mergedHits = new LinkedHashMap<>();
+        int rawHitCount = 0;
+        String provider = "";
+        String collection = "";
+        String embeddingModel = resolved.embeddingModel();
+        int candidateTopK = candidateTopK(resolved, documentIds.size());
+        for (QueryRewriteVariant variant : variants) {
+            EmbeddingResult embedding = embeddingProvider.embed(new EmbeddingRequest(
+                    variant.query(),
+                    resolved.embeddingModel(),
+                    embeddingMetadata(resolved, documentIds, variant, variants.size())
+            ));
+            if (!embedding.model().isBlank()) {
+                embeddingModel = embedding.model();
+            }
+            VectorSearchResult searchResult = vectorStoreClient.search(VectorSearchRequest.forDocuments(
+                    resolved.userId(),
+                    documentIds,
+                    resolved.indexVersion(),
+                    embedding.vector(),
+                    candidateTopK
+            ));
+            if (provider.isBlank()) {
+                provider = searchResult.provider();
+            }
+            if (collection.isBlank()) {
+                collection = searchResult.collection();
+            }
+            rawHitCount += searchResult.hits().size();
+            for (VectorSearchHit hit : searchResult.hits()) {
+                VectorSearchHit annotated = annotateQueryVariant(hit, variant, variants.size());
+                String key = hitKey(annotated);
+                VectorSearchHit existing = mergedHits.get(key);
+                if (existing == null || annotated.score() > existing.score()) {
+                    mergedHits.put(key, annotated);
+                }
+            }
+        }
+        List<VectorSearchHit> hits = mergedHits.values().stream()
+                .sorted((left, right) -> Double.compare(right.score(), left.score()))
+                .toList();
+        boolean multiQueryApplied = retrievalProperties.isMultiQueryEnabled() && variants.size() > 1;
+        return new VectorRetrievalOutcome(
+                hits,
+                provider,
+                collection,
+                embeddingModel,
+                multiQueryApplied,
+                variants.size(),
+                Math.max(0, rawHitCount - mergedHits.size())
+        );
+    }
+
+    private List<QueryRewriteVariant> queryVariants(String query) {
+        if (!retrievalProperties.isMultiQueryEnabled()) {
+            return List.of(new QueryRewriteVariant(query, "original", 0));
+        }
+        List<QueryRewriteVariant> variants = queryRewriteService.rewrite(query, retrievalProperties.getMaxQueryVariants())
+                .stream()
+                .filter(variant -> !variant.query().isBlank())
+                .toList();
+        if (variants.isEmpty()) {
+            return List.of(new QueryRewriteVariant(query, "original", 0));
+        }
+        return variants;
+    }
+
+    private VectorSearchHit annotateQueryVariant(VectorSearchHit hit, QueryRewriteVariant variant, int variantCount) {
+        if (!retrievalProperties.isMultiQueryEnabled()) {
+            return hit;
+        }
+        return withScoreAndPayload(hit, hit.score(), Map.of(
+                "queryVariantOrdinal", variant.ordinal(),
+                "queryVariantCount", variantCount,
+                "queryRewriteStrategy", variant.strategy()
+        ));
+    }
+
+    private String hitKey(VectorSearchHit hit) {
+        if (hit.id() != null && !hit.id().isBlank()) {
+            return "id:" + hit.id();
+        }
+        return "chunk:" + hit.documentId() + ":" + hit.indexVersion() + ":" + hit.chunkIndex() + ":" + hit.contentHash();
     }
 
     private int candidateTopK(ResolvedQuery query, int documentCount) {
@@ -620,6 +736,25 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         private RerankOutcome {
             hits = hits == null ? List.of() : List.copyOf(hits);
             model = model == null ? "" : model.trim();
+        }
+    }
+
+    private record VectorRetrievalOutcome(
+            List<VectorSearchHit> hits,
+            String provider,
+            String collection,
+            String embeddingModel,
+            boolean multiQueryApplied,
+            int queryVariantCount,
+            int queryDedupeCount
+    ) {
+        private VectorRetrievalOutcome {
+            hits = hits == null ? List.of() : List.copyOf(hits);
+            provider = provider == null ? "" : provider.trim();
+            collection = collection == null ? "" : collection.trim();
+            embeddingModel = embeddingModel == null ? "" : embeddingModel.trim();
+            queryVariantCount = Math.max(1, queryVariantCount);
+            queryDedupeCount = Math.max(0, queryDedupeCount);
         }
     }
 }

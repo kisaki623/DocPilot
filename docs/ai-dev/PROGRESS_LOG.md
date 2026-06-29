@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v5.6 / Query Rewrite and Multi-query Retrieval
+
+- Added default-off KnowledgeBase multi-query retrieval: `app.rag.retrieval.multi-query-enabled=false` and bounded `max-query-variants`.
+- Added deterministic `QueryRewriteService` / `RuleBasedQueryRewriteService`, keeping the original query first and generating cleaned / comparison-part variants for complex questions.
+- KnowledgeBase retrieval now embeds and searches each variant when enabled, deduplicates vector hits by chunk identity, and then reuses the existing threshold, hybrid, rerank, scope guard and diversity selection pipeline.
+- Added observability fields: `multiQueryApplied`, `queryVariantCount`, `queryDedupeCount`; response results do not store rewritten query text.
+- Verified: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests.
+- Boundary: default-off deterministic expansion only; no LLM query planning, no real provider call, no schema change, no runtime smoke yet in this slice.
+
 ## 2026-06-29 Quality Loop v5.5 / Chunk Quality v2
 
 - Extended chunk metadata with nested `sectionPath`; indexing metadata and Qdrant payload propagation now include the same field.

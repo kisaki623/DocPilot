@@ -12,6 +12,8 @@ class RagRetrievalPropertiesTest {
         RagRetrievalProperties properties = new RagRetrievalProperties();
 
         assertThat(properties.getMinSimilarityThreshold()).isEqualTo(0.0D);
+        assertThat(properties.isMultiQueryEnabled()).isFalse();
+        assertThat(properties.getMaxQueryVariants()).isEqualTo(3);
     }
 
     @Test
@@ -29,5 +31,17 @@ class RagRetrievalPropertiesTest {
 
         assertThrows(IllegalArgumentException.class, () -> properties.setMinSimilarityThreshold(-0.01D));
         assertThrows(IllegalArgumentException.class, () -> properties.setMinSimilarityThreshold(1.01D));
+    }
+
+    @Test
+    void shouldRejectInvalidMaxQueryVariants() {
+        RagRetrievalProperties properties = new RagRetrievalProperties();
+
+        assertThrows(IllegalArgumentException.class, () -> properties.setMaxQueryVariants(0));
+        assertThrows(IllegalArgumentException.class, () -> properties.setMaxQueryVariants(6));
+
+        properties.setMaxQueryVariants(5);
+
+        assertThat(properties.getMaxQueryVariants()).isEqualTo(5);
     }
 }

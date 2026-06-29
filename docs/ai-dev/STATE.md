@@ -2,6 +2,10 @@
 
 ## 2026-06-29 Current Addendum
 
+- Query Rewrite / Multi-query Retrieval v1 is implemented for KnowledgeBase retrieval behind `app.rag.retrieval.multi-query-enabled=false` by default. The first version uses deterministic rule-based query variants, bounded by `max-query-variants`, and deduplicates vector hits before the existing threshold / hybrid / rerank / scope / diversity gates.
+- Retrieval responses now expose `multiQueryApplied`, `queryVariantCount` and `queryDedupeCount`; rewritten query text is not stored in the result response.
+- Verification: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests.
+- Boundary: this is default-off deterministic query expansion, not LLM query planning, real-provider rewrite or a proven large-scale relevance uplift benchmark.
 - Chunk Quality v2 is implemented for the chunking / indexing path. Chunks now carry nested `sectionPath`, table / list structure detection, `window_split`, `mid_sentence_split` and `duplicate_content` quality flags; indexing metadata and Qdrant payload propagation include `sectionPath`.
 - Verification: `mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,DocumentChunkServiceImplTest,VectorPointTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS, 41 tests.
 - Boundary: this slice did not start tunnel/backend/frontend, create business data, call a real provider, change schema, touch remote Docker or run hk-ops.

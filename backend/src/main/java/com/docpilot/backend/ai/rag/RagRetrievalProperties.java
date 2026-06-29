@@ -8,6 +8,8 @@ import org.springframework.stereotype.Component;
 public class RagRetrievalProperties {
 
     private boolean hybridEnabled = false;
+    private boolean multiQueryEnabled = false;
+    private int maxQueryVariants = 3;
     private double minSimilarityThreshold = 0.0;
     private int rrfK = 60;
 
@@ -17,6 +19,25 @@ public class RagRetrievalProperties {
 
     public void setHybridEnabled(boolean hybridEnabled) {
         this.hybridEnabled = hybridEnabled;
+    }
+
+    public boolean isMultiQueryEnabled() {
+        return multiQueryEnabled;
+    }
+
+    public void setMultiQueryEnabled(boolean multiQueryEnabled) {
+        this.multiQueryEnabled = multiQueryEnabled;
+    }
+
+    public int getMaxQueryVariants() {
+        return maxQueryVariants;
+    }
+
+    public void setMaxQueryVariants(int maxQueryVariants) {
+        if (maxQueryVariants < 1 || maxQueryVariants > 5) {
+            throw new IllegalArgumentException("max-query-variants must be between 1 and 5");
+        }
+        this.maxQueryVariants = maxQueryVariants;
     }
 
     public double getMinSimilarityThreshold() {

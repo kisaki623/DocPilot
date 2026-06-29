@@ -99,6 +99,61 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldMergeMultiQueryVectorResultsWhenEnabled() {
+        ragRetrievalProperties.setMultiQueryEnabled(true);
+        ragRetrievalProperties.setMaxQueryVariants(4);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
+                doc(101L, "Cache Guide"),
+                doc(102L, "Vector Guide")
+        ));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any()))
+                .thenReturn(new VectorSearchResult(List.of(
+                        hit("cache", 7L, 101L, 1, "Cache invalidation policy", 0.92D)
+                ), "in_memory", ""))
+                .thenReturn(new VectorSearchResult(List.of(
+                        hit("cache", 7L, 101L, 1, "Cache invalidation policy", 0.91D)
+                ), "in_memory", ""))
+                .thenReturn(new VectorSearchResult(List.of(
+                        hit("cache-detail", 7L, 101L, 1, "Cache detail", 0.88D)
+                ), "in_memory", ""))
+                .thenReturn(new VectorSearchResult(List.of(
+                        hit("vector", 7L, 102L, 1, "Vector retention policy", 0.87D)
+                ), "in_memory", ""));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "Explain cache invalidation and vector retention policy?",
+                4,
+                1,
+                ""
+        ));
+
+        ArgumentCaptor<EmbeddingRequest> embeddingCaptor = ArgumentCaptor.forClass(EmbeddingRequest.class);
+        verify(embeddingProvider, org.mockito.Mockito.times(4)).embed(embeddingCaptor.capture());
+        verify(vectorStoreClient, org.mockito.Mockito.times(4)).search(any());
+        assertThat(embeddingCaptor.getAllValues()).extracting(EmbeddingRequest::input)
+                .containsExactly(
+                        "Explain cache invalidation and vector retention policy?",
+                        "cache invalidation and vector retention policy",
+                        "cache invalidation",
+                        "vector retention policy"
+                );
+        assertThat(embeddingCaptor.getAllValues().get(1).metadata())
+                .containsEntry("queryVariantCount", "4")
+                .containsEntry("queryRewriteStrategy", "cleaned_question");
+        assertThat(result.multiQueryApplied()).isTrue();
+        assertThat(result.queryVariantCount()).isEqualTo(4);
+        assertThat(result.queryDedupeCount()).isEqualTo(1);
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.hits()).hasSize(3);
+        assertThat(result.documentHitCounts()).containsEntry(101L, 2).containsEntry(102L, 1);
+        assertThat(result.hits()).extracting(KnowledgeBaseRagRetrievalHit::documentId)
+                .contains(101L, 102L);
+    }
+
+    @Test
     void shouldPreferPerDocumentCoverageForSummaryQuestions() {
         when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
                 doc(101L, "Harness"),

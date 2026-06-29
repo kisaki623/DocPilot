@@ -1,5 +1,17 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v5.6: Query Rewrite / Multi-query Retrieval (DONE)
+
+## 2026-06-29 Addendum: Quality Loop v5.6 Query Rewrite / Multi-query Retrieval
+
+- Goal: finish A6 with a conservative KnowledgeBase retrieval enhancement for complex questions, without changing the default runtime behavior.
+- Done: added a rule-based `QueryRewriteService` and default-off `app.rag.retrieval.multi-query-enabled`; when enabled, KnowledgeBase retrieval generates bounded query variants, runs vector search per variant, deduplicates hits by chunk identity, then continues through the existing threshold, hybrid, rerank, scope guard and diversity gates.
+- Observability: `KnowledgeBaseRagRetrievalResult` / response now expose `multiQueryApplied`, `queryVariantCount` and `queryDedupeCount`; variant text is not stored in the result or artifact-facing response.
+- Configuration: `APP_RAG_RETRIEVAL_MULTI_QUERY_ENABLED=false` and `APP_RAG_RETRIEVAL_MAX_QUERY_VARIANTS=3` are documented in config examples.
+- Verified: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests.
+- Boundary: this is deterministic rule-based query rewrite, not LLM query planning, not real-provider query expansion, not a proven relevance uplift benchmark, and not enabled by default.
+- Next: run wider RAG / KnowledgeBase regression, then decide whether to do a real-link smoke with multi-query still default-off or a small explicitly enabled runtime smoke.
+
 Current task: DocPilot Quality Loop v5.5: Chunk Quality v2 (DONE)
 
 ## 2026-06-29 Addendum: Quality Loop v5.5 Chunk Quality v2
