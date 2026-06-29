@@ -4,6 +4,25 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-29 RAG Hard Negative Support Gate Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260629130454-1d1d6c`
+
+Verified gates:
+
+- The v3.6 hard-negative REVIEW was addressed by a near-threshold evidence support gate in KnowledgeBase retrieval.
+- `realQaHardGate` passed: hard negative returned `0` retrieve hits and `0` QA citations; answer faithfulness kept target citation count `1` and forbidden citation count `0`.
+- Core real-link gates remained PASS: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, ordinary no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+- Representative Corpus KB returned `8` retrieve hits and `8` citations, with documentHitCounts covering Gamma `214:2`, Beta `213:3`, Alpha `212:3`.
+
+Boundary: artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, answer text, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. The support gate is a narrow near-threshold heuristic, not a general entailment model or large-scale benchmark.
+
 ## 2026-06-29 RAG Real QA Hard Gate Smoke
 
 Status: REVIEW

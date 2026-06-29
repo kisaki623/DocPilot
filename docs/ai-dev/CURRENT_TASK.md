@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v3.6：RAG Real QA Hard Gate Smoke 第一片（REVIEW）
+当前任务：DocPilot Quality Loop v3.7：Hard Negative Near-threshold Support Gate（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v3.7 Hard Negative Near-threshold Support Gate
+
+- 目标：修复 v3.6 暴露的真实链路质量缺口：高词面相似但缺少目标结论的 hard negative 问题仍能越过 `0.50` evidence confidence gate，返回 `3` hits / `3` citations。
+- 已完成：`KnowledgeBaseRagRetrievalServiceImpl` 在既有 similarity threshold、hybrid confidence gate、rerank 和 diversity selection 后，新增近阈值低支持度拒答门；仅当非总结类问题、最高 threshold score 只略高于阈值、且 query 关键英文业务词在候选 evidence 中覆盖不足时，才清空 hits 进入 no-evidence。
+- 已完成测试：新增 hard negative 低支持度拒答测试，以及近阈值但 evidence 覆盖关键业务词时不误杀的正例测试；已有 summary / hybrid keyword-only 多文档召回测试保持通过。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，13 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629130454-1d1d6c`。
+- 关键结果：`realQaHardGate` 从 v3.6 的 `REVIEW` 变为 PASS；`hardNegative` 为 `retrieveNoEvidence=true`、`qaNoEvidence=true`、`0` hits、`0` citations；`answerFaithfulness` 仍 PASS，target citation `1`、forbidden citation `0`；representative corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、frontend routes 和 artifact redaction 均保持 PASS。
+- 边界：这是启发式的近阈值支持度门禁，不是通用自然语言蕴含模型；不改数据库结构，不删除业务数据，不操作远程 Docker，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。后续如果要更强，应做 evidence entailment / claim support scorer，而不是继续堆硬编码规则。
+- 下一步：可进入 README / showcase 面试口径同步，把 RAG 质量门禁从 REVIEW 到 PASS 的证据讲清楚；或继续 Memory 编辑 / 合并交互与门禁。
 
 ## 2026-06-29 追加任务：Quality Loop v3.6 RAG Real QA Hard Gate Smoke 第一片
 

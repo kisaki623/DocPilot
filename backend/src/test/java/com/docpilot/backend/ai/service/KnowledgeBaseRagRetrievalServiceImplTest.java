@@ -188,6 +188,59 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldReturnNoEvidenceForNearThresholdHardNegativeWithLowEvidenceSupport() {
+        ragRetrievalProperties.setMinSimilarityThreshold(0.50D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
+                doc(101L, "Chunk Metadata"),
+                doc(102L, "Context Trace")
+        ));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("v1", 7L, 101L, 1, "Chunk metadata verification checks MySQL rows before trusting RAG output.", 0.55D),
+                hit("v2", 7L, 102L, 1, "Context trace records evidence counts and document hit counts.", 0.53D)
+        ), "in_memory", ""));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "Which evidence says payroll tax remittance approval is delegated to the context trace owner after chunk metadata verification?",
+                3,
+                1,
+                ""
+        ));
+
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.hits()).isEmpty();
+        assertThat(result.citations()).isEmpty();
+        assertThat(result.documentHitCounts()).containsEntry(101L, 0).containsEntry(102L, 0);
+    }
+
+    @Test
+    void shouldKeepNearThresholdHitsWhenEvidenceSupportsQueryTerms() {
+        ragRetrievalProperties.setMinSimilarityThreshold(0.50D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Payroll Approval")));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("v1", 7L, 101L, 1,
+                        "Payroll tax remittance approval is delegated to the finance owner after chunk metadata verification.",
+                        0.54D)
+        ), "in_memory", ""));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "Which evidence says payroll tax remittance approval is delegated to the finance owner after chunk metadata verification?",
+                3,
+                1,
+                ""
+        ));
+
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.hits()).hasSize(1);
+        assertThat(result.documentHitCounts()).containsEntry(101L, 1);
+    }
+
+    @Test
     void shouldReturnNoEvidenceWhenHybridFusedHitsAreBelowSimilarityThreshold() {
         ragRetrievalProperties.setHybridEnabled(true);
         ragRetrievalProperties.setMinSimilarityThreshold(0.05D);

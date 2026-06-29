@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v3.7 / Hard Negative Near-threshold Support Gate
+
+- 已针对 v3.6 真实 smoke 暴露的 hard negative REVIEW 做最小治理：KnowledgeBase retrieval 在 similarity threshold、hybrid confidence gate、rerank 和 diversity selection 后增加近阈值低支持度拒答门。
+- 触发条件保持收窄：仅非总结类问题、最高 threshold score 只略高于阈值、query 关键英文业务词数量足够、且候选 evidence 文本覆盖率低时才清空 hits；summary intent 和高置信 evidence 不受影响。
+- 已补测试：hard negative 近阈值低支持度返回 no-evidence；近阈值但 evidence 覆盖 payroll / tax / remittance / approval / delegated / owner 等关键词时保持命中。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，13 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 真实链路验证：`rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629130454-1d1d6c`。`realQaHardGate` PASS，其中 `hardNegative` 为 `retrieveNoEvidence=true`、`qaNoEvidence=true`、`0` hits、`0` citations；`answerFaithfulness` target citation `1`、forbidden citation `0`，expected marker satisfied；代表性三文档 corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 均 PASS。
+- 边界：本片不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push；该方案是近阈值支持度启发式，不是通用语义蕴含模型。
+
 ## 2026-06-29 Quality Loop v3.6 / RAG Real QA Hard Gate Smoke
 
 - 已给 `cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealQaHardGate`，复用已有 Alpha / Beta 临时 KB，不额外上传文件，检查 `hardNegative` 与 `answerFaithfulness` 两个真实链路 scope。

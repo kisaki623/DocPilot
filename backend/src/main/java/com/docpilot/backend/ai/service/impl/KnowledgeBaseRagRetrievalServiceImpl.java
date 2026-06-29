@@ -31,10 +31,14 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,6 +49,16 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
     private static final int MAX_CANDIDATE_TOP_K = 50;
     private static final int SUMMARY_MAX_HITS_PER_DOCUMENT = 2;
     private static final int DEFAULT_MAX_HITS_PER_DOCUMENT = 3;
+    private static final double LOW_SUPPORT_THRESHOLD_MARGIN = 0.08D;
+    private static final double MIN_NEAR_THRESHOLD_TOKEN_SUPPORT = 0.50D;
+    private static final int MIN_SUPPORT_TOKEN_COUNT = 5;
+    private static final Pattern SUPPORT_TOKEN_PATTERN = Pattern.compile("[a-z0-9][a-z0-9_-]{2,}");
+    private static final Set<String> SUPPORT_STOPWORDS = Set.of(
+            "the", "and", "for", "with", "from", "into", "onto", "this", "that", "these", "those",
+            "which", "what", "where", "when", "who", "why", "how", "does", "did", "has", "have",
+            "says", "say", "explain", "explains", "evidence", "document", "documents", "knowledge",
+            "base", "current", "include", "includes", "cite", "cites", "exact", "after", "before"
+    );
     private static final List<String> SUMMARY_INTENT_KEYWORDS = List.of(
             "总结",
             "概括",
@@ -140,6 +154,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         List<VectorSearchHit> finalScopedCandidates = scopedHits(resolved, documentById.keySet(), candidates);
         RerankOutcome rerankOutcome = rerankCandidates(resolved, finalScopedCandidates);
         List<VectorSearchHit> selectedHits = selectDiverseHits(resolved, documentIds, rerankOutcome.hits());
+        selectedHits = applyNearThresholdSupportGate(resolved, selectedHits);
 
         List<KnowledgeBaseRagRetrievalHit> hits = toHits(resolved.knowledgeBaseId(), selectedHits, documentById);
         List<KnowledgeBaseRagEvidenceCitation> citations = hits.stream()
@@ -326,6 +341,51 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
             }
         }
         return false;
+    }
+
+    private List<VectorSearchHit> applyNearThresholdSupportGate(ResolvedQuery query, List<VectorSearchHit> hits) {
+        double threshold = retrievalProperties.getMinSimilarityThreshold();
+        if (hits.isEmpty() || threshold <= 0.0D || isSummaryIntent(query.query())) {
+            return hits;
+        }
+        double maxThresholdScore = hits.stream()
+                .mapToDouble(this::scoreForThreshold)
+                .max()
+                .orElse(0.0D);
+        if (maxThresholdScore >= threshold + LOW_SUPPORT_THRESHOLD_MARGIN) {
+            return hits;
+        }
+        List<String> supportTokens = supportTokens(query.query());
+        if (supportTokens.size() < MIN_SUPPORT_TOKEN_COUNT) {
+            return hits;
+        }
+        String evidenceText = hits.stream()
+                .map(VectorSearchHit::content)
+                .collect(Collectors.joining(" "))
+                .toLowerCase(Locale.ROOT);
+        long supported = supportTokens.stream()
+                .filter(evidenceText::contains)
+                .count();
+        double supportRate = (double) supported / supportTokens.size();
+        if (supportRate < MIN_NEAR_THRESHOLD_TOKEN_SUPPORT) {
+            return List.of();
+        }
+        return hits;
+    }
+
+    private List<String> supportTokens(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        Set<String> tokens = new LinkedHashSet<>();
+        Matcher matcher = SUPPORT_TOKEN_PATTERN.matcher(query.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            String token = matcher.group();
+            if (!SUPPORT_STOPWORDS.contains(token)) {
+                tokens.add(token);
+            }
+        }
+        return List.copyOf(tokens);
     }
 
     private List<KnowledgeBaseRagRetrievalHit> toHits(Long knowledgeBaseId,
