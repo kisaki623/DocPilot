@@ -23,7 +23,11 @@ public record RagRealQaEvalMetrics(
         double hardNegativePassRate,
         double answerFaithfulnessPassRate,
         double claimSupportPassRate,
-        double numericFaithfulnessPassRate
+        double numericFaithfulnessPassRate,
+        double claimSupportScorerPassRate,
+        double supportedClaimRate,
+        double unsupportedClaimRate,
+        double forbiddenClaimRate
 ) {
 
     public static RagRealQaEvalMetrics from(List<RagRealQaEvalResult.CaseEvaluation> evaluations) {
@@ -60,6 +64,16 @@ public record RagRealQaEvalMetrics(
         List<RagRealQaEvalResult.CaseEvaluation> answerFaithfulnessCases = byCategory(resolved, "answer_faithfulness");
         List<RagRealQaEvalResult.CaseEvaluation> claimSupportCases = byCategory(resolved, "claim_support");
         List<RagRealQaEvalResult.CaseEvaluation> numericFaithfulnessCases = byCategory(resolved, "numeric_faithfulness");
+        List<RagRealQaEvalResult.CaseEvaluation> claimSupportRequiredCases = resolved.stream()
+                .filter(RagRealQaEvalResult.CaseEvaluation::claimSupportRequired)
+                .toList();
+        int claimCount = resolved.stream().mapToInt(RagRealQaEvalResult.CaseEvaluation::claimCount).sum();
+        int supportedClaimCount = resolved.stream().mapToInt(RagRealQaEvalResult.CaseEvaluation::supportedClaimCount).sum();
+        int unsupportedClaimCount = resolved.stream().mapToInt(RagRealQaEvalResult.CaseEvaluation::unsupportedClaimCount).sum();
+        int forbiddenClaimHit = (int) resolved.stream()
+                .filter(RagRealQaEvalResult.CaseEvaluation::claimSupportRequired)
+                .filter(RagRealQaEvalResult.CaseEvaluation::forbiddenClaimHit)
+                .count();
         return new RagRealQaEvalMetrics(
                 resolved.size(),
                 rate(passed, resolved.size()),
@@ -80,7 +94,13 @@ public record RagRealQaEvalMetrics(
                 passRate(hardNegativeCases),
                 passRate(answerFaithfulnessCases),
                 passRate(claimSupportCases),
-                passRate(numericFaithfulnessCases)
+                passRate(numericFaithfulnessCases),
+                rate((int) claimSupportRequiredCases.stream()
+                        .filter(RagRealQaEvalResult.CaseEvaluation::claimSupportHit)
+                        .count(), claimSupportRequiredCases.size()),
+                rate(supportedClaimCount, claimCount),
+                rate(unsupportedClaimCount, claimCount),
+                rate(forbiddenClaimHit, claimSupportRequiredCases.size())
         );
     }
 
@@ -104,6 +124,10 @@ public record RagRealQaEvalMetrics(
         value.put("answerFaithfulnessPassRate", format(answerFaithfulnessPassRate));
         value.put("claimSupportPassRate", format(claimSupportPassRate));
         value.put("numericFaithfulnessPassRate", format(numericFaithfulnessPassRate));
+        value.put("claimSupportScorerPassRate", format(claimSupportScorerPassRate));
+        value.put("supportedClaimRate", format(supportedClaimRate));
+        value.put("unsupportedClaimRate", format(unsupportedClaimRate));
+        value.put("forbiddenClaimRate", format(forbiddenClaimRate));
         return value;
     }
 

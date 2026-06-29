@@ -108,7 +108,15 @@ public class RagRealQaEvalRunner {
         if (!coverageHit) {
             failureReasons.add("document_coverage_miss");
         }
-        boolean passed = evaluation.passed() && coverageHit;
+        RagClaimSupportScore claimSupport = RagClaimSupportScorer.score(evalCase, evaluation);
+        if (claimSupport.required() && !claimSupport.claimSupportHit()) {
+            failureReasons.add("claim_support_miss");
+        }
+        if (claimSupport.forbiddenClaimHit()) {
+            failureReasons.add("forbidden_claim_leak");
+        }
+        boolean passed = evaluation.passed() && coverageHit
+                && (!claimSupport.required() || claimSupport.claimSupportHit());
         return new RagRealQaEvalResult.CaseEvaluation(
                 evalCase.id(),
                 evalCase.category(),
@@ -127,6 +135,12 @@ public class RagRealQaEvalRunner {
                 evaluation.forbiddenAnswerHit(),
                 evaluation.scopeViolation(),
                 evalCase.rerankUpliftCandidate(),
+                claimSupport.required(),
+                claimSupport.claimCount(),
+                claimSupport.supportedClaimCount(),
+                claimSupport.unsupportedClaimCount(),
+                claimSupport.claimSupportHit(),
+                claimSupport.forbiddenClaimHit(),
                 passed,
                 failureReasons
         );

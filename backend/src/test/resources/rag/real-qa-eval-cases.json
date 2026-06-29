@@ -631,6 +631,14 @@
     "expectedAnswerMarkers": ["real-access-change-security-owner-marker"],
     "requiredCitationMarkers": ["real-access-change-security-owner-marker"],
     "forbiddenAnswerMarkers": ["real-access-release-calendar-forbidden-marker", "does not mention security owner approval"],
+    "expectedClaims": [
+      {
+        "id": "access-change-security-owner-before-release",
+        "answerMarkers": ["real-access-change-security-owner-marker"],
+        "evidenceMarkers": ["real-access-change-security-owner-marker"],
+        "forbiddenMarkers": ["real-access-release-calendar-forbidden-marker"]
+      }
+    ],
     "expectedDocumentIds": [4671],
     "forbiddenDocumentIds": [],
     "minCitationCount": 1,
@@ -654,6 +662,14 @@
     "expectedAnswerMarkers": ["real-incident-sla-four-hour-marker"],
     "requiredCitationMarkers": ["real-incident-sla-four-hour-marker"],
     "forbiddenAnswerMarkers": ["real-incident-sla-two-day-forbidden-marker", "two business days"],
+    "expectedClaims": [
+      {
+        "id": "priority-incident-four-hour-window",
+        "answerMarkers": ["real-incident-sla-four-hour-marker"],
+        "evidenceMarkers": ["real-incident-sla-four-hour-marker"],
+        "forbiddenMarkers": ["real-incident-sla-two-day-forbidden-marker"]
+      }
+    ],
     "expectedDocumentIds": [4681],
     "forbiddenDocumentIds": [],
     "minCitationCount": 1,
@@ -769,6 +785,14 @@
     "expectedAnswerMarkers": ["real-queue-delay-root-cause-marker"],
     "requiredCitationMarkers": ["real-queue-delay-root-cause-marker"],
     "forbiddenAnswerMarkers": ["real-queue-delay-notice-forbidden-marker", "customers were notified"],
+    "expectedClaims": [
+      {
+        "id": "queue-delay-root-cause-worker-retry",
+        "answerMarkers": ["real-queue-delay-root-cause-marker"],
+        "evidenceMarkers": ["real-queue-delay-root-cause-marker"],
+        "forbiddenMarkers": ["real-queue-delay-notice-forbidden-marker"]
+      }
+    ],
     "expectedDocumentIds": [4731],
     "forbiddenDocumentIds": [],
     "minCitationCount": 1,
@@ -813,6 +837,14 @@
     "expectedAnswerMarkers": ["real-expense-five-hundred-marker"],
     "requiredCitationMarkers": ["real-expense-five-hundred-marker"],
     "forbiddenAnswerMarkers": ["real-expense-thirty-day-forbidden-marker", "thirty days"],
+    "expectedClaims": [
+      {
+        "id": "expense-approval-above-five-hundred",
+        "answerMarkers": ["real-expense-five-hundred-marker"],
+        "evidenceMarkers": ["real-expense-five-hundred-marker"],
+        "forbiddenMarkers": ["real-expense-thirty-day-forbidden-marker"]
+      }
+    ],
     "expectedDocumentIds": [4751],
     "forbiddenDocumentIds": [],
     "minCitationCount": 1,
@@ -907,6 +939,14 @@
     "expectedAnswerMarkers": ["real-vendor-risk-remediation-owner-marker"],
     "requiredCitationMarkers": ["real-vendor-risk-remediation-owner-marker"],
     "forbiddenAnswerMarkers": ["real-vendor-risk-newsletter-forbidden-marker", "without remediation ownership"],
+    "expectedClaims": [
+      {
+        "id": "vendor-risk-remediation-owner",
+        "answerMarkers": ["real-vendor-risk-remediation-owner-marker"],
+        "evidenceMarkers": ["real-vendor-risk-remediation-owner-marker"],
+        "forbiddenMarkers": ["real-vendor-risk-newsletter-forbidden-marker"]
+      }
+    ],
     "expectedDocumentIds": [4791],
     "forbiddenDocumentIds": [],
     "minCitationCount": 1,

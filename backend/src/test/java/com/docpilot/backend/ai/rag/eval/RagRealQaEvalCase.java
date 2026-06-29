@@ -24,6 +24,7 @@ public record RagRealQaEvalCase(
         Double minSimilarityThreshold,
         String retrievalMode,
         Boolean rerankUpliftCandidate,
+        List<ExpectedClaim> expectedClaims,
         List<String> notes
 ) {
 
@@ -75,6 +76,7 @@ public record RagRealQaEvalCase(
         }
         retrievalMode = retrievalMode == null || retrievalMode.isBlank() ? "both" : retrievalMode.trim();
         rerankUpliftCandidate = Boolean.TRUE.equals(rerankUpliftCandidate);
+        expectedClaims = normalizeClaims(expectedClaims);
         notes = normalizeStrings(notes);
     }
 
@@ -97,6 +99,33 @@ public record RagRealQaEvalCase(
                 .filter(id -> id != null && id > 0)
                 .distinct()
                 .toList();
+    }
+
+    private static List<ExpectedClaim> normalizeClaims(List<ExpectedClaim> claims) {
+        if (claims == null || claims.isEmpty()) {
+            return List.of();
+        }
+        return claims.stream()
+                .filter(claim -> claim != null && !claim.id().isBlank())
+                .distinct()
+                .toList();
+    }
+
+    public record ExpectedClaim(
+            String id,
+            List<String> answerMarkers,
+            List<String> evidenceMarkers,
+            List<String> forbiddenMarkers
+    ) {
+        public ExpectedClaim {
+            id = id == null ? "" : id.trim();
+            if (id.isBlank()) {
+                throw new IllegalArgumentException("claim id must not be blank");
+            }
+            answerMarkers = normalizeStrings(answerMarkers);
+            evidenceMarkers = normalizeStrings(evidenceMarkers);
+            forbiddenMarkers = normalizeStrings(forbiddenMarkers);
+        }
     }
 
     public record EvalDocument(

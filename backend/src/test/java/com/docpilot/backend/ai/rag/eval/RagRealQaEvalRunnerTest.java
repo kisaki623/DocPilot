@@ -33,6 +33,19 @@ class RagRealQaEvalRunnerTest {
         assertThat(result.metrics().answerFaithfulnessPassRate()).isEqualTo(1.0D);
         assertThat(result.metrics().claimSupportPassRate()).isEqualTo(1.0D);
         assertThat(result.metrics().numericFaithfulnessPassRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().claimSupportScorerPassRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().supportedClaimRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().unsupportedClaimRate()).isEqualTo(0.0D);
+        assertThat(result.metrics().forbiddenClaimRate()).isEqualTo(0.0D);
+        assertThat(result.caseEvaluations())
+                .filteredOn(RagRealQaEvalResult.CaseEvaluation::claimSupportRequired)
+                .hasSizeGreaterThanOrEqualTo(5)
+                .allSatisfy(evaluation -> {
+                    assertThat(evaluation.claimSupportHit()).isTrue();
+                    assertThat(evaluation.supportedClaimCount()).isEqualTo(evaluation.claimCount());
+                    assertThat(evaluation.unsupportedClaimCount()).isZero();
+                    assertThat(evaluation.forbiddenClaimHit()).isFalse();
+                });
         assertThat(result.failedCaseIds()).isEmpty();
     }
 
@@ -59,6 +72,13 @@ class RagRealQaEvalRunnerTest {
                 .contains("answerFaithfulnessPassRate")
                 .contains("claimSupportPassRate")
                 .contains("numericFaithfulnessPassRate")
+                .contains("claimSupportScorerPassRate")
+                .contains("supportedClaimRate")
+                .contains("unsupportedClaimRate")
+                .contains("forbiddenClaimRate")
+                .contains("claimSupportRequired")
+                .contains("supportedClaimCount")
+                .contains("unsupportedClaimCount")
                 .doesNotContain("DocPilot parse status marker")
                 .doesNotContain("Security access policy overview")
                 .doesNotContain("Which evidence")

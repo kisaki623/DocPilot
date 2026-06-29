@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v5.1：RAG Real Corpus Expansion to 40 Cases（DONE）
+当前任务：DocPilot Quality Loop v5.2：RAG Claim Support Evidence Scorer（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v5.2 RAG Claim Support Evidence Scorer
+
+- 目标：继续推进用户选择的 A2，把 RAG Real QA Eval 从“marker / citation 数量达标”推进到“关键 claim 必须被目标 evidence marker 支撑”，为后续真实 provider 小样本 answer faithfulness 对比提供更细的离线门禁。
+- 已完成 test-side scorer：新增 `RagClaimSupportScorer` / `RagClaimSupportScore`，`RagRealQaEvalCase` 支持可选 `expectedClaims`，每个 claim 只保存脱敏 claim id、answer marker、evidence marker 和 forbidden marker；`RagRealQaEvalResult` 的 case summary 输出 `claimSupportRequired`、`claimCount`、`supportedClaimCount`、`unsupportedClaimCount`、`claimSupportHit`、`forbiddenClaimHit` 等脱敏字段，不保存回答原文、文档原文、prompt 或 evidence context。
+- 已完成指标增强：`RagRealQaEvalMetrics` 新增 `claimSupportScorerPassRate`、`supportedClaimRate`、`unsupportedClaimRate`、`forbiddenClaimRate`；`real-qa-eval-cases.json` 为访问审批链、四小时 SLA、root cause、报销限额和 vendor risk citation grounding 等代表 case 增加 `expectedClaims`。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 test-side scorer / fixture / metrics / artifact schema 和事实源文档；不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API 或数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该 scorer 基于 synthetic marker contract，不是通用自然语言蕴含模型或大规模真实 provider benchmark。
+- 下一步：继续进入 A1，小规模真实 provider Answer Faithfulness Eval；优先用已有 smoke runner 的真实链路门禁做小样本验证，不做大规模付费 eval，不扩大能力边界。
 
 ## 2026-06-29 追加任务：Quality Loop v5.1 RAG Real Corpus Expansion to 40 Cases
 

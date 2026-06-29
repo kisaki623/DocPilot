@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v5.2 / RAG Claim Support Evidence Scorer
+
+- 已新增 test-side `RagClaimSupportScorer` / `RagClaimSupportScore`：Real QA Eval case 可声明 `expectedClaims`，每个 claim 只包含脱敏 claim id、answer marker、evidence marker 和 forbidden marker。
+- `RagRealQaEvalResult` 的 case summary 现在输出 `claimSupportRequired`、`claimCount`、`supportedClaimCount`、`unsupportedClaimCount`、`claimSupportHit`、`forbiddenClaimHit`；artifact 仍不保存回答原文、文档原文、query 原文、prompt、evidence context 或模型输出。
+- `RagRealQaEvalMetrics` 新增 `claimSupportScorerPassRate`、`supportedClaimRate`、`unsupportedClaimRate`、`forbiddenClaimRate`；访问审批链、四小时 SLA、root cause、报销限额和 vendor risk citation grounding 等代表 case 已接入 `expectedClaims`。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 test-side scorer / fixture / metrics / artifact schema 和事实源文档；未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL，未改生产 API 或数据库结构，不能写成通用 entailment scorer 或大规模真实 provider benchmark。
+
 ## 2026-06-29 Quality Loop v5.1 / RAG Real Corpus Expansion to 40 Cases
 
 - 已进入用户选择的 A1 + A2 + A3 路线，先完成 A3 的离线语料扩容闭环：`real-qa-eval-cases.json` 从 `26` 个 case 扩展到 `40` 个 case。

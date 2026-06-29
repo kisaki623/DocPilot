@@ -63,6 +63,12 @@ public record RagRealQaEvalResult(
             boolean forbiddenAnswerHit,
             boolean scopeViolation,
             boolean rerankUpliftCandidate,
+            boolean claimSupportRequired,
+            int claimCount,
+            int supportedClaimCount,
+            int unsupportedClaimCount,
+            boolean claimSupportHit,
+            boolean forbiddenClaimHit,
             boolean passed,
             List<String> failureReasons
     ) {
@@ -95,6 +101,12 @@ public record RagRealQaEvalResult(
             value.put("forbiddenAnswerHit", forbiddenAnswerHit);
             value.put("scopeViolation", scopeViolation);
             value.put("rerankUpliftCandidate", rerankUpliftCandidate);
+            value.put("claimSupportRequired", claimSupportRequired);
+            value.put("claimCount", claimCount);
+            value.put("supportedClaimCount", supportedClaimCount);
+            value.put("unsupportedClaimCount", unsupportedClaimCount);
+            value.put("claimSupportHit", claimSupportHit);
+            value.put("forbiddenClaimHit", forbiddenClaimHit);
             value.put("passed", passed);
             if (!failureReasons.isEmpty()) {
                 value.put("failureReasons", failureReasons);

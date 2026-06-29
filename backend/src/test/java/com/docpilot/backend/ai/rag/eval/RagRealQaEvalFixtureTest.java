@@ -51,5 +51,13 @@ class RagRealQaEvalFixtureTest {
         assertThat(cases).filteredOn(evalCase -> "numeric_faithfulness".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(3);
         assertThat(cases).filteredOn(evalCase -> "multi_doc_summary".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
         assertThat(cases).filteredOn(evalCase -> "scope_isolation".equals(evalCase.category())).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(cases).filteredOn(evalCase -> !evalCase.expectedClaims().isEmpty()).hasSizeGreaterThanOrEqualTo(5);
+        assertThat(cases).filteredOn(evalCase -> !evalCase.expectedClaims().isEmpty())
+                .allSatisfy(evalCase -> assertThat(evalCase.expectedClaims())
+                        .allSatisfy(claim -> {
+                            assertThat(claim.id()).isNotBlank();
+                            assertThat(claim.answerMarkers()).isNotEmpty();
+                            assertThat(claim.evidenceMarkers()).isNotEmpty();
+                        }));
     }
 }
