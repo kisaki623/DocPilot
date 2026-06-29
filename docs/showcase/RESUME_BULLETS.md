@@ -35,6 +35,7 @@
 项目描述：围绕文档问答和最小 Agent 场景，探索 AI 应用的检索增强、流式输出、工具路由、shadow 验证和可观测性治理。
 
 - 构建 RAG 文档问答链路：文档切分、chunk 持久化、EmbeddingProvider 抽象、Qdrant VectorStore adapter、metadata scope filter、上下文组装、模型回答和 citations 引用展示，并支持 mock / OpenAI-compatible 风格 provider。
+- 建设 RAG 质量门禁：覆盖 no-evidence、answer grounding、hard negative、answer faithfulness、MySQL / Qdrant payload 一致性、Conversation Trace 和权限隔离，artifact 仅保留脱敏计数、状态和 score summary。
 - 实现 SSE 流式问答和前端事件解析，覆盖 meta / chunk / done / error 等事件，支持流式失败降级普通问答。
 - 实现最小 Agent 工具链：ToolRegistry 注册文档状态、摘要、问答工具，DocumentToolSelector 根据任务选择工具，并返回 routingReason / matchedKeywords。
 - 实现默认关闭的 LLM 工具选择执行模式，通过 allowlist 校验模型返回的 toolName，并由服务端执行 summary / QA / RAG 等工具；支持 provider 失败回退规则路由，避免模型输出直接影响默认链路。
@@ -52,7 +53,7 @@
 - 抽象 ToolRegistry / ToolSelector / ToolDefinition，为文档状态、摘要、问答工具提供统一注册、规则路由和未来 Function Calling 输出协议。
 - 设计并验证 real provider shadow-only 路径，并实现默认关闭的 `llm_execute` 模式；LLM 只能选择 ToolRegistry allowlist 内工具，服务端负责实际执行和失败回退。
 - 沉淀 Tool Selection Engineering 证据链，覆盖 prompt 模板结构、JSON 输出协议、parser 校验、allowlist、fallback 和非法 JSON / 未知工具 / provider timeout 等 bad cases。
-- 实现单文档 / 多文档 RAG 检索问答链路，支持可配置文档切块、chunk 持久化、真实 embedding + Qdrant smoke、topK 片段、相似度分数、引用元数据、检索 scope 隔离、脱敏 trace / debug snapshot、index lifecycle 和离线 retrieval eval。
+- 实现单文档 / 多文档 RAG 检索问答链路，支持可配置文档切块、chunk 持久化、真实 embedding + Qdrant smoke、topK 片段、相似度分数、引用元数据、检索 scope 隔离、no-evidence / hard-negative / answer-grounding 质量门禁、脱敏 trace / debug snapshot、index lifecycle 和离线 retrieval eval。
 - 构建默认关闭的 QA RAG context feature flag，开启后可向 QA 注入受限 RAG context，并通过 fallback / cache key 隔离测试验证默认 QA 行为不变。
 - 通过 Maven 测试、前端 lint/build、Agent / ToolCall / KnowledgeBase RAG / MinIO / RocketMQ / 真实 embedding smoke 记录沉淀验证证据，明确 Function Calling 未默认接管和非生产级完整 RAG 的边界。
 
@@ -73,5 +74,5 @@
 面试可讲但简历不建议硬写：
 
 - 可以讲“已完成 Function Calling 风格工具抽象、输出协议和默认关闭的 LLM 工具执行模式”，但不要写“真实 Function Calling 已在生产启用”。
-- 可以讲“已完成单文档 / 多文档 RAG、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、scope isolation、citations、trace、offline eval，以及默认关闭的 KnowledgeBase Hybrid / Rerank 可选增强”，但不要写“生产级完整向量 RAG / rerank / hybrid search 已上线”。
+- 可以讲“已完成单文档 / 多文档 RAG、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、scope isolation、citations、trace、offline eval、no-evidence / hard-negative / answer-grounding 质量门禁，以及默认关闭的 KnowledgeBase Hybrid / Rerank 可选增强”，但不要写“生产级完整向量 RAG / rerank / hybrid search / 通用语义蕴含模型已上线”。
 - 可以讲“Actuator / Prometheus 有设计和默认关闭 endpoint”，但不要写“生产可观测体系已上线”。

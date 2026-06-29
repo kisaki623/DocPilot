@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v3.8 / RAG Quality Interview Docs Sync
+
+- 已同步 `README.md`：补充 RAG no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace、MySQL / Qdrant 一致性、权限隔离和脱敏 artifact 质量门禁口径。
+- 已同步 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md`、`RESUME_BULLETS.md`、`INTERVIEW_QA.md`：面试材料现在能讲“真实 smoke 暴露 hard-negative REVIEW，再通过近阈值 evidence support gate 修到 PASS”的闭环。
+- 边界保持克制：hard-negative 支持度门禁写成近阈值启发式，不写成通用语义蕴含模型、大规模 relevance benchmark、线上 SLA 或生产级完整向量 RAG。
+
 ## 2026-06-29 Quality Loop v3.7 / Hard Negative Near-threshold Support Gate
 
 - 已针对 v3.6 真实 smoke 暴露的 hard negative REVIEW 做最小治理：KnowledgeBase retrieval 在 similarity threshold、hybrid confidence gate、rerank 和 diversity selection 后增加近阈值低支持度拒答门。

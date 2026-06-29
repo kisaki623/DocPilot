@@ -226,11 +226,11 @@
 
 ### Q18-2：这是完整 RAG 吗？
 
-面试可背版回答：不是生产级完整 RAG，但已经是可演示的 RAG 工程闭环。项目已覆盖 chunk 持久化、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、metadata scope filter、prompt evidence 和 citations。
+面试可背版回答：不是生产级完整 RAG，但已经是可演示、可评测的 RAG 工程闭环。项目已覆盖 chunk 持久化、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、metadata scope filter、prompt evidence、citations、no-evidence、answer grounding、hard negative 和 Conversation Trace。
 
 面试官追问：那它还缺什么？
 
-诚实边界：缺生产默认开启的 rerank / hybrid search、线上治理和固定 SLA；离线 eval 仍使用 mock embedding + in-memory vector store，真实 embedding + Qdrant 是 smoke 证据，KnowledgeBase Hybrid / Rerank 目前是默认关闭的可选增强，不包装成线上生产能力。
+诚实边界：缺线上治理和固定 SLA；离线 eval 仍使用 mock embedding + in-memory vector store，真实 embedding + Qdrant 是 smoke 证据，KnowledgeBase Hybrid / Rerank 目前是默认关闭的可选增强。hard-negative 支持度门禁是近阈值启发式，不是通用语义蕴含模型，也不能包装成大规模 relevance benchmark。
 
 对应位置：`RagIndexingServiceImpl`、`RagDocumentRetrievalServiceImpl`、`QdrantVectorStoreClient`、`docs/showcase/DEMO_SMOKE_RECORD.md`。
 

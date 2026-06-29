@@ -8,7 +8,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 
 更克制的面试讲法：这是一个展示后端工程链路和 AI 应用工程化意识的项目，不是生产级 SaaS、完整向量 RAG 平台或成熟多 Agent 系统。
 
-面向 AI Agent / RAG 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、workflow timeline、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。RAG 侧已有 chunk 持久化、EmbeddingProvider 抽象、真实 embedding + Qdrant smoke、单文档 / KnowledgeBase 多文档 retrieval / QA、scope isolation、脱敏 trace / debug snapshot、index lifecycle 和离线 eval；但仍不是生产级完整向量 RAG。
+面向 AI Agent / RAG 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、workflow timeline、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。RAG 侧已有 chunk 持久化、EmbeddingProvider 抽象、真实 embedding + Qdrant smoke、单文档 / KnowledgeBase 多文档 retrieval / QA、scope isolation、no-evidence / hard-negative / answer-grounding 质量门禁、脱敏 trace / debug snapshot、index lifecycle 和离线 eval；但仍不是生产级完整向量 RAG。
 
 ## 2. 当前真实已实现能力
 
@@ -27,11 +27,11 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 - Agent + RAG Showcase：`/agent` 页面已通过 runtime 验证，`rag_tool` 能展示 retrieved chunk、score / similarity、citation metadata、routingReason、matchedKeywords、脱敏 RAG trace 摘要和 persisted steps；普通 QA 路径仍展示 citations。
 - Agent Workflow 展示：`/agent` 页面基于已有响应和 persisted trace 展示接收任务、选择工具、执行工具、生成结果和持久化 trace，不新增 API 或后端路由逻辑。
 - Prompt Engineering 证据链：`docs/PROMPT_ENGINEERING_NOTES.md` 说明 tool selection prompt 结构、JSON 输出协议、parser 校验、allowlist、fallback 和 bad cases，不记录真实文档内容或完整运行时 prompt。
-- 单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、真实 embedding + Qdrant、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例均已有 smoke 记录。
+- 单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、真实 embedding + Qdrant、RAG no-evidence / hard-negative / answer-grounding 质量门禁、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例均已有 smoke 记录。
 
 ## 3. 当前半实现能力
 
-- RAG 测试 / eval 仍保留 fake embedding + in-memory vector store，便于稳定复现；真实 embedding + Qdrant 已在 smoke collection 验证；KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，但不是线上治理完整的生产 RAG。
+- RAG 测试 / eval 仍保留 fake embedding + in-memory vector store，便于稳定复现；真实 embedding + Qdrant 已在 smoke collection 验证；KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，近阈值 hard-negative 支持度门禁已通过小规模真实 smoke，但不是线上治理完整的生产 RAG 或通用 entailment scorer。
 - PDF 支持偏占位，主能力更适合 txt / md 文档。
 - Agent 是同步 API 下的最小工具链闭环，不是异步多 Agent 编排。
 - LLM execute mode 只在显式配置时启用；默认仍是 keyword selector。真实 provider / execute 类验证必须在用户授权、配置可用和日志脱敏边界下运行。
@@ -65,7 +65,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 
 1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、workflow timeline、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
 2. 再展示详情页普通问答 / SSE 流式问答：说明 citations 如何来自轻量检索增强。
-3. 对 RAG 保持诚实：当前已能展示单文档 / 多文档 RAG、chunk 持久化、真实 embedding + Qdrant smoke、scope isolation、citations、trace 和 offline eval；但不要说成生产级完整向量 RAG。
+3. 对 RAG 保持诚实：当前已能展示单文档 / 多文档 RAG、chunk 持久化、真实 embedding + Qdrant smoke、scope isolation、citations、Trace、no-evidence / hard-negative / answer-grounding gate 和 offline eval；但不要说成生产级完整向量 RAG。
 4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only，以及默认关闭的 `llm_execute` 执行模式；默认生产行为仍是 keyword selector。
 5. 面试时不要优先讲 Actuator / Prometheus / Spring Security，除非面试官追问可观测性或安全边界。
 
@@ -75,7 +75,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 
 ### 你这个是完整 RAG 吗？
 
-不是生产级完整 RAG。当前已做出求职展示用 RAG 闭环：chunk 持久化、EmbeddingProvider、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、scope isolation、citations、脱敏 trace / debug snapshot、index lifecycle 和 offline eval。KnowledgeBase RAG 还有默认关闭的 Hybrid / Rerank 可选增强，但真实 provider smoke、线上治理和固定 SLA 仍要单独验证；我会把它描述为 RAG 工程化展示链路，不包装成生产完整向量 RAG。
+不是生产级完整 RAG。当前已做出求职展示用 RAG 工程闭环：chunk 持久化、EmbeddingProvider、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、scope isolation、citations、no-evidence、answer grounding、hard negative 支持度门禁、脱敏 trace / debug snapshot、index lifecycle 和 offline eval。KnowledgeBase RAG 还有默认关闭的 Hybrid / Rerank 可选增强，但大规模语料治理、固定 SLA 和通用 entailment scorer 仍要单独建设；我会把它描述为 RAG 工程化链路，不包装成生产完整向量 RAG。
 
 ### Agent 是多 Agent 吗？
 

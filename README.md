@@ -2,7 +2,7 @@
 
 > RAG + Agent 文档问答工程化平台。项目围绕“上传文档 -> 异步解析 -> RAG indexing -> 单文档 / 多文档检索问答 -> SSE 流式输出 -> 引用证据 -> Agent 工具执行与 Trace 展示”这条链路展开，呈现一个从业务流程、后端工程到 AI 交互体验逐步闭环的全栈项目。
 
-DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、真实 embedding + Qdrant smoke、SSE 降级、引用证据、Agent 工具选择、执行步骤落库和脱敏调试信息。
+DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、真实 embedding + Qdrant smoke、SSE 降级、引用证据、no-evidence / hard-negative 质量门禁、Conversation Trace、Agent 工具选择、执行步骤落库和脱敏调试信息。
 
 ## 项目定位
 
@@ -39,7 +39,7 @@ DocPilot 是一个面向文档上传、异步解析、RAG 文档问答和 Agent 
 
 - **业务闭环**：账号登录、文件上传、文档创建、异步解析、RAG indexing、文档列表 / 详情、普通问答、SSE 流式问答、引用证据和历史问答。
 - **异步链路**：使用 Outbox + RocketMQ 拆分接口响应与耗时解析，配合补偿扫描、消费去重和 Redisson 锁降低重复任务与消息不一致风险；该链路已在演示环境完成真实 smoke。
-- **AI 问答体验**：支持单文档 / 多文档 RAG retrieve、普通问答与 SSE 流式输出；回答展示 Markdown、代码块和结构化 citations。
+- **AI 问答体验**：支持单文档 / 多文档 RAG retrieve、普通问答与 SSE 流式输出；回答展示 Markdown、代码块和结构化 citations，并通过 no-evidence、answer grounding、hard negative 与权限隔离 smoke 约束质量边界。
 - **Agent 工作流**：`/agent` 页面展示工具选择、执行步骤、持久化轨迹、最终回答、引用证据和检索召回结果。
 - **可复盘的工程细节**：README、截图、smoke 脚本和本地验证记录共同保留实现证据，便于从页面演示追溯到后端链路。
 
@@ -54,6 +54,7 @@ DocPilot 是一个面向文档上传、异步解析、RAG 文档问答和 Agent 
 | Agent 工具链 | 已实现文档状态、摘要、问答、检索召回工具，以及 ToolRegistry / ToolSelector |
 | Agent Trace | 已实现 AgentTask / AgentStep 持久化，前端可展示步骤、耗时、输入摘要和输出摘要 |
 | 检索召回展示 | 已实现 chunking、scope isolation、单文档 / 多文档 RAG retrieve、Qdrant adapter、真实 embedding smoke、召回片段、相关度、引用 metadata 和脱敏 trace summary |
+| RAG 质量门禁 | 已实现 chunk 质量、MySQL / Qdrant payload 一致性、no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace 和权限隔离 smoke；artifact 脱敏后只记录计数、状态和 score summary |
 | 观测与验证 | 保留 Actuator health、benchmark / eval 记录、smoke 脚本和 lint/build/test 验证方式 |
 
 ## 页面预览
@@ -112,7 +113,7 @@ Agent 目前聚焦文档业务场景，围绕状态查询、摘要、问答与 R
 
 ### RAG 检索召回与 Qdrant
 
-当前 RAG 链路覆盖 chunking、chunk 持久化、parse success 自动 indexing、EmbeddingProvider 抽象、Qdrant VectorStore adapter、topK 召回、citation metadata、scope isolation、index lifecycle 和脱敏 trace summary。演示环境已完成单文档 RAG、KnowledgeBase 多文档 RAG、真实 embedding provider + Qdrant smoke collection 验证；离线 eval 仍使用 mock embedding + in-memory vector store，便于稳定复现质量指标。
+当前 RAG 链路覆盖 chunking、chunk 持久化、parse success 自动 indexing、EmbeddingProvider 抽象、Qdrant VectorStore adapter、topK 召回、citation metadata、scope isolation、index lifecycle 和脱敏 trace summary。演示环境已完成单文档 RAG、KnowledgeBase 多文档 RAG、真实 embedding provider + Qdrant smoke collection 验证；质量门禁已覆盖 no-evidence、answer grounding、hard negative、answer faithfulness、MySQL / Qdrant payload 一致性和 Conversation Trace。离线 eval 仍使用 mock embedding + in-memory vector store，便于稳定复现质量指标。
 
 ## 快速开始
 
@@ -202,7 +203,7 @@ powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-qa-stream.ps
 powershell -ExecutionPolicy Bypass -File backend/scripts/agent/smoke-agent-min.ps1 -BackendBaseUrl http://127.0.0.1:8081
 ```
 
-最新演示证据记录见 `docs/showcase/DEMO_SMOKE_RECORD.md`。其中已归档单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、真实 embedding + Qdrant、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例。公开 README 不依赖协作文档作为唯一证明材料；如果你要复现，请以本机实际运行结果为准。
+最新演示证据记录见 `docs/showcase/DEMO_SMOKE_RECORD.md`。其中已归档单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、真实 embedding + Qdrant、RAG hard-negative / answer-grounding 质量门禁、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例。公开 README 不依赖协作文档作为唯一证明材料；如果你要复现，请以本机实际运行结果为准。
 
 ## 验证方式
 
@@ -238,7 +239,7 @@ DocPilot/
 - 完整上传解析 runtime 依赖可用 RocketMQ NameServer / Broker / consumer；演示环境已跑通 active MQ smoke，若关闭 MQ，会进入 no-op producer 路径，适合做接口联调但不会推进真实异步解析。
 - AI 默认可使用 mock answer service；真实回答模型已完成一次 smoke，复现仍依赖本地环境变量和可用 OpenAI-compatible provider。
 - PDF 解析能力有限，当前更适合展示 `txt / md` 文档链路。
-- RAG 测试 / eval 仍可使用 fake embedding + in-memory vector store；真实 embedding provider + Qdrant 已在 smoke collection 验证，KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，但这不等同于生产级完整向量 RAG、生产默认 rerank / hybrid search 或线上 SLA。
+- RAG 测试 / eval 仍可使用 fake embedding + in-memory vector store；真实 embedding provider + Qdrant 已在 smoke collection 验证，KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，hard-negative 支持度门禁是近阈值启发式而不是通用语义蕴含模型；这些都不等同于生产级完整向量 RAG、生产默认 rerank / hybrid search 或线上 SLA。
 - Agent 当前围绕文档业务工具形成同步 API 闭环，MQ 异步 Agent 和多 Agent 编排属于后续演进方向。
 - `llm_execute` 是默认关闭的 OpenAI-compatible chat completions JSON 选择方案，再由服务端 allowlist 执行已有工具；尚未切换到官方 tools/function_call 接口。
 - selector Prometheus metrics 目前仍处于设计 / demo 边界，完整生产监控闭环留作后续扩展。

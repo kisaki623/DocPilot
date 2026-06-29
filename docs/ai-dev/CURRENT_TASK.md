@@ -1,6 +1,13 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v3.7：Hard Negative Near-threshold Support Gate（DONE）
+当前任务：DocPilot Quality Loop v3.8：RAG Quality Interview Docs Sync（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v3.8 RAG Quality Interview Docs Sync
+
+- 目标：把 v3.5-v3.7 的 RAG hard negative / answer faithfulness / answer grounding 质量闭环同步到 README 和 showcase 面试材料，避免对外材料停留在“可演示 RAG / Agent”旧口径，也避免夸大成线上 SLA 或大规模 benchmark。
+- 已完成：`README.md` 补充 no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace、MySQL / Qdrant 一致性和脱敏 artifact 质量门禁口径。
+- 已完成：`docs/showcase/PROJECT_INTERVIEW_BRIEF.md`、`RESUME_BULLETS.md`、`INTERVIEW_QA.md` 同步 RAG 工程闭环讲法，强调真实 embedding + Qdrant smoke、hard-negative 支持度门禁和边界。
+- 边界：本片只改对外 / 面试文档和事实源，不改业务代码、不启动服务、不创建业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。hard-negative 支持度门禁明确写成近阈值启发式，不写成通用语义蕴含模型或大规模 relevance benchmark。
 
 ## 2026-06-29 追加任务：Quality Loop v3.7 Hard Negative Near-threshold Support Gate
 
