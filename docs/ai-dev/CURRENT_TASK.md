@@ -8,9 +8,9 @@ Current task: DocPilot Quality Loop v5.6: Query Rewrite / Multi-query Retrieval 
 - Done: added a rule-based `QueryRewriteService` and default-off `app.rag.retrieval.multi-query-enabled`; when enabled, KnowledgeBase retrieval generates bounded query variants, runs vector search per variant, deduplicates hits by chunk identity, then continues through the existing threshold, hybrid, rerank, scope guard and diversity gates.
 - Observability: `KnowledgeBaseRagRetrievalResult` / response now expose `multiQueryApplied`, `queryVariantCount` and `queryDedupeCount`; variant text is not stored in the result or artifact-facing response.
 - Configuration: `APP_RAG_RETRIEVAL_MULTI_QUERY_ENABLED=false` and `APP_RAG_RETRIEVAL_MAX_QUERY_VARIANTS=3` are documented in config examples.
-- Verified: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests.
+- Verified: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 209 tests; real `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007 -ReuseRunningServices` PASS, marker `docpilot-rag-real-qa-20260629202542-3e47d9`.
 - Boundary: this is deterministic rule-based query rewrite, not LLM query planning, not real-provider query expansion, not a proven relevance uplift benchmark, and not enabled by default.
-- Next: run wider RAG / KnowledgeBase regression, then decide whether to do a real-link smoke with multi-query still default-off or a small explicitly enabled runtime smoke.
+- Next: A4-A6 are complete. A natural next slice is an explicitly enabled multi-query runtime/eval comparison to determine whether it improves recall on complex questions without hurting no-evidence.
 
 Current task: DocPilot Quality Loop v5.5: Chunk Quality v2 (DONE)
 

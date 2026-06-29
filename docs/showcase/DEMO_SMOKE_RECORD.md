@@ -4,6 +4,26 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-29 RAG A4-A6 Quality Gate Regression Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260629202542-3e47d9`
+
+Verified gates:
+
+- Real-link regression after A4 Retrieval Error Analysis Report, A5 Chunk Quality v2 and A6 default-off Multi-query Retrieval.
+- `chunkQuality` passed for two temporary txt documents: each produced `4` MySQL chunks and `4` indexed vectors, with ordered offsets, matching token/content length and `0` duplicate hashes.
+- `mysqlQdrantConsistency` passed: both temporary documents had matching MySQL chunk count and Qdrant point count, `0` missing vector IDs, `0` mismatched fields and `0` missing structure fields.
+- Single-document RAG, KnowledgeBase two-document RAG, representative corpus, answer grounding, hard negative gate, semantic gate, real provider faithfulness, ordinary no-evidence, Conversation Trace, permission isolation, frontend routes, cleanup and artifact redaction all remained PASS.
+- Conversation Trace showed `ragTriggered=true`, `ragRequired=true`, `evidenceCount=4`, `memoryCount=1`, `contextSourceCounts.userMemory=1`, `contextSourceCounts.ragEvidence=4`, and two-document `documentHitCounts`.
+
+Boundary: A6 multi-query retrieval remains disabled by default in this smoke; this run proves no regression in the default real-link path, not that multi-query improves relevance in production. Artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, answer text, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens.
+
 ## 2026-06-29 RAG Real Provider Faithfulness Smoke
 
 Status: PASS

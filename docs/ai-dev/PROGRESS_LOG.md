@@ -6,8 +6,8 @@
 - Added deterministic `QueryRewriteService` / `RuleBasedQueryRewriteService`, keeping the original query first and generating cleaned / comparison-part variants for complex questions.
 - KnowledgeBase retrieval now embeds and searches each variant when enabled, deduplicates vector hits by chunk identity, and then reuses the existing threshold, hybrid, rerank, scope guard and diversity selection pipeline.
 - Added observability fields: `multiQueryApplied`, `queryVariantCount`, `queryDedupeCount`; response results do not store rewritten query text.
-- Verified: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests.
-- Boundary: default-off deterministic expansion only; no LLM query planning, no real provider call, no schema change, no runtime smoke yet in this slice.
+- Verified: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 209 tests; real `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007 -ReuseRunningServices` PASS, marker `docpilot-rag-real-qa-20260629202542-3e47d9`.
+- Boundary: default-off deterministic expansion only; no LLM query planning, no schema change and no production relevance uplift claim. The real smoke proves default-path regression safety, not enabled multi-query effectiveness.
 
 ## 2026-06-29 Quality Loop v5.5 / Chunk Quality v2
 
