@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v3.4：RAG Answer Grounding Gate v1（DONE）
+当前任务：DocPilot Quality Loop v3.5：RAG Hard Negative / Answer Faithfulness Eval 第一片（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v3.5 RAG Hard Negative / Answer Faithfulness Eval 第一片
+
+- 目标：继续把 RAG Real QA Eval 从“覆盖更多真实问法”推进到“能拦住高词面相似但无证据的问题，并观察回答是否忠实落在目标 evidence 上”，优先补 hard negative 与 answer faithfulness 两类离线门禁。
+- 已完成：`real-qa-eval-cases.json` 追加 `real-hard-negative-payroll-tax` 和 `real-answer-faithfulness-policy-exception` 两个脱敏企业场景；前者用 payroll / tax / vendor / owner 等强词面干扰但不提供目标结论，要求 no-evidence；后者在目标 evidence 与 SLA 干扰文档之间要求只命中 `real-policy-exception-owner-marker`，不得泄漏 forbidden marker。
+- 已完成指标增强：`RagRealQaEvalMetrics` 新增 `hardNegativePassRate` 与 `answerFaithfulnessPassRate`，artifact safe map 同步输出两个脱敏指标；`hard_negative` 同时纳入 distractor suppression 聚合。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests。
+- 边界：本片只增强离线 test-side eval / fixture / metrics，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果是离线质量门禁增强，不是大规模真实 answer faithfulness benchmark。
+- 下一步：可继续 RAG 方向把 hard negative / answer faithfulness 代表 case 小规模迁移到真实 smoke；也可转入 Memory 编辑 / 合并交互与门禁，或做 README / showcase 面试口径同步。
 
 ## 2026-06-29 追加任务：Quality Loop v3.4 RAG Answer Grounding Gate v1
 

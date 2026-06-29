@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v3.5 / RAG Hard Negative and Answer Faithfulness Eval
+
+- 已给 RAG Real QA Eval 追加两类离线质量门禁：`hard_negative` 用强词面相似但缺少目标结论的 payroll / tax / vendor / owner 场景验证 no-evidence；`answer_faithfulness` 用目标 policy exception evidence 与相近 SLA 干扰文档验证回答只落在目标 marker 上。
+- `RagRealQaEvalMetrics` 新增 `hardNegativePassRate` 与 `answerFaithfulnessPassRate`，artifact safe map 同步输出两个脱敏指标；`hard_negative` 同时计入 distractor suppression 聚合。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests。
+- 边界：本片只改离线 test-side eval / fixture / metrics 和事实源文档；未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL，未改生产 API 或数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，不写成大规模真实 answer faithfulness benchmark。
+
 ## 2026-06-29 Quality Loop v3.4 / RAG Answer Grounding Gate v1
 
 - 已给 `cloud-quality-smoke.ps1` 新增 `Test-AnswerGrounding` 与 `answerGrounding` gate：对单文档 RAG、KnowledgeBase 两文档 RAG、representative corpus 三文档 RAG 的最终回答检查 answer present、预期 evidence marker 命中、forbidden marker 未泄漏和 citation marker 存在。

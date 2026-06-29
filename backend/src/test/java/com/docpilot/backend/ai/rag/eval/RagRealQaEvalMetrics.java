@@ -19,7 +19,9 @@ public record RagRealQaEvalMetrics(
         double longDocumentCasePassRate,
         double nearMissNoEvidenceRate,
         double multiDocSummaryPassRate,
-        double distractorSuppressionRate
+        double distractorSuppressionRate,
+        double hardNegativePassRate,
+        double answerFaithfulnessPassRate
 ) {
 
     public static RagRealQaEvalMetrics from(List<RagRealQaEvalResult.CaseEvaluation> evaluations) {
@@ -52,6 +54,8 @@ public record RagRealQaEvalMetrics(
         List<RagRealQaEvalResult.CaseEvaluation> distractorCases = resolved.stream()
                 .filter(RagRealQaEvalMetrics::isDistractorCase)
                 .toList();
+        List<RagRealQaEvalResult.CaseEvaluation> hardNegativeCases = byCategory(resolved, "hard_negative");
+        List<RagRealQaEvalResult.CaseEvaluation> answerFaithfulnessCases = byCategory(resolved, "answer_faithfulness");
         return new RagRealQaEvalMetrics(
                 resolved.size(),
                 rate(passed, resolved.size()),
@@ -68,7 +72,9 @@ public record RagRealQaEvalMetrics(
                         .filter(RagRealQaEvalResult.CaseEvaluation::noEvidenceHit)
                         .count(), nearMissNoEvidenceCases.size()),
                 passRate(multiDocSummaryCases),
-                passRate(distractorCases)
+                passRate(distractorCases),
+                passRate(hardNegativeCases),
+                passRate(answerFaithfulnessCases)
         );
     }
 
@@ -88,6 +94,8 @@ public record RagRealQaEvalMetrics(
         value.put("nearMissNoEvidenceRate", format(nearMissNoEvidenceRate));
         value.put("multiDocSummaryPassRate", format(multiDocSummaryPassRate));
         value.put("distractorSuppressionRate", format(distractorSuppressionRate));
+        value.put("hardNegativePassRate", format(hardNegativePassRate));
+        value.put("answerFaithfulnessPassRate", format(answerFaithfulnessPassRate));
         return value;
     }
 
@@ -114,7 +122,8 @@ public record RagRealQaEvalMetrics(
                 || category.contains("noise")
                 || category.contains("near_miss")
                 || category.contains("semantic")
-                || category.contains("rerank");
+                || category.contains("rerank")
+                || category.contains("hard_negative");
     }
 
     private static double passRate(List<RagRealQaEvalResult.CaseEvaluation> evaluations) {

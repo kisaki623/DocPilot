@@ -496,5 +496,53 @@
     "minCitationCount": 2,
     "minDocumentCoverage": 2,
     "expectedNoEvidence": false
+  },
+  {
+    "id": "real-hard-negative-payroll-tax",
+    "category": "hard_negative",
+    "userId": 1422,
+    "knowledgeBaseId": 2422,
+    "indexVersion": 1,
+    "topK": 3,
+    "query": "Which evidence says payroll tax remittance approval is delegated to the vendor security owner?",
+    "documents": [
+      {"documentId": 4621, "title": "Payroll Tax Calendar", "text": "Payroll tax calendar marker real-payroll-tax-calendar-forbidden-marker lists monthly remittance dates and filing cutoffs."},
+      {"documentId": 4622, "title": "Vendor Security Owner Review", "text": "Vendor security owner review marker real-vendor-owner-review-forbidden-marker explains questionnaire ownership and annual review cadence."},
+      {"documentId": 4623, "title": "Finance Delegation Glossary", "text": "Finance delegation glossary marker real-finance-delegation-forbidden-marker defines approval, owner, payroll, tax, and vendor terms separately."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": [],
+    "expectedAnswerMarkers": [],
+    "forbiddenAnswerMarkers": ["real-payroll-tax-calendar-forbidden-marker", "real-vendor-owner-review-forbidden-marker", "real-finance-delegation-forbidden-marker", "delegated to the vendor security owner"],
+    "expectedDocumentIds": [],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 0,
+    "minDocumentCoverage": 0,
+    "expectedNoEvidence": true,
+    "minSimilarityThreshold": 0.97,
+    "retrievalMode": "hybrid"
+  },
+  {
+    "id": "real-answer-faithfulness-policy-exception",
+    "category": "answer_faithfulness",
+    "userId": 1423,
+    "knowledgeBaseId": 2423,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Which evidence names the policy exception owner for production firewall changes?",
+    "documents": [
+      {"documentId": 4631, "title": "Production Firewall Exception Policy", "text": "Production firewall exception owner marker real-policy-exception-owner-marker says the security operations lead approves emergency firewall exceptions."},
+      {"documentId": 4632, "title": "Firewall SLA Operations Note", "text": "Firewall SLA operations note marker real-policy-exception-sla-forbidden-marker says network operations tracks response time and ticket aging."}
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["real-policy-exception-owner-marker"],
+    "expectedAnswerMarkers": ["real-policy-exception-owner-marker"],
+    "requiredCitationMarkers": ["real-policy-exception-owner-marker"],
+    "forbiddenAnswerMarkers": ["real-policy-exception-sla-forbidden-marker", "network operations tracks response time"],
+    "expectedDocumentIds": [4631],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 1,
+    "minDocumentCoverage": 1,
+    "expectedNoEvidence": false
   }
 ]

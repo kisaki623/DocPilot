@@ -29,6 +29,8 @@ class RagRealQaEvalRunnerTest {
         assertThat(result.metrics().nearMissNoEvidenceRate()).isEqualTo(1.0D);
         assertThat(result.metrics().multiDocSummaryPassRate()).isEqualTo(1.0D);
         assertThat(result.metrics().distractorSuppressionRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().hardNegativePassRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().answerFaithfulnessPassRate()).isEqualTo(1.0D);
         assertThat(result.failedCaseIds()).isEmpty();
     }
 
@@ -51,6 +53,8 @@ class RagRealQaEvalRunnerTest {
                 .contains("nearMissNoEvidenceRate")
                 .contains("multiDocSummaryPassRate")
                 .contains("distractorSuppressionRate")
+                .contains("hardNegativePassRate")
+                .contains("answerFaithfulnessPassRate")
                 .doesNotContain("DocPilot parse status marker")
                 .doesNotContain("Security access policy overview")
                 .doesNotContain("Which evidence")
