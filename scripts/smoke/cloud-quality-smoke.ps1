@@ -15,7 +15,8 @@ param(
   [switch]$ReuseRunningServices,
   [switch]$EnableMemoryQualityGate,
   [switch]$EnableRerankHardGate,
-  [switch]$EnableRepresentativeCorpusGate
+  [switch]$EnableRepresentativeCorpusGate,
+  [switch]$EnableRealQaHardGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -717,7 +718,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "representativeCorpus(optional)", "answerGrounding", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -783,6 +784,7 @@ function Invoke-Run() {
   $userBId = [long]$regB.data.userId
   $rerankHardResources = $null
   $representativeCorpusResources = $null
+  $realQaHardGateChecks = $null
   Set-Gate "auth" "PASS" @("registered user A", "registered user B")
 
   $alphaText = @"
@@ -976,6 +978,57 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
     Stop-WithStatus "FAILED_CORE_FLOW" "answerGrounding" "RAG answer did not satisfy expected marker/citation grounding"
   }
   Set-Gate "answerGrounding" "PASS" $answerGroundingChecks
+
+  if ($EnableRealQaHardGate) {
+    $realQaHardNegativeQuery = "Which evidence says payroll tax remittance approval is delegated to the context trace owner after chunk metadata verification?"
+    $realQaHardNegativeRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $realQaHardNegativeQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
+    $realQaHardNegativeQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $realQaHardNegativeQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
+    $hardNegativeCheck = [ordered]@{
+      scope = "hardNegative"
+      retrieveNoEvidence = [bool]$realQaHardNegativeRetrieve.data.noEvidence
+      qaNoEvidence = [bool]$realQaHardNegativeQa.data.noEvidence
+      retrieveHits = @($realQaHardNegativeRetrieve.data.hits).Count
+      qaCitations = @($realQaHardNegativeQa.data.citations).Count
+      retrieveScoreSummary = Get-ScoreSummary $realQaHardNegativeRetrieve.data.hits
+      citationScoreSummary = Get-ScoreSummary $realQaHardNegativeQa.data.citations
+      retrieveVectorScoreSummary = Get-FieldScoreSummary $realQaHardNegativeRetrieve.data.hits "vectorScore"
+      citationVectorScoreSummary = Get-FieldScoreSummary $realQaHardNegativeQa.data.citations "vectorScore"
+      passed = ([bool]$realQaHardNegativeRetrieve.data.noEvidence -and [bool]$realQaHardNegativeQa.data.noEvidence)
+    }
+
+    $realQaFaithfulnessQuestion = "Which evidence explains chunk metadata from MySQL before trusting RAG output? Include ALPHA-CLOUD-GATE and cite the exact evidence."
+    $realQaFaithfulnessRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $realQaFaithfulnessQuestion; topK = 1; indexVersion = $IndexVersion }) $tokenA
+    $realQaFaithfulnessQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $realQaFaithfulnessQuestion; topK = 1; indexVersion = $IndexVersion }) $tokenA
+    $faithfulnessGrounding = Test-AnswerGrounding "answerFaithfulness" ([string]$realQaFaithfulnessQa.data.answer) @("ALPHA-CLOUD-GATE") @("BETA-CONTEXT-GATE", "real-marketing-export-forbidden-marker")
+    $faithfulnessCitations = @($realQaFaithfulnessQa.data.citations)
+    $faithfulnessCheck = [ordered]@{
+      scope = "answerFaithfulness"
+      retrieveHits = @($realQaFaithfulnessRetrieve.data.hits).Count
+      qaCitations = $faithfulnessCitations.Count
+      targetCitationCount = Get-DocumentHitCount $faithfulnessCitations ([long]$docA.data.id)
+      forbiddenCitationCount = Get-DocumentHitCount $faithfulnessCitations ([long]$docB.data.id)
+      retrieveScoreSummary = Get-ScoreSummary $realQaFaithfulnessRetrieve.data.hits
+      citationScoreSummary = Get-ScoreSummary $faithfulnessCitations
+      expectedMarkersSatisfied = [bool]$faithfulnessGrounding.expectedMarkersSatisfied
+      forbiddenMarkerHit = [bool]$faithfulnessGrounding.forbiddenMarkerHit
+      citationMarkerPresent = [bool]$faithfulnessGrounding.citationMarkerPresent
+      answerLength = $faithfulnessGrounding.answerLength
+      passed = ([bool]$faithfulnessGrounding.answerPresent -and [bool]$faithfulnessGrounding.expectedMarkersSatisfied -and
+        (-not [bool]$faithfulnessGrounding.forbiddenMarkerHit) -and [bool]$faithfulnessGrounding.citationMarkerPresent -and
+        $faithfulnessCitations.Count -ge 1 -and (Get-DocumentHitCount $faithfulnessCitations ([long]$docA.data.id)) -ge 1 -and
+        (Get-DocumentHitCount $faithfulnessCitations ([long]$docB.data.id)) -eq 0)
+    }
+    $realQaHardGateChecks = @($hardNegativeCheck, $faithfulnessCheck)
+    if (-not $faithfulnessCheck.passed) {
+      Set-Gate "realQaHardGate" "FAILED_CORE_FLOW" $realQaHardGateChecks "answer faithfulness gate failed"
+      Stop-WithStatus "FAILED_CORE_FLOW" "realQaHardGate" "answer faithfulness gate failed"
+    }
+    if (-not $hardNegativeCheck.passed) {
+      Set-Gate "realQaHardGate" "REVIEW" $realQaHardGateChecks "hard negative query still returned evidence; tune threshold or grounding policy"
+    } else {
+      Set-Gate "realQaHardGate" "PASS" $realQaHardGateChecks
+    }
+  }
 
   $unrelatedQuery = "Which payroll settlement policy and invoice approval matrix is defined for employee reimbursements?"
   $noEvidenceRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $unrelatedQuery; topK = 3; indexVersion = $IndexVersion }) $tokenA
@@ -1243,6 +1296,8 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
       memoryQualityGateEnabled = [bool]$EnableMemoryQualityGate
       rerankHardGateEnabled = [bool]$EnableRerankHardGate
       rerankHardGate = $rerankHardResources
+      realQaHardGateEnabled = [bool]$EnableRealQaHardGate
+      realQaHardGate = $realQaHardGateChecks
       conversationId = [long]$conversation.data.conversationId
       messageId = [long]$message.data.messageId
     }

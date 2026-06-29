@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v3.6 / RAG Real QA Hard Gate Smoke
+
+- 已给 `cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealQaHardGate`，复用已有 Alpha / Beta 临时 KB，不额外上传文件，检查 `hardNegative` 与 `answerFaithfulness` 两个真实链路 scope。
+- `rag-real-qa-eval-smoke.ps1` 默认开启该 gate，并提供 `-SkipRealQaHardGate`；plan 输出新增 `hard_negative`、`answer_faithfulness`、`realQaHardGate` 和 `realQaHardGateEnabledByDefault`。
+- Artifact 只记录 no-evidence 布尔值、hit / citation 数、score summary、marker 命中布尔值和 answer length；不保存回答原文、prompt、文档原文、evidence context、token、云地址或连接串。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests。
+- 真实链路验证：首次 run 将 hard negative 作为 core failure 暴露，随后调整为 optional quality REVIEW gate；再次执行 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker 为 `docpilot-rag-real-qa-20260629125627-c0915e`，整体 `REVIEW`。核心链路、representative corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 均 PASS；`answerFaithfulness` PASS；`hardNegative` 仍返回 `3` hits / `3` citations，vector score 约 `0.50-0.55`。
+- 边界：本片不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push；结论是小规模真实链路 hard negative 质量缺口证据，下一步应做 evidence support / grounding policy，而不是简单硬调全局阈值。
+
 ## 2026-06-29 Quality Loop v3.5 / RAG Hard Negative and Answer Faithfulness Eval
 
 - 已给 RAG Real QA Eval 追加两类离线质量门禁：`hard_negative` 用强词面相似但缺少目标结论的 payroll / tax / vendor / owner 场景验证 no-evidence；`answer_faithfulness` 用目标 policy exception evidence 与相近 SLA 干扰文档验证回答只落在目标 marker 上。

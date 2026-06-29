@@ -12,7 +12,8 @@ param(
   [int]$IndexVersion = 1,
   [switch]$SkipFrontend,
   [switch]$ReuseRunningServices,
-  [switch]$SkipRepresentativeCorpusGate
+  [switch]$SkipRepresentativeCorpusGate,
+  [switch]$SkipRealQaHardGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +27,7 @@ function Show-RagRealQaPlan {
     artifactRoot = $ArtifactRoot
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
     representativeCorpusEnabledByDefault = (-not [bool]$SkipRepresentativeCorpusGate)
+    realQaHardGateEnabledByDefault = (-not [bool]$SkipRealQaHardGate)
     caseTypes = @(
       "factual_lookup",
       "cross_document_summary",
@@ -35,6 +37,8 @@ function Show-RagRealQaPlan {
       "semantic_distractor",
       "hybrid_keyword_noise",
       "rerank_uplift_candidate",
+      "hard_negative",
+      "answer_faithfulness",
       "representative_corpus",
       "answer_grounding"
     )
@@ -50,6 +54,7 @@ function Show-RagRealQaPlan {
       "knowledgeBaseRag",
       "representativeCorpus",
       "answerGrounding",
+      "realQaHardGate",
       "noEvidenceThreshold",
       "conversationTrace",
       "permissionIsolation",
@@ -96,6 +101,9 @@ if ($ReuseRunningServices) {
 }
 if (-not $SkipRepresentativeCorpusGate) {
   $argsList += "-EnableRepresentativeCorpusGate"
+}
+if (-not $SkipRealQaHardGate) {
+  $argsList += "-EnableRealQaHardGate"
 }
 
 & powershell.exe @argsList

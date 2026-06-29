@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v3.5：RAG Hard Negative / Answer Faithfulness Eval 第一片（DONE）
+当前任务：DocPilot Quality Loop v3.6：RAG Real QA Hard Gate Smoke 第一片（REVIEW）
+
+## 2026-06-29 追加任务：Quality Loop v3.6 RAG Real QA Hard Gate Smoke 第一片
+
+- 目标：把 v3.5 的 hard negative / answer faithfulness 代表检查小规模迁移进真实 RAG Real QA smoke，让真实链路不只验证普通 no-evidence 和 answer grounding，也能暴露高词面相似但结论缺失的问题。
+- 已完成：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealQaHardGate`，复用本轮 Alpha / Beta 临时 KnowledgeBase，不额外上传文件，检查 `hardNegative` 与 `answerFaithfulness` 两个 scope；`rag-real-qa-eval-smoke.ps1` 默认打开该 gate，并提供 `-SkipRealQaHardGate`。
+- 已完成脱敏边界：artifact 只保存 no-evidence 布尔值、hit / citation 数、score summary、marker 命中计数和 answer length，不保存回答原文、prompt、文档原文、evidence context、token、云地址或连接串；脚本安全测试已覆盖新 gate。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker 为 `docpilot-rag-real-qa-20260629125627-c0915e`，整体 `REVIEW`。
+- 关键结果：核心链路 gate 均 PASS，包括 tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KB RAG、representative corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、cleanup 和 artifact redaction。`answerFaithfulness` PASS：target citation `1`、forbidden citation `0`、expected marker satisfied、forbidden marker absent。`hardNegative` REVIEW：高词面相似问题仍返回 `3` hits / `3` citations，vector score 约 `0.50-0.55`，说明当前 evidence confidence / grounding policy 对这类缺证结论还不够严格。
+- 边界：本片只增强 smoke runner / wrapper / 安全测试和文档记录，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。真实 smoke 创建了临时用户、三份文档、KnowledgeBase、Conversation 和 ignored artifact；该结果是小规模真实链路质量缺口证据，不是大规模 benchmark。
+- 下一步：优先做 hard negative 召回后的拒答治理：比较 query / evidence 语义支持度、answer audit fallback reason、rerank score 与 vector score 组合门禁，先以离线测试和小规模 smoke 校准，不直接调高全局阈值伤害正常多文档召回。
 
 ## 2026-06-29 追加任务：Quality Loop v3.5 RAG Hard Negative / Answer Faithfulness Eval 第一片
 

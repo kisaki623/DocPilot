@@ -4,6 +4,25 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-29 RAG Real QA Hard Gate Smoke
+
+Status: REVIEW
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260629125627-c0915e`
+
+Verified gates:
+
+- `cloud-quality-smoke.ps1` now includes optional `realQaHardGate`; `rag-real-qa-eval-smoke.ps1` enables it by default and can skip it with `-SkipRealQaHardGate`.
+- Core real-link gates passed: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, ordinary no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+- `answerFaithfulness` passed: target citation count `1`, forbidden citation count `0`, expected marker satisfied, forbidden marker absent and citation marker present.
+- `hardNegative` remained REVIEW: a high lexical-overlap unsupported question returned `3` retrieve hits and `3` QA citations, with vector scores around `0.50-0.55`.
+
+Boundary: artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, answer text, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This is small real-link evidence of a hard-negative quality gap, not a large-scale benchmark.
+
 ## 2026-06-29 RAG Answer Grounding Smoke
 
 Status: PASS
