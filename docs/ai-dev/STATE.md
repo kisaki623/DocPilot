@@ -2,6 +2,9 @@
 
 ## 2026-06-29 Current Addendum
 
+- Chunk Quality v2 is implemented for the chunking / indexing path. Chunks now carry nested `sectionPath`, table / list structure detection, `window_split`, `mid_sentence_split` and `duplicate_content` quality flags; indexing metadata and Qdrant payload propagation include `sectionPath`.
+- Verification: `mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,DocumentChunkServiceImplTest,VectorPointTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS, 41 tests.
+- Boundary: this slice did not start tunnel/backend/frontend, create business data, call a real provider, change schema, touch remote Docker or run hk-ops.
 - RAG Retrieval Error Analysis Report v1 is implemented for offline KnowledgeBase RAG eval and RAG Real QA eval artifacts. It adds redacted buckets for missed retrieval, wrong retrieval, no-evidence refusal, unsupported citation, unsupported answer, forbidden leak, scope violation and ranking candidate pass counts.
 - The report is count / status / failure-reason only. It does not store document text, query text, answer text, model instructions, evidence context, credentials, cloud addresses or connection strings.
 - Verification: `mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest,KnowledgeBaseRagEvalRunnerTest" test` PASS, 5 tests.

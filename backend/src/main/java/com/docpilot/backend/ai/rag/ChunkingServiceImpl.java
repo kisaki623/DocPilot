@@ -7,7 +7,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ChunkingServiceImpl implements ChunkingService {
@@ -38,7 +40,7 @@ public class ChunkingServiceImpl implements ChunkingService {
         for (TextSpan chunkSpan : chunkSpans) {
             appendChunks(documentId, userId, normalizedText, chunkSpan, resolvedOptions, chunks);
         }
-        return List.copyOf(chunks);
+        return markDuplicateChunks(chunks);
     }
 
     private void appendChunks(Long documentId,
@@ -54,7 +56,7 @@ public class ChunkingServiceImpl implements ChunkingService {
             TextSpan chunkSpan = trimSpan(normalizedText, start, end);
             if (!chunkSpan.isEmpty()) {
                 String content = normalizedText.substring(chunkSpan.startOffset(), chunkSpan.endOffset()).trim();
-                SectionContext section = sectionContext(normalizedText, chunkSpan.startOffset());
+                SectionContext section = sectionContext(normalizedText, chunkSpan.startOffset(), chunkSpan.endOffset());
                 chunks.add(new DocumentChunkCandidate(
                         documentId,
                         userId,
@@ -66,9 +68,15 @@ public class ChunkingServiceImpl implements ChunkingService {
                         content.length(),
                         section.title(),
                         section.ordinal(),
+                        section.path(),
                         paragraph.startBlockOrdinal(),
                         structureType(content),
-                        qualityFlags(content, options)
+                        qualityFlags(
+                                content,
+                                options,
+                                chunkSpan.startOffset() > paragraph.startOffset(),
+                                chunkSpan.endOffset() < paragraph.endOffset()
+                        )
                 ));
             }
             if (end == paragraphEnd) {
@@ -172,31 +180,45 @@ public class ChunkingServiceImpl implements ChunkingService {
         return new TextSpan(resolvedStart, resolvedEnd, startBlockOrdinal, endBlockOrdinal);
     }
 
-    private SectionContext sectionContext(String text, int offset) {
+    private SectionContext sectionContext(String text, int startOffset, int endOffset) {
         int ordinal = 0;
+        int primaryOrdinal = 0;
         String title = "";
+        List<String> path = new ArrayList<>();
         int lineStart = 0;
-        while (lineStart <= text.length() && lineStart <= offset) {
+        int resolvedEnd = Math.max(startOffset, endOffset);
+        while (lineStart <= text.length() && lineStart <= resolvedEnd) {
             int lineEnd = text.indexOf('\n', lineStart);
             if (lineEnd < 0) {
                 lineEnd = text.length();
             }
-            String heading = markdownHeadingTitle(text.substring(lineStart, lineEnd));
-            if (!heading.isBlank()) {
+            Heading heading = markdownHeading(text.substring(lineStart, lineEnd));
+            if (!heading.title().isBlank()) {
                 ordinal++;
-                title = heading;
+                if (lineStart <= startOffset) {
+                    title = heading.title();
+                    primaryOrdinal = ordinal;
+                }
+                while (path.size() >= heading.depth()) {
+                    path.remove(path.size() - 1);
+                }
+                path.add(heading.title());
             }
             if (lineEnd == text.length()) {
                 break;
             }
             lineStart = lineEnd + 1;
         }
-        return new SectionContext(title, ordinal);
+        return new SectionContext(title, primaryOrdinal, String.join(" / ", path));
     }
 
     private String markdownHeadingTitle(String line) {
+        return markdownHeading(line).title();
+    }
+
+    private Heading markdownHeading(String line) {
         if (line == null) {
-            return "";
+            return new Heading("", 0);
         }
         String trimmed = line.trim();
         int depth = 0;
@@ -204,9 +226,9 @@ public class ChunkingServiceImpl implements ChunkingService {
             depth++;
         }
         if (depth == 0 || depth > 6 || depth >= trimmed.length() || !Character.isWhitespace(trimmed.charAt(depth))) {
-            return "";
+            return new Heading("", 0);
         }
-        return trimmed.substring(depth).trim();
+        return new Heading(trimmed.substring(depth).trim(), depth);
     }
 
     private String structureType(String content) {
@@ -217,10 +239,19 @@ public class ChunkingServiceImpl implements ChunkingService {
         if (content.lines().anyMatch(this::isFenceLine)) {
             return "code";
         }
+        if (isTableBlock(content)) {
+            return "table";
+        }
+        if (isListBlock(content)) {
+            return "list";
+        }
         return "paragraph";
     }
 
-    private String qualityFlags(String content, ChunkingOptions options) {
+    private String qualityFlags(String content,
+                                ChunkingOptions options,
+                                boolean splitFromPreviousWindow,
+                                boolean splitToNextWindow) {
         List<String> flags = new ArrayList<>();
         if (content.length() < Math.min(80, Math.max(1, options.chunkSize() / 4))) {
             flags.add("short");
@@ -228,7 +259,79 @@ public class ChunkingServiceImpl implements ChunkingService {
         if (content.indexOf('\uFFFD') >= 0) {
             flags.add("replacement_char");
         }
+        if (splitFromPreviousWindow || splitToNextWindow) {
+            flags.add("window_split");
+        }
+        if (splitToNextWindow && !endsAtNaturalBoundary(content)) {
+            flags.add("mid_sentence_split");
+        }
+        if (isTableBlock(content) && !hasMarkdownTableSeparator(content)) {
+            flags.add("table_header_weak");
+        }
         return flags.isEmpty() ? "none" : String.join(",", flags);
+    }
+
+    private List<DocumentChunkCandidate> markDuplicateChunks(List<DocumentChunkCandidate> chunks) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (DocumentChunkCandidate chunk : chunks) {
+            counts.merge(chunk.contentHash(), 1, Integer::sum);
+        }
+        List<DocumentChunkCandidate> marked = new ArrayList<>(chunks.size());
+        for (DocumentChunkCandidate chunk : chunks) {
+            if (counts.getOrDefault(chunk.contentHash(), 0) <= 1) {
+                marked.add(chunk);
+                continue;
+            }
+            marked.add(chunk.withQualityFlags(appendFlag(chunk.qualityFlags(), "duplicate_content")));
+        }
+        return List.copyOf(marked);
+    }
+
+    private String appendFlag(String qualityFlags, String flag) {
+        if (qualityFlags == null || qualityFlags.isBlank() || "none".equals(qualityFlags)) {
+            return flag;
+        }
+        if (List.of(qualityFlags.split(",")).contains(flag)) {
+            return qualityFlags;
+        }
+        return qualityFlags + "," + flag;
+    }
+
+    private boolean isTableBlock(String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+        long tableLines = content.lines()
+                .map(String::trim)
+                .filter(line -> line.startsWith("|") && line.endsWith("|"))
+                .count();
+        return tableLines >= 2;
+    }
+
+    private boolean hasMarkdownTableSeparator(String content) {
+        return content != null && content.lines()
+                .map(String::trim)
+                .anyMatch(line -> line.matches("^\\|?\\s*:?-{3,}:?\\s*(\\|\\s*:?-{3,}:?\\s*)+\\|?$"));
+    }
+
+    private boolean isListBlock(String content) {
+        if (content == null || content.isBlank()) {
+            return false;
+        }
+        long listLines = content.lines()
+                .map(String::trim)
+                .filter(line -> line.matches("^([-*+]\\s+|\\d+\\.\\s+).+"))
+                .count();
+        return listLines >= 2;
+    }
+
+    private boolean endsAtNaturalBoundary(String content) {
+        if (content == null || content.isBlank()) {
+            return true;
+        }
+        String trimmed = content.trim();
+        char last = trimmed.charAt(trimmed.length() - 1);
+        return ".!?;:。！？；：)]}`\"'".indexOf(last) >= 0;
     }
 
     private String firstNonBlankLine(String content) {
@@ -270,6 +373,9 @@ public class ChunkingServiceImpl implements ChunkingService {
         }
     }
 
-    private record SectionContext(String title, int ordinal) {
+    private record Heading(String title, int depth) {
+    }
+
+    private record SectionContext(String title, int ordinal, String path) {
     }
 }

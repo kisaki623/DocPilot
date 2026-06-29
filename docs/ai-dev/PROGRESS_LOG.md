@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v5.5 / Chunk Quality v2
+
+- Extended chunk metadata with nested `sectionPath`; indexing metadata and Qdrant payload propagation now include the same field.
+- Improved chunk structure detection for table and list blocks, while keeping section and code detection.
+- Added chunk quality flags for `window_split`, `mid_sentence_split` and `duplicate_content`, alongside existing short / replacement character checks.
+- Updated cloud quality smoke payload consistency field checks to include `sectionPath`.
+- Verified: `mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,DocumentChunkServiceImplTest,VectorPointTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS, 41 tests.
+- Boundary: local test-side / chunking / indexing metadata slice only; no tunnel/backend/frontend run, no business data creation, no real provider call, no schema change, no remote Docker or hk-ops operation.
+
 ## 2026-06-29 Quality Loop v5.4 / RAG Retrieval Error Analysis Report
 
 - Added a redacted `RagRetrievalErrorAnalysis` summary to KnowledgeBase RAG eval and RAG Real QA eval artifacts.

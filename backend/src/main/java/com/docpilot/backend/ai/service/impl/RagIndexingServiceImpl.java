@@ -283,6 +283,7 @@ public class RagIndexingServiceImpl implements RagIndexingService {
         Map<String, String> structure = new LinkedHashMap<>();
         copyMetadata(metadata, structure, "sectionTitle");
         copyMetadata(metadata, structure, "sectionOrdinal");
+        copyMetadata(metadata, structure, "sectionPath");
         copyMetadata(metadata, structure, "sourceBlockOrdinal");
         copyMetadata(metadata, structure, "structureType");
         copyMetadata(metadata, structure, "qualityFlags");

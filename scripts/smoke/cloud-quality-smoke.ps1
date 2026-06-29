@@ -515,7 +515,7 @@ function Test-QdrantConsistency([array]$chunks, [array]$points, [long]$documentI
         $mismatchedFields.Add($field)
       }
     }
-    foreach ($field in @("sectionTitle", "sectionOrdinal", "sourceBlockOrdinal", "structureType", "qualityFlags")) {
+    foreach ($field in @("sectionTitle", "sectionOrdinal", "sectionPath", "sourceBlockOrdinal", "structureType", "qualityFlags")) {
       $actual = $payload.$field
       if ($null -eq $actual -or [string]::IsNullOrWhiteSpace([string]$actual)) {
         $missingStructureFields.Add($field)

@@ -130,6 +130,7 @@ class ChunkingServiceImplTest {
         assertThat(chunks.get(0).content()).contains("## MCP");
         assertThat(chunks.get(0).sectionTitle()).isEqualTo("RAG");
         assertThat(chunks.get(0).sectionOrdinal()).isEqualTo(1);
+        assertThat(chunks.get(0).sectionPath()).isEqualTo("RAG / MCP");
         assertThat(chunks.get(0).sourceBlockOrdinal()).isZero();
         assertThat(chunks.get(0).structureType()).isEqualTo("section");
         assertThat(chunks.get(0).qualityFlags()).isEqualTo("none");
@@ -145,9 +146,11 @@ class ChunkingServiceImplTest {
         assertThat(chunks).allSatisfy(chunk -> {
             assertThat(chunk.sectionTitle()).isEqualTo("Alpha Section");
             assertThat(chunk.sectionOrdinal()).isEqualTo(1);
+            assertThat(chunk.sectionPath()).isEqualTo("Alpha Section");
             assertThat(chunk.sourceBlockOrdinal()).isGreaterThanOrEqualTo(0);
             assertThat(chunk.structureMetadata())
                     .containsEntry("sectionTitle", "Alpha Section")
+                    .containsEntry("sectionPath", "Alpha Section")
                     .containsEntry("structureType", chunk.structureType());
         });
         assertThat(chunks).extracting(DocumentChunkCandidate::sourceBlockOrdinal)
@@ -164,6 +167,30 @@ class ChunkingServiceImplTest {
 
         assertThat(chunks).hasSize(1);
         assertThat(chunks.get(0).content()).contains("```java\nclass Demo {\n\n}\n```");
+    }
+
+    @Test
+    void shouldBuildNestedSectionPathAndDetectStructuredBlocks() {
+        String text = "# Operations\n\n## Retrieval\n\n| Signal | Meaning |\n| --- | --- |\n| Hit | Evidence |\n\n- first check\n- second check";
+
+        List<DocumentChunkCandidate> chunks = chunkingService.chunk(101L, 7L, text, new ChunkingOptions(120, 10));
+
+        assertThat(chunks).isNotEmpty();
+        assertThat(chunks).allSatisfy(chunk -> assertThat(chunk.sectionPath()).startsWith("Operations"));
+        assertThat(chunks).anySatisfy(chunk -> assertThat(chunk.sectionPath()).isEqualTo("Operations / Retrieval"));
+        assertThat(chunks).anySatisfy(chunk -> assertThat(chunk.structureType()).isIn("section", "table", "list"));
+    }
+
+    @Test
+    void shouldFlagWindowSplitsAndDuplicateContent() {
+        String text = "repeatable duplicate marker one.\n\n"
+                + "repeatable duplicate marker one.\n\n"
+                + "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz";
+
+        List<DocumentChunkCandidate> chunks = chunkingService.chunk(101L, 7L, text, new ChunkingOptions(40, 5));
+
+        assertThat(chunks).anySatisfy(chunk -> assertThat(chunk.qualityFlags()).contains("duplicate_content"));
+        assertThat(chunks).anySatisfy(chunk -> assertThat(chunk.qualityFlags()).contains("window_split"));
     }
 
     @Test

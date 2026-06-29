@@ -56,6 +56,7 @@ class VectorPointTest {
         VectorPoint point = VectorPoint.fromDocumentChunk(chunk("hash-a"), vector(), "mock-model", Map.of(
                 "sectionTitle", "Alpha Section",
                 "sectionOrdinal", "1",
+                "sectionPath", "Alpha Section / Details",
                 "sourceBlockOrdinal", "0",
                 "structureType", "section",
                 "qualityFlags", "none"
@@ -64,6 +65,7 @@ class VectorPointTest {
         assertThat(point.payload())
                 .containsEntry("sectionTitle", "Alpha Section")
                 .containsEntry("sectionOrdinal", "1")
+                .containsEntry("sectionPath", "Alpha Section / Details")
                 .containsEntry("sourceBlockOrdinal", "0")
                 .containsEntry("structureType", "section")
                 .containsEntry("qualityFlags", "none");

@@ -67,6 +67,7 @@ class RagIndexingServiceImplTest {
         assertThat(embeddingProvider.requests.get(0).metadata())
                 .containsEntry("sectionTitle", "Alpha Section")
                 .containsEntry("sectionOrdinal", "1")
+                .containsEntry("sectionPath", "Alpha Section / Details")
                 .containsEntry("sourceBlockOrdinal", "0")
                 .containsEntry("structureType", "section")
                 .containsEntry("qualityFlags", "none");
@@ -87,6 +88,7 @@ class RagIndexingServiceImplTest {
                 .containsEntry("embeddingModel", "model-a")
                 .containsEntry("sectionTitle", "Alpha Section")
                 .containsEntry("sectionOrdinal", "1")
+                .containsEntry("sectionPath", "Alpha Section / Details")
                 .containsEntry("sourceBlockOrdinal", "0")
                 .containsEntry("structureType", "section")
                 .containsEntry("qualityFlags", "none")
@@ -334,7 +336,7 @@ class RagIndexingServiceImplTest {
                                                               String structureType,
                                                               String qualityFlags) {
         return new DocumentChunkCandidate(61L, 7L, chunkIndex, content, contentHash, startOffset, endOffset, tokenCount,
-                sectionTitle, sectionOrdinal, sourceBlockOrdinal, structureType, qualityFlags);
+                sectionTitle, sectionOrdinal, "Alpha Section / Details", sourceBlockOrdinal, structureType, qualityFlags);
     }
 
     private static EmbeddingResult embedding(String model, Double... values) {

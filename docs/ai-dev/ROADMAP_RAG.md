@@ -2,6 +2,8 @@
 
 ## 2026-06-29 Roadmap Addendum
 
+- A5 Chunk Quality v2 is DONE for the chunking / indexing path: chunks now carry nested `sectionPath`, table / list detection, window / mid-sentence split flags and duplicate content flags; `sectionPath` is propagated to indexing metadata and Qdrant payload consistency checks.
+- This improves diagnosis of retrieval failures caused by structural chunking, but existing indexed documents need rebuild / reindex before their stored MySQL chunks and Qdrant payloads reflect the new metadata.
 - A4 Retrieval Error Analysis Report v1 is DONE for offline eval artifacts: KnowledgeBase RAG eval and RAG Real QA eval now output redacted error buckets for retrieval miss, wrong retrieval, no-evidence refusal, citation support, answer support, forbidden leakage, scope isolation and ranking candidate pass counts.
 - This strengthens ML-system evaluation explainability, but remains an offline gate. Real-link quality claims still require cloud smoke / runtime evidence.
 

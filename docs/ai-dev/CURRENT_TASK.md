@@ -1,5 +1,16 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v5.5: Chunk Quality v2 (DONE)
+
+## 2026-06-29 Addendum: Quality Loop v5.5 Chunk Quality v2
+
+- Goal: continue A5 by making chunk quality metadata more useful for real RAG diagnosis, especially section path, structured blocks and split / duplicate signals.
+- Done: `DocumentChunkCandidate` now carries `sectionPath`; `ChunkingServiceImpl` builds nested heading paths, detects table / list blocks, flags window and mid-sentence splits, and marks duplicate chunk content. Indexing metadata and Qdrant payload propagation now include `sectionPath`.
+- Smoke gate sync: `cloud-quality-smoke.ps1` now includes `sectionPath` in the MySQL / Qdrant payload consistency field set.
+- Verified: `mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,DocumentChunkServiceImplTest,VectorPointTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS, 41 tests.
+- Boundary: no database schema change, no backend / frontend / tunnel startup, no business data creation, no real provider call, no remote Docker or hk-ops operation in this slice.
+- Next: continue A6 default-off KnowledgeBase query rewrite / multi-query retrieval, then decide whether to run a full real cloud quality smoke after A6.
+
 Current task: DocPilot Quality Loop v5.4: RAG Retrieval Error Analysis Report (DONE)
 
 ## 2026-06-29 Addendum: Quality Loop v5.4 RAG Retrieval Error Analysis Report

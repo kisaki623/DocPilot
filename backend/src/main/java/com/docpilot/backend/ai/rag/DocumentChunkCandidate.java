@@ -14,6 +14,7 @@ public record DocumentChunkCandidate(
         int tokenCount,
         String sectionTitle,
         int sectionOrdinal,
+        String sectionPath,
         int sourceBlockOrdinal,
         String structureType,
         String qualityFlags
@@ -28,7 +29,7 @@ public record DocumentChunkCandidate(
                                   int endOffset,
                                   int tokenCount) {
         this(documentId, userId, chunkIndex, content, contentHash, startOffset, endOffset, tokenCount,
-                "", 0, chunkIndex, "paragraph", "none");
+                "", 0, "", chunkIndex, "paragraph", "none");
     }
 
     public DocumentChunkCandidate {
@@ -57,6 +58,7 @@ public record DocumentChunkCandidate(
         if (sectionOrdinal < 0) {
             throw new IllegalArgumentException("sectionOrdinal must be non-negative");
         }
+        sectionPath = safeText(sectionPath);
         if (sourceBlockOrdinal < 0) {
             throw new IllegalArgumentException("sourceBlockOrdinal must be non-negative");
         }
@@ -74,10 +76,30 @@ public record DocumentChunkCandidate(
         Map<String, String> metadata = new LinkedHashMap<>();
         metadata.put("sectionTitle", sectionTitle);
         metadata.put("sectionOrdinal", String.valueOf(sectionOrdinal));
+        metadata.put("sectionPath", sectionPath);
         metadata.put("sourceBlockOrdinal", String.valueOf(sourceBlockOrdinal));
         metadata.put("structureType", structureType);
         metadata.put("qualityFlags", qualityFlags);
         return metadata;
+    }
+
+    public DocumentChunkCandidate withQualityFlags(String resolvedQualityFlags) {
+        return new DocumentChunkCandidate(
+                documentId,
+                userId,
+                chunkIndex,
+                content,
+                contentHash,
+                startOffset,
+                endOffset,
+                tokenCount,
+                sectionTitle,
+                sectionOrdinal,
+                sectionPath,
+                sourceBlockOrdinal,
+                structureType,
+                resolvedQualityFlags
+        );
     }
 
     private static String safeText(String value) {
