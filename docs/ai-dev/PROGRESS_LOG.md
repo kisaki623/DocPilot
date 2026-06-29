@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-06-29 Quality Loop v5.3 / RAG Real Provider Faithfulness Smoke
+
+- 已给 `cloud-quality-smoke.ps1` 增加 `-EnableRealProviderFaithfulnessGate`，并让 `rag-real-qa-eval-smoke.ps1` 默认开启该 gate、支持 `-SkipRealProviderFaithfulnessGate`。
+- Gate 只保存 provider / model / modelCallCount / answerLength / noEvidence / passed 等脱敏摘要；不保存回答原文、文档原文、prompt、evidence context、token、云地址或连接串。
+- 首次真实 run 暴露 `answerFaithfulness` 问法不稳，真实回答未带出 `ALPHA-CLOUD-GATE` 与 citation marker；已把问题收窄为直接询问 `ALPHA-CLOUD-GATE`，随后重跑 PASS。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629191831-69d71e`。
+- 真实结果：`realProviderFaithfulness` PASS，`knowledgeBaseRag`、`answerFaithfulness`、`claimSupport`、`numericFaithfulness` 四个 scope 均观察到非 mock provider、`modelCallCount=1`、`noEvidence=false`、answer length 大于 `0`；hard gate、semantic gate、representative corpus、answer grounding、no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 均保持 PASS。
+- 边界：这是小规模真实 provider smoke，不是大规模 answer faithfulness benchmark、通用 entailment scorer 或线上 SLA；artifact 位于 ignored `backend/target/rag-real-qa/.../artifact.json`，不提交原文。
+
 ## 2026-06-29 Quality Loop v5.2 / RAG Claim Support Evidence Scorer
 
 - 已新增 test-side `RagClaimSupportScorer` / `RagClaimSupportScore`：Real QA Eval case 可声明 `expectedClaims`，每个 claim 只包含脱敏 claim id、answer marker、evidence marker 和 forbidden marker。

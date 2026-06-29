@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：DocPilot Quality Loop v5.2：RAG Claim Support Evidence Scorer（DONE）
+当前任务：DocPilot Quality Loop v5.3：RAG Real Provider Faithfulness Smoke（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v5.3 RAG Real Provider Faithfulness Smoke
+
+- 目标：完成用户选择的 A1，把 RAG Real QA smoke 从“真实链路 retrieve / citation / marker gate”推进到“小规模真实回答 provider answer faithfulness 证据”，确认关键 grounded QA 不是 mock 回答。
+- 已完成 runner 增强：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealProviderFaithfulnessGate`，`rag-real-qa-eval-smoke.ps1` 默认开启并提供 `-SkipRealProviderFaithfulnessGate`；gate 只保存 `answerProvider`、`answerModel`、`modelCallCount`、`answerLength`、`noEvidence` 和 `passed`，不保存回答原文、prompt、文档原文、evidence context、token、云地址或连接串。
+- 真实 run 过程：首次 run 暴露 `realQaHardGate.answerFaithfulness` 问法不够稳定，真实回答未带出 `ALPHA-CLOUD-GATE` / citation marker，整体 `FAILED_CORE_FLOW`；随后把该问法收窄为直接询问 `ALPHA-CLOUD-GATE` 本身并重跑。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629191831-69d71e`。
+- 关键结果：`realProviderFaithfulness` PASS，`knowledgeBaseRag`、`answerFaithfulness`、`claimSupport`、`numericFaithfulness` 四个 scope 均为非 mock provider、`modelCallCount=1`、`noEvidence=false`、answer length 大于 `0`；`realQaHardGate`、`realQaSemanticGate`、representative corpus、answer grounding、no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 均保持 PASS。
+- 边界：本片是小规模真实 provider smoke，不是大规模 answer faithfulness benchmark、通用语义蕴含模型或线上 SLA；真实 smoke 创建了临时 smoke 用户、文档、KnowledgeBase、Conversation 和 ignored 脱敏 artifact，不提交 artifact 原文，不 push。
+- 下一步：A1 + A2 + A3 已完成一轮闭环；后续可继续做 A4“真实失败样本审计与题库沉淀”，把首次 run 这种问法不稳的 case 系统化记录成 REVIEW 样本，或转向 Memory 真实 provider 抽取质量小样本。
 
 ## 2026-06-29 追加任务：Quality Loop v5.2 RAG Claim Support Evidence Scorer
 

@@ -1017,7 +1017,7 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
       passed = ([bool]$realQaHardNegativeRetrieve.data.noEvidence -and [bool]$realQaHardNegativeQa.data.noEvidence)
     }
 
-    $realQaFaithfulnessQuestion = "Which evidence explains chunk metadata from MySQL before trusting RAG output? Include ALPHA-CLOUD-GATE and cite the exact evidence."
+    $realQaFaithfulnessQuestion = "What does ALPHA-CLOUD-GATE prove for $smokeMarker? Include ALPHA-CLOUD-GATE verbatim and cite the exact Alpha evidence."
     $realQaFaithfulnessRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" ([ordered]@{ query = $realQaFaithfulnessQuestion; topK = 1; indexVersion = $IndexVersion }) $tokenA
     $realQaFaithfulnessQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" ([ordered]@{ question = $realQaFaithfulnessQuestion; topK = 1; indexVersion = $IndexVersion }) $tokenA
     $faithfulnessGrounding = Test-AnswerGrounding "answerFaithfulness" ([string]$realQaFaithfulnessQa.data.answer) @("ALPHA-CLOUD-GATE") @("BETA-CONTEXT-GATE", "real-marketing-export-forbidden-marker")

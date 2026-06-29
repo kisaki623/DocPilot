@@ -4,6 +4,24 @@
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
 
+## 2026-06-29 RAG Real Provider Faithfulness Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260629191831-69d71e`
+
+Verified gates:
+
+- `realProviderFaithfulness` passed for `knowledgeBaseRag`, `answerFaithfulness`, `claimSupport`, and `numericFaithfulness`.
+- Each checked scope observed a non-mock answer provider, `modelCallCount=1`, `noEvidence=false`, and a non-empty answer.
+- Core real-link gates remained PASS: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, hard negative gate, semantic gate, ordinary no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+
+Boundary: the first run exposed an unstable `answerFaithfulness` question that did not force the expected marker / citation marker; the runner question was narrowed and the second run passed. Artifact is stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, answer text, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens. This is a small real-provider smoke, not a large-scale answer faithfulness benchmark, general entailment model or online SLA.
+
 ## 2026-06-29 RAG Real QA Semantic Gate Smoke
 
 Status: PASS
