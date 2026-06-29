@@ -14,7 +14,8 @@ param(
   [switch]$ReuseRunningServices,
   [switch]$SkipRepresentativeCorpusGate,
   [switch]$SkipRealQaHardGate,
-  [switch]$SkipRealQaSemanticGate
+  [switch]$SkipRealQaSemanticGate,
+  [switch]$SkipRealProviderFaithfulnessGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -30,6 +31,7 @@ function Show-RagRealQaPlan {
     representativeCorpusEnabledByDefault = (-not [bool]$SkipRepresentativeCorpusGate)
     realQaHardGateEnabledByDefault = (-not [bool]$SkipRealQaHardGate)
     realQaSemanticGateEnabledByDefault = (-not [bool]$SkipRealQaSemanticGate)
+    realProviderFaithfulnessGateEnabledByDefault = (-not [bool]$SkipRealProviderFaithfulnessGate)
     caseTypes = @(
       "factual_lookup",
       "cross_document_summary",
@@ -43,6 +45,7 @@ function Show-RagRealQaPlan {
       "answer_faithfulness",
       "claim_support",
       "numeric_faithfulness",
+      "real_provider_faithfulness",
       "representative_corpus",
       "answer_grounding"
     )
@@ -60,6 +63,7 @@ function Show-RagRealQaPlan {
       "answerGrounding",
       "realQaHardGate",
       "realQaSemanticGate",
+      "realProviderFaithfulness",
       "noEvidenceThreshold",
       "conversationTrace",
       "permissionIsolation",
@@ -112,6 +116,9 @@ if (-not $SkipRealQaHardGate) {
 }
 if (-not $SkipRealQaSemanticGate) {
   $argsList += "-EnableRealQaSemanticGate"
+}
+if (-not $SkipRealProviderFaithfulnessGate) {
+  $argsList += "-EnableRealProviderFaithfulnessGate"
 }
 
 & powershell.exe @argsList

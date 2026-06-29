@@ -17,7 +17,8 @@ param(
   [switch]$EnableRerankHardGate,
   [switch]$EnableRepresentativeCorpusGate,
   [switch]$EnableRealQaHardGate,
-  [switch]$EnableRealQaSemanticGate
+  [switch]$EnableRealQaSemanticGate,
+  [switch]$EnableRealProviderFaithfulnessGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -712,6 +713,22 @@ function Test-AnswerGrounding([string]$scope, [string]$answer, [string[]]$expect
   }
 }
 
+function Test-RealAnswerProvider([string]$scope, $qaResponse) {
+  $provider = [string]$qaResponse.data.answerProvider
+  $model = [string]$qaResponse.data.answerModel
+  $modelCallCount = [int]$qaResponse.data.modelCallCount
+  $answer = [string]$qaResponse.data.answer
+  return [ordered]@{
+    scope = $scope
+    answerProvider = $provider
+    answerModel = $model
+    modelCallCount = $modelCallCount
+    answerLength = $answer.Length
+    noEvidence = [bool]$qaResponse.data.noEvidence
+    passed = ($provider -and $provider -ne "mock" -and $modelCallCount -ge 1 -and $answer.Length -gt 0 -and (-not [bool]$qaResponse.data.noEvidence))
+  }
+}
+
 function Show-PlanMode() {
   [PSCustomObject][ordered]@{
     mode = "plan"
@@ -719,7 +736,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -787,6 +804,7 @@ function Invoke-Run() {
   $representativeCorpusResources = $null
   $realQaHardGateChecks = $null
   $realQaSemanticGateChecks = $null
+  $realProviderFaithfulnessChecks = $null
   Set-Gate "auth" "PASS" @("registered user A", "registered user B")
 
   $alphaText = @"
@@ -1095,6 +1113,27 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
       Set-Gate "realQaSemanticGate" "REVIEW" $realQaSemanticGateChecks "claim support or numeric faithfulness gate did not satisfy grounded answer checks"
     } else {
       Set-Gate "realQaSemanticGate" "PASS" $realQaSemanticGateChecks
+    }
+  }
+
+  if ($EnableRealProviderFaithfulnessGate) {
+    $realProviderFaithfulnessChecks = @(
+      Test-RealAnswerProvider "knowledgeBaseRag" $kbQa
+    )
+    if ($null -ne $realQaFaithfulnessQa) {
+      $realProviderFaithfulnessChecks += Test-RealAnswerProvider "answerFaithfulness" $realQaFaithfulnessQa
+    }
+    if ($null -ne $claimSupportQa) {
+      $realProviderFaithfulnessChecks += Test-RealAnswerProvider "claimSupport" $claimSupportQa
+    }
+    if ($null -ne $numericFaithfulnessQa) {
+      $realProviderFaithfulnessChecks += Test-RealAnswerProvider "numericFaithfulness" $numericFaithfulnessQa
+    }
+    $failedRealProviderFaithfulness = @($realProviderFaithfulnessChecks | Where-Object { -not $_.passed })
+    if ($failedRealProviderFaithfulness.Count -gt 0) {
+      Set-Gate "realProviderFaithfulness" "REVIEW" $realProviderFaithfulnessChecks "real answer provider gate did not observe non-mock grounded answers"
+    } else {
+      Set-Gate "realProviderFaithfulness" "PASS" $realProviderFaithfulnessChecks
     }
   }
 
@@ -1426,6 +1465,8 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
       realQaHardGate = $realQaHardGateChecks
       realQaSemanticGateEnabled = [bool]$EnableRealQaSemanticGate
       realQaSemanticGate = $realQaSemanticGateChecks
+      realProviderFaithfulnessGateEnabled = [bool]$EnableRealProviderFaithfulnessGate
+      realProviderFaithfulnessGate = $realProviderFaithfulnessChecks
       conversationId = [long]$conversation.data.conversationId
       messageId = [long]$message.data.messageId
     }
