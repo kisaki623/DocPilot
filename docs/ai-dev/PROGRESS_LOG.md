@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-03 Quality Loop v6.2 / Multi-query Real Smoke Gate Runner
+
+- Added optional `-EnableMultiQueryGate` to `cloud-quality-smoke.ps1`.
+- Updated `rag-real-qa-eval-smoke.ps1` to enable the multi-query gate by default and expose `-SkipMultiQueryGate`.
+- The gate uses request-scoped `multiQueryEnabled=true` / `maxQueryVariants=4`, then records redacted multi-query trigger counts, dedupe counts, two-document retrieve/citation coverage and answer-grounding checks.
+- Verified: `rag-real-qa-eval-smoke.ps1 -Mode plan` PASS; `rag-real-qa-eval-smoke.ps1 -Mode dry-run` PASS; `mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS, 3 tests.
+- Boundary: runner/control-plane slice only; no real `run` mode yet, no tunnel/backend/frontend startup, no business data creation, no real provider call and no artifact submission.
+
 ## 2026-07-03 Quality Loop v6.1 / Request-scoped Multi-query Retrieval Eval
 
 - Added request-level `multiQueryEnabled` and `maxQueryVariants` controls to KnowledgeBase retrieve and QA APIs.

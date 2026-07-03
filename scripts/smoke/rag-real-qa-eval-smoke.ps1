@@ -13,6 +13,7 @@ param(
   [switch]$SkipFrontend,
   [switch]$ReuseRunningServices,
   [switch]$SkipRepresentativeCorpusGate,
+  [switch]$SkipMultiQueryGate,
   [switch]$SkipRealQaHardGate,
   [switch]$SkipRealQaSemanticGate,
   [switch]$SkipRealProviderFaithfulnessGate
@@ -29,6 +30,7 @@ function Show-RagRealQaPlan {
     artifactRoot = $ArtifactRoot
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
     representativeCorpusEnabledByDefault = (-not [bool]$SkipRepresentativeCorpusGate)
+    multiQueryGateEnabledByDefault = (-not [bool]$SkipMultiQueryGate)
     realQaHardGateEnabledByDefault = (-not [bool]$SkipRealQaHardGate)
     realQaSemanticGateEnabledByDefault = (-not [bool]$SkipRealQaSemanticGate)
     realProviderFaithfulnessGateEnabledByDefault = (-not [bool]$SkipRealProviderFaithfulnessGate)
@@ -47,6 +49,7 @@ function Show-RagRealQaPlan {
       "numeric_faithfulness",
       "real_provider_faithfulness",
       "representative_corpus",
+      "multi_query",
       "answer_grounding"
     )
     gates = @(
@@ -59,6 +62,7 @@ function Show-RagRealQaPlan {
       "mysqlQdrantConsistency",
       "singleDocumentRag",
       "knowledgeBaseRag",
+      "multiQueryRag",
       "representativeCorpus",
       "answerGrounding",
       "realQaHardGate",
@@ -110,6 +114,9 @@ if ($ReuseRunningServices) {
 }
 if (-not $SkipRepresentativeCorpusGate) {
   $argsList += "-EnableRepresentativeCorpusGate"
+}
+if (-not $SkipMultiQueryGate) {
+  $argsList += "-EnableMultiQueryGate"
 }
 if (-not $SkipRealQaHardGate) {
   $argsList += "-EnableRealQaHardGate"

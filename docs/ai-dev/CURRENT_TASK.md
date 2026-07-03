@@ -1,5 +1,15 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v6.2: Multi-query Real Smoke Gate Runner (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.2 Multi-query Real Smoke Gate Runner
+
+- Goal: continue R1 by making the real cloud quality smoke able to explicitly exercise request-scoped multi-query retrieval, without changing the default cloud-quality runner behavior.
+- Done: `cloud-quality-smoke.ps1` now supports optional `-EnableMultiQueryGate`; `rag-real-qa-eval-smoke.ps1` enables that gate by default and exposes `-SkipMultiQueryGate`.
+- Gate behavior: the optional gate sends KnowledgeBase retrieve / QA requests with `multiQueryEnabled=true` and `maxQueryVariants=4`, then records redacted checks for `multiQueryApplied`, `queryVariantCount`, `queryDedupeCount`, two-document retrieve/citation coverage and answer grounding.
+- Verified: `rag-real-qa-eval-smoke.ps1 -Mode plan` PASS; `rag-real-qa-eval-smoke.ps1 -Mode dry-run` PASS; `mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS, 3 tests.
+- Boundary: this slice did not run `run` mode, did not start tunnel/backend/frontend, did not create business data, did not call a real provider, did not submit artifacts and did not push. Real-link multi-query evidence still requires the next smoke run.
+
 Current task: DocPilot Quality Loop v6.1: Request-scoped Multi-query Retrieval Eval (DONE)
 
 ## 2026-07-03 Addendum: Quality Loop v6.1 Request-scoped Multi-query Retrieval Eval

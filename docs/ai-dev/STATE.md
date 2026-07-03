@@ -2,6 +2,9 @@
 
 ## 2026-06-29 Current Addendum
 
+- 2026-07-03 R1 multi-query real smoke gate runner is implemented: `cloud-quality-smoke.ps1` has optional `-EnableMultiQueryGate`, and `rag-real-qa-eval-smoke.ps1` enables it by default with `-SkipMultiQueryGate` available.
+- The gate stores only redacted multi-query booleans/counts, score summaries, document coverage counts and answer-grounding status. Verification so far is plan / dry-run / script safety only; real `run` evidence is still pending.
+
 - 2026-07-03 R1 request-scoped multi-query retrieval control is implemented for KnowledgeBase retrieve and QA APIs. Requests can now explicitly set `multiQueryEnabled` and `maxQueryVariants`; absent fields keep the existing default-off global behavior.
 - KnowledgeBase offline eval now includes `retrievalModeMetrics.multi_query` alongside `vector` and `hybrid`, so multi-query can be compared in redacted artifacts without storing rewritten query text, document text, prompt, evidence context or answer output.
 - Verification: `mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalFixtureTest,RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 211 tests.

@@ -2,6 +2,8 @@
 
 ## 2026-07-03 Roadmap Addendum
 
+- R1 smoke runner slice is DONE: `cloud-quality-smoke.ps1 -EnableMultiQueryGate` can now validate request-scoped multi-query retrieval in the real cloud quality flow, and the RAG Real QA wrapper enables it by default while keeping a skip switch.
+- Verification so far: wrapper `plan` / `dry-run` PASS and script safety tests PASS. Real-link enabled multi-query smoke is the next required evidence before claiming runtime quality uplift.
 - R1 first slice is DONE: KnowledgeBase retrieve and QA APIs now support request-scoped `multiQueryEnabled` / `maxQueryVariants`, with absent fields preserving the default-off global behavior.
 - Offline KnowledgeBase RAG eval artifacts now compare `retrievalModeMetrics.vector`, `retrievalModeMetrics.hybrid` and `retrievalModeMetrics.multi_query`, keeping the report redacted and query-text-free.
 - Verification: targeted R1 tests PASS, 32 tests; broader `*Rag*,*KnowledgeBase*` regression PASS, 211 tests.

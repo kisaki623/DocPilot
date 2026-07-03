@@ -16,6 +16,7 @@ param(
   [switch]$EnableMemoryQualityGate,
   [switch]$EnableRerankHardGate,
   [switch]$EnableRepresentativeCorpusGate,
+  [switch]$EnableMultiQueryGate,
   [switch]$EnableRealQaHardGate,
   [switch]$EnableRealQaSemanticGate,
   [switch]$EnableRealProviderFaithfulnessGate
@@ -736,7 +737,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -802,6 +803,7 @@ function Invoke-Run() {
   $userBId = [long]$regB.data.userId
   $rerankHardResources = $null
   $representativeCorpusResources = $null
+  $multiQueryGateChecks = $null
   $realQaHardGateChecks = $null
   $realQaSemanticGateChecks = $null
   $realProviderFaithfulnessChecks = $null
@@ -924,6 +926,54 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
   }
   $answerGroundingChecks += Test-AnswerGrounding "knowledgeBaseRag" ([string]$kbQa.data.answer) @("ALPHA-CLOUD-GATE", "BETA-CONTEXT-GATE") @("real-marketing-export-forbidden-marker")
   Set-Gate "knowledgeBaseRag" "PASS" $kbChecks
+
+  if ($EnableMultiQueryGate) {
+    $multiQueryQuestion = "Compare the alpha chunk quality evidence and beta context trace evidence for $smokeMarker. Include ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE verbatim, and cite both documents."
+    $multiQueryBody = [ordered]@{
+      query = $multiQueryQuestion
+      topK = 6
+      indexVersion = $IndexVersion
+      multiQueryEnabled = $true
+      maxQueryVariants = 4
+    }
+    $multiQueryQaBody = [ordered]@{
+      question = $multiQueryQuestion
+      topK = 6
+      indexVersion = $IndexVersion
+      multiQueryEnabled = $true
+      maxQueryVariants = 4
+    }
+    $multiQueryRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/rag/retrieve" $multiQueryBody $tokenA
+    $multiQueryQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($kb.data.id)/qa/rag" $multiQueryQaBody $tokenA
+    $multiQueryHits = @($multiQueryRetrieve.data.hits)
+    $multiQueryCitations = @($multiQueryQa.data.citations)
+    $multiQueryGateChecks = @([ordered]@{
+        retrieveHits = $multiQueryHits.Count
+        qaCitations = $multiQueryCitations.Count
+        documentHitCounts = $multiQueryRetrieve.data.documentHitCounts
+        alphaRetrieveCount = Get-DocumentHitCount $multiQueryHits ([long]$docA.data.id)
+        betaRetrieveCount = Get-DocumentHitCount $multiQueryHits ([long]$docB.data.id)
+        alphaCitationCount = Get-DocumentHitCount $multiQueryCitations ([long]$docA.data.id)
+        betaCitationCount = Get-DocumentHitCount $multiQueryCitations ([long]$docB.data.id)
+        multiQueryApplied = [bool]$multiQueryRetrieve.data.multiQueryApplied
+        queryVariantCount = [int]$multiQueryRetrieve.data.queryVariantCount
+        queryDedupeCount = [int]$multiQueryRetrieve.data.queryDedupeCount
+        retrievalMode = $multiQueryRetrieve.data.retrievalMode
+        retrieveScoreSummary = Get-ScoreSummary $multiQueryHits
+        citationScoreSummary = Get-ScoreSummary $multiQueryCitations
+        retrieveVectorScoreSummary = Get-FieldScoreSummary $multiQueryHits "vectorScore"
+        citationVectorScoreSummary = Get-FieldScoreSummary $multiQueryCitations "vectorScore"
+      })
+    if ((-not [bool]$multiQueryRetrieve.data.multiQueryApplied) -or [int]$multiQueryRetrieve.data.queryVariantCount -lt 2 -or
+      $multiQueryHits.Count -lt 2 -or $multiQueryCitations.Count -lt 2 -or
+      $multiQueryGateChecks[0].alphaRetrieveCount -lt 1 -or $multiQueryGateChecks[0].betaRetrieveCount -lt 1 -or
+      $multiQueryGateChecks[0].alphaCitationCount -lt 1 -or $multiQueryGateChecks[0].betaCitationCount -lt 1) {
+      Set-Gate "multiQueryRag" "REVIEW" $multiQueryGateChecks "multi-query gate did not trigger or did not cover both smoke documents"
+    } else {
+      Set-Gate "multiQueryRag" "PASS" $multiQueryGateChecks
+    }
+    $answerGroundingChecks += Test-AnswerGrounding "multiQueryRag" ([string]$multiQueryQa.data.answer) @("ALPHA-CLOUD-GATE", "BETA-CONTEXT-GATE") @("real-marketing-export-forbidden-marker")
+  }
 
   if ($EnableRepresentativeCorpusGate) {
     $gammaText = @"
@@ -1458,6 +1508,8 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
       memoryId = [long]$memory.data.memoryId
       representativeCorpusGateEnabled = [bool]$EnableRepresentativeCorpusGate
       representativeCorpusGate = $representativeCorpusResources
+      multiQueryGateEnabled = [bool]$EnableMultiQueryGate
+      multiQueryGate = $multiQueryGateChecks
       memoryQualityGateEnabled = [bool]$EnableMemoryQualityGate
       rerankHardGateEnabled = [bool]$EnableRerankHardGate
       rerankHardGate = $rerankHardResources
