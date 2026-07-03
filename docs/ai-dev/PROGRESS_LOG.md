@@ -7,6 +7,7 @@
 - 已补 `cloud-quality-smoke.ps1` 的 `shortDocumentRag` gate，覆盖短单文档 retrieve / QA citation、短双文档 KB retrieve / QA citation 和 answer grounding；短文档上传改用用户 B，避免用户 A 触发上传限流。
 - 已完成 quote-first citation UI 代码修复和权限 / 不存在场景中文错误归一化；这两项仍建议后续补浏览器点击级细验。
 - 已验证：`mvn "-Dtest=RagDocumentRetrievalServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS；`npm run lint` PASS；`npm run build` PASS；`cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `cloud-quality-smoke.ps1 -Mode run` PASS，marker `docpilot-cloud-quality-20260703213703-dbef08`。
+- 追加浏览器细验尝试：`docpilot-ui-verify-mr50eghq-9ed7ca` 未收口；API 预检已有 hit 且 `noEvidence=false`，但文档详情页 quote marker 未在等待窗口内展示。P2/P3 仍保持 `FIXED_PENDING_VERIFY`，下一片应优先排查文档详情页 RAG 检索预览的数据映射。
 - 边界：未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
 
 ## 2026-07-03 中文记录与真实体验问题自动台账
