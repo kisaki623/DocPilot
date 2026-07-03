@@ -2,6 +2,8 @@
 
 ## 2026-07-03 Roadmap Addendum
 
+- M1 first slice is DONE for artifact honesty: Memory Quality Eval now distinguishes rule-based extraction from real-provider-backed extraction through `providerBackedCaseRate`, `providerEvaluation`, per-case `extractionProvider` and `providerBacked`.
+- Current M1 evidence remains rule-based only. The next M1 slice should add a gated, small real-provider memory extraction comparison or a real-link smoke gate before claiming LLM memory extraction quality.
 - R3 first slice is DONE: RAG citations now expose quote-level fields for both single-document and KnowledgeBase paths. This makes evidence easier to audit than chunk-level snippets alone while keeping existing response fields compatible.
 - The current R3 slice is API/test-side only. It does not change retrieval ranking, answer generation, schema or runtime smoke behavior; quote-first frontend rendering should be done as a separate encoding-safe UI slice.
 - R1 runtime evidence is now DONE: real RAG QA smoke marker `docpilot-rag-real-qa-20260703192456-2a62e9` passed with `multiQueryRag` enabled, `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, and two-document retrieve/citation coverage.

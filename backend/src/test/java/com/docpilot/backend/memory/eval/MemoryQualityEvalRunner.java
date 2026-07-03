@@ -178,7 +178,9 @@ public class MemoryQualityEvalRunner {
                 ragEvidenceIsolationHit,
                 traceCountsHit,
                 passed,
-                failureReasons
+                failureReasons,
+                "rule_based",
+                false
         );
     }
 

@@ -27,6 +27,16 @@ class MemoryQualityEvalRunnerTest {
         assertThat(result.metrics().noiseSuppressionRate()).isEqualTo(1.0D);
         assertThat(result.metrics().temporaryInstructionSuppressionRate()).isEqualTo(1.0D);
         assertThat(result.metrics().traceSourceCountRate()).isEqualTo(1.0D);
+        assertThat(result.metrics().providerBackedCaseRate()).isEqualTo(0.0D);
+        assertThat(result.providerEvaluation().extractionProvider()).isEqualTo("rule_based");
+        assertThat(result.providerEvaluation().status()).isEqualTo("not_configured");
+        assertThat(result.providerEvaluation().realProviderConfigured()).isFalse();
+        assertThat(result.providerEvaluation().modelCallCount()).isZero();
+        assertThat(result.providerEvaluation().rawProviderOutputStored()).isFalse();
+        assertThat(result.caseEvaluations()).allSatisfy(evaluation -> {
+            assertThat(evaluation.extractionProvider()).isEqualTo("rule_based");
+            assertThat(evaluation.providerBacked()).isFalse();
+        });
 
         Path artifact = Path.of("target", "memory-eval", "memory-quality-eval-test.json");
         runner.writeArtifact(result, artifact);
@@ -36,6 +46,10 @@ class MemoryQualityEvalRunnerTest {
         assertThat(json).contains("suggestionSafetyRate");
         assertThat(json).contains("noiseSuppressionRate");
         assertThat(json).contains("traceSourceCountRate");
+        assertThat(json).contains("providerBackedCaseRate");
+        assertThat(json).contains("providerEvaluation");
+        assertThat(json).contains("realProviderConfigured");
+        assertThat(json).contains("rawProviderOutputStored");
         assertThat(json).doesNotContain(".env");
         assertThat(json).doesNotContain("RAG evidence:");
         assertThat(json).doesNotContain("以后请回答");

@@ -2,6 +2,11 @@
 
 ## 2026-06-29 Current Addendum
 
+- 2026-07-03 M1 Memory provider-readiness artifact is DONE for the offline eval path. Memory Quality Eval now reports `providerBackedCaseRate` and a redacted `providerEvaluation` block so artifacts clearly state that current extraction evidence is `rule_based`, `not_configured` for real provider, `modelCallCount=0` and `rawProviderOutputStored=false`.
+- Per-case memory eval summaries now include `extractionProvider` and `providerBacked`, making later real-provider small-sample comparisons possible without changing the safe artifact contract again.
+- Boundary: this does not claim real LLM long-term memory extraction quality; it is an artifact honesty / readiness slice with no provider call, no runtime smoke, no schema change and no raw conversation or memory text stored.
+- Verification: targeted Memory / Context tests PASS, 27 tests; wider RAG / KnowledgeBase / Conversation / Memory regression PASS, 274 tests.
+
 - 2026-07-03 R3 quote-level citation API is DONE. Single-document RAG and KnowledgeBase RAG citations now expose `quoteText`, `quoteStartOffset` and `quoteEndOffset` alongside existing chunk-level `snippet`, chunk offsets and scores.
 - The quote is derived from the retrieved chunk and prefers an evidence-marker-bearing sentence when available; offsets are chunk-offset-derived API fields, not PDF/page coordinates.
 - Frontend API types have optional quote fields, but quote-first page rendering is deferred to a separate encoding-safe frontend slice. No schema, ranking, prompt, answer-generation, runtime smoke, provider call or artifact submission was involved in this slice.

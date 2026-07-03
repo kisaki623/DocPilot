@@ -16,7 +16,8 @@ public record MemoryQualityEvalMetrics(
         double userSignalExtractionRate,
         double noiseSuppressionRate,
         double temporaryInstructionSuppressionRate,
-        double traceSourceCountRate
+        double traceSourceCountRate,
+        double providerBackedCaseRate
 ) {
 
     public static MemoryQualityEvalMetrics from(List<MemoryQualityEvalResult.CaseEvaluation> evaluations) {
@@ -29,6 +30,7 @@ public record MemoryQualityEvalMetrics(
         int suggestionSafetyHit = (int) resolved.stream().filter(MemoryQualityEvalResult.CaseEvaluation::suggestionSafetyHit).count();
         int isolationHit = (int) resolved.stream().filter(MemoryQualityEvalResult.CaseEvaluation::ragEvidenceIsolationHit).count();
         int traceHit = (int) resolved.stream().filter(MemoryQualityEvalResult.CaseEvaluation::traceCountsHit).count();
+        int providerBacked = (int) resolved.stream().filter(MemoryQualityEvalResult.CaseEvaluation::providerBacked).count();
         List<MemoryQualityEvalResult.CaseEvaluation> userSignalCases = byCategory(resolved,
                 "preference_extraction", "multi_signal_extraction");
         List<MemoryQualityEvalResult.CaseEvaluation> noiseCases = byCategory(resolved,
@@ -50,7 +52,8 @@ public record MemoryQualityEvalMetrics(
                 passRate(userSignalCases),
                 passRate(noiseCases),
                 passRate(temporaryCases),
-                rate(traceHit, resolved.size())
+                rate(traceHit, resolved.size()),
+                rate(providerBacked, resolved.size())
         );
     }
 
@@ -67,6 +70,7 @@ public record MemoryQualityEvalMetrics(
         value.put("noiseSuppressionRate", format(noiseSuppressionRate));
         value.put("temporaryInstructionSuppressionRate", format(temporaryInstructionSuppressionRate));
         value.put("traceSourceCountRate", format(traceSourceCountRate));
+        value.put("providerBackedCaseRate", format(providerBackedCaseRate));
         return value;
     }
 

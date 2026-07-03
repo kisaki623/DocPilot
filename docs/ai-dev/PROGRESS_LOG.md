@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-03 Quality Loop v6.5 / Memory Provider Readiness Eval Artifact
+
+- Added provider provenance to Memory Quality Eval safe artifacts.
+- Metrics now include `providerBackedCaseRate`; current offline eval reports `0.0000` because extraction is still rule-based.
+- Added a redacted `providerEvaluation` block with `extractionProvider=rule_based`, `status=not_configured`, `realProviderConfigured=false`, `modelCallCount=0` and `rawProviderOutputStored=false`.
+- Per-case summaries now include `extractionProvider` and `providerBacked`, preparing the artifact schema for a later small real-provider memory extraction comparison.
+- Verified: `mvn "-Dtest=MemoryQualityEvalFixtureTest,MemoryQualityEvalRunnerTest,MemoryQualitySmokeScriptSafetyTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ContextAssemblyServiceImplTest" test` PASS, 27 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS, 274 tests.
+- Boundary: no provider call, no runtime smoke, no schema change, no raw conversation / memory text artifact submission and no push.
+
 ## 2026-07-03 Quality Loop v6.4 / Quote-level RAG Citation API
 
 - Added quote-level fields to single-document RAG and KnowledgeBase RAG citations: `quoteText`, `quoteStartOffset` and `quoteEndOffset`.

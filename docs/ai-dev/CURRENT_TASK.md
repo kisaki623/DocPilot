@@ -1,5 +1,15 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v6.5: Memory Provider Readiness Eval Artifact (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.5 Memory Provider Readiness Eval Artifact
+
+- Goal: start M1 by making Memory Quality Eval explicitly report whether extraction is rule-based or real-provider-backed, so the project does not overclaim LLM memory extraction quality.
+- Done: Memory eval metrics now include `providerBackedCaseRate`; safe artifacts include `providerEvaluation` with `extractionProvider`, `status`, `realProviderConfigured`, `modelCallCount`, `rawProviderOutputStored` and a boundary note. Each case summary also records `extractionProvider` and `providerBacked`.
+- Current result: offline Memory Quality Eval remains `rule_based` with real provider status `not_configured`, `modelCallCount=0` and `rawProviderOutputStored=false`.
+- Verified: `mvn "-Dtest=MemoryQualityEvalFixtureTest,MemoryQualityEvalRunnerTest,MemoryQualitySmokeScriptSafetyTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ContextAssemblyServiceImplTest" test` PASS, 27 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS, 274 tests.
+- Boundary: this is provider-readiness / artifact honesty work, not real LLM memory extraction. No tunnel/backend/frontend startup, no business data creation, no provider call, no schema change, no raw conversation or memory text artifact submission and no push.
+
 Current task: DocPilot Quality Loop v6.4: Quote-level RAG Citation API (DONE)
 
 ## 2026-07-03 Addendum: Quality Loop v6.4 Quote-level RAG Citation API
