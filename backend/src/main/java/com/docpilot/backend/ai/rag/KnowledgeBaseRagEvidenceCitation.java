@@ -12,6 +12,9 @@ public record KnowledgeBaseRagEvidenceCitation(
         Integer endOffset,
         String contentHash,
         String snippet,
+        String quoteText,
+        Integer quoteStartOffset,
+        Integer quoteEndOffset,
         double score,
         Double vectorScore,
         Double keywordScore,
@@ -41,6 +44,7 @@ public record KnowledgeBaseRagEvidenceCitation(
         documentTitle = documentTitle == null ? "" : documentTitle.trim();
         contentHash = contentHash == null ? "" : contentHash.trim();
         snippet = snippet == null ? "" : snippet.trim();
+        quoteText = quoteText == null ? "" : quoteText.trim();
         vectorScore = finiteOrNull(vectorScore);
         keywordScore = finiteOrNull(keywordScore);
         fusedScore = finiteOrNull(fusedScore);

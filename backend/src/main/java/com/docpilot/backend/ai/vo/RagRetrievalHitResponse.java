@@ -13,6 +13,9 @@ public class RagRetrievalHitResponse {
     private String contentHash;
     private Integer startOffset;
     private Integer endOffset;
+    private String quoteText;
+    private Integer quoteStartOffset;
+    private Integer quoteEndOffset;
     private Integer tokenCount;
     private String embeddingModel;
 
@@ -27,6 +30,9 @@ public class RagRetrievalHitResponse {
         response.setContentHash(hit.contentHash());
         response.setStartOffset(hit.startOffset());
         response.setEndOffset(hit.endOffset());
+        response.setQuoteText(hit.quoteText());
+        response.setQuoteStartOffset(hit.quoteStartOffset());
+        response.setQuoteEndOffset(hit.quoteEndOffset());
         response.setTokenCount(hit.tokenCount());
         response.setEmbeddingModel(hit.embeddingModel());
         return response;
@@ -102,6 +108,30 @@ public class RagRetrievalHitResponse {
 
     public void setEndOffset(Integer endOffset) {
         this.endOffset = endOffset;
+    }
+
+    public String getQuoteText() {
+        return quoteText;
+    }
+
+    public void setQuoteText(String quoteText) {
+        this.quoteText = quoteText;
+    }
+
+    public Integer getQuoteStartOffset() {
+        return quoteStartOffset;
+    }
+
+    public void setQuoteStartOffset(Integer quoteStartOffset) {
+        this.quoteStartOffset = quoteStartOffset;
+    }
+
+    public Integer getQuoteEndOffset() {
+        return quoteEndOffset;
+    }
+
+    public void setQuoteEndOffset(Integer quoteEndOffset) {
+        this.quoteEndOffset = quoteEndOffset;
     }
 
     public Integer getTokenCount() {

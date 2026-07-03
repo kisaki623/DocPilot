@@ -74,6 +74,7 @@ public record RagRetrievalHit(
     }
 
     public RagEvidenceCitation toCitation() {
+        RagEvidenceQuoteExtractor.EvidenceQuote quote = quote();
         return new RagEvidenceCitation(
                 citationIndex,
                 documentId,
@@ -84,6 +85,9 @@ public record RagRetrievalHit(
                 endOffset,
                 contentHash,
                 snippet(),
+                quote.text(),
+                absoluteOffset(quote.startOffset()),
+                absoluteOffset(quote.endOffset()),
                 score
         );
     }
@@ -93,6 +97,26 @@ public record RagRetrievalHit(
             return content;
         }
         return content.substring(0, SNIPPET_MAX_LENGTH) + "...";
+    }
+
+    public String quoteText() {
+        return quote().text();
+    }
+
+    public Integer quoteStartOffset() {
+        return absoluteOffset(quote().startOffset());
+    }
+
+    public Integer quoteEndOffset() {
+        return absoluteOffset(quote().endOffset());
+    }
+
+    private RagEvidenceQuoteExtractor.EvidenceQuote quote() {
+        return RagEvidenceQuoteExtractor.extract(content);
+    }
+
+    private Integer absoluteOffset(int localOffset) {
+        return startOffset == null ? null : startOffset + localOffset;
     }
 
     private static Long longValue(Object value) {

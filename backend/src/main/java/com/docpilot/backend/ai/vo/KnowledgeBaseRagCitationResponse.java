@@ -15,6 +15,9 @@ public class KnowledgeBaseRagCitationResponse {
     private Integer endOffset;
     private String contentHash;
     private String snippet;
+    private String quoteText;
+    private Integer quoteStartOffset;
+    private Integer quoteEndOffset;
     private Double score;
     private Double vectorScore;
     private Double keywordScore;
@@ -34,6 +37,9 @@ public class KnowledgeBaseRagCitationResponse {
         response.setEndOffset(citation.endOffset());
         response.setContentHash(citation.contentHash());
         response.setSnippet(citation.snippet());
+        response.setQuoteText(citation.quoteText());
+        response.setQuoteStartOffset(citation.quoteStartOffset());
+        response.setQuoteEndOffset(citation.quoteEndOffset());
         response.setScore(citation.score());
         response.setVectorScore(citation.vectorScore());
         response.setKeywordScore(citation.keywordScore());
@@ -128,6 +134,30 @@ public class KnowledgeBaseRagCitationResponse {
 
     public void setSnippet(String snippet) {
         this.snippet = snippet;
+    }
+
+    public String getQuoteText() {
+        return quoteText;
+    }
+
+    public void setQuoteText(String quoteText) {
+        this.quoteText = quoteText;
+    }
+
+    public Integer getQuoteStartOffset() {
+        return quoteStartOffset;
+    }
+
+    public void setQuoteStartOffset(Integer quoteStartOffset) {
+        this.quoteStartOffset = quoteStartOffset;
+    }
+
+    public Integer getQuoteEndOffset() {
+        return quoteEndOffset;
+    }
+
+    public void setQuoteEndOffset(Integer quoteEndOffset) {
+        this.quoteEndOffset = quoteEndOffset;
     }
 
     public Double getScore() {

@@ -2,6 +2,11 @@
 
 ## 2026-06-29 Current Addendum
 
+- 2026-07-03 R3 quote-level citation API is DONE. Single-document RAG and KnowledgeBase RAG citations now expose `quoteText`, `quoteStartOffset` and `quoteEndOffset` alongside existing chunk-level `snippet`, chunk offsets and scores.
+- The quote is derived from the retrieved chunk and prefers an evidence-marker-bearing sentence when available; offsets are chunk-offset-derived API fields, not PDF/page coordinates.
+- Frontend API types have optional quote fields, but quote-first page rendering is deferred to a separate encoding-safe frontend slice. No schema, ranking, prompt, answer-generation, runtime smoke, provider call or artifact submission was involved in this slice.
+- Verification: `mvn "-Dtest=RagEvidenceQuoteExtractorTest,RagQaControllerTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,DocumentAgentServiceImplTest" test` PASS, 26 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 214 tests; `npm run lint` PASS.
+
 - 2026-07-03 R1 request-scoped multi-query runtime smoke is PASS. `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` produced marker `docpilot-rag-real-qa-20260703192456-2a62e9`; `multiQueryRag` observed `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, `6` retrieve hits and `6` QA citations with both temporary documents covered `3/3` in retrieve and citation counts.
 - The same run kept tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, hard negative, semantic gate, real provider faithfulness, no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction at PASS. A first run reached `multiQueryRag` PASS but failed later at Conversation message request; cleanup succeeded and the immediate rerun passed.
 - Boundary: this is small real-link smoke evidence for request-scoped multi-query, not a large-scale relevance uplift benchmark, LLM query planner evaluation or online SLA.

@@ -44,6 +44,9 @@ export interface KnowledgeBaseCitationItem {
   endOffset?: number;
   contentHash?: string;
   snippet?: string;
+  quoteText?: string;
+  quoteStartOffset?: number;
+  quoteEndOffset?: number;
   score?: number;
   vectorScore?: number;
   keywordScore?: number;
@@ -64,6 +67,9 @@ export interface KnowledgeBaseRetrievalHitItem {
   contentHash?: string;
   startOffset?: number;
   endOffset?: number;
+  quoteText?: string;
+  quoteStartOffset?: number;
+  quoteEndOffset?: number;
   tokenCount?: number;
   embeddingModel?: string;
   vectorScore?: number;

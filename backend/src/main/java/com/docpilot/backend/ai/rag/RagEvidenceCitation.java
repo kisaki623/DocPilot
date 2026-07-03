@@ -10,6 +10,9 @@ public record RagEvidenceCitation(
         Integer endOffset,
         String contentHash,
         String snippet,
+        String quoteText,
+        Integer quoteStartOffset,
+        Integer quoteEndOffset,
         double score
 ) {
 
@@ -31,5 +34,6 @@ public record RagEvidenceCitation(
         }
         contentHash = contentHash == null ? "" : contentHash.trim();
         snippet = snippet == null ? "" : snippet.trim();
+        quoteText = quoteText == null ? "" : quoteText.trim();
     }
 }

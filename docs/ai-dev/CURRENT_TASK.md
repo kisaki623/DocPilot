@@ -1,5 +1,15 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v6.4: Quote-level RAG Citation API (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.4 Quote-level RAG Citation API
+
+- Goal: start R3 by moving RAG evidence exposure from chunk-level `snippet` only toward quote-level citations that are easier to audit for answer grounding.
+- Done: single-document RAG and KnowledgeBase RAG retrieval hits now derive `quoteText`, `quoteStartOffset` and `quoteEndOffset` from the retrieved chunk; citation records and API response VOs expose the same fields while preserving existing `snippet`, chunk offsets and scores.
+- Frontend contract: `frontend/lib/rag-api.ts` and `frontend/lib/knowledge-base-api.ts` now include optional quote fields so UI slices can render quote-first citation cards later without changing the API contract again.
+- Verified: `mvn "-Dtest=RagEvidenceQuoteExtractorTest,RagQaControllerTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,DocumentAgentServiceImplTest" test` PASS, 26 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 214 tests; `npm run lint` PASS.
+- Boundary: no schema change, no retrieval ranking change, no prompt / answer-generation change, no tunnel/backend/frontend startup, no business data creation, no real provider call, no artifact submission and no push. The frontend page rendering change is deferred because several page files need a separate encoding-safe cleanup before editing user-facing Chinese copy.
+
 Current task: DocPilot Quality Loop v6.3: Multi-query Real Smoke Evidence (DONE)
 
 ## 2026-07-03 Addendum: Quality Loop v6.3 Multi-query Real Smoke Evidence

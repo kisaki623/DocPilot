@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-03 Quality Loop v6.4 / Quote-level RAG Citation API
+
+- Added quote-level fields to single-document RAG and KnowledgeBase RAG citations: `quoteText`, `quoteStartOffset` and `quoteEndOffset`.
+- Added a shared chunk-local quote extractor that prefers evidence-marker-bearing sentences and falls back to the first readable sentence.
+- Exposed quote fields through citation responses and retrieval hit responses while keeping existing `snippet`, chunk offsets and score fields compatible.
+- Updated frontend API types so later UI work can render quote-first citations without another backend contract change.
+- Verified: `mvn "-Dtest=RagEvidenceQuoteExtractorTest,RagQaControllerTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,DocumentAgentServiceImplTest" test` PASS, 26 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 214 tests; `npm run lint` PASS.
+- Boundary: API/test slice only; no schema change, no retrieval ranking change, no prompt / answer-generation change, no runtime smoke, no real provider call, no artifact submission and no push.
+
 ## 2026-07-03 Quality Loop v6.3 / Multi-query Real Smoke Evidence
 
 - Ran `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`.

@@ -11,6 +11,9 @@ export interface RagCitationItem {
   endOffset?: number;
   contentHash?: string;
   snippet?: string;
+  quoteText?: string;
+  quoteStartOffset?: number;
+  quoteEndOffset?: number;
   score?: number;
 }
 
@@ -24,6 +27,9 @@ export interface RagRetrievalHitItem {
   contentHash?: string;
   startOffset?: number;
   endOffset?: number;
+  quoteText?: string;
+  quoteStartOffset?: number;
+  quoteEndOffset?: number;
   tokenCount?: number;
   embeddingModel?: string;
 }
