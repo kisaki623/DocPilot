@@ -110,6 +110,10 @@ class RagRealQaEvalSmokeScriptSafetyTest {
                 .contains("realQaSemanticGate")
                 .contains("realProviderFaithfulness")
                 .contains("multiQueryRag")
+                .contains("frontendInteraction")
+                .contains("EnableFrontendInteractionGate")
+                .contains("frontendInteractionGateEnabled")
+                .contains("frontendInteractionGate")
                 .contains("multiQueryApplied")
                 .contains("queryVariantCount")
                 .contains("Test-RealAnswerProvider")
@@ -121,7 +125,9 @@ class RagRealQaEvalSmokeScriptSafetyTest {
                 .doesNotContain("rawAnswer =")
                 .doesNotContain("rawResponse =")
                 .doesNotContain("prompt =")
-                .doesNotContain("evidenceContext =");
+                .doesNotContain("evidenceContext =")
+                .doesNotContain("token = $token")
+                .doesNotContain("uiToken =");
     }
 
     private static String readAll(InputStream inputStream) throws Exception {

@@ -19,7 +19,8 @@ param(
   [switch]$EnableMultiQueryGate,
   [switch]$EnableRealQaHardGate,
   [switch]$EnableRealQaSemanticGate,
-  [switch]$EnableRealProviderFaithfulnessGate
+  [switch]$EnableRealProviderFaithfulnessGate,
+  [switch]$EnableFrontendInteractionGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -730,6 +731,178 @@ function Test-RealAnswerProvider([string]$scope, $qaResponse) {
   }
 }
 
+function Invoke-FrontendInteractionGate([string]$artifactDir,
+                                        [string]$smokeMarker,
+                                        [long]$documentId,
+                                        [long]$foreignDocumentId,
+                                        [string]$token) {
+  if ($SkipFrontend) {
+    Stop-WithStatus "BLOCKED" "frontendInteraction" "frontend interaction gate cannot run when frontend is skipped"
+  }
+  $playwrightPath = Join-Path (Get-Location) "frontend/node_modules/playwright"
+  if (-not (Test-Path -LiteralPath $playwrightPath)) {
+    Stop-WithStatus "BLOCKED" "frontendInteraction" "Playwright dependency is not installed"
+  }
+  $scriptPath = Join-Path $artifactDir "frontend-interaction-gate.js"
+  $script = @'
+const { chromium } = require(process.env.DOCPILOT_PLAYWRIGHT_PATH);
+
+const frontend = process.env.DOCPILOT_FRONTEND_BASE.replace(/\/+$/, "");
+const marker = process.env.DOCPILOT_SMOKE_MARKER;
+const token = process.env.DOCPILOT_UI_TOKEN;
+const documentId = process.env.DOCPILOT_UI_DOCUMENT_ID;
+const foreignDocumentId = process.env.DOCPILOT_UI_FOREIGN_DOCUMENT_ID;
+
+async function clickButtonByText(page, text) {
+  await page.waitForFunction((label) => Array.from(document.querySelectorAll("button"))
+    .some((item) => (item.textContent || "").includes(label) && !item.disabled), text, { timeout: 90000 });
+  await page.evaluate((label) => {
+    const button = Array.from(document.querySelectorAll("button"))
+      .find((item) => (item.textContent || "").includes(label) && !item.disabled);
+    if (!button) {
+      throw new Error(`button not found or disabled: ${label}`);
+    }
+    button.click();
+  }, text);
+}
+
+async function run() {
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await context.addInitScript((value) => localStorage.setItem("docpilot_token", value), token);
+  const page = await context.newPage();
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  await page.goto(`${frontend}/documents/${documentId}`, { waitUntil: "domcontentloaded" });
+  await page.locator("#qa-question-input").waitFor({ state: "visible", timeout: 90000 });
+  await page.locator("#qa-question-input").fill(`What does ALPHA-SHORT-GATE prove for ${marker}?`);
+  const retrieveResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/rag/retrieve") && response.request().method() === "POST",
+    { timeout: 90000 });
+  await clickButtonByText(page, "\u68c0\u7d22\u9884\u89c8");
+  const retrieveResponse = await retrieveResponsePromise;
+  const retrievePayload = await retrieveResponse.json().catch(() => null);
+  const retrieveData = retrievePayload && retrievePayload.data ? retrievePayload.data : {};
+  const documentRetrieveStatus = retrieveResponse.status();
+  const documentRetrieveHitCount = Array.isArray(retrieveData.hits) ? retrieveData.hits.length : 0;
+  const documentRetrieveCitationCount = Array.isArray(retrieveData.citations) ? retrieveData.citations.length : 0;
+  const documentRetrieveQuoteHasAlpha = Array.isArray(retrieveData.citations)
+    ? retrieveData.citations.some((item) => [item.quoteText, item.snippet].some((value) => (value || "").includes("ALPHA-SHORT-GATE")))
+    : false;
+  const documentRetrieveHitHasAlpha = Array.isArray(retrieveData.hits)
+    ? retrieveData.hits.some((item) => [item.quoteText, item.content].some((value) => (value || "").includes("ALPHA-SHORT-GATE")))
+    : false;
+  await page.locator("[title=\"\u7cbe\u786e\u5f15\u7528\u539f\u6587\"]", { hasText: "ALPHA-SHORT-GATE" }).first()
+    .waitFor({ state: "visible", timeout: 90000 })
+    .catch(() => undefined);
+  const documentQuoteFirstVisible = await page.locator("[title=\"\u7cbe\u786e\u5f15\u7528\u539f\u6587\"]", { hasText: "ALPHA-SHORT-GATE" }).count() > 0;
+  const documentBodyHasAlpha = await page.evaluate(() => document.body.innerText.includes("ALPHA-SHORT-GATE"));
+
+  await page.goto(`${frontend}/knowledge-bases`, { waitUntil: "domcontentloaded" });
+  await page.locator("button", { hasText: `Short Quality KB ${marker}` }).first()
+    .waitFor({ state: "visible", timeout: 90000 });
+  await page.locator("button", { hasText: `Short Quality KB ${marker}` }).first().click();
+  await page.locator("textarea").last().waitFor({ state: "visible", timeout: 90000 });
+  await page.locator("textarea").last().fill(`Summarize both short documents for ${marker}. Include ALPHA-SHORT-GATE and BETA-SHORT-GATE verbatim, and cite both documents.`);
+  await clickButtonByText(page, "\u751f\u6210\u56de\u7b54");
+  await page.locator("li", { hasText: "ALPHA-SHORT-GATE" }).first().waitFor({ state: "visible", timeout: 120000 });
+  await page.locator("li", { hasText: "BETA-SHORT-GATE" }).first().waitFor({ state: "visible", timeout: 120000 });
+  const knowledgeBaseAlphaCitationVisible = await page.locator("li", { hasText: "ALPHA-SHORT-GATE" }).count() > 0;
+  const knowledgeBaseBetaCitationVisible = await page.locator("li", { hasText: "BETA-SHORT-GATE" }).count() > 0;
+
+  await page.goto(`${frontend}/documents/${foreignDocumentId}`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.body.innerText.includes("\u6587\u6863\u4e0d\u5b58\u5728\u6216\u5f53\u524d\u8d26\u53f7\u65e0\u6743\u8bbf\u95ee"), null, { timeout: 60000 });
+  const permissionMessageVisible = await page.evaluate(() => document.body.innerText.includes("\u6587\u6863\u4e0d\u5b58\u5728\u6216\u5f53\u524d\u8d26\u53f7\u65e0\u6743\u8bbf\u95ee"));
+
+  await browser.close();
+  return {
+    overallStatus: "PASS",
+    checks: {
+      documentQuoteFirstVisible,
+      documentBodyHasAlpha,
+      documentRetrieveStatus,
+      documentRetrieveHitCount,
+      documentRetrieveCitationCount,
+      documentRetrieveQuoteHasAlpha,
+      documentRetrieveHitHasAlpha,
+      knowledgeBaseAlphaCitationVisible,
+      knowledgeBaseBetaCitationVisible,
+      permissionMessageVisible,
+      consoleErrorCount: consoleErrors.length
+    }
+  };
+}
+
+run().then((result) => {
+  console.log(JSON.stringify(result));
+}).catch((error) => {
+  console.log(JSON.stringify({ overallStatus: "FAILED", safeMessage: error.message }));
+  process.exit(1);
+});
+'@
+  [System.IO.File]::WriteAllText($scriptPath, $script, [System.Text.UTF8Encoding]::new($false))
+
+  $oldPlaywrightPath = $env:DOCPILOT_PLAYWRIGHT_PATH
+  $oldFrontendBase = $env:DOCPILOT_FRONTEND_BASE
+  $oldSmokeMarker = $env:DOCPILOT_SMOKE_MARKER
+  $oldToken = $env:DOCPILOT_UI_TOKEN
+  $oldDocumentId = $env:DOCPILOT_UI_DOCUMENT_ID
+  $oldForeignDocumentId = $env:DOCPILOT_UI_FOREIGN_DOCUMENT_ID
+  try {
+    $env:DOCPILOT_PLAYWRIGHT_PATH = $playwrightPath
+    $env:DOCPILOT_FRONTEND_BASE = $FrontendBaseUrl
+    $env:DOCPILOT_SMOKE_MARKER = $smokeMarker
+    $env:DOCPILOT_UI_TOKEN = $token
+    $env:DOCPILOT_UI_DOCUMENT_ID = [string]$documentId
+    $env:DOCPILOT_UI_FOREIGN_DOCUMENT_ID = [string]$foreignDocumentId
+    $output = & node $scriptPath 2>&1 | Out-String
+  } finally {
+    $env:DOCPILOT_PLAYWRIGHT_PATH = $oldPlaywrightPath
+    $env:DOCPILOT_FRONTEND_BASE = $oldFrontendBase
+    $env:DOCPILOT_SMOKE_MARKER = $oldSmokeMarker
+    $env:DOCPILOT_UI_TOKEN = $oldToken
+    $env:DOCPILOT_UI_DOCUMENT_ID = $oldDocumentId
+    $env:DOCPILOT_UI_FOREIGN_DOCUMENT_ID = $oldForeignDocumentId
+  }
+
+  $result = $null
+  try {
+    $result = $output.Trim() | ConvertFrom-Json
+  } catch {
+    Stop-WithStatus "FAILED_CORE_FLOW" "frontendInteraction" "frontend interaction gate returned non-json output"
+  }
+  $checks = @([ordered]@{
+    documentQuoteFirstVisible = [bool]$result.checks.documentQuoteFirstVisible
+    documentBodyHasAlpha = [bool]$result.checks.documentBodyHasAlpha
+    documentRetrieveStatus = [int]$result.checks.documentRetrieveStatus
+    documentRetrieveHitCount = [int]$result.checks.documentRetrieveHitCount
+    documentRetrieveCitationCount = [int]$result.checks.documentRetrieveCitationCount
+    documentRetrieveQuoteHasAlpha = [bool]$result.checks.documentRetrieveQuoteHasAlpha
+    documentRetrieveHitHasAlpha = [bool]$result.checks.documentRetrieveHitHasAlpha
+    knowledgeBaseAlphaCitationVisible = [bool]$result.checks.knowledgeBaseAlphaCitationVisible
+    knowledgeBaseBetaCitationVisible = [bool]$result.checks.knowledgeBaseBetaCitationVisible
+    permissionMessageVisible = [bool]$result.checks.permissionMessageVisible
+    consoleErrorCount = [int]$result.checks.consoleErrorCount
+  })
+  if ($result.overallStatus -ne "PASS" -or
+      -not [bool]$result.checks.documentQuoteFirstVisible -or
+      -not [bool]$result.checks.knowledgeBaseAlphaCitationVisible -or
+      -not [bool]$result.checks.knowledgeBaseBetaCitationVisible -or
+      -not [bool]$result.checks.permissionMessageVisible -or
+      [int]$result.checks.consoleErrorCount -gt 0) {
+    $message = if ($result.safeMessage) { [string]$result.safeMessage } else { "frontend interaction gate failed" }
+    Set-Gate "frontendInteraction" "FAILED_CORE_FLOW" $checks $message
+    Stop-WithStatus "FAILED_CORE_FLOW" "frontendInteraction" $message
+  }
+  Set-Gate "frontendInteraction" "PASS" $checks
+  return $checks
+}
+
 function Show-PlanMode() {
   [PSCustomObject][ordered]@{
     mode = "plan"
@@ -737,7 +910,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "shortDocumentRag", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "shortDocumentRag", "frontendInteraction(optional)", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -752,6 +925,7 @@ function Invoke-DryRun() {
   $checks += [ordered]@{ name = "mysqlCliExists"; pass = [bool](Get-Command mysql -ErrorAction SilentlyContinue) }
   $checks += [ordered]@{ name = "nodeExists"; pass = [bool](Get-Command node -ErrorAction SilentlyContinue) }
   $checks += [ordered]@{ name = "npmExists"; pass = [bool](Get-Command npm -ErrorAction SilentlyContinue) }
+  $checks += [ordered]@{ name = "playwrightExists"; pass = (Test-Path -LiteralPath "frontend/node_modules/playwright") }
   $checks += [ordered]@{ name = "mysqlPortListening"; pass = (Test-TcpPort $MySqlLocalPort) }
   $checks += [ordered]@{ name = "qdrantPortListening"; pass = (Test-TcpPort $QdrantLocalPort) }
   $gitignore = if (Test-Path -LiteralPath ".gitignore") { Get-Content -LiteralPath ".gitignore" -Raw } else { "" }
@@ -807,6 +981,7 @@ function Invoke-Run() {
   $realQaHardGateChecks = $null
   $realQaSemanticGateChecks = $null
   $realProviderFaithfulnessChecks = $null
+  $frontendInteractionChecks = $null
   Set-Gate "auth" "PASS" @("registered user A", "registered user B")
 
   $alphaText = @"
@@ -1511,6 +1686,10 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
   }
   Set-Gate "permissionIsolation" "PASS" @("foreign KB detail rejected", "foreign KB retrieve rejected", "foreign document add rejected", "foreign trace rejected")
 
+  if ($EnableFrontendInteractionGate) {
+    $frontendInteractionChecks = Invoke-FrontendInteractionGate $artifactDir $smokeMarker ([long]$shortDocA.data.id) ([long]$docA.data.id) $tokenB
+  }
+
   if (-not $SkipFrontend) {
     $routes = @("/", "/login", "/dashboard", "/upload", "/documents", "/knowledge-bases", "/conversations")
     $routeChecks = @()
@@ -1569,6 +1748,8 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
       realQaSemanticGate = $realQaSemanticGateChecks
       realProviderFaithfulnessGateEnabled = [bool]$EnableRealProviderFaithfulnessGate
       realProviderFaithfulnessGate = $realProviderFaithfulnessChecks
+      frontendInteractionGateEnabled = [bool]$EnableFrontendInteractionGate
+      frontendInteractionGate = $frontendInteractionChecks
       conversationId = [long]$conversation.data.conversationId
       messageId = [long]$message.data.messageId
     }

@@ -4,6 +4,26 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-03 真实体验审计 P2/P3 浏览器交互 Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate`
+
+Marker: `docpilot-cloud-quality-20260703231920-e74334`
+
+已验证：
+
+- 新增 `frontendInteraction` gate：文档详情页登录态 RAG 检索预览中，quote-first 引用主文本可见 `ALPHA-SHORT-GATE`。
+- KnowledgeBase 页面选择本轮短文档知识库后，回答引用区域可见 `ALPHA-SHORT-GATE` 和 `BETA-SHORT-GATE`。
+- 用户 B 打开用户 A 文档详情时，无权限 / 不存在提示可见。
+- 浏览器 console error count 为 `0`。
+- 核心 gate 同步保持 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、短文档 RAG、answer grounding、no-evidence、Conversation Trace、权限隔离、artifact redaction 和 cleanup。
+
+边界：本次 run 创建临时 smoke 用户、短 txt 文档、KnowledgeBase 和 Conversation；artifact 位于 ignored `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。该结果是小规模真实链路和浏览器交互回归 smoke，不是大规模 relevance benchmark、端到端 UI 自动化全覆盖或线上 SLA。
+
 ## 2026-07-03 真实体验审计 P1 修复验证 Smoke
 
 状态：PASS

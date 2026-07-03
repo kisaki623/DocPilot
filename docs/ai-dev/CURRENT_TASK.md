@@ -1,6 +1,6 @@
 # Current Task
 
-当前任务：真实体验审计 P1 RAG 问题修复与短文档 smoke gate（REVIEW）
+当前任务：真实体验审计 P1/P2/P3 修复与浏览器交互 smoke gate（DONE）
 
 ## 2026-07-03 补充：短文档 RAG / KB 修复验证
 
@@ -9,7 +9,8 @@
 - 已完成前端：文档详情和 KnowledgeBase 引用卡片优先显示 `quoteText`，`snippet` 作为上下文；Conversation citation hover title 优先使用 quote；`apiRequest` 统一抛出带 `code/status/rawMessage` 的 `ApiError`，并对无权限 / 不存在场景给出更清晰中文提示。
 - 已完成 smoke：`scripts/smoke/cloud-quality-smoke.ps1` 新增 `shortDocumentRag` gate，覆盖短 Alpha 单文档 retrieve / QA citation、短 Alpha / Beta KnowledgeBase retrieve / QA citation 和 answer grounding。
 - 真实验证：`cloud-quality-smoke.ps1 -Mode run` PASS，marker `docpilot-cloud-quality-20260703213703-dbef08`；短单文档 `1` hit / `1` citation，短双文档 KB `2` hits / `2` citations，核心 gate、no-evidence、Conversation Trace、权限隔离、frontend routes、artifact redaction 和 cleanup 均 PASS。
-- 当前状态：P1 两项已真实验证；P2/P3 已完成代码修复并通过前端构建 / 路由 smoke / 权限隔离 API gate，但浏览器点击级细验尚未收口。最后一次 UI 细验 marker `docpilot-ui-verify-mr50eghq-9ed7ca` 中，API 预检已有 hit，但文档详情页 quote marker 未在等待窗口内展示，P2/P3 仍保持 `FIXED_PENDING_VERIFY`。
+- 当前状态：P1/P2/P3 均已真实验证。`cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate` PASS，marker `docpilot-cloud-quality-20260703231920-e74334`；新增 `frontendInteraction` gate 覆盖文档详情 quote-first 可见、KnowledgeBase 双 marker citation 可见、跨用户文档无权限提示可见和 console error count `0`。
+- 补充说明：本轮曾有一次真实 run 因临时文档 parse timeout 未进入浏览器 gate，清理后重跑 PASS；该失败按环境波动记录，不做远程修复。
 - 边界：未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未 push。
 
 当前任务：中文文档与真实体验问题自动记录规则沉淀（DONE）

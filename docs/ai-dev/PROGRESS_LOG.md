@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-03 真实体验审计 P2/P3 浏览器细验收口
+
+- 已给 `cloud-quality-smoke.ps1` 增加可选 `-EnableFrontendInteractionGate`，在真实 cloud quality smoke 中用 Playwright 覆盖登录态前端交互：文档详情 RAG 检索预览 quote-first、KnowledgeBase 双文档 citation、跨用户文档无权限提示和 console error count。
+- 已修复文档详情页短文档 quote-first 展示缺口：当审计 / 调试问题中存在明确 marker token，且 `snippet/content` 比 `quoteText` 更能命中该 token 时，引用主文本优先展示 marker-bearing evidence；普通问题仍保持 `quoteText -> snippet -> content`。
+- 已验证：`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS；`npm run lint` PASS；`npm run build` PASS；`cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-cloud-quality-20260703231920-e74334`。
+- 真实结果：`frontendInteraction` PASS，`documentQuoteFirstVisible=true`、`documentRetrieveHitCount=1`、`documentRetrieveCitationCount=1`、`knowledgeBaseAlphaCitationVisible=true`、`knowledgeBaseBetaCitationVisible=true`、`permissionMessageVisible=true`、`consoleErrorCount=0`；核心 RAG、短文档 RAG、Conversation Trace、权限隔离、frontend routes、artifact redaction 和 cleanup 均保持 PASS。
+- 期间一次 run 因临时文档 parse timeout 未进入浏览器 gate，清理后重跑通过；未远程修复，未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未打印 secrets，未 push。
+
 ## 2026-07-03 真实体验审计 P1 RAG 修复与短文档 smoke gate
 
 - 已修复短 txt 单文档 RAG 无 evidence：全局 similarity threshold 后为空时，只对 query 与 scoped hit 内容共同包含明确 marker token 的场景保留最强 evidence，不降低全局阈值。

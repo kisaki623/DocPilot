@@ -28,6 +28,11 @@ const DETAIL_STATUS_POLLING_TIMEOUT_MS = 120_000;
 const TERMINAL_PARSE_STATUS = new Set(["SUCCESS", "FAILED"]);
 
 type QaMode = "legacy" | "rag";
+type RagEvidenceDisplayItem = RagCitationItem & {
+  content?: string;
+  source: "citation" | "hit";
+  vectorId?: string;
+};
 
 function formatDateTime(input: string): string {
   if (!input) {
@@ -98,8 +103,44 @@ function formatScore(score: number | undefined): string {
   return score.toFixed(4);
 }
 
-function citationQuote(citation: { quoteText?: string; snippet?: string }): string {
-  return citation.quoteText?.trim() || citation.snippet?.trim() || "-";
+function extractMarkerTokens(input: string): string[] {
+  const matches = input.match(/[A-Z][A-Z0-9]+(?:-[A-Z0-9]+){2,}/g) || [];
+  return Array.from(new Set(matches));
+}
+
+function citationQuote(citation: { quoteText?: string; snippet?: string; content?: string }, preferredTokens: string[] = []): string {
+  const candidates = [citation.quoteText, citation.snippet, citation.content]
+    .map((item) => item?.trim())
+    .filter((item): item is string => Boolean(item));
+  const markerBearing = candidates.find((item) => preferredTokens.some((token) => item.includes(token)));
+  return markerBearing || candidates[0] || "-";
+}
+
+function buildRagEvidenceItems(
+  citations: RagCitationItem[],
+  retrieval: RagRetrievalData | null
+): RagEvidenceDisplayItem[] {
+  if (citations.length > 0) {
+    return citations.map((citation) => ({ ...citation, source: "citation" }));
+  }
+  return (retrieval?.hits || []).map((hit, index) => ({
+    index: hit.citationIndex ?? index + 1,
+    documentId: retrieval?.documentId,
+    indexVersion: retrieval?.indexVersion,
+    chunkId: hit.chunkId,
+    chunkIndex: hit.chunkIndex,
+    startOffset: hit.startOffset,
+    endOffset: hit.endOffset,
+    contentHash: hit.contentHash,
+    snippet: hit.content,
+    quoteText: hit.quoteText,
+    quoteStartOffset: hit.quoteStartOffset,
+    quoteEndOffset: hit.quoteEndOffset,
+    score: hit.score,
+    content: hit.content,
+    source: "hit",
+    vectorId: hit.vectorId
+  }));
 }
 
 function normalizeRagError(message: string): string {
@@ -153,6 +194,14 @@ export default function DocumentDetailPage() {
 
   const streamAbortRef = useRef<AbortController | null>(null);
   const [firstTokenLatencyMs, setFirstTokenLatencyMs] = useState<number | null>(null);
+  const ragEvidenceItems = useMemo(
+    () => buildRagEvidenceItems(ragCitations, ragRetrieval),
+    [ragCitations, ragRetrieval]
+  );
+  const ragEvidenceTokens = useMemo(
+    () => extractMarkerTokens(ragRetrieval?.query || question),
+    [question, ragRetrieval?.query]
+  );
 
   const fetchQaHistory = useCallback(async (documentId: number) => {
     setHistoryLoading(true);
@@ -971,14 +1020,14 @@ export default function DocumentDetailPage() {
                       </div>
                     ) : null}
 
-                    {ragCitations.length === 0 && !ragRetrieval?.hits?.length ? (
+                    {ragEvidenceItems.length === 0 ? (
                       <p className="text-sm text-slate-400 italic">暂无引用来源或召回片段。</p>
                     ) : null}
 
-                    {ragCitations.length > 0 ? (
+                    {ragEvidenceItems.length > 0 ? (
                       <ul className="space-y-3">
-                        {ragCitations.map((citation, index) => (
-                          <li key={`${citation.chunkId}-${citation.chunkIndex}-${index}`} className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm">
+                        {ragEvidenceItems.map((citation, index) => (
+                          <li key={`${citation.source}-${citation.vectorId || citation.chunkId}-${citation.chunkIndex}-${index}`} className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">引用 {citation.index ?? index + 1}</span>
                               <span className="text-xs text-slate-400">score: {formatScore(citation.score)}</span>
@@ -987,7 +1036,7 @@ export default function DocumentDetailPage() {
                               chunk #{citation.chunkIndex ?? "-"} · version {citation.indexVersion ?? "-"}
                             </p>
                             <p className="text-slate-800 line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="精确引用原文">
-                              {citationQuote(citation)}
+                              {citationQuote(citation, ragEvidenceTokens)}
                             </p>
                             {citation.quoteText && citation.snippet && citation.quoteText !== citation.snippet ? (
                               <p className="mt-2 line-clamp-3 text-xs text-slate-500 hover:line-clamp-none">
