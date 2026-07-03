@@ -30,10 +30,12 @@ class KnowledgeBaseRagEvalRunnerTest {
         assertThat(result.metrics().noEvidenceRate()).isEqualTo(1.0D);
         assertThat(result.metrics().noEvidenceCitationFreeRate()).isEqualTo(1.0D);
         assertThat(result.metrics().scopeViolationRate()).isEqualTo(0.0D);
-        assertThat(result.retrievalModeMetrics()).containsKeys("vector", "hybrid");
+        assertThat(result.retrievalModeMetrics()).containsKeys("vector", "hybrid", "multi_query");
         assertThat(result.retrievalModeMetrics().get("vector").hitAtK()).isEqualTo(1.0D);
         assertThat(result.retrievalModeMetrics().get("hybrid").hitAtK()).isEqualTo(1.0D);
+        assertThat(result.retrievalModeMetrics().get("multi_query").hitAtK()).isEqualTo(1.0D);
         assertThat(result.retrievalModeMetrics().get("hybrid").multiDocumentCoverageRate()).isEqualTo(1.0D);
+        assertThat(result.retrievalModeMetrics().get("multi_query").multiDocumentCoverageRate()).isEqualTo(1.0D);
         assertThat(result.retrievalModeMetrics().get("hybrid").noEvidenceCitationFreeRate()).isEqualTo(1.0D);
         assertThat(result.noEvidenceModelCallCount()).isZero();
         assertThat(result.failedCaseIds()).isEmpty();
@@ -77,6 +79,7 @@ class KnowledgeBaseRagEvalRunnerTest {
                 .contains("\"citationUnsupportedCount\"")
                 .contains("\"vector\"")
                 .contains("\"hybrid\"")
+                .contains("\"multi_query\"")
                 .contains("\"answerHitRate\" : \"1.0000\"")
                 .contains("\"multiDocumentCoverageRate\" : \"1.0000\"")
                 .contains("\"groundedAnswerRate\" : \"1.0000\"")

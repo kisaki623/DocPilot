@@ -1,5 +1,16 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v6.1: Request-scoped Multi-query Retrieval Eval (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.1 Request-scoped Multi-query Retrieval Eval
+
+- Goal: start R1 by making KnowledgeBase multi-query retrieval explicitly controllable per request, while keeping the default runtime behavior unchanged.
+- Done: `KnowledgeBaseRagRetrieveRequest` and `KnowledgeBaseRagQaRequest` now accept optional `multiQueryEnabled` and `maxQueryVariants`; controller / QA / retrieval services propagate the override, validate request-scoped variant limits and still default to global `app.rag.retrieval.*` settings when fields are absent.
+- Eval evidence: KnowledgeBase offline eval now reports `retrievalModeMetrics.multi_query` beside `vector` and `hybrid`, giving a redacted comparison point for multi-query retrieval without storing rewritten query text, document text, prompt, evidence context or answer output.
+- Verified: `mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalFixtureTest,RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 211 tests.
+- Boundary: this slice did not start tunnel/backend/frontend, create business data, call a real provider, change schema, touch remote Docker, submit artifacts or push. Multi-query remains default-off unless config or request explicitly enables it.
+- Next: continue R1 with a real-link enabled multi-query smoke comparison, then move to R3 quote-level citation or M1 real-provider memory extraction eval.
+
 Current task: DocPilot Quality Loop v5.6: Query Rewrite / Multi-query Retrieval (DONE)
 
 ## 2026-06-29 Addendum: Quality Loop v5.6 Query Rewrite / Multi-query Retrieval

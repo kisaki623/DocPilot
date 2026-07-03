@@ -2,6 +2,11 @@
 
 ## 2026-06-29 Current Addendum
 
+- 2026-07-03 R1 request-scoped multi-query retrieval control is implemented for KnowledgeBase retrieve and QA APIs. Requests can now explicitly set `multiQueryEnabled` and `maxQueryVariants`; absent fields keep the existing default-off global behavior.
+- KnowledgeBase offline eval now includes `retrievalModeMetrics.multi_query` alongside `vector` and `hybrid`, so multi-query can be compared in redacted artifacts without storing rewritten query text, document text, prompt, evidence context or answer output.
+- Verification: `mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalFixtureTest,RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 211 tests.
+- Boundary: this is request/API and offline eval control-plane evidence only. No tunnel/backend/frontend runtime smoke was executed in this slice, and no real provider, business data, schema change, remote Docker operation or artifact commit was involved.
+
 - Query Rewrite / Multi-query Retrieval v1 is implemented for KnowledgeBase retrieval behind `app.rag.retrieval.multi-query-enabled=false` by default. The first version uses deterministic rule-based query variants, bounded by `max-query-variants`, and deduplicates vector hits before the existing threshold / hybrid / rerank / scope / diversity gates.
 - Retrieval responses now expose `multiQueryApplied`, `queryVariantCount` and `queryDedupeCount`; rewritten query text is not stored in the result response.
 - Verification: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 209 tests; real `rag-real-qa-eval-smoke.ps1 -Mode run` PASS, marker `docpilot-rag-real-qa-20260629202542-3e47d9`.

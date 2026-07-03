@@ -100,8 +100,6 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
 
     @Test
     void shouldMergeMultiQueryVectorResultsWhenEnabled() {
-        ragRetrievalProperties.setMultiQueryEnabled(true);
-        ragRetrievalProperties.setMaxQueryVariants(4);
         when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
                 doc(101L, "Cache Guide"),
                 doc(102L, "Vector Guide")
@@ -127,7 +125,9 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
                 "Explain cache invalidation and vector retention policy?",
                 4,
                 1,
-                ""
+                "",
+                true,
+                4
         ));
 
         ArgumentCaptor<EmbeddingRequest> embeddingCaptor = ArgumentCaptor.forClass(EmbeddingRequest.class);
@@ -151,6 +151,24 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         assertThat(result.documentHitCounts()).containsEntry(101L, 2).containsEntry(102L, 1);
         assertThat(result.hits()).extracting(KnowledgeBaseRagRetrievalHit::documentId)
                 .contains(101L, 102L);
+    }
+
+    @Test
+    void shouldRejectInvalidRequestScopedMultiQueryVariantLimit() {
+        BusinessException ex = assertThrows(BusinessException.class, () -> service.retrieve(
+                new KnowledgeBaseRagRetrievalQuery(
+                        7L,
+                        10L,
+                        "question",
+                        3,
+                        1,
+                        "",
+                        true,
+                        6
+                )
+        ));
+
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
     }
 
     @Test

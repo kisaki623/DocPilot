@@ -1,5 +1,12 @@
 # DocPilot RAG / Memory Productionization Roadmap
 
+## 2026-07-03 Roadmap Addendum
+
+- R1 first slice is DONE: KnowledgeBase retrieve and QA APIs now support request-scoped `multiQueryEnabled` / `maxQueryVariants`, with absent fields preserving the default-off global behavior.
+- Offline KnowledgeBase RAG eval artifacts now compare `retrievalModeMetrics.vector`, `retrievalModeMetrics.hybrid` and `retrievalModeMetrics.multi_query`, keeping the report redacted and query-text-free.
+- Verification: targeted R1 tests PASS, 32 tests; broader `*Rag*,*KnowledgeBase*` regression PASS, 211 tests.
+- Remaining R1 work: run a real-link enabled multi-query smoke comparison before claiming user-experience relevance uplift. This slice proves the control plane and offline eval path, not production effectiveness.
+
 ## 2026-06-29 Roadmap Addendum
 
 - A6 Query Rewrite / Multi-query Retrieval v1 is DONE behind a default-off flag. KnowledgeBase retrieval can generate bounded deterministic query variants, merge / deduplicate vector hits and continue through the existing confidence, hybrid, rerank, scope and diversity gates; responses expose only counts / booleans, not rewritten query text.

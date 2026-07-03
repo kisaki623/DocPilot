@@ -5,6 +5,8 @@ public class KnowledgeBaseRagRetrieveRequest {
     private String query;
     private Integer topK;
     private Integer indexVersion;
+    private Boolean multiQueryEnabled;
+    private Integer maxQueryVariants;
 
     public String getQuery() {
         return query;
@@ -28,5 +30,21 @@ public class KnowledgeBaseRagRetrieveRequest {
 
     public void setIndexVersion(Integer indexVersion) {
         this.indexVersion = indexVersion;
+    }
+
+    public Boolean getMultiQueryEnabled() {
+        return multiQueryEnabled;
+    }
+
+    public void setMultiQueryEnabled(Boolean multiQueryEnabled) {
+        this.multiQueryEnabled = multiQueryEnabled;
+    }
+
+    public Integer getMaxQueryVariants() {
+        return maxQueryVariants;
+    }
+
+    public void setMaxQueryVariants(Integer maxQueryVariants) {
+        this.maxQueryVariants = maxQueryVariants;
     }
 }

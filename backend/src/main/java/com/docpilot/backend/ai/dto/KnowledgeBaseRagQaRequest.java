@@ -6,6 +6,8 @@ public class KnowledgeBaseRagQaRequest {
     private Integer topK;
     private Integer indexVersion;
     private String sessionId;
+    private Boolean multiQueryEnabled;
+    private Integer maxQueryVariants;
 
     public String getQuestion() {
         return question;
@@ -37,5 +39,21 @@ public class KnowledgeBaseRagQaRequest {
 
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
+    }
+
+    public Boolean getMultiQueryEnabled() {
+        return multiQueryEnabled;
+    }
+
+    public void setMultiQueryEnabled(Boolean multiQueryEnabled) {
+        this.multiQueryEnabled = multiQueryEnabled;
+    }
+
+    public Integer getMaxQueryVariants() {
+        return maxQueryVariants;
+    }
+
+    public void setMaxQueryVariants(Integer maxQueryVariants) {
+        this.maxQueryVariants = maxQueryVariants;
     }
 }

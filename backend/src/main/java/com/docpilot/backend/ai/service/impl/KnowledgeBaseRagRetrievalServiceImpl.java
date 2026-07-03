@@ -222,8 +222,17 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         String embeddingModel = query.embeddingModel().isBlank()
                 ? embeddingProperties.getModel()
                 : query.embeddingModel();
+        boolean multiQueryEnabled = query.multiQueryEnabled() == null
+                ? retrievalProperties.isMultiQueryEnabled()
+                : Boolean.TRUE.equals(query.multiQueryEnabled());
+        int maxQueryVariants = query.maxQueryVariants() == null
+                ? retrievalProperties.getMaxQueryVariants()
+                : query.maxQueryVariants();
+        if (maxQueryVariants < 1 || maxQueryVariants > 5) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "maxQueryVariants must be between 1 and 5");
+        }
         return new ResolvedQuery(query.userId(), query.knowledgeBaseId(), query.query(), topK,
-                indexVersion, embeddingModel);
+                indexVersion, embeddingModel, multiQueryEnabled, maxQueryVariants);
     }
 
     private KnowledgeBaseRagRetrievalResult noEvidenceResult(ResolvedQuery query,
@@ -266,7 +275,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                                                   QueryRewriteVariant variant,
                                                   int variantCount) {
         Map<String, String> metadata = new LinkedHashMap<>(embeddingMetadata(query, documentIds));
-        if (retrievalProperties.isMultiQueryEnabled()) {
+        if (query.multiQueryEnabled()) {
             metadata.put("queryVariantOrdinal", String.valueOf(variant.ordinal()));
             metadata.put("queryVariantCount", String.valueOf(variantCount));
             metadata.put("queryRewriteStrategy", variant.strategy());
@@ -275,7 +284,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
     }
 
     private VectorRetrievalOutcome vectorRetrieve(ResolvedQuery resolved, List<Long> documentIds) {
-        List<QueryRewriteVariant> variants = queryVariants(resolved.query());
+        List<QueryRewriteVariant> variants = queryVariants(resolved);
         Map<String, VectorSearchHit> mergedHits = new LinkedHashMap<>();
         int rawHitCount = 0;
         String provider = "";
@@ -317,7 +326,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         List<VectorSearchHit> hits = mergedHits.values().stream()
                 .sorted((left, right) -> Double.compare(right.score(), left.score()))
                 .toList();
-        boolean multiQueryApplied = retrievalProperties.isMultiQueryEnabled() && variants.size() > 1;
+        boolean multiQueryApplied = resolved.multiQueryEnabled() && variants.size() > 1;
         return new VectorRetrievalOutcome(
                 hits,
                 provider,
@@ -329,22 +338,22 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         );
     }
 
-    private List<QueryRewriteVariant> queryVariants(String query) {
-        if (!retrievalProperties.isMultiQueryEnabled()) {
-            return List.of(new QueryRewriteVariant(query, "original", 0));
+    private List<QueryRewriteVariant> queryVariants(ResolvedQuery query) {
+        if (!query.multiQueryEnabled()) {
+            return List.of(new QueryRewriteVariant(query.query(), "original", 0));
         }
-        List<QueryRewriteVariant> variants = queryRewriteService.rewrite(query, retrievalProperties.getMaxQueryVariants())
+        List<QueryRewriteVariant> variants = queryRewriteService.rewrite(query.query(), query.maxQueryVariants())
                 .stream()
                 .filter(variant -> !variant.query().isBlank())
                 .toList();
         if (variants.isEmpty()) {
-            return List.of(new QueryRewriteVariant(query, "original", 0));
+            return List.of(new QueryRewriteVariant(query.query(), "original", 0));
         }
         return variants;
     }
 
     private VectorSearchHit annotateQueryVariant(VectorSearchHit hit, QueryRewriteVariant variant, int variantCount) {
-        if (!retrievalProperties.isMultiQueryEnabled()) {
+        if (variantCount <= 1) {
             return hit;
         }
         return withScoreAndPayload(hit, hit.score(), Map.of(
@@ -724,7 +733,9 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
             String query,
             int topK,
             int indexVersion,
-            String embeddingModel
+            String embeddingModel,
+            boolean multiQueryEnabled,
+            int maxQueryVariants
     ) {
     }
 

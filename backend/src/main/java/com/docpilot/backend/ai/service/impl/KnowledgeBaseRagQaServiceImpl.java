@@ -63,7 +63,9 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                     resolved.question(),
                     resolved.topK(),
                     resolved.indexVersion(),
-                    ""
+                    "",
+                    resolved.multiQueryEnabled(),
+                    resolved.maxQueryVariants()
             ));
         } catch (BusinessException ex) {
             if (isScopeException(ex)) {
@@ -126,7 +128,9 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                 query.question(),
                 query.topK(),
                 query.indexVersion(),
-                resolveSessionId(query.sessionId())
+                resolveSessionId(query.sessionId()),
+                query.multiQueryEnabled(),
+                query.maxQueryVariants()
         );
     }
 
@@ -175,7 +179,9 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
             String question,
             Integer topK,
             Integer indexVersion,
-            String sessionId
+            String sessionId,
+            Boolean multiQueryEnabled,
+            Integer maxQueryVariants
     ) {
     }
 }

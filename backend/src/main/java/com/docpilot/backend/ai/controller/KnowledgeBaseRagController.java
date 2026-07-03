@@ -41,7 +41,9 @@ public class KnowledgeBaseRagController {
                         request == null ? null : request.getQuery(),
                         request == null ? null : request.getTopK(),
                         request == null ? null : request.getIndexVersion(),
-                        ""
+                        "",
+                        request == null ? null : request.getMultiQueryEnabled(),
+                        request == null ? null : request.getMaxQueryVariants()
                 )
         )));
     }
@@ -58,7 +60,9 @@ public class KnowledgeBaseRagController {
                         request == null ? null : request.getQuestion(),
                         request == null ? null : request.getTopK(),
                         request == null ? null : request.getIndexVersion(),
-                        request == null ? null : request.getSessionId()
+                        request == null ? null : request.getSessionId(),
+                        request == null ? null : request.getMultiQueryEnabled(),
+                        request == null ? null : request.getMaxQueryVariants()
                 )
         )));
     }

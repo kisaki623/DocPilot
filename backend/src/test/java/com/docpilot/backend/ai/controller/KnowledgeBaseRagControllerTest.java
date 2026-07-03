@@ -41,6 +41,8 @@ class KnowledgeBaseRagControllerTest {
         request.setQuery("cache");
         request.setTopK(5);
         request.setIndexVersion(2);
+        request.setMultiQueryEnabled(true);
+        request.setMaxQueryVariants(4);
 
         controller.retrieve(10L, request);
 
@@ -52,6 +54,8 @@ class KnowledgeBaseRagControllerTest {
         assertThat(captor.getValue().query()).isEqualTo("cache");
         assertThat(captor.getValue().topK()).isEqualTo(5);
         assertThat(captor.getValue().indexVersion()).isEqualTo(2);
+        assertThat(captor.getValue().multiQueryEnabled()).isTrue();
+        assertThat(captor.getValue().maxQueryVariants()).isEqualTo(4);
     }
 
     @Test
@@ -63,6 +67,8 @@ class KnowledgeBaseRagControllerTest {
         request.setTopK(3);
         request.setIndexVersion(1);
         request.setSessionId("s1");
+        request.setMultiQueryEnabled(true);
+        request.setMaxQueryVariants(4);
 
         KnowledgeBaseRagQaResponse response = controller.qa(10L, request).data();
 
@@ -73,6 +79,8 @@ class KnowledgeBaseRagControllerTest {
         assertThat(captor.getValue().knowledgeBaseId()).isEqualTo(10L);
         assertThat(captor.getValue().question()).isEqualTo("cache?");
         assertThat(captor.getValue().sessionId()).isEqualTo("s1");
+        assertThat(captor.getValue().multiQueryEnabled()).isTrue();
+        assertThat(captor.getValue().maxQueryVariants()).isEqualTo(4);
         assertThat(response.getAudit()).isNotNull();
         assertThat(response.getAudit().fallbackReason()).isEqualTo("no_evidence");
     }

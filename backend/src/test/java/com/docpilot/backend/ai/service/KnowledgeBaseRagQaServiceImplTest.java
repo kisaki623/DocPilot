@@ -3,6 +3,7 @@ package com.docpilot.backend.ai.service;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaAnswer;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaQuery;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalHit;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalQuery;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
 import com.docpilot.backend.ai.rag.RagQaProperties;
 import com.docpilot.backend.ai.service.impl.KnowledgeBaseRagQaServiceImpl;
@@ -151,6 +152,28 @@ class KnowledgeBaseRagQaServiceImplTest {
         )));
 
         assertEquals(ErrorCode.KNOWLEDGE_BASE_FORBIDDEN, ex.getErrorCode());
+    }
+
+    @Test
+    void shouldPassMultiQueryOverrideToRetrieval() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(retrieval(true));
+
+        service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "compare cache and vector retention",
+                4,
+                1,
+                "s1",
+                true,
+                4
+        ));
+
+        org.mockito.ArgumentCaptor<KnowledgeBaseRagRetrievalQuery> captor =
+                org.mockito.ArgumentCaptor.forClass(KnowledgeBaseRagRetrievalQuery.class);
+        verify(retrievalService).retrieve(captor.capture());
+        assertThat(captor.getValue().multiQueryEnabled()).isTrue();
+        assertThat(captor.getValue().maxQueryVariants()).isEqualTo(4);
     }
 
     private KnowledgeBaseRagRetrievalResult retrieval(boolean noEvidence) {

@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-03 Quality Loop v6.1 / Request-scoped Multi-query Retrieval Eval
+
+- Added request-level `multiQueryEnabled` and `maxQueryVariants` controls to KnowledgeBase retrieve and QA APIs.
+- Kept the default runtime behavior unchanged: absent request fields still inherit `app.rag.retrieval.multi-query-enabled=false` and bounded global `max-query-variants`.
+- Propagated QA overrides into the retrieval query and added request-scoped validation for variant limits.
+- Extended KnowledgeBase offline eval artifact metrics with `retrievalModeMetrics.multi_query`, in addition to `vector` and `hybrid`.
+- Verified: `mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalFixtureTest,RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 211 tests.
+- Boundary: no runtime smoke, no tunnel/backend/frontend startup, no business data creation, no real provider call, no schema change, no remote Docker/hk-ops operation, no artifact submission and no push.
+
 ## 2026-06-29 Quality Loop v5.6 / Query Rewrite and Multi-query Retrieval
 
 - Added default-off KnowledgeBase multi-query retrieval: `app.rag.retrieval.multi-query-enabled=false` and bounded `max-query-variants`.

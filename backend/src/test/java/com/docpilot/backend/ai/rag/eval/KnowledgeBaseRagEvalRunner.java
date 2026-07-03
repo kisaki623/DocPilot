@@ -101,9 +101,11 @@ public class KnowledgeBaseRagEvalRunner {
         List<KnowledgeBaseRagEvalCase> resolvedCases = cases == null ? List.of() : List.copyOf(cases);
         ModeEvaluation vector = evaluateMode(resolvedCases, RetrievalEvalMode.VECTOR);
         ModeEvaluation hybrid = evaluateMode(resolvedCases, RetrievalEvalMode.HYBRID);
+        ModeEvaluation multiQuery = evaluateMode(resolvedCases, RetrievalEvalMode.MULTI_QUERY);
         Map<String, KnowledgeBaseRagEvalMetrics> modeMetrics = new LinkedHashMap<>();
         modeMetrics.put("vector", vector.metrics());
         modeMetrics.put("hybrid", hybrid.metrics());
+        modeMetrics.put("multi_query", multiQuery.metrics());
         return new KnowledgeBaseRagEvalResult(
                 "in_memory",
                 MockEmbeddingProvider.PROVIDER,
@@ -426,6 +428,8 @@ public class KnowledgeBaseRagEvalRunner {
             RagRetrievalProperties retrievalProperties = new RagRetrievalProperties();
             retrievalProperties.setMinSimilarityThreshold(evalCase.minSimilarityThreshold());
             retrievalProperties.setHybridEnabled(mode == RetrievalEvalMode.HYBRID);
+            retrievalProperties.setMultiQueryEnabled(mode == RetrievalEvalMode.MULTI_QUERY);
+            retrievalProperties.setMaxQueryVariants(4);
             HybridRetrievalService hybridRetrievalService = mode == RetrievalEvalMode.HYBRID
                     ? new HybridRetrievalService(new InMemoryKeywordRetrievalService(chunkService), retrievalProperties)
                     : null;
@@ -556,7 +560,8 @@ public class KnowledgeBaseRagEvalRunner {
 
     private enum RetrievalEvalMode {
         VECTOR,
-        HYBRID
+        HYBRID,
+        MULTI_QUERY
     }
 
     private record ModeEvaluation(KnowledgeBaseRagEvalMetrics metrics,
