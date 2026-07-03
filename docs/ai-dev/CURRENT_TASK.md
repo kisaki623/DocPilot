@@ -1,5 +1,16 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v6.3: Multi-query Real Smoke Evidence (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.3 Multi-query Real Smoke Evidence
+
+- Goal: finish R1's runtime evidence loop by running the real RAG QA smoke with the new request-scoped multi-query gate enabled.
+- Done: `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS with marker `docpilot-rag-real-qa-20260703192456-2a62e9`.
+- Multi-query evidence: `multiQueryRag` PASS with `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, `6` retrieve hits, `6` QA citations, Alpha retrieve/citation `3/3` and Beta retrieve/citation `3/3`.
+- Regression evidence: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, hard negative, semantic gate, real provider faithfulness, no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction all remained PASS.
+- Note: the first run marker `docpilot-rag-real-qa-20260703192105-e953d2` reached `multiQueryRag` PASS but failed later at Conversation message API with `FAILED_CORE_FLOW`; cleanup succeeded and the immediate rerun passed.
+- Boundary: this is small real-link smoke evidence for request-scoped multi-query, not a large-scale relevance uplift benchmark, LLM query planner evaluation or online SLA. Artifacts remain ignored and were not submitted.
+
 Current task: DocPilot Quality Loop v6.2: Multi-query Real Smoke Gate Runner (DONE)
 
 ## 2026-07-03 Addendum: Quality Loop v6.2 Multi-query Real Smoke Gate Runner

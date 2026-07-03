@@ -2,6 +2,8 @@
 
 ## 2026-07-03 Roadmap Addendum
 
+- R1 runtime evidence is now DONE: real RAG QA smoke marker `docpilot-rag-real-qa-20260703192456-2a62e9` passed with `multiQueryRag` enabled, `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, and two-document retrieve/citation coverage.
+- This closes R1 as a request-scoped multi-query control plane plus small real-link smoke gate. It still must not be described as a large-scale relevance uplift benchmark or LLM query planning system.
 - R1 smoke runner slice is DONE: `cloud-quality-smoke.ps1 -EnableMultiQueryGate` can now validate request-scoped multi-query retrieval in the real cloud quality flow, and the RAG Real QA wrapper enables it by default while keeping a skip switch.
 - Verification so far: wrapper `plan` / `dry-run` PASS and script safety tests PASS. Real-link enabled multi-query smoke is the next required evidence before claiming runtime quality uplift.
 - R1 first slice is DONE: KnowledgeBase retrieve and QA APIs now support request-scoped `multiQueryEnabled` / `maxQueryVariants`, with absent fields preserving the default-off global behavior.

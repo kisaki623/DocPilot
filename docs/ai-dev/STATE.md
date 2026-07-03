@@ -2,6 +2,10 @@
 
 ## 2026-06-29 Current Addendum
 
+- 2026-07-03 R1 request-scoped multi-query runtime smoke is PASS. `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` produced marker `docpilot-rag-real-qa-20260703192456-2a62e9`; `multiQueryRag` observed `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, `6` retrieve hits and `6` QA citations with both temporary documents covered `3/3` in retrieve and citation counts.
+- The same run kept tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, hard negative, semantic gate, real provider faithfulness, no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction at PASS. A first run reached `multiQueryRag` PASS but failed later at Conversation message request; cleanup succeeded and the immediate rerun passed.
+- Boundary: this is small real-link smoke evidence for request-scoped multi-query, not a large-scale relevance uplift benchmark, LLM query planner evaluation or online SLA.
+
 - 2026-07-03 R1 multi-query real smoke gate runner is implemented: `cloud-quality-smoke.ps1` has optional `-EnableMultiQueryGate`, and `rag-real-qa-eval-smoke.ps1` enables it by default with `-SkipMultiQueryGate` available.
 - The gate stores only redacted multi-query booleans/counts, score summaries, document coverage counts and answer-grounding status. Verification so far is plan / dry-run / script safety only; real `run` evidence is still pending.
 

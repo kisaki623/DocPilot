@@ -1,8 +1,28 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-06-29
+> Last updated: 2026-07-03
 
 This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
+
+## 2026-07-03 RAG Multi-query Enabled Quality Gate Smoke
+
+Status: PASS
+
+Runner:
+
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1`
+
+Marker: `docpilot-rag-real-qa-20260703192456-2a62e9`
+
+Verified gates:
+
+- Request-scoped multi-query retrieval was enabled in the real cloud quality flow through `multiQueryEnabled=true` and `maxQueryVariants=4`.
+- `multiQueryRag` passed: `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, `6` retrieve hits and `6` QA citations.
+- The multi-query gate covered both temporary documents: Alpha retrieve/citation count `3/3`, Beta retrieve/citation count `3/3`.
+- Core gates also remained PASS: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant payload consistency, single-document RAG, KnowledgeBase two-document RAG, representative corpus, answer grounding, hard negative gate, semantic gate, real provider faithfulness, ordinary no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction.
+- Conversation Trace showed `ragTriggered=true`, `ragRequired=true`, `evidenceCount=4`, `memoryCount=1`, `contextSourceCounts.userMemory=1`, `contextSourceCounts.ragEvidence=4`, and two-document `documentHitCounts`.
+
+Boundary: this proves the request-scoped multi-query path can run in the current real smoke environment and preserve the existing quality gates. It is still a small smoke comparison, not a large-scale relevance uplift benchmark or online SLA. A first run with marker `docpilot-rag-real-qa-20260703192105-e953d2` reached `multiQueryRag` PASS but failed later at Conversation message request with `FAILED_CORE_FLOW`; cleanup succeeded and the immediate rerun above passed. Artifacts are stored under ignored `backend/target/rag-real-qa/.../artifact.json`; do not commit artifact raw content, answer text, document text, prompts, evidence context, credentials, connection strings, cloud addresses or tokens.
 
 ## 2026-06-29 RAG A4-A6 Quality Gate Regression Smoke
 

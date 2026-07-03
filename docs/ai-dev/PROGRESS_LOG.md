@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-03 Quality Loop v6.3 / Multi-query Real Smoke Evidence
+
+- Ran `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`.
+- PASS marker: `docpilot-rag-real-qa-20260703192456-2a62e9`.
+- `multiQueryRag` passed with `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, `6` retrieve hits and `6` QA citations.
+- Both temporary documents were covered by the multi-query gate: Alpha retrieve/citation `3/3`, Beta retrieve/citation `3/3`.
+- Core regression gates remained PASS, including chunk quality, MySQL / Qdrant consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, hard negative, semantic gate, real provider faithfulness, no-evidence, Conversation Trace, permission isolation, frontend routes, cleanup and artifact redaction.
+- First run marker `docpilot-rag-real-qa-20260703192105-e953d2` reached `multiQueryRag` PASS but later failed at Conversation message request; cleanup succeeded and the immediate rerun passed.
+- Boundary: small real-link smoke evidence only; no artifact raw content was submitted, no remote Docker/hk-ops operation, no schema change, no business-data deletion and no push.
+
 ## 2026-07-03 Quality Loop v6.2 / Multi-query Real Smoke Gate Runner
 
 - Added optional `-EnableMultiQueryGate` to `cloud-quality-smoke.ps1`.
