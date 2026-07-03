@@ -2,6 +2,10 @@
 
 ## 2026-06-29 Current Addendum
 
+- 2026-07-03 M1 provider extraction eval contract is DONE as a test-side contract. `MemoryProviderExtractionEvalRunner` can call an `AiAnswerService`, parse JSON memory suggestions, validate expected memory types, reject unsafe provider suggestions and output a redacted summary without storing conversation text, provider output or memory content.
+- Current evidence uses a stub provider only: PASS for `ANSWER_STYLE` + `TASK_GOAL`, and FAIL for unsafe token-like output. This prepares the runner for later small real-provider validation but does not claim real LLM memory extraction quality yet.
+- Verification: provider contract targeted tests PASS, 7 tests; Memory / Context tests PASS, 65 tests; wider RAG / KnowledgeBase / Conversation / Memory regression PASS, 276 tests.
+
 - 2026-07-03 M1 Memory provider-readiness artifact is DONE for the offline eval path. Memory Quality Eval now reports `providerBackedCaseRate` and a redacted `providerEvaluation` block so artifacts clearly state that current extraction evidence is `rule_based`, `not_configured` for real provider, `modelCallCount=0` and `rawProviderOutputStored=false`.
 - Per-case memory eval summaries now include `extractionProvider` and `providerBacked`, making later real-provider small-sample comparisons possible without changing the safe artifact contract again.
 - Boundary: this does not claim real LLM long-term memory extraction quality; it is an artifact honesty / readiness slice with no provider call, no runtime smoke, no schema change and no raw conversation or memory text stored.

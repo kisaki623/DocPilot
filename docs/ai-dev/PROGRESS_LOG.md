@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-03 Quality Loop v6.6 / Memory Provider Extraction Eval Contract
+
+- Added `MemoryProviderExtractionEvalRunner` as a test-side provider contract evaluator for memory extraction.
+- The runner asks an `AiAnswerService` for JSON-only memory suggestions, parses `memoryType` / `content` / `confidence`, and checks expected suggestion types, `MemorySafetyValidator` and forbidden marker leakage.
+- Safe output stores provider/model names, model call count, pass rate, case ids, suggestion types, booleans and failure reasons only.
+- Stub provider tests cover a clean provider-backed extraction case and an unsafe token-like output case; raw conversation text, provider output and memory content are not stored in safe maps.
+- Verified: `mvn "-Dtest=MemoryProviderExtractionEvalRunnerTest,MemoryQualityEvalRunnerTest,MemoryQualityEvalFixtureTest,MemoryQualitySmokeScriptSafetyTest" test` PASS, 7 tests; `mvn "-Dtest=*Memory*,*Context*" test` PASS, 65 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS, 276 tests.
+- Boundary: no real external provider call, no runtime smoke, no schema change, no production Memory extraction switch and no artifact submission.
+
 ## 2026-07-03 Quality Loop v6.5 / Memory Provider Readiness Eval Artifact
 
 - Added provider provenance to Memory Quality Eval safe artifacts.

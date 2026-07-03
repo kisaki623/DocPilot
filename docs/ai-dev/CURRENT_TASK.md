@@ -1,5 +1,15 @@
 # Current Task
 
+Current task: DocPilot Quality Loop v6.6: Memory Provider Extraction Eval Contract (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.6 Memory Provider Extraction Eval Contract
+
+- Goal: continue M1 by adding a test-side provider extraction evaluator that can validate JSON memory suggestions from an `AiAnswerService` provider without storing raw conversation text, provider output or memory content.
+- Done: `MemoryProviderExtractionEvalRunner` sends a strict JSON-only extraction contract, parses provider suggestions, checks expected memory types, safety validation and forbidden marker leakage, and emits only safe summaries.
+- Evidence: stubbed provider tests cover a PASS case for `ANSWER_STYLE` + `TASK_GOAL` extraction and a FAIL case where unsafe token-like provider output is flagged without dumping content.
+- Verified: `mvn "-Dtest=MemoryProviderExtractionEvalRunnerTest,MemoryQualityEvalRunnerTest,MemoryQualityEvalFixtureTest,MemoryQualitySmokeScriptSafetyTest" test` PASS, 7 tests; `mvn "-Dtest=*Memory*,*Context*" test` PASS, 65 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS, 276 tests.
+- Boundary: this is provider-contract / parser / artifact-safety work using a stub provider, not a real external provider run, not production LLM memory extraction, not schema change, not runtime smoke and not artifact submission.
+
 Current task: DocPilot Quality Loop v6.5: Memory Provider Readiness Eval Artifact (DONE)
 
 ## 2026-07-03 Addendum: Quality Loop v6.5 Memory Provider Readiness Eval Artifact
