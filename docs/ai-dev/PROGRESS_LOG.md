@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-03 真实体验审计 P1 RAG 修复与短文档 smoke gate
+
+- 已修复短 txt 单文档 RAG 无 evidence：全局 similarity threshold 后为空时，只对 query 与 scoped hit 内容共同包含明确 marker token 的场景保留最强 evidence，不降低全局阈值。
+- 已修复短文档 KnowledgeBase 双文档总结覆盖退化：总结类问题在明确 marker 场景下按缺失文档从 scoped raw hits backfill，避免短文档被阈值过滤后完全丢失。
+- 已补 `cloud-quality-smoke.ps1` 的 `shortDocumentRag` gate，覆盖短单文档 retrieve / QA citation、短双文档 KB retrieve / QA citation 和 answer grounding；短文档上传改用用户 B，避免用户 A 触发上传限流。
+- 已完成 quote-first citation UI 代码修复和权限 / 不存在场景中文错误归一化；这两项仍建议后续补浏览器点击级细验。
+- 已验证：`mvn "-Dtest=RagDocumentRetrievalServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS；`npm run lint` PASS；`npm run build` PASS；`cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `cloud-quality-smoke.ps1 -Mode run` PASS，marker `docpilot-cloud-quality-20260703213703-dbef08`。
+- 边界：未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
 ## 2026-07-03 中文记录与真实体验问题自动台账
 
 - 已把“内部文档和审计记录默认用中文”沉淀为长期协作规则。

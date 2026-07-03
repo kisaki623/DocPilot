@@ -1,5 +1,17 @@
 # Current Task
 
+当前任务：真实体验审计 P1 RAG 问题修复与短文档 smoke gate（REVIEW）
+
+## 2026-07-03 补充：短文档 RAG / KB 修复验证
+
+- 目标：修复真实体验审计 marker `docpilot-real-audit-20260703195519-5118e8` 暴露的短 txt 单文档 RAG 无 evidence、短文档 KnowledgeBase 双文档覆盖退化、quote-first UI 和权限错误提示问题。
+- 已完成后端：单文档 RAG 增加收窄的 marker-supported fallback；KnowledgeBase 总结类问题增加按文档 marker-supported backfill，避免短文档在阈值过滤后完全丢失，但不降低全局 similarity threshold，不放宽普通 no-evidence。
+- 已完成前端：文档详情和 KnowledgeBase 引用卡片优先显示 `quoteText`，`snippet` 作为上下文；Conversation citation hover title 优先使用 quote；`apiRequest` 统一抛出带 `code/status/rawMessage` 的 `ApiError`，并对无权限 / 不存在场景给出更清晰中文提示。
+- 已完成 smoke：`scripts/smoke/cloud-quality-smoke.ps1` 新增 `shortDocumentRag` gate，覆盖短 Alpha 单文档 retrieve / QA citation、短 Alpha / Beta KnowledgeBase retrieve / QA citation 和 answer grounding。
+- 真实验证：`cloud-quality-smoke.ps1 -Mode run` PASS，marker `docpilot-cloud-quality-20260703213703-dbef08`；短单文档 `1` hit / `1` citation，短双文档 KB `2` hits / `2` citations，核心 gate、no-evidence、Conversation Trace、权限隔离、frontend routes、artifact redaction 和 cleanup 均 PASS。
+- 当前状态：P1 两项已真实验证；P2/P3 已完成代码修复并通过前端构建 / 路由 smoke / 权限隔离 API gate，但仍建议补一次浏览器点击级细验后再把台账状态改为 `VERIFIED`。
+- 边界：未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未 push。
+
 当前任务：中文文档与真实体验问题自动记录规则沉淀（DONE）
 
 ## 2026-07-03 补充：中文记录与真实体验问题自动台账

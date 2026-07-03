@@ -98,6 +98,10 @@ function formatScore(score: number | undefined): string {
   return score.toFixed(4);
 }
 
+function citationQuote(citation: { quoteText?: string; snippet?: string }): string {
+  return citation.quoteText?.trim() || citation.snippet?.trim() || "-";
+}
+
 function normalizeRagError(message: string): string {
   if (message.includes("无权") || message.includes("不存在")) {
     return "文档不存在或当前账号无权访问，请重新选择自己的文档。";
@@ -982,9 +986,14 @@ export default function DocumentDetailPage() {
                             <p className="text-xs text-slate-500 mb-1">
                               chunk #{citation.chunkIndex ?? "-"} · version {citation.indexVersion ?? "-"}
                             </p>
-                            <p className="text-slate-700 line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="点击查看全部内容">
-                              {citation.snippet || "-"}
+                            <p className="text-slate-800 line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="精确引用原文">
+                              {citationQuote(citation)}
                             </p>
+                            {citation.quoteText && citation.snippet && citation.quoteText !== citation.snippet ? (
+                              <p className="mt-2 line-clamp-3 text-xs text-slate-500 hover:line-clamp-none">
+                                上下文：{citation.snippet}
+                              </p>
+                            ) : null}
                           </li>
                         ))}
                       </ul>

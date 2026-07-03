@@ -4,6 +4,26 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-03 真实体验审计 P1 修复验证 Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/cloud-quality-smoke.ps1`
+
+Marker: `docpilot-cloud-quality-20260703213703-dbef08`
+
+已验证：
+
+- 新增 `shortDocumentRag` gate：短 Alpha txt 文档 parse / indexing 后，单文档 RAG 返回 `1` hit 和 `1` citation。
+- 短 Alpha / Beta 两文档 KnowledgeBase RAG 返回 `2` hits 和 `2` citations，`documentHitCounts` 覆盖两份短文档。
+- `answerGrounding` 同步覆盖短单文档和短 KnowledgeBase 回答：预期 marker 命中，forbidden marker 未命中，citation marker 存在。
+- 核心 gate 保持 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、no-evidence、Conversation Trace、权限隔离、artifact redaction 和 cleanup。
+- 本轮同时完成 quote-first citation UI 代码修复和权限错误中文提示归一化；这两项属于体验修复，仍建议后续补浏览器点击级细验。
+
+边界：本次 run 创建临时 smoke 用户、短 txt 文档、KnowledgeBase 和 Conversation 数据；artifact 位于 ignored `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。该结果是小规模真实链路回归 smoke，不是大规模 relevance benchmark 或线上 SLA。
+
 ## 2026-07-03 真实体验审计问题发现
 
 状态：REVIEW（需复查）

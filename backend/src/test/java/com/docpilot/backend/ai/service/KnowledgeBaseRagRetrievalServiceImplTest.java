@@ -261,6 +261,37 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldBackfillMarkerSupportedShortDocumentsForSummaryQuestionsWhenThresholdFiltersAllHits() {
+        ragRetrievalProperties.setMinSimilarityThreshold(0.80D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
+                doc(101L, "Alpha Short"),
+                doc(102L, "Beta Short")
+        ));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("alpha-short", 7L, 101L, 1,
+                        "Alpha note: ALPHA-SHORT-GATE proves parse and indexing completed.", 0.42D),
+                hit("beta-short", 7L, 102L, 1,
+                        "Beta note: BETA-SHORT-GATE proves conversation trace evidence is available.", 0.40D)
+        ), "in_memory", ""));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "请总结这两份资料，必须覆盖 ALPHA-SHORT-GATE 和 BETA-SHORT-GATE。",
+                4,
+                1,
+                ""
+        ));
+
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.hits()).hasSize(2);
+        assertThat(result.documentHitCounts()).containsEntry(101L, 1).containsEntry(102L, 1);
+        assertThat(result.hits()).extracting(KnowledgeBaseRagRetrievalHit::documentId)
+                .containsExactly(101L, 102L);
+    }
+
+    @Test
     void shouldReturnNoEvidenceForNearThresholdHardNegativeWithLowEvidenceSupport() {
         ragRetrievalProperties.setMinSimilarityThreshold(0.50D);
         when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(

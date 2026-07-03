@@ -23,16 +23,23 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalService {
 
     public static final int DEFAULT_INDEX_VERSION = 1;
     public static final int MAX_TOP_K = 10;
+    private static final Pattern SUPPORT_TOKEN_PATTERN = Pattern.compile("[a-z0-9][a-z0-9_-]{2,}");
 
     private final DocumentMapper documentMapper;
     private final EmbeddingProvider embeddingProvider;
@@ -99,7 +106,7 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
                 resolved.topK()
         ));
         List<VectorSearchHit> scopedHits = scopedHits(resolved, searchResult.hits());
-        List<VectorSearchHit> filteredHits = applySimilarityThreshold(scopedHits);
+        List<VectorSearchHit> filteredHits = applySimilarityThreshold(resolved, scopedHits);
         List<RagRetrievalHit> hits = toHits(filteredHits);
         List<RagEvidenceCitation> citations = hits.stream()
                 .map(RagRetrievalHit::toCitation)
@@ -174,14 +181,59 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
         return List.copyOf(scoped);
     }
 
-    private List<VectorSearchHit> applySimilarityThreshold(List<VectorSearchHit> hits) {
+    private List<VectorSearchHit> applySimilarityThreshold(ResolvedQuery query, List<VectorSearchHit> hits) {
         double threshold = retrievalProperties.getMinSimilarityThreshold();
         if (threshold <= 0.0D || hits.isEmpty()) {
             return hits;
         }
-        return hits.stream()
+        List<VectorSearchHit> filtered = hits.stream()
                 .filter(hit -> hit.score() >= threshold)
                 .collect(Collectors.toList());
+        if (!filtered.isEmpty()) {
+            return filtered;
+        }
+        return markerSupportedFallback(query.query(), hits);
+    }
+
+    private List<VectorSearchHit> markerSupportedFallback(String query, List<VectorSearchHit> hits) {
+        Set<String> markerTokens = markerTokens(query);
+        if (markerTokens.isEmpty()) {
+            return List.of();
+        }
+        return hits.stream()
+                .filter(hit -> contentContainsMarker(hit.content(), markerTokens))
+                .max(Comparator.comparingDouble(VectorSearchHit::score))
+                .map(List::of)
+                .orElseGet(List::of);
+    }
+
+    private Set<String> markerTokens(String text) {
+        if (text == null || text.isBlank()) {
+            return Set.of();
+        }
+        Set<String> tokens = new LinkedHashSet<>();
+        Matcher matcher = SUPPORT_TOKEN_PATTERN.matcher(text.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            String token = matcher.group();
+            if (isMarkerToken(token)) {
+                tokens.add(token);
+            }
+        }
+        return Set.copyOf(tokens);
+    }
+
+    private boolean isMarkerToken(String token) {
+        return token != null
+                && token.length() >= 6
+                && (token.indexOf('-') >= 0 || token.indexOf('_') >= 0);
+    }
+
+    private boolean contentContainsMarker(String content, Set<String> markerTokens) {
+        if (content == null || content.isBlank() || markerTokens.isEmpty()) {
+            return false;
+        }
+        String normalized = content.toLowerCase(Locale.ROOT);
+        return markerTokens.stream().anyMatch(normalized::contains);
     }
 
     private List<RagRetrievalHit> toHits(List<VectorSearchHit> hits) {

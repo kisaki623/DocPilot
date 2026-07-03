@@ -151,6 +151,43 @@ class RagDocumentRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldKeepShortDocumentMarkerEvidenceWhenThresholdFiltersAllHits() {
+        when(documentMapper.selectById(101L)).thenReturn(document(101L, 7L));
+        when(embeddingProvider.embed(any())).thenReturn(embedding("mock-model"));
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(
+                List.of(hit(7L, 101L, 1, 0.42D,
+                        "Short note marker ALPHA-SHORT-GATE proves that parsing and indexing completed.")),
+                "in_memory",
+                ""
+        ));
+        RagRetrievalProperties retrievalProperties = new RagRetrievalProperties();
+        retrievalProperties.setMinSimilarityThreshold(0.8D);
+        RagDocumentRetrievalServiceImpl service = new RagDocumentRetrievalServiceImpl(
+                documentMapper,
+                embeddingProvider,
+                vectorStoreClient,
+                new RagEmbeddingProperties(),
+                new RagQaProperties(),
+                retrievalProperties,
+                new RagScopeGuard(documentMapper)
+        );
+
+        RagRetrievalResult result = service.retrieve(new RagRetrievalQuery(
+                7L,
+                101L,
+                "What does ALPHA-SHORT-GATE prove?",
+                3,
+                1,
+                "mock-model"
+        ));
+
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.hits()).hasSize(1);
+        assertThat(result.citations()).hasSize(1);
+        assertThat(result.hits().get(0).content()).contains("ALPHA-SHORT-GATE");
+    }
+
+    @Test
     void shouldRejectWrongOwnerBeforeEmbedding() {
         when(documentMapper.selectById(101L)).thenReturn(document(101L, 8L));
         RagDocumentRetrievalServiceImpl service = service(new RagQaProperties());
@@ -283,6 +320,10 @@ class RagDocumentRetrievalServiceImplTest {
     }
 
     private VectorSearchHit hit(Long userId, Long documentId, Integer indexVersion, double score) {
+        return hit(userId, documentId, indexVersion, score, "cache policy evidence");
+    }
+
+    private VectorSearchHit hit(Long userId, Long documentId, Integer indexVersion, double score, String content) {
         return new VectorSearchHit(
                 "vector-1",
                 score,
@@ -290,7 +331,7 @@ class RagDocumentRetrievalServiceImplTest {
                 documentId,
                 indexVersion,
                 0,
-                "cache policy evidence",
+                content,
                 "hash-a",
                 Map.of(
                         "chunkId", 501L,

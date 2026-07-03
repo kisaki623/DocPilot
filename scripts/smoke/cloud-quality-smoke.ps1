@@ -208,7 +208,7 @@ function Upload-SmokeFile([string]$path, [string]$token) {
     $text = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
     $parsed = $text | ConvertFrom-Json
     if (-not $response.IsSuccessStatusCode -or $parsed.code -ne 0) {
-      throw "upload failed"
+      throw "upload failed status=$([int]$response.StatusCode) code=$($parsed.code) message=$($parsed.message)"
     }
     return $parsed.data
   } finally {
@@ -737,7 +737,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "shortDocumentRag", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -926,6 +926,56 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
   }
   $answerGroundingChecks += Test-AnswerGrounding "knowledgeBaseRag" ([string]$kbQa.data.answer) @("ALPHA-CLOUD-GATE", "BETA-CONTEXT-GATE") @("real-marketing-export-forbidden-marker")
   Set-Gate "knowledgeBaseRag" "PASS" $kbChecks
+
+  $shortAlphaText = @"
+$smokeMarker
+Short Alpha note. ALPHA-SHORT-GATE proves a small txt document can still return grounded RAG evidence.
+"@
+  $shortBetaText = @"
+$smokeMarker
+Short Beta note. BETA-SHORT-GATE proves a second small txt document can join KnowledgeBase summary evidence.
+"@
+  $shortAlphaPath = Join-Path $artifactDir "short-alpha.txt"
+  $shortBetaPath = Join-Path $artifactDir "short-beta.txt"
+  [System.IO.File]::WriteAllText($shortAlphaPath, $shortAlphaText, [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText($shortBetaPath, $shortBetaText, [System.Text.UTF8Encoding]::new($false))
+  $shortFileA = Upload-SmokeFile $shortAlphaPath $tokenB
+  $shortFileB = Upload-SmokeFile $shortBetaPath $tokenB
+  $shortDocA = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $shortFileA.id }) $tokenB
+  $shortDocB = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $shortFileB.id }) $tokenB
+  Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $shortDocA.data.id }) $tokenB | Out-Null
+  Wait-ParseSuccess ([long]$shortDocA.data.id) $tokenB | Out-Null
+  $shortChunksA = Wait-IndexedChunks $envValues $userBId ([long]$shortDocA.data.id)
+  Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $shortDocB.data.id }) $tokenB | Out-Null
+  Wait-ParseSuccess ([long]$shortDocB.data.id) $tokenB | Out-Null
+  $shortChunksB = Wait-IndexedChunks $envValues $userBId ([long]$shortDocB.data.id)
+  $shortSingleRetrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $shortDocA.data.id; query = "What does ALPHA-SHORT-GATE prove for $smokeMarker?"; topK = 3; indexVersion = $IndexVersion }) $tokenB
+  $shortSingleQa = Invoke-JsonApi "POST" "/api/documents/$($shortDocA.data.id)/qa/rag" ([ordered]@{ question = "Explain ALPHA-SHORT-GATE for $smokeMarker and cite the short Alpha document."; topK = 3; indexVersion = $IndexVersion }) $tokenB
+  $shortKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Short Quality KB $smokeMarker"; description = "temporary short document regression kb" }) $tokenB
+  Invoke-JsonApi "POST" "/api/knowledge-bases/$($shortKb.data.id)/documents" ([ordered]@{ documentIds = @($shortDocA.data.id, $shortDocB.data.id) }) $tokenB | Out-Null
+  $shortKbQuestion = "Summarize both short documents for $smokeMarker. Include ALPHA-SHORT-GATE and BETA-SHORT-GATE verbatim, and cite both documents."
+  $shortKbRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($shortKb.data.id)/rag/retrieve" ([ordered]@{ query = $shortKbQuestion; topK = 4; indexVersion = $IndexVersion }) $tokenB
+  $shortKbQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($shortKb.data.id)/qa/rag" ([ordered]@{ question = $shortKbQuestion; topK = 4; indexVersion = $IndexVersion }) $tokenB
+  $shortHitCounts = $shortKbRetrieve.data.documentHitCounts
+  $shortChecks = @([ordered]@{
+    shortAlphaChunkCount = @($shortChunksA).Count
+    shortBetaChunkCount = @($shortChunksB).Count
+    singleRetrieveHits = @($shortSingleRetrieve.data.hits).Count
+    singleQaCitations = @($shortSingleQa.data.citations).Count
+    kbRetrieveHits = @($shortKbRetrieve.data.hits).Count
+    kbQaCitations = @($shortKbQa.data.citations).Count
+    documentHitCounts = $shortHitCounts
+    singleRetrieveScoreSummary = Get-ScoreSummary $shortSingleRetrieve.data.hits
+    kbRetrieveScoreSummary = Get-ScoreSummary $shortKbRetrieve.data.hits
+    qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
+  })
+  if ($shortSingleRetrieve.data.noEvidence -or @($shortSingleRetrieve.data.hits).Count -lt 1 -or @($shortSingleQa.data.citations).Count -lt 1 -or @($shortKbRetrieve.data.hits).Count -lt 2 -or @($shortKbQa.data.citations).Count -lt 2 -or (Get-CountValue $shortHitCounts ([string]$shortDocA.data.id)) -lt 1 -or (Get-CountValue $shortHitCounts ([string]$shortDocB.data.id)) -lt 1) {
+    Set-Gate "shortDocumentRag" "FAILED_CORE_FLOW" $shortChecks "short document RAG regression gate did not return required evidence"
+    Stop-WithStatus "FAILED_CORE_FLOW" "shortDocumentRag" "short document RAG regression gate did not return required evidence"
+  }
+  $answerGroundingChecks += Test-AnswerGrounding "shortDocumentRag" ([string]$shortSingleQa.data.answer) @("ALPHA-SHORT-GATE") @("BETA-SHORT-GATE", "real-marketing-export-forbidden-marker")
+  $answerGroundingChecks += Test-AnswerGrounding "shortKnowledgeBaseRag" ([string]$shortKbQa.data.answer) @("ALPHA-SHORT-GATE", "BETA-SHORT-GATE") @("real-marketing-export-forbidden-marker")
+  Set-Gate "shortDocumentRag" "PASS" $shortChecks
 
   if ($EnableMultiQueryGate) {
     $multiQueryQuestion = "Compare the alpha chunk quality evidence and beta context trace evidence for $smokeMarker. Include ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE verbatim, and cite both documents."

@@ -2,6 +2,9 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-03 真实体验审计 P1 RAG 问题已完成修复并通过真实 cloud quality smoke 验证。`scripts/smoke/cloud-quality-smoke.ps1 -Mode run` marker `docpilot-cloud-quality-20260703213703-dbef08` PASS；新增 `shortDocumentRag` gate 覆盖短 Alpha 单文档 `1` hit / `1` citation、短 Alpha / Beta KnowledgeBase `2` hits / `2` citations 和 answer grounding，核心 gate、no-evidence、Conversation Trace、权限隔离、frontend routes、artifact redaction 和 cleanup 均保持 PASS。
+- 本轮修复保持边界收窄：单文档 RAG 只在 query 与 scoped hit 内容存在同一个明确 marker token、且 threshold 后无 hit 时保留最强 evidence；KnowledgeBase RAG 只在总结类问题和明确 marker 场景按缺失文档 backfill，不降低全局 similarity threshold，不放宽普通 no-evidence。
+- 真实体验审计台账 `REA-20260703-P1-001`、`REA-20260703-P1-002` 已标为 `VERIFIED`；`REA-20260703-P2-001` quote-first UI 和 `REA-20260703-P3-001` 权限错误提示已完成代码修复并通过前端构建 / route smoke / 权限隔离 API gate，但仍保留 `FIXED_PENDING_VERIFY`，等待后续浏览器点击级细验。
 - 2026-07-03 起，内部协作文档、状态回写、真实体验审计问题台账默认使用中文。技术名、路径、API、状态枚举、命令可以保留原文，但目标、结论、复现步骤、实际结果、预期结果、可能原因和边界说明必须用中文。
 - Codex / agent 真实启动 DocPilot、跑本地 tunnel / backend / frontend / smoke、用浏览器或 API 按用户路径体验后，如果发现 bug、体验问题、安全疑点或环境阻塞，必须自动追加到 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`，不能只口头汇报或只写 showcase 摘要。
 - 2026-07-03 起，真实体验审计发现的问题统一写入内部长期台账 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。

@@ -152,6 +152,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
 
         // Apply similarity threshold filtering
         List<VectorSearchHit> filteredHits = applySimilarityThreshold(scopedHits);
+        filteredHits = backfillSummaryMarkerSupportedDocuments(resolved, documentIds, filteredHits, scopedHits);
 
         // Use hybrid retrieval if enabled, otherwise use vector-only
         String retrievalMode = retrievalProperties.isHybridEnabled() ? "hybrid" : "vector";
@@ -162,6 +163,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         } else {
             candidates = filteredHits;
         }
+        candidates = backfillSummaryMarkerSupportedDocuments(resolved, documentIds, candidates, scopedHits);
         List<VectorSearchHit> finalScopedCandidates = scopedHits(resolved, documentById.keySet(), candidates);
         RerankOutcome rerankOutcome = rerankCandidates(resolved, finalScopedCandidates);
         List<VectorSearchHit> selectedHits = selectDiverseHits(resolved, documentIds, rerankOutcome.hits());
@@ -498,6 +500,47 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         return hits;
     }
 
+    private List<VectorSearchHit> backfillSummaryMarkerSupportedDocuments(ResolvedQuery query,
+                                                                           List<Long> documentIds,
+                                                                           List<VectorSearchHit> currentHits,
+                                                                           List<VectorSearchHit> sourceHits) {
+        if (!isSummaryIntent(query.query()) || documentIds.size() <= 1 || sourceHits.isEmpty()) {
+            return currentHits;
+        }
+        Set<String> markerTokens = markerTokens(query.query());
+        if (markerTokens.isEmpty()) {
+            return currentHits;
+        }
+        Map<Long, VectorSearchHit> selectedByDocument = currentHits.stream()
+                .collect(Collectors.toMap(
+                        VectorSearchHit::documentId,
+                        Function.identity(),
+                        (left, right) -> left,
+                        LinkedHashMap::new
+                ));
+        List<VectorSearchHit> merged = new ArrayList<>(currentHits);
+        Set<String> selectedIds = currentHits.stream().map(this::stableHitKey).collect(Collectors.toCollection(LinkedHashSet::new));
+        for (Long documentId : documentIds) {
+            if (selectedByDocument.containsKey(documentId)) {
+                continue;
+            }
+            sourceHits.stream()
+                    .filter(hit -> documentId.equals(hit.documentId()))
+                    .filter(hit -> contentContainsMarker(hit.content(), markerTokens))
+                    .filter(hit -> !selectedIds.contains(stableHitKey(hit)))
+                    .max((left, right) -> Double.compare(scoreForThreshold(left), scoreForThreshold(right)))
+                    .ifPresent(hit -> {
+                        merged.add(hit);
+                        selectedIds.add(stableHitKey(hit));
+                    });
+        }
+        return List.copyOf(merged);
+    }
+
+    private String stableHitKey(VectorSearchHit hit) {
+        return hitKey(hit);
+    }
+
     private List<String> supportTokens(String query) {
         if (query == null || query.isBlank()) {
             return List.of();
@@ -511,6 +554,35 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
             }
         }
         return List.copyOf(tokens);
+    }
+
+    private Set<String> markerTokens(String text) {
+        if (text == null || text.isBlank()) {
+            return Set.of();
+        }
+        Set<String> tokens = new LinkedHashSet<>();
+        Matcher matcher = SUPPORT_TOKEN_PATTERN.matcher(text.toLowerCase(Locale.ROOT));
+        while (matcher.find()) {
+            String token = matcher.group();
+            if (isMarkerToken(token)) {
+                tokens.add(token);
+            }
+        }
+        return Set.copyOf(tokens);
+    }
+
+    private boolean isMarkerToken(String token) {
+        return token != null
+                && token.length() >= 6
+                && (token.indexOf('-') >= 0 || token.indexOf('_') >= 0);
+    }
+
+    private boolean contentContainsMarker(String content, Set<String> markerTokens) {
+        if (content == null || content.isBlank() || markerTokens.isEmpty()) {
+            return false;
+        }
+        String normalized = content.toLowerCase(Locale.ROOT);
+        return markerTokens.stream().anyMatch(normalized::contains);
     }
 
     private List<KnowledgeBaseRagRetrievalHit> toHits(Long knowledgeBaseId,

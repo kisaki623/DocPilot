@@ -122,6 +122,10 @@ function memorySourceLabel(sourceType?: string | null): string {
   return sourceType || "未知来源";
 }
 
+function citationQuote(citation: { quoteText?: string; snippet?: string }): string {
+  return citation.quoteText?.trim() || citation.snippet?.trim() || "查看引用来源";
+}
+
 function formatConfidence(value?: number | null): string {
   if (value === undefined || value === null) {
     return "-";
@@ -1139,7 +1143,7 @@ export default function ConversationsPage() {
                             type="button"
                             key={`${citation.documentId}-${citation.chunkId}-${index}`}
                             onClick={() => { void handleLoadTrace(message.messageId); }}
-                            title={citation.snippet || "查看引用来源"}
+                            title={citationQuote(citation)}
                           >
                             [{index + 1}] {citation.documentTitle || `文档 #${citation.documentId}`}
                             <span>{typeof citation.score === "number" ? citation.score.toFixed(3) : "-"}</span>

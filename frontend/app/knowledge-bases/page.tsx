@@ -53,6 +53,10 @@ function formatScore(score?: number): string {
   return score.toFixed(4);
 }
 
+function citationQuote(citation: { quoteText?: string; snippet?: string }): string {
+  return citation.quoteText?.trim() || citation.snippet?.trim() || "-";
+}
+
 function formatScoreDetails(item: {
   vectorScore?: number;
   keywordScore?: number;
@@ -919,9 +923,14 @@ export default function KnowledgeBasesPage() {
                                   {formatScore(citation.score)}
                                 </span>
                               </div>
-                              <p className="line-clamp-4 text-xs leading-5 text-slate-600 hover:line-clamp-none">
-                                {citation.snippet || "-"}
+                              <p className="line-clamp-4 text-xs leading-5 text-slate-800 hover:line-clamp-none">
+                                {citationQuote(citation)}
                               </p>
+                              {citation.quoteText && citation.snippet && citation.quoteText !== citation.snippet ? (
+                                <p className="mt-2 line-clamp-3 text-[11px] leading-5 text-slate-500 hover:line-clamp-none">
+                                  上下文：{citation.snippet}
+                                </p>
+                              ) : null}
                               {formatScoreDetails(citation) ? (
                                 <p className="mt-2 text-[11px] text-slate-400">
                                   {formatScoreDetails(citation)}
