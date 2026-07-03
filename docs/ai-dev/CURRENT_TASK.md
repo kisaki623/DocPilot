@@ -1,5 +1,24 @@
 # Current Task
 
+当前任务：中文文档与真实体验问题自动记录规则沉淀（DONE）
+
+## 2026-07-03 补充：中文记录与真实体验问题自动台账
+
+- 目标：把用户要求沉淀成长期协作规则：内部文档和审计记录默认用中文；Codex 真实体验项目后发现的问题必须自动写入台账。
+- 已完成：`AGENTS.md`、`docs/README.md`、`docs/ai-dev/CONSTRAINTS.md` 和 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md` 已明确中文记录规范、真实体验问题触发条件、脱敏边界和问题记录必填字段。
+- 当前规则：技术名、路径、API、状态枚举、命令可保留原文；目标、结论、复现步骤、实际结果、预期结果、可能原因、边界说明必须用中文。
+- 边界：仅文档 / 流程规则沉淀；未启动服务，未创建业务数据，未修改业务代码，未提交 artifact 原文，未 commit，未 push。
+
+当前任务：DocPilot 真实体验审计问题台账（DONE）
+
+## 2026-07-03 补充：真实体验审计问题台账
+
+- 目标：为 Codex 像真实用户一样运行 DocPilot 后发现的 bug 和质量问题，建立可持续维护、只记录脱敏摘要的文档入口。
+- 已完成：新增 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md` 作为真实体验审计问题台账，包含严重级别、状态、问题记录格式、首轮审计摘要，以及 marker `docpilot-real-audit-20260703195519-5118e8` 发现的 4 个 OPEN（待修复）问题。
+- 流程同步：`AGENTS.md`、`docs/README.md` 和 `docs/ai-dev/CONSTRAINTS.md` 已要求后续真实体验问题写入该台账，避免把完整问题流水塞进 showcase smoke 记录。
+- 当前待修复问题：`REA-20260703-P1-001` 短 txt 单文档 RAG 无 evidence；`REA-20260703-P1-002` 短文档 KB 双文档问题退化成单文档命中；`REA-20260703-P2-001` quote-level API 需要 quote-first UI；`REA-20260703-P3-001` 权限拒绝前端提示需要更清晰。
+- 边界：本轮仅为文档 / 流程切片；未启动服务，未创建业务数据，未修改代码，未提交 artifact 原文，未 commit，未 push。
+
 Current task: DocPilot Quality Loop v6.6: Memory Provider Extraction Eval Contract (DONE)
 
 ## 2026-07-03 Addendum: Quality Loop v6.6 Memory Provider Extraction Eval Contract

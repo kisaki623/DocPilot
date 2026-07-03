@@ -2,7 +2,30 @@
 
 > Last updated: 2026-07-03
 
-This file records the demo smoke evidence collected during the A1 real-link verification. It is intended for interview/showcase preparation and should keep implementation boundaries explicit.
+本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
+
+## 2026-07-03 真实体验审计问题发现
+
+状态：REVIEW（需复查）
+
+审计 marker：`docpilot-real-audit-20260703195519-5118e8`
+
+关联 cloud quality marker：`docpilot-cloud-quality-20260703195356-1362ea`
+
+已验证：
+
+- 标准 cloud quality smoke 已通过：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、answer grounding、no-evidence、Conversation Trace、权限隔离、cleanup 和 artifact redaction。
+- 浏览器审计中，`/`、`/dashboard`、`/documents`、`/documents/{documentId}`、`/knowledge-bases` 和 `/conversations` 均可渲染；桌面端和移动端未发现横向溢出、前端 console error 或用户可见 mojibake。
+- 补充检查已通过：`npm run lint`；`mvn -DskipTests compile`。
+
+问题已追踪在 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`：
+
+- `REA-20260703-P1-001`：短 txt parse 成功但单文档 RAG 返回 no evidence。
+- `REA-20260703-P1-002`：短文档 KnowledgeBase 双文档问题退化成单文档命中。
+- `REA-20260703-P2-001`：quote-level citation API 已有，但仍需要 quote-first UI 展示。
+- `REA-20260703-P3-001`：权限拒绝已生效，但前端需要把业务级无权限状态展示得更清晰。
+
+边界：原始审计报告只保留在 ignored 的 `backend/target/audit/...`；不要提交 artifact 原文、日志、截图、临时文档文本、token、prompt、evidence context、云地址或连接串。本轮是用户视角 runtime audit，不是大规模生产 relevance benchmark 或线上 SLA。
 
 ## 2026-07-03 RAG Multi-query Enabled Quality Gate Smoke
 

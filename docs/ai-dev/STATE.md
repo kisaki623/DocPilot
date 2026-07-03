@@ -1,6 +1,13 @@
 # DocPilot 当前状态
 
-## 2026-06-29 Current Addendum
+## 2026-06-29 当前补充
+
+- 2026-07-03 起，内部协作文档、状态回写、真实体验审计问题台账默认使用中文。技术名、路径、API、状态枚举、命令可以保留原文，但目标、结论、复现步骤、实际结果、预期结果、可能原因和边界说明必须用中文。
+- Codex / agent 真实启动 DocPilot、跑本地 tunnel / backend / frontend / smoke、用浏览器或 API 按用户路径体验后，如果发现 bug、体验问题、安全疑点或环境阻塞，必须自动追加到 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`，不能只口头汇报或只写 showcase 摘要。
+- 2026-07-03 起，真实体验审计发现的问题统一写入内部长期台账 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。
+- 最新真实体验审计 marker `docpilot-real-audit-20260703195519-5118e8` 状态为 REVIEW（需复查）：标准 cloud quality smoke marker `docpilot-cloud-quality-20260703195356-1362ea` 已通过，但浏览器 / API 用户视角的短 txt 覆盖审计发现 2 个 OPEN（待修复）的 P1 RAG 问题。
+- 当前 P1 问题：`REA-20260703-P1-001` 短 txt parse 成功但单文档 RAG 返回 `0` evidence / citations；`REA-20260703-P1-002` 短文档 KnowledgeBase 双文档问题在 retrieve / QA / Conversation Trace 中退化成单文档命中。
+- 当前体验问题：`REA-20260703-P2-001` quote-level citation API 仍需要 quote-first UI 展示；`REA-20260703-P3-001` 权限拒绝已经生效，但前端需要把业务级无权限状态展示得更清晰。
 
 - 2026-07-03 M1 provider extraction eval contract is DONE as a test-side contract. `MemoryProviderExtractionEvalRunner` can call an `AiAnswerService`, parse JSON memory suggestions, validate expected memory types, reject unsafe provider suggestions and output a redacted summary without storing conversation text, provider output or memory content.
 - Current evidence uses a stub provider only: PASS for `ANSWER_STYLE` + `TASK_GOAL`, and FAIL for unsafe token-like output. This prepares the runner for later small real-provider validation but does not claim real LLM memory extraction quality yet.

@@ -1,5 +1,20 @@
 # Progress Log
 
+## 2026-07-03 中文记录与真实体验问题自动台账
+
+- 已把“内部文档和审计记录默认用中文”沉淀为长期协作规则。
+- 已明确真实体验项目后发现的 bug、体验问题、安全疑点或环境阻塞必须自动写入 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。
+- 已补充台账记录语言规范、触发条件和单个问题必填字段；技术名、路径、API、状态枚举和命令可保留原文，其余解释性内容必须中文。
+- 边界：仅文档流程规则沉淀；未启动服务，未创建业务数据，未修改业务代码，未提交 artifact 原文。
+
+## 2026-07-03 真实体验审计问题台账
+
+- 新增 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`，作为真实用户视角审计问题的长期台账。
+- 已记录 marker `docpilot-real-audit-20260703195519-5118e8` 的首轮脱敏审计摘要。
+- 当前台账追踪 4 个 OPEN（待修复）问题：短 txt 单文档 RAG 无 evidence、短文档 KnowledgeBase 双文档覆盖退化、quote-first citation UI 缺口、权限拒绝体验提示不够清晰。
+- 已同步流程文档：后续真实体验发现写入该台账，原始 artifact 继续只保留在 ignored 的 `backend/target/audit/...`。
+- 边界：仅文档流程变更；未改后端 / 前端代码，未启动服务，未创建业务数据，未提交 artifact 原文。
+
 ## 2026-07-03 Quality Loop v6.6 / Memory Provider Extraction Eval Contract
 
 - Added `MemoryProviderExtractionEvalRunner` as a test-side provider contract evaluator for memory extraction.

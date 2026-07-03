@@ -1,6 +1,6 @@
 ﻿﻿﻿# AGENTS.md
 
-本文件是 DocPilot 仓库给后续 Codex / API agent / Claude Code 等协作代理读取的项目规则。每轮开始先读本文件和 `docs/README.md`，再按文档地图读取 `docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/showcase/DEMO_SMOKE_RECORD.md`、`docs/ai-dev/ROADMAP_RAG.md`、`docs/ai-dev/DECISIONS.md`、`docs/ai-dev/CONSTRAINTS.md`、`docs/ai-dev/PROGRESS_LOG.md`，并检查 `git status` 与 `git diff`。旧的 `TODO_NEXT.md`、`CODEX_HANDOFF.md`、`CHANGELOG_CODING.md` 已归档到 `docs/archive/`，只在追溯历史时读取，不作为当前任务源。
+本文件是 DocPilot 仓库给后续 Codex / API agent / Claude Code 等协作代理读取的项目规则。每轮开始先读本文件和 `docs/README.md`，再按文档地图读取 `docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/showcase/DEMO_SMOKE_RECORD.md`、`docs/ai-dev/ROADMAP_RAG.md`、`docs/ai-dev/DECISIONS.md`、`docs/ai-dev/CONSTRAINTS.md`、`docs/ai-dev/PROGRESS_LOG.md`，并检查 `git status` 与 `git diff`；涉及真实体验审计、用户视角 bug 或修复回归时，同时读取 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。旧的 `TODO_NEXT.md`、`CODEX_HANDOFF.md`、`CHANGELOG_CODING.md` 已归档到 `docs/archive/`，只在追溯历史时读取，不作为当前任务源。
 
 ## 项目定位
 
@@ -90,6 +90,7 @@ curl http://localhost:8081/actuator/health
 ## 协作流程规则
 
 1. 默认使用中文回复。
+   内部协作文档、状态回写、审计台账和问题记录默认使用中文；技术名、路径、API、状态枚举、命令可以保留原文，但解释、结论、复现步骤、实际结果和预期结果必须用中文，方便用户直接阅读和复盘。
 2. 每轮开始必须先读：`AGENTS.md`、`docs/README.md`、`docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/ai-dev/CONSTRAINTS.md`、`docs/ai-dev/PROGRESS_LOG.md`、`git status`、`git diff`；涉及展示口径时同时读 `docs/showcase/DEMO_SMOKE_RECORD.md`，涉及 RAG / 技术决策时同时读 `docs/ai-dev/ROADMAP_RAG.md` 和 `docs/ai-dev/DECISIONS.md`。
 3. 每轮只允许执行一个用户任务或 `docs/ai-dev/CURRENT_TASK.md` 中的一个任务切片；如果任务过大，先拆小再做。
 4. 动代码前必须先说明本轮计划、涉及文件、验证方式。
@@ -97,6 +98,8 @@ curl http://localhost:8081/actuator/health
 6. 代码已改但验证不完整，只能把任务标记为 `REVIEW`。
 7. 缺环境、账号、密钥、数据库、中间件或用户确认时，任务标记为 `BLOCKED`，并说明阻塞原因。
 8. 每轮结束后按任务性质更新当前事实源：任务状态写入 `docs/ai-dev/CURRENT_TASK.md`，当前项目事实写入 `docs/ai-dev/STATE.md`，简短进度写入 `docs/ai-dev/PROGRESS_LOG.md`。旧的 `docs/archive/TODO_NEXT.md`、`docs/archive/CODEX_HANDOFF.md`、`docs/archive/CHANGELOG_CODING.md` 只用于历史追溯，不再作为默认回写目标。
+   真实体验审计发现的 bug / 体验问题 / 环境阻塞必须写入 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`；修复后回填状态、提交和验证证据。`docs/showcase/DEMO_SMOKE_RECORD.md` 只记录可展示的 smoke / audit 摘要，不承接完整问题台账。
+   只要 Codex / agent 真实启动项目、运行本地 tunnel / backend / frontend / smoke、用浏览器或 API 按用户路径体验，并发现 bug、体验问题、安全疑点或环境阻塞，就必须自动追加脱敏问题记录；不能只在对话里口头说明。
 9. 不要自动执行 `git commit` / `git push`，除非用户明确要求；若用户明确激活“自驱迭代模式”，则按下方自驱迭代规则允许每个完成切片自动提交，但仍禁止 push。
 10. 不要留下本地服务进程或端口占用；如启动了后端、前端或脚本服务，结束前要清理并说明端口状态。
 11. 如果发现工作区有未提交改动或未跟踪文件，必须先向用户汇报，不要直接执行 `git add` / `git commit` / `git push`。

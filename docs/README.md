@@ -25,6 +25,7 @@
 - `docs/ai-dev/ROADMAP_RAG.md`：RAG / Memory 生产化升级路线。包含当前真实基础、质量缺口、v3-v7 任务拆分和 smoke / eval 门禁；v3 no-evidence gate 已完成 smoke 级 PASS。
 - `docs/ai-dev/DECISIONS.md`：ADR 简版。记录认证、异步解析、存储、AI 模式、RAG 选型等关键决策。
 - `docs/ai-dev/CONSTRAINTS.md`：项目协作约束和安全边界。
+- `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`：真实体验审计问题台账。记录 Codex 启动真实本地项目后发现的 bug / 体验问题 / 环境阻塞，以及后续修复和验证闭环；只保存脱敏摘要，不提交 artifact 原文；记录内容默认用中文。
 - `docs/ai-dev/PROGRESS_LOG.md`：简短进度记录。不要把它写成新的大 changelog。
 - `docs/ai-dev/会话级上下文管理/`：T013 Conversation Context / Agent Memory 的设计参考资料；只作为实现追溯和方案说明，不覆盖 `STATE.md` / `CURRENT_TASK.md` 的当前事实。
 - `docs/ai-dev/archive/`：旧状态快照或归档文件。只有追溯历史时读取。
@@ -68,7 +69,7 @@
 - `docs/showcase/PROJECT_ARCHITECTURE_OVERVIEW.md`：项目架构概览。
 - `docs/showcase/DEMO_SCRIPT.md`：演示脚本参考。
 
-对外材料要讲主线，不要提前夸大未完成能力。fake embedding、in-memory vector store、blocked runtime 等边界可以在内部文档中诚实记录，或在面试追问时说明。
+对外材料要讲主线，不要提前夸大未完成能力。fake embedding、in-memory vector store、blocked runtime 等边界可以在内部文档中诚实记录，或在面试追问时说明。真实体验审计发现的问题优先记录到 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`，`DEMO_SMOKE_RECORD.md` 只保留可展示的 smoke / audit 摘要。内部记录默认用中文，技术枚举和路径保留原文即可。
 
 ## 6. 历史流水账和大文件
 

@@ -16,6 +16,9 @@
 5. `docs/ai-dev/HANDOFF.md` 只保留最近 3~5 轮摘要；更早内容统一归档到 `archive/`。
 6. `docs/ai-dev/TASKS.md` 只保留仍有价值的滚动待办；已完成事项不在此重复记账。
 7. 新增文档前必须先回答两个问题：是否已有文档能承接、是否值得持续维护。
+8. 内部协作文档、状态回写和审计记录默认使用中文。技术名、路径、API、状态枚举、命令可以保留原文，但目标、结论、复现步骤、实际结果、预期结果、可能原因和边界说明必须用中文。
+9. `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md` 专门承接真实体验审计发现的问题和修复闭环。每次真实运行项目后发现的 bug、体验问题、安全疑点或环境阻塞，都必须写入该台账；只保存脱敏摘要，不提交 `backend/target/audit/...` 原始 artifact、日志、截图、临时文档、prompt、evidence context、token、云地址或连接串。
+10. `docs/showcase/DEMO_SMOKE_RECORD.md` 只记录可展示的 smoke / audit 证据摘要；不要把完整 bug 台账、复现细节和修复流水塞进 showcase 文档。
 
 ## 2.1 自驱迭代模式约束
 
