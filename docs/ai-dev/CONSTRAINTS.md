@@ -38,6 +38,16 @@
 3. 仍需单独授权：远程 Docker 启动 / 停止 / 重启、数据库结构变更、业务数据删除、collection 清空、云资源或防火墙修改、大规模付费 eval、push。
 4. 敏感值永远不能输出或提交：`.env`、token、API key、账号密码、云地址、连接串、文档全文、prompt、evidence context。真实配置只能由本地应用、脚本或环境变量读取。
 
+## 2.3 Agent Quality Console 约束
+
+1. Agent Quality Console 是内部质量控制台，不是面向普通用户的业务功能，也不是独立可商用观测平台。第一版页面信息架构为 `Overview`、`Trace`、`Eval`、`Failures`，P0 先做 `Overview + Run Detail`，仅保留 Trace / Eval 扩展入口。
+2. `/quality` 和 `/api/quality/**` 必须按内部页面 / API 处理。若当前没有完整 admin 角色，P0 先用开发环境开关或 admin token 控制访问；普通用户页面不展示 Trace / Eval 详情。
+3. Artifact 聚合只能读取 ignored 的脱敏结果摘要，默认 root 为 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/memory-quality`、`backend/target/memory-provider` 和 `tmp-e2e/docpilot-cloud-quality-smoke`。前端不能直接读取 artifact 原文。
+4. 所有 artifact parser、service DTO 和 API response 必须使用字段白名单。禁止返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 只允许返回 `prompt_tokens`、`completion_tokens`、`total_tokens`、`estimated_cost` 等数值统计。
+5. Artifact 文件不存在时降级为空列表或 `artifactMissing=true`；JSON 解析失败时降级为 `artifactParseFailed=true` / `REVIEW`，不能让控制台整体崩溃。
+6. 如发现泄露风险，优先关闭对应 artifact root、隐藏 detail 字段或只返回 summary；确认脱敏规则和回归测试补齐前，不继续扩大展示范围。
+7. 第一阶段不新增数据库表。只有当 artifact 聚合无法满足跨机器历史保留、权限审计、趋势查询或质量门禁归档时，再评估引入 `quality_eval_run` / `quality_eval_gate`。
+
 ## 3. 后端实现约束
 
 1. 当前主系统定位仍是单体 Spring Boot 工程，不主动拆微服务。

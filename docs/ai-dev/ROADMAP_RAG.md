@@ -2,6 +2,10 @@
 
 ## 2026-07-03 Roadmap Addendum
 
+- 2026-07-04 Agent Quality Console MVP Slice 1 已完成文档 / 接口口径收敛。Agent Quality Console 是 DocPilot 内部质量控制台，不是两个独立大平台；MVP 导航为 `Overview` / `Trace` / `Eval` / `Failures`，P0 先做 `Overview + Run Detail`，并保留 Trace / Eval drill-down 入口。
+- P0 范围：聚合 ignored artifact root 下的脱敏摘要，只暴露字段白名单 summary / detail DTO，保持 `/quality` 和 `/api/quality/**` 为内部入口，并展示 PASS / REVIEW / BLOCKED / FAILED_CORE_FLOW / FAILED_SECURITY_GATE 等质量状态。P0 不新增数据库表。
+- P1 范围：补充 Trace 详情、Eval case 详情、失败桶、趋势对比，以及从失败 Eval case 跳转到 Trace。Eval 不只是 smoke 聚合；轻量 JSON Eval case 应包含 `caseId`、`question`、`expectedBehavior`、`expectedEvidence`、`expectedTools`、`mustContain`、`mustNotContain`、`tags` 和 `scoringRules`，结果应能关联 `traceId` 或 `agentRunId`。
+- 脱敏边界：parser 和 API 必须使用字段白名单。禁止返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 数值统计可作为成本控制指标保留。发现泄露风险时，关闭对应 artifact root 或隐藏 detail 字段。
 - 2026-07-04 M1 real-provider small sample is DONE: `memory-provider-extraction-smoke.ps1 -Mode run` marker `docpilot-memory-provider-20260704192850-695412` passed with 4 real provider calls, `casePassRate=1.0000` and `rawProviderOutputStored=false`. This is small-sample provider contract evidence, not a large-scale memory extraction benchmark or proof that LLM long-term memory quality is mature.
 - `MemoryProviderExtractionEvalRunner` now tolerates common real-provider response drift: JSON code fences, memory type case / hyphen / space variants, and unordered type output. It still fails missing / extra memory types, unsafe suggestions and forbidden marker leakage.
 - M1 provider contract slice is DONE: a test-side `MemoryProviderExtractionEvalRunner` validates JSON memory suggestions from an `AiAnswerService` provider and stores only redacted summaries; it now has both stub-provider tests and the 2026-07-04 gated small real-provider sample.

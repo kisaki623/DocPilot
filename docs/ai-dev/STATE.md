@@ -2,6 +2,10 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 Agent Quality Console MVP Slice 1 已完成文档口径收敛。Agent Quality Console 定位为内部质量控制台，不是两个独立大平台；第一版信息架构为 `Overview`、`Trace`、`Eval`、`Failures`，P0 先实现 `Overview + Run Detail`，并保留 Trace / Eval 扩展入口。
+- Agent Quality Console P0 数据源是 ignored artifact 的脱敏摘要聚合，默认扫描 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/memory-quality`、`backend/target/memory-provider` 和 `tmp-e2e/docpilot-cloud-quality-smoke`。P0 不新增数据库表；只有当需要跨机器保留历史、权限审计或趋势查询时，再评估 `quality_eval_run` / `quality_eval_gate` 表。
+- Agent Quality Console 的 parser 和 API 必须采用字段白名单。禁止返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 只允许返回 `prompt_tokens`、`completion_tokens`、`total_tokens`、`estimated_cost` 等数值统计。若发现泄露风险，可关闭对应 artifact root 或隐藏 detail 字段。
+- `/quality` 和 `/api/quality/**` 是内部页面 / API。P0 如没有完整 admin 角色，先用开发环境开关或 admin token 控制访问；普通用户页面不展示 Trace / Eval 详情。
 - 2026-07-04 Memory provider 小样本 v1 已完成。新增默认关闭的 `MemoryProviderExtractionRealProviderSmokeTest` 和 `scripts/smoke/memory-provider-extraction-smoke.ps1`；真实 run marker `docpilot-memory-provider-20260704192850-695412` PASS，4 次真实 provider 调用，`casePassRate=1.0000`，`rawProviderOutputStored=false`。该结论是小样本 provider contract 证据，不代表大规模长期记忆抽取质量成熟。
 - `MemoryProviderExtractionEvalRunner` 已能处理真实 provider 常见 JSON 包裹和类型表达漂移：支持 JSON code fence、大小写 / hyphen / space 归一化，并按 memory type multiset 判断命中；artifact 仍只保存 provider/model/call count/caseId/types/booleans/failure reasons，不保存原始对话、provider 输出、memory 内容、prompt 或凭据。
 - 2026-07-04 真实用户问答体验审计 v2 已完成。新增 `scripts/smoke/real-user-qa-experience-audit.ps1`，默认组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate；真实 run marker `docpilot-real-user-qa-20260704191307-661bc0` PASS，覆盖 tunnel、backend health、frontend routes、上传 / parse / indexing、chunk 质量、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、25 个自然语料 case、Conversation Trace、Memory 质量、权限隔离和脱敏 artifact。

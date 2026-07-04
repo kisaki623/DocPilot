@@ -1,5 +1,20 @@
 # Current Task
 
+当前任务：Agent Quality Console MVP Slice 1：文档与接口口径（DONE）
+
+## 2026-07-04 补充：Agent Quality Console 内部质量控制台口径
+
+- 目标：把 Agent Quality Console 统一定位为 DocPilot 内部质量控制台，用于聚合真实 smoke / audit / eval artifact，展示质量总览、单次 run 明细、Trace / Eval 扩展入口和失败桶，不把它拆成两个独立“大平台”。
+- 已完成文档口径：第一版信息架构为 `Overview`、`Trace`、`Eval`、`Failures`；P0 只要求 `Overview + Run Detail` 最小闭环，同时保留 Trace / Eval drill-down 的 API / DTO 扩展设计。
+- P0 范围：读取 ignored artifact 摘要、按字段白名单生成 `QualityRunSummary` / `QualityRunDetail`、暴露内部 `/quality` 页面和 `/api/quality/**` 只读 API 口径、展示 PASS / REVIEW / BLOCKED / FAILED_CORE_FLOW / FAILED_SECURITY_GATE 等质量状态。
+- P1 范围：补全 Trace 详情、Eval case 详情、Failures 桶、趋势对比和失败 case 到 Trace 的跳转；后续再按证据决定是否引入 `quality_eval_run` / `quality_eval_gate` 表。
+- Trace / Eval 关系：现有 smoke / audit runner 是第一阶段数据来源，但 Eval 不等于 smoke 聚合。轻量 Eval case 先用 JSON 文件描述 `caseId`、`question`、`expectedBehavior`、`expectedEvidence`、`expectedTools`、`mustContain`、`mustNotContain`、`tags` 和 `scoringRules`；Eval result 必须能关联 `traceId` 或 `agentRunId`。
+- Artifact 聚合边界：P0 默认只扫描 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/memory-quality`、`backend/target/memory-provider` 和 `tmp-e2e/docpilot-cloud-quality-smoke` 下的脱敏 summary；文件不存在降级为空列表或 `artifactMissing=true`，解析失败降级为 `artifactParseFailed=true` / `REVIEW`。
+- 脱敏规则：parser 和 API 必须使用字段白名单；禁止返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 只允许返回 `prompt_tokens`、`completion_tokens`、`total_tokens`、`estimated_cost` 等数值统计。
+- 泄露风险回滚：一旦发现某个 artifact root 或 detail 字段存在泄露风险，优先关闭该 root、隐藏 detail 字段或只保留 summary；前端不得直接读取 artifact 原文。
+- 权限边界：`/quality` 和 `/api/quality/**` 是内部页面 / API；如果当前没有完整 admin 角色，P0 先使用开发环境开关或 admin token；普通用户页面不展示 Trace / Eval 详情。
+- 边界：本片仅更新文档与接口口径；未修改业务代码，未新增页面 / API 实现，未启动服务，未创建业务数据，未提交 artifact 原文，未 push。
+
 当前任务：Memory provider 小样本 v1（DONE）
 
 ## 2026-07-04 补充：真实 provider 记忆抽取小样本

@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-04 Agent Quality Console MVP Slice 1
+
+- 完成 Agent Quality Console 文档与接口口径收敛：统一定位为 DocPilot 内部质量控制台，第一版信息架构为 `Overview`、`Trace`、`Eval`、`Failures`，P0 先做 `Overview + Run Detail`，并保留 Trace / Eval drill-down 入口。
+- 明确 P0 / P1 边界：P0 聚合 ignored artifact 脱敏摘要、定义白名单 DTO 和内部 `/quality` / `/api/quality/**` 口径；P1 再做 Trace 详情、Eval case 详情、失败桶、趋势对比和失败 case 到 Trace 的跳转。
+- 明确 artifact 聚合边界和降级策略：默认 root 包括 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/memory-quality`、`backend/target/memory-provider` 和 `tmp-e2e/docpilot-cloud-quality-smoke`；缺文件返回空或 `artifactMissing=true`，解析失败标记 `artifactParseFailed=true` / `REVIEW`。
+- 明确敏感信息泄露风险方案：parser / API 使用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 只保留数值统计；发现风险时关闭对应 artifact root 或隐藏 detail 字段。
+- 边界：本片仅更新文档与接口口径，未修改业务代码，未启动服务，未创建业务数据，未提交 artifact 原文，未 push。
+
 ## 2026-07-04 Memory provider 小样本 v1
 
 - 新增默认关闭的 `MemoryProviderExtractionRealProviderSmokeTest`，只有 `DOCPILOT_MEMORY_PROVIDER_SMOKE_ENABLED=true` 时才会读取本机 `AI_REAL_*` 配置并调用真实 provider；普通 `mvn test` 保持无真实 provider 依赖。
