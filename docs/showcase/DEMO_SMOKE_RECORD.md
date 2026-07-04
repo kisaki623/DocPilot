@@ -1,8 +1,27 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-07-03
+> Last updated: 2026-07-04
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
+
+## 2026-07-04 真实体验审计防回归增强 Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate`
+
+Marker: `docpilot-cloud-quality-20260704135601-944384`
+
+已验证：
+
+- `shortDocumentRag` gate 继续通过短 Alpha / Beta 单文档与 KnowledgeBase RAG，并新增中文短文档 retrieve、数字事实 retrieve、相似短文档干扰和细分 `failureBuckets`。
+- 短文档 gate 结果：短 Alpha / Beta 各 `1` 个 chunk；单文档 retrieve / QA citation 为 `1/1`；短 KB retrieve / QA citation 为 `2/2`；`documentHitCounts` 覆盖两份短文档；`failureBuckets=[]`。
+- `frontendInteraction` gate 继续覆盖文档详情 quote-first、KnowledgeBase 双 citation、跨用户无权限提示和 console error；`failureBuckets=[]`。
+- 核心 gate 同步保持 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、answer grounding、no-evidence、Conversation Trace、权限隔离、artifact redaction 和 cleanup。
+
+边界：本次 run 是小规模真实链路防回归 smoke，不是大规模 relevance benchmark、端到端 UI 自动化全覆盖或线上 SLA；artifact 位于 ignored `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
 
 ## 2026-07-03 真实体验审计 P2/P3 浏览器交互 Smoke
 

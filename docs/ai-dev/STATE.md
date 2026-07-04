@@ -2,6 +2,8 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 真实体验审计问题已进入防回归状态。`scripts/smoke/cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-cloud-quality-20260704135601-944384` PASS；`shortDocumentRag` 现在覆盖短文档中文内容 retrieve、数字事实 retrieve、KnowledgeBase 双文档覆盖、相似短文档干扰和 citation marker，`failureBuckets=[]`；`frontendInteraction` 同步覆盖 quote-first UI、KnowledgeBase 双 citation UI、权限提示和 console error，`failureBuckets=[]`。
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1` 在未 `-SkipFrontend` 时默认启用 `frontendInteraction`，因此后续 RAG real QA wrapper 也会把 P2/P3 浏览器交互回归纳入真实链路门禁。若需要快速 API-only 验证，可显式使用 `-SkipFrontend` 或 `-SkipFrontendInteractionGate`。
 - 2026-07-03 真实体验审计 P2/P3 浏览器细验已收口。`scripts/smoke/cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-cloud-quality-20260703231920-e74334` PASS；新增 `frontendInteraction` gate 覆盖文档详情 RAG 检索预览 quote-first 可见、KnowledgeBase 短 Alpha / Beta 双 citation marker 可见、跨用户文档无权限提示可见和 console error count `0`。真实体验台账中的 `REA-20260703-P2-001`、`REA-20260703-P3-001` 已标为 `VERIFIED`。
 - 2026-07-03 真实体验审计 P1 RAG 问题已完成修复并通过真实 cloud quality smoke 验证。`scripts/smoke/cloud-quality-smoke.ps1 -Mode run` marker `docpilot-cloud-quality-20260703213703-dbef08` PASS；新增 `shortDocumentRag` gate 覆盖短 Alpha 单文档 `1` hit / `1` citation、短 Alpha / Beta KnowledgeBase `2` hits / `2` citations 和 answer grounding，核心 gate、no-evidence、Conversation Trace、权限隔离、frontend routes、artifact redaction 和 cleanup 均保持 PASS。
 - 本轮修复保持边界收窄：单文档 RAG 只在 query 与 scoped hit 内容存在同一个明确 marker token、且 threshold 后无 hit 时保留最强 evidence；KnowledgeBase RAG 只在总结类问题和明确 marker 场景按缺失文档 backfill，不降低全局 similarity threshold，不放宽普通 no-evidence。文档详情页 quote-first 展示只在问题中存在明确 marker token 且 snippet/content 更能命中该 token 时优先展示 marker-bearing evidence，普通问题仍保持 `quoteText -> snippet -> content`。
@@ -9,9 +11,7 @@
 - 2026-07-03 起，内部协作文档、状态回写、真实体验审计问题台账默认使用中文。技术名、路径、API、状态枚举、命令可以保留原文，但目标、结论、复现步骤、实际结果、预期结果、可能原因和边界说明必须用中文。
 - Codex / agent 真实启动 DocPilot、跑本地 tunnel / backend / frontend / smoke、用浏览器或 API 按用户路径体验后，如果发现 bug、体验问题、安全疑点或环境阻塞，必须自动追加到 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`，不能只口头汇报或只写 showcase 摘要。
 - 2026-07-03 起，真实体验审计发现的问题统一写入内部长期台账 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。
-- 最新真实体验审计 marker `docpilot-real-audit-20260703195519-5118e8` 状态为 REVIEW（需复查）：标准 cloud quality smoke marker `docpilot-cloud-quality-20260703195356-1362ea` 已通过，但浏览器 / API 用户视角的短 txt 覆盖审计发现 2 个 OPEN（待修复）的 P1 RAG 问题。
-- 当前 P1 问题：`REA-20260703-P1-001` 短 txt parse 成功但单文档 RAG 返回 `0` evidence / citations；`REA-20260703-P1-002` 短文档 KnowledgeBase 双文档问题在 retrieve / QA / Conversation Trace 中退化成单文档命中。
-- 当前体验问题：`REA-20260703-P2-001` quote-level citation API 仍需要 quote-first UI 展示；`REA-20260703-P3-001` 权限拒绝已经生效，但前端需要把业务级无权限状态展示得更清晰。
+- 最新真实体验审计问题不再有 OPEN 项；`docpilot-real-audit-20260703195519-5118e8` 发现的 4 个问题已由后续真实 cloud quality smoke 和浏览器交互 gate 验证收口。当前剩余风险是小规模 smoke / fixture 级证据，不应写成大规模 relevance benchmark 或线上 SLA。
 
 - 2026-07-03 M1 provider extraction eval contract is DONE as a test-side contract. `MemoryProviderExtractionEvalRunner` can call an `AiAnswerService`, parse JSON memory suggestions, validate expected memory types, reject unsafe provider suggestions and output a redacted summary without storing conversation text, provider output or memory content.
 - Current evidence uses a stub provider only: PASS for `ANSWER_STYLE` + `TASK_GOAL`, and FAIL for unsafe token-like output. This prepares the runner for later small real-provider validation but does not claim real LLM memory extraction quality yet.

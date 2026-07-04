@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-04 真实体验审计问题防回归与短文档泛化 gate
+
+- 已增强 `cloud-quality-smoke.ps1` 的 `shortDocumentRag` gate：在原短 Alpha / Beta 基础上增加中文短文档 retrieve、数字事实 retrieve、相似短文档干扰、KB 双文档覆盖和 citation marker 的细分布尔检查，失败时输出脱敏 `failureBuckets`。
+- 已增强 `frontendInteraction` gate：失败时区分 `quoteFirstUi`、KnowledgeBase citation UI、`permissionUx` 和 console error 桶；artifact 仍只保存布尔值、计数和状态，不保存 token、文档原文、prompt、evidence context、云地址或连接串。
+- 已让 `rag-real-qa-eval-smoke.ps1` 在未 `-SkipFrontend` 时默认启用 `frontendInteraction`，后续 RAG real QA wrapper 不再只验证 API 质量。
+- 已验证：`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS；`mvn "-Dtest=RagDocumentRetrievalServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS；`npm run lint` PASS；`npm run build` PASS；`cloud-quality-smoke.ps1 -Mode plan` / `-Mode dry-run` PASS；`rag-real-qa-eval-smoke.ps1 -Mode plan` / `-Mode dry-run` PASS。
+- 真实验证：`cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-cloud-quality-20260704135601-944384`；`shortDocumentRag.failureBuckets=[]`，`frontendInteraction.failureBuckets=[]`，核心 RAG、KB RAG、no-evidence、Conversation Trace、权限隔离、frontend routes、artifact redaction 和 cleanup 均 PASS。
+- 本轮前两次真实 run 先后暴露 gate 口径过窄和 PowerShell 中文 fixture 编码不稳定；最终改为 retrieve 层验证中文 / 数字 marker，并用 ASCII-safe marker + codepoint 生成中文内容。未远程修复，未删除业务数据，未改 schema，未提交 artifact 原文，未 push。
+
 ## 2026-07-03 真实体验审计 P2/P3 浏览器细验收口
 
 - 已给 `cloud-quality-smoke.ps1` 增加可选 `-EnableFrontendInteractionGate`，在真实 cloud quality smoke 中用 Playwright 覆盖登录态前端交互：文档详情 RAG 检索预览 quote-first、KnowledgeBase 双文档 citation、跨用户文档无权限提示和 console error count。

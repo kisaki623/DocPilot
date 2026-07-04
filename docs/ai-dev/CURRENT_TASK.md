@@ -1,5 +1,16 @@
 # Current Task
 
+当前任务：真实体验审计问题防回归与短文档泛化 gate（DONE）
+
+## 2026-07-04 补充：旧 REA 问题防回归收口
+
+- 目标：在四个真实体验审计问题均已 `VERIFIED` 后，把 P1/P2/P3 修复升级成更稳定的质量门禁，覆盖短文档中文 / 数字事实 / 相似短文档干扰、quote-first UI 和权限提示回归。
+- 已完成：`cloud-quality-smoke.ps1` 的 `shortDocumentRag` gate 增加细分失败桶，记录 `singleDocumentEvidence`、中文短文档 retrieve、数字事实 retrieve、KB 双文档覆盖、相似短文档干扰和 citation marker；`frontendInteraction` gate 失败时记录 `quoteFirstUi`、KB citation UI、`permissionUx` 和 console error 桶。
+- 已完成：`rag-real-qa-eval-smoke.ps1` 默认在未 `-SkipFrontend` 时启用 `frontendInteraction`，使 RAG real QA wrapper 也覆盖 quote-first / 权限 UX 细验。
+- 真实验证：`cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-cloud-quality-20260704135601-944384`；`shortDocumentRag.failureBuckets=[]`，`frontendInteraction.failureBuckets=[]`。
+- 补充说明：本轮前两次真实 run 暴露 smoke fixture 中中文行 marker 受 Windows PowerShell 脚本编码影响写坏，已改为 ASCII-safe marker + codepoint 生成中文内容；该问题属于 runner fixture 稳定性，不是后端解析链路 bug。
+- 边界：未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未 push。
+
 当前任务：真实体验审计 P1/P2/P3 修复与浏览器交互 smoke gate（DONE）
 
 ## 2026-07-03 补充：短文档 RAG / KB 修复验证

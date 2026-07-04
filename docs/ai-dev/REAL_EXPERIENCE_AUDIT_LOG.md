@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-04 | `docpilot-cloud-quality-20260704135601-944384` | PASS（防回归增强） | `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260704135601-944384/artifact.json` | `shortDocumentRag` 新增中文短文档 retrieve、数字事实 retrieve、相似短文档干扰和细分 `failureBuckets`，`frontendInteraction` 新增 UI / 权限失败桶；最终真实 run 中两个 gate 的 `failureBuckets=[]`，旧 P1/P2/P3 问题进入防回归状态。 |
 | 2026-07-03 | `docpilot-cloud-quality-20260703231920-e74334` | PASS（浏览器细验收口） | `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260703231920-e74334/artifact.json` | 新增 `frontendInteraction` gate 通过：文档详情 quote-first 可见、KnowledgeBase 双 marker citation 可见、跨用户文档无权限提示可见、console error 为 `0`；P2/P3 标为已验证。 |
 | 2026-07-03 | `docpilot-cloud-quality-20260703213703-dbef08` | PASS（修复验证） | `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260703213703-dbef08/artifact.json` | 修复后 cloud quality smoke 通过；新增 `shortDocumentRag` gate 覆盖短 txt 单文档 RAG、短文档双文档 KnowledgeBase RAG 和 answer grounding。 |
 | 2026-07-03 | `docpilot-ui-verify-mr50eghq-9ed7ca` | REVIEW（浏览器细验未收口） | `tmp-e2e/docpilot-ui-verify-*/` | P2/P3 浏览器细验尝试未完成；按 smoke 阈值启动后 API 预检已有 hit，但文档详情页 quote marker 未在等待窗口内展示，P2 仍保持待细验，P3 未跑到。 |
@@ -47,6 +48,30 @@
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
 | `REA-20260703-P2-001` | VERIFIED（已验证） | P2 | 体验问题 | Citation UI | `docpilot-real-audit-20260703195519-5118e8` | quote-level citation API 已有，但 UI 仍需 quote-first 展示 |
 | `REA-20260703-P3-001` | VERIFIED（已验证） | P3 | 体验问题 | Permission UX | `docpilot-real-audit-20260703195519-5118e8` | 权限拒绝走 HTTP 200 + 业务错误，前端提示需更明确 |
+
+## 2026-07-04 防回归增强
+
+验证 marker：`docpilot-cloud-quality-20260704135601-944384`
+
+状态：PASS
+
+已验证：
+
+- `shortDocumentRag` gate 增加细分失败桶，覆盖短单文档 evidence、短单文档 citation marker、中文短文档 retrieve、数字事实 retrieve、KnowledgeBase 双文档 coverage、KnowledgeBase Alpha / Beta citation、相似短文档干扰。
+- 最终真实 run 中 `shortDocumentRag.failureBuckets=[]`；短 Alpha / Beta 各 `1` 个 chunk，单文档 retrieve / QA citation 为 `1/1`，短 KB retrieve / QA citation 为 `2/2`，`documentHitCounts` 覆盖两份短文档。
+- `frontendInteraction` gate 增加细分失败桶，覆盖 `quoteFirstUi`、KnowledgeBase citation UI、`permissionUx` 和 console error；最终真实 run 中 `frontendInteraction.failureBuckets=[]`、`documentQuoteFirstVisible=true`、`permissionMessageVisible=true`、`consoleErrorCount=0`。
+- `rag-real-qa-eval-smoke.ps1` 在未 `-SkipFrontend` 时默认启用 `frontendInteraction`，后续 RAG real QA wrapper 会同步验证 P2/P3 浏览器交互回归。
+
+本轮过程：
+
+- 前两次真实 run 先后暴露新增 gate 口径过窄、以及 Windows PowerShell 对 `.ps1` 中文 fixture 的编码不稳定：中文行内 marker 被写坏，导致中文短文档检查失败。
+- 已修正为 retrieve 层验证中文 / 数字 marker，citation 层只要求主 evidence marker；中文内容用 codepoint 生成，marker 保持 ASCII-safe，避免脚本编码影响 fixture。
+- 这两个失败属于 smoke runner / fixture 稳定性问题，不是新的后端解析或 RAG 业务 bug；最终真实链路已通过。
+
+边界：
+
+- 本轮真实 run 创建临时 smoke 用户、文档、KnowledgeBase 和 Conversation；artifact 位于 ignored 的 `tmp-e2e/`，不提交原文。
+- 未删除业务数据，未操作远程 Docker，未改数据库结构，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
 
 ## 2026-07-03 浏览器细验收口
 

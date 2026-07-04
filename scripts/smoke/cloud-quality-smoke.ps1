@@ -649,6 +649,20 @@ function Get-CountValue($source, [string]$key) {
   return 0
 }
 
+function Test-RagItemsContainMarker($items, [string]$marker) {
+  if ([string]::IsNullOrWhiteSpace($marker)) {
+    return $false
+  }
+  foreach ($item in @($items)) {
+    foreach ($field in @("quoteText", "snippet", "content")) {
+      if ($null -ne $item.$field -and ([string]$item.$field).Contains($marker)) {
+        return $true
+      }
+    }
+  }
+  return $false
+}
+
 function Get-ScoreSummary($items) {
   $scores = @($items | ForEach-Object { [double]$_.score })
   if ($scores.Count -eq 0) {
@@ -876,6 +890,12 @@ run().then((result) => {
   } catch {
     Stop-WithStatus "FAILED_CORE_FLOW" "frontendInteraction" "frontend interaction gate returned non-json output"
   }
+  $failedSubGates = @()
+  if (-not [bool]$result.checks.documentQuoteFirstVisible) { $failedSubGates += "quoteFirstUi" }
+  if (-not [bool]$result.checks.knowledgeBaseAlphaCitationVisible) { $failedSubGates += "knowledgeBaseAlphaCitationUi" }
+  if (-not [bool]$result.checks.knowledgeBaseBetaCitationVisible) { $failedSubGates += "knowledgeBaseBetaCitationUi" }
+  if (-not [bool]$result.checks.permissionMessageVisible) { $failedSubGates += "permissionUx" }
+  if ([int]$result.checks.consoleErrorCount -gt 0) { $failedSubGates += "consoleErrors" }
   $checks = @([ordered]@{
     documentQuoteFirstVisible = [bool]$result.checks.documentQuoteFirstVisible
     documentBodyHasAlpha = [bool]$result.checks.documentBodyHasAlpha
@@ -888,6 +908,7 @@ run().then((result) => {
     knowledgeBaseBetaCitationVisible = [bool]$result.checks.knowledgeBaseBetaCitationVisible
     permissionMessageVisible = [bool]$result.checks.permissionMessageVisible
     consoleErrorCount = [int]$result.checks.consoleErrorCount
+    failureBuckets = $failedSubGates
   })
   if ($result.overallStatus -ne "PASS" -or
       -not [bool]$result.checks.documentQuoteFirstVisible -or
@@ -896,6 +917,9 @@ run().then((result) => {
       -not [bool]$result.checks.permissionMessageVisible -or
       [int]$result.checks.consoleErrorCount -gt 0) {
     $message = if ($result.safeMessage) { [string]$result.safeMessage } else { "frontend interaction gate failed" }
+    if ($failedSubGates.Count -gt 0) {
+      $message = "frontend interaction gate failed: " + ($failedSubGates -join ",")
+    }
     Set-Gate "frontendInteraction" "FAILED_CORE_FLOW" $checks $message
     Stop-WithStatus "FAILED_CORE_FLOW" "frontendInteraction" $message
   }
@@ -1102,13 +1126,20 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
   $answerGroundingChecks += Test-AnswerGrounding "knowledgeBaseRag" ([string]$kbQa.data.answer) @("ALPHA-CLOUD-GATE", "BETA-CONTEXT-GATE") @("real-marketing-export-forbidden-marker")
   Set-Gate "knowledgeBaseRag" "PASS" $kbChecks
 
+  $zhShortSentence = -join ([char[]](0x4E2D, 0x6587, 0x77ED, 0x53E5))
   $shortAlphaText = @"
 $smokeMarker
 Short Alpha note. ALPHA-SHORT-GATE proves a small txt document can still return grounded RAG evidence.
+ZH-SHORT-GATE $zhShortSentence citation path for short document retrieval.
+Numeric short fact. NUMERIC-SHORT-SEVEN-DAY-GATE says the review window is 7 days.
+Similar short policy category: onboarding evidence.
 "@
   $shortBetaText = @"
 $smokeMarker
 Short Beta note. BETA-SHORT-GATE proves a second small txt document can join KnowledgeBase summary evidence.
+ZH-BETA-SHORT-GATE $zhShortSentence citation path for the second short document.
+Numeric short fact. NUMERIC-SHORT-NINE-DAY-GATE says the review window is 9 days.
+Similar short policy category: onboarding evidence.
 "@
   $shortAlphaPath = Join-Path $artifactDir "short-alpha.txt"
   $shortBetaPath = Join-Path $artifactDir "short-beta.txt"
@@ -1132,6 +1163,31 @@ Short Beta note. BETA-SHORT-GATE proves a second small txt document can join Kno
   $shortKbRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($shortKb.data.id)/rag/retrieve" ([ordered]@{ query = $shortKbQuestion; topK = 4; indexVersion = $IndexVersion }) $tokenB
   $shortKbQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($shortKb.data.id)/qa/rag" ([ordered]@{ question = $shortKbQuestion; topK = 4; indexVersion = $IndexVersion }) $tokenB
   $shortHitCounts = $shortKbRetrieve.data.documentHitCounts
+  $shortSingleEvidenceOk = ((-not $shortSingleRetrieve.data.noEvidence) -and @($shortSingleRetrieve.data.hits).Count -ge 1 -and @($shortSingleQa.data.citations).Count -ge 1)
+  $shortSingleAlphaRetrieveOk = Test-RagItemsContainMarker $shortSingleRetrieve.data.hits "ALPHA-SHORT-GATE"
+  $shortSingleAlphaCitationOk = Test-RagItemsContainMarker $shortSingleQa.data.citations "ALPHA-SHORT-GATE"
+  $shortSingleChineseRetrieveOk = Test-RagItemsContainMarker $shortSingleRetrieve.data.hits "ZH-SHORT-GATE"
+  $shortSingleNumericRetrieveOk = Test-RagItemsContainMarker $shortSingleRetrieve.data.hits "NUMERIC-SHORT-SEVEN-DAY-GATE"
+  $shortKbEvidenceOk = (@($shortKbRetrieve.data.hits).Count -ge 2 -and @($shortKbQa.data.citations).Count -ge 2)
+  $shortKbDocumentCoverageOk = ((Get-CountValue $shortHitCounts ([string]$shortDocA.data.id)) -ge 1 -and (Get-CountValue $shortHitCounts ([string]$shortDocB.data.id)) -ge 1)
+  $shortKbAlphaCitationOk = Test-RagItemsContainMarker $shortKbQa.data.citations "ALPHA-SHORT-GATE"
+  $shortKbBetaCitationOk = Test-RagItemsContainMarker $shortKbQa.data.citations "BETA-SHORT-GATE"
+  $shortKbChineseRetrieveOk = (Test-RagItemsContainMarker $shortKbRetrieve.data.hits "ZH-SHORT-GATE") -and (Test-RagItemsContainMarker $shortKbRetrieve.data.hits "ZH-BETA-SHORT-GATE")
+  $shortKbNumericRetrieveOk = (Test-RagItemsContainMarker $shortKbRetrieve.data.hits "NUMERIC-SHORT-SEVEN-DAY-GATE") -and (Test-RagItemsContainMarker $shortKbRetrieve.data.hits "NUMERIC-SHORT-NINE-DAY-GATE")
+  $shortKbSimilarInterferenceOk = $shortKbDocumentCoverageOk -and $shortKbAlphaCitationOk -and $shortKbBetaCitationOk
+  $shortFailedBuckets = @()
+  if (-not $shortSingleEvidenceOk) { $shortFailedBuckets += "singleDocumentEvidence" }
+  if (-not $shortSingleAlphaRetrieveOk) { $shortFailedBuckets += "singleDocumentRetrieveMarker" }
+  if (-not $shortSingleAlphaCitationOk) { $shortFailedBuckets += "singleDocumentCitationMarker" }
+  if (-not $shortSingleChineseRetrieveOk) { $shortFailedBuckets += "singleDocumentChineseShortRetrieve" }
+  if (-not $shortSingleNumericRetrieveOk) { $shortFailedBuckets += "singleDocumentNumericShortRetrieve" }
+  if (-not $shortKbEvidenceOk) { $shortFailedBuckets += "knowledgeBaseEvidence" }
+  if (-not $shortKbDocumentCoverageOk) { $shortFailedBuckets += "knowledgeBaseDocumentCoverage" }
+  if (-not $shortKbAlphaCitationOk) { $shortFailedBuckets += "knowledgeBaseAlphaCitation" }
+  if (-not $shortKbBetaCitationOk) { $shortFailedBuckets += "knowledgeBaseBetaCitation" }
+  if (-not $shortKbChineseRetrieveOk) { $shortFailedBuckets += "knowledgeBaseChineseShortRetrieve" }
+  if (-not $shortKbNumericRetrieveOk) { $shortFailedBuckets += "knowledgeBaseNumericShortRetrieve" }
+  if (-not $shortKbSimilarInterferenceOk) { $shortFailedBuckets += "knowledgeBaseSimilarShortInterference" }
   $shortChecks = @([ordered]@{
     shortAlphaChunkCount = @($shortChunksA).Count
     shortBetaChunkCount = @($shortChunksB).Count
@@ -1140,13 +1196,27 @@ Short Beta note. BETA-SHORT-GATE proves a second small txt document can join Kno
     kbRetrieveHits = @($shortKbRetrieve.data.hits).Count
     kbQaCitations = @($shortKbQa.data.citations).Count
     documentHitCounts = $shortHitCounts
+    singleDocumentEvidence = $shortSingleEvidenceOk
+    singleDocumentRetrieveMarker = $shortSingleAlphaRetrieveOk
+    singleDocumentCitationMarker = $shortSingleAlphaCitationOk
+    singleDocumentChineseShortRetrieve = $shortSingleChineseRetrieveOk
+    singleDocumentNumericShortRetrieve = $shortSingleNumericRetrieveOk
+    knowledgeBaseEvidence = $shortKbEvidenceOk
+    knowledgeBaseDocumentCoverage = $shortKbDocumentCoverageOk
+    knowledgeBaseAlphaCitation = $shortKbAlphaCitationOk
+    knowledgeBaseBetaCitation = $shortKbBetaCitationOk
+    knowledgeBaseChineseShortRetrieve = $shortKbChineseRetrieveOk
+    knowledgeBaseNumericShortRetrieve = $shortKbNumericRetrieveOk
+    knowledgeBaseSimilarShortInterference = $shortKbSimilarInterferenceOk
+    failureBuckets = $shortFailedBuckets
     singleRetrieveScoreSummary = Get-ScoreSummary $shortSingleRetrieve.data.hits
     kbRetrieveScoreSummary = Get-ScoreSummary $shortKbRetrieve.data.hits
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
   })
-  if ($shortSingleRetrieve.data.noEvidence -or @($shortSingleRetrieve.data.hits).Count -lt 1 -or @($shortSingleQa.data.citations).Count -lt 1 -or @($shortKbRetrieve.data.hits).Count -lt 2 -or @($shortKbQa.data.citations).Count -lt 2 -or (Get-CountValue $shortHitCounts ([string]$shortDocA.data.id)) -lt 1 -or (Get-CountValue $shortHitCounts ([string]$shortDocB.data.id)) -lt 1) {
-    Set-Gate "shortDocumentRag" "FAILED_CORE_FLOW" $shortChecks "short document RAG regression gate did not return required evidence"
-    Stop-WithStatus "FAILED_CORE_FLOW" "shortDocumentRag" "short document RAG regression gate did not return required evidence"
+  if ($shortFailedBuckets.Count -gt 0) {
+    $shortFailureMessage = "short document RAG regression failed: " + ($shortFailedBuckets -join ",")
+    Set-Gate "shortDocumentRag" "FAILED_CORE_FLOW" $shortChecks $shortFailureMessage
+    Stop-WithStatus "FAILED_CORE_FLOW" "shortDocumentRag" $shortFailureMessage
   }
   $answerGroundingChecks += Test-AnswerGrounding "shortDocumentRag" ([string]$shortSingleQa.data.answer) @("ALPHA-SHORT-GATE") @("BETA-SHORT-GATE", "real-marketing-export-forbidden-marker")
   $answerGroundingChecks += Test-AnswerGrounding "shortKnowledgeBaseRag" ([string]$shortKbQa.data.answer) @("ALPHA-SHORT-GATE", "BETA-SHORT-GATE") @("real-marketing-export-forbidden-marker")

@@ -16,7 +16,8 @@ param(
   [switch]$SkipMultiQueryGate,
   [switch]$SkipRealQaHardGate,
   [switch]$SkipRealQaSemanticGate,
-  [switch]$SkipRealProviderFaithfulnessGate
+  [switch]$SkipRealProviderFaithfulnessGate,
+  [switch]$SkipFrontendInteractionGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -34,6 +35,7 @@ function Show-RagRealQaPlan {
     realQaHardGateEnabledByDefault = (-not [bool]$SkipRealQaHardGate)
     realQaSemanticGateEnabledByDefault = (-not [bool]$SkipRealQaSemanticGate)
     realProviderFaithfulnessGateEnabledByDefault = (-not [bool]$SkipRealProviderFaithfulnessGate)
+    frontendInteractionGateEnabledByDefault = ((-not [bool]$SkipFrontend) -and (-not [bool]$SkipFrontendInteractionGate))
     caseTypes = @(
       "factual_lookup",
       "cross_document_summary",
@@ -48,6 +50,7 @@ function Show-RagRealQaPlan {
       "claim_support",
       "numeric_faithfulness",
       "real_provider_faithfulness",
+      "frontend_interaction",
       "representative_corpus",
       "multi_query",
       "answer_grounding"
@@ -68,6 +71,7 @@ function Show-RagRealQaPlan {
       "realQaHardGate",
       "realQaSemanticGate",
       "realProviderFaithfulness",
+      "frontendInteraction",
       "noEvidenceThreshold",
       "conversationTrace",
       "permissionIsolation",
@@ -126,6 +130,9 @@ if (-not $SkipRealQaSemanticGate) {
 }
 if (-not $SkipRealProviderFaithfulnessGate) {
   $argsList += "-EnableRealProviderFaithfulnessGate"
+}
+if ((-not $SkipFrontend) -and (-not $SkipFrontendInteractionGate)) {
+  $argsList += "-EnableFrontendInteractionGate"
 }
 
 & powershell.exe @argsList
