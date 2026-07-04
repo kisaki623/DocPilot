@@ -1,5 +1,16 @@
 # Current Task
 
+当前任务：真实用户问答体验审计 v2（DONE）
+
+## 2026-07-04 补充：真实用户 QA 体验审计入口
+
+- 目标：把已经成熟的 cloud quality / natural corpus / frontend interaction / memory quality gate 组合成一个真实用户问答体验审计入口，便于后续一键从用户视角检查 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离和脱敏 artifact。
+- 已完成：新增 `scripts/smoke/real-user-qa-experience-audit.ps1`，支持 `plan` / `dry-run` / `run`；默认委托 `cloud-quality-smoke.ps1`，并启用 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate，artifact root 为 ignored 的 `backend/target/audit`，marker 前缀为 `docpilot-real-user-qa`。
+- 已完成门禁修正：`cloud-quality-smoke.ps1` 的回答事实表达检查支持 `a|b|c` 同义表达组，避免真实回答用 `seven days` / `7 days`、`five-year` / `5 years` 等自然表达差异时误杀；citation phrase support、forbidden answer、no-evidence 和权限隔离仍保持硬门禁。
+- 真实过程：首轮真实 run marker `docpilot-real-user-qa-20260704190235-553df7` 暴露 3 个自然语料 QA case 的 `answerFactExpression` 过度依赖单一英文短语；修正表达组后重跑通过。
+- 真实验证：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260704191307-661bc0`；`naturalCorpus.casePassRate=1`，`answerFaithfulnessPassCount=11/11`，`citationPhraseSupportPassCount=22/22`，`frontendInteraction`、`memoryQuality`、`conversationTrace`、`permissionIsolation`、`artifactRedaction` 均 PASS。
+- 边界：本片是小规模真实链路用户体验审计入口，不是大规模人工评测、线上 SLA 或完整浏览器 E2E 覆盖；本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据，未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 secrets，未 push。
+
 当前任务：Evidence Coverage 报告 v1（DONE）
 
 ## 2026-07-04 补充：自然语料 case 级覆盖报告

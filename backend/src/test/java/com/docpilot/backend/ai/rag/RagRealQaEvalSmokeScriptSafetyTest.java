@@ -234,6 +234,69 @@ class RagRealQaEvalSmokeScriptSafetyTest {
                 .doesNotContain("Write-Output $EnvFile");
     }
 
+    @Test
+    void shouldKeepRealUserQaAuditWrapperDelegatedAndSanitized() throws Exception {
+        Process process = new ProcessBuilder(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                realUserQaAuditScriptPath().toString(),
+                "-Mode",
+                "plan")
+                .redirectErrorStream(true)
+                .start();
+
+        boolean completed = process.waitFor(20, TimeUnit.SECONDS);
+        String output = readAll(process.getInputStream());
+        String script = Files.readString(realUserQaAuditScriptPath(), StandardCharsets.UTF_8);
+
+        assertThat(completed).isTrue();
+        assertThat(process.exitValue()).isZero();
+        assertThat(output)
+                .contains("docpilot-real-user-qa")
+                .contains("backend/target/audit")
+                .contains("naturalCorpusEnabledByDefault")
+                .contains("multiQueryGateEnabledByDefault")
+                .contains("frontendInteractionGateEnabledByDefault")
+                .contains("memoryQualityGateEnabledByDefault")
+                .contains("single-document RAG answer has grounded citation")
+                .contains("KnowledgeBase multi-document RAG covers both target documents")
+                .contains("quote-first citation UI")
+                .contains("ACTIVE user memory and RAG evidence stay separated")
+                .contains("permission isolation")
+                .contains("artifactRedaction")
+                .doesNotContain("Authorization")
+                .doesNotContain("Bearer ")
+                .doesNotContain("apiKey =");
+
+        assertThat(script)
+                .contains("ValidateSet")
+                .contains("dry-run")
+                .contains("scripts/smoke/cloud-quality-smoke.ps1")
+                .contains("docpilot-real-user-qa")
+                .contains("backend/target/audit")
+                .contains("SkipNaturalCorpusGate")
+                .contains("SkipMultiQueryGate")
+                .contains("SkipFrontendInteractionGate")
+                .contains("SkipMemoryQualityGate")
+                .contains("EnableNaturalCorpusGate")
+                .contains("EnableMultiQueryGate")
+                .contains("EnableFrontendInteractionGate")
+                .contains("EnableMemoryQualityGate")
+                .contains("naturalCorpus")
+                .contains("multiQueryRag")
+                .contains("frontendInteraction")
+                .contains("memoryQuality")
+                .doesNotContain("Remove-Item -Recurse")
+                .doesNotContain("Authorization")
+                .doesNotContain("Bearer")
+                .doesNotContain("apiKey =")
+                .doesNotContain("Write-Host $EnvFile")
+                .doesNotContain("Write-Output $EnvFile");
+    }
+
     private static String readAll(InputStream inputStream) throws Exception {
         return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
@@ -248,5 +311,9 @@ class RagRealQaEvalSmokeScriptSafetyTest {
 
     private static Path naturalCorpusScriptPath() {
         return Path.of("..", "scripts", "smoke", "rag-natural-corpus-audit-smoke.ps1");
+    }
+
+    private static Path realUserQaAuditScriptPath() {
+        return Path.of("..", "scripts", "smoke", "real-user-qa-experience-audit.ps1");
     }
 }

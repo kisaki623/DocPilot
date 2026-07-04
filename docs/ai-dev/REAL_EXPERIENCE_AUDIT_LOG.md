@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-04 | `docpilot-real-user-qa-20260704191307-661bc0` | PASS（真实用户 QA 体验审计） | `backend/target/audit/docpilot-real-user-qa-20260704191307-661bc0/artifact.json` | 新增真实用户 QA 审计入口，组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate；最终 25 个自然语料 case、answer faithfulness、citation support、Conversation Trace、Memory、权限隔离和 artifact 脱敏均 PASS。首轮先暴露 answer 事实表达门禁对单一英文短语过度敏感，已改为同义表达组后验证通过。 |
 | 2026-07-04 | `docpilot-rag-natural-corpus-20260704160327-16b351` | PASS（coverage report） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704160327-16b351/artifact.json` | 自然语料 artifact 新增 `evidenceCoverageReport`，retrieval / citation / phrase / answer / distractor / no-evidence 的 miss、leak、failure 清单均为空；同轮 25 case、frontendInteraction、multi-query、Trace、权限隔离均 PASS。 |
 | 2026-07-04 | `docpilot-rag-natural-corpus-20260704152850-e07b13` | PASS（faithfulness v2） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704152850-e07b13/artifact.json` | 自然语料 gate 新增回答事实表达和 citation 事实短语支撑硬门禁，`answerFaithfulnessPassCount=11/11`、`citationPhraseSupportPassCount=22/22`，同轮 25 case、frontendInteraction、multi-query、Trace、权限隔离均 PASS。 |
 | 2026-07-04 | `docpilot-rag-natural-corpus-20260704151615-bc193d` | PASS（自然语料 v2） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704151615-bc193d/artifact.json` | v2 自然语料 gate 覆盖 3 个 corpus、12 份临时 txt 文档、25 个 case，`casePassRate=1`；本轮先发现 governance 临时用户名超过注册长度约束、以及多文档 compare citation 被数字过滤误删，修复后 25 case、frontendInteraction、multi-query、Trace、权限隔离均 PASS。 |
@@ -55,6 +56,72 @@
 | `REA-20260704-P2-002` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-rag-natural-corpus-20260704141543-aa95e9` | 数字事实回答同时引用语义相近但数值冲突的干扰文档 |
 | `REA-20260704-P2-003` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-rag-natural-corpus-20260704150746-1ef5da` | 多文档 compare 问题的 citation 被数字过滤误删成单文档覆盖 |
 | `REA-20260704-P3-004` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner | `docpilot-rag-natural-corpus-20260704150252-a675b6` | 自然语料 governance 临时用户名超过注册长度约束 |
+| `REA-20260704-P3-005` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Answer Faithfulness Gate | `docpilot-real-user-qa-20260704190235-553df7` | 自然语料 answer fact expression 对单一英文短语过度敏感 |
+
+## 2026-07-04 真实用户 QA 体验审计 v2
+
+验证 marker：`docpilot-real-user-qa-20260704191307-661bc0`
+
+状态：PASS
+
+已验证：
+
+- 新增 `real-user-qa-experience-audit.ps1` 作为真实用户 QA 体验审计入口，默认组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate。
+- 自然语料：3 个 corpus、12 份临时 txt 文档、25 个 case，`casePassRate=1`；`answerFaithfulnessPassCount=11/11`，`citationPhraseSupportPassCount=22/22`，`noEvidencePassCount=3/3`，`multiDocumentCoveragePassCount=4/4`。
+- 前端交互：文档详情 quote-first 可见、KnowledgeBase 双 citation marker 可见、跨用户无权限提示可见、console error count 为 `0`。
+- Conversation / Memory：绑定 KnowledgeBase 后 Trace 中 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=4`、`memoryCount=1`，Memory quality gate 覆盖候选抽取、接受 / 忽略 / 冲突治理、编辑和敏感内容拦截。
+- 权限隔离和 artifact 脱敏均 PASS。
+
+本轮发现并修复：
+
+- `REA-20260704-P3-005`：首轮真实 run 中，`finance-expense-approval`、`governance-version-retention`、`governance-hotfix-retention` 的 evidence / citation 均支撑目标事实，但 `answerFactExpression` 因只匹配单一英文短语而失败。
+- 已将回答事实表达检查升级为同义表达组，例如 `7 days|within 7 days|seven days|within seven days`，避免真实回答自然改写造成误杀；citation phrase support、forbidden answer、no-evidence 和权限隔离仍保持硬门禁。
+
+边界：
+
+- 本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；artifact 位于 ignored 的 `backend/target/audit/`，不提交原文。
+- 未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+### `REA-20260704-P3-005` 自然语料 answer fact expression 对单一英文短语过度敏感
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Smoke Runner / Answer Faithfulness Gate
+- 发现于：`docpilot-real-user-qa-20260704190235-553df7`
+- 修复验证：`docpilot-real-user-qa-20260704191307-661bc0`
+
+复现步骤：
+
+1. 运行 `real-user-qa-experience-audit.ps1 -Mode run`。
+2. 观察 `naturalCorpus` 中 QA case 的 `answerFactExpression` 结果。
+3. 检查失败 case 的 retrieve / citation 覆盖和 citation phrase support。
+
+实际结果：
+
+- 首轮 run 中 3 个 QA case 的 retrieve / citation 覆盖、citation phrase support 和 forbidden answer 均通过，但 `answerFactExpression=false`，导致 `naturalCorpus` 失败。
+
+预期结果：
+
+- Answer faithfulness 门禁应验证“答案是否表达目标事实”，不能只依赖单一英文字符串；同一事实的常见自然表达应被视为等价。
+
+可能原因：
+
+- 旧门禁只对 `answerAnyPhrases` / `answerAllPhrases` 做逐字符串包含判断，缺少同义表达组，真实模型回答稍作改写就会误杀。
+
+建议修复位置：
+
+- `scripts/smoke/cloud-quality-smoke.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRealQaEvalSmokeScriptSafetyTest.java`
+
+修复提交：本轮待提交。
+
+验证记录：
+
+- `real-user-qa-experience-audit.ps1 -Mode plan` PASS。
+- `real-user-qa-experience-audit.ps1 -Mode dry-run` PASS。
+- `mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，5 tests。
+- `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260704191307-661bc0`。
 
 ## 2026-07-04 自然语料扩容 gate v2
 

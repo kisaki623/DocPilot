@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-04 真实用户问答体验审计 v2
+
+- 新增 `scripts/smoke/real-user-qa-experience-audit.ps1`，提供 `plan` / `dry-run` / `run` 三种模式，默认以 `docpilot-real-user-qa-*` marker 委托 `cloud-quality-smoke.ps1`，并启用 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate。
+- 审计入口覆盖真实用户关键路径：本地 tunnel、backend health、frontend routes、临时用户、两文档上传 / parse / indexing、chunk 质量、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase 多文档 RAG、自然语料 25 case、quote-first UI、Conversation Trace、Memory 治理、权限隔离和脱敏 artifact。
+- 首轮真实 run marker `docpilot-real-user-qa-20260704190235-553df7` 暴露 `answerFactExpression` 门禁对单一英文短语过度敏感；在 evidence / citation 已支撑时，真实回答的自然表达差异会造成误杀。
+- 已修正：`Test-TextContainsAll` / `Test-TextContainsAny` 支持 `a|b|c` 同义表达组；自然语料 QA 的数字、日期、负责人和审批类答案短语改为表达组，仍保留 citation phrase support、forbidden answer、no-evidence 和权限隔离硬门禁。
+- 已验证：`real-user-qa-experience-audit.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，5 tests。
+- 真实验证：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260704191307-661bc0`；`naturalCorpus.casePassRate=1`，`answerFaithfulnessPassCount=11/11`，`citationPhraseSupportPassCount=22/22`，`frontendInteraction`、`memoryQuality`、`conversationTrace`、`permissionIsolation`、`artifactRedaction` 均 PASS。
+- 边界：本片是小规模真实链路用户体验审计入口，不是大规模人工评测、完整浏览器 E2E 覆盖或线上 SLA；artifact 位于 ignored 的 `backend/target/audit/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-04 Evidence Coverage 报告 v1
 
 - `naturalCorpus` summary 新增脱敏 `evidenceCoverageReport`，用于每次真实自然语料 eval 后直接定位 case 级质量问题。

@@ -2,6 +2,8 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 真实用户问答体验审计 v2 已完成。新增 `scripts/smoke/real-user-qa-experience-audit.ps1`，默认组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate；真实 run marker `docpilot-real-user-qa-20260704191307-661bc0` PASS，覆盖 tunnel、backend health、frontend routes、上传 / parse / indexing、chunk 质量、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、25 个自然语料 case、Conversation Trace、Memory 质量、权限隔离和脱敏 artifact。
+- 本轮真实审计先暴露 `answerFactExpression` 对单一英文短语过度敏感：evidence / citation 已支撑，但真实回答表达为其他自然说法时会误判。`cloud-quality-smoke.ps1` 已支持 `a|b|c` 同义表达组，保持 answer faithfulness 门禁同时减少字符串脆弱性；修正后 `answerFaithfulnessPassCount=11/11`、`citationPhraseSupportPassCount=22/22`。
 - 2026-07-04 Evidence Coverage 报告 v1 已接入自然语料真实 smoke。`naturalCorpus` artifact 现在输出 `evidenceCoverageReport`，直接列出 retrieval / citation / phrase / answer / distractor / no-evidence 的 caseId 级 miss / leak / failure 清单。真实 run marker `docpilot-rag-natural-corpus-20260704160327-16b351` PASS；各类 miss / leak / failure 清单均为空。
 - 2026-07-04 Answer / Citation Faithfulness v2 已在自然语料真实链路中收口。`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-rag-natural-corpus-20260704152850-e07b13` PASS；`naturalCorpus` 新增 `answerFaithfulnessPassCount=11/11`、`citationPhraseSupportPassCount=22/22`，并修正单条 QA citation 计数 artifact 可能显示为 `null` 的问题。
 - 2026-07-04 RAG 自然语料扩容 v2 已完成并通过真实链路验证。`scripts/smoke/rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-rag-natural-corpus-20260704151615-bc193d` PASS；`naturalCorpus` 升级为 `schemaVersion=2`，覆盖 3 个 corpus、12 份临时 txt 文档、25 个 case，`casePassRate=1`，3 个 no-evidence case 全部正确拒答，4 个多文档 case 全部覆盖目标文档，25 个含干扰文档的 case 均无干扰 citation。

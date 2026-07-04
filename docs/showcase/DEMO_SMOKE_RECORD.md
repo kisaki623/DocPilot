@@ -4,6 +4,27 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-04 Real User QA Experience Audit Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/real-user-qa-experience-audit.ps1 -Mode run`
+
+Marker: `docpilot-real-user-qa-20260704191307-661bc0`
+
+已验证：
+
+- 新增真实用户 QA 体验审计入口，组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate。
+- 覆盖真实链路：tunnel、backend health、frontend routes、临时用户、上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、Conversation Trace、Memory 质量、权限隔离和 artifact 脱敏。
+- 自然语料结果：3 个 corpus、12 份临时 txt 文档、25 个 case，`casePassRate=1`；`answerFaithfulnessPassCount=11/11`，`citationPhraseSupportPassCount=22/22`，`noEvidencePassCount=3/3`，`multiDocumentCoveragePassCount=4/4`。
+- 前端与 Trace：quote-first citation UI 可见，KnowledgeBase 双 citation marker 可见，跨用户无权限提示可见，console error count 为 `0`；绑定 KB 的 Conversation Trace 中 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=4`、`memoryCount=1`。
+
+本轮真实审计先发现 answer fact expression 门禁对单一英文短语过度敏感；已改为同义表达组后重跑 PASS。该问题记录在 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。
+
+边界：本次 run 是小规模真实链路用户体验审计，不是大规模人工评测、完整浏览器 E2E 覆盖或线上 SLA；artifact 位于 ignored `backend/target/audit/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-04 Evidence Coverage 报告 Smoke
 
 状态：PASS
