@@ -2,6 +2,9 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 Agent Quality Console MVP Slice 2 已完成后端 artifact 聚合 service。新增 `com.docpilot.backend.quality` 只读聚合能力，可以从白名单 root 扫描最近 artifact，输出 `QualityRunSummary` / `QualityRunDetail`，并把坏 JSON 降级为 `REVIEW` + `artifactParseFailed=true`。
+- Quality artifact 聚合仍是 P0 后端 service 层能力，尚未暴露 `/api/quality/**`，也未新增前端 `/quality` 页面。service 不读取业务数据库、不启动真实链路、不创建数据、不新增表。
+- 当前 Quality DTO 只允许返回 marker、source、artifactName、status、updatedAt、gate 计数、失败 / REVIEW 桶、gate 数值 / 布尔指标、eval case 摘要和 token usage 数值；不会透传原始 artifact、prompt、answer 原文、文档全文、evidence context、API key、secret、连接串或云地址。
 - 2026-07-04 Agent Quality Console MVP Slice 1 已完成文档口径收敛。Agent Quality Console 定位为内部质量控制台，不是两个独立大平台；第一版信息架构为 `Overview`、`Trace`、`Eval`、`Failures`，P0 先实现 `Overview + Run Detail`，并保留 Trace / Eval 扩展入口。
 - Agent Quality Console P0 数据源是 ignored artifact 的脱敏摘要聚合，默认扫描 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/memory-quality`、`backend/target/memory-provider` 和 `tmp-e2e/docpilot-cloud-quality-smoke`。P0 不新增数据库表；只有当需要跨机器保留历史、权限审计或趋势查询时，再评估 `quality_eval_run` / `quality_eval_gate` 表。
 - Agent Quality Console 的 parser 和 API 必须采用字段白名单。禁止返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 只允许返回 `prompt_tokens`、`completion_tokens`、`total_tokens`、`estimated_cost` 等数值统计。若发现泄露风险，可关闭对应 artifact root 或隐藏 detail 字段。

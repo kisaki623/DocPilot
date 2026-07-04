@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-04 Agent Quality Console MVP Slice 2
+
+- 新增后端只读 artifact 聚合 service：`QualityArtifactServiceImpl` 扫描白名单 root，默认返回最近 `20` 个 run，并支持按 marker 获取 `QualityRunDetail`。
+- 新增安全 DTO：`QualityRunSummary`、`QualityRunDetail`、`QualityGateSummary`、`QualityEvalCaseResultDetail` 和 `QualityTokenUsageSummary`；只保留状态、计数、布尔、失败桶、eval case id、trace / agent run id 和 token usage 数值。
+- 脱敏策略：不透传原始 artifact；字段白名单过滤 prompt、answer 原文、文档全文、evidence context、API key、secret、连接串、云地址等敏感内容；坏 JSON 降级为 `REVIEW` 并标记 `artifactParseFailed=true`。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，15 tests；新增单测覆盖空目录、缺 artifact root、坏 JSON、正常 artifact、历史审计文件名、最近 N 个排序和敏感字段过滤。
+- 边界：本片不暴露 `/api/quality/**`，不做前端 `/quality`，不新增数据库表，不启动服务，不创建业务数据，不提交 artifact 原文，不 push。
+
 ## 2026-07-04 Agent Quality Console MVP Slice 1
 
 - 完成 Agent Quality Console 文档与接口口径收敛：统一定位为 DocPilot 内部质量控制台，第一版信息架构为 `Overview`、`Trace`、`Eval`、`Failures`，P0 先做 `Overview + Run Detail`，并保留 Trace / Eval drill-down 入口。

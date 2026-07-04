@@ -1,5 +1,17 @@
 # Current Task
 
+当前任务：Agent Quality Console MVP Slice 2：后端 artifact 聚合 service（DONE）
+
+## 2026-07-04 补充：Quality artifact 聚合 service
+
+- 目标：为 Agent Quality Console MVP 增加后端只读 artifact 聚合 service，先不暴露 API、不做前端、不建表。
+- 已完成：新增 `backend/src/main/java/com/docpilot/backend/quality/**`，包含 `QualityArtifactService`、`QualityArtifactServiceImpl` 和 `QualityRunSummary` / `QualityRunDetail` / `QualityGateSummary` / `QualityEvalCaseResultDetail` / `QualityTokenUsageSummary`。
+- 聚合边界：service 默认扫描 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/memory-quality`、`backend/target/memory-provider` 和 `tmp-e2e/docpilot-cloud-quality-smoke`，只识别 `artifact.json` 与历史审计 `real-experience-audit-report.json`。
+- 安全策略：只返回 marker、source、artifactName、status、updatedAt、gate 计数、失败 / REVIEW 桶、gate 数值 / 布尔指标、eval case 摘要和 token usage 数值；不透传原始 artifact，不返回 prompt、answer 原文、文档全文、evidence context、API key、secret、连接串或云地址。
+- 降级策略：缺 artifact root 返回空列表；坏 JSON 生成 `REVIEW` summary/detail，`artifactParseFailed=true`，失败桶包含 `artifactParseFailed`；detail 查询只按 marker 匹配已发现 artifact，不接受任意文件路径。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，15 tests；新增单测覆盖空目录、缺文件、坏 JSON、正常 artifact、历史审计文件名、最近 N 个排序和未知敏感字段过滤。
+- 边界：本片未新增 Controller / API，未改鉴权，未启动服务，未创建业务数据，未新增数据库表，未提交 artifact 原文，未 push。
+
 当前任务：Agent Quality Console MVP Slice 1：文档与接口口径（DONE）
 
 ## 2026-07-04 补充：Agent Quality Console 内部质量控制台口径

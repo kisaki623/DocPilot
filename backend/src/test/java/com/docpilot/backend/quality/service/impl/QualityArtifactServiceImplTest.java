@@ -1,0 +1,176 @@
+package com.docpilot.backend.quality.service.impl;
+
+import com.docpilot.backend.quality.vo.QualityRunDetail;
+import com.docpilot.backend.quality.vo.QualityRunSummary;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class QualityArtifactServiceImplTest {
+
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+
+    @TempDir
+    Path repoRoot;
+
+    @Test
+    void shouldReturnEmptyListWhenArtifactRootsAreMissing() {
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        assertThat(service.listRecentRuns(20)).isEmpty();
+        assertThat(service.getRunDetail("missing")).isEmpty();
+    }
+
+    @Test
+    void shouldParseNormalArtifactWithWhitelistedFieldsOnly() throws Exception {
+        Path artifact = artifactPath("backend/target/rag-real-qa", "docpilot-quality-normal", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "smokeMarker": "docpilot-quality-normal",
+                  "status": "PASS",
+                  "prompt": "SYSTEM_PROMPT_SHOULD_NOT_LEAK",
+                  "answer": "RAW_ANSWER_SHOULD_NOT_LEAK",
+                  "documentText": "DOCUMENT_FULL_TEXT_SHOULD_NOT_LEAK",
+                  "secret": "SECRET_SHOULD_NOT_LEAK",
+                  "connectionString": "CONNECTION_STRING_SHOULD_NOT_LEAK",
+                  "token_usage": {
+                    "prompt_tokens": 12,
+                    "completion_tokens": 5,
+                    "total_tokens": 17,
+                    "estimated_cost": 0.01
+                  },
+                  "naturalCorpus": {
+                    "status": "PASS",
+                    "passed": true,
+                    "casePassRate": 1.0,
+                    "answerFaithfulnessPassCount": 3,
+                    "ragTriggered": true,
+                    "answerText": "NATURAL_ANSWER_SHOULD_NOT_LEAK",
+                    "failureBuckets": [],
+                    "reviewBuckets": ["manualReview"]
+                  },
+                  "caseResults": [
+                    {
+                      "caseId": "case-safe-1",
+                      "caseType": "rag",
+                      "passed": true,
+                      "traceId": "trace-1",
+                      "agentRunId": "agent-run-1",
+                      "question": "QUESTION_SHOULD_NOT_LEAK",
+                      "failureBuckets": [],
+                      "reviewBuckets": []
+                    }
+                  ]
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        List<QualityRunSummary> runs = service.listRecentRuns(20);
+        assertThat(runs).hasSize(1);
+        QualityRunSummary summary = runs.get(0);
+        assertThat(summary.marker()).isEqualTo("docpilot-quality-normal");
+        assertThat(summary.status()).isEqualTo("PASS");
+        assertThat(summary.gateCount()).isEqualTo(1);
+        assertThat(summary.reviewBuckets()).containsExactly("manualReview");
+        assertThat(summary.tokenUsage().promptTokens()).isEqualTo(12);
+        assertThat(summary.tokenUsage().completionTokens()).isEqualTo(5);
+        assertThat(summary.tokenUsage().totalTokens()).isEqualTo(17);
+        assertThat(summary.tokenUsage().estimatedCost()).isEqualByComparingTo("0.01");
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-quality-normal").orElseThrow();
+        assertThat(detail.gates()).hasSize(1);
+        assertThat(detail.gates().get(0).metrics())
+                .containsEntry("casePassRate", 1.0)
+                .containsEntry("answerFaithfulnessPassCount", 3);
+        assertThat(detail.gates().get(0).flags()).containsEntry("ragTriggered", true);
+        assertThat(detail.evalCases()).hasSize(1);
+        assertThat(detail.evalCases().get(0).caseId()).isEqualTo("case-safe-1");
+
+        String serialized = objectMapper.writeValueAsString(detail);
+        assertThat(serialized)
+                .doesNotContain("SYSTEM_PROMPT_SHOULD_NOT_LEAK")
+                .doesNotContain("RAW_ANSWER_SHOULD_NOT_LEAK")
+                .doesNotContain("DOCUMENT_FULL_TEXT_SHOULD_NOT_LEAK")
+                .doesNotContain("SECRET_SHOULD_NOT_LEAK")
+                .doesNotContain("CONNECTION_STRING_SHOULD_NOT_LEAK")
+                .doesNotContain("NATURAL_ANSWER_SHOULD_NOT_LEAK")
+                .doesNotContain("QUESTION_SHOULD_NOT_LEAK");
+    }
+
+    @Test
+    void shouldMarkBadJsonAsReviewWithoutLeakingRawContent() throws Exception {
+        Path artifact = artifactPath("backend/target/audit", "docpilot-quality-bad-json", "artifact.json");
+        Files.writeString(artifact, "{ \"smokeMarker\": \"docpilot-quality-bad-json\", \"secret\": \"BAD_SECRET\" ",
+                StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunSummary summary = service.listRecentRuns(20).get(0);
+        assertThat(summary.marker()).isEqualTo("docpilot-quality-bad-json");
+        assertThat(summary.status()).isEqualTo("REVIEW");
+        assertThat(summary.artifactParseFailed()).isTrue();
+        assertThat(summary.failureBuckets()).containsExactly("artifactParseFailed");
+
+        String serialized = objectMapper.writeValueAsString(service.getRunDetail("docpilot-quality-bad-json").orElseThrow());
+        assertThat(serialized).doesNotContain("BAD_SECRET");
+    }
+
+    @Test
+    void shouldLimitRecentRunsByModifiedTime() throws Exception {
+        Instant base = Instant.parse("2026-07-04T00:00:00Z");
+        for (int i = 0; i < 25; i++) {
+            String marker = "docpilot-quality-run-" + i;
+            Path artifact = artifactPath("backend/target/memory-quality", marker, "artifact.json");
+            Files.writeString(artifact, "{\"marker\":\"" + marker + "\",\"status\":\"PASS\"}", StandardCharsets.UTF_8);
+            Files.setLastModifiedTime(artifact, FileTime.from(base.plusSeconds(i)));
+        }
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        List<QualityRunSummary> runs = service.listRecentRuns(20);
+        assertThat(runs).hasSize(20);
+        assertThat(runs.get(0).marker()).isEqualTo("docpilot-quality-run-24");
+        assertThat(runs.get(19).marker()).isEqualTo("docpilot-quality-run-5");
+        assertThat(service.listRecentRuns(3))
+                .extracting(QualityRunSummary::marker)
+                .containsExactly("docpilot-quality-run-24", "docpilot-quality-run-23", "docpilot-quality-run-22");
+    }
+
+    @Test
+    void shouldReadLegacyAuditReportName() throws Exception {
+        Path artifact = artifactPath("backend/target/audit", "docpilot-real-audit-legacy", "real-experience-audit-report.json");
+        Files.writeString(artifact, """
+                {
+                  "marker": "docpilot-real-audit-legacy",
+                  "status": "REVIEW",
+                  "frontendInteraction": {
+                    "passed": false,
+                    "failureBuckets": ["quoteFirstUi"]
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-real-audit-legacy").orElseThrow();
+        assertThat(detail.summary().status()).isEqualTo("REVIEW");
+        assertThat(detail.summary().failureBuckets()).containsExactly("quoteFirstUi");
+        assertThat(detail.gates()).extracting(gate -> gate.name()).containsExactly("frontendInteraction");
+    }
+
+    private Path artifactPath(String root, String marker, String fileName) throws Exception {
+        Path dir = repoRoot.resolve(root).resolve(marker);
+        Files.createDirectories(dir);
+        return dir.resolve(fileName);
+    }
+}
