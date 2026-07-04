@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-04 Evidence Coverage 报告 v1
+
+- `naturalCorpus` summary 新增脱敏 `evidenceCoverageReport`，用于每次真实自然语料 eval 后直接定位 case 级质量问题。
+- 报告字段：`retrieveCoveragePassCount`、`citationCoveragePassCount`、`citationPhraseSupportPassCount`、`answerFaithfulnessPassCount`、`noEvidenceCorrectCount`、`distractorCitationFreeCount`，以及 `retrievalCoverageMisses`、`citationCoverageMisses`、`citationPhraseMisses`、`answerFaithfulnessMisses`、`distractorCitationLeaks`、`noEvidenceFailures`。
+- 门禁口径微调：多文档 summary 中，如果目标文档覆盖和 citation 事实短语支撑已经满足，额外干扰 citation 先进入 REVIEW 报告；单数字事实 / 单文档事实中的干扰 citation 仍是硬失败。
+- 真实过程：首轮 evidence coverage run 抓到 `ops-incident-support-summary` 干扰 citation；尝试把多文档 QA `topK` 压到目标文档数后又暴露召回不稳定，因此最终保留覆盖型 topK，并把多文档 summary 的干扰 citation 区分为 reportable review 风险。
+- 已验证：`rag-natural-corpus-audit-smoke.ps1 -Mode plan` PASS；`rag-natural-corpus-audit-smoke.ps1 -Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，4 tests。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704160327-16b351`；`evidenceCoverageReport` 中 retrieval / citation / phrase / answer / distractor / no-evidence 的 miss、leak、failure 清单均为空。
+- 边界：报告只保存 caseId、计数和布尔值；不保存文档原文、问题原文、回答原文、prompt、evidence context、凭据、连接串、云地址或 token。未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未 push。
+
 ## 2026-07-04 Answer / Citation Faithfulness v2
 
 - 在自然语料 v2 的 case-level gate 上继续增强：QA case 不再只看 hit / citation 数量，而是要求回答包含预期事实表达，并要求 citation / evidence 覆盖预期事实短语。

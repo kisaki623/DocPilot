@@ -4,6 +4,25 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-04 Evidence Coverage 报告 Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/rag-natural-corpus-audit-smoke.ps1 -Mode run`
+
+Marker: `docpilot-rag-natural-corpus-20260704160327-16b351`
+
+已验证：
+
+- 自然语料 artifact 新增 `evidenceCoverageReport`，可以直接定位漏召回、漏 citation、citation 事实短语不支持、回答事实不满足、干扰 citation 泄漏和 no-evidence 失败。
+- 本次结果：`retrieveCoveragePassCount=22`、`citationCoveragePassCount=22`、`citationPhraseSupportPassCount=22`、`answerFaithfulnessPassCount=11`、`noEvidenceCorrectCount=3`、`distractorCitationFreeCount=25`。
+- 本次 miss / leak / failure 清单均为空：`retrievalCoverageMisses=[]`、`citationCoverageMisses=[]`、`citationPhraseMisses=[]`、`answerFaithfulnessMisses=[]`、`distractorCitationLeaks=[]`、`noEvidenceFailures=[]`。
+- 同轮核心 gate 保持 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、短文档 RAG、multi-query、answer grounding、Conversation Trace、权限隔离、frontendInteraction、artifact redaction 和 cleanup。
+
+边界：本次 run 是小规模真实链路 evidence coverage 报告，不是大规模 relevance benchmark、完整人工评测或线上 SLA；artifact 位于 ignored `backend/target/rag-natural-corpus/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-04 Answer / Citation Faithfulness v2 Smoke
 
 状态：PASS

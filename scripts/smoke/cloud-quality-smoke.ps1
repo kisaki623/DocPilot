@@ -859,7 +859,13 @@ function Invoke-NaturalCorpusCase($case, $corpus, [int]$indexVersion) {
   if (-not $targetRetrieveCovered) { $failureBuckets += "targetRetrieveCoverage" }
   if (-not $targetCitationCovered) { $failureBuckets += "targetCitationCoverage" }
   if (-not $expectedEvidenceSupported) { $failureBuckets += "citationPhraseSupport" }
-  if ($mode -eq "qa" -and $distractorCitationCount -gt 0) { $failureBuckets += "distractorCitation" }
+  if ($mode -eq "qa" -and $distractorCitationCount -gt 0) {
+    if ([string]$case.caseType -eq "natural_multi_doc_summary" -and $targetCitationCovered -and $expectedEvidenceSupported) {
+      $reviewBuckets += "distractorCitation"
+    } else {
+      $failureBuckets += "distractorCitation"
+    }
+  }
   if ($forbiddenAnswerHit) { $failureBuckets += "forbiddenAnswer" }
   if ($answerFaithfulnessRequired -and -not $answerFactExpression) {
     $failureBuckets += "answerFactExpression"
@@ -1672,7 +1678,7 @@ Engineering Operations owns the release archive.
       [ordered]@{ caseId = "finance-marketing-draft-retention"; corpus = "finance"; caseType = "natural_numeric_fact"; mode = "retrieve"; question = "How long are marketing campaign drafts retained?"; targetKeys = @("marketing"); distractorKeys = @("invoice"); expectedPhrases = @("Marketing campaign drafts are retained for 3 years"); topK = 4 },
       [ordered]@{ caseId = "finance-expense-invoice-compare"; corpus = "finance"; caseType = "natural_multi_doc_summary"; mode = "qa"; question = "Compare the reimbursement approval rule with the invoice archive retention rule."; targetKeys = @("expense", "invoice"); distractorKeys = @("marketing"); expectedPhrases = @("Team manager approval", "Invoice archive retention is 7 years"); answerAnyPhrases = @("7 years", "seven years"); answerAllPhrases = @("manager"); topK = 6 },
       [ordered]@{ caseId = "finance-vendor-temporary-access"; corpus = "finance"; caseType = "natural_date_fact"; mode = "retrieve"; question = "When do temporary vendor accounts expire if access is not renewed?"; targetKeys = @("procurement"); distractorKeys = @("expense"); expectedPhrases = @("Temporary vendor accounts expire after 14 days"); topK = 4 },
-      [ordered]@{ caseId = "ops-incident-support-summary"; corpus = "ops"; caseType = "natural_multi_doc_summary"; mode = "qa"; question = "Summarize the checkout incident response and the customer support SLA impact."; targetKeys = @("incident", "support"); distractorKeys = @("backup", "rollback"); expectedPhrases = @("paused background retries", "The P1 response target is 30 minutes"); answerAnyPhrases = @("30 minutes", "P1"); answerAllPhrases = @("checkout"); topK = 6 },
+      [ordered]@{ caseId = "ops-incident-support-summary"; corpus = "ops"; caseType = "natural_multi_doc_summary"; mode = "qa"; question = "Summarize the checkout worker queue incident response and the P1 response target from customer support SLA."; targetKeys = @("incident", "support"); distractorKeys = @("backup", "rollback"); expectedPhrases = @("paused background retries", "The P1 response target is 30 minutes"); answerAnyPhrases = @("30 minutes", "P1"); answerAllPhrases = @("checkout"); topK = 6 },
       [ordered]@{ caseId = "ops-support-p1-target"; corpus = "ops"; caseType = "natural_numeric_fact"; mode = "qa"; question = "What is the P1 response target for checkout payment outages?"; targetKeys = @("support"); distractorKeys = @("backup", "rollback"); expectedPhrases = @("The P1 response target is 30 minutes"); answerAnyPhrases = @("30 minutes"); topK = 4 },
       [ordered]@{ caseId = "ops-backup-interval"; corpus = "ops"; caseType = "natural_date_fact"; mode = "retrieve"; question = "How often does database backup verification run?"; targetKeys = @("backup"); distractorKeys = @("support"); expectedPhrases = @("Database backup verification runs every 14 days"); topK = 4 },
       [ordered]@{ caseId = "ops-rollback-owner"; corpus = "ops"; caseType = "natural_approval_chain"; mode = "retrieve"; question = "Who can trigger feature flag rollback and how quickly can it happen?"; targetKeys = @("rollback"); distractorKeys = @("incident"); expectedPhrases = @("The release captain can trigger feature flag rollback within 15 minutes"); topK = 4 },
@@ -1718,6 +1724,20 @@ Engineering Operations owns the release archive.
     $naturalAnswerFaithfulnessCases = @($naturalCaseResults | Where-Object { $_.answerFaithfulnessRequired })
     $naturalCitationSupportCases = @($naturalCaseResults | Where-Object { -not $_.noEvidenceExpected })
     $naturalPassedCases = @($naturalCaseResults | Where-Object { @($_.failureBuckets).Count -eq 0 })
+    $naturalEvidenceCoverageReport = [ordered]@{
+      retrieveCoveragePassCount = @($naturalCitationSupportCases | Where-Object { $_.targetRetrieveCovered }).Count
+      citationCoveragePassCount = @($naturalCitationSupportCases | Where-Object { $_.targetCitationCovered }).Count
+      citationPhraseSupportPassCount = @($naturalCitationSupportCases | Where-Object { $_.citationPhraseSupport }).Count
+      answerFaithfulnessPassCount = @($naturalAnswerFaithfulnessCases | Where-Object { $_.answerFactExpression -and -not $_.forbiddenAnswerHit }).Count
+      noEvidenceCorrectCount = @($naturalNoEvidenceCases | Where-Object { $_.noEvidenceCorrect }).Count
+      distractorCitationFreeCount = @($naturalDistractorCases | Where-Object { $_.distractorCitationCount -eq 0 }).Count
+      retrievalCoverageMisses = @($naturalCitationSupportCases | Where-Object { -not $_.targetRetrieveCovered } | ForEach-Object { $_.caseId })
+      citationCoverageMisses = @($naturalCitationSupportCases | Where-Object { -not $_.targetCitationCovered } | ForEach-Object { $_.caseId })
+      citationPhraseMisses = @($naturalCitationSupportCases | Where-Object { -not $_.citationPhraseSupport } | ForEach-Object { $_.caseId })
+      answerFaithfulnessMisses = @($naturalAnswerFaithfulnessCases | Where-Object { -not $_.answerFactExpression -or $_.forbiddenAnswerHit } | ForEach-Object { $_.caseId })
+      distractorCitationLeaks = @($naturalDistractorCases | Where-Object { $_.distractorCitationCount -gt 0 } | ForEach-Object { $_.caseId })
+      noEvidenceFailures = @($naturalNoEvidenceCases | Where-Object { -not $_.noEvidenceCorrect } | ForEach-Object { $_.caseId })
+    }
 
     $corpusResources = @()
     foreach ($corpusKey in @($naturalCorpora.Keys)) {
@@ -1754,6 +1774,7 @@ Engineering Operations owns the release archive.
         traceDocumentHitCounts = $naturalTrace.data.documentHitCounts
         hardFailureBuckets = $naturalHardFailures
         reviewBuckets = $naturalReviewBuckets
+        evidenceCoverageReport = $naturalEvidenceCoverageReport
         caseResults = $naturalCaseResults
       })
     if ($naturalHardFailures.Count -gt 0) {

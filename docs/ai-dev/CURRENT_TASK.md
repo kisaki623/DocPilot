@@ -1,5 +1,15 @@
 # Current Task
 
+当前任务：Evidence Coverage 报告 v1（DONE）
+
+## 2026-07-04 补充：自然语料 case 级覆盖报告
+
+- 目标：让自然语料 smoke artifact 不只给总体 PASS / FAIL，还能直接报告漏召回、漏 citation、citation 事实短语不支持、回答事实不满足、干扰 citation 泄漏和 no-evidence 失败的 caseId 清单。
+- 已完成：`naturalCorpus` summary 新增脱敏 `evidenceCoverageReport`，包含 `retrieveCoveragePassCount`、`citationCoveragePassCount`、`citationPhraseSupportPassCount`、`answerFaithfulnessPassCount`、`noEvidenceCorrectCount`、`distractorCitationFreeCount`，以及 `retrievalCoverageMisses`、`citationCoverageMisses`、`citationPhraseMisses`、`answerFaithfulnessMisses`、`distractorCitationLeaks`、`noEvidenceFailures`。
+- 口径调整：多文档 summary 的目标 citation 和事实短语支撑仍是硬门禁；如果目标覆盖与事实支撑都满足，额外干扰 citation 进入 REVIEW 报告，不再和单数字事实干扰一样直接阻断核心链路。单文档 / 数字事实里的干扰 citation 仍是硬失败。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704160327-16b351`；`evidenceCoverageReport` 中 retrieval / citation / phrase / answer / distractor / no-evidence 的 miss、leak、failure 清单均为空。
+- 边界：报告只保存 caseId、计数和布尔结果，不保存原文、回答、prompt、evidence context、token、云地址或连接串；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未 push。
+
 当前任务：Answer / Citation Faithfulness v2（DONE）
 
 ## 2026-07-04 补充：自然语料回答与引用支撑硬门禁
