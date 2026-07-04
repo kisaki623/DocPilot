@@ -37,6 +37,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             "backend/target/rag-real-qa",
             "backend/target/memory-quality",
             "backend/target/memory-provider",
+            "backend/target/agent-quality-eval",
             "tmp-e2e/docpilot-cloud-quality-smoke"
     );
     private static final Set<String> ARTIFACT_FILE_NAMES = Set.of(

@@ -2,6 +2,9 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 Agent Quality Console MVP Slice 4 已完成轻量 Agent Quality Eval Case JSON + Runner。新增 JSON case fixture、离线 runner、默认跳过的 smoke writer 和 `scripts/smoke/agent-quality-eval-smoke.ps1`；脚本支持 `plan` / `dry-run` / `run`，run 只执行离线 JUnit 并生成 ignored 脱敏 artifact。
+- `backend/target/agent-quality-eval` 已加入 Quality artifact 聚合白名单。Agent Quality Eval artifact 只保存 marker、status、caseId、caseType、passed、traceId / agentRunId、失败桶和聚合计数，不保存 question、expectedBehavior、answer 原文、prompt、文档全文或 evidence context。
+- 真实本地离线 run marker `docpilot-agent-quality-eval-20260704220047-9c9af0` PASS；该结果证明 eval contract / artifact 安全链路可用，不代表真实 Agent 大规模效果评测。
 - 2026-07-04 Agent Quality Console MVP Slice 3 已完成后端 Quality API。新增 `GET /api/quality/runs` 与 `GET /api/quality/runs/{marker}`，返回 Slice 2 的脱敏 `QualityRunSummary` / `QualityRunDetail`，不透传原始 artifact。
 - `/api/quality/**` 当前是内部只读 API，仍复用现有 `/api/**` 登录拦截，并额外要求 `app.quality.console.enabled=true`。默认关闭；P0 不新增 admin 角色表、不改变现有用户权限模型。
 - 2026-07-04 Agent Quality Console MVP Slice 2 已完成后端 artifact 聚合 service。新增 `com.docpilot.backend.quality` 只读聚合能力，可以从白名单 root 扫描最近 artifact，输出 `QualityRunSummary` / `QualityRunDetail`，并把坏 JSON 降级为 `REVIEW` + `artifactParseFailed=true`。

@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-04 Agent Quality Console MVP Slice 4
+
+- 新增轻量 Agent Quality Eval fixture：`agent-quality-eval-cases.json` 包含 `caseId`、`question`、`expectedBehavior`、`expectedEvidence`、`expectedTools`、`mustContain`、`mustNotContain`、`tags` 和 `scoringRules`。
+- 新增 test-side `AgentQualityEvalRunner`：根据脱敏 observation 输出 `QualityEvalCaseResultDetail`，只保存 caseId、caseType、status、passed、traceId / agentRunId 和失败桶，不保存 question、answer、prompt、文档全文或 evidence context。
+- 新增 `agent-quality-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`；run 只执行离线 JUnit 并生成 ignored 脱敏 artifact。`backend/target/agent-quality-eval` 已加入 Quality artifact 聚合白名单。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，28 tests，1 skipped；`agent-quality-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-quality-eval-20260704220047-9c9af0`；artifact 脱敏扫描 PASS。
+- 边界：这是轻量离线 eval 合约，不是大规模 Agent benchmark；未启动服务，未创建业务数据，未读取 `.env`，未调用 provider，未新增数据库表，未提交 artifact 原文，未 push。
+
 ## 2026-07-04 Agent Quality Console MVP Slice 3
 
 - 新增内部只读 `QualityController`：`GET /api/quality/runs` 返回最近 run summary，`GET /api/quality/runs/{marker}` 返回 run detail。

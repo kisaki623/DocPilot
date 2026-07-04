@@ -168,6 +168,29 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.gates()).extracting(gate -> gate.name()).containsExactly("frontendInteraction");
     }
 
+    @Test
+    void shouldScanAgentQualityEvalArtifactRoot() throws Exception {
+        Path artifact = artifactPath("backend/target/agent-quality-eval", "docpilot-agent-quality-eval-test", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "smokeMarker": "docpilot-agent-quality-eval-test",
+                  "status": "PASS",
+                  "agentQualityEval": {
+                    "status": "PASS",
+                    "passed": true,
+                    "caseCount": 3,
+                    "casePassRate": 1.0
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-agent-quality-eval-test").orElseThrow();
+        assertThat(detail.summary().source()).isEqualTo("backend/target/agent-quality-eval");
+        assertThat(detail.gates()).extracting(gate -> gate.name()).containsExactly("agentQualityEval");
+    }
+
     private Path artifactPath(String root, String marker, String fileName) throws Exception {
         Path dir = repoRoot.resolve(root).resolve(marker);
         Files.createDirectories(dir);

@@ -1,0 +1,47 @@
+[
+  {
+    "caseId": "agent-rag-evidence-trace",
+    "question": "Use the bound knowledge base and explain which evidence supports the answer.",
+    "expectedBehavior": "Agent should use RAG evidence and produce a trace-linked answer.",
+    "expectedEvidence": ["ragEvidence"],
+    "expectedTools": ["rag_qa_tool"],
+    "mustContain": ["citation_present"],
+    "mustNotContain": ["no_evidence"],
+    "tags": ["rag", "trace"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true
+    }
+  },
+  {
+    "caseId": "agent-memory-context-split",
+    "question": "Answer with user memory when it is relevant, but do not store RAG evidence as memory.",
+    "expectedBehavior": "Agent should keep memory context and RAG evidence separated.",
+    "expectedEvidence": ["userMemory", "ragEvidence"],
+    "expectedTools": ["memory_context", "rag_qa_tool"],
+    "mustContain": ["memory_used", "rag_used"],
+    "mustNotContain": ["rag_saved_as_memory"],
+    "tags": ["memory", "trace"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true
+    }
+  },
+  {
+    "caseId": "agent-no-evidence-refusal",
+    "question": "Ask an out-of-scope question that should not be answered from unrelated evidence.",
+    "expectedBehavior": "Agent should refuse or mark no-evidence instead of fabricating an answer.",
+    "expectedEvidence": ["noEvidence"],
+    "expectedTools": ["rag_qa_tool"],
+    "mustContain": ["no_evidence"],
+    "mustNotContain": ["unsupported_citation"],
+    "tags": ["rag", "no_evidence"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true
+    }
+  }
+]

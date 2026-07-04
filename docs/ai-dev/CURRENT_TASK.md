@@ -1,5 +1,17 @@
 # Current Task
 
+当前任务：Agent Quality Console MVP Slice 4：轻量 Eval Case JSON + Runner（DONE）
+
+## 2026-07-04 补充：Agent Quality Eval 轻量离线门禁
+
+- 目标：为 Agent Quality Console 增加轻量 Eval Case JSON 和离线 runner，使 Eval 不只是 smoke artifact 聚合，而是有 caseId、期望行为、期望 evidence / tool 和 scoringRules 的最小评测合约。
+- 已完成：新增 `backend/src/test/resources/quality/agent-quality-eval-cases.json`，case 字段包含 `caseId`、`question`、`expectedBehavior`、`expectedEvidence`、`expectedTools`、`mustContain`、`mustNotContain`、`tags` 和 `scoringRules`。
+- 已完成 runner：新增 `backend/src/test/java/com/docpilot/backend/quality/eval/**`，`AgentQualityEvalRunner` 可加载 JSON case、根据脱敏 observation 生成 `QualityEvalCaseResultDetail`，并输出只含 caseId、caseType、status、passed、traceId、agentRunId、failureBuckets / reviewBuckets 的安全结果。
+- 已完成 smoke 脚本：新增 `scripts/smoke/agent-quality-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`；`run` 只执行离线 JUnit，不读 `.env`、不调用 provider、不启动服务、不创建业务数据，artifact root 为 ignored 的 `backend/target/agent-quality-eval`。
+- Artifact 聚合同步：`QualityArtifactServiceImpl` 已把 `backend/target/agent-quality-eval` 加入白名单 root，后续 Console 可读取该类脱敏 artifact。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，28 tests，1 skipped（默认关闭的 smoke writer）；`agent-quality-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-quality-eval-20260704220047-9c9af0`；artifact 脱敏扫描 PASS。
+- 边界：本片是离线轻量 eval 合约，不是大规模 Agent benchmark，不调用真实模型，不读取业务数据库，不新增表，不提交 artifact 原文，不 push。
+
 当前任务：Agent Quality Console MVP Slice 3：后端 Quality API（DONE）
 
 ## 2026-07-04 补充：Quality API 最小入口
