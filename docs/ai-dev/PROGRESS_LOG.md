@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-04 Agent Quality Console MVP Slice 6
+
+- 完成 Slice 6 真实链路质量回归：`agent-quality-eval-smoke.ps1 -Mode run` PASS，marker `docpilot-agent-quality-eval-20260704221655-48a5cf`；`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker `docpilot-real-user-qa-20260704221704-4abc6f`。
+- 真实审计整体为 `REVIEW`：核心业务 gate、权限隔离、frontendInteraction、Memory quality、Conversation Trace、cleanup 和 artifact redaction 均 PASS；`naturalCorpus` 中 `ops-incident-support-summary` 出现 `distractorCitation` review，`distractorCitationFreeCount=24/25`，已写入真实体验台账 `REA-20260704-P2-006`。
+- 完成 Console 可见性验证：开启 `app.quality.console.enabled=true` 后，`/api/quality/runs`、`/api/quality/runs/{marker}` 和浏览器 `/quality?autoload=1` 都能看到该 REVIEW run，浏览器 console error count 为 `0`。
+- 修复真实启动时发现的 Quality service 装配问题：`QualityArtifactServiceImpl` 显式标注构造器注入，并新增 `QualityArtifactServiceSpringContextTest`。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，29 tests，1 skipped；artifact 脱敏扫描 PASS；本轮 backend / frontend 已清理释放。
+- 边界：未提交原始 artifact，未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未打印 secrets / token / 云地址 / 连接串，未 push。
+
 ## 2026-07-04 Agent Quality Console MVP Slice 5
 
 - 新增 `frontend/lib/quality-api.ts` 和 `frontend/app/quality/page.tsx`，完成内部 `/quality` P0 页面：Overview 展示 run 状态、gate 统计、失败桶和 token usage / cost 数值；Run Detail 展示 gate 列表和 eval case 结果。

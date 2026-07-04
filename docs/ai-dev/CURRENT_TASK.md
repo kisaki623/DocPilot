@@ -1,5 +1,20 @@
 # Current Task
 
+当前任务：Agent Quality Console MVP Slice 6：真实链路质量回归（DONE，带 1 个后续 REVIEW 项）
+
+## 2026-07-04 补充：Agent Quality Console 真实回归与可见性验证
+
+- 目标：跑一次真实 quality audit，让 Agent Quality Console 能看到该 run，并把最新质量结果写回文档。
+- 已完成：`agent-quality-eval-smoke.ps1 -Mode run` PASS，marker `docpilot-agent-quality-eval-20260704221655-48a5cf`；artifact 位于 ignored 的 `backend/target/agent-quality-eval/...`。
+- 已完成真实审计：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker `docpilot-real-user-qa-20260704221704-4abc6f`，整体状态 `REVIEW`。
+- 核心结果：tunnel、backend health、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、multiQueryRag、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、frontend routes、cleanup 和 artifactRedaction 均 PASS。
+- REVIEW 项：`naturalCorpus` 中 25 case 的 `casePassRate=1`，但 `ops-incident-support-summary` 出现 `distractorCitation` review，`distractorCitationFreeCount=24/25`；已记录为 `REA-20260704-P2-006`，后续应进入 RAG citation 精度治理。
+- 本轮修复：真实启动时发现 `QualityArtifactServiceImpl` 缺少显式 Spring 构造器注入导致 backend health timeout；已补 `@Autowired` 并新增 `QualityArtifactServiceSpringContextTest` 防回归。
+- Console 验证：开启 `app.quality.console.enabled=true` 后，`GET /api/quality/runs` 与 `GET /api/quality/runs/{marker}` 能看到 `docpilot-real-user-qa-20260704221704-4abc6f`；浏览器打开 `/quality?autoload=1` 可见该 marker 和 `REVIEW` 状态，console error count 为 `0`。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，29 tests，1 skipped；artifact 脱敏扫描 PASS；本轮启动的 backend / frontend 已清理，`3007` / `8081` 端口释放。
+- 边界：未提交原始 artifact，未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+- 下一步建议：优先修复 `REA-20260704-P2-006`，让多文档 summary 在保留目标覆盖的同时减少干扰 citation；其次再扩展 Quality Console 的 Trace drill-down。
+
 当前任务：Agent Quality Console MVP Slice 5：前端 Overview + Run Detail（DONE）
 
 ## 2026-07-04 补充：`/quality` 内部质量控制台页面

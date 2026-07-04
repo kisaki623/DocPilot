@@ -2,6 +2,10 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 Agent Quality Console MVP Slice 6 已完成真实链路回归与 Console 可见性验证。离线 `agent-quality-eval-smoke.ps1 -Mode run` PASS，marker `docpilot-agent-quality-eval-20260704221655-48a5cf`；真实 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker `docpilot-real-user-qa-20260704221704-4abc6f`，整体状态 `REVIEW`。
+- 最新真实审计中 tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk 质量、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、multi-query、answer grounding、no-evidence、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS；`naturalCorpus` 有 1 个 review bucket：`ops-incident-support-summary:distractorCitation`，已记为 `REA-20260704-P2-006`。
+- Agent Quality Console 真实可见性已验证：开启 `app.quality.console.enabled=true` 后，`GET /api/quality/runs`、`GET /api/quality/runs/{marker}` 和浏览器 `/quality?autoload=1` 都能看到 `docpilot-real-user-qa-20260704221704-4abc6f` 的 `REVIEW` 状态；浏览器 console error count 为 `0`。
+- 本轮修复了 Quality service 的 Spring 装配缺口：`QualityArtifactServiceImpl` 显式标注构造器注入，并新增 `QualityArtifactServiceSpringContextTest`，避免后端真实启动时因 service 构造器选择失败而 health timeout。
 - 2026-07-04 Agent Quality Console MVP Slice 5 已完成前端 `/quality` P0 页面。新增 `frontend/lib/quality-api.ts` 和 `frontend/app/quality/page.tsx`，页面包含 Overview + Run Detail，展示 run 状态、gate 统计、失败桶、token usage / cost 数值、gate 列表和 eval case 结果；Trace / Eval / Failures 作为预留入口。
 - `/quality` 当前是内部页面，不在普通用户主流程中展示入口。默认打开页面不自动请求后端，避免未启动 backend 或旧 token 影响 route smoke；真实完整链路验证可用 `/quality?autoload=1`。
 - 前端 route smoke 已验证：`npm run lint` PASS，`npm run build` PASS，Playwright 打开 `/quality` 无 console error，`390x844` 未见横向溢出。新增 `frontend/app/icon.svg` 解决 favicon 404。

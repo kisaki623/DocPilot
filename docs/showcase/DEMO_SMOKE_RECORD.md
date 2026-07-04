@@ -4,6 +4,30 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-04 Agent Quality Console Regression Smoke
+
+状态：REVIEW
+
+Runner:
+
+- `scripts/smoke/agent-quality-eval-smoke.ps1 -Mode run`
+- `scripts/smoke/real-user-qa-experience-audit.ps1 -Mode run`
+- 浏览器打开 `/quality?autoload=1`
+
+Marker:
+
+- Eval：`docpilot-agent-quality-eval-20260704221655-48a5cf`
+- Audit：`docpilot-real-user-qa-20260704221704-4abc6f`
+
+已验证：
+
+- Agent Quality Console MVP 能聚合脱敏 eval / audit artifact，并通过内部 API 和 `/quality` 页面展示 run 状态。
+- `GET /api/quality/runs`、`GET /api/quality/runs/{marker}` 和浏览器 `/quality?autoload=1` 均可看到最新 audit run；浏览器 console error count 为 `0`。
+- 最新真实 audit 中，tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、multi-query、answer grounding、no-evidence、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Console 能展示 `REVIEW` 状态：`naturalCorpus` 中 `ops-incident-support-summary` 出现 `distractorCitation` review，`distractorCitationFreeCount=24/25`。
+
+边界：本次记录证明内部质量控制台能暴露真实回归结果和 REVIEW 桶，不代表 RAG 质量全绿；后续需要继续治理多文档 summary 的干扰 citation。artifact 位于 ignored 的 `backend/target/...`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-04 Memory Provider Extraction Smoke
 
 状态：PASS

@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-04 | `docpilot-real-user-qa-20260704221704-4abc6f` | REVIEW（Agent Quality Console 回归） | `backend/target/audit/docpilot-real-user-qa-20260704221704-4abc6f/artifact.json` | Agent Quality Console 可展示最新真实 audit run；核心 gate、frontendInteraction、Memory、权限隔离和脱敏均 PASS，但 `naturalCorpus` 中 `ops-incident-support-summary` 出现 `distractorCitation` review，`distractorCitationFreeCount=24/25`，已记录为 `REA-20260704-P2-006`。 |
 | 2026-07-04 | `docpilot-real-user-qa-20260704191307-661bc0` | PASS（真实用户 QA 体验审计） | `backend/target/audit/docpilot-real-user-qa-20260704191307-661bc0/artifact.json` | 新增真实用户 QA 审计入口，组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate；最终 25 个自然语料 case、answer faithfulness、citation support、Conversation Trace、Memory、权限隔离和 artifact 脱敏均 PASS。首轮先暴露 answer 事实表达门禁对单一英文短语过度敏感，已改为同义表达组后验证通过。 |
 | 2026-07-04 | `docpilot-rag-natural-corpus-20260704160327-16b351` | PASS（coverage report） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704160327-16b351/artifact.json` | 自然语料 artifact 新增 `evidenceCoverageReport`，retrieval / citation / phrase / answer / distractor / no-evidence 的 miss、leak、failure 清单均为空；同轮 25 case、frontendInteraction、multi-query、Trace、权限隔离均 PASS。 |
 | 2026-07-04 | `docpilot-rag-natural-corpus-20260704152850-e07b13` | PASS（faithfulness v2） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704152850-e07b13/artifact.json` | 自然语料 gate 新增回答事实表达和 citation 事实短语支撑硬门禁，`answerFaithfulnessPassCount=11/11`、`citationPhraseSupportPassCount=22/22`，同轮 25 case、frontendInteraction、multi-query、Trace、权限隔离均 PASS。 |
@@ -57,6 +58,68 @@
 | `REA-20260704-P2-003` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-rag-natural-corpus-20260704150746-1ef5da` | 多文档 compare 问题的 citation 被数字过滤误删成单文档覆盖 |
 | `REA-20260704-P3-004` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner | `docpilot-rag-natural-corpus-20260704150252-a675b6` | 自然语料 governance 临时用户名超过注册长度约束 |
 | `REA-20260704-P3-005` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Answer Faithfulness Gate | `docpilot-real-user-qa-20260704190235-553df7` | 自然语料 answer fact expression 对单一英文短语过度敏感 |
+| `REA-20260704-P2-006` | OPEN（待修复） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-real-user-qa-20260704221704-4abc6f` | 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation |
+
+## 2026-07-04 Agent Quality Console 回归审计
+
+验证 marker：`docpilot-real-user-qa-20260704221704-4abc6f`
+
+状态：REVIEW
+
+已验证：
+
+- Agent Quality Console 可读取并展示最新真实审计 artifact：`/api/quality/runs`、`/api/quality/runs/{marker}` 和浏览器 `/quality?autoload=1` 均能看到该 marker。
+- 浏览器 Console 验证通过：marker 可见、`REVIEW` 状态可见，console error count 为 `0`。
+- 核心真实链路 gate 通过：tunnel、backend health、frontend routes、临时用户、上传 / parse / indexing、chunk 质量、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、multi-query、answer grounding、no-evidence、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- `agent-quality-eval-smoke.ps1 -Mode run` PASS，marker `docpilot-agent-quality-eval-20260704221655-48a5cf`。
+
+本轮发现：
+
+- `REA-20260704-P2-006`：自然语料多文档 summary case `ops-incident-support-summary` 的目标覆盖和事实表达满足，但 citation 集合中出现 `distractorCitation` review。
+
+边界：
+
+- 本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；artifact 位于 ignored 的 `backend/target/audit/` 和 `backend/target/agent-quality-eval/`。
+- 未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+### `REA-20260704-P2-006` 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation
+
+- 状态：OPEN（待修复）
+- 严重级别：P2
+- 类型：功能质量问题
+- 模块：KnowledgeBase RAG Citation
+- 发现于：`docpilot-real-user-qa-20260704221704-4abc6f`
+- 修复验证：待补充
+
+复现步骤：
+
+1. 运行 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`。
+2. 查看 `naturalCorpus` gate 的多文档 summary case。
+3. 观察 `ops-incident-support-summary` 的 review bucket。
+
+实际结果：
+
+- `naturalCorpus.casePassRate=1`，目标文档覆盖、回答事实表达和 citation phrase support 未失败。
+- `ops-incident-support-summary` 进入 `reviewBuckets=["distractorCitation"]`，同轮 `distractorCitationFreeCount=24/25`。
+
+预期结果：
+
+- 多文档 summary 应在保证目标文档覆盖的同时尽量避免带入与问题无关的干扰 citation。
+- 如果保留额外 citation，应能在 artifact / trace 中解释其必要性；否则应通过 citation selection / rerank / diversity policy 降低干扰引用。
+
+可能原因：
+
+- 当前多文档 summary 为了保证覆盖和 recall，citation selection 对额外相似文档保持宽松；当干扰文档和目标主题词相近时，会以 REVIEW 形式暴露。
+
+建议修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/KnowledgeBaseRagQaServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/KnowledgeBaseRagRetrievalServiceImpl.java`
+- `scripts/smoke/cloud-quality-smoke.ps1`
+
+修复提交：待补充
+
+验证记录：待补充。
 
 ## 2026-07-04 真实用户 QA 体验审计 v2
 
