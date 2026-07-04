@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-04 Answer / Citation Faithfulness v2
+
+- 在自然语料 v2 的 case-level gate 上继续增强：QA case 不再只看 hit / citation 数量，而是要求回答包含预期事实表达，并要求 citation / evidence 覆盖预期事实短语。
+- `Invoke-NaturalCorpusCase` 新增 `answerFaithfulnessRequired` 和 `citationPhraseSupport`；当 QA case 配置了 `answerAnyPhrases` / `answerAllPhrases` 时，`answerFactExpression=false` 进入 `failureBuckets`，不再只是 `reviewBuckets`。
+- 修正 artifact 计数细节：单条 citation / hit 统一使用 `@(...).Count` 统计，避免 `qaCitations` 在单 citation 场景序列化为 `null`。
+- `naturalCorpus` 聚合新增 `answerFaithfulnessCaseCount`、`answerFaithfulnessPassCount`、`citationSupportCaseCount`、`citationPhraseSupportPassCount`。
+- 已验证：`rag-natural-corpus-audit-smoke.ps1 -Mode plan` PASS；`rag-natural-corpus-audit-smoke.ps1 -Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest,KnowledgeBaseRagQaServiceImplTest" test` PASS，13 tests。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704152850-e07b13`；`casePassRate=1`，`answerFaithfulnessPassCount=11/11`，`citationPhraseSupportPassCount=22/22`，`noEvidencePassCount=3/3`，`multiDocumentCoveragePassCount=4/4`，`distractorCitationFreeCount=25/25`。
+- 边界：本片使用真实本地 backend / frontend / tunnel / MySQL / Qdrant 链路和临时 smoke 数据；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 secrets，未 push。
+
 ## 2026-07-04 RAG 自然语料扩容 v2
 
 - `cloud-quality-smoke.ps1` 的 `naturalCorpus` gate 从 v1 的 5 文档 / 6 case 扩到 v2 的 3 个 corpus、12 份临时 txt 文档、25 个 case，覆盖单文档事实、数字事实、日期事实、审批链、负向事实、多文档 compare / summary、干扰 citation、no-evidence 和绑定 KB 的 Conversation Trace。

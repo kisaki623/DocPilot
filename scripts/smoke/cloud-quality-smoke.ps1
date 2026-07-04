@@ -822,6 +822,8 @@ function Invoke-NaturalCorpusCase($case, $corpus, [int]$indexVersion) {
 
   $hits = @($retrieve.data.hits)
   $citations = if ($null -ne $qa) { @($qa.data.citations) } else { @() }
+  $hitCount = @($hits).Count
+  $citationCount = @($citations).Count
   $evidenceItems = if ($mode -eq "qa") { $citations } else { $hits }
   $noEvidenceCorrect = if ($expectedNoEvidence) {
     ([bool]$retrieve.data.noEvidence -and ($null -eq $qa -or [bool]$qa.data.noEvidence))
@@ -852,13 +854,18 @@ function Invoke-NaturalCorpusCase($case, $corpus, [int]$indexVersion) {
 
   $failureBuckets = @()
   $reviewBuckets = @()
+  $answerFaithfulnessRequired = ($mode -eq "qa" -and ($case.Contains("answerAllPhrases") -or $case.Contains("answerAnyPhrases")))
   if (-not $noEvidenceCorrect) { $failureBuckets += "noEvidence" }
   if (-not $targetRetrieveCovered) { $failureBuckets += "targetRetrieveCoverage" }
   if (-not $targetCitationCovered) { $failureBuckets += "targetCitationCoverage" }
-  if (-not $expectedEvidenceSupported) { $failureBuckets += "evidencePhraseSupport" }
+  if (-not $expectedEvidenceSupported) { $failureBuckets += "citationPhraseSupport" }
   if ($mode -eq "qa" -and $distractorCitationCount -gt 0) { $failureBuckets += "distractorCitation" }
   if ($forbiddenAnswerHit) { $failureBuckets += "forbiddenAnswer" }
-  if (-not $answerFactExpression) { $reviewBuckets += "answerFactExpression" }
+  if ($answerFaithfulnessRequired -and -not $answerFactExpression) {
+    $failureBuckets += "answerFactExpression"
+  } elseif (-not $answerFactExpression) {
+    $reviewBuckets += "answerFactExpression"
+  }
 
   return [ordered]@{
     caseId = [string]$case.caseId
@@ -867,8 +874,8 @@ function Invoke-NaturalCorpusCase($case, $corpus, [int]$indexVersion) {
     corpus = [string]$case.corpus
     targetDocumentCount = @($targetDocIds).Count
     distractorDocumentCount = @($distractorDocIds).Count
-    retrieveHits = $hits.Count
-    qaCitations = $citations.Count
+    retrieveHits = $hitCount
+    qaCitations = $citationCount
     retrieveNoEvidence = [bool]$retrieve.data.noEvidence
     qaNoEvidence = if ($null -eq $qa) { $null } else { [bool]$qa.data.noEvidence }
     noEvidenceExpected = $expectedNoEvidence
@@ -876,6 +883,8 @@ function Invoke-NaturalCorpusCase($case, $corpus, [int]$indexVersion) {
     targetRetrieveCovered = $targetRetrieveCovered
     targetCitationCovered = $targetCitationCovered
     expectedEvidenceSupported = $expectedEvidenceSupported
+    citationPhraseSupport = $expectedEvidenceSupported
+    answerFaithfulnessRequired = $answerFaithfulnessRequired
     answerFactExpression = $answerFactExpression
     forbiddenAnswerHit = $forbiddenAnswerHit
     targetRetrieveCounts = Get-DocumentCoverageCounts $hits $targetDocIds
@@ -1706,6 +1715,8 @@ Engineering Operations owns the release archive.
     $naturalNoEvidenceCases = @($naturalCaseResults | Where-Object { $_.noEvidenceExpected })
     $naturalMultiDocCases = @($naturalCaseResults | Where-Object { $_.targetDocumentCount -gt 1 })
     $naturalDistractorCases = @($naturalCaseResults | Where-Object { $_.distractorDocumentCount -gt 0 })
+    $naturalAnswerFaithfulnessCases = @($naturalCaseResults | Where-Object { $_.answerFaithfulnessRequired })
+    $naturalCitationSupportCases = @($naturalCaseResults | Where-Object { -not $_.noEvidenceExpected })
     $naturalPassedCases = @($naturalCaseResults | Where-Object { @($_.failureBuckets).Count -eq 0 })
 
     $corpusResources = @()
@@ -1729,10 +1740,14 @@ Engineering Operations owns the release archive.
         noEvidenceCaseCount = $naturalNoEvidenceCases.Count
         multiDocumentCaseCount = $naturalMultiDocCases.Count
         distractorCaseCount = $naturalDistractorCases.Count
+        answerFaithfulnessCaseCount = $naturalAnswerFaithfulnessCases.Count
+        citationSupportCaseCount = $naturalCitationSupportCases.Count
         casePassRate = if ($naturalCaseResults.Count -eq 0) { 0 } else { [Math]::Round($naturalPassedCases.Count / $naturalCaseResults.Count, 4) }
         noEvidencePassCount = @($naturalNoEvidenceCases | Where-Object { $_.noEvidenceCorrect }).Count
         multiDocumentCoveragePassCount = @($naturalMultiDocCases | Where-Object { $_.targetRetrieveCovered -and $_.targetCitationCovered }).Count
         distractorCitationFreeCount = @($naturalDistractorCases | Where-Object { $_.distractorCitationCount -eq 0 }).Count
+        answerFaithfulnessPassCount = @($naturalAnswerFaithfulnessCases | Where-Object { $_.answerFactExpression -and -not $_.forbiddenAnswerHit }).Count
+        citationPhraseSupportPassCount = @($naturalCitationSupportCases | Where-Object { $_.citationPhraseSupport }).Count
         traceRagTriggered = [bool]$naturalTrace.data.ragTriggered
         traceRagRequired = [bool]$naturalTrace.data.ragRequired
         traceEvidenceCount = [int]$naturalTrace.data.evidenceCount

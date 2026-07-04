@@ -1,5 +1,15 @@
 # Current Task
 
+当前任务：Answer / Citation Faithfulness v2（DONE）
+
+## 2026-07-04 补充：自然语料回答与引用支撑硬门禁
+
+- 目标：在 RAG 自然语料 v2 的 25 case 基础上，把 QA case 的回答事实表达和 citation 对预期事实短语的支撑从观测字段升级为硬门禁，避免只看 hit / citation 数量。
+- 已完成：`Invoke-NaturalCorpusCase` 修正单条 citation / hit 的计数方式，避免 artifact 中 `qaCitations` 在单 citation 场景显示为 `null`；新增 `answerFaithfulnessRequired`、`citationPhraseSupport`，并把需要回答事实表达的 QA case 中 `answerFactExpression=false` 记为 failure bucket。
+- 已完成聚合：`naturalCorpus` summary 新增 `answerFaithfulnessCaseCount`、`answerFaithfulnessPassCount`、`citationSupportCaseCount`、`citationPhraseSupportPassCount`，让 artifact 能直接显示回答事实和 citation 支撑覆盖率。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704152850-e07b13`；`answerFaithfulnessPassCount=11/11`，`citationPhraseSupportPassCount=22/22`，`casePassRate=1`。
+- 边界：本片仍是小规模自然语料 smoke 门禁，不是大规模人工 faithfulness benchmark、NLI 模型评测或线上 SLA；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 secrets，未 push。
+
 当前任务：RAG 自然语料扩容 v2（DONE）
 
 ## 2026-07-04 补充：12 文档 / 25 case 自然语料质量门禁

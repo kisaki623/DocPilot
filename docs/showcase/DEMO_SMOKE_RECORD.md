@@ -4,6 +4,25 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-04 Answer / Citation Faithfulness v2 Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/rag-natural-corpus-audit-smoke.ps1 -Mode run`
+
+Marker: `docpilot-rag-natural-corpus-20260704152850-e07b13`
+
+已验证：
+
+- 自然语料 QA case 增加回答事实表达硬门禁：`answerFaithfulnessPassCount=11/11`。
+- 非 no-evidence case 增加 citation / evidence 事实短语支撑门禁：`citationPhraseSupportPassCount=22/22`。
+- 同轮 `naturalCorpus` 继续保持 `casePassRate=1`，`noEvidencePassCount=3/3`，`multiDocumentCoveragePassCount=4/4`，`distractorCitationFreeCount=25/25`。
+- 同轮核心 gate 保持 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、短文档 RAG、multi-query、answer grounding、Conversation Trace、权限隔离、frontendInteraction、artifact redaction 和 cleanup。
+
+边界：本次 run 是小规模真实链路 answer / citation faithfulness smoke，不是大规模人工评测、NLI 模型评测或线上 SLA；artifact 位于 ignored `backend/target/rag-natural-corpus/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-04 RAG 自然语料扩容 v2 Smoke
 
 状态：PASS
