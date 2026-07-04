@@ -1,5 +1,17 @@
 # Current Task
 
+当前任务：RAG 自然语料扩容 v2（DONE）
+
+## 2026-07-04 补充：12 文档 / 25 case 自然语料质量门禁
+
+- 目标：把 v1 自然语料 gate 从 5 文档 / 6 case 扩展为更接近真实企业知识库的 3 个 corpus、12 份临时 txt 文档、25 个 case，覆盖单文档事实、数字事实、日期事实、审批链、负向事实、多文档 compare / summary、干扰 citation、no-evidence、Conversation Trace、frontendInteraction 和 multi-query。
+- 已完成 runner：`cloud-quality-smoke.ps1` 的 `naturalCorpus` gate 升级为 `schemaVersion=2`，输出 `caseResults`、`casePassRate`、`failureBuckets`、`reviewBuckets`、目标 / 干扰文档覆盖计数和 score summary；artifact 仍不保存文档原文、问题原文、回答原文、prompt、evidence context、token、云地址或连接串。
+- 已完成 wrapper：`rag-natural-corpus-audit-smoke.ps1 -Mode plan` 明确 `defaultCorpusTarget=3`、`defaultDocumentTarget=12`、`defaultCaseTarget=25`，并新增 `natural_date_fact`、`natural_approval_chain`、`natural_negative_fact`、`natural_case_coverage` 等 case 类型口径。
+- 已完成后端修复：KnowledgeBase QA 的数字 citation 精炼不再破坏 compare / summary 这类多文档意图的 citation 覆盖；当数字过滤会把多文档引用压成单文档时，会保留原始 citations。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704151615-bc193d`；`naturalCorpus.casePassRate=1`，12 文档 / 25 case 全部通过，3 个 no-evidence 全部正确拒答，4 个多文档 case 全部覆盖目标文档，25 个含干扰文档的 case 均无干扰 citation，Conversation Trace `ragTriggered=true`、`ragRequired=true`、`evidenceCount=4`。
+- 本轮真实发现并修复：`ops-backup-rollback-compare` 曾因 answer-aware numeric citation filter 只保留 rollback citation，漏掉 backup citation；自然语料 runner 的 `smokegovernance...` 用户名超过注册 32 字符约束，已改为短 alias。
+- 边界：本轮使用真实本地 backend / frontend / tunnel / MySQL / Qdrant 链路和临时 smoke 数据；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
 当前任务：RAG 自然语料真实审计 gate v1（DONE）
 
 ## 2026-07-04 补充：自然语料真实链路质量门禁

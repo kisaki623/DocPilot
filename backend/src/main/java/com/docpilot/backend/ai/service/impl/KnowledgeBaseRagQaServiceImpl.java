@@ -101,7 +101,7 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                     ragQaProperties.getMaxContextChars()
             );
             String answerText = aiAnswerService.answer(prompt.evidenceContext(), prompt.userPrompt());
-            return answer(resolved, answerText, withAnswerAwareCitations(retrieval, answerText),
+            return answer(resolved, answerText, withAnswerAwareCitations(retrieval, answerText, resolved.question()),
                     false, false, "", 1);
         } catch (RuntimeException ex) {
             log.warn("Knowledge base RAG answer generation failed. userId={}, knowledgeBaseId={}, questionLength={}, hitCount={}, reason={}",
@@ -160,7 +160,8 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
     }
 
     private KnowledgeBaseRagRetrievalResult withAnswerAwareCitations(KnowledgeBaseRagRetrievalResult retrieval,
-                                                                     String answer) {
+                                                                     String answer,
+                                                                     String question) {
         if (retrieval == null || retrieval.noEvidence() || retrieval.citations().size() <= 1) {
             return retrieval;
         }
@@ -181,6 +182,10 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                 })
                 .toList();
         if (filtered.isEmpty() || filtered.size() == retrieval.citations().size()) {
+            return retrieval;
+        }
+        if (isMultiDocumentIntent(question)
+                && distinctCitationDocumentCount(filtered) < Math.min(2, distinctCitationDocumentCount(retrieval.citations()))) {
             return retrieval;
         }
         return new KnowledgeBaseRagRetrievalResult(
@@ -204,6 +209,29 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                 retrieval.queryVariantCount(),
                 retrieval.queryDedupeCount()
         );
+    }
+
+    private boolean isMultiDocumentIntent(String question) {
+        if (question == null || question.isBlank()) {
+            return false;
+        }
+        String normalized = question.toLowerCase();
+        return normalized.contains("compare")
+                || normalized.contains("summarize")
+                || normalized.contains("summary")
+                || normalized.contains("both")
+                || normalized.contains("比较")
+                || normalized.contains("对比")
+                || normalized.contains("总结")
+                || normalized.contains("两份")
+                || normalized.contains("两个");
+    }
+
+    private int distinctCitationDocumentCount(List<KnowledgeBaseRagEvidenceCitation> citations) {
+        return citations.stream()
+                .map(KnowledgeBaseRagEvidenceCitation::documentId)
+                .collect(java.util.stream.Collectors.toSet())
+                .size();
     }
 
     private Set<String> extractNumbers(KnowledgeBaseRagEvidenceCitation citation) {

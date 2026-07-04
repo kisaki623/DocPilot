@@ -4,6 +4,28 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-04 RAG 自然语料扩容 v2 Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/rag-natural-corpus-audit-smoke.ps1 -Mode run`
+
+Marker: `docpilot-rag-natural-corpus-20260704151615-bc193d`
+
+已验证：
+
+- `naturalCorpus` gate 升级为 `schemaVersion=2`：3 个 corpus、12 份临时 txt 文档、25 个自然语料 case。
+- Case 覆盖：单文档事实、数字事实、日期事实、审批链、负向事实、多文档 compare / summary、干扰 citation、populated-KB no-evidence 和绑定 KnowledgeBase 的 Conversation Trace。
+- 质量结果：`casePassRate=1`，`noEvidencePassCount=3/3`，`multiDocumentCoveragePassCount=4/4`，`distractorCitationFreeCount=25/25`。
+- Trace 结果：自然语料 Conversation Trace 中 `ragTriggered=true`、`ragRequired=true`、`traceEvidenceCount=4`，并记录脱敏 `documentHitCounts`。
+- 同轮核心 gate 保持 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、短文档 RAG、multi-query、answer grounding、权限隔离、frontendInteraction、artifact redaction 和 cleanup。
+
+本轮真实 gate 先发现并修复了两类质量问题：自然语料 runner 的临时用户名长度超过注册约束；KnowledgeBase QA 数字 citation 精炼在多文档 compare 问题中误删一份目标文档 citation。最终均已回归通过。
+
+边界：本次 run 是小规模真实链路自然语料质量门禁，不是大规模真实语料 relevance benchmark、线上 SLA、完整人工评测或通用语义蕴含模型。artifact 位于 ignored `backend/target/rag-natural-corpus/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-04 RAG 自然语料审计 Smoke
 
 状态：PASS

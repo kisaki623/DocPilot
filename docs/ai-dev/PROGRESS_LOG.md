@@ -1,5 +1,18 @@
 # Progress Log
 
+## 2026-07-04 RAG 自然语料扩容 v2
+
+- `cloud-quality-smoke.ps1` 的 `naturalCorpus` gate 从 v1 的 5 文档 / 6 case 扩到 v2 的 3 个 corpus、12 份临时 txt 文档、25 个 case，覆盖单文档事实、数字事实、日期事实、审批链、负向事实、多文档 compare / summary、干扰 citation、no-evidence 和绑定 KB 的 Conversation Trace。
+- Artifact schema 升级为 `schemaVersion=2`，新增 `caseResults`、`casePassRate`、`noEvidencePassCount`、`multiDocumentCoveragePassCount`、`distractorCitationFreeCount`、`hardFailureBuckets` 和 `reviewBuckets`；仍只保存脱敏计数、布尔值、caseId、caseType、score summary 和文档覆盖计数，不保存文档原文、问题原文、回答原文、prompt、evidence context、token、云地址或连接串。
+- `rag-natural-corpus-audit-smoke.ps1 -Mode plan` 同步输出 v2 目标：`defaultCorpusTarget=3`、`defaultDocumentTarget=12`、`defaultCaseTarget=25`，并新增 `natural_date_fact`、`natural_approval_chain`、`natural_negative_fact`、`natural_case_coverage`。
+- 修复 runner 稳定性：自然语料临时用户改用 `fin` / `ops` / `gov` 短 alias，避免 `governance` 前缀叠加 run suffix 后超过注册 username 32 字符限制；本地 backend / frontend 启动日志写入 ignored artifact，API 传输失败时可记录本地恢复 gate。
+- 修复 KnowledgeBase QA 多文档 citation 回归：答案数字一致性过滤仍会剔除单数字事实中的数值冲突 citation，但当问题是 compare / summarize / both / 中文比较总结等多文档意图时，不允许过滤结果把 citation 覆盖压成单文档。
+- 真实过程：v2 真实 run 先暴露 `smokegovernance...` 用户名过长，修复后进入 25 case；随后暴露 `ops-backup-rollback-compare` 只保留 rollback citation、漏掉 backup citation；已修复并补单测。
+- 已验证：`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，29 tests；`rag-natural-corpus-audit-smoke.ps1 -Mode plan` PASS；`rag-natural-corpus-audit-smoke.ps1 -Mode dry-run` PASS。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704151615-bc193d`；`naturalCorpus.casePassRate=1`，`documentCount=12`，`caseCount=25`，`noEvidencePassCount=3/3`，`multiDocumentCoveragePassCount=4/4`，`distractorCitationFreeCount=25/25`，`traceRagTriggered=true`，`traceRagRequired=true`，`traceEvidenceCount=4`。
+- 同轮真实 gate 保持 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、短文档 RAG、multi-query、answer grounding、no-evidence、Conversation Trace、权限隔离、frontendInteraction、artifact redaction 和 cleanup。
+- 边界：本轮使用真实本地 backend / frontend / tunnel / MySQL / Qdrant 链路和临时 smoke 数据；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 secrets，未 push。
+
 ## 2026-07-04 RAG 自然语料真实审计 gate v1
 
 - 新增 `scripts/smoke/rag-natural-corpus-audit-smoke.ps1`，提供 `plan` / `dry-run` / `run` 三种模式，默认以 `docpilot-rag-natural-corpus-*` marker 委托 cloud quality runner，并启用 `naturalCorpus`、`multiQueryRag` 和 `frontendInteraction` gate。

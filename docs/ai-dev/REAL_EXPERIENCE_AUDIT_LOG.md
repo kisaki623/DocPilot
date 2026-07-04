@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-04 | `docpilot-rag-natural-corpus-20260704151615-bc193d` | PASS（自然语料 v2） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704151615-bc193d/artifact.json` | v2 自然语料 gate 覆盖 3 个 corpus、12 份临时 txt 文档、25 个 case，`casePassRate=1`；本轮先发现 governance 临时用户名超过注册长度约束、以及多文档 compare citation 被数字过滤误删，修复后 25 case、frontendInteraction、multi-query、Trace、权限隔离均 PASS。 |
 | 2026-07-04 | `docpilot-rag-natural-corpus-20260704143033-86b4f3` | PASS（自然语料审计） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704143033-86b4f3/artifact.json` | 新增自然语料 gate，覆盖 5 份临时文档、单文档事实、数字事实、多文档总结、干扰文档、no-evidence 和 Conversation Trace；本轮先发现 invoice retention 同时引用 marketing retention 干扰文档，修复后 `distractorMarketingCitationCount=0`。 |
 | 2026-07-04 | `docpilot-cloud-quality-20260704135601-944384` | PASS（防回归增强） | `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260704135601-944384/artifact.json` | `shortDocumentRag` 新增中文短文档 retrieve、数字事实 retrieve、相似短文档干扰和细分 `failureBuckets`，`frontendInteraction` 新增 UI / 权限失败桶；最终真实 run 中两个 gate 的 `failureBuckets=[]`，旧 P1/P2/P3 问题进入防回归状态。 |
 | 2026-07-03 | `docpilot-cloud-quality-20260703231920-e74334` | PASS（浏览器细验收口） | `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260703231920-e74334/artifact.json` | 新增 `frontendInteraction` gate 通过：文档详情 quote-first 可见、KnowledgeBase 双 marker citation 可见、跨用户文档无权限提示可见、console error 为 `0`；P2/P3 标为已验证。 |
@@ -50,6 +51,107 @@
 | `REA-20260703-P2-001` | VERIFIED（已验证） | P2 | 体验问题 | Citation UI | `docpilot-real-audit-20260703195519-5118e8` | quote-level citation API 已有，但 UI 仍需 quote-first 展示 |
 | `REA-20260703-P3-001` | VERIFIED（已验证） | P3 | 体验问题 | Permission UX | `docpilot-real-audit-20260703195519-5118e8` | 权限拒绝走 HTTP 200 + 业务错误，前端提示需更明确 |
 | `REA-20260704-P2-002` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-rag-natural-corpus-20260704141543-aa95e9` | 数字事实回答同时引用语义相近但数值冲突的干扰文档 |
+| `REA-20260704-P2-003` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-rag-natural-corpus-20260704150746-1ef5da` | 多文档 compare 问题的 citation 被数字过滤误删成单文档覆盖 |
+| `REA-20260704-P3-004` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner | `docpilot-rag-natural-corpus-20260704150252-a675b6` | 自然语料 governance 临时用户名超过注册长度约束 |
+
+## 2026-07-04 自然语料扩容 gate v2
+
+验证 marker：`docpilot-rag-natural-corpus-20260704151615-bc193d`
+
+状态：PASS
+
+已验证：
+
+- `naturalCorpus` gate 升级到 `schemaVersion=2`，覆盖 3 个 corpus、12 份临时 txt 文档、25 个 case。
+- Case 结果：`casePassRate=1`，`noEvidencePassCount=3/3`，`multiDocumentCoveragePassCount=4/4`，`distractorCitationFreeCount=25/25`。
+- Conversation Trace：自然语料绑定 KB 后 `ragTriggered=true`、`ragRequired=true`、`traceEvidenceCount=4`，并记录脱敏 `documentHitCounts`。
+- 同轮前端和安全 gate：`frontendInteraction` PASS，权限隔离负向检查 PASS，multi-query PASS，artifact redaction PASS。
+
+本轮发现并修复：
+
+- `REA-20260704-P3-004`：v2 runner 中 `smokegovernance + run suffix` 超过注册 username 32 字符约束，导致 governance corpus 注册失败；已改为 `fin` / `ops` / `gov` 短 alias。
+- `REA-20260704-P2-003`：`ops-backup-rollback-compare` 的 retrieve 已覆盖 backup / rollback 两份文档，但 QA citation 因数字过滤只保留 rollback，漏掉 backup；已修复为多文档意图下不允许数字过滤破坏至少两份文档 citation 覆盖。
+
+边界：
+
+- 本轮创建临时 smoke 用户、文档、KnowledgeBase 和 Conversation；artifact 位于 ignored 的 `backend/target/rag-natural-corpus/`，不提交原文。
+- 未删除业务数据，未操作远程 Docker，未改数据库结构，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+### `REA-20260704-P2-003` 多文档 compare 问题的 citation 被数字过滤误删成单文档覆盖
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P2
+- 类型：功能质量问题
+- 模块：KnowledgeBase RAG Citation
+- 发现于：`docpilot-rag-natural-corpus-20260704150746-1ef5da`
+- 修复验证：`docpilot-rag-natural-corpus-20260704151615-bc193d`
+
+复现步骤：
+
+1. 创建 ops 自然语料 KnowledgeBase，包含 backup runbook 和 rollback runbook。
+2. 提问：“Compare backup verification ownership with feature rollback authority.”
+3. 检查 KB QA citations 的目标文档覆盖。
+
+实际结果：
+
+- 修复前：retrieve 命中 backup / rollback 两份目标文档，但 QA citation 只保留 rollback，`targetCitationCoverage=false`，`evidencePhraseSupport=false`。
+
+预期结果：
+
+- 多文档 compare / summary 问题应保留两份目标文档 citation，不能因为某个引用含有回答未提及的数字就把 citation 覆盖压成单文档。
+
+可能原因：
+
+- KnowledgeBase QA 的 answer-aware numeric citation filter 只按答案中的短数字过滤 citation；backup 引用含 `14 days`，回答只提 rollback 的 `15 minutes` 时，backup citation 被误判为数字不一致并移除。
+
+建议修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/KnowledgeBaseRagQaServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/KnowledgeBaseRagQaServiceImplTest.java`
+
+修复提交：本轮待提交。
+
+验证记录：
+
+- `mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，29 tests。
+- `rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704151615-bc193d`。
+
+### `REA-20260704-P3-004` 自然语料 governance 临时用户名超过注册长度约束
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Smoke Runner
+- 发现于：`docpilot-rag-natural-corpus-20260704150252-a675b6`
+- 修复验证：`docpilot-rag-natural-corpus-20260704151615-bc193d`
+
+复现步骤：
+
+1. 运行自然语料 v2 smoke。
+2. finance / ops corpus 创建成功后，进入 governance corpus 注册。
+3. 检查 runner 输出和本地 backend 日志。
+
+实际结果：
+
+- 修复前：`smokegovernance` 前缀叠加 20 位 run suffix 后超过 `RegisterRequest` 的 username 32 字符约束，runner 在 governance 注册阶段失败。
+
+预期结果：
+
+- Smoke runner 生成的临时用户名必须稳定满足业务注册约束，不应让测试 fixture 自身阻断真实质量门禁。
+
+可能原因：
+
+- v2 扩容时直接使用 corpus key 作为 username 前缀，没有重新校验 `RegisterRequest` 的长度规则。
+
+建议修复位置：
+
+- `scripts/smoke/cloud-quality-smoke.ps1`
+
+修复提交：本轮待提交。
+
+验证记录：
+
+- `rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704151615-bc193d`。
 
 ## 2026-07-04 自然语料审计 gate v1
 

@@ -27,6 +27,10 @@ function Show-RagNaturalCorpusPlan {
     smokePrefix = "docpilot-rag-natural-corpus"
     artifactRoot = $ArtifactRoot
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
+    schemaVersion = 2
+    defaultCorpusTarget = 3
+    defaultDocumentTarget = 12
+    defaultCaseTarget = 25
     naturalCorpusEnabledByDefault = (-not [bool]$SkipNaturalCorpusGate)
     multiQueryGateEnabledByDefault = (-not [bool]$SkipMultiQueryGate)
     frontendInteractionGateEnabledByDefault = ((-not [bool]$SkipFrontend) -and (-not [bool]$SkipFrontendInteractionGate))
@@ -36,6 +40,10 @@ function Show-RagNaturalCorpusPlan {
       "natural_multi_doc_summary",
       "natural_distractor_control",
       "natural_no_evidence",
+      "natural_date_fact",
+      "natural_approval_chain",
+      "natural_negative_fact",
+      "natural_case_coverage",
       "natural_conversation_trace",
       "frontend_interaction",
       "multi_query"

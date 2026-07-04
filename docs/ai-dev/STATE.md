@@ -2,6 +2,9 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 RAG 自然语料扩容 v2 已完成并通过真实链路验证。`scripts/smoke/rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-rag-natural-corpus-20260704151615-bc193d` PASS；`naturalCorpus` 升级为 `schemaVersion=2`，覆盖 3 个 corpus、12 份临时 txt 文档、25 个 case，`casePassRate=1`，3 个 no-evidence case 全部正确拒答，4 个多文档 case 全部覆盖目标文档，25 个含干扰文档的 case 均无干扰 citation。
+- 本轮真实 v2 gate 暴露并修复了一个多文档 citation 质量问题：KnowledgeBase QA 的答案数字一致性 citation 精炼曾在 compare / summary 问题中把引用压成单文档，导致 `ops-backup-rollback-compare` 漏掉 backup citation。现在多文档意图下，数字过滤不会破坏至少两份文档的 citation 覆盖；新增单测固定该回归。
+- Smoke runner 质量同步增强：自然语料用户改用短 alias 避免超过注册用户名 32 字符约束；本地 backend / frontend 启动日志写入 ignored artifact 目录；API 传输失败时可在本地后端掉线场景尝试一次本地 backend 恢复并标记 `backendRecovery=REVIEW`，用于真实长链路审计取证。
 - 2026-07-04 RAG 自然语料真实审计 gate v1 已完成并通过真实链路验证。新增 `scripts/smoke/rag-natural-corpus-audit-smoke.ps1`，默认运行 `naturalCorpus`、`multiQueryRag` 和 `frontendInteraction` gate；最终 marker `docpilot-rag-natural-corpus-20260704143033-86b4f3` PASS，覆盖 5 份自然语料临时文档、单文档事实、数字事实、多文档总结、干扰文档、no-evidence、Conversation Trace、前端交互、权限隔离和脱敏 artifact。
 - 本轮自然语料审计真实暴露并修复了一个 KB QA citation 精度问题：invoice archive retention 的答案曾同时引用 marketing retention 干扰文档；现在 KnowledgeBase QA 会在回答生成后做答案数字一致性 citation 精炼，数字事实回答不再挂载只包含其他数字值的干扰引用，同时保留 retrieval hits / documentHitCounts 作为 trace 证据。最终真实 gate 中 `distractorInvoiceCitationCount=1`、`distractorMarketingCitationCount=0`。
 - Smoke runner 稳定性同步增强：上传接口遇到限流 `code=1014` 会 retry/backoff；通用 API 请求 retry 更适合长链路真实审计。该增强只影响 smoke runner 的耐跑性，不绕过业务限流、不删除数据、不修改数据库结构。

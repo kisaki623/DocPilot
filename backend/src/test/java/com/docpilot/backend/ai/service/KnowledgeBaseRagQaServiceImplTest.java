@@ -219,6 +219,26 @@ class KnowledgeBaseRagQaServiceImplTest {
                 .containsExactly(101L, 102L);
     }
 
+    @Test
+    void shouldKeepMultiDocumentCitationsForCompareEvenWhenOnlyOneNumberAppearsInAnswer() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(multiDocumentNumericCompareRetrieval());
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenReturn("The SRE on-call lead owns restore drills, while the release captain can roll back within 15 minutes [1][2].");
+
+        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "Compare backup verification ownership with feature rollback authority.",
+                2,
+                1,
+                "s1"
+        ));
+
+        assertThat(answer.retrieval().citations()).hasSize(2);
+        assertThat(answer.retrieval().citations()).extracting("documentId")
+                .containsExactly(101L, 102L);
+    }
+
     private KnowledgeBaseRagRetrievalResult retrieval(boolean noEvidence) {
         List<KnowledgeBaseRagRetrievalHit> hits = noEvidence ? List.of() : List.of(new KnowledgeBaseRagRetrievalHit(
                 1,
@@ -354,6 +374,62 @@ class KnowledgeBaseRagQaServiceImplTest {
                 7L,
                 10L,
                 "Summarize the checkout incident response and support SLA.",
+                2,
+                1,
+                List.of(101L, 102L),
+                hits,
+                hits.stream().map(KnowledgeBaseRagRetrievalHit::toCitation).toList(),
+                false,
+                "in_memory",
+                "",
+                "mock-model",
+                Map.of(101L, 1, 102L, 1)
+        );
+    }
+
+    private KnowledgeBaseRagRetrievalResult multiDocumentNumericCompareRetrieval() {
+        List<KnowledgeBaseRagRetrievalHit> hits = List.of(
+                new KnowledgeBaseRagRetrievalHit(
+                        1,
+                        10L,
+                        "backup",
+                        0.94D,
+                        7L,
+                        101L,
+                        "Database Backup Runbook",
+                        1,
+                        905L,
+                        0,
+                        "Database backup verification runs every 14 days. The restore drill owner is the SRE on-call lead.",
+                        "hash-backup",
+                        0,
+                        98,
+                        98,
+                        "mock-model"
+                ),
+                new KnowledgeBaseRagRetrievalHit(
+                        2,
+                        10L,
+                        "rollback",
+                        0.93D,
+                        7L,
+                        102L,
+                        "Feature Rollback Runbook",
+                        1,
+                        906L,
+                        0,
+                        "The release captain can trigger feature flag rollback within 15 minutes.",
+                        "hash-rollback",
+                        0,
+                        74,
+                        74,
+                        "mock-model"
+                )
+        );
+        return new KnowledgeBaseRagRetrievalResult(
+                7L,
+                10L,
+                "Compare backup verification ownership with feature rollback authority.",
                 2,
                 1,
                 List.of(101L, 102L),

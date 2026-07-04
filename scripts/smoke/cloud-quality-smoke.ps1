@@ -31,6 +31,9 @@ $script:StartedTunnelPid = $null
 $script:Gates = [ordered]@{}
 $script:OverallStatus = "PASS"
 $script:ArtifactPath = $null
+$script:RunArtifactDir = $null
+$script:BackendStartCount = 0
+$script:FrontendStartCount = 0
 $script:CleanupDone = $false
 
 $StatusRank = @{
@@ -190,6 +193,38 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
       return ConvertTo-SafeApiFailure $_
     }
     $failure = ConvertTo-SafeApiFailure $_
+    if ($Mode -eq "run" -and (-not $ReuseRunningServices) -and [int]$failure.httpStatus -eq 0) {
+      if (Recover-BackendForApiFailure) {
+        try {
+          $response = Invoke-WithRetry {
+            $params = @{
+              Method = $method
+              Uri = $uri
+              Headers = $headers
+              TimeoutSec = 180
+            }
+            if ($null -ne $body) {
+              $params["ContentType"] = "application/json"
+              $params["Body"] = ($body | ConvertTo-Json -Depth 20)
+            }
+            Invoke-RestMethod @params
+          }
+          $ok = ($response.code -eq 0)
+          if (-not $ok) {
+            throw "api returned non-zero code at $method $path"
+          }
+          return [ordered]@{
+            ok = $ok
+            httpStatus = 200
+            code = $response.code
+            message = [string]$response.message
+            data = $response.data
+          }
+        } catch {
+          $failure = ConvertTo-SafeApiFailure $_
+        }
+      }
+    }
     throw "api request failed at $method $path status=$($failure.httpStatus) code=$($failure.code) message=$($failure.message)"
   }
 }
@@ -274,7 +309,18 @@ function Start-BackendIfNeeded() {
   $backendDir = Join-Path (Get-Location) "backend"
   $threshold = $QualityMinSimilarityThreshold.ToString([System.Globalization.CultureInfo]::InvariantCulture)
   $command = "`$env:APP_RAG_RETRIEVAL_MIN_SIMILARITY_THRESHOLD='$threshold'; Set-Location -LiteralPath '$backendDir'; mvn --% spring-boot:run -Dspring-boot.run.profiles=local -Dspring-boot.run.arguments=--app.rag.retrieval.min-similarity-threshold=$threshold"
-  $process = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command) -WindowStyle Hidden -PassThru
+  $startArgs = @{
+    FilePath = "powershell.exe"
+    ArgumentList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command)
+    WindowStyle = "Hidden"
+    PassThru = $true
+  }
+  if ($script:RunArtifactDir) {
+    $script:BackendStartCount++
+    $startArgs["RedirectStandardOutput"] = Join-Path $script:RunArtifactDir ("backend-{0}.out.log" -f $script:BackendStartCount)
+    $startArgs["RedirectStandardError"] = Join-Path $script:RunArtifactDir ("backend-{0}.err.log" -f $script:BackendStartCount)
+  }
+  $process = Start-Process @startArgs
   $script:StartedProcesses += $process
   if (-not (Wait-BackendHealth 120)) {
     Stop-WithStatus "BLOCKED" "backendHealth" "backend health did not become UP within timeout"
@@ -297,10 +343,35 @@ function Start-FrontendIfNeeded() {
   $frontendDir = Join-Path (Get-Location) "frontend"
   $port = ([Uri]$FrontendBaseUrl).Port
   $command = "Set-Location -LiteralPath '$frontendDir'; npm.cmd run dev -- -p $port"
-  $process = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command) -WindowStyle Hidden -PassThru
+  $startArgs = @{
+    FilePath = "powershell.exe"
+    ArgumentList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command)
+    WindowStyle = "Hidden"
+    PassThru = $true
+  }
+  if ($script:RunArtifactDir) {
+    $script:FrontendStartCount++
+    $startArgs["RedirectStandardOutput"] = Join-Path $script:RunArtifactDir ("frontend-{0}.out.log" -f $script:FrontendStartCount)
+    $startArgs["RedirectStandardError"] = Join-Path $script:RunArtifactDir ("frontend-{0}.err.log" -f $script:FrontendStartCount)
+  }
+  $process = Start-Process @startArgs
   $script:StartedProcesses += $process
   if (-not (Wait-FrontendRoute 90)) {
     Stop-WithStatus "BLOCKED" "frontendRoutes" "frontend route did not become reachable within timeout"
+  }
+}
+
+function Recover-BackendForApiFailure() {
+  if (Wait-BackendHealth 3) {
+    return $false
+  }
+  try {
+    Start-BackendIfNeeded
+    Set-Gate "backendRecovery" "REVIEW" @("local backend restarted after API transport failure")
+    return $true
+  } catch {
+    Set-Gate "backendRecovery" "BLOCKED" @("local backend recovery failed") "backend could not recover after API transport failure"
+    return $false
   }
 }
 
@@ -701,6 +772,123 @@ function Test-TextContainsAny([string]$text, [string[]]$phrases) {
   return $false
 }
 
+function Get-NaturalDocIds($docIds, [string[]]$keys) {
+  $ids = @()
+  foreach ($key in @($keys)) {
+    if (-not [string]::IsNullOrWhiteSpace($key) -and $docIds.Contains($key)) {
+      $ids += [long]$docIds[$key]
+    }
+  }
+  return $ids
+}
+
+function Test-DocumentCoverage($items, [long[]]$documentIds) {
+  foreach ($documentId in @($documentIds)) {
+    if ((Get-DocumentHitCount $items $documentId) -lt 1) {
+      return $false
+    }
+  }
+  return $true
+}
+
+function Get-DocumentCoverageCounts($items, [long[]]$documentIds) {
+  $counts = [ordered]@{}
+  foreach ($documentId in @($documentIds)) {
+    $counts[[string]$documentId] = Get-DocumentHitCount $items $documentId
+  }
+  return $counts
+}
+
+function Test-RagItemsContainAllPhrases($items, [string[]]$phrases) {
+  foreach ($phrase in @($phrases)) {
+    if (-not (Test-RagItemsContainMarker $items $phrase)) {
+      return $false
+    }
+  }
+  return $true
+}
+
+function Invoke-NaturalCorpusCase($case, $corpus, [int]$indexVersion) {
+  $topK = if ($case.Contains("topK")) { [int]$case.topK } else { 5 }
+  $mode = if ($case.Contains("mode")) { [string]$case.mode } else { "retrieve" }
+  $expectedNoEvidence = [bool]$case.noEvidence
+  $targetDocIds = Get-NaturalDocIds $corpus.docIds @($case.targetKeys)
+  $distractorDocIds = Get-NaturalDocIds $corpus.docIds @($case.distractorKeys)
+  $retrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($corpus.knowledgeBaseId)/rag/retrieve" ([ordered]@{ query = $case.question; topK = $topK; indexVersion = $indexVersion }) $corpus.authToken
+  $qa = $null
+  if ($mode -eq "qa") {
+    $qa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($corpus.knowledgeBaseId)/qa/rag" ([ordered]@{ question = $case.question; topK = $topK; indexVersion = $indexVersion }) $corpus.authToken
+  }
+
+  $hits = @($retrieve.data.hits)
+  $citations = if ($null -ne $qa) { @($qa.data.citations) } else { @() }
+  $evidenceItems = if ($mode -eq "qa") { $citations } else { $hits }
+  $noEvidenceCorrect = if ($expectedNoEvidence) {
+    ([bool]$retrieve.data.noEvidence -and ($null -eq $qa -or [bool]$qa.data.noEvidence))
+  } else {
+    (-not [bool]$retrieve.data.noEvidence -and ($null -eq $qa -or -not [bool]$qa.data.noEvidence))
+  }
+  $targetRetrieveCovered = if ($expectedNoEvidence) { $true } else { Test-DocumentCoverage $hits $targetDocIds }
+  $targetCitationCovered = if ($expectedNoEvidence -or $mode -ne "qa") { $true } else { Test-DocumentCoverage $citations $targetDocIds }
+  $expectedEvidenceSupported = if ($expectedNoEvidence) { $true } else { Test-RagItemsContainAllPhrases $evidenceItems @($case.expectedPhrases) }
+  $distractorRetrieveCount = 0
+  $distractorCitationCount = 0
+  foreach ($documentId in @($distractorDocIds)) {
+    $distractorRetrieveCount += Get-DocumentHitCount $hits $documentId
+    $distractorCitationCount += Get-DocumentHitCount $citations $documentId
+  }
+  $forbiddenAnswerHit = $false
+  $answerFactExpression = $true
+  if ($null -ne $qa) {
+    $answer = [string]$qa.data.answer
+    $forbiddenAnswerHit = Test-TextContainsAny $answer @($case.forbiddenAnswerPhrases)
+    if ($case.Contains("answerAllPhrases")) {
+      $answerFactExpression = $answerFactExpression -and (Test-TextContainsAll $answer @($case.answerAllPhrases))
+    }
+    if ($case.Contains("answerAnyPhrases")) {
+      $answerFactExpression = $answerFactExpression -and (Test-TextContainsAny $answer @($case.answerAnyPhrases))
+    }
+  }
+
+  $failureBuckets = @()
+  $reviewBuckets = @()
+  if (-not $noEvidenceCorrect) { $failureBuckets += "noEvidence" }
+  if (-not $targetRetrieveCovered) { $failureBuckets += "targetRetrieveCoverage" }
+  if (-not $targetCitationCovered) { $failureBuckets += "targetCitationCoverage" }
+  if (-not $expectedEvidenceSupported) { $failureBuckets += "evidencePhraseSupport" }
+  if ($mode -eq "qa" -and $distractorCitationCount -gt 0) { $failureBuckets += "distractorCitation" }
+  if ($forbiddenAnswerHit) { $failureBuckets += "forbiddenAnswer" }
+  if (-not $answerFactExpression) { $reviewBuckets += "answerFactExpression" }
+
+  return [ordered]@{
+    caseId = [string]$case.caseId
+    caseType = [string]$case.caseType
+    mode = $mode
+    corpus = [string]$case.corpus
+    targetDocumentCount = @($targetDocIds).Count
+    distractorDocumentCount = @($distractorDocIds).Count
+    retrieveHits = $hits.Count
+    qaCitations = $citations.Count
+    retrieveNoEvidence = [bool]$retrieve.data.noEvidence
+    qaNoEvidence = if ($null -eq $qa) { $null } else { [bool]$qa.data.noEvidence }
+    noEvidenceExpected = $expectedNoEvidence
+    noEvidenceCorrect = $noEvidenceCorrect
+    targetRetrieveCovered = $targetRetrieveCovered
+    targetCitationCovered = $targetCitationCovered
+    expectedEvidenceSupported = $expectedEvidenceSupported
+    answerFactExpression = $answerFactExpression
+    forbiddenAnswerHit = $forbiddenAnswerHit
+    targetRetrieveCounts = Get-DocumentCoverageCounts $hits $targetDocIds
+    targetCitationCounts = Get-DocumentCoverageCounts $citations $targetDocIds
+    distractorRetrieveCount = $distractorRetrieveCount
+    distractorCitationCount = $distractorCitationCount
+    retrieveScoreSummary = Get-ScoreSummary $hits
+    citationScoreSummary = Get-ScoreSummary $citations
+    failureBuckets = $failureBuckets
+    reviewBuckets = $reviewBuckets
+  }
+}
+
 function Get-ScoreSummary($items) {
   $scores = @($items | ForEach-Object { [double]$_.score })
   if ($scores.Count -eq 0) {
@@ -1007,6 +1195,7 @@ function Invoke-Run() {
   $artifactDir = Join-Path $ArtifactRoot $smokeMarker
   New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
   $script:ArtifactPath = Join-Path $artifactDir "artifact.json"
+  $script:RunArtifactDir = $artifactDir
   $envValues = Read-EnvFile $EnvFile
   $gitStatusBefore = git status --short
   Set-Gate "gitStatus" "PASS" @("initial git status checked")
@@ -1263,18 +1452,16 @@ Similar short policy category: onboarding evidence.
   Set-Gate "shortDocumentRag" "PASS" $shortChecks
 
   if ($EnableNaturalCorpusGate) {
-    $passwordC = "SmokeC!" + ([Guid]::NewGuid().ToString("N").Substring(0, 12))
-    $userC = "smokec$shortUserSuffix"
-    $regC = Invoke-JsonApi "POST" "/api/auth/register" ([ordered]@{ username = $userC; password = $passwordC; nickname = "Smoke C" })
-    $tokenC = [string]$regC.data.token
-    $userCId = [long]$regC.data.userId
-
-    $naturalDocs = @(
+    $naturalCorpusDefinitions = @(
       [ordered]@{
-        key = "expense"
-        fileName = "natural-expense-policy.txt"
-        title = "Expense Policy Note"
-        text = @"
+        key = "finance"
+        userAlias = "fin"
+        nickname = "Finance Corpus"
+        docs = @(
+          [ordered]@{
+            key = "expense"
+            fileName = "natural-finance-expense-policy.txt"
+            text = @"
 # Expense Policy Note
 
 $smokeMarker
@@ -1283,39 +1470,11 @@ Expense reports must be submitted within 7 days after the trip ends.
 Team manager approval is required before Finance releases reimbursement.
 Receipts should be attached to each line item so the reviewer can match the claim to the travel request.
 "@
-      },
-      [ordered]@{
-        key = "incident"
-        fileName = "natural-incident-review.txt"
-        title = "Checkout Incident Review"
-        text = @"
-# Checkout Incident Review
-
-$smokeMarker
-The checkout worker queue created delayed confirmations during the afternoon incident.
-Engineers paused background retries and drained the queue before reopening checkout traffic.
-Support was told to send a short customer update after the incident commander confirmed recovery.
-"@
-      },
-      [ordered]@{
-        key = "support"
-        fileName = "natural-support-sla.txt"
-        title = "Support SLA Note"
-        text = @"
-# Support SLA Note
-
-$smokeMarker
-Customer support classifies payment outage reports as P1 when checkout cannot complete.
-The P1 response target is 30 minutes.
-The P2 response target is 4 hours when the customer has a workaround.
-Incident summaries should mention the customer communication owner.
-"@
-      },
-      [ordered]@{
-        key = "invoice"
-        fileName = "natural-invoice-retention.txt"
-        title = "Invoice Retention Policy"
-        text = @"
+          },
+          [ordered]@{
+            key = "invoice"
+            fileName = "natural-finance-invoice-retention.txt"
+            text = @"
 # Invoice Retention Policy
 
 $smokeMarker
@@ -1324,12 +1483,11 @@ Invoice archive retention is 7 years.
 The archive owner is Finance Operations, not Marketing.
 Retention exceptions require written approval from the controller.
 "@
-      },
-      [ordered]@{
-        key = "marketing"
-        fileName = "natural-marketing-draft.txt"
-        title = "Marketing Draft Retention"
-        text = @"
+          },
+          [ordered]@{
+            key = "marketing"
+            fileName = "natural-finance-marketing-draft.txt"
+            text = @"
 # Marketing Draft Retention
 
 $smokeMarker
@@ -1337,135 +1495,251 @@ Marketing campaign drafts are retained for 3 years.
 This document is about campaign copy review and should not be used as invoice archive evidence.
 Campaign draft owners may delete rejected ideas after launch review.
 "@
+          },
+          [ordered]@{
+            key = "procurement"
+            fileName = "natural-finance-procurement-access.txt"
+            text = @"
+# Vendor Access Renewal
+
+$smokeMarker
+Vendor access renewal requires manager approval before the quarterly review.
+The procurement coordinator must attach the renewal ticket to the supplier record.
+Temporary vendor accounts expire after 14 days unless the manager renews access.
+"@
+          }
+        )
+      },
+      [ordered]@{
+        key = "ops"
+        userAlias = "ops"
+        nickname = "Operations Corpus"
+        docs = @(
+          [ordered]@{
+            key = "incident"
+            fileName = "natural-ops-incident-review.txt"
+            text = @"
+# Checkout Incident Review
+
+$smokeMarker
+The checkout worker queue created delayed confirmations during the afternoon incident.
+Engineers paused background retries and drained the queue before reopening checkout traffic.
+Support was told to send a short customer update after the incident commander confirmed recovery.
+"@
+          },
+          [ordered]@{
+            key = "support"
+            fileName = "natural-ops-support-sla.txt"
+            text = @"
+# Support SLA Note
+
+$smokeMarker
+Customer support classifies payment outage reports as P1 when checkout cannot complete.
+The P1 response target is 30 minutes.
+The P2 response target is 4 hours when the customer has a workaround.
+Incident summaries should mention the customer communication owner.
+"@
+          },
+          [ordered]@{
+            key = "backup"
+            fileName = "natural-ops-backup-runbook.txt"
+            text = @"
+# Database Backup Runbook
+
+$smokeMarker
+Database backup verification runs every 14 days.
+The restore drill owner is the SRE on-call lead.
+Failed verification must open an incident ticket before the next business day.
+"@
+          },
+          [ordered]@{
+            key = "rollback"
+            fileName = "natural-ops-rollback-runbook.txt"
+            text = @"
+# Feature Rollback Runbook
+
+$smokeMarker
+The release captain can trigger feature flag rollback within 15 minutes.
+Rollback approval is not required during an active Sev1 checkout incident.
+The release notes must mention the flag name and the rollback window.
+"@
+          }
+        )
+      },
+      [ordered]@{
+        key = "governance"
+        userAlias = "gov"
+        nickname = "Governance Corpus"
+        docs = @(
+          [ordered]@{
+            key = "contract"
+            fileName = "natural-governance-contract-renewal.txt"
+            text = @"
+# Enterprise Contract Renewal
+
+$smokeMarker
+Enterprise contract renewal notice must be sent 60 days before the current term ends.
+Legal review is required before the renewal package is sent to the customer.
+Commercial discount approval belongs to the account director.
+"@
+          },
+          [ordered]@{
+            key = "audit"
+            fileName = "natural-governance-access-review.txt"
+            text = @"
+# Access Review Calendar
+
+$smokeMarker
+Quarterly access review evidence is due on the last business day of each quarter.
+Security Operations owns the review evidence package.
+Department managers must confirm privileged accounts before the review is closed.
+"@
+          },
+          [ordered]@{
+            key = "customer"
+            fileName = "natural-governance-customer-communication.txt"
+            text = @"
+# Customer Incident Communication
+
+$smokeMarker
+The final customer incident update must be sent within 2 hours after recovery is confirmed.
+The customer communication owner is Support Operations.
+Draft updates should not include internal incident commander notes.
+"@
+          },
+          [ordered]@{
+            key = "version"
+            fileName = "natural-governance-version-retention.txt"
+            text = @"
+# Release Note Retention
+
+$smokeMarker
+Minor version release notes are retained for 18 months.
+Critical hotfix changelog records are retained for 5 years.
+Engineering Operations owns the release archive.
+"@
+          }
+        )
       }
     )
 
-    $naturalDocIds = [ordered]@{}
-    $naturalParseTaskIds = @()
-    foreach ($naturalDoc in $naturalDocs) {
-      $naturalPath = Join-Path $artifactDir $naturalDoc.fileName
-      [System.IO.File]::WriteAllText($naturalPath, $naturalDoc.text, [System.Text.UTF8Encoding]::new($false))
-      $naturalFile = Upload-SmokeFile $naturalPath $tokenC
-      $naturalCreated = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $naturalFile.id }) $tokenC
-      $naturalTask = Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $naturalCreated.data.id }) $tokenC
-      Wait-ParseSuccess ([long]$naturalCreated.data.id) $tokenC | Out-Null
-      Wait-IndexedChunks $envValues $userCId ([long]$naturalCreated.data.id) | Out-Null
-      $naturalDocIds[$naturalDoc.key] = [long]$naturalCreated.data.id
-      $naturalParseTaskIds += [long]$naturalTask.data.taskId
+    $naturalCorpora = [ordered]@{}
+    foreach ($corpusDefinition in $naturalCorpusDefinitions) {
+      $password = "SmokeNatural!" + ([Guid]::NewGuid().ToString("N").Substring(0, 12))
+      $username = "smk$($corpusDefinition.userAlias)$shortUserSuffix"
+      $registered = Invoke-JsonApi "POST" "/api/auth/register" ([ordered]@{ username = $username; password = $password; nickname = $corpusDefinition.nickname })
+      $token = [string]$registered.data.token
+      $userId = [long]$registered.data.userId
+      $docIds = [ordered]@{}
+      $parseTaskIds = @()
+      foreach ($naturalDoc in @($corpusDefinition.docs)) {
+        $naturalPath = Join-Path $artifactDir $naturalDoc.fileName
+        [System.IO.File]::WriteAllText($naturalPath, $naturalDoc.text, [System.Text.UTF8Encoding]::new($false))
+        $naturalFile = Upload-SmokeFile $naturalPath $token
+        $naturalCreated = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $naturalFile.id }) $token
+        $naturalTask = Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $naturalCreated.data.id }) $token
+        Wait-ParseSuccess ([long]$naturalCreated.data.id) $token | Out-Null
+        Wait-IndexedChunks $envValues $userId ([long]$naturalCreated.data.id) | Out-Null
+        $docIds[$naturalDoc.key] = [long]$naturalCreated.data.id
+        $parseTaskIds += [long]$naturalTask.data.taskId
+      }
+      $naturalKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Natural $($corpusDefinition.nickname) $smokeMarker"; description = "temporary natural corpus audit kb" }) $token
+      Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/documents" ([ordered]@{ documentIds = @($docIds.Values) }) $token | Out-Null
+      $naturalCorpora[$corpusDefinition.key] = [ordered]@{
+        userId = $userId
+        authToken = $token
+        knowledgeBaseId = [long]$naturalKb.data.id
+        docIds = $docIds
+        parseTaskIds = $parseTaskIds
+      }
     }
 
-    $naturalKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Natural Corpus KB $smokeMarker"; description = "temporary natural corpus audit kb" }) $tokenC
-    Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/documents" ([ordered]@{ documentIds = @($naturalDocIds.Values) }) $tokenC | Out-Null
-    $naturalExpenseDocId = [long]$naturalDocIds["expense"]
-    $naturalIncidentDocId = [long]$naturalDocIds["incident"]
-    $naturalSupportDocId = [long]$naturalDocIds["support"]
-    $naturalInvoiceDocId = [long]$naturalDocIds["invoice"]
-    $naturalMarketingDocId = [long]$naturalDocIds["marketing"]
+    $naturalCases = @(
+      [ordered]@{ caseId = "finance-expense-approval"; corpus = "finance"; caseType = "natural_single_doc_fact"; mode = "qa"; question = "How quickly must expense reports be submitted, and who approves reimbursement?"; targetKeys = @("expense"); distractorKeys = @("invoice", "marketing"); expectedPhrases = @("Expense reports must be submitted within 7 days", "Team manager approval"); answerAnyPhrases = @("7 days", "within 7 days"); answerAllPhrases = @("manager"); topK = 4 },
+      [ordered]@{ caseId = "finance-invoice-retention"; corpus = "finance"; caseType = "natural_numeric_fact"; mode = "qa"; question = "How long are invoice archive records retained?"; targetKeys = @("invoice"); distractorKeys = @("marketing"); expectedPhrases = @("Invoice archive retention is 7 years"); answerAnyPhrases = @("7 years", "seven years"); forbiddenAnswerPhrases = @("3 years", "three years"); topK = 4 },
+      [ordered]@{ caseId = "finance-invoice-distractor-control"; corpus = "finance"; caseType = "natural_distractor_control"; mode = "qa"; question = "Which policy states invoice archive retention, and what retention period should be used?"; targetKeys = @("invoice"); distractorKeys = @("marketing"); expectedPhrases = @("Invoice archive retention is 7 years"); answerAnyPhrases = @("7 years", "seven years"); forbiddenAnswerPhrases = @("3 years", "three years"); topK = 5 },
+      [ordered]@{ caseId = "finance-procurement-approval-chain"; corpus = "finance"; caseType = "natural_approval_chain"; mode = "retrieve"; question = "What approval is required before vendor access renewal reaches quarterly review?"; targetKeys = @("procurement"); distractorKeys = @("expense"); expectedPhrases = @("Vendor access renewal requires manager approval before the quarterly review"); topK = 4 },
+      [ordered]@{ caseId = "finance-payroll-no-evidence"; corpus = "finance"; caseType = "natural_no_evidence"; mode = "qa"; question = "What is the payroll payment date for contractors?"; targetKeys = @(); distractorKeys = @("expense", "invoice", "marketing", "procurement"); expectedPhrases = @(); noEvidence = $true; topK = 3 },
+      [ordered]@{ caseId = "finance-marketing-draft-retention"; corpus = "finance"; caseType = "natural_numeric_fact"; mode = "retrieve"; question = "How long are marketing campaign drafts retained?"; targetKeys = @("marketing"); distractorKeys = @("invoice"); expectedPhrases = @("Marketing campaign drafts are retained for 3 years"); topK = 4 },
+      [ordered]@{ caseId = "finance-expense-invoice-compare"; corpus = "finance"; caseType = "natural_multi_doc_summary"; mode = "qa"; question = "Compare the reimbursement approval rule with the invoice archive retention rule."; targetKeys = @("expense", "invoice"); distractorKeys = @("marketing"); expectedPhrases = @("Team manager approval", "Invoice archive retention is 7 years"); answerAnyPhrases = @("7 years", "seven years"); answerAllPhrases = @("manager"); topK = 6 },
+      [ordered]@{ caseId = "finance-vendor-temporary-access"; corpus = "finance"; caseType = "natural_date_fact"; mode = "retrieve"; question = "When do temporary vendor accounts expire if access is not renewed?"; targetKeys = @("procurement"); distractorKeys = @("expense"); expectedPhrases = @("Temporary vendor accounts expire after 14 days"); topK = 4 },
+      [ordered]@{ caseId = "ops-incident-support-summary"; corpus = "ops"; caseType = "natural_multi_doc_summary"; mode = "qa"; question = "Summarize the checkout incident response and the customer support SLA impact."; targetKeys = @("incident", "support"); distractorKeys = @("backup", "rollback"); expectedPhrases = @("paused background retries", "The P1 response target is 30 minutes"); answerAnyPhrases = @("30 minutes", "P1"); answerAllPhrases = @("checkout"); topK = 6 },
+      [ordered]@{ caseId = "ops-support-p1-target"; corpus = "ops"; caseType = "natural_numeric_fact"; mode = "qa"; question = "What is the P1 response target for checkout payment outages?"; targetKeys = @("support"); distractorKeys = @("backup", "rollback"); expectedPhrases = @("The P1 response target is 30 minutes"); answerAnyPhrases = @("30 minutes"); topK = 4 },
+      [ordered]@{ caseId = "ops-backup-interval"; corpus = "ops"; caseType = "natural_date_fact"; mode = "retrieve"; question = "How often does database backup verification run?"; targetKeys = @("backup"); distractorKeys = @("support"); expectedPhrases = @("Database backup verification runs every 14 days"); topK = 4 },
+      [ordered]@{ caseId = "ops-rollback-owner"; corpus = "ops"; caseType = "natural_approval_chain"; mode = "retrieve"; question = "Who can trigger feature flag rollback and how quickly can it happen?"; targetKeys = @("rollback"); distractorKeys = @("incident"); expectedPhrases = @("The release captain can trigger feature flag rollback within 15 minutes"); topK = 4 },
+      [ordered]@{ caseId = "ops-wifi-no-evidence"; corpus = "ops"; caseType = "natural_no_evidence"; mode = "qa"; question = "Which office Wi-Fi network should visitors use during checkout incidents?"; targetKeys = @(); distractorKeys = @("incident", "support", "backup", "rollback"); expectedPhrases = @(); noEvidence = $true; topK = 3 },
+      [ordered]@{ caseId = "ops-backup-rollback-compare"; corpus = "ops"; caseType = "natural_multi_doc_summary"; mode = "qa"; question = "Compare backup verification ownership with feature rollback authority."; targetKeys = @("backup", "rollback"); distractorKeys = @("support"); expectedPhrases = @("restore drill owner is the SRE on-call lead", "release captain can trigger feature flag rollback"); answerAnyPhrases = @("SRE", "release captain"); topK = 6 },
+      [ordered]@{ caseId = "ops-p2-workaround"; corpus = "ops"; caseType = "natural_numeric_fact"; mode = "retrieve"; question = "What is the response target when a customer has a workaround?"; targetKeys = @("support"); distractorKeys = @("incident"); expectedPhrases = @("The P2 response target is 4 hours"); topK = 4 },
+      [ordered]@{ caseId = "ops-incident-customer-update"; corpus = "ops"; caseType = "natural_single_doc_fact"; mode = "retrieve"; question = "What update should Support send after the incident commander confirms recovery?"; targetKeys = @("incident"); distractorKeys = @("support"); expectedPhrases = @("Support was told to send a short customer update"); topK = 4 },
+      [ordered]@{ caseId = "ops-rollback-no-approval"; corpus = "ops"; caseType = "natural_negative_fact"; mode = "retrieve"; question = "Does active Sev1 checkout rollback require approval?"; targetKeys = @("rollback"); distractorKeys = @("backup"); expectedPhrases = @("Rollback approval is not required during an active Sev1 checkout incident"); topK = 4 },
+      [ordered]@{ caseId = "governance-contract-notice"; corpus = "governance"; caseType = "natural_date_fact"; mode = "qa"; question = "When must enterprise contract renewal notice be sent, and what review is required?"; targetKeys = @("contract"); distractorKeys = @("audit"); expectedPhrases = @("60 days before the current term ends", "Legal review is required"); answerAnyPhrases = @("60 days"); answerAllPhrases = @("Legal"); topK = 4 },
+      [ordered]@{ caseId = "governance-audit-deadline"; corpus = "governance"; caseType = "natural_date_fact"; mode = "retrieve"; question = "When is quarterly access review evidence due?"; targetKeys = @("audit"); distractorKeys = @("contract"); expectedPhrases = @("last business day of each quarter"); topK = 4 },
+      [ordered]@{ caseId = "governance-customer-final-update"; corpus = "governance"; caseType = "natural_single_doc_fact"; mode = "qa"; question = "When must the final customer incident update be sent after recovery?"; targetKeys = @("customer"); distractorKeys = @("version"); expectedPhrases = @("within 2 hours after recovery is confirmed"); answerAnyPhrases = @("2 hours", "two hours"); topK = 4 },
+      [ordered]@{ caseId = "governance-version-retention"; corpus = "governance"; caseType = "natural_numeric_fact"; mode = "qa"; question = "How long are minor version release notes retained?"; targetKeys = @("version"); distractorKeys = @("customer"); expectedPhrases = @("Minor version release notes are retained for 18 months"); answerAnyPhrases = @("18 months"); forbiddenAnswerPhrases = @("5 years"); topK = 4 },
+      [ordered]@{ caseId = "governance-pricing-no-evidence"; corpus = "governance"; caseType = "natural_no_evidence"; mode = "qa"; question = "What is the enterprise pricing discount ladder for new customers?"; targetKeys = @(); distractorKeys = @("contract", "audit", "customer", "version"); expectedPhrases = @(); noEvidence = $true; topK = 3 },
+      [ordered]@{ caseId = "governance-contract-audit-compare"; corpus = "governance"; caseType = "natural_multi_doc_summary"; mode = "retrieve"; question = "Compare contract renewal notice timing with access review evidence timing."; targetKeys = @("contract", "audit"); distractorKeys = @("version"); expectedPhrases = @("60 days before the current term ends", "last business day of each quarter"); topK = 6 },
+      [ordered]@{ caseId = "governance-hotfix-retention"; corpus = "governance"; caseType = "natural_numeric_fact"; mode = "qa"; question = "How long are critical hotfix changelog records retained?"; targetKeys = @("version"); distractorKeys = @("contract"); expectedPhrases = @("Critical hotfix changelog records are retained for 5 years"); answerAnyPhrases = @("5 years", "five years"); forbiddenAnswerPhrases = @("18 months"); topK = 4 },
+      [ordered]@{ caseId = "governance-customer-owner"; corpus = "governance"; caseType = "natural_approval_chain"; mode = "retrieve"; question = "Who owns customer incident communication updates?"; targetKeys = @("customer"); distractorKeys = @("audit"); expectedPhrases = @("customer communication owner is Support Operations"); topK = 4 }
+    )
 
-    $naturalSingleQuestion = "How quickly must expense reports be submitted, and who approves reimbursement?"
-    $naturalSingleRetrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $naturalExpenseDocId; query = $naturalSingleQuestion; topK = 3; indexVersion = $IndexVersion }) $tokenC
-    $naturalSingleQa = Invoke-JsonApi "POST" "/api/documents/$naturalExpenseDocId/qa/rag" ([ordered]@{ question = $naturalSingleQuestion; topK = 3; indexVersion = $IndexVersion }) $tokenC
+    $naturalCaseResults = @()
+    foreach ($naturalCase in $naturalCases) {
+      $naturalCaseResults += Invoke-NaturalCorpusCase $naturalCase $naturalCorpora[$naturalCase.corpus] $IndexVersion
+    }
 
-    $naturalNumericQuestion = "How long are invoice archive records retained?"
-    $naturalNumericRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/rag/retrieve" ([ordered]@{ query = $naturalNumericQuestion; topK = 4; indexVersion = $IndexVersion }) $tokenC
-    $naturalNumericQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/qa/rag" ([ordered]@{ question = $naturalNumericQuestion; topK = 4; indexVersion = $IndexVersion }) $tokenC
-
-    $naturalMultiQuestion = "Summarize the checkout incident response and the customer support SLA impact."
-    $naturalMultiRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/rag/retrieve" ([ordered]@{ query = $naturalMultiQuestion; topK = 6; indexVersion = $IndexVersion }) $tokenC
-    $naturalMultiQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/qa/rag" ([ordered]@{ question = $naturalMultiQuestion; topK = 6; indexVersion = $IndexVersion }) $tokenC
-
-    $naturalDistractorQuestion = "Which policy states invoice archive retention, and what retention period should be used?"
-    $naturalDistractorRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/rag/retrieve" ([ordered]@{ query = $naturalDistractorQuestion; topK = 5; indexVersion = $IndexVersion }) $tokenC
-    $naturalDistractorQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/qa/rag" ([ordered]@{ question = $naturalDistractorQuestion; topK = 5; indexVersion = $IndexVersion }) $tokenC
-
-    $naturalNoEvidenceQuestion = "What is the payroll payment date for contractors?"
-    $naturalNoEvidenceRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/rag/retrieve" ([ordered]@{ query = $naturalNoEvidenceQuestion; topK = 3; indexVersion = $IndexVersion }) $tokenC
-    $naturalNoEvidenceQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($naturalKb.data.id)/qa/rag" ([ordered]@{ question = $naturalNoEvidenceQuestion; topK = 3; indexVersion = $IndexVersion }) $tokenC
-
-    $naturalConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Natural Corpus $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $naturalKb.data.id }) $tokenC
-    $naturalMessage = Invoke-JsonApi "POST" "/api/conversations/$($naturalConversation.data.conversationId)/messages" ([ordered]@{ content = "Use the bound knowledge base to summarize the checkout incident and support SLA." }) $tokenC
-    $naturalTrace = Invoke-JsonApi "GET" "/api/conversations/$($naturalConversation.data.conversationId)/messages/$($naturalMessage.data.messageId)/trace" $null $tokenC
-
-    $naturalSingleHits = @($naturalSingleRetrieve.data.hits)
-    $naturalSingleCitations = @($naturalSingleQa.data.citations)
-    $naturalNumericHits = @($naturalNumericRetrieve.data.hits)
-    $naturalNumericCitations = @($naturalNumericQa.data.citations)
-    $naturalMultiHits = @($naturalMultiRetrieve.data.hits)
-    $naturalMultiCitations = @($naturalMultiQa.data.citations)
-    $naturalDistractorHits = @($naturalDistractorRetrieve.data.hits)
-    $naturalDistractorCitations = @($naturalDistractorQa.data.citations)
-
-    $naturalHardFailures = @()
-    $naturalReviewBuckets = @()
-    $naturalSingleEvidenceOk = ((-not [bool]$naturalSingleRetrieve.data.noEvidence) -and $naturalSingleHits.Count -ge 1 -and $naturalSingleCitations.Count -ge 1 -and
-      (Test-RagItemsContainMarker $naturalSingleHits "Expense reports must be submitted within 7 days") -and
-      (Test-RagItemsContainMarker $naturalSingleCitations "Team manager approval"))
-    $naturalSingleAnswerOk = (Test-TextContainsAny ([string]$naturalSingleQa.data.answer) @("7 days", "within 7 days")) -and (Test-TextContainsAny ([string]$naturalSingleQa.data.answer) @("manager", "team manager"))
-    $naturalNumericEvidenceOk = ((-not [bool]$naturalNumericRetrieve.data.noEvidence) -and $naturalNumericHits.Count -ge 1 -and $naturalNumericCitations.Count -ge 1 -and
-      (Get-DocumentHitCount $naturalNumericHits $naturalInvoiceDocId) -ge 1 -and
-      (Get-DocumentHitCount $naturalNumericCitations $naturalInvoiceDocId) -ge 1 -and
-      (Test-RagItemsContainMarker $naturalNumericCitations "Invoice archive retention is 7 years"))
-    $naturalNumericAnswerOk = (Test-TextContainsAny ([string]$naturalNumericQa.data.answer) @("7 years", "seven years")) -and (-not (Test-TextContainsAny ([string]$naturalNumericQa.data.answer) @("3 years", "three years")))
-    $naturalMultiCoverageOk = ($naturalMultiHits.Count -ge 2 -and $naturalMultiCitations.Count -ge 2 -and
-      (Get-DocumentHitCount $naturalMultiHits $naturalIncidentDocId) -ge 1 -and
-      (Get-DocumentHitCount $naturalMultiHits $naturalSupportDocId) -ge 1 -and
-      (Get-DocumentHitCount $naturalMultiCitations $naturalIncidentDocId) -ge 1 -and
-      (Get-DocumentHitCount $naturalMultiCitations $naturalSupportDocId) -ge 1)
-    $naturalMultiAnswerOk = (Test-TextContainsAny ([string]$naturalMultiQa.data.answer) @("checkout", "worker queue")) -and (Test-TextContainsAny ([string]$naturalMultiQa.data.answer) @("30 minutes", "P1"))
-    $naturalDistractorOk = ((-not [bool]$naturalDistractorRetrieve.data.noEvidence) -and $naturalDistractorHits.Count -ge 1 -and $naturalDistractorCitations.Count -ge 1 -and
-      (Get-DocumentHitCount $naturalDistractorCitations $naturalInvoiceDocId) -ge 1 -and
-      (Get-DocumentHitCount $naturalDistractorCitations $naturalMarketingDocId) -eq 0 -and
-      (-not (Test-TextContainsAny ([string]$naturalDistractorQa.data.answer) @("3 years", "three years"))))
-    $naturalNoEvidenceOk = ([bool]$naturalNoEvidenceRetrieve.data.noEvidence -and [bool]$naturalNoEvidenceQa.data.noEvidence)
+    $opsCorpus = $naturalCorpora["ops"]
+    $naturalConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Natural Corpus $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $opsCorpus.knowledgeBaseId }) $opsCorpus.authToken
+    $naturalMessage = Invoke-JsonApi "POST" "/api/conversations/$($naturalConversation.data.conversationId)/messages" ([ordered]@{ content = "Use the bound knowledge base to summarize the checkout incident and support SLA." }) $opsCorpus.authToken
+    $naturalTrace = Invoke-JsonApi "GET" "/api/conversations/$($naturalConversation.data.conversationId)/messages/$($naturalMessage.data.messageId)/trace" $null $opsCorpus.authToken
+    $naturalIncidentDocId = [long]$opsCorpus.docIds["incident"]
+    $naturalSupportDocId = [long]$opsCorpus.docIds["support"]
     $naturalTraceOk = ([bool]$naturalTrace.data.ragTriggered -and [bool]$naturalTrace.data.ragRequired -and [int]$naturalTrace.data.evidenceCount -gt 0 -and
       (Get-CountValue $naturalTrace.data.documentHitCounts ([string]$naturalIncidentDocId)) -ge 1 -and
       (Get-CountValue $naturalTrace.data.documentHitCounts ([string]$naturalSupportDocId)) -ge 1)
 
-    if (-not $naturalSingleEvidenceOk) { $naturalHardFailures += "singleDocumentEvidenceCoverage" }
-    if (-not $naturalNumericEvidenceOk) { $naturalHardFailures += "numericEvidenceCoverage" }
-    if (-not $naturalMultiCoverageOk) { $naturalHardFailures += "multiDocumentCoverage" }
-    if (-not $naturalDistractorOk) { $naturalHardFailures += "distractorCitationControl" }
-    if (-not $naturalNoEvidenceOk) { $naturalHardFailures += "noEvidenceRejection" }
+    $failedCaseResults = @($naturalCaseResults | Where-Object { @($_.failureBuckets).Count -gt 0 })
+    $reviewCaseResults = @($naturalCaseResults | Where-Object { @($_.reviewBuckets).Count -gt 0 })
+    $naturalHardFailures = @($failedCaseResults | ForEach-Object { "$($_.caseId):$(@($_.failureBuckets) -join '+')" })
+    $naturalReviewBuckets = @($reviewCaseResults | ForEach-Object { "$($_.caseId):$(@($_.reviewBuckets) -join '+')" })
     if (-not $naturalTraceOk) { $naturalHardFailures += "conversationTraceCoverage" }
-    if (-not $naturalSingleAnswerOk) { $naturalReviewBuckets += "singleAnswerFactExpression" }
-    if (-not $naturalNumericAnswerOk) { $naturalReviewBuckets += "numericAnswerFactExpression" }
-    if (-not $naturalMultiAnswerOk) { $naturalReviewBuckets += "multiAnswerFactExpression" }
+    $naturalQaCases = @($naturalCaseResults | Where-Object { $_.mode -eq "qa" })
+    $naturalNoEvidenceCases = @($naturalCaseResults | Where-Object { $_.noEvidenceExpected })
+    $naturalMultiDocCases = @($naturalCaseResults | Where-Object { $_.targetDocumentCount -gt 1 })
+    $naturalDistractorCases = @($naturalCaseResults | Where-Object { $_.distractorDocumentCount -gt 0 })
+    $naturalPassedCases = @($naturalCaseResults | Where-Object { @($_.failureBuckets).Count -eq 0 })
+
+    $corpusResources = @()
+    foreach ($corpusKey in @($naturalCorpora.Keys)) {
+      $corpus = $naturalCorpora[$corpusKey]
+      $corpusResources += [ordered]@{
+        corpus = $corpusKey
+        userId = [long]$corpus.userId
+        knowledgeBaseId = [long]$corpus.knowledgeBaseId
+        documentIds = @($corpus.docIds.Values)
+        parseTaskIds = $corpus.parseTaskIds
+      }
+    }
 
     $naturalCorpusGateChecks = @([ordered]@{
-        caseCount = 6
-        documentCount = @($naturalDocIds.Values).Count
-        singleRetrieveHits = $naturalSingleHits.Count
-        singleQaCitations = $naturalSingleCitations.Count
-        singleEvidenceCoverage = $naturalSingleEvidenceOk
-        singleAnswerFactExpression = $naturalSingleAnswerOk
-        numericRetrieveHits = $naturalNumericHits.Count
-        numericQaCitations = $naturalNumericCitations.Count
-        numericInvoiceRetrieveCount = Get-DocumentHitCount $naturalNumericHits $naturalInvoiceDocId
-        numericInvoiceCitationCount = Get-DocumentHitCount $naturalNumericCitations $naturalInvoiceDocId
-        numericAnswerFactExpression = $naturalNumericAnswerOk
-        multiRetrieveHits = $naturalMultiHits.Count
-        multiQaCitations = $naturalMultiCitations.Count
-        multiIncidentRetrieveCount = Get-DocumentHitCount $naturalMultiHits $naturalIncidentDocId
-        multiSupportRetrieveCount = Get-DocumentHitCount $naturalMultiHits $naturalSupportDocId
-        multiIncidentCitationCount = Get-DocumentHitCount $naturalMultiCitations $naturalIncidentDocId
-        multiSupportCitationCount = Get-DocumentHitCount $naturalMultiCitations $naturalSupportDocId
-        multiAnswerFactExpression = $naturalMultiAnswerOk
-        distractorRetrieveHits = $naturalDistractorHits.Count
-        distractorQaCitations = $naturalDistractorCitations.Count
-        distractorInvoiceCitationCount = Get-DocumentHitCount $naturalDistractorCitations $naturalInvoiceDocId
-        distractorMarketingCitationCount = Get-DocumentHitCount $naturalDistractorCitations $naturalMarketingDocId
-        noEvidenceRetrieveNoEvidence = [bool]$naturalNoEvidenceRetrieve.data.noEvidence
-        noEvidenceQaNoEvidence = [bool]$naturalNoEvidenceQa.data.noEvidence
+        schemaVersion = 2
+        corpusCount = @($naturalCorpora.Keys).Count
+        documentCount = @($corpusResources | ForEach-Object { @($_.documentIds).Count } | Measure-Object -Sum).Sum
+        caseCount = $naturalCaseResults.Count
+        qaCaseCount = $naturalQaCases.Count
+        noEvidenceCaseCount = $naturalNoEvidenceCases.Count
+        multiDocumentCaseCount = $naturalMultiDocCases.Count
+        distractorCaseCount = $naturalDistractorCases.Count
+        casePassRate = if ($naturalCaseResults.Count -eq 0) { 0 } else { [Math]::Round($naturalPassedCases.Count / $naturalCaseResults.Count, 4) }
+        noEvidencePassCount = @($naturalNoEvidenceCases | Where-Object { $_.noEvidenceCorrect }).Count
+        multiDocumentCoveragePassCount = @($naturalMultiDocCases | Where-Object { $_.targetRetrieveCovered -and $_.targetCitationCovered }).Count
+        distractorCitationFreeCount = @($naturalDistractorCases | Where-Object { $_.distractorCitationCount -eq 0 }).Count
         traceRagTriggered = [bool]$naturalTrace.data.ragTriggered
         traceRagRequired = [bool]$naturalTrace.data.ragRequired
         traceEvidenceCount = [int]$naturalTrace.data.evidenceCount
         traceDocumentHitCounts = $naturalTrace.data.documentHitCounts
-        singleRetrieveScoreSummary = Get-ScoreSummary $naturalSingleHits
-        numericRetrieveScoreSummary = Get-ScoreSummary $naturalNumericHits
-        multiRetrieveScoreSummary = Get-ScoreSummary $naturalMultiHits
-        distractorRetrieveScoreSummary = Get-ScoreSummary $naturalDistractorHits
         hardFailureBuckets = $naturalHardFailures
         reviewBuckets = $naturalReviewBuckets
+        caseResults = $naturalCaseResults
       })
     if ($naturalHardFailures.Count -gt 0) {
       $naturalFailureMessage = "natural corpus audit failed: " + ($naturalHardFailures -join ",")
@@ -1476,10 +1750,7 @@ Campaign draft owners may delete rejected ideas after launch review.
     $naturalMessageText = if ($naturalReviewBuckets.Count -gt 0) { "natural corpus audit has answer expression review buckets" } else { "" }
     Set-Gate "naturalCorpus" $naturalStatus $naturalCorpusGateChecks $naturalMessageText
     $naturalCorpusResources = [ordered]@{
-      userId = $userCId
-      knowledgeBaseId = [long]$naturalKb.data.id
-      documentIds = @($naturalDocIds.Values)
-      parseTaskIds = $naturalParseTaskIds
+      corpora = $corpusResources
       conversationId = [long]$naturalConversation.data.conversationId
       messageId = [long]$naturalMessage.data.messageId
     }
