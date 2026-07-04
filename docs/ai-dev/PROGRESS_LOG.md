@@ -1,5 +1,16 @@
 # Progress Log
 
+## 2026-07-04 RAG 自然语料真实审计 gate v1
+
+- 新增 `scripts/smoke/rag-natural-corpus-audit-smoke.ps1`，提供 `plan` / `dry-run` / `run` 三种模式，默认以 `docpilot-rag-natural-corpus-*` marker 委托 cloud quality runner，并启用 `naturalCorpus`、`multiQueryRag` 和 `frontendInteraction` gate。
+- `cloud-quality-smoke.ps1` 新增 `-EnableNaturalCorpusGate`：创建 5 份临时自然语料 txt 文档，覆盖单文档事实、数字事实、多文档总结、干扰文档、no-evidence 和绑定 KB 的 Conversation Trace；artifact 只保存布尔值、计数、score summary、documentHitCounts 和失败桶。
+- 后端 KnowledgeBase QA 新增答案数字一致性 citation 精炼：当答案包含明确数字事实时，过滤只包含其他数字值的干扰 citation；同时忽略 run marker 这类长编号，避免误伤多文档总结中的非数字支持引用。
+- Runner 稳定性增强：上传遇到业务限流 `code=1014` 自动 retry/backoff；通用 API 调用 retry 从 3 次扩到 5 次并使用更长 backoff，适配更长的真实链路审计。
+- 真实过程：首轮 run 暴露上传限流；第二轮暴露 invoice retention 问题同时引用 marketing retention 干扰文档；第三轮暴露一次请求层断连；第四轮暴露长 run marker 数字误伤 citation 精炼；最终均收口。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,RagDocumentRetrievalServiceImplTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS；`npm run lint` PASS；`npm run build` PASS；`rag-natural-corpus-audit-smoke.ps1 -Mode plan` / `-Mode dry-run` PASS。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704143033-86b4f3`；`naturalCorpus` PASS，`distractorMarketingCitationCount=0`，`noEvidenceRetrieveNoEvidence=true`，`noEvidenceQaNoEvidence=true`，`traceRagTriggered=true`，`traceRagRequired=true`，`frontendInteraction` 和 `multiQueryRag` 均 PASS。
+- 边界：本轮使用真实本地 backend / frontend / tunnel / MySQL / Qdrant 链路和临时 smoke 数据；未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未打印 secrets，未 push。
+
 ## 2026-07-04 真实体验审计问题防回归与短文档泛化 gate
 
 - 已增强 `cloud-quality-smoke.ps1` 的 `shortDocumentRag` gate：在原短 Alpha / Beta 基础上增加中文短文档 retrieve、数字事实 retrieve、相似短文档干扰、KB 双文档覆盖和 citation marker 的细分布尔检查，失败时输出脱敏 `failureBuckets`。

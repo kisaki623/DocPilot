@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-04 | `docpilot-rag-natural-corpus-20260704143033-86b4f3` | PASS（自然语料审计） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704143033-86b4f3/artifact.json` | 新增自然语料 gate，覆盖 5 份临时文档、单文档事实、数字事实、多文档总结、干扰文档、no-evidence 和 Conversation Trace；本轮先发现 invoice retention 同时引用 marketing retention 干扰文档，修复后 `distractorMarketingCitationCount=0`。 |
 | 2026-07-04 | `docpilot-cloud-quality-20260704135601-944384` | PASS（防回归增强） | `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260704135601-944384/artifact.json` | `shortDocumentRag` 新增中文短文档 retrieve、数字事实 retrieve、相似短文档干扰和细分 `failureBuckets`，`frontendInteraction` 新增 UI / 权限失败桶；最终真实 run 中两个 gate 的 `failureBuckets=[]`，旧 P1/P2/P3 问题进入防回归状态。 |
 | 2026-07-03 | `docpilot-cloud-quality-20260703231920-e74334` | PASS（浏览器细验收口） | `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260703231920-e74334/artifact.json` | 新增 `frontendInteraction` gate 通过：文档详情 quote-first 可见、KnowledgeBase 双 marker citation 可见、跨用户文档无权限提示可见、console error 为 `0`；P2/P3 标为已验证。 |
 | 2026-07-03 | `docpilot-cloud-quality-20260703213703-dbef08` | PASS（修复验证） | `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260703213703-dbef08/artifact.json` | 修复后 cloud quality smoke 通过；新增 `shortDocumentRag` gate 覆盖短 txt 单文档 RAG、短文档双文档 KnowledgeBase RAG 和 answer grounding。 |
@@ -48,6 +49,74 @@
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
 | `REA-20260703-P2-001` | VERIFIED（已验证） | P2 | 体验问题 | Citation UI | `docpilot-real-audit-20260703195519-5118e8` | quote-level citation API 已有，但 UI 仍需 quote-first 展示 |
 | `REA-20260703-P3-001` | VERIFIED（已验证） | P3 | 体验问题 | Permission UX | `docpilot-real-audit-20260703195519-5118e8` | 权限拒绝走 HTTP 200 + 业务错误，前端提示需更明确 |
+| `REA-20260704-P2-002` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-rag-natural-corpus-20260704141543-aa95e9` | 数字事实回答同时引用语义相近但数值冲突的干扰文档 |
+
+## 2026-07-04 自然语料审计 gate v1
+
+验证 marker：`docpilot-rag-natural-corpus-20260704143033-86b4f3`
+
+状态：PASS
+
+已验证：
+
+- `naturalCorpus` gate 使用 5 份临时自然语料文档，覆盖单文档事实、数字事实、多文档总结、干扰文档、no-evidence 和绑定 KnowledgeBase 的 Conversation Trace。
+- 单文档事实：报销提交时限和 manager approval 均能返回 evidence / citation，回答事实表达通过。
+- 数字事实：invoice archive retention 最终只保留 invoice citation，`numericQaCitations=1`、`numericInvoiceCitationCount=1`。
+- 干扰控制：invoice retention 问题不再引用 marketing retention 干扰文档，`distractorInvoiceCitationCount=1`、`distractorMarketingCitationCount=0`。
+- 多文档自然问题：checkout incident 与 support SLA 的 retrieve / citation 均覆盖目标两份文档。
+- no-evidence：contractor payroll payment date 在 populated KB 中拒答，retrieve / QA 均为 no-evidence。
+- Conversation Trace：绑定自然语料 KB 后 `ragTriggered=true`、`ragRequired=true`、`evidenceCount>0`，并记录脱敏 `documentHitCounts`。
+
+本轮发现并修复：
+
+- 首次自然语料 run 暴露上传频率限制，后续 runner 在上传遇到 `code=1014` 时使用 retry/backoff；该修复只增强审计工具耐跑性，不绕过业务限流。
+- marker `docpilot-rag-natural-corpus-20260704141543-aa95e9` 暴露 `REA-20260704-P2-002`：invoice archive retention 的回答同时挂载了 marketing retention 干扰 citation。
+- 已在 KnowledgeBase QA 中增加答案数字一致性 citation 精炼：答案明确给出数字事实时，过滤只包含其他数字值的干扰 citation；retrieval hits 与 `documentHitCounts` 保持不变，仍用于 trace / 调试。
+- marker `docpilot-rag-natural-corpus-20260704142549-252f85` 又暴露 run marker 长数字误伤多文档 citation 精炼，已改为忽略长编号，仅把短数字事实纳入一致性过滤。
+
+边界：
+
+- 本轮真实 run 创建临时 smoke 用户、文档、KnowledgeBase 和 Conversation；artifact 位于 ignored 的 `backend/target/rag-natural-corpus/`，不提交原文。
+- 未删除业务数据，未操作远程 Docker，未改数据库结构，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+### `REA-20260704-P2-002` 数字事实回答同时引用语义相近但数值冲突的干扰文档
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P2
+- 类型：功能质量问题
+- 模块：KnowledgeBase RAG Citation
+- 发现于：`docpilot-rag-natural-corpus-20260704141543-aa95e9`
+- 修复验证：`docpilot-rag-natural-corpus-20260704143033-86b4f3`
+
+复现步骤：
+
+1. 创建包含 invoice retention 与 marketing draft retention 的临时 KnowledgeBase。
+2. 提问：“Which policy states invoice archive retention, and what retention period should be used?”
+3. 检查 QA citations 的文档分布。
+
+实际结果：
+
+- 修复前：QA citations 同时包含 invoice 文档和 marketing 文档；marketing 文档含有相近的 retention 词面但数值是 `3 years`，与 invoice archive 的 `7 years` 不一致。
+
+预期结果：
+
+- 数字事实回答只引用支持答案数字的 evidence；如果干扰文档只包含冲突数字，不应作为答案 citation。
+
+可能原因：
+
+- KnowledgeBase QA 原先直接把 retrieval selected hits 映射成 citations，缺少回答生成后的 citation 精炼；语义相近的干扰文档会被保留为引用，即使答案本身没有采用它的数字事实。
+
+修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/KnowledgeBaseRagQaServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/KnowledgeBaseRagQaServiceImplTest.java`
+- `scripts/smoke/cloud-quality-smoke.ps1`
+- `scripts/smoke/rag-natural-corpus-audit-smoke.ps1`
+
+验证记录：
+
+- `mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,RagDocumentRetrievalServiceImplTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS。
+- `rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704143033-86b4f3`；`distractorMarketingCitationCount=0`。
 
 ## 2026-07-04 防回归增强
 

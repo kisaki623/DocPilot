@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.service.impl;
 
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagPromptBuilder;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagEvidenceCitation;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaAnswer;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaQuery;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalQuery;
@@ -18,10 +19,17 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 @Service
 public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService {
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeBaseRagQaServiceImpl.class);
+    private static final Pattern NUMBER_PATTERN = Pattern.compile("\\b\\d+(?:\\.\\d+)?\\b");
 
     public static final String NO_EVIDENCE_ANSWER =
             "未在当前知识库索引中检索到足够证据，无法基于知识库回答该问题。";
@@ -93,7 +101,8 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                     ragQaProperties.getMaxContextChars()
             );
             String answerText = aiAnswerService.answer(prompt.evidenceContext(), prompt.userPrompt());
-            return answer(resolved, answerText, retrieval, false, false, "", 1);
+            return answer(resolved, answerText, withAnswerAwareCitations(retrieval, answerText),
+                    false, false, "", 1);
         } catch (RuntimeException ex) {
             log.warn("Knowledge base RAG answer generation failed. userId={}, knowledgeBaseId={}, questionLength={}, hitCount={}, reason={}",
                     resolved.userId(),
@@ -148,6 +157,87 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
             return CommonConstants.QA_DEFAULT_SESSION_ID;
         }
         return sessionId.trim();
+    }
+
+    private KnowledgeBaseRagRetrievalResult withAnswerAwareCitations(KnowledgeBaseRagRetrievalResult retrieval,
+                                                                     String answer) {
+        if (retrieval == null || retrieval.noEvidence() || retrieval.citations().size() <= 1) {
+            return retrieval;
+        }
+        Set<String> answerNumbers = extractNumbers(answer);
+        if (answerNumbers.isEmpty()) {
+            return retrieval;
+        }
+        boolean hasNumericSupport = retrieval.citations().stream()
+                .map(this::extractNumbers)
+                .anyMatch(numbers -> intersects(numbers, answerNumbers));
+        if (!hasNumericSupport) {
+            return retrieval;
+        }
+        List<KnowledgeBaseRagEvidenceCitation> filtered = retrieval.citations().stream()
+                .filter(citation -> {
+                    Set<String> citationNumbers = extractNumbers(citation);
+                    return citationNumbers.isEmpty() || intersects(citationNumbers, answerNumbers);
+                })
+                .toList();
+        if (filtered.isEmpty() || filtered.size() == retrieval.citations().size()) {
+            return retrieval;
+        }
+        return new KnowledgeBaseRagRetrievalResult(
+                retrieval.userId(),
+                retrieval.knowledgeBaseId(),
+                retrieval.query(),
+                retrieval.topK(),
+                retrieval.indexVersion(),
+                retrieval.documentIds(),
+                retrieval.hits(),
+                filtered,
+                retrieval.noEvidence(),
+                retrieval.provider(),
+                retrieval.collection(),
+                retrieval.embeddingModel(),
+                retrieval.documentHitCounts(),
+                retrieval.retrievalMode(),
+                retrieval.rerankApplied(),
+                retrieval.rerankModel(),
+                retrieval.multiQueryApplied(),
+                retrieval.queryVariantCount(),
+                retrieval.queryDedupeCount()
+        );
+    }
+
+    private Set<String> extractNumbers(KnowledgeBaseRagEvidenceCitation citation) {
+        if (citation == null) {
+            return Set.of();
+        }
+        return extractNumbers(citation.quoteText() + " " + citation.snippet());
+    }
+
+    private Set<String> extractNumbers(String text) {
+        if (text == null || text.isBlank()) {
+            return Set.of();
+        }
+        Matcher matcher = NUMBER_PATTERN.matcher(text);
+        Set<String> numbers = new LinkedHashSet<>();
+        while (matcher.find()) {
+            String number = matcher.group();
+            if (number.replace(".", "").length() <= 4) {
+                numbers.add(number);
+            }
+        }
+        return numbers;
+    }
+
+    private boolean intersects(Set<String> left, Set<String> right) {
+        if (left.isEmpty() || right.isEmpty()) {
+            return false;
+        }
+        for (String value : left) {
+            if (right.contains(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private KnowledgeBaseRagQaAnswer answer(ResolvedQaQuery query,

@@ -176,6 +176,49 @@ class KnowledgeBaseRagQaServiceImplTest {
         assertThat(captor.getValue().maxQueryVariants()).isEqualTo(4);
     }
 
+    @Test
+    void shouldFilterNumericDistractorCitationsAfterAnswerGeneration() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(numericDistractorRetrieval());
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenReturn("Invoice archive retention is 7 years [1].");
+
+        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "How long are invoice archive records retained?",
+                2,
+                1,
+                "s1"
+        ));
+
+        assertThat(answer.retrieval().hits()).hasSize(2);
+        assertThat(answer.retrieval().citations()).hasSize(1);
+        assertThat(answer.retrieval().citations().get(0).documentId()).isEqualTo(101L);
+        assertThat(answer.retrieval().citations().get(0).quoteText()).contains("7 years");
+        assertThat(answer.audit().citationCount()).isEqualTo(1);
+        assertThat(answer.audit().documentHitCounts()).containsEntry(101L, 1).containsEntry(102L, 1);
+    }
+
+    @Test
+    void shouldKeepNonNumericSupportCitationWhenChunkContainsRunMarkerDigits() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(multiDocumentRetrievalWithRunMarker());
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenReturn("The team paused background retries, and the P1 response target is 30 minutes [1][2].");
+
+        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "Summarize the checkout incident response and support SLA.",
+                2,
+                1,
+                "s1"
+        ));
+
+        assertThat(answer.retrieval().citations()).hasSize(2);
+        assertThat(answer.retrieval().citations()).extracting("documentId")
+                .containsExactly(101L, 102L);
+    }
+
     private KnowledgeBaseRagRetrievalResult retrieval(boolean noEvidence) {
         List<KnowledgeBaseRagRetrievalHit> hits = noEvidence ? List.of() : List.of(new KnowledgeBaseRagRetrievalHit(
                 1,
@@ -209,6 +252,118 @@ class KnowledgeBaseRagQaServiceImplTest {
                 "",
                 "mock-model",
                 Map.of(101L, hits.size())
+        );
+    }
+
+    private KnowledgeBaseRagRetrievalResult numericDistractorRetrieval() {
+        List<KnowledgeBaseRagRetrievalHit> hits = List.of(
+                new KnowledgeBaseRagRetrievalHit(
+                        1,
+                        10L,
+                        "invoice",
+                        0.99D,
+                        7L,
+                        101L,
+                        "Invoice Retention Policy",
+                        1,
+                        901L,
+                        0,
+                        "Invoice archive retention is 7 years. The archive owner is Finance Operations.",
+                        "hash-invoice",
+                        0,
+                        80,
+                        80,
+                        "mock-model"
+                ),
+                new KnowledgeBaseRagRetrievalHit(
+                        2,
+                        10L,
+                        "marketing",
+                        0.88D,
+                        7L,
+                        102L,
+                        "Marketing Draft Retention",
+                        1,
+                        902L,
+                        0,
+                        "Marketing campaign drafts are retained for 3 years. This document should not be used as invoice archive evidence.",
+                        "hash-marketing",
+                        0,
+                        112,
+                        112,
+                        "mock-model"
+                )
+        );
+        return new KnowledgeBaseRagRetrievalResult(
+                7L,
+                10L,
+                "How long are invoice archive records retained?",
+                2,
+                1,
+                List.of(101L, 102L),
+                hits,
+                hits.stream().map(KnowledgeBaseRagRetrievalHit::toCitation).toList(),
+                false,
+                "in_memory",
+                "",
+                "mock-model",
+                Map.of(101L, 1, 102L, 1)
+        );
+    }
+
+    private KnowledgeBaseRagRetrievalResult multiDocumentRetrievalWithRunMarker() {
+        List<KnowledgeBaseRagRetrievalHit> hits = List.of(
+                new KnowledgeBaseRagRetrievalHit(
+                        1,
+                        10L,
+                        "incident",
+                        0.96D,
+                        7L,
+                        101L,
+                        "Checkout Incident Review",
+                        1,
+                        903L,
+                        0,
+                        "docpilot-rag-natural-corpus-20260704142549-252f85. Engineers paused background retries and drained the checkout worker queue.",
+                        "hash-incident",
+                        0,
+                        130,
+                        130,
+                        "mock-model"
+                ),
+                new KnowledgeBaseRagRetrievalHit(
+                        2,
+                        10L,
+                        "support",
+                        0.95D,
+                        7L,
+                        102L,
+                        "Support SLA Note",
+                        1,
+                        904L,
+                        0,
+                        "The P1 response target is 30 minutes when checkout cannot complete.",
+                        "hash-support",
+                        0,
+                        72,
+                        72,
+                        "mock-model"
+                )
+        );
+        return new KnowledgeBaseRagRetrievalResult(
+                7L,
+                10L,
+                "Summarize the checkout incident response and support SLA.",
+                2,
+                1,
+                List.of(101L, 102L),
+                hits,
+                hits.stream().map(KnowledgeBaseRagRetrievalHit::toCitation).toList(),
+                false,
+                "in_memory",
+                "",
+                "mock-model",
+                Map.of(101L, 1, 102L, 1)
         );
     }
 }

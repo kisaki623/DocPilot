@@ -4,6 +4,27 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-04 RAG 自然语料审计 Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/rag-natural-corpus-audit-smoke.ps1 -Mode run`
+
+Marker: `docpilot-rag-natural-corpus-20260704143033-86b4f3`
+
+已验证：
+
+- 新增 `naturalCorpus` gate：使用 5 份临时自然语料 txt 文档，覆盖单文档事实、数字事实、多文档总结、干扰文档、no-evidence 和绑定 KnowledgeBase 的 Conversation Trace。
+- 数字事实与干扰控制：invoice retention 问题最终 `numericQaCitations=1`，`distractorInvoiceCitationCount=1`，`distractorMarketingCitationCount=0`，避免把 marketing retention 干扰文档作为答案引用。
+- 多文档自然问题：checkout incident 与 support SLA 总结同时覆盖 incident / support 文档，retrieve 与 citation 均命中两份目标文档。
+- no-evidence：contractor payroll payment date 问题在 populated KB 中 `retrieveNoEvidence=true` 且 `qaNoEvidence=true`。
+- Conversation Trace：绑定自然语料 KB 后 `ragTriggered=true`、`ragRequired=true`、`evidenceCount>0`，并记录脱敏 `documentHitCounts`。
+- 同轮核心 gate 保持 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant payload consistency、单文档 RAG、KnowledgeBase RAG、短文档 RAG、multi-query、answer grounding、权限隔离、frontendInteraction、artifact redaction 和 cleanup。
+
+边界：本次 run 是小规模真实链路自然语料 smoke，用于证明当前 RAG 质量门禁能发现并回归一类 citation 干扰问题；它不是大规模真实语料 relevance benchmark、线上 SLA、完整人工评测或通用语义蕴含模型。artifact 位于 ignored `backend/target/rag-natural-corpus/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-04 真实体验审计防回归增强 Smoke
 
 状态：PASS

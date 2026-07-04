@@ -1,5 +1,16 @@
 # Current Task
 
+当前任务：RAG 自然语料真实审计 gate v1（DONE）
+
+## 2026-07-04 补充：自然语料真实链路质量门禁
+
+- 目标：把 RAG 真实体验审计从 marker-heavy smoke 扩到更接近真实企业知识库问法的自然语料 gate，覆盖单文档事实、数字事实、多文档总结、干扰文档、no-evidence、Conversation Trace、前端交互和 multi-query。
+- 已完成：新增 `scripts/smoke/rag-natural-corpus-audit-smoke.ps1`，默认委托 `cloud-quality-smoke.ps1` 并启用 `naturalCorpus`、`multiQueryRag` 和 `frontendInteraction` gate；`cloud-quality-smoke.ps1` 新增 `-EnableNaturalCorpusGate`、上传限流 retry 和更长 API retry。
+- 已完成后端：KnowledgeBase QA 在回答生成后增加答案数字一致性的 citation 精炼；当答案明确给出数字事实时，会过滤只包含其他数字值的干扰引用，但保留 retrieval hits 和 documentHitCounts 便于 trace / 调试。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704143033-86b4f3`；`naturalCorpus` 覆盖 5 份自然语料临时文档、6 类 case，单文档 / 数字事实 / 多文档 / 干扰 / no-evidence / Trace 均通过，`distractorMarketingCitationCount=0`。
+- 本轮过程：真实 run 先暴露上传限流 `code=1014`、invoice retention 问题引用 marketing retention 干扰文档、以及 run marker 长数字导致 citation 精炼误伤多文档总结引用；已分别通过 runner retry、数字 citation 精炼和忽略长编号修复并重跑 PASS。
+- 边界：本轮真实 run 创建临时 smoke 用户、文档、KnowledgeBase 和 Conversation；artifact 位于 ignored 的 `backend/target/rag-natural-corpus/.../artifact.json`，不提交原文。未删除业务数据，未操作远程 Docker，未改数据库结构，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
 当前任务：真实体验审计问题防回归与短文档泛化 gate（DONE）
 
 ## 2026-07-04 补充：旧 REA 问题防回归收口

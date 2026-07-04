@@ -109,10 +109,22 @@ class RagRealQaEvalSmokeScriptSafetyTest {
 
         assertThat(script)
                 .contains("Test-AnswerGrounding")
+                .contains("Test-TextContainsAll")
+                .contains("Test-TextContainsAny")
                 .contains("answerGrounding")
                 .contains("expectedMarkerHits")
                 .contains("forbiddenMarkerHit")
                 .contains("citationMarkerPresent")
+                .contains("naturalCorpus")
+                .contains("EnableNaturalCorpusGate")
+                .contains("naturalCorpusGateEnabled")
+                .contains("naturalCorpusGate")
+                .contains("singleDocumentEvidenceCoverage")
+                .contains("numericEvidenceCoverage")
+                .contains("multiDocumentCoverage")
+                .contains("distractorCitationControl")
+                .contains("noEvidenceRejection")
+                .contains("conversationTraceCoverage")
                 .contains("realQaHardGate")
                 .contains("realQaSemanticGate")
                 .contains("realProviderFaithfulness")
@@ -141,6 +153,58 @@ class RagRealQaEvalSmokeScriptSafetyTest {
                 .doesNotContain("uiToken =");
     }
 
+    @Test
+    void shouldKeepNaturalCorpusWrapperDelegatedAndSanitized() throws Exception {
+        Process process = new ProcessBuilder(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                naturalCorpusScriptPath().toString(),
+                "-Mode",
+                "plan")
+                .redirectErrorStream(true)
+                .start();
+
+        boolean completed = process.waitFor(20, TimeUnit.SECONDS);
+        String output = readAll(process.getInputStream());
+        String script = Files.readString(naturalCorpusScriptPath(), StandardCharsets.UTF_8);
+
+        assertThat(completed).isTrue();
+        assertThat(process.exitValue()).isZero();
+        assertThat(output)
+                .contains("docpilot-rag-natural-corpus")
+                .contains("naturalCorpusEnabledByDefault")
+                .contains("multiQueryGateEnabledByDefault")
+                .contains("frontendInteractionGateEnabledByDefault")
+                .contains("natural_single_doc_fact")
+                .contains("natural_numeric_fact")
+                .contains("natural_multi_doc_summary")
+                .contains("natural_distractor_control")
+                .contains("natural_no_evidence")
+                .contains("natural_conversation_trace")
+                .contains("naturalCorpus")
+                .contains("artifactRedaction")
+                .doesNotContain("Authorization")
+                .doesNotContain("Bearer ")
+                .doesNotContain("apiKey =");
+
+        assertThat(script)
+                .contains("scripts/smoke/cloud-quality-smoke.ps1")
+                .contains("backend/target/rag-natural-corpus")
+                .contains("SkipNaturalCorpusGate")
+                .contains("EnableNaturalCorpusGate")
+                .contains("EnableMultiQueryGate")
+                .contains("EnableFrontendInteractionGate")
+                .doesNotContain("Remove-Item -Recurse")
+                .doesNotContain("Authorization")
+                .doesNotContain("Bearer")
+                .doesNotContain("apiKey =")
+                .doesNotContain("Write-Host $EnvFile")
+                .doesNotContain("Write-Output $EnvFile");
+    }
+
     private static String readAll(InputStream inputStream) throws Exception {
         return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
@@ -151,5 +215,9 @@ class RagRealQaEvalSmokeScriptSafetyTest {
 
     private static Path delegateScriptPath() {
         return Path.of("..", "scripts", "smoke", "cloud-quality-smoke.ps1");
+    }
+
+    private static Path naturalCorpusScriptPath() {
+        return Path.of("..", "scripts", "smoke", "rag-natural-corpus-audit-smoke.ps1");
     }
 }

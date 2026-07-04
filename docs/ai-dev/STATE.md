@@ -2,6 +2,9 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 RAG 自然语料真实审计 gate v1 已完成并通过真实链路验证。新增 `scripts/smoke/rag-natural-corpus-audit-smoke.ps1`，默认运行 `naturalCorpus`、`multiQueryRag` 和 `frontendInteraction` gate；最终 marker `docpilot-rag-natural-corpus-20260704143033-86b4f3` PASS，覆盖 5 份自然语料临时文档、单文档事实、数字事实、多文档总结、干扰文档、no-evidence、Conversation Trace、前端交互、权限隔离和脱敏 artifact。
+- 本轮自然语料审计真实暴露并修复了一个 KB QA citation 精度问题：invoice archive retention 的答案曾同时引用 marketing retention 干扰文档；现在 KnowledgeBase QA 会在回答生成后做答案数字一致性 citation 精炼，数字事实回答不再挂载只包含其他数字值的干扰引用，同时保留 retrieval hits / documentHitCounts 作为 trace 证据。最终真实 gate 中 `distractorInvoiceCitationCount=1`、`distractorMarketingCitationCount=0`。
+- Smoke runner 稳定性同步增强：上传接口遇到限流 `code=1014` 会 retry/backoff；通用 API 请求 retry 更适合长链路真实审计。该增强只影响 smoke runner 的耐跑性，不绕过业务限流、不删除数据、不修改数据库结构。
 - 2026-07-04 真实体验审计问题已进入防回归状态。`scripts/smoke/cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-cloud-quality-20260704135601-944384` PASS；`shortDocumentRag` 现在覆盖短文档中文内容 retrieve、数字事实 retrieve、KnowledgeBase 双文档覆盖、相似短文档干扰和 citation marker，`failureBuckets=[]`；`frontendInteraction` 同步覆盖 quote-first UI、KnowledgeBase 双 citation UI、权限提示和 console error，`failureBuckets=[]`。
 - `scripts/smoke/rag-real-qa-eval-smoke.ps1` 在未 `-SkipFrontend` 时默认启用 `frontendInteraction`，因此后续 RAG real QA wrapper 也会把 P2/P3 浏览器交互回归纳入真实链路门禁。若需要快速 API-only 验证，可显式使用 `-SkipFrontend` 或 `-SkipFrontendInteractionGate`。
 - 2026-07-03 真实体验审计 P2/P3 浏览器细验已收口。`scripts/smoke/cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-cloud-quality-20260703231920-e74334` PASS；新增 `frontendInteraction` gate 覆盖文档详情 RAG 检索预览 quote-first 可见、KnowledgeBase 短 Alpha / Beta 双 citation marker 可见、跨用户文档无权限提示可见和 console error count `0`。真实体验台账中的 `REA-20260703-P2-001`、`REA-20260703-P3-001` 已标为 `VERIFIED`。
