@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-04 Agent Quality Console MVP Slice 3
+
+- 新增内部只读 `QualityController`：`GET /api/quality/runs` 返回最近 run summary，`GET /api/quality/runs/{marker}` 返回 run detail。
+- 访问控制保持 P0 最小方案：API 默认由 `app.quality.console.enabled=false` 关闭；打开后仍要求已有登录上下文，普通未登录请求不能读取质量详情。未新增 admin 表或角色系统。
+- 返回数据继续复用 Slice 2 脱敏 DTO，不返回原始 artifact、prompt、answer 原文、文档全文、evidence context、API key、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，21 tests；Controller test 覆盖关闭开关、缺登录上下文、默认 limit、detail 查询和 detail missing。
+- 边界：本片不做前端 `/quality`，不新增数据库表，不启动服务，不创建业务数据，不提交 artifact 原文，不 push。
+
 ## 2026-07-04 Agent Quality Console MVP Slice 2
 
 - 新增后端只读 artifact 聚合 service：`QualityArtifactServiceImpl` 扫描白名单 root，默认返回最近 `20` 个 run，并支持按 marker 获取 `QualityRunDetail`。

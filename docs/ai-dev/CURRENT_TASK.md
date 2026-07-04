@@ -1,5 +1,16 @@
 # Current Task
 
+当前任务：Agent Quality Console MVP Slice 3：后端 Quality API（DONE）
+
+## 2026-07-04 补充：Quality API 最小入口
+
+- 目标：在 Slice 2 的 artifact 聚合 service 之上增加内部只读 Quality API，供后续 `/quality` 前端读取脱敏 summary/detail。
+- 已完成：新增 `QualityController`，提供 `GET /api/quality/runs` 和 `GET /api/quality/runs/{marker}`；返回 `ApiResponse<List<QualityRunSummary>>` 和 `ApiResponse<QualityRunDetail>`。
+- 访问控制：`/api/quality/**` 仍走现有 `/api/**` 登录拦截；Controller 额外要求 `app.quality.console.enabled=true`，默认关闭时返回 `FORBIDDEN`。P0 未新增 admin 角色表，也未改用户权限模型。
+- 安全边界：API 只返回 Slice 2 的脱敏 DTO，不返回原始 artifact、prompt、answer 原文、文档全文、evidence context、API key、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，21 tests；Controller test 覆盖 console disabled、缺登录上下文、空列表 / 默认 limit、detail 查询和 detail missing。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动服务，未创建业务数据，未做前端页面，未提交 artifact 原文，未 push。
+
 当前任务：Agent Quality Console MVP Slice 2：后端 artifact 聚合 service（DONE）
 
 ## 2026-07-04 补充：Quality artifact 聚合 service

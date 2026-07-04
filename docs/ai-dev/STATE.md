@@ -2,6 +2,8 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 Agent Quality Console MVP Slice 3 已完成后端 Quality API。新增 `GET /api/quality/runs` 与 `GET /api/quality/runs/{marker}`，返回 Slice 2 的脱敏 `QualityRunSummary` / `QualityRunDetail`，不透传原始 artifact。
+- `/api/quality/**` 当前是内部只读 API，仍复用现有 `/api/**` 登录拦截，并额外要求 `app.quality.console.enabled=true`。默认关闭；P0 不新增 admin 角色表、不改变现有用户权限模型。
 - 2026-07-04 Agent Quality Console MVP Slice 2 已完成后端 artifact 聚合 service。新增 `com.docpilot.backend.quality` 只读聚合能力，可以从白名单 root 扫描最近 artifact，输出 `QualityRunSummary` / `QualityRunDetail`，并把坏 JSON 降级为 `REVIEW` + `artifactParseFailed=true`。
 - Quality artifact 聚合仍是 P0 后端 service 层能力，尚未暴露 `/api/quality/**`，也未新增前端 `/quality` 页面。service 不读取业务数据库、不启动真实链路、不创建数据、不新增表。
 - 当前 Quality DTO 只允许返回 marker、source、artifactName、status、updatedAt、gate 计数、失败 / REVIEW 桶、gate 数值 / 布尔指标、eval case 摘要和 token usage 数值；不会透传原始 artifact、prompt、answer 原文、文档全文、evidence context、API key、secret、连接串或云地址。
