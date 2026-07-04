@@ -78,6 +78,40 @@ class MemoryProviderExtractionEvalRunnerTest {
                 .doesNotContain("Please remember the token placeholder");
     }
 
+    @Test
+    void shouldTolerateProviderJsonFenceCaseAndTypeOrder() {
+        MemoryProviderExtractionEvalRunner runner = new MemoryProviderExtractionEvalRunner();
+        MemoryProviderExtractionEvalRunner.ProviderEvalCase evalCase =
+                new MemoryProviderExtractionEvalRunner.ProviderEvalCase(
+                        "provider-memory-fenced-json",
+                        "provider_memory_extraction",
+                        "My current goal is to finish the audit. I prefer concise direct answers.",
+                        List.of(UserMemoryType.ANSWER_STYLE, UserMemoryType.TASK_GOAL),
+                        List.of("PRIVATE_PROVIDER_RESPONSE")
+                );
+        AiAnswerService provider = new StubProvider("""
+                ```json
+                {"suggestions":[
+                  {"memoryType":"task-goal","content":"User wants to finish the audit","confidence":0.81},
+                  {"memoryType":"answer style","content":"User prefers concise direct answers","confidence":0.83}
+                ]}
+                ```
+                """);
+
+        MemoryProviderExtractionEvalRunner.ProviderEvalResult result =
+                runner.evaluate(provider, List.of(evalCase));
+        MemoryProviderExtractionEvalRunner.ProviderCaseEvaluation evaluation = result.caseEvaluations().get(0);
+        String safeText = result.toSafeMap().toString();
+
+        assertThat(evaluation.passed()).isTrue();
+        assertThat(evaluation.suggestionTypesHit()).isTrue();
+        assertThat(evaluation.suggestionTypes())
+                .containsExactly(UserMemoryType.TASK_GOAL, UserMemoryType.ANSWER_STYLE);
+        assertThat(safeText)
+                .doesNotContain("finish the audit")
+                .doesNotContain("concise direct answers");
+    }
+
     private record StubProvider(String response) implements AiAnswerService {
 
         @Override

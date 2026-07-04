@@ -59,7 +59,7 @@ public class MemoryProviderExtractionEvalRunner {
         List<String> suggestionTypes = suggestions.stream().map(ProviderSuggestion::memoryType).toList();
         List<String> failureReasons = new ArrayList<>();
 
-        boolean suggestionTypesHit = suggestionTypes.equals(evalCase.expectedSuggestionTypes());
+        boolean suggestionTypesHit = sameTypeMultiset(suggestionTypes, evalCase.expectedSuggestionTypes());
         if (!suggestionTypesHit) {
             failureReasons.add("suggestion_types_mismatch");
         }
@@ -101,14 +101,14 @@ public class MemoryProviderExtractionEvalRunner {
             return List.of();
         }
         try {
-            JsonNode root = objectMapper.readTree(rawAnswer.trim());
+            JsonNode root = objectMapper.readTree(extractJsonPayload(rawAnswer));
             JsonNode suggestionsNode = root.isArray() ? root : root.path("suggestions");
             if (!suggestionsNode.isArray()) {
                 return List.of();
             }
             List<ProviderSuggestion> suggestions = new ArrayList<>();
             for (JsonNode item : suggestionsNode) {
-                String memoryType = item.path("memoryType").asText("").trim();
+                String memoryType = normalizeMemoryType(item.path("memoryType").asText(""));
                 String content = item.path("content").asText("").trim();
                 double confidence = item.path("confidence").asDouble(0.0D);
                 if (!memoryType.isBlank() && !content.isBlank()) {
@@ -119,6 +119,53 @@ public class MemoryProviderExtractionEvalRunner {
         } catch (Exception ignored) {
             return List.of();
         }
+    }
+
+    private String extractJsonPayload(String rawAnswer) {
+        String resolved = rawAnswer == null ? "" : rawAnswer.trim();
+        if (resolved.startsWith("```")) {
+            int firstLineBreak = resolved.indexOf('\n');
+            int lastFence = resolved.lastIndexOf("```");
+            if (firstLineBreak >= 0 && lastFence > firstLineBreak) {
+                resolved = resolved.substring(firstLineBreak + 1, lastFence).trim();
+            }
+        }
+        int objectStart = resolved.indexOf('{');
+        int arrayStart = resolved.indexOf('[');
+        int start;
+        if (objectStart < 0) {
+            start = arrayStart;
+        } else if (arrayStart < 0) {
+            start = objectStart;
+        } else {
+            start = Math.min(objectStart, arrayStart);
+        }
+        if (start > 0) {
+            resolved = resolved.substring(start).trim();
+        }
+        return resolved;
+    }
+
+    private String normalizeMemoryType(String memoryType) {
+        return memoryType == null
+                ? ""
+                : memoryType.trim()
+                .replace('-', '_')
+                .replace(' ', '_')
+                .toUpperCase(Locale.ROOT);
+    }
+
+    private boolean sameTypeMultiset(List<String> actualTypes, List<String> expectedTypes) {
+        return typeCounts(actualTypes).equals(typeCounts(expectedTypes));
+    }
+
+    private Map<String, Integer> typeCounts(List<String> types) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (String type : types == null ? List.<String>of() : types) {
+            String normalized = normalizeMemoryType(type);
+            counts.put(normalized, counts.getOrDefault(normalized, 0) + 1);
+        }
+        return counts;
     }
 
     private String promptQuestion(ProviderEvalCase evalCase) {

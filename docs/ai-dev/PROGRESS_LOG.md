@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-04 Memory provider 小样本 v1
+
+- 新增默认关闭的 `MemoryProviderExtractionRealProviderSmokeTest`，只有 `DOCPILOT_MEMORY_PROVIDER_SMOKE_ENABLED=true` 时才会读取本机 `AI_REAL_*` 配置并调用真实 provider；普通 `mvn test` 保持无真实 provider 依赖。
+- 新增 `scripts/smoke/memory-provider-extraction-smoke.ps1`，提供 `plan` / `dry-run` / `run` 三种模式；`run` 会从本机 `.env` 注入必要 provider 配置到子进程，Maven 日志和脱敏 artifact 写入 ignored 的 `backend/target/memory-provider/`。
+- `MemoryProviderExtractionEvalRunner` 增强真实 provider 兼容性：支持 JSON code fence、`task-goal` / `answer style` 类型归一化，以及类型 multiset 判断，避免无意义顺序差异误杀。
+- 小样本 case 覆盖：`ANSWER_STYLE + TASK_GOAL`、`TECH_CONTEXT`、RAG evidence 不进入 memory、secret-like 内容不抽取；artifact 只保存 provider、model、modelCallCount、casePassRate、caseId、suggestionTypes、布尔值和失败原因。
+- 已验证：`memory-provider-extraction-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=MemoryProviderExtractionEvalRunnerTest,MemoryProviderExtractionRealProviderSmokeTest,MemoryQualitySmokeScriptSafetyTest" test` PASS，7 tests，其中真实 provider smoke 默认 skipped 1。
+- 真实验证：`memory-provider-extraction-smoke.ps1 -Mode run` PASS，marker `docpilot-memory-provider-20260704192850-695412`；`modelCallCount=4`，`casePassRate=1.0000`，`rawProviderOutputStored=false`。
+- 边界：这是 4 case 小样本真实 provider contract 验证，不是大规模 memory extraction benchmark、生产 LLM 记忆抽取替换或长期记忆质量成熟结论；未启动后端 / 前端 / tunnel，未创建业务数据，未提交 artifact 原文，未打印 secrets，未 push。
+
 ## 2026-07-04 真实用户问答体验审计 v2
 
 - 新增 `scripts/smoke/real-user-qa-experience-audit.ps1`，提供 `plan` / `dry-run` / `run` 三种模式，默认以 `docpilot-real-user-qa-*` marker 委托 `cloud-quality-smoke.ps1`，并启用 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate。

@@ -4,6 +4,25 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-04 Memory Provider Extraction Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/memory-provider-extraction-smoke.ps1 -Mode run`
+
+Marker: `docpilot-memory-provider-20260704192850-695412`
+
+已验证：
+
+- 使用真实 answer provider 做 4 case 小样本 memory extraction contract 验证。
+- 覆盖 `ANSWER_STYLE + TASK_GOAL`、`TECH_CONTEXT`、RAG evidence 不进入 memory、secret-like 内容不抽取。
+- 结果：`modelCallCount=4`，`casePassRate=1.0000`，`rawProviderOutputStored=false`。
+- Artifact 只保存 provider、model、调用次数、caseId、suggestionTypes、布尔值和失败原因；不保存对话原文、provider 原始输出、memory 内容、prompt、token、凭据、云地址或连接串。
+
+边界：这是小规模真实 provider contract smoke，不是大规模 memory extraction benchmark、生产 LLM 记忆抽取替换或长期记忆质量成熟结论；普通离线测试仍默认跳过真实 provider 调用。
+
 ## 2026-07-04 Real User QA Experience Audit Smoke
 
 状态：PASS

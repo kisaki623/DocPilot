@@ -2,9 +2,11 @@
 
 ## 2026-07-03 Roadmap Addendum
 
-- M1 provider contract slice is DONE: a test-side `MemoryProviderExtractionEvalRunner` now validates JSON memory suggestions from an `AiAnswerService` provider and stores only redacted summaries. Current evidence is stub-provider only; real-provider validation remains a later gated small-sample run.
+- 2026-07-04 M1 real-provider small sample is DONE: `memory-provider-extraction-smoke.ps1 -Mode run` marker `docpilot-memory-provider-20260704192850-695412` passed with 4 real provider calls, `casePassRate=1.0000` and `rawProviderOutputStored=false`. This is small-sample provider contract evidence, not a large-scale memory extraction benchmark or proof that LLM long-term memory quality is mature.
+- `MemoryProviderExtractionEvalRunner` now tolerates common real-provider response drift: JSON code fences, memory type case / hyphen / space variants, and unordered type output. It still fails missing / extra memory types, unsafe suggestions and forbidden marker leakage.
+- M1 provider contract slice is DONE: a test-side `MemoryProviderExtractionEvalRunner` validates JSON memory suggestions from an `AiAnswerService` provider and stores only redacted summaries; it now has both stub-provider tests and the 2026-07-04 gated small real-provider sample.
 - M1 first slice is DONE for artifact honesty: Memory Quality Eval now distinguishes rule-based extraction from real-provider-backed extraction through `providerBackedCaseRate`, `providerEvaluation`, per-case `extractionProvider` and `providerBacked`.
-- Current M1 evidence remains rule-based only. The next M1 slice should add a gated, small real-provider memory extraction comparison or a real-link smoke gate before claiming LLM memory extraction quality.
+- Current M1 evidence is still intentionally small: rule-based runtime memory smoke plus a 4-case real-provider extraction contract sample. The next M1 step should expand case diversity before claiming broader LLM memory extraction quality.
 - R3 first slice is DONE: RAG citations now expose quote-level fields for both single-document and KnowledgeBase paths. This makes evidence easier to audit than chunk-level snippets alone while keeping existing response fields compatible.
 - The current R3 slice is API/test-side only. It does not change retrieval ranking, answer generation, schema or runtime smoke behavior; quote-first frontend rendering should be done as a separate encoding-safe UI slice.
 - R1 runtime evidence is now DONE: real RAG QA smoke marker `docpilot-rag-real-qa-20260703192456-2a62e9` passed with `multiQueryRag` enabled, `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, and two-document retrieve/citation coverage.

@@ -2,6 +2,8 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 Memory provider 小样本 v1 已完成。新增默认关闭的 `MemoryProviderExtractionRealProviderSmokeTest` 和 `scripts/smoke/memory-provider-extraction-smoke.ps1`；真实 run marker `docpilot-memory-provider-20260704192850-695412` PASS，4 次真实 provider 调用，`casePassRate=1.0000`，`rawProviderOutputStored=false`。该结论是小样本 provider contract 证据，不代表大规模长期记忆抽取质量成熟。
+- `MemoryProviderExtractionEvalRunner` 已能处理真实 provider 常见 JSON 包裹和类型表达漂移：支持 JSON code fence、大小写 / hyphen / space 归一化，并按 memory type multiset 判断命中；artifact 仍只保存 provider/model/call count/caseId/types/booleans/failure reasons，不保存原始对话、provider 输出、memory 内容、prompt 或凭据。
 - 2026-07-04 真实用户问答体验审计 v2 已完成。新增 `scripts/smoke/real-user-qa-experience-audit.ps1`，默认组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate；真实 run marker `docpilot-real-user-qa-20260704191307-661bc0` PASS，覆盖 tunnel、backend health、frontend routes、上传 / parse / indexing、chunk 质量、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、25 个自然语料 case、Conversation Trace、Memory 质量、权限隔离和脱敏 artifact。
 - 本轮真实审计先暴露 `answerFactExpression` 对单一英文短语过度敏感：evidence / citation 已支撑，但真实回答表达为其他自然说法时会误判。`cloud-quality-smoke.ps1` 已支持 `a|b|c` 同义表达组，保持 answer faithfulness 门禁同时减少字符串脆弱性；修正后 `answerFaithfulnessPassCount=11/11`、`citationPhraseSupportPassCount=22/22`。
 - 2026-07-04 Evidence Coverage 报告 v1 已接入自然语料真实 smoke。`naturalCorpus` artifact 现在输出 `evidenceCoverageReport`，直接列出 retrieval / citation / phrase / answer / distractor / no-evidence 的 caseId 级 miss / leak / failure 清单。真实 run marker `docpilot-rag-natural-corpus-20260704160327-16b351` PASS；各类 miss / leak / failure 清单均为空。

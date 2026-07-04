@@ -1,5 +1,16 @@
 # Current Task
 
+当前任务：Memory provider 小样本 v1（DONE）
+
+## 2026-07-04 补充：真实 provider 记忆抽取小样本
+
+- 目标：把 Memory provider 从 stub/provider contract 推进到小规模真实 provider 证据，同时保持普通离线测试不依赖真实密钥、不保存原始对话、provider 输出或 memory 内容。
+- 已完成：新增默认关闭的 `MemoryProviderExtractionRealProviderSmokeTest`，通过 `DOCPILOT_MEMORY_PROVIDER_SMOKE_ENABLED=true` 才运行；新增 `scripts/smoke/memory-provider-extraction-smoke.ps1`，支持 `plan` / `dry-run` / `run`，最多 4 次模型调用，artifact root 为 ignored 的 `backend/target/memory-provider`。
+- 已完成 runner 稳定性：`MemoryProviderExtractionEvalRunner` 支持 provider 返回 JSON code fence、`task-goal` / `answer style` 这类大小写与分隔符变化，并按 memory type multiset 判断类型命中，避免真实 provider 的无意义顺序差异造成误判。
+- 真实验证：`memory-provider-extraction-smoke.ps1 -Mode run` PASS，marker `docpilot-memory-provider-20260704192850-695412`；`modelCallCount=4`，`casePassRate=1.0000`，`rawProviderOutputStored=false`。
+- 离线验证：`memory-provider-extraction-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=MemoryProviderExtractionEvalRunnerTest,MemoryProviderExtractionRealProviderSmokeTest,MemoryQualitySmokeScriptSafetyTest" test` PASS，7 tests，其中真实 provider smoke 默认 skipped 1。
+- 边界：这是 4 case 小样本真实 provider 验证，不是大规模 memory extraction benchmark、生产 LLM 记忆抽取替换或长期记忆质量成熟结论；未启动后端 / 前端 / tunnel，未创建业务数据，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
 当前任务：真实用户问答体验审计 v2（DONE）
 
 ## 2026-07-04 补充：真实用户 QA 体验审计入口

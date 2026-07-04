@@ -80,6 +80,56 @@ class MemoryQualitySmokeScriptSafetyTest {
                 .doesNotContain("apiKey =");
     }
 
+    @Test
+    void shouldKeepMemoryProviderWrapperGatedAndSanitized() throws Exception {
+        Process process = new ProcessBuilder(
+                "powershell",
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                providerWrapperPath().toString(),
+                "-Mode",
+                "plan")
+                .redirectErrorStream(true)
+                .start();
+
+        boolean completed = process.waitFor(20, TimeUnit.SECONDS);
+        String output = readAll(process.getInputStream());
+        String wrapper = Files.readString(providerWrapperPath(), StandardCharsets.UTF_8);
+
+        assertThat(completed).isTrue();
+        assertThat(process.exitValue()).isZero();
+        assertThat(output)
+                .contains("docpilot-memory-provider")
+                .contains("MemoryProviderExtractionRealProviderSmokeTest")
+                .contains("JSON-only memory suggestion contract")
+                .contains("RAG evidence isolation")
+                .contains("secret-like content rejection")
+                .contains("redacted artifact")
+                .doesNotContain("Authorization")
+                .doesNotContain("Bearer ")
+                .doesNotContain("apiKey =");
+
+        assertThat(wrapper)
+                .contains("ValidateSet")
+                .contains("dry-run")
+                .contains("DOCPILOT_MEMORY_PROVIDER_SMOKE_ENABLED")
+                .contains("DOCPILOT_MEMORY_PROVIDER_SMOKE_ARTIFACT")
+                .contains("AI_REAL_PROVIDER")
+                .contains("AI_REAL_BASE_URL")
+                .contains("AI_REAL_API_KEY")
+                .contains("AI_REAL_MODEL")
+                .contains("MemoryProviderExtractionRealProviderSmokeTest")
+                .contains("backend/target/memory-provider")
+                .contains("maven.log")
+                .doesNotContain("Remove-Item -Recurse")
+                .doesNotContain("Write-Host $EnvFile")
+                .doesNotContain("Write-Output $EnvFile")
+                .doesNotContain("Write-Host $apiKey")
+                .doesNotContain("Write-Output $apiKey");
+    }
+
     private static String readAll(InputStream inputStream) throws Exception {
         return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
     }
@@ -90,5 +140,9 @@ class MemoryQualitySmokeScriptSafetyTest {
 
     private static Path delegatePath() {
         return Path.of("..", "scripts", "smoke", "cloud-quality-smoke.ps1");
+    }
+
+    private static Path providerWrapperPath() {
+        return Path.of("..", "scripts", "smoke", "memory-provider-extraction-smoke.ps1");
     }
 }
