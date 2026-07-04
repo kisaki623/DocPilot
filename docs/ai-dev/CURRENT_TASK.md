@@ -1,5 +1,17 @@
 # Current Task
 
+当前任务：Agent Quality Console MVP Slice 5：前端 Overview + Run Detail（DONE）
+
+## 2026-07-04 补充：`/quality` 内部质量控制台页面
+
+- 目标：新增前端 Agent Quality Console P0 页面，覆盖 Overview + Run Detail，不做复杂 APM、告警系统、多租户后台或大规模调度平台。
+- 已完成：新增 `frontend/lib/quality-api.ts`，封装 `GET /api/quality/runs` 与 `GET /api/quality/runs/{marker}` 的脱敏类型和请求；新增 `frontend/app/quality/page.tsx`。
+- 页面能力：Overview 展示最近 run、PASS / REVIEW / FAILED 统计、gate 数、失败 / REVIEW 桶、token usage / cost 数值；Run Detail 展示 gate 列表、eval case 结果、RAG / Memory / Agent 类摘要字段；`Trace` / `Eval` / `Failures` 作为预留入口。
+- 路由 smoke 策略：`/quality` 默认渲染控制台壳和刷新按钮，不自动请求后端，避免旧登录态或未启动 backend 时把 route smoke 变成后端可达性测试；完整链路验证可使用 `/quality?autoload=1` 自动拉取 API。
+- 已完成小修：新增 `frontend/app/icon.svg`，避免浏览器 route smoke 产生 favicon 404。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `http://localhost:3007/quality?routeSmoke=2` 无 console error；`390x844` 移动端 snapshot 未见横向溢出；本轮启动的 `3007` 前端 dev server 已清理释放。
+- 边界：本片不新增后端功能，不改变业务流程，不展示普通用户入口，不提交 artifact 原文，不 push。
+
 当前任务：Agent Quality Console MVP Slice 4：轻量 Eval Case JSON + Runner（DONE）
 
 ## 2026-07-04 补充：Agent Quality Eval 轻量离线门禁

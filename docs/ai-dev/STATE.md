@@ -2,6 +2,9 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-04 Agent Quality Console MVP Slice 5 已完成前端 `/quality` P0 页面。新增 `frontend/lib/quality-api.ts` 和 `frontend/app/quality/page.tsx`，页面包含 Overview + Run Detail，展示 run 状态、gate 统计、失败桶、token usage / cost 数值、gate 列表和 eval case 结果；Trace / Eval / Failures 作为预留入口。
+- `/quality` 当前是内部页面，不在普通用户主流程中展示入口。默认打开页面不自动请求后端，避免未启动 backend 或旧 token 影响 route smoke；真实完整链路验证可用 `/quality?autoload=1`。
+- 前端 route smoke 已验证：`npm run lint` PASS，`npm run build` PASS，Playwright 打开 `/quality` 无 console error，`390x844` 未见横向溢出。新增 `frontend/app/icon.svg` 解决 favicon 404。
 - 2026-07-04 Agent Quality Console MVP Slice 4 已完成轻量 Agent Quality Eval Case JSON + Runner。新增 JSON case fixture、离线 runner、默认跳过的 smoke writer 和 `scripts/smoke/agent-quality-eval-smoke.ps1`；脚本支持 `plan` / `dry-run` / `run`，run 只执行离线 JUnit 并生成 ignored 脱敏 artifact。
 - `backend/target/agent-quality-eval` 已加入 Quality artifact 聚合白名单。Agent Quality Eval artifact 只保存 marker、status、caseId、caseType、passed、traceId / agentRunId、失败桶和聚合计数，不保存 question、expectedBehavior、answer 原文、prompt、文档全文或 evidence context。
 - 真实本地离线 run marker `docpilot-agent-quality-eval-20260704220047-9c9af0` PASS；该结果证明 eval contract / artifact 安全链路可用，不代表真实 Agent 大规模效果评测。

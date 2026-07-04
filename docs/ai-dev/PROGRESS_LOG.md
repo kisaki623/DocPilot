@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-04 Agent Quality Console MVP Slice 5
+
+- 新增 `frontend/lib/quality-api.ts` 和 `frontend/app/quality/page.tsx`，完成内部 `/quality` P0 页面：Overview 展示 run 状态、gate 统计、失败桶和 token usage / cost 数值；Run Detail 展示 gate 列表和 eval case 结果。
+- 页面保留 `Trace` / `Eval` / `Failures` 入口，但不展开复杂平台。默认 `/quality` 不自动请求后端，避免路由 smoke 被旧 token / 未启动 backend 干扰；完整链路可用 `/quality?autoload=1`。
+- 新增 `frontend/app/icon.svg`，避免浏览器 route smoke 产生 favicon 404。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `http://localhost:3007/quality?routeSmoke=2` 无 console error；`390x844` snapshot 未见横向溢出；本轮启动的 `3007` 前端 dev server 已清理。
+- 边界：本片不改后端 API，不新增数据库表，不启动真实业务链路，不提交 artifact 原文，不 push。
+
 ## 2026-07-04 Agent Quality Console MVP Slice 4
 
 - 新增轻量 Agent Quality Eval fixture：`agent-quality-eval-cases.json` 包含 `caseId`、`question`、`expectedBehavior`、`expectedEvidence`、`expectedTools`、`mustContain`、`mustNotContain`、`tags` 和 `scoringRules`。
