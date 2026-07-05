@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-05 | `docpilot-real-user-qa-20260705192354-eba0fc` | PASS（Agent Quality Console 7-case 回归） | `backend/target/audit/docpilot-real-user-qa-20260705192354-eba0fc/artifact.json` | 真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；`/api/quality/eval-cases` 返回 7 个 case，其中 4 个带 `sourceIssueIds`，7 个带 `remediationHints`；浏览器 `/quality?autoload=1` 桌面和 `390px` 移动端无 console error、无横向溢出。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705165151-bbe588` | PASS（Agent Quality Console Phase 6 回归） | `backend/target/audit/docpilot-real-user-qa-20260705165151-bbe588/artifact.json` | 修复 Quality Eval Catalog 构造器注入后真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；`/quality?autoload=1` 可见最新 marker、Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705164732-f54da1` | BLOCKED（已修复验证） | `backend/target/audit/docpilot-real-user-qa-20260705164732-f54da1/artifact.json` | tunnel / config consistency PASS，但 backend health 未 UP；本地日志定位为 `QualityEvalCatalogServiceImpl` 多构造器缺少显式 `@Autowired`，已记录为 `REA-20260705-P1-007` 并修复验证。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705145304-7a53b8` | PASS（干扰 citation 修复验证） | `backend/target/audit/docpilot-real-user-qa-20260705145304-7a53b8/artifact.json` | 修复 `REA-20260704-P2-006` 后真实用户 QA 审计通过；`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`，frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact 脱敏均 PASS。 |
@@ -63,6 +64,29 @@
 | `REA-20260704-P3-005` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Answer Faithfulness Gate | `docpilot-real-user-qa-20260704190235-553df7` | 自然语料 answer fact expression 对单一英文短语过度敏感 |
 | `REA-20260704-P2-006` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-real-user-qa-20260704221704-4abc6f` | 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation |
 | `REA-20260705-P1-007` | VERIFIED（已验证） | P1 | 功能 bug | Agent Quality Console / Backend Startup | `docpilot-real-user-qa-20260705164732-f54da1` | Eval Catalog service 构造器注入缺失导致 backend health BLOCKED |
+
+## 2026-07-05 Agent Quality Console 7-case 回归
+
+验证 marker：`docpilot-real-user-qa-20260705192354-eba0fc`
+
+状态：PASS
+
+已验证：
+
+- 真实用户 QA 审计通过：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、naturalCorpus、multiQueryRag、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Agent Quality Console 可见最新真实 run：`/api/quality/runs` 可见最新 marker，`/api/quality/runs/{marker}` 状态为 `PASS`，gate 数为 `22`。
+- Eval Catalog 可见 7 个 case：其中 4 个带 `sourceIssueIds`，7 个带 `remediationHints`；这些字段只包含脱敏编号和安全 identifier。
+- 浏览器 `/quality?autoload=1` 可见最新 marker、Eval Catalog、source issue、verified marker、remediation hints、Failure Triage、Run Comparison 和 Model / Cost Summary；桌面和 `390px` 移动端 console error count 为 `0`，无横向溢出。
+
+本轮发现：
+
+- 无新增 P0/P1/P2/P3 bug。
+- 无环境 BLOCKED。
+
+边界：
+
+- 本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；artifact 位于 ignored 的 `backend/target/audit/`。
+- 未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
 
 ## 2026-07-05 Agent Quality Console Phase 6 回归
 

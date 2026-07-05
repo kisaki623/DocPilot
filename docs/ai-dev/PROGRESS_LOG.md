@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console 7-case 真实审计回归
+
+- `real-user-qa-experience-audit.ps1 -Mode plan` PASS；`-Mode dry-run -FrontendBaseUrl http://127.0.0.1:3007` PASS。
+- 真实 run PASS，marker `docpilot-real-user-qa-20260705192354-eba0fc`；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Console API 可见性 PASS：`/api/quality/runs` 可见最新 marker，`/api/quality/eval-cases` 返回 7 个 case，其中 4 个带 `sourceIssueIds`，7 个带 `remediationHints`。
+- 浏览器 `/quality?autoload=1` PASS：最新 marker、source issue、verified marker、remediation hints 可见；桌面和 `390px` 移动端无横向溢出，console error 为 `0`。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：创建了临时 smoke 数据和 ignored 脱敏 artifact；未删除业务数据，未操作远程 Docker / hk-ops，未改 schema，未提交 artifact 原文，未 push。
+
 ## 2026-07-05 Agent Quality Console Eval Catalog 筛选 v1
 
 - `/quality` Eval Catalog 新增 risk、owner、status 三个本地筛选控件，支持快速定位高风险、特定 owner 或失败 / REVIEW case。

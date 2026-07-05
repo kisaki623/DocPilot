@@ -4,6 +4,27 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-05 Agent Quality Console 7-case Audit Regression
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+- 浏览器打开 `/quality?autoload=1`
+
+Marker:
+
+- Audit：`docpilot-real-user-qa-20260705192354-eba0fc`
+
+已验证：
+
+- 真实审计 PASS：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、naturalCorpus、multiQueryRag、answer grounding、no-evidence、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Console API 可见性 PASS：`/api/quality/runs` 可见最新 marker，detail 状态为 `PASS`；`/api/quality/eval-cases` 返回 7 个 case，其中 4 个带 `sourceIssueIds`，7 个带 `remediationHints`。
+- 浏览器 `/quality?autoload=1` 可见最新 marker、Eval Catalog、source issue、verified marker、remediation hints、Failure Triage、Run Comparison 和 Model / Cost Summary；桌面和 `390px` 移动端 console error count 为 `0`，无横向溢出。
+
+边界：本次 run 是小规模真实链路质量回归，不是线上 SLA 或大规模 benchmark；artifact 位于 ignored 的 `backend/target/audit/.../artifact.json`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-05 Agent Quality Console Phase 6 Real Audit
 
 状态：PASS

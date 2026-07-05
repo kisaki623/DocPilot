@@ -1,6 +1,18 @@
 # Current Task
 
-当前任务：Agent Quality Console Eval Catalog 筛选 v1（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入小规模真实审计回归（READY）
+当前任务：Agent Quality Console 7-case 真实审计回归（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Console 面试展示收口或下一轮 RAG / Memory 质量增强（READY）
+
+## 2026-07-05 补充：Agent Quality Console 7-case 真实审计回归
+
+- 目标：跑一轮真实用户 QA 审计，并验证 `/quality?autoload=1` 能展示最新 run、7 个 Eval Catalog case、source issue、verified marker、remediation hints 和筛选体验。
+- 已完成：`real-user-qa-experience-audit.ps1 -Mode plan` PASS，确认 plan 模式不读 env、不启动服务、不创建数据。
+- 已完成：`real-user-qa-experience-audit.ps1 -Mode dry-run -FrontendBaseUrl http://127.0.0.1:3007` PASS，确认 env、工具、tunnel 端口和 ignored artifact root 可用。
+- 真实审计：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705192354-eba0fc`。
+- 真实结果：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、naturalCorpus、multiQueryRag、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Console 验证：`/api/quality/runs` 可见最新 marker，detail 状态为 `PASS`；`/api/quality/eval-cases` 返回 7 个 case，其中 4 个带 `sourceIssueIds`，7 个带 `remediationHints`；浏览器 `/quality?autoload=1` 桌面和 `390px` 移动端无 console error、无横向溢出。
+- 后续验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 secrets / token / 云地址 / 连接串，未 push。
+- 下一片建议：如果继续 Agent Quality Console，可做面试展示收口，把 7-case catalog 和本轮 marker 同步到 showcase 讲稿；如果回到核心能力，可继续 RAG / Memory 质量增强。
 
 ## 2026-07-05 补充：Agent Quality Console Eval Catalog 筛选 v1
 
