@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-05 RAG citation 精度收口
+
+- 修复 `REA-20260704-P2-006`：KnowledgeBase QA 在答案生成后的 citation 后处理阶段新增极低分引用裁剪，只在 summary / compare 等多文档意图下、且裁剪后仍保留至少两份文档 coverage 时生效。
+- 保留 retrieval hits 和 `documentHitCounts`，避免为了让最终 citation 更干净而丢失 Trace / audit 中的召回诊断证据。
+- 新增 `KnowledgeBaseRagQaServiceImplTest` 防回归用例，覆盖目标两文档 citation 保留、低分干扰 citation 移除、召回 hits 仍保留。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest" test` PASS；`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS。
+- 真实回归：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705145304-7a53b8`；`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`，frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact redaction 均 PASS。
+- 边界：未改数据库结构，未删除业务数据，未操作远程 Docker / hk-ops，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
 ## 2026-07-04 Agent Quality Console MVP Slice 6
 
 - 完成 Slice 6 真实链路质量回归：`agent-quality-eval-smoke.ps1 -Mode run` PASS，marker `docpilot-agent-quality-eval-20260704221655-48a5cf`；`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker `docpilot-real-user-qa-20260704221704-4abc6f`。

@@ -30,6 +30,8 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeBaseRagQaServiceImpl.class);
     private static final Pattern NUMBER_PATTERN = Pattern.compile("\\b\\d+(?:\\.\\d+)?\\b");
+    private static final double LOW_CONFIDENCE_CITATION_SCORE_FLOOR = 0.05D;
+    private static final double LOW_CONFIDENCE_CITATION_MAX_SCORE_GATE = 0.5D;
 
     public static final String NO_EVIDENCE_ANSWER =
             "未在当前知识库索引中检索到足够证据，无法基于知识库回答该问题。";
@@ -165,27 +167,28 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
         if (retrieval == null || retrieval.noEvidence() || retrieval.citations().size() <= 1) {
             return retrieval;
         }
+        List<KnowledgeBaseRagEvidenceCitation> originalCitations = retrieval.citations();
+        List<KnowledgeBaseRagEvidenceCitation> filtered = originalCitations;
         Set<String> answerNumbers = extractNumbers(answer);
-        if (answerNumbers.isEmpty()) {
-            return retrieval;
+        if (!answerNumbers.isEmpty()) {
+            boolean hasNumericSupport = originalCitations.stream()
+                    .map(this::extractNumbers)
+                    .anyMatch(numbers -> intersects(numbers, answerNumbers));
+            if (hasNumericSupport) {
+                List<KnowledgeBaseRagEvidenceCitation> numericFiltered = originalCitations.stream()
+                        .filter(citation -> {
+                            Set<String> citationNumbers = extractNumbers(citation);
+                            return citationNumbers.isEmpty() || intersects(citationNumbers, answerNumbers);
+                        })
+                        .toList();
+                if (canUseFilteredCitations(originalCitations, numericFiltered, question)) {
+                    filtered = numericFiltered;
+                }
+            }
         }
-        boolean hasNumericSupport = retrieval.citations().stream()
-                .map(this::extractNumbers)
-                .anyMatch(numbers -> intersects(numbers, answerNumbers));
-        if (!hasNumericSupport) {
-            return retrieval;
-        }
-        List<KnowledgeBaseRagEvidenceCitation> filtered = retrieval.citations().stream()
-                .filter(citation -> {
-                    Set<String> citationNumbers = extractNumbers(citation);
-                    return citationNumbers.isEmpty() || intersects(citationNumbers, answerNumbers);
-                })
-                .toList();
-        if (filtered.isEmpty() || filtered.size() == retrieval.citations().size()) {
-            return retrieval;
-        }
-        if (isMultiDocumentIntent(question)
-                && distinctCitationDocumentCount(filtered) < Math.min(2, distinctCitationDocumentCount(retrieval.citations()))) {
+
+        filtered = pruneLowConfidenceMultiDocumentCitations(originalCitations, filtered, question);
+        if (filtered.size() == originalCitations.size()) {
             return retrieval;
         }
         return new KnowledgeBaseRagRetrievalResult(
@@ -209,6 +212,39 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                 retrieval.queryVariantCount(),
                 retrieval.queryDedupeCount()
         );
+    }
+
+    private boolean canUseFilteredCitations(List<KnowledgeBaseRagEvidenceCitation> originalCitations,
+                                            List<KnowledgeBaseRagEvidenceCitation> filtered,
+                                            String question) {
+        if (filtered.isEmpty() || filtered.size() == originalCitations.size()) {
+            return false;
+        }
+        return !isMultiDocumentIntent(question)
+                || distinctCitationDocumentCount(filtered) >= Math.min(2, distinctCitationDocumentCount(originalCitations));
+    }
+
+    private List<KnowledgeBaseRagEvidenceCitation> pruneLowConfidenceMultiDocumentCitations(
+            List<KnowledgeBaseRagEvidenceCitation> originalCitations,
+            List<KnowledgeBaseRagEvidenceCitation> currentCitations,
+            String question) {
+        if (!isMultiDocumentIntent(question) || currentCitations.size() <= 2) {
+            return currentCitations;
+        }
+        double maxScore = currentCitations.stream()
+                .mapToDouble(KnowledgeBaseRagEvidenceCitation::score)
+                .max()
+                .orElse(0D);
+        if (maxScore < LOW_CONFIDENCE_CITATION_MAX_SCORE_GATE) {
+            return currentCitations;
+        }
+        List<KnowledgeBaseRagEvidenceCitation> pruned = currentCitations.stream()
+                .filter(citation -> citation.score() >= LOW_CONFIDENCE_CITATION_SCORE_FLOOR)
+                .toList();
+        if (!canUseFilteredCitations(originalCitations, pruned, question)) {
+            return currentCitations;
+        }
+        return pruned;
     }
 
     private boolean isMultiDocumentIntent(String question) {

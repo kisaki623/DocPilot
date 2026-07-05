@@ -220,6 +220,31 @@ class KnowledgeBaseRagQaServiceImplTest {
     }
 
     @Test
+    void shouldDropLowScoreSummaryDistractorAfterPreservingTargetCoverage() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(multiDocumentSummaryRetrievalWithDistractor());
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenReturn("The checkout response paused background retries, and the P1 response target is 30 minutes [1][2].");
+
+        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "Summarize the checkout worker queue incident response and the P1 response target from customer support SLA.",
+                4,
+                1,
+                "s1"
+        ));
+
+        assertThat(answer.retrieval().hits()).hasSize(3);
+        assertThat(answer.retrieval().citations()).hasSize(2);
+        assertThat(answer.retrieval().citations()).extracting("documentId")
+                .containsExactly(101L, 102L);
+        assertThat(answer.audit().citationCount()).isEqualTo(2);
+        assertThat(answer.audit().documentHitCounts()).containsEntry(101L, 1)
+                .containsEntry(102L, 1)
+                .containsEntry(103L, 1);
+    }
+
+    @Test
     void shouldKeepMultiDocumentCitationsForCompareEvenWhenOnlyOneNumberAppearsInAnswer() {
         when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(multiDocumentNumericCompareRetrieval());
         when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
@@ -384,6 +409,80 @@ class KnowledgeBaseRagQaServiceImplTest {
                 "",
                 "mock-model",
                 Map.of(101L, 1, 102L, 1)
+        );
+    }
+
+    private KnowledgeBaseRagRetrievalResult multiDocumentSummaryRetrievalWithDistractor() {
+        List<KnowledgeBaseRagRetrievalHit> hits = List.of(
+                new KnowledgeBaseRagRetrievalHit(
+                        1,
+                        10L,
+                        "incident",
+                        0.999D,
+                        7L,
+                        101L,
+                        "Checkout Incident Review",
+                        1,
+                        905L,
+                        0,
+                        "Engineers paused background retries and drained the checkout worker queue.",
+                        "hash-incident",
+                        0,
+                        77,
+                        77,
+                        "mock-model"
+                ),
+                new KnowledgeBaseRagRetrievalHit(
+                        2,
+                        10L,
+                        "support",
+                        0.998D,
+                        7L,
+                        102L,
+                        "Customer Support SLA",
+                        1,
+                        906L,
+                        0,
+                        "The P1 response target is 30 minutes when checkout cannot complete.",
+                        "hash-support",
+                        0,
+                        72,
+                        72,
+                        "mock-model"
+                ),
+                new KnowledgeBaseRagRetrievalHit(
+                        3,
+                        10L,
+                        "backup",
+                        0.0007D,
+                        7L,
+                        103L,
+                        "Backup Rotation Note",
+                        1,
+                        907L,
+                        0,
+                        "The backup rotation note describes weekly restore verification and should not support checkout SLA summary.",
+                        "hash-backup",
+                        0,
+                        101,
+                        101,
+                        "mock-model"
+                )
+        );
+        return new KnowledgeBaseRagRetrievalResult(
+                7L,
+                10L,
+                "Summarize the checkout worker queue incident response and the P1 response target from customer support SLA.",
+                4,
+                1,
+                List.of(101L, 102L, 103L),
+                hits,
+                hits.stream().map(KnowledgeBaseRagRetrievalHit::toCitation).toList(),
+                false,
+                "in_memory",
+                "",
+                "mock-model",
+                Map.of(101L, 1, 102L, 1, 103L, 1)
         );
     }
 

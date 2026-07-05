@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console MVP Slice 6：真实链路质量回归（DONE，带 1 个后续 REVIEW 项）
+当前任务：`REA-20260704-P2-006` 多文档 summary 干扰 citation 修复（DONE）
+
+## 2026-07-05 补充：多文档 summary citation 精度收口
+
+- 目标：修复真实用户 QA 审计中 `ops-incident-support-summary` 在目标覆盖满足时仍带入一条低置信度干扰 citation 的问题。
+- 已完成：`KnowledgeBaseRagQaServiceImpl` 在答案生成后的 citation 后处理阶段新增多文档意图保护下的极低分 citation 裁剪；保留 retrieval hits 和 `documentHitCounts`，不破坏 Trace / 调试所需的召回证据。
+- 已完成防回归：`KnowledgeBaseRagQaServiceImplTest` 新增短复现用例，覆盖“目标两文档 citation 保留、低分干扰 citation 移除、召回 hits 仍保留”的行为。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest" test` PASS；`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS。
+- 真实回归：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705145304-7a53b8`；`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`，frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact redaction 均 PASS。
+- 问题台账：`REA-20260704-P2-006` 已从 `OPEN` 更新为 `VERIFIED`。
+- 边界：本轮未改数据库结构，未删除业务数据，未操作远程 Docker / hk-ops，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+- 下一步建议：继续进入 Agent Quality Console 的 Trace drill-down / citation explainability 小切片，让 Run Detail 能更清楚解释 citation 裁剪、REVIEW 桶和 traceId / agentRunId 的定位关系。
 
 ## 2026-07-04 补充：Agent Quality Console 真实回归与可见性验证
 

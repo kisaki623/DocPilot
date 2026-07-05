@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-05 | `docpilot-real-user-qa-20260705145304-7a53b8` | PASS（干扰 citation 修复验证） | `backend/target/audit/docpilot-real-user-qa-20260705145304-7a53b8/artifact.json` | 修复 `REA-20260704-P2-006` 后真实用户 QA 审计通过；`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`，frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact 脱敏均 PASS。 |
 | 2026-07-04 | `docpilot-real-user-qa-20260704221704-4abc6f` | REVIEW（Agent Quality Console 回归） | `backend/target/audit/docpilot-real-user-qa-20260704221704-4abc6f/artifact.json` | Agent Quality Console 可展示最新真实 audit run；核心 gate、frontendInteraction、Memory、权限隔离和脱敏均 PASS，但 `naturalCorpus` 中 `ops-incident-support-summary` 出现 `distractorCitation` review，`distractorCitationFreeCount=24/25`，已记录为 `REA-20260704-P2-006`。 |
 | 2026-07-04 | `docpilot-real-user-qa-20260704191307-661bc0` | PASS（真实用户 QA 体验审计） | `backend/target/audit/docpilot-real-user-qa-20260704191307-661bc0/artifact.json` | 新增真实用户 QA 审计入口，组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate；最终 25 个自然语料 case、answer faithfulness、citation support、Conversation Trace、Memory、权限隔离和 artifact 脱敏均 PASS。首轮先暴露 answer 事实表达门禁对单一英文短语过度敏感，已改为同义表达组后验证通过。 |
 | 2026-07-04 | `docpilot-rag-natural-corpus-20260704160327-16b351` | PASS（coverage report） | `backend/target/rag-natural-corpus/docpilot-rag-natural-corpus-20260704160327-16b351/artifact.json` | 自然语料 artifact 新增 `evidenceCoverageReport`，retrieval / citation / phrase / answer / distractor / no-evidence 的 miss、leak、failure 清单均为空；同轮 25 case、frontendInteraction、multi-query、Trace、权限隔离均 PASS。 |
@@ -58,7 +59,7 @@
 | `REA-20260704-P2-003` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-rag-natural-corpus-20260704150746-1ef5da` | 多文档 compare 问题的 citation 被数字过滤误删成单文档覆盖 |
 | `REA-20260704-P3-004` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner | `docpilot-rag-natural-corpus-20260704150252-a675b6` | 自然语料 governance 临时用户名超过注册长度约束 |
 | `REA-20260704-P3-005` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Answer Faithfulness Gate | `docpilot-real-user-qa-20260704190235-553df7` | 自然语料 answer fact expression 对单一英文短语过度敏感 |
-| `REA-20260704-P2-006` | OPEN（待修复） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-real-user-qa-20260704221704-4abc6f` | 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation |
+| `REA-20260704-P2-006` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-real-user-qa-20260704221704-4abc6f` | 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation |
 
 ## 2026-07-04 Agent Quality Console 回归审计
 
@@ -84,12 +85,12 @@
 
 ### `REA-20260704-P2-006` 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation
 
-- 状态：OPEN（待修复）
+- 状态：VERIFIED（已验证）
 - 严重级别：P2
 - 类型：功能质量问题
 - 模块：KnowledgeBase RAG Citation
 - 发现于：`docpilot-real-user-qa-20260704221704-4abc6f`
-- 修复验证：待补充
+- 修复验证：`docpilot-real-user-qa-20260705145304-7a53b8`
 
 复现步骤：
 
@@ -117,9 +118,20 @@
 - `backend/src/main/java/com/docpilot/backend/ai/service/impl/KnowledgeBaseRagRetrievalServiceImpl.java`
 - `scripts/smoke/cloud-quality-smoke.ps1`
 
-修复提交：待补充
+修复提交：本轮提交 `fix(rag): prune low confidence summary citations`
 
-验证记录：待补充。
+修复摘要：
+
+- 在 `KnowledgeBaseRagQaServiceImpl` 的答案生成后 citation 后处理阶段增加极低分 citation 裁剪；仅在多文档意图下、裁剪后仍能保留至少两份文档 coverage 时生效。
+- 保留 retrieval hits 和 `documentHitCounts`，因此 Trace / audit 仍能看到被召回过的干扰文档，不把召回诊断证据从系统里抹掉。
+- 新增单测覆盖“目标两文档 citation 保留、低分干扰 citation 移除、召回 hits 仍保留”的场景。
+
+验证记录：
+
+- `mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest" test` PASS。
+- `mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS。
+- `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705145304-7a53b8`。
+- 本次真实回归中 `naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`，frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact 脱敏均 PASS。
 
 ## 2026-07-04 真实用户 QA 体验审计 v2
 
