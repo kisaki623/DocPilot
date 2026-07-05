@@ -34,6 +34,8 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-05 | `docpilot-real-user-qa-20260705210119-7b8092` | PASS（Trace / Eval / Trend 回归） | `backend/target/audit/docpilot-real-user-qa-20260705210119-7b8092/artifact.json` | 真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；Console API detail 返回 `traceReferenceCount=2`，浏览器 `/quality?autoload=1` 和 `/quality/trace` 桌面 / `390px` 移动端无 console error、无横向溢出。 |
+| 2026-07-05 | `docpilot-real-user-qa-20260705205210-8c882e` | FAILED_CORE_FLOW（已增强诊断，未复现） | `backend/target/audit/docpilot-real-user-qa-20260705205210-8c882e/artifact.json` | 核心 RAG / Memory / Trace / 权限 gate 均 PASS，但 `frontendInteraction` 在 KnowledgeBase 阶段捕获 `TypeError` console error；旧 gate 只记录 kind，无法定位字段。已记录为 `REA-20260705-P3-008`，随后增强脱敏 `messageShape` 诊断，最终 PASS run 未复现。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705192354-eba0fc` | PASS（Agent Quality Console 7-case 回归） | `backend/target/audit/docpilot-real-user-qa-20260705192354-eba0fc/artifact.json` | 真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；`/api/quality/eval-cases` 返回 7 个 case，其中 4 个带 `sourceIssueIds`，7 个带 `remediationHints`；浏览器 `/quality?autoload=1` 桌面和 `390px` 移动端无 console error、无横向溢出。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705165151-bbe588` | PASS（Agent Quality Console Phase 6 回归） | `backend/target/audit/docpilot-real-user-qa-20260705165151-bbe588/artifact.json` | 修复 Quality Eval Catalog 构造器注入后真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；`/quality?autoload=1` 可见最新 marker、Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705164732-f54da1` | BLOCKED（已修复验证） | `backend/target/audit/docpilot-real-user-qa-20260705164732-f54da1/artifact.json` | tunnel / config consistency PASS，但 backend health 未 UP；本地日志定位为 `QualityEvalCatalogServiceImpl` 多构造器缺少显式 `@Autowired`，已记录为 `REA-20260705-P1-007` 并修复验证。 |
@@ -64,6 +66,45 @@
 | `REA-20260704-P3-005` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Answer Faithfulness Gate | `docpilot-real-user-qa-20260704190235-553df7` | 自然语料 answer fact expression 对单一英文短语过度敏感 |
 | `REA-20260704-P2-006` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-real-user-qa-20260704221704-4abc6f` | 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation |
 | `REA-20260705-P1-007` | VERIFIED（已验证） | P1 | 功能 bug | Agent Quality Console / Backend Startup | `docpilot-real-user-qa-20260705164732-f54da1` | Eval Catalog service 构造器注入缺失导致 backend health BLOCKED |
+| `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
+
+## 2026-07-05 Agent Quality Console Trace / Eval / Trend 回归
+
+验证 marker：`docpilot-real-user-qa-20260705210119-7b8092`
+
+状态：PASS
+
+已验证：
+
+- 真实用户 QA 审计通过：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、naturalCorpus、multiQueryRag、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Agent Quality Console 可见最新真实 run：`/api/quality/runs/{marker}` 返回 `summary.status=PASS`、`gateCount=22`、`evalCaseCount=27`、`traceReferenceCount=2`。
+- Eval Catalog / Trend 可见：`/api/quality/eval-cases` 返回 7 个 case；`/api/quality/trends?limit=20` 返回 20 个趋势点。
+- 浏览器 `/quality?autoload=1` 可见最新 marker、Eval Catalog、Quality Trend 和 trace reference；`/quality/trace` 可见脱敏链路步骤；桌面和 `390px` 移动端 console error count 均为 `0`，无横向溢出。
+
+本轮发现并处理：
+
+- `REA-20260705-P3-008`：中途 run `docpilot-real-user-qa-20260705205210-8c882e` 在 KnowledgeBase 阶段出现一次 `TypeError` console error，但旧 gate 只记录 kind，无法定位具体字段。已增强 smoke runner 诊断为 `phase/kind/messageShape`，并保持 `TypeError` 继续阻断；最终 PASS run 未复现该异常。
+
+边界：
+
+- 本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；artifact 位于 ignored 的 `backend/target/audit/`。
+- 未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+### `REA-20260705-P3-008` frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Smoke Runner / Frontend Interaction Gate
+- 发现于：`docpilot-real-user-qa-20260705205210-8c882e`
+- 修复验证：`docpilot-real-user-qa-20260705210119-7b8092`
+- 复现步骤：运行真实用户 QA 审计，进入 frontendInteraction gate；浏览器访问文档详情、KnowledgeBase 问答和权限负向路径。
+- 实际结果：KnowledgeBase 阶段捕获 1 条 `TypeError` console error，导致 `frontendInteraction` 为 `FAILED_CORE_FLOW`；旧 artifact 只记录 `phase=knowledgeBase` 和 `kind=typeError`，没有脱敏错误模板，无法继续定位具体可空字段。
+- 预期结果：console error 仍应阻断质量门禁，但 artifact 至少要记录脱敏后的错误类别和 message shape，便于下一轮定位；不得保存 URL、token、用户输入、answer 原文、文档全文或 evidence context。
+- 可能原因：真实前端偶发异常未稳定复现，同时 gate 诊断字段不足。
+- 建议修复位置：`scripts/smoke/cloud-quality-smoke.ps1`。
+- 修复提交：本轮提交。
+- 验证记录：最终真实 run `docpilot-real-user-qa-20260705210119-7b8092` PASS；`frontendInteraction.consoleErrorCount=0`、`blockingConsoleErrorCount=0`；Console autoload 和 Trace 页面浏览器验证均无 console error、无横向溢出。
 
 ## 2026-07-05 Agent Quality Console 7-case 回归
 

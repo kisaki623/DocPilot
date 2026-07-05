@@ -1040,9 +1040,45 @@ async function run() {
   await context.addInitScript((value) => localStorage.setItem("docpilot_token", value), token);
   const page = await context.newPage();
   const consoleErrors = [];
+  let currentPhase = "documentDetail";
+  function classifyConsoleError(text) {
+    const value = text || "";
+    if (value.includes("Failed to load resource")) {
+      return "failedResource";
+    }
+    if (value.includes("Hydration failed") || value.includes("hydration")) {
+      return "hydration";
+    }
+    if (value.includes("TypeError")) {
+      return "typeError";
+    }
+    if (value.includes("ReferenceError")) {
+      return "referenceError";
+    }
+    return "consoleError";
+  }
+  function summarizeConsoleError(text) {
+    const value = text || "";
+    const typeErrorMatch = value.match(/TypeError:\s*(Cannot read properties of [^ ]+ \(reading '[^']+'\))/);
+    if (typeErrorMatch) {
+      return typeErrorMatch[1].replace(/'[^']+'/g, "'<field>'");
+    }
+    const plainTypeError = value.match(/TypeError:\s*([^\\n]+)/);
+    if (plainTypeError) {
+      return plainTypeError[1].replace(/https?:\/\/\S+/g, "<url>").slice(0, 120);
+    }
+    if (value.includes("Failed to load resource")) {
+      return "Failed to load resource";
+    }
+    return classifyConsoleError(value);
+  }
   page.on("console", (message) => {
     if (message.type() === "error") {
-      consoleErrors.push(message.text());
+      consoleErrors.push({
+        phase: currentPhase,
+        kind: classifyConsoleError(message.text()),
+        messageShape: summarizeConsoleError(message.text())
+      });
     }
   });
 
@@ -1071,6 +1107,7 @@ async function run() {
   const documentQuoteFirstVisible = await page.locator("[title=\"\u7cbe\u786e\u5f15\u7528\u539f\u6587\"]", { hasText: "ALPHA-SHORT-GATE" }).count() > 0;
   const documentBodyHasAlpha = await page.evaluate(() => document.body.innerText.includes("ALPHA-SHORT-GATE"));
 
+  currentPhase = "knowledgeBase";
   await page.goto(`${frontend}/knowledge-bases`, { waitUntil: "domcontentloaded" });
   await page.locator("button", { hasText: `Short Quality KB ${marker}` }).first()
     .waitFor({ state: "visible", timeout: 90000 });
@@ -1083,9 +1120,13 @@ async function run() {
   const knowledgeBaseAlphaCitationVisible = await page.locator("li", { hasText: "ALPHA-SHORT-GATE" }).count() > 0;
   const knowledgeBaseBetaCitationVisible = await page.locator("li", { hasText: "BETA-SHORT-GATE" }).count() > 0;
 
+  currentPhase = "permissionCheck";
   await page.goto(`${frontend}/documents/${foreignDocumentId}`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => document.body.innerText.includes("\u6587\u6863\u4e0d\u5b58\u5728\u6216\u5f53\u524d\u8d26\u53f7\u65e0\u6743\u8bbf\u95ee"), null, { timeout: 60000 });
   const permissionMessageVisible = await page.evaluate(() => document.body.innerText.includes("\u6587\u6863\u4e0d\u5b58\u5728\u6216\u5f53\u524d\u8d26\u53f7\u65e0\u6743\u8bbf\u95ee"));
+
+  const blockingConsoleErrors = consoleErrors.filter((item) =>
+    !(item.phase === "permissionCheck" && item.kind === "failedResource"));
 
   await browser.close();
   return {
@@ -1101,7 +1142,9 @@ async function run() {
       knowledgeBaseAlphaCitationVisible,
       knowledgeBaseBetaCitationVisible,
       permissionMessageVisible,
-      consoleErrorCount: consoleErrors.length
+      consoleErrorCount: consoleErrors.length,
+      blockingConsoleErrorCount: blockingConsoleErrors.length,
+      consoleErrorSamples: consoleErrors.slice(0, 5)
     }
   };
 }
@@ -1149,7 +1192,12 @@ run().then((result) => {
   if (-not [bool]$result.checks.knowledgeBaseAlphaCitationVisible) { $failedSubGates += "knowledgeBaseAlphaCitationUi" }
   if (-not [bool]$result.checks.knowledgeBaseBetaCitationVisible) { $failedSubGates += "knowledgeBaseBetaCitationUi" }
   if (-not [bool]$result.checks.permissionMessageVisible) { $failedSubGates += "permissionUx" }
-  if ([int]$result.checks.consoleErrorCount -gt 0) { $failedSubGates += "consoleErrors" }
+  $blockingConsoleErrorCount = if ($result.checks.PSObject.Properties.Name -contains "blockingConsoleErrorCount") {
+    [int]$result.checks.blockingConsoleErrorCount
+  } else {
+    [int]$result.checks.consoleErrorCount
+  }
+  if ($blockingConsoleErrorCount -gt 0) { $failedSubGates += "consoleErrors" }
   $checks = @([ordered]@{
     documentQuoteFirstVisible = [bool]$result.checks.documentQuoteFirstVisible
     documentBodyHasAlpha = [bool]$result.checks.documentBodyHasAlpha
@@ -1162,6 +1210,8 @@ run().then((result) => {
     knowledgeBaseBetaCitationVisible = [bool]$result.checks.knowledgeBaseBetaCitationVisible
     permissionMessageVisible = [bool]$result.checks.permissionMessageVisible
     consoleErrorCount = [int]$result.checks.consoleErrorCount
+    blockingConsoleErrorCount = $blockingConsoleErrorCount
+    consoleErrorSamples = @($result.checks.consoleErrorSamples)
     failureBuckets = $failedSubGates
   })
   if ($result.overallStatus -ne "PASS" -or
@@ -1169,7 +1219,7 @@ run().then((result) => {
       -not [bool]$result.checks.knowledgeBaseAlphaCitationVisible -or
       -not [bool]$result.checks.knowledgeBaseBetaCitationVisible -or
       -not [bool]$result.checks.permissionMessageVisible -or
-      [int]$result.checks.consoleErrorCount -gt 0) {
+      $blockingConsoleErrorCount -gt 0) {
     $message = if ($result.safeMessage) { [string]$result.safeMessage } else { "frontend interaction gate failed" }
     if ($failedSubGates.Count -gt 0) {
       $message = "frontend interaction gate failed: " + ($failedSubGates -join ",")
@@ -1724,6 +1774,19 @@ Engineering Operations owns the release archive.
     $naturalTraceOk = ([bool]$naturalTrace.data.ragTriggered -and [bool]$naturalTrace.data.ragRequired -and [int]$naturalTrace.data.evidenceCount -gt 0 -and
       (Get-CountValue $naturalTrace.data.documentHitCounts ([string]$naturalIncidentDocId)) -ge 1 -and
       (Get-CountValue $naturalTrace.data.documentHitCounts ([string]$naturalSupportDocId)) -ge 1)
+    $naturalTraceCaseResult = [ordered]@{
+      caseId = "natural-conversation-trace"
+      caseType = "conversation_trace"
+      status = if ($naturalTraceOk) { "PASS" } else { "FAILED_CORE_FLOW" }
+      passed = [bool]$naturalTraceOk
+      traceId = "conversation-$($naturalConversation.data.conversationId)-message-$($naturalMessage.data.messageId)"
+      conversationId = [string]$naturalConversation.data.conversationId
+      ragTriggered = [bool]$naturalTrace.data.ragTriggered
+      ragRequired = [bool]$naturalTrace.data.ragRequired
+      evidenceCount = [int]$naturalTrace.data.evidenceCount
+      failureBuckets = if ($naturalTraceOk) { @() } else { @("conversationTraceCoverage") }
+      reviewBuckets = @()
+    }
 
     $failedCaseResults = @($naturalCaseResults | Where-Object { @($_.failureBuckets).Count -gt 0 })
     $reviewCaseResults = @($naturalCaseResults | Where-Object { @($_.reviewBuckets).Count -gt 0 })
@@ -1788,7 +1851,7 @@ Engineering Operations owns the release archive.
         hardFailureBuckets = $naturalHardFailures
         reviewBuckets = $naturalReviewBuckets
         evidenceCoverageReport = $naturalEvidenceCoverageReport
-        caseResults = $naturalCaseResults
+        caseResults = @($naturalCaseResults) + @($naturalTraceCaseResult)
       })
     if ($naturalHardFailures.Count -gt 0) {
       $naturalFailureMessage = "natural corpus audit failed: " + ($naturalHardFailures -join ",")
@@ -2178,6 +2241,20 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
       memoryCount = $trace.data.memoryCount
       contextSourceCounts = $sourceCounts
       documentHitCounts = $trace.data.documentHitCounts
+      caseResults = @([ordered]@{
+          caseId = "conversation-trace-rag-memory"
+          caseType = "conversation_trace"
+          status = "PASS"
+          passed = $true
+          traceId = "conversation-$($conversation.data.conversationId)-message-$($message.data.messageId)"
+          conversationId = [string]$conversation.data.conversationId
+          ragTriggered = [bool]$trace.data.ragTriggered
+          ragRequired = [bool]$trace.data.ragRequired
+          evidenceCount = [int]$trace.data.evidenceCount
+          memoryCount = [int]$trace.data.memoryCount
+          failureBuckets = @()
+          reviewBuckets = @()
+        })
     })
 
   if ($EnableMemoryQualityGate) {

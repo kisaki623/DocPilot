@@ -1,6 +1,19 @@
 # Current Task
 
-当前任务：Agent Quality Console Quality Trend v1（DONE）；下一片：可选进入真实链路回归，验证 `/quality?autoload=1` 能看到 Trace v3 / Eval v2 / Trend v1（READY）
+当前任务：Agent Quality Console Trace / Eval / Trend 真实链路回归（DONE）；下一片：可选进入 Agent Quality Console 历史趋势可解释性增强或回到 RAG / Memory 真实体验审计（READY）
+
+## 2026-07-05 补充：Agent Quality Console Trace / Eval / Trend 真实链路回归
+
+- 目标：跑一轮真实用户 QA 审计，并确认 `/quality?autoload=1` 能展示最新真实 run、Eval v2、Quality Trend v1 和 Trace Drill-down v3 的脱敏链路瀑布图。
+- 已完成 smoke runner：`frontendInteraction` console error 诊断增强为 `phase/kind/messageShape` 安全摘要；预期权限负向路径的 failed resource 只作为观察项，不阻断 gate；其他 `TypeError` / hydration / reference error 仍会阻断。
+- 已完成 artifact：真实审计的 `naturalCorpus` 和 `conversationTrace` gate 现在写入脱敏 trace case result，包含 `caseId/status/traceId/conversationId` 和 RAG / evidence / memory 数值布尔指标，不写入用户消息、answer 原文、文档全文或 evidence context。
+- 真实审计：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 最终 PASS，marker `docpilot-real-user-qa-20260705210119-7b8092`。
+- Console 验证：开启 `APP_QUALITY_CONSOLE_ENABLED=true` 后，`/api/quality/runs` 可见最新 marker；`/api/quality/runs/{marker}` 返回 `summary.status=PASS`、`gateCount=22`、`evalCaseCount=27`、`traceReferenceCount=2`；`/api/quality/eval-cases` 返回 7 个 case；`/api/quality/trends?limit=20` 返回 20 个趋势点。
+- 浏览器验证：Playwright 打开 `/quality?autoload=1` 可见最新 marker、`Eval Catalog`、`Quality Trend` 和 trace reference；打开 `/quality/trace?...` 可见 `Eval case` 链路步骤。桌面和 `390px` 移动端 console error count 均为 `0`，无横向溢出。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，37 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；`git diff --check` PASS。
+- 中途发现并记录：`docpilot-real-user-qa-20260705205210-8c882e` 曾因 KB 阶段 `TypeError` 被 `frontendInteraction` 阻断，但旧 artifact 只有 kind、缺少安全 message shape；已记录为 `REA-20260705-P3-008`，本轮先修 smoke 诊断，最终回归未复现该 TypeError。
+- 清理：本轮启动的 backend / frontend 已通过 `scripts/dev/cleanup-agent-processes.ps1` 清理，`3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：若继续 Agent Quality Console，可做“趋势解释 v2”：把 repeated case / failure bucket 与对应 trace reference 更直接联动；若回到核心能力，可继续做 RAG / Memory 的真实问答体验审计。
 
 ## 2026-07-05 补充：Agent Quality Console Quality Trend v1
 

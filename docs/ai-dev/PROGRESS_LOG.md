@@ -1,5 +1,16 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Trace / Eval / Trend 真实链路回归
+
+- `real-user-qa-experience-audit.ps1 -Mode plan` PASS；`-Mode dry-run -FrontendBaseUrl http://127.0.0.1:3007` PASS。
+- 最终真实 run PASS，marker `docpilot-real-user-qa-20260705210119-7b8092`；核心 RAG、KnowledgeBase、短文档 RAG、自然语料、multi-query、answer grounding、no-evidence、Conversation Trace、Memory、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- `cloud-quality-smoke.ps1` 增强 frontendInteraction console error 诊断，只记录脱敏 `phase/kind/messageShape`；同时为 `naturalCorpus` 和 `conversationTrace` 写入脱敏 trace case result，支撑 Console Trace Drill-down v3。
+- Console API 验证 PASS：`/api/quality/runs/{marker}` 返回 `summary.status=PASS`、`gateCount=22`、`evalCaseCount=27`、`traceReferenceCount=2`；`/api/quality/eval-cases` 返回 7 个 case；`/api/quality/trends?limit=20` 返回 20 个趋势点。
+- 浏览器 `/quality?autoload=1` 和 `/quality/trace` PASS：桌面和 `390px` 移动端 console error count 均为 `0`，无横向溢出，Trace 页面可见 `Eval case` 链路步骤。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，37 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 中途发现 `docpilot-real-user-qa-20260705205210-8c882e` 的 KB 阶段偶发 `TypeError`，旧 gate 诊断不足；已记录为 `REA-20260705-P3-008`，最终 PASS run 未复现。
+- 边界：创建了临时 smoke 数据和 ignored 脱敏 artifact；未提交 artifact 原文，未删除业务数据，未操作远程 Docker / hk-ops，未改 schema，未 push；本轮启动的 backend / frontend 已清理。
+
 ## 2026-07-05 Agent Quality Console Quality Trend v1
 
 - 后端新增 `/api/quality/trends?limit=20`，基于最近 N 个脱敏 artifact detail 聚合状态分布、failure / review bucket、casePassRate、token / cost、latency / duration 和反复失败 case。
