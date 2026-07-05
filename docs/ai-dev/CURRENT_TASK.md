@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console 求职级升级 Phase 1：Trace Drill-down v2（DONE）；下一片：Phase 2 Failure Triage v1（READY）
+当前任务：Agent Quality Console 求职级升级 Phase 2：Failure Triage v1（DONE）；下一片：Phase 3 Eval Case Catalog v1（READY）
+
+## 2026-07-05 补充：Agent Quality Console Failure Triage v1
+
+- 目标：让 `/quality` Run Detail 从“展示结果”升级为“定位问题”，支持按 status、failure bucket taxonomy、gate name 和 case type 过滤。
+- 已完成前端：新增 Failure Triage 面板，内置 `RAG_RETRIEVAL_MISS`、`CITATION_UNSUPPORTED`、`DISTRACTOR_CITATION`、`NO_EVIDENCE_FALSE_POSITIVE`、`MEMORY_CONFLICT`、`TOOL_FAILURE`、`PERMISSION_REGRESSION`、`FRONTEND_UX`、`ENV_BLOCKED` 和 `OTHER` 归一化分类。
+- 已完成筛选：Gate 列表、Eval Case 和 Trace 定位会随筛选条件联动；支持清除筛选，并展示筛选后的 gates / eval / traces 数量。
+- 脱敏边界：本片只使用现有 Quality API 的白名单字段，不新增后端接口，不返回 prompt、answer 原文、文档全文、evidence context、question、API key、token、secret、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下页面非空、无 console error、主要容器未横向溢出；清理脚本确认 `3007` / `8081` 等端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 3 Eval Case Catalog v1，让 Console 能展示 eval case 的安全目录、case type / tags、scoring rule 摘要和最近一次状态。
 
 ## 2026-07-05 补充：Agent Quality Console Trace 定位入口
 

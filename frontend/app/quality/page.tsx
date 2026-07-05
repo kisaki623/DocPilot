@@ -29,6 +29,41 @@ const SIGNAL_PRIORITY = [
   "traceRagTriggered",
   "traceRagRequired",
 ];
+const TRIAGE_STATUS_OPTIONS = ["ALL", "FAILED", "REVIEW", "BLOCKED", "PASS"];
+const TRIAGE_BUCKET_CATEGORIES = [
+  "RAG_RETRIEVAL_MISS",
+  "CITATION_UNSUPPORTED",
+  "DISTRACTOR_CITATION",
+  "NO_EVIDENCE_FALSE_POSITIVE",
+  "MEMORY_CONFLICT",
+  "TOOL_FAILURE",
+  "PERMISSION_REGRESSION",
+  "FRONTEND_UX",
+  "ENV_BLOCKED",
+  "OTHER",
+];
+
+interface TriageFilters {
+  status: string;
+  bucketCategory: string;
+  gateName: string;
+  caseType: string;
+}
+
+interface TriageBucketSummary {
+  category: string;
+  count: number;
+  failedCount: number;
+  reviewCount: number;
+  examples: string[];
+}
+
+const DEFAULT_TRIAGE_FILTERS: TriageFilters = {
+  status: "ALL",
+  bucketCategory: "ALL",
+  gateName: "ALL",
+  caseType: "ALL",
+};
 
 function statusBadge(status?: string): string {
   if (status === "PASS" || status === "SUCCESS") {
@@ -41,6 +76,105 @@ function statusBadge(status?: string): string {
     return "dp-badge dp-badge-danger";
   }
   return "dp-badge dp-badge-info";
+}
+
+function normalizeTriageBucket(value?: string): string {
+  const lower = (value || "").toLowerCase().replace(/[\s_-]+/g, "");
+  if (!lower) {
+    return "OTHER";
+  }
+  if (lower.includes("distractor")) {
+    return "DISTRACTOR_CITATION";
+  }
+  if (lower.includes("noevidence") || lower.includes("evidencefalse")) {
+    return "NO_EVIDENCE_FALSE_POSITIVE";
+  }
+  if (
+    lower.includes("citation") ||
+    lower.includes("unsupported") ||
+    lower.includes("grounding") ||
+    lower.includes("support")
+  ) {
+    return "CITATION_UNSUPPORTED";
+  }
+  if (
+    lower.includes("retrieval") ||
+    lower.includes("retrieve") ||
+    lower.includes("miss") ||
+    lower.includes("recall")
+  ) {
+    return "RAG_RETRIEVAL_MISS";
+  }
+  if (lower.includes("memory")) {
+    return "MEMORY_CONFLICT";
+  }
+  if (lower.includes("tool")) {
+    return "TOOL_FAILURE";
+  }
+  if (
+    lower.includes("permission") ||
+    lower.includes("forbidden") ||
+    lower.includes("unauthorized") ||
+    lower.includes("scope")
+  ) {
+    return "PERMISSION_REGRESSION";
+  }
+  if (
+    lower.includes("frontend") ||
+    lower.includes("consoleerror") ||
+    lower.includes("route") ||
+    lower.includes("overflow") ||
+    lower.includes("ui") ||
+    lower.includes("ux")
+  ) {
+    return "FRONTEND_UX";
+  }
+  if (
+    lower.includes("blocked") ||
+    lower.includes("timeout") ||
+    lower.includes("health") ||
+    lower.includes("tunnel") ||
+    lower.includes("env") ||
+    lower.includes("parsefailed") ||
+    lower.includes("artifactparsefailed")
+  ) {
+    return "ENV_BLOCKED";
+  }
+  return "OTHER";
+}
+
+function getGateStatus(gate: QualityGateSummary): string {
+  return gate.status || (gate.passed === false ? "FAILED" : "PASS");
+}
+
+function statusMatches(status: string | undefined, filter: string): boolean {
+  if (filter === "ALL") {
+    return true;
+  }
+  const normalized = status || "";
+  if (filter === "FAILED") {
+    return normalized.startsWith("FAILED") || normalized === "FAIL";
+  }
+  if (filter === "PASS") {
+    return normalized === "PASS" || normalized === "SUCCESS";
+  }
+  return normalized === filter;
+}
+
+function bucketCategoryMatches(
+  buckets: string[] | undefined,
+  filter: string
+): boolean {
+  if (filter === "ALL") {
+    return true;
+  }
+  return (buckets || []).some((bucket) => normalizeTriageBucket(bucket) === filter);
+}
+
+function uniqueSorted(values: Array<string | undefined | null>): string[] {
+  return Array.from(
+    new Set(values.filter((value): value is string => Boolean(value)))
+  ).sort((left, right) => left.localeCompare(right));
 }
 
 function formatDateTime(input?: string): string {
@@ -410,7 +544,147 @@ function RunDetailPanel({
     );
   }
 
+  return <RunDetailContent detail={detail} />;
+}
+
+function RunDetailContent({ detail }: { detail: QualityRunDetail }) {
   const { summary } = detail;
+  const [filters, setFilters] = useState<TriageFilters>(DEFAULT_TRIAGE_FILTERS);
+
+  useEffect(() => {
+    setFilters(DEFAULT_TRIAGE_FILTERS);
+  }, [summary.marker]);
+
+  const traceReferences = useMemo(
+    () => detail.traceReferences || [],
+    [detail.traceReferences]
+  );
+  const traceByCaseId = useMemo(() => {
+    const map = new Map<string, QualityTraceReference[]>();
+    traceReferences.forEach((reference) => {
+      if (!reference.caseId) {
+        return;
+      }
+      const next = map.get(reference.caseId) || [];
+      next.push(reference);
+      map.set(reference.caseId, next);
+    });
+    return map;
+  }, [traceReferences]);
+
+  const gateNames = useMemo(
+    () =>
+      uniqueSorted([
+        ...detail.gates.map((gate) => gate.name),
+        ...traceReferences.map((reference) => reference.gateName),
+      ]),
+    [detail.gates, traceReferences]
+  );
+
+  const caseTypes = useMemo(
+    () =>
+      uniqueSorted([
+        ...detail.evalCases.map((item) => item.caseType || "agent_quality"),
+        ...traceReferences.map((reference) => reference.caseType || "agent_quality"),
+      ]),
+    [detail.evalCases, traceReferences]
+  );
+
+  const bucketSummaries = useMemo(
+    () => buildBucketSummaries(detail, traceReferences),
+    [detail, traceReferences]
+  );
+
+  const filteredGates = useMemo(
+    () =>
+      detail.gates.filter((gate) => {
+        const buckets = [...gate.failureBuckets, ...gate.reviewBuckets];
+        if (!statusMatches(getGateStatus(gate), filters.status)) {
+          return false;
+        }
+        if (!bucketCategoryMatches(buckets, filters.bucketCategory)) {
+          return false;
+        }
+        if (filters.gateName !== "ALL" && gate.name !== filters.gateName) {
+          return false;
+        }
+        if (filters.caseType === "ALL") {
+          return true;
+        }
+        return traceReferences.some(
+          (reference) =>
+            reference.gateName === gate.name &&
+            (reference.caseType || "agent_quality") === filters.caseType
+        );
+      }),
+    [detail.gates, filters, traceReferences]
+  );
+
+  const filteredEvalCases = useMemo(
+    () =>
+      detail.evalCases.filter((item) => {
+        const references = traceByCaseId.get(item.caseId) || [];
+        const buckets = [
+          ...item.failureBuckets,
+          ...item.reviewBuckets,
+          ...references.flatMap((reference) => [
+            ...reference.failureBuckets,
+            ...reference.reviewBuckets,
+          ]),
+        ];
+        if (!statusMatches(item.status, filters.status)) {
+          return false;
+        }
+        if (!bucketCategoryMatches(buckets, filters.bucketCategory)) {
+          return false;
+        }
+        if (
+          filters.gateName !== "ALL" &&
+          !references.some((reference) => reference.gateName === filters.gateName)
+        ) {
+          return false;
+        }
+        if (
+          filters.caseType !== "ALL" &&
+          (item.caseType || "agent_quality") !== filters.caseType
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [detail.evalCases, filters, traceByCaseId]
+  );
+
+  const filteredTraceReferences = useMemo(
+    () =>
+      traceReferences.filter((reference) => {
+        const buckets = [
+          ...reference.failureBuckets,
+          ...reference.reviewBuckets,
+        ];
+        if (!statusMatches(reference.status, filters.status)) {
+          return false;
+        }
+        if (!bucketCategoryMatches(buckets, filters.bucketCategory)) {
+          return false;
+        }
+        if (
+          filters.gateName !== "ALL" &&
+          reference.gateName !== filters.gateName
+        ) {
+          return false;
+        }
+        if (
+          filters.caseType !== "ALL" &&
+          (reference.caseType || "agent_quality") !== filters.caseType
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [filters, traceReferences]
+  );
+
   return (
     <div className="grid min-w-0 gap-4">
       <section className="dp-card min-w-0">
@@ -443,15 +717,28 @@ function RunDetailPanel({
         </div>
       </section>
 
-      <TraceReferencePanel references={detail.traceReferences || []} />
+      <FailureTriagePanel
+        filters={filters}
+        gateNames={gateNames}
+        caseTypes={caseTypes}
+        bucketSummaries={bucketSummaries}
+        resultCounts={{
+          gates: filteredGates.length,
+          evalCases: filteredEvalCases.length,
+          traces: filteredTraceReferences.length,
+        }}
+        onChange={setFilters}
+      />
+
+      <TraceReferencePanel references={filteredTraceReferences} />
 
       <section className="dp-card min-w-0">
         <h3 className="dp-section-title">Gate 列表</h3>
         <div className="mt-3 grid gap-2">
-          {detail.gates.length === 0 ? (
+          {filteredGates.length === 0 ? (
             <p className="dp-meta">暂无 gate 明细。</p>
           ) : (
-            detail.gates.map((gate) => <GateRow key={gate.name} gate={gate} />)
+            filteredGates.map((gate) => <GateRow key={gate.name} gate={gate} />)
           )}
         </div>
       </section>
@@ -459,16 +746,202 @@ function RunDetailPanel({
       <section className="dp-card min-w-0">
         <h3 className="dp-section-title">Eval Case</h3>
         <div className="mt-3 grid gap-2">
-          {detail.evalCases.length === 0 ? (
+          {filteredEvalCases.length === 0 ? (
             <p className="dp-meta">暂无 eval case 明细。</p>
           ) : (
-            detail.evalCases.map((item) => (
+            filteredEvalCases.map((item) => (
               <EvalCaseRow key={item.caseId} item={item} />
             ))
           )}
         </div>
       </section>
     </div>
+  );
+}
+
+function buildBucketSummaries(
+  detail: QualityRunDetail,
+  traceReferences: QualityTraceReference[]
+): TriageBucketSummary[] {
+  const summaryMap = new Map<string, TriageBucketSummary>();
+
+  function addBuckets(
+    buckets: string[],
+    status: string,
+    label: string,
+    bucketType: "failed" | "review"
+  ) {
+    buckets.forEach((bucket) => {
+      const category = normalizeTriageBucket(bucket);
+      const current =
+        summaryMap.get(category) || {
+          category,
+          count: 0,
+          failedCount: 0,
+          reviewCount: 0,
+          examples: [],
+        };
+      current.count += 1;
+      if (bucketType === "failed" || status.startsWith("FAILED")) {
+        current.failedCount += 1;
+      } else {
+        current.reviewCount += 1;
+      }
+      if (bucket && current.examples.length < 3) {
+        current.examples.push(`${label}: ${bucket}`);
+      }
+      summaryMap.set(category, current);
+    });
+  }
+
+  addBuckets(detail.summary.failureBuckets, detail.summary.status, "summary", "failed");
+  addBuckets(detail.summary.reviewBuckets, detail.summary.status, "summary", "review");
+  detail.gates.forEach((gate) => {
+    addBuckets(gate.failureBuckets, getGateStatus(gate), gate.name, "failed");
+    addBuckets(gate.reviewBuckets, getGateStatus(gate), gate.name, "review");
+  });
+  detail.evalCases.forEach((item) => {
+    addBuckets(item.failureBuckets, item.status, item.caseId, "failed");
+    addBuckets(item.reviewBuckets, item.status, item.caseId, "review");
+  });
+  traceReferences.forEach((reference) => {
+    addBuckets(reference.failureBuckets, reference.status, reference.caseId, "failed");
+    addBuckets(reference.reviewBuckets, reference.status, reference.caseId, "review");
+  });
+
+  return TRIAGE_BUCKET_CATEGORIES
+    .map((category) => summaryMap.get(category))
+    .filter((item): item is TriageBucketSummary => Boolean(item));
+}
+
+function FailureTriagePanel({
+  filters,
+  gateNames,
+  caseTypes,
+  bucketSummaries,
+  resultCounts,
+  onChange,
+}: {
+  filters: TriageFilters;
+  gateNames: string[];
+  caseTypes: string[];
+  bucketSummaries: TriageBucketSummary[];
+  resultCounts: { gates: number; evalCases: number; traces: number };
+  onChange: (filters: TriageFilters) => void;
+}) {
+  const updateFilter = (key: keyof TriageFilters, value: string) => {
+    onChange({ ...filters, [key]: value });
+  };
+
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div>
+          <h3 className="dp-section-title">Failure Triage</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            gates {resultCounts.gates} / eval {resultCounts.evalCases} / traces{" "}
+            {resultCounts.traces}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="dp-btn dp-btn-secondary px-3 py-2 text-xs"
+          onClick={() => onChange(DEFAULT_TRIAGE_FILTERS)}
+        >
+          清除筛选
+        </button>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <TriageSelect
+          label="Status"
+          value={filters.status}
+          options={TRIAGE_STATUS_OPTIONS}
+          onChange={(value) => updateFilter("status", value)}
+        />
+        <TriageSelect
+          label="Bucket"
+          value={filters.bucketCategory}
+          options={["ALL", ...TRIAGE_BUCKET_CATEGORIES]}
+          onChange={(value) => updateFilter("bucketCategory", value)}
+        />
+        <TriageSelect
+          label="Gate"
+          value={filters.gateName}
+          options={["ALL", ...gateNames]}
+          onChange={(value) => updateFilter("gateName", value)}
+        />
+        <TriageSelect
+          label="Case Type"
+          value={filters.caseType}
+          options={["ALL", ...caseTypes]}
+          onChange={(value) => updateFilter("caseType", value)}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {bucketSummaries.length === 0 ? (
+          <p className="dp-meta">暂无失败桶或 REVIEW 桶。</p>
+        ) : (
+          bucketSummaries.map((item) => (
+            <button
+              key={item.category}
+              type="button"
+              onClick={() => updateFilter("bucketCategory", item.category)}
+              className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                filters.bucketCategory === item.category
+                  ? "border-blue-300 bg-blue-50"
+                  : "border-slate-200 bg-white hover:border-blue-200"
+              }`}
+            >
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <p className="break-words text-xs font-semibold text-slate-900">
+                  {item.category}
+                </p>
+                <span className="dp-badge dp-badge-neutral">{item.count}</span>
+              </div>
+              <p className="mt-2 text-xs text-slate-600">
+                failed {item.failedCount} / review {item.reviewCount}
+              </p>
+              <p className="mt-2 break-words text-xs text-slate-500">
+                {summarizeBuckets(item.examples)}
+              </p>
+            </button>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TriageSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="min-w-0">
+      <span className="text-xs font-semibold uppercase text-slate-500">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+      >
+        {options.map((option) => (
+          <option key={`${label}-${option}`} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

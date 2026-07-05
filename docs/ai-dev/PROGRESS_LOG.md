@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Failure Triage v1
+
+- 前端 `/quality` Run Detail 新增 Failure Triage 面板，支持按 status、失败桶 taxonomy、gate name 和 case type 筛选，并联动 Gate 列表、Eval Case 与 Trace 定位项。
+- 失败桶归一化覆盖 RAG retrieval miss、citation unsupported、distractor citation、no-evidence false positive、memory conflict、tool failure、permission regression、frontend UX、env blocked 和 other；展示只包含脱敏桶名、计数和 case / gate 摘要。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+- 边界：本片未新增后端 API，未新增数据库表，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+
 ## 2026-07-05 Agent Quality Console Trace Drill-down v2
 
 - 后端新增脱敏 `QualityTraceReference`，`QualityRunDetail` 增加 `traceReferences`；artifact parser 现在递归收集多个 `caseResults` / `caseEvaluations` / `evalCases`，保留父级 `gateName`，并只输出安全定位字段和失败 / REVIEW 桶。

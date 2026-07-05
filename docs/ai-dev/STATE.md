@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-05 Agent Quality Console Failure Triage v1 已完成前端定位闭环。`/quality` Run Detail 新增 Failure Triage 面板，支持按 status、失败桶 taxonomy、gate name 和 case type 过滤 Gate、Eval Case 与 Trace 定位项；失败桶归一化覆盖 RAG retrieval miss、citation unsupported、distractor citation、no-evidence false positive、memory conflict、tool failure、permission regression、frontend UX 和 env blocked。本片未新增后端 API、未新增数据库表，仍只展示现有脱敏 Quality DTO。
 - 2026-07-05 Agent Quality Console Trace Drill-down v2 已完成第一片轻量定位入口。后端 `QualityRunDetail` 现在包含脱敏 `traceReferences`，从 artifact 中递归收集 eval case 的 `traceId` / `agentRunId` / `conversationId`、父级 `gateName` 和 failure / review buckets；前端 `/quality` Run Detail 新增“Trace 定位”面板和复制 ID 按钮。该能力只做定位摘要，不新增数据库表、不读取业务库、不返回 prompt、answer 原文、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console 求职级升级路线图已沉淀为 `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`。后续自驱循环以该文档为长期路线图，当前任务仍以 `CURRENT_TASK.md` 为准；下一片优先进入 Trace Drill-down v2，让失败 / REVIEW eval case 能定位 `traceId` / `agentRunId`。
 - 2026-07-05 Agent Quality Console Explainability v1 已完成。后端 Quality artifact 聚合现在能解析 cloud quality / real-user audit 的嵌套 `gates.*`，并把单个 `checks` object 中的安全 metrics / flags 聚合到 gate；eval case detail 暴露脱敏 `metrics` / `flags`，不返回 question、answer 原文、文档全文、prompt 或 evidence context。
