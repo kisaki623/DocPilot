@@ -796,6 +796,12 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
         {item.riskLevel ? (
           <span className="dp-badge dp-badge-warning">{item.riskLevel}</span>
         ) : null}
+        {item.caseLayer ? (
+          <span className="dp-badge dp-badge-info">{item.caseLayer}</span>
+        ) : null}
+        {item.riskGate ? (
+          <span className="dp-badge dp-badge-danger">{item.riskGate}</span>
+        ) : null}
         {item.tags.slice(0, 4).map((tag) => (
           <span key={`${item.caseId}-${tag}`} className="dp-badge dp-badge-neutral">
             {tag}
@@ -810,6 +816,15 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
         scoring: {summarizeBuckets(item.scoringRules)}
+      </p>
+      <p className="mt-1 break-words text-xs text-slate-600">
+        scoring summary: {summarizeBuckets(item.scoringSummary || [])}
+      </p>
+      <p className="mt-1 break-words text-xs text-slate-600">
+        regression: {summarizeBuckets(item.regressionPolicy || [])}
+      </p>
+      <p className="mt-1 break-words text-xs text-slate-600">
+        history: {summarizeBuckets(item.failureHistoryMarkers || [])}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
         remediation: {summarizeBuckets(item.remediationHints || [])}

@@ -75,6 +75,11 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
                             firstSafeText(item, "owner").orElse(""),
                             firstSafeText(item, "lastUpdated").orElse(""),
                             firstSafeText(item, "riskLevel").orElse(""),
+                            firstSafeText(item, "caseLayer").orElse(""),
+                            firstSafeText(item, "riskGate").orElse(""),
+                            safeList(item.path("scoringSummary")),
+                            safeList(item.path("regressionPolicy")),
+                            safeList(item.path("failureHistoryMarkers")),
                             safeList(item.path("sourceIssueIds")),
                             firstSafeText(item, "lastVerifiedMarker").orElse(""),
                             safeList(item.path("remediationHints")),
@@ -112,6 +117,11 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
                 definition.owner(),
                 definition.lastUpdated(),
                 definition.riskLevel(),
+                definition.caseLayer(),
+                definition.riskGate(),
+                definition.scoringSummary(),
+                definition.regressionPolicy(),
+                definition.failureHistoryMarkers(),
                 definition.sourceIssueIds(),
                 definition.lastVerifiedMarker(),
                 definition.remediationHints(),
@@ -195,7 +205,7 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
     }
 
     private boolean isSafeIdentifier(String value) {
-        if (value == null || value.isBlank() || value.length() > 80) {
+        if (value == null || value.isBlank() || value.length() > 160) {
             return false;
         }
         String lower = value.toLowerCase(Locale.ROOT);
@@ -228,6 +238,11 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
             String owner,
             String lastUpdated,
             String riskLevel,
+            String caseLayer,
+            String riskGate,
+            List<String> scoringSummary,
+            List<String> regressionPolicy,
+            List<String> failureHistoryMarkers,
             List<String> sourceIssueIds,
             String lastVerifiedMarker,
             List<String> remediationHints,

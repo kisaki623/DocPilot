@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console Trace Drill-down v3（DONE）；下一片：Eval Asset v2，把 7 个 eval catalog case 继续推进为长期质量资产（READY）
+当前任务：Agent Quality Console Eval Asset v2（DONE）；下一片：Quality Trend v1，基于最近 N 个脱敏 artifact 展示质量趋势（READY）
+
+## 2026-07-05 补充：Agent Quality Console Eval Asset v2
+
+- 目标：把 7 个 eval catalog case 从“case 列表”继续推进为长期质量资产，让每个 case 能说明分层、风险门禁、评分摘要、回归策略和历史失败 / 修复 marker。
+- 已完成 JSON：`agent-quality-eval-cases.json` 为 7 个默认 case 增加 `caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy` 和 `failureHistoryMarkers`。
+- 已完成后端：`QualityEvalCaseCatalogItem` 和 `QualityEvalCatalogServiceImpl` 白名单读取并返回上述字段；安全 identifier 上限调整为 160 字符，以容纳脱敏 marker / status / issue 摘要，同时继续过滤 URL、token、secret、连接串形态。
+- 已完成前端：`frontend/lib/quality-api.ts` 同步新字段；`/quality` Eval Catalog 卡片展示 case layer、risk gate、scoring summary、regression policy 和 failure history marker。
+- 脱敏边界：本片仍不返回 question、expectedBehavior、mustContain、mustNotContain、prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；failure history 只保存脱敏 marker、status 和 issue id 摘要。
+- 已验证：首次 `mvn "-Dtest=*Quality*" test` 暴露 Controller test fixture 构造参数未同步，已修正；复跑 `mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；`/quality?routeSmoke=2` 在 `390px` 宽度下无 console error、无横向溢出。
+- 清理：本轮启动的前端 dev server 和浏览器进程已通过 `scripts/dev/cleanup-agent-processes.ps1` 清理，`3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：进入 Quality Trend v1，在现有 artifact 聚合结果上增加最近 N 次趋势摘要和 `/quality` Trend 面板，继续不新增数据库表。
 
 ## 2026-07-05 补充：Agent Quality Console Trace Drill-down v3
 

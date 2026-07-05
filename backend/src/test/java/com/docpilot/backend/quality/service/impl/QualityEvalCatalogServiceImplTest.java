@@ -35,6 +35,11 @@ class QualityEvalCatalogServiceImplTest {
                     "owner": "quality-console",
                     "lastUpdated": "2026-07-05",
                     "riskLevel": "P1",
+                    "caseLayer": "agent_rag_trace",
+                    "riskGate": "FAILED_CORE_FLOW",
+                    "scoringSummary": ["evidence_required", "tool_required", "trace_required"],
+                    "regressionPolicy": ["quality_tests", "agent_quality_eval_smoke"],
+                    "failureHistoryMarkers": ["marker=docpilot-agent-quality-eval:status=REVIEW:issue=REA-20260703-P1-001"],
                     "sourceIssueIds": ["REA-20260703-P1-001"],
                     "lastVerifiedMarker": "docpilot-cloud-quality-20260703213703-dbef08",
                     "remediationHints": ["check_short_document_chunk", "verify_quote_citation"],
@@ -85,6 +90,11 @@ class QualityEvalCatalogServiceImplTest {
         assertThat(item.owner()).isEqualTo("quality-console");
         assertThat(item.lastUpdated()).isEqualTo("2026-07-05");
         assertThat(item.riskLevel()).isEqualTo("P1");
+        assertThat(item.caseLayer()).isEqualTo("agent_rag_trace");
+        assertThat(item.riskGate()).isEqualTo("FAILED_CORE_FLOW");
+        assertThat(item.scoringSummary()).containsExactly("evidence_required", "tool_required", "trace_required");
+        assertThat(item.regressionPolicy()).containsExactly("quality_tests", "agent_quality_eval_smoke");
+        assertThat(item.failureHistoryMarkers()).containsExactly("marker=docpilot-agent-quality-eval:status=REVIEW:issue=REA-20260703-P1-001");
         assertThat(item.sourceIssueIds()).containsExactly("REA-20260703-P1-001");
         assertThat(item.lastVerifiedMarker()).isEqualTo("docpilot-cloud-quality-20260703213703-dbef08");
         assertThat(item.remediationHints()).containsExactly("check_short_document_chunk", "verify_quote_citation");
@@ -115,6 +125,11 @@ class QualityEvalCatalogServiceImplTest {
                     "owner": "apiKeyOwner",
                     "lastUpdated": "https://example.invalid/date",
                     "riskLevel": "P2",
+                    "caseLayer": "rag",
+                    "riskGate": "https://example.invalid/gate",
+                    "scoringSummary": ["safe_rule", "secret_rule"],
+                    "regressionPolicy": ["quality_tests", "bearer_bad"],
+                    "failureHistoryMarkers": ["marker=docpilot-safe:status=PASS:issue=REA-20260703-P1-001", "https://example.invalid/history"],
                     "sourceIssueIds": ["REA-20260703-P1-001", "https://example.invalid/issue"],
                     "lastVerifiedMarker": "http://example.invalid/run",
                     "remediationHints": ["check_kb_document_coverage", "secret_hint"],
@@ -140,6 +155,11 @@ class QualityEvalCatalogServiceImplTest {
         assertThat(item.owner()).isEmpty();
         assertThat(item.lastUpdated()).isEmpty();
         assertThat(item.riskLevel()).isEqualTo("P2");
+        assertThat(item.caseLayer()).isEqualTo("rag");
+        assertThat(item.riskGate()).isEmpty();
+        assertThat(item.scoringSummary()).containsExactly("safe_rule");
+        assertThat(item.regressionPolicy()).containsExactly("quality_tests");
+        assertThat(item.failureHistoryMarkers()).containsExactly("marker=docpilot-safe:status=PASS:issue=REA-20260703-P1-001");
         assertThat(item.sourceIssueIds()).containsExactly("REA-20260703-P1-001");
         assertThat(item.lastVerifiedMarker()).isEmpty();
         assertThat(item.remediationHints()).containsExactly("check_kb_document_coverage");

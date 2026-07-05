@@ -8,6 +8,11 @@ public record QualityEvalCaseCatalogItem(
         String owner,
         String lastUpdated,
         String riskLevel,
+        String caseLayer,
+        String riskGate,
+        List<String> scoringSummary,
+        List<String> regressionPolicy,
+        List<String> failureHistoryMarkers,
         List<String> sourceIssueIds,
         String lastVerifiedMarker,
         List<String> remediationHints,
@@ -30,6 +35,11 @@ public record QualityEvalCaseCatalogItem(
         owner = safe(owner);
         lastUpdated = safe(lastUpdated);
         riskLevel = safe(riskLevel);
+        caseLayer = safe(caseLayer);
+        riskGate = safe(riskGate);
+        scoringSummary = safeList(scoringSummary);
+        regressionPolicy = safeList(regressionPolicy);
+        failureHistoryMarkers = safeList(failureHistoryMarkers);
         sourceIssueIds = safeList(sourceIssueIds);
         lastVerifiedMarker = safe(lastVerifiedMarker);
         remediationHints = safeList(remediationHints);

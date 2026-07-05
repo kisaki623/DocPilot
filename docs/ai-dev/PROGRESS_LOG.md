@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Eval Asset v2
+
+- 7 个默认 eval catalog case 已新增 `caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy` 和 `failureHistoryMarkers`，把 case catalog 继续推进为可解释质量资产。
+- 后端 `QualityEvalCatalogServiceImpl` 和 `QualityEvalCaseCatalogItem` 已同步白名单字段；failure history 只保存脱敏 marker、status 和 issue id 摘要。
+- 前端 `/quality` Eval Catalog 卡片已展示 case layer、risk gate、scoring summary、regression policy 和 failure history marker。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；`/quality?routeSmoke=2` 移动端无 console error、无横向溢出。
+- 边界：本片不新增数据库表，不返回 question、expectedBehavior、prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；本轮启动的前端和浏览器进程已清理。
+
 ## 2026-07-05 Agent Quality Console Trace Drill-down v3
 
 - 后端新增 `QualityTraceStepDetail`，并在 `QualityTraceReference.steps` 中返回脱敏 trace step 摘要。

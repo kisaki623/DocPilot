@@ -230,6 +230,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 目标：把 Eval Catalog 从“case 列表”升级为长期质量资产，能解释每个 case 为什么存在、属于什么风险、失败后如何回归。
 
+2026-07-05 状态：DONE。7 个默认 eval catalog case 已补 `caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy` 和 `failureHistoryMarkers`；后端 catalog parser / DTO / API 与前端 Eval Catalog 同步展示这些安全字段。failure history 只保存脱敏 marker、status 和 issue id 摘要，不保存问题原文、回答原文、文档原文或 evidence context。
+
 最小实现：
 
 - 继续使用 `agent-quality-eval-cases.json`，不建表。
