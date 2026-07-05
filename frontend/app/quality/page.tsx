@@ -5,7 +5,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getToken } from "@/lib/auth";
 import {
   getQualityRunDetail,
+  listQualityEvalCases,
   listQualityRuns,
+  type QualityEvalCaseCatalogItem,
   type QualityEvalCaseResultDetail,
   type QualityGateSummary,
   type QualityRunDetail,
@@ -286,6 +288,7 @@ async function copyToClipboard(value: string): Promise<void> {
 export default function QualityPage() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [runs, setRuns] = useState<QualityRunSummary[]>([]);
+  const [evalCatalog, setEvalCatalog] = useState<QualityEvalCaseCatalogItem[]>([]);
   const [selectedMarker, setSelectedMarker] = useState("");
   const [detail, setDetail] = useState<QualityRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -311,8 +314,15 @@ export default function QualityPage() {
       const nextRuns = response.data || [];
       setRuns(nextRuns);
       setSelectedMarker((current) => current || nextRuns[0]?.marker || "");
+      try {
+        const catalogResponse = await listQualityEvalCases();
+        setEvalCatalog(catalogResponse.data || []);
+      } catch {
+        setEvalCatalog([]);
+      }
     } catch (error) {
       setRuns([]);
+      setEvalCatalog([]);
       setDetail(null);
       setErrorMessage(
         error instanceof Error ? error.message : "加载质量运行记录失败"
@@ -440,54 +450,58 @@ export default function QualityPage() {
       ) : null}
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.55fr)]">
-        <div className="dp-card min-w-0">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="dp-section-title">Overview</h2>
-            <button
-              type="button"
-              onClick={() => loadRuns()}
-              className="dp-btn dp-btn-secondary px-3 py-2"
-              disabled={loading}
-            >
-              刷新
-            </button>
+        <div className="grid min-w-0 gap-4">
+          <div className="dp-card min-w-0">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="dp-section-title">Overview</h2>
+              <button
+                type="button"
+                onClick={() => loadRuns()}
+                className="dp-btn dp-btn-secondary px-3 py-2"
+                disabled={loading}
+              >
+                刷新
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-2">
+              {loading ? (
+                <p className="dp-meta">加载中...</p>
+              ) : runs.length === 0 ? (
+                <p className="dp-meta">暂无质量运行记录。</p>
+              ) : (
+                runs.map((run) => (
+                  <button
+                    key={`${run.source}-${run.marker}`}
+                    type="button"
+                    onClick={() => setSelectedMarker(run.marker)}
+                    className={`w-full rounded-lg border p-3 text-left transition ${
+                      selectedMarker === run.marker
+                        ? "border-blue-300 bg-blue-50"
+                        : "border-slate-200 bg-white hover:border-blue-200"
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-center justify-between gap-2">
+                      <span className="truncate text-sm font-semibold text-slate-900">
+                        {run.marker}
+                      </span>
+                      <span className={statusBadge(run.status)}>{run.status}</span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                      <span>{run.source}</span>
+                      <span>{formatDateTime(run.updatedAt)}</span>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-600">
+                      gates {run.gateCount} / failed {run.failedGateCount} / review{" "}
+                      {run.reviewGateCount}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
           </div>
 
-          <div className="mt-4 grid gap-2">
-            {loading ? (
-              <p className="dp-meta">加载中...</p>
-            ) : runs.length === 0 ? (
-              <p className="dp-meta">暂无质量运行记录。</p>
-            ) : (
-              runs.map((run) => (
-                <button
-                  key={`${run.source}-${run.marker}`}
-                  type="button"
-                  onClick={() => setSelectedMarker(run.marker)}
-                  className={`w-full rounded-lg border p-3 text-left transition ${
-                    selectedMarker === run.marker
-                      ? "border-blue-300 bg-blue-50"
-                      : "border-slate-200 bg-white hover:border-blue-200"
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold text-slate-900">
-                      {run.marker}
-                    </span>
-                    <span className={statusBadge(run.status)}>{run.status}</span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                    <span>{run.source}</span>
-                    <span>{formatDateTime(run.updatedAt)}</span>
-                  </div>
-                  <div className="mt-2 text-xs text-slate-600">
-                    gates {run.gateCount} / failed {run.failedGateCount} / review{" "}
-                    {run.reviewGateCount}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
+          <EvalCatalogPanel items={evalCatalog} />
         </div>
 
         <RunDetailPanel detail={detail} loading={detailLoading} />
@@ -517,6 +531,76 @@ function MetricCard({
     <div className="dp-card">
       <p className="dp-meta">{label}</p>
       <p className={`mt-2 text-2xl font-bold ${toneClass}`}>{value}</p>
+    </div>
+  );
+}
+
+function EvalCatalogPanel({ items }: { items: QualityEvalCaseCatalogItem[] }) {
+  return (
+    <div className="dp-card min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="dp-section-title">Eval Catalog</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            {items.length} cases
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-neutral">P0</span>
+      </div>
+
+      <div className="mt-4 grid gap-2">
+        {items.length === 0 ? (
+          <p className="dp-meta">暂无 eval case 目录。</p>
+        ) : (
+          items.map((item) => <EvalCatalogRow key={item.caseId} item={item} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
+  const bucketText = summarizeBuckets([
+    ...item.latestFailureBuckets,
+    ...item.latestReviewBuckets,
+  ]);
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold text-slate-900">
+            {item.caseId}
+          </p>
+          <p className="mt-1 break-words text-xs text-slate-500">
+            {item.caseType || "agent_quality"}
+          </p>
+        </div>
+        <span className={statusBadge(item.latestStatus)}>
+          {item.latestStatus || "NOT_RUN"}
+        </span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {item.tags.slice(0, 4).map((tag) => (
+          <span key={`${item.caseId}-${tag}`} className="dp-badge dp-badge-neutral">
+            {tag}
+          </span>
+        ))}
+      </div>
+      <p className="mt-3 break-words text-xs text-slate-600">
+        evidence: {summarizeBuckets(item.expectedEvidence)}
+      </p>
+      <p className="mt-1 break-words text-xs text-slate-600">
+        tools: {summarizeBuckets(item.expectedTools)}
+      </p>
+      <p className="mt-1 break-words text-xs text-slate-600">
+        scoring: {summarizeBuckets(item.scoringRules)}
+      </p>
+      <p className="mt-2 break-words text-xs text-slate-500">
+        latest: {item.latestRunMarker || "-"}
+      </p>
+      <p className="mt-1 break-words text-xs text-amber-700">
+        buckets: {bucketText}
+      </p>
     </div>
   );
 }

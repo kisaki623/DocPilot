@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Eval Case Catalog v1
+
+- 后端新增 `QualityEvalCatalogService`、`QualityEvalCaseCatalogItem` 和 `GET /api/quality/eval-cases`，从现有 eval JSON 读取白名单字段，并关联最近 Quality run 的 latest status / marker / traceId / agentRunId。
+- 前端 `/quality` 左侧新增 `Eval Catalog` 卡片，展示 caseId、caseType、tags、expectedEvidence、expectedTools、scoringRules 和最近运行状态。
+- 脱敏边界：不返回 question、expectedBehavior、mustContain、mustNotContain、answer 原文、prompt、文档全文、evidence context、API key、token、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，34 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 移动端 smoke 无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+
 ## 2026-07-05 Agent Quality Console Failure Triage v1
 
 - 前端 `/quality` Run Detail 新增 Failure Triage 面板，支持按 status、失败桶 taxonomy、gate name 和 case type 筛选，并联动 Gate 列表、Eval Case 与 Trace 定位项。

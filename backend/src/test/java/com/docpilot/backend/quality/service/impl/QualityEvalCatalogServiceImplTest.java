@@ -1,0 +1,159 @@
+package com.docpilot.backend.quality.service.impl;
+
+import com.docpilot.backend.quality.service.QualityArtifactService;
+import com.docpilot.backend.quality.vo.QualityEvalCaseResultDetail;
+import com.docpilot.backend.quality.vo.QualityRunDetail;
+import com.docpilot.backend.quality.vo.QualityRunSummary;
+import com.docpilot.backend.quality.vo.QualityTokenUsageSummary;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+class QualityEvalCatalogServiceImplTest {
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    void shouldLoadSafeCatalogFieldsAndLatestStatus() throws Exception {
+        writeCaseFixture("""
+                [
+                  {
+                    "caseId": "agent-rag-evidence-trace",
+                    "question": "sensitive question must not be returned",
+                    "expectedBehavior": "internal behavior text must not be returned",
+                    "expectedEvidence": ["ragEvidence"],
+                    "expectedTools": ["rag_qa_tool"],
+                    "mustContain": ["citation_present"],
+                    "mustNotContain": ["no_evidence"],
+                    "tags": ["rag", "trace"],
+                    "scoringRules": {
+                      "requireExpectedEvidence": true,
+                      "requireTraceLink": true
+                    }
+                  }
+                ]
+                """);
+        QualityArtifactService artifactService = mock(QualityArtifactService.class);
+        when(artifactService.listRecentRuns(20)).thenReturn(List.of(summary("docpilot-agent-quality-eval")));
+        when(artifactService.getRunDetail("docpilot-agent-quality-eval")).thenReturn(Optional.of(new QualityRunDetail(
+                summary("docpilot-agent-quality-eval"),
+                List.of(),
+                List.of(new QualityEvalCaseResultDetail(
+                        "agent-rag-evidence-trace",
+                        "rag",
+                        "REVIEW",
+                        false,
+                        "trace-agent-rag-evidence-trace",
+                        "agent-run-agent-rag-evidence-trace",
+                        List.of(),
+                        List.of("citationNeedsReview"),
+                        Map.of(),
+                        Map.of()
+                ))
+        )));
+        QualityEvalCatalogServiceImpl service = new QualityEvalCatalogServiceImpl(
+                tempDir,
+                new ObjectMapper(),
+                artifactService
+        );
+
+        var items = service.listEvalCases();
+
+        assertThat(items).hasSize(1);
+        var item = items.get(0);
+        assertThat(item.caseId()).isEqualTo("agent-rag-evidence-trace");
+        assertThat(item.caseType()).isEqualTo("rag");
+        assertThat(item.tags()).containsExactly("rag", "trace");
+        assertThat(item.expectedEvidence()).containsExactly("ragEvidence");
+        assertThat(item.expectedTools()).containsExactly("rag_qa_tool");
+        assertThat(item.scoringRules()).containsExactly("requireExpectedEvidence=true", "requireTraceLink=true");
+        assertThat(item.latestStatus()).isEqualTo("REVIEW");
+        assertThat(item.latestRunMarker()).isEqualTo("docpilot-agent-quality-eval");
+        assertThat(item.latestTraceId()).isEqualTo("trace-agent-rag-evidence-trace");
+        assertThat(item.latestAgentRunId()).isEqualTo("agent-run-agent-rag-evidence-trace");
+        assertThat(item.latestReviewBuckets()).containsExactly("citationNeedsReview");
+        assertThat(item.toString())
+                .doesNotContain("sensitive question")
+                .doesNotContain("internal behavior")
+                .doesNotContain("citation_present")
+                .doesNotContain("no_evidence");
+    }
+
+    @Test
+    void shouldFilterUnsafeCatalogValues() throws Exception {
+        writeCaseFixture("""
+                [
+                  {
+                    "caseId": "safe-case",
+                    "expectedEvidence": ["ragEvidence", "https://example.invalid/evidence"],
+                    "expectedTools": ["rag_qa_tool", "secretTool"],
+                    "tags": ["rag", "accessToken"],
+                    "scoringRules": {
+                      "requireTraceLink": true,
+                      "apiKeyRule": true
+                    }
+                  }
+                ]
+                """);
+        QualityEvalCatalogServiceImpl service = new QualityEvalCatalogServiceImpl(
+                tempDir,
+                new ObjectMapper(),
+                mock(QualityArtifactService.class)
+        );
+
+        var item = service.listEvalCases().get(0);
+
+        assertThat(item.expectedEvidence()).containsExactly("ragEvidence");
+        assertThat(item.expectedTools()).containsExactly("rag_qa_tool");
+        assertThat(item.tags()).containsExactly("rag");
+        assertThat(item.scoringRules()).containsExactly("requireTraceLink=true");
+        assertThat(item.latestStatus()).isEqualTo("NOT_RUN");
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenCaseFileMissing() {
+        QualityEvalCatalogServiceImpl service = new QualityEvalCatalogServiceImpl(
+                tempDir,
+                new ObjectMapper(),
+                mock(QualityArtifactService.class)
+        );
+
+        assertThat(service.listEvalCases()).isEmpty();
+    }
+
+    private void writeCaseFixture(String content) throws Exception {
+        Path fixture = tempDir.resolve("backend/src/test/resources/quality/agent-quality-eval-cases.json");
+        Files.createDirectories(fixture.getParent());
+        Files.writeString(fixture, content);
+    }
+
+    private QualityRunSummary summary(String marker) {
+        return new QualityRunSummary(
+                marker,
+                "backend/target/agent-quality-eval",
+                marker + "/artifact.json",
+                "PASS",
+                Instant.parse("2026-07-05T00:00:00Z"),
+                1,
+                0,
+                0,
+                List.of(),
+                List.of(),
+                QualityTokenUsageSummary.empty(),
+                false,
+                false
+        );
+    }
+}

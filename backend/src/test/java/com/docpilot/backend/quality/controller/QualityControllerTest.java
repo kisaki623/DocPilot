@@ -4,6 +4,8 @@ import com.docpilot.backend.common.context.UserHolder;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.quality.service.QualityArtifactService;
+import com.docpilot.backend.quality.service.QualityEvalCatalogService;
+import com.docpilot.backend.quality.vo.QualityEvalCaseCatalogItem;
 import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
 import com.docpilot.backend.quality.vo.QualityTokenUsageSummary;
@@ -23,6 +25,7 @@ import static org.mockito.Mockito.when;
 class QualityControllerTest {
 
     private final QualityArtifactService qualityArtifactService = mock(QualityArtifactService.class);
+    private final QualityEvalCatalogService qualityEvalCatalogService = mock(QualityEvalCatalogService.class);
 
     @AfterEach
     void clearUser() {
@@ -32,7 +35,7 @@ class QualityControllerTest {
     @Test
     void shouldRejectWhenConsoleDisabled() {
         UserHolder.setUserId(7L);
-        QualityController controller = new QualityController(qualityArtifactService, false);
+        QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, false);
 
         assertThatThrownBy(() -> controller.listRuns(null))
                 .isInstanceOfSatisfying(BusinessException.class, ex ->
@@ -41,7 +44,7 @@ class QualityControllerTest {
 
     @Test
     void shouldRequireLoginContext() {
-        QualityController controller = new QualityController(qualityArtifactService, true);
+        QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, true);
 
         assertThatThrownBy(() -> controller.listRuns(null))
                 .isInstanceOfSatisfying(BusinessException.class, ex ->
@@ -51,7 +54,7 @@ class QualityControllerTest {
     @Test
     void shouldListRecentRunsWithDefaultLimit() {
         UserHolder.setUserId(7L);
-        QualityController controller = new QualityController(qualityArtifactService, true);
+        QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, true);
         when(qualityArtifactService.listRecentRuns(QualityArtifactService.DEFAULT_LIMIT))
                 .thenReturn(List.of(summary("docpilot-quality-api")));
 
@@ -65,7 +68,7 @@ class QualityControllerTest {
     @Test
     void shouldListRecentRunsWithCustomLimit() {
         UserHolder.setUserId(7L);
-        QualityController controller = new QualityController(qualityArtifactService, true);
+        QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, true);
         when(qualityArtifactService.listRecentRuns(3)).thenReturn(List.of());
 
         controller.listRuns(3);
@@ -76,7 +79,7 @@ class QualityControllerTest {
     @Test
     void shouldReturnRunDetailByMarker() {
         UserHolder.setUserId(7L);
-        QualityController controller = new QualityController(qualityArtifactService, true);
+        QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, true);
         QualityRunDetail detail = new QualityRunDetail(summary("docpilot-quality-detail"), List.of(), List.of());
         when(qualityArtifactService.getRunDetail("docpilot-quality-detail")).thenReturn(Optional.of(detail));
 
@@ -89,12 +92,38 @@ class QualityControllerTest {
     @Test
     void shouldFailWhenRunDetailMissing() {
         UserHolder.setUserId(7L);
-        QualityController controller = new QualityController(qualityArtifactService, true);
+        QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, true);
         when(qualityArtifactService.getRunDetail("missing")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> controller.detail("missing"))
                 .isInstanceOfSatisfying(BusinessException.class, ex ->
                         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    void shouldReturnEvalCaseCatalog() {
+        UserHolder.setUserId(7L);
+        QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, true);
+        when(qualityEvalCatalogService.listEvalCases()).thenReturn(List.of(new QualityEvalCaseCatalogItem(
+                "agent-rag-evidence-trace",
+                "rag",
+                List.of("rag", "trace"),
+                List.of("ragEvidence"),
+                List.of("rag_qa_tool"),
+                List.of("requireTraceLink=true"),
+                "PASS",
+                "docpilot-agent-quality-eval",
+                "trace-agent-rag-evidence-trace",
+                "agent-run-agent-rag-evidence-trace",
+                List.of(),
+                List.of()
+        )));
+
+        var response = controller.listEvalCases();
+
+        assertThat(response.data()).hasSize(1);
+        assertThat(response.data().get(0).caseId()).isEqualTo("agent-rag-evidence-trace");
+        verify(qualityEvalCatalogService).listEvalCases();
     }
 
     private QualityRunSummary summary(String marker) {

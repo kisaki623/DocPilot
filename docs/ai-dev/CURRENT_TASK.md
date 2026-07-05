@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console 求职级升级 Phase 2：Failure Triage v1（DONE）；下一片：Phase 3 Eval Case Catalog v1（READY）
+当前任务：Agent Quality Console 求职级升级 Phase 3：Eval Case Catalog v1（DONE）；下一片：Phase 4 Run Comparison v1（READY）
+
+## 2026-07-05 补充：Agent Quality Console Eval Case Catalog v1
+
+- 目标：让 eval 不只是 smoke 聚合结果，而是能在 `/quality` 中看到当前有哪些安全 eval case、每类 case 验什么、最近一次状态如何。
+- 已完成后端：新增 `QualityEvalCatalogService` / `QualityEvalCatalogServiceImpl` 和 `QualityEvalCaseCatalogItem`，从 `backend/src/test/resources/quality/agent-quality-eval-cases.json` 读取白名单字段，并从最近 Quality run 中关联 `latestStatus`、`latestRunMarker`、`latestTraceId` 和 `latestAgentRunId`。
+- 已完成 API：`GET /api/quality/eval-cases` 复用 `/api/quality/**` 内部访问控制和 `app.quality.console.enabled` 开关，返回脱敏 eval catalog 摘要。
+- 已完成前端：`frontend/lib/quality-api.ts` 新增 catalog 类型和请求；`/quality` Overview 左侧新增 `Eval Catalog` 卡片，展示 caseId、caseType、tags、expectedEvidence、expectedTools、scoringRules 和最近运行状态。
+- 脱敏边界：不返回或展示 `question`、`expectedBehavior`、`mustContain`、`mustNotContain`、answer 原文、prompt、文档全文、evidence context、API key、token、secret、连接串或云地址；catalog parser 对标识符字段做白名单过滤。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，34 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 4 Run Comparison v1，支持 latest run 与 selected previous run 的 gate / case / bucket / token usage 差异对比。
 
 ## 2026-07-05 补充：Agent Quality Console Failure Triage v1
 

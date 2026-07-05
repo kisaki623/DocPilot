@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-05 Agent Quality Console Eval Case Catalog v1 已完成。后端新增 `GET /api/quality/eval-cases`，从现有 `agent-quality-eval-cases.json` 读取安全 case 目录，并关联最近 Quality run 的 latest status / marker / traceId / agentRunId；前端 `/quality` 左侧新增 `Eval Catalog` 卡片。该 catalog 只返回 caseId、caseType、tags、expectedEvidence、expectedTools、scoringRules 和最近状态，不返回 question、expectedBehavior、mustContain、mustNotContain、answer 原文、prompt、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console Failure Triage v1 已完成前端定位闭环。`/quality` Run Detail 新增 Failure Triage 面板，支持按 status、失败桶 taxonomy、gate name 和 case type 过滤 Gate、Eval Case 与 Trace 定位项；失败桶归一化覆盖 RAG retrieval miss、citation unsupported、distractor citation、no-evidence false positive、memory conflict、tool failure、permission regression、frontend UX 和 env blocked。本片未新增后端 API、未新增数据库表，仍只展示现有脱敏 Quality DTO。
 - 2026-07-05 Agent Quality Console Trace Drill-down v2 已完成第一片轻量定位入口。后端 `QualityRunDetail` 现在包含脱敏 `traceReferences`，从 artifact 中递归收集 eval case 的 `traceId` / `agentRunId` / `conversationId`、父级 `gateName` 和 failure / review buckets；前端 `/quality` Run Detail 新增“Trace 定位”面板和复制 ID 按钮。该能力只做定位摘要，不新增数据库表、不读取业务库、不返回 prompt、answer 原文、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console 求职级升级路线图已沉淀为 `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`。后续自驱循环以该文档为长期路线图，当前任务仍以 `CURRENT_TASK.md` 为准；下一片优先进入 Trace Drill-down v2，让失败 / REVIEW eval case 能定位 `traceId` / `agentRunId`。

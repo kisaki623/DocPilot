@@ -5,6 +5,8 @@ import com.docpilot.backend.common.context.UserHolder;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.quality.service.QualityArtifactService;
+import com.docpilot.backend.quality.service.QualityEvalCatalogService;
+import com.docpilot.backend.quality.vo.QualityEvalCaseCatalogItem;
 import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,12 +23,15 @@ import java.util.List;
 public class QualityController {
 
     private final QualityArtifactService qualityArtifactService;
+    private final QualityEvalCatalogService qualityEvalCatalogService;
     private final boolean consoleEnabled;
 
     public QualityController(
             QualityArtifactService qualityArtifactService,
+            QualityEvalCatalogService qualityEvalCatalogService,
             @Value("${app.quality.console.enabled:false}") boolean consoleEnabled) {
         this.qualityArtifactService = qualityArtifactService;
+        this.qualityEvalCatalogService = qualityEvalCatalogService;
         this.consoleEnabled = consoleEnabled;
     }
 
@@ -43,6 +48,12 @@ public class QualityController {
         requireInternalAccess();
         return ApiResponse.success(qualityArtifactService.getRunDetail(marker)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "quality run not found")));
+    }
+
+    @GetMapping("/eval-cases")
+    public ApiResponse<List<QualityEvalCaseCatalogItem>> listEvalCases() {
+        requireInternalAccess();
+        return ApiResponse.success(qualityEvalCatalogService.listEvalCases());
     }
 
     private void requireInternalAccess() {

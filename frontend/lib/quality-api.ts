@@ -43,6 +43,21 @@ export interface QualityTraceReference {
   reviewBuckets: string[];
 }
 
+export interface QualityEvalCaseCatalogItem {
+  caseId: string;
+  caseType: string;
+  tags: string[];
+  expectedEvidence: string[];
+  expectedTools: string[];
+  scoringRules: string[];
+  latestStatus: string;
+  latestRunMarker: string;
+  latestTraceId: string;
+  latestAgentRunId: string;
+  latestFailureBuckets: string[];
+  latestReviewBuckets: string[];
+}
+
 export interface QualityRunSummary {
   marker: string;
   source: string;
@@ -90,4 +105,13 @@ export function getQualityRunDetail(
       }
     }
   );
+}
+
+export function listQualityEvalCases(): Promise<ApiResponse<QualityEvalCaseCatalogItem[]>> {
+  return apiRequest<QualityEvalCaseCatalogItem[]>("/api/quality/eval-cases", {
+    method: "GET",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
+  });
 }
