@@ -17,13 +17,14 @@ Runner:
 Marker:
 
 - Eval：`docpilot-agent-quality-eval-20260704221655-48a5cf`
-- Audit：`docpilot-real-user-qa-20260705145304-7a53b8`
+- Audit：`docpilot-real-user-qa-20260705151944-950f42`
 
 已验证：
 
 - Agent Quality Console MVP 能聚合脱敏 eval / audit artifact，并通过内部 API 和 `/quality` 页面展示 run 状态。
 - 真实 audit 中，tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、multi-query、answer grounding、no-evidence、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
 - `naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`；此前 `ops-incident-support-summary` 的 `distractorCitation` REVIEW 已通过本轮修复回归收口。
+- Console Run Detail 已能展示嵌套 gate 和 eval case 的脱敏 signals；浏览器 `/quality?autoload=1` 可见 `naturalCorpus`、`CASEPASSRATE`、`DISTRACTORCITATIONFREECOUNT` 和 eval case `ops-incident-support-summary`，console error count 为 `0`。
 - 浏览器交互 gate 保持 PASS：quote-first citation 可见、KnowledgeBase 双 marker citation 可见、权限提示可见，console error count 为 `0`。
 
 边界：本次记录证明内部质量控制台与真实用户 QA 审计能发现并验证小样本 citation 精度问题，不代表大规模生产 relevance benchmark。artifact 位于 ignored 的 `backend/target/...`，不提交原文、回答文本、文档文本、prompt、evidence context、凭据、连接串、云地址或 token。

@@ -2,6 +2,8 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-05 Agent Quality Console Explainability v1 已完成。后端 Quality artifact 聚合现在能解析 cloud quality / real-user audit 的嵌套 `gates.*`，并把单个 `checks` object 中的安全 metrics / flags 聚合到 gate；eval case detail 暴露脱敏 `metrics` / `flags`，不返回 question、answer 原文、文档全文、prompt 或 evidence context。
+- `/quality` Run Detail 已展示 gate / eval case signals。真实回归 marker `docpilot-real-user-qa-20260705151944-950f42` PASS；Console autoload 验证可见最新 marker、`naturalCorpus`、`CASEPASSRATE`、`DISTRACTORCITATIONFREECOUNT` 和 eval case `ops-incident-support-summary`，console error count 为 `0`。本轮 `naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`。
 - 2026-07-05 `REA-20260704-P2-006` 已收口为 `VERIFIED`。KnowledgeBase QA 的答案后 citation 后处理新增极低分引用裁剪：只在 summary / compare 等多文档意图下、且裁剪后仍保留至少两份文档 coverage 时生效；retrieval hits 和 `documentHitCounts` 继续保留，便于 Trace / audit 诊断。
 - 本轮验证：`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest" test` PASS；`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS；真实 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705145304-7a53b8`。该 run 中 `naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`，frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact redaction 均 PASS。
 - 2026-07-04 Agent Quality Console MVP Slice 6 已完成真实链路回归与 Console 可见性验证。离线 `agent-quality-eval-smoke.ps1 -Mode run` PASS，marker `docpilot-agent-quality-eval-20260704221655-48a5cf`；真实 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker `docpilot-real-user-qa-20260704221704-4abc6f`，当时整体状态 `REVIEW`。

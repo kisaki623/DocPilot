@@ -14,6 +14,20 @@ import {
 } from "@/lib/quality-api";
 
 const RESERVED_TABS = ["Overview", "Trace", "Eval", "Failures"];
+const SIGNAL_PRIORITY = [
+  "casePassRate",
+  "distractorCitationFreeCount",
+  "answerFaithfulnessPassCount",
+  "citationPhraseSupportPassCount",
+  "retrieveHits",
+  "qaCitations",
+  "distractorCitationCount",
+  "targetCitationCovered",
+  "noEvidenceCorrect",
+  "expectedEvidenceSupported",
+  "traceRagTriggered",
+  "traceRagRequired",
+];
 
 function statusBadge(status?: string): string {
   if (status === "PASS" || status === "SUCCESS") {
@@ -102,7 +116,14 @@ function signalEntries(
     value: value ? "true" : "false",
     tone: value ? "success" as const : "warning" as const,
   }));
-  return [...metricEntries, ...flagEntries].slice(0, limit);
+  return [...metricEntries, ...flagEntries]
+    .sort((left, right) => signalPriority(left.key) - signalPriority(right.key))
+    .slice(0, limit);
+}
+
+function signalPriority(key: string): number {
+  const index = SIGNAL_PRIORITY.indexOf(key);
+  return index >= 0 ? index : SIGNAL_PRIORITY.length;
 }
 
 function compactFlags(flags: Record<string, boolean>): string {

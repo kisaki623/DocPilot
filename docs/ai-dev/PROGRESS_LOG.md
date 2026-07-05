@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Explainability v1 Slice C
+
+- 完成真实回归：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705151944-950f42`。
+- 关键质量结果：`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`；frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact redaction 均 PASS。
+- 完成 Console 可见性验证：开启 `APP_QUALITY_CONSOLE_ENABLED=true` 后，浏览器 `/quality?autoload=1` 可见最新 marker、`naturalCorpus` gate、`CASEPASSRATE`、`DISTRACTORCITATIONFREECOUNT` 和 eval case `ops-incident-support-summary`；console error count 为 `0`，`1366x900` 无横向溢出。
+- 本轮启动的 backend / frontend / tunnel 均已清理；未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
 ## 2026-07-05 Agent Quality Console Explainability v1 Slice B
 
 - 完成 `/quality` Run Detail 可解释性展示：gate 和 eval case 行新增脱敏 signals 小格子，展示安全 metrics / flags；Eval case 同时展示 failure / review buckets 和 traceId / agentRunId。

@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console Explainability v1 Slice B：前端 Run Detail 可解释性展示（DONE）
+当前任务：Agent Quality Console Explainability v1 Slice C：真实回归与可见性验证（DONE）
+
+## 2026-07-05 补充：Quality Console signals 真实链路验证
+
+- 目标：跑一次真实 quality audit，并验证 Agent Quality Console 能展示最新 run 的嵌套 gate、RAG evidence / eval signals 和关键自然语料指标。
+- 已完成真实审计：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705151944-950f42`。
+- 关键结果：`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`；frontendInteraction、Memory quality、Conversation Trace、权限隔离、artifact redaction 均 PASS。
+- Console 验证：开启 `APP_QUALITY_CONSOLE_ENABLED=true` 后，浏览器打开 `/quality?autoload=1` 可见最新 marker、`naturalCorpus` gate、`CASEPASSRATE`、`DISTRACTORCITATIONFREECOUNT` 和 eval case `ops-incident-support-summary`；console error count 为 `0`，`1366x900` 无横向溢出。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS；`npm run lint` PASS；`npm run build` PASS；Playwright route smoke 和 autoload smoke PASS。
+- 边界：本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation、Memory 和临时登录用户；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push；本轮 backend / frontend / tunnel 已清理。
+- 下一步建议：继续 Agent Quality Console Trace drill-down v2，优先把 eval case 的 `traceId` / `agentRunId` 变成可点击的内部定位入口；若没有真实 trace detail API，则先做“复制 ID + 失败桶过滤”的轻量闭环。
 
 ## 2026-07-05 补充：`/quality` Evidence / Eval Lens 展示
 
