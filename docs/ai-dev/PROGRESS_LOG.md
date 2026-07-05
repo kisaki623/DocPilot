@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Eval Catalog 筛选 v1
+
+- `/quality` Eval Catalog 新增 risk、owner、status 三个本地筛选控件，支持快速定位高风险、特定 owner 或失败 / REVIEW case。
+- 本片只改前端展示，不新增后端 API、不新增数据库表、不启动真实后端 / tunnel。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 桌面与 `390px` 移动端无横向溢出、console error 为 `0`；清理脚本确认端口释放。
+
 ## 2026-07-05 Agent Quality Console Eval Catalog Remediation Hint v1
 
 - 7 个默认 eval catalog case 已补 `lastVerifiedMarker` 和 `remediationHints`，让 Console 能展示每个 case 最近验证 marker 和修复排查方向。

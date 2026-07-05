@@ -658,27 +658,108 @@ function MetricCard({
 }
 
 function EvalCatalogPanel({ items }: { items: QualityEvalCaseCatalogItem[] }) {
+  const [riskFilter, setRiskFilter] = useState("ALL");
+  const [ownerFilter, setOwnerFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const riskOptions = useMemo(() => uniqueCatalogValues(items.map((item) => item.riskLevel)), [items]);
+  const ownerOptions = useMemo(() => uniqueCatalogValues(items.map((item) => item.owner)), [items]);
+  const statusOptions = useMemo(
+    () => uniqueCatalogValues(items.map((item) => item.latestStatus || "NOT_RUN")),
+    [items]
+  );
+  const filteredItems = useMemo(
+    () =>
+      items.filter((item) => {
+        const status = item.latestStatus || "NOT_RUN";
+        return (
+          (riskFilter === "ALL" || item.riskLevel === riskFilter) &&
+          (ownerFilter === "ALL" || item.owner === ownerFilter) &&
+          (statusFilter === "ALL" || status === statusFilter)
+        );
+      }),
+    [items, ownerFilter, riskFilter, statusFilter]
+  );
+
   return (
     <div className="dp-card min-w-0">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="dp-section-title">Eval Catalog</h2>
           <p className="mt-1 text-xs text-slate-500">
-            {items.length} cases
+            {filteredItems.length} / {items.length} cases
           </p>
         </div>
         <span className="dp-badge dp-badge-neutral">P0</span>
       </div>
 
+      <div className="mt-4 grid gap-2 sm:grid-cols-3">
+        <CatalogFilterSelect
+          label="risk"
+          value={riskFilter}
+          options={riskOptions}
+          onChange={setRiskFilter}
+        />
+        <CatalogFilterSelect
+          label="owner"
+          value={ownerFilter}
+          options={ownerOptions}
+          onChange={setOwnerFilter}
+        />
+        <CatalogFilterSelect
+          label="status"
+          value={statusFilter}
+          options={statusOptions}
+          onChange={setStatusFilter}
+        />
+      </div>
+
       <div className="mt-4 grid gap-2">
         {items.length === 0 ? (
           <p className="dp-meta">暂无 eval case 目录。</p>
+        ) : filteredItems.length === 0 ? (
+          <p className="dp-meta">当前筛选条件下暂无 case。</p>
         ) : (
-          items.map((item) => <EvalCatalogRow key={item.caseId} item={item} />)
+          filteredItems.map((item) => <EvalCatalogRow key={item.caseId} item={item} />)
         )}
       </div>
     </div>
   );
+}
+
+function CatalogFilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="min-w-0 text-xs font-medium text-slate-600">
+      <span className="mb-1 block uppercase text-slate-400">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700 outline-none focus:border-blue-300"
+      >
+        <option value="ALL">ALL</option>
+        {options.map((option) => (
+          <option key={`${label}-${option}`} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function uniqueCatalogValues(values: string[]): string[] {
+  return Array.from(
+    new Set(values.map((value) => value || "").filter((value) => value.trim().length > 0))
+  ).sort((left, right) => left.localeCompare(right));
 }
 
 function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {

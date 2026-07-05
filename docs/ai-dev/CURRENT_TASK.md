@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：Agent Quality Console Eval Catalog Remediation Hint v1（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入小规模真实审计回归或 Eval Catalog owner 分组筛选（READY）
+当前任务：Agent Quality Console Eval Catalog 筛选 v1（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入小规模真实审计回归（READY）
+
+## 2026-07-05 补充：Agent Quality Console Eval Catalog 筛选 v1
+
+- 目标：让 `/quality` 的 Eval Catalog 不只是静态列表，而是能按风险、owner 和最新状态快速定位 case。
+- 已完成：`frontend/app/quality/page.tsx` 的 Eval Catalog 增加本地筛选控件：risk、owner、status；筛选在浏览器端完成，不新增后端 API。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，确认存在 3 个筛选控件，桌面和 `390px` 移动端无横向溢出，console error 为 `0`。
+- 边界：本片不新增数据库表，不改 Quality API，不启动后端 / tunnel，不创建业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：跑一轮小规模真实审计，确认 `/quality?autoload=1` 能展示最新 run、7 个 catalog case、source issue、verified marker 和 remediation hints。
 
 ## 2026-07-05 补充：Agent Quality Console Eval Catalog Remediation Hint v1
 

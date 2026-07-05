@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-05 Agent Quality Console Eval Catalog 筛选 v1 已完成。`/quality` 的 Eval Catalog 支持按 risk、owner 和 latest status 本地筛选；不新增后端 API、不新增数据库表。已验证 `npm run lint` PASS、`npm run build` PASS，Playwright `/quality?routeSmoke=2` 桌面与 `390px` 移动端无横向溢出、console error 为 `0`，端口已清理释放。
 - 2026-07-05 Agent Quality Console Eval Catalog Remediation Hint v1 已完成。默认 7 个 eval catalog case 增加 `lastVerifiedMarker` 和 `remediationHints`，`/api/quality/eval-cases` 与 `/quality` Eval Catalog 同步展示上次验证 marker 和修复排查方向；字段仍走白名单过滤，不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。已验证 `mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
 - 2026-07-05 Agent Quality Console Real Audit Case 扩容 v1 已完成。默认 `agent-quality-eval-cases.json` 从 3 个 case 扩到 7 个，新增短文档单文档 RAG evidence、短文档 KB 双文档覆盖、summary 干扰 citation 裁剪和 Quality Console backend health 四类真实审计沉淀 case；`sourceIssueIds` 只暴露 `REA-...` 脱敏问题编号，API / 前端仍不返回 question、expectedBehavior、mustContain、mustNotContain、prompt、answer 原文、文档全文、evidence context 或凭据。已验证 `mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
 - 2026-07-05 Agent Quality Console Eval Case Version v1 已完成。默认 `agent-quality-eval-cases.json` 增加 `caseVersion`、`owner`、`lastUpdated` 和 `riskLevel`；`GET /api/quality/eval-cases` 与 `/quality` Eval Catalog 卡片同步展示这些安全元数据。离线 eval runner 对未知 JSON 字段保持兼容，result artifact 仍不保存 question、expectedBehavior、mustContain、mustNotContain、prompt、answer 原文、文档全文或 evidence context。

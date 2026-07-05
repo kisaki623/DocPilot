@@ -94,6 +94,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 2026-07-05 追加状态：DONE。Eval Catalog Remediation Hint v1 已为 7 个默认 case 增加 `lastVerifiedMarker` 和 `remediationHints`；Console 可以展示每个 case 最近验证 marker 和修复排查方向，字段继续使用白名单过滤，不展示真实 artifact、prompt、answer 原文、文档全文或 evidence context。
 
+2026-07-05 追加状态：DONE。Eval Catalog 筛选 v1 已在 `/quality` 前端增加 risk、owner 和 latest status 本地筛选；不新增后端 API、不新增数据库表。浏览器 route smoke 已验证桌面和移动端无 console error、无横向溢出。
+
 最小实现：
 
 - 继续使用 JSON 文件，不新增数据库表。
