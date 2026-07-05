@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console 求职级升级 Phase 3：Eval Case Catalog v1（DONE）；下一片：Phase 4 Run Comparison v1（READY）
+当前任务：Agent Quality Console 求职级升级 Phase 4：Run Comparison v1（DONE）；下一片：Phase 5 Cost / Latency / Model Summary v1（READY）
+
+## 2026-07-05 补充：Agent Quality Console Run Comparison v1
+
+- 目标：让 `/quality` 能展示当前 run 与选定 previous run 的脱敏差异，用于支撑“发现问题 -> 修复 -> 回归通过”的质量闭环说明。
+- 已完成前端：Run Detail 新增 `Run Comparison` 面板，支持选择 previous run，并用现有 `GET /api/quality/runs/{marker}` 拉取对比详情；本片不新增后端 compare API。
+- 对比内容：展示 status 变化、gate 数 delta、failed / review gate delta、token total delta、casePassRate delta、新增失败桶、已修复失败桶、gate status changes 和 eval case status changes。
+- 脱敏边界：对比只使用现有 Quality DTO 的 marker、status、计数、metrics、bucket、caseId 等白名单字段；不展示 prompt、answer 原文、文档全文、evidence context、API key、token、secret、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 5 Cost / Latency / Model Summary v1，补齐 token、model call、tool call、latency、retry 等数值摘要。
 
 ## 2026-07-05 补充：Agent Quality Console Eval Case Catalog v1
 

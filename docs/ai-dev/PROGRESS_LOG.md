@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Run Comparison v1
+
+- 前端 `/quality` Run Detail 新增 `Run Comparison` 面板，可选择 previous run，并复用现有 run detail API 展示当前 run 相对 previous run 的状态、gate、失败桶、eval case、token total 和 casePassRate 差异。
+- 对比结果只展示脱敏白名单字段和数值 delta，不新增后端 compare API、不新增数据库表、不展示原始 artifact、prompt、answer 原文、文档全文或 evidence context。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 移动端 smoke 无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+
 ## 2026-07-05 Agent Quality Console Eval Case Catalog v1
 
 - 后端新增 `QualityEvalCatalogService`、`QualityEvalCaseCatalogItem` 和 `GET /api/quality/eval-cases`，从现有 eval JSON 读取白名单字段，并关联最近 Quality run 的 latest status / marker / traceId / agentRunId。

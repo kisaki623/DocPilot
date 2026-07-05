@@ -60,6 +60,19 @@ interface TriageBucketSummary {
   examples: string[];
 }
 
+interface RunComparisonSummary {
+  statusChange: string;
+  gateDelta: number;
+  failedGateDelta: number;
+  reviewGateDelta: number;
+  tokenDelta: number | null;
+  casePassRateDelta: number | null;
+  newFailureBuckets: string[];
+  resolvedFailureBuckets: string[];
+  changedGateStatuses: string[];
+  changedCaseStatuses: string[];
+}
+
 const DEFAULT_TRIAGE_FILTERS: TriageFilters = {
   status: "ALL",
   bucketCategory: "ALL",
@@ -211,6 +224,10 @@ function tokenUsageTotal(runs: QualityRunSummary[]): number {
   return runs.reduce((sum, item) => sum + (item.tokenUsage?.totalTokens || 0), 0);
 }
 
+function tokenUsageValue(tokenUsage?: QualityTokenUsageSummary): number | null {
+  return typeof tokenUsage?.totalTokens === "number" ? tokenUsage.totalTokens : null;
+}
+
 function formatTokenUsage(tokenUsage?: QualityTokenUsageSummary): string {
   if (!tokenUsage) {
     return "-";
@@ -274,6 +291,19 @@ function compactFlags(flags: Record<string, boolean>): string {
     .join(" / ");
 }
 
+function formatDelta(value: number | null, fractionDigits = 0): string {
+  if (value === null || Number.isNaN(value)) {
+    return "-";
+  }
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${value.toFixed(fractionDigits)}`;
+}
+
+function uniqueDiff(left: string[], right: string[]): string[] {
+  const rightSet = new Set(right);
+  return uniqueSorted(left.filter((item) => !rightSet.has(item)));
+}
+
 async function copyToClipboard(value: string): Promise<void> {
   if (!value || !navigator.clipboard) {
     return;
@@ -290,9 +320,12 @@ export default function QualityPage() {
   const [runs, setRuns] = useState<QualityRunSummary[]>([]);
   const [evalCatalog, setEvalCatalog] = useState<QualityEvalCaseCatalogItem[]>([]);
   const [selectedMarker, setSelectedMarker] = useState("");
+  const [compareMarker, setCompareMarker] = useState("");
   const [detail, setDetail] = useState<QualityRunDetail | null>(null);
+  const [compareDetail, setCompareDetail] = useState<QualityRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [compareLoading, setCompareLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const loadRuns = useCallback(async () => {
@@ -314,6 +347,7 @@ export default function QualityPage() {
       const nextRuns = response.data || [];
       setRuns(nextRuns);
       setSelectedMarker((current) => current || nextRuns[0]?.marker || "");
+      setCompareMarker((current) => current || nextRuns[1]?.marker || "");
       try {
         const catalogResponse = await listQualityEvalCases();
         setEvalCatalog(catalogResponse.data || []);
@@ -324,6 +358,7 @@ export default function QualityPage() {
       setRuns([]);
       setEvalCatalog([]);
       setDetail(null);
+      setCompareDetail(null);
       setErrorMessage(
         error instanceof Error ? error.message : "加载质量运行记录失败"
       );
@@ -352,6 +387,22 @@ export default function QualityPage() {
     }
   }, []);
 
+  const loadCompareDetail = useCallback(async (marker: string) => {
+    if (!marker) {
+      setCompareDetail(null);
+      return;
+    }
+    setCompareLoading(true);
+    try {
+      const response = await getQualityRunDetail(marker);
+      setCompareDetail(response.data);
+    } catch {
+      setCompareDetail(null);
+    } finally {
+      setCompareLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const token = getToken();
     if (!token) {
@@ -377,6 +428,22 @@ export default function QualityPage() {
       loadDetail(selectedMarker);
     }
   }, [loadDetail, selectedMarker]);
+
+  useEffect(() => {
+    if (!selectedMarker || compareMarker !== selectedMarker) {
+      return;
+    }
+    const fallback = runs.find((run) => run.marker !== selectedMarker)?.marker || "";
+    setCompareMarker(fallback);
+  }, [compareMarker, runs, selectedMarker]);
+
+  useEffect(() => {
+    if (compareMarker) {
+      loadCompareDetail(compareMarker);
+    } else {
+      setCompareDetail(null);
+    }
+  }, [compareMarker, loadCompareDetail]);
 
   const stats = useMemo(() => {
     const pass = runs.filter((item) => item.status === "PASS").length;
@@ -504,7 +571,16 @@ export default function QualityPage() {
           <EvalCatalogPanel items={evalCatalog} />
         </div>
 
-        <RunDetailPanel detail={detail} loading={detailLoading} />
+        <RunDetailPanel
+          detail={detail}
+          loading={detailLoading}
+          runs={runs}
+          selectedMarker={selectedMarker}
+          compareMarker={compareMarker}
+          compareDetail={compareDetail}
+          compareLoading={compareLoading}
+          onCompareMarkerChange={setCompareMarker}
+        />
       </section>
     </main>
   );
@@ -608,9 +684,21 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
 function RunDetailPanel({
   detail,
   loading,
+  runs,
+  selectedMarker,
+  compareMarker,
+  compareDetail,
+  compareLoading,
+  onCompareMarkerChange,
 }: {
   detail: QualityRunDetail | null;
   loading: boolean;
+  runs: QualityRunSummary[];
+  selectedMarker: string;
+  compareMarker: string;
+  compareDetail: QualityRunDetail | null;
+  compareLoading: boolean;
+  onCompareMarkerChange: (marker: string) => void;
 }) {
   if (loading) {
     return (
@@ -628,10 +716,36 @@ function RunDetailPanel({
     );
   }
 
-  return <RunDetailContent detail={detail} />;
+  return (
+    <RunDetailContent
+      detail={detail}
+      runs={runs}
+      selectedMarker={selectedMarker}
+      compareMarker={compareMarker}
+      compareDetail={compareDetail}
+      compareLoading={compareLoading}
+      onCompareMarkerChange={onCompareMarkerChange}
+    />
+  );
 }
 
-function RunDetailContent({ detail }: { detail: QualityRunDetail }) {
+function RunDetailContent({
+  detail,
+  runs,
+  selectedMarker,
+  compareMarker,
+  compareDetail,
+  compareLoading,
+  onCompareMarkerChange,
+}: {
+  detail: QualityRunDetail;
+  runs: QualityRunSummary[];
+  selectedMarker: string;
+  compareMarker: string;
+  compareDetail: QualityRunDetail | null;
+  compareLoading: boolean;
+  onCompareMarkerChange: (marker: string) => void;
+}) {
   const { summary } = detail;
   const [filters, setFilters] = useState<TriageFilters>(DEFAULT_TRIAGE_FILTERS);
 
@@ -800,6 +914,16 @@ function RunDetailContent({ detail }: { detail: QualityRunDetail }) {
           <BucketBox title="Review Buckets" values={summary.reviewBuckets} />
         </div>
       </section>
+
+      <RunComparisonPanel
+        current={detail}
+        previous={compareDetail}
+        runs={runs}
+        selectedMarker={selectedMarker}
+        compareMarker={compareMarker}
+        loading={compareLoading}
+        onCompareMarkerChange={onCompareMarkerChange}
+      />
 
       <FailureTriagePanel
         filters={filters}
@@ -1193,6 +1317,193 @@ function EvalCaseRow({ item }: { item: QualityEvalCaseResultDetail }) {
       </p>
     </div>
   );
+}
+
+function RunComparisonPanel({
+  current,
+  previous,
+  runs,
+  selectedMarker,
+  compareMarker,
+  loading,
+  onCompareMarkerChange,
+}: {
+  current: QualityRunDetail;
+  previous: QualityRunDetail | null;
+  runs: QualityRunSummary[];
+  selectedMarker: string;
+  compareMarker: string;
+  loading: boolean;
+  onCompareMarkerChange: (marker: string) => void;
+}) {
+  const comparison = useMemo(
+    () => (previous ? buildRunComparison(current, previous) : null),
+    [current, previous]
+  );
+  const options = runs.filter((run) => run.marker !== selectedMarker);
+
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h3 className="dp-section-title">Run Comparison</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            current vs previous
+          </p>
+        </div>
+        <label className="min-w-0 lg:min-w-72">
+          <span className="text-xs font-semibold uppercase text-slate-500">
+            Previous Run
+          </span>
+          <select
+            value={compareMarker}
+            onChange={(event) => onCompareMarkerChange(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+          >
+            <option value="">NONE</option>
+            {options.map((run) => (
+              <option key={run.marker} value={run.marker}>
+                {run.marker}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {loading ? (
+        <p className="mt-4 dp-meta">加载对比 run...</p>
+      ) : !comparison ? (
+        <p className="mt-4 dp-meta">选择 previous run 后查看差异。</p>
+      ) : (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SmallFact label="Status" value={comparison.statusChange} />
+            <SmallFact label="Gate delta" value={formatDelta(comparison.gateDelta)} />
+            <SmallFact
+              label="Failed delta"
+              value={formatDelta(comparison.failedGateDelta)}
+            />
+            <SmallFact
+              label="Token delta"
+              value={formatDelta(comparison.tokenDelta)}
+            />
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SmallFact
+              label="Review delta"
+              value={formatDelta(comparison.reviewGateDelta)}
+            />
+            <SmallFact
+              label="Case pass rate"
+              value={formatDelta(comparison.casePassRateDelta, 4)}
+            />
+            <SmallFact
+              label="New failures"
+              value={`${comparison.newFailureBuckets.length}`}
+            />
+            <SmallFact
+              label="Resolved failures"
+              value={`${comparison.resolvedFailureBuckets.length}`}
+            />
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <BucketBox title="New Failure Buckets" values={comparison.newFailureBuckets} />
+            <BucketBox title="Resolved Failure Buckets" values={comparison.resolvedFailureBuckets} />
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <BucketBox title="Gate Status Changes" values={comparison.changedGateStatuses} />
+            <BucketBox title="Eval Case Changes" values={comparison.changedCaseStatuses} />
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function buildRunComparison(
+  current: QualityRunDetail,
+  previous: QualityRunDetail
+): RunComparisonSummary {
+  const currentSummary = current.summary;
+  const previousSummary = previous.summary;
+  const currentTokens = tokenUsageValue(currentSummary.tokenUsage);
+  const previousTokens = tokenUsageValue(previousSummary.tokenUsage);
+  const currentPassRate = findMetric(current, "casePassRate");
+  const previousPassRate = findMetric(previous, "casePassRate");
+
+  return {
+    statusChange: `${previousSummary.status || "-"} -> ${currentSummary.status || "-"}`,
+    gateDelta: currentSummary.gateCount - previousSummary.gateCount,
+    failedGateDelta: currentSummary.failedGateCount - previousSummary.failedGateCount,
+    reviewGateDelta: currentSummary.reviewGateCount - previousSummary.reviewGateCount,
+    tokenDelta:
+      currentTokens === null || previousTokens === null
+        ? null
+        : currentTokens - previousTokens,
+    casePassRateDelta:
+      currentPassRate === null || previousPassRate === null
+        ? null
+        : currentPassRate - previousPassRate,
+    newFailureBuckets: uniqueDiff(
+      currentSummary.failureBuckets,
+      previousSummary.failureBuckets
+    ),
+    resolvedFailureBuckets: uniqueDiff(
+      previousSummary.failureBuckets,
+      currentSummary.failureBuckets
+    ),
+    changedGateStatuses: changedGateStatuses(current, previous),
+    changedCaseStatuses: changedCaseStatuses(current, previous),
+  };
+}
+
+function findMetric(detail: QualityRunDetail, metricName: string): number | null {
+  for (const gate of detail.gates) {
+    const value = gate.metrics?.[metricName];
+    if (typeof value === "number") {
+      return value;
+    }
+  }
+  return null;
+}
+
+function changedGateStatuses(
+  current: QualityRunDetail,
+  previous: QualityRunDetail
+): string[] {
+  const previousByName = new Map(
+    previous.gates.map((gate) => [gate.name, getGateStatus(gate)])
+  );
+  return current.gates
+    .map((gate) => {
+      const previousStatus = previousByName.get(gate.name);
+      const currentStatus = getGateStatus(gate);
+      if (!previousStatus || previousStatus === currentStatus) {
+        return "";
+      }
+      return `${gate.name}: ${previousStatus} -> ${currentStatus}`;
+    })
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function changedCaseStatuses(
+  current: QualityRunDetail,
+  previous: QualityRunDetail
+): string[] {
+  const previousByCaseId = new Map(
+    previous.evalCases.map((item) => [item.caseId, item.status])
+  );
+  return current.evalCases
+    .map((item) => {
+      const previousStatus = previousByCaseId.get(item.caseId);
+      if (!previousStatus || previousStatus === item.status) {
+        return "";
+      }
+      return `${item.caseId}: ${previousStatus} -> ${item.status}`;
+    })
+    .filter(Boolean)
+    .slice(0, 6);
 }
 
 function SignalGrid({
