@@ -46,6 +46,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 目标：让失败 eval case 能定位到具体 Trace / Agent Run。
 
+2026-07-05 追加状态：DONE。已在 `/quality` Trace 定位行增加“打开”链接，并新增 `/quality/trace` 最小详情页；该页复用现有 QualityRunDetail，只展示脱敏 trace reference、关联 gate / eval case、failure / review buckets 和安全 metrics / flags，不新增后端 API、不读业务库。
+
 最小实现：
 
 - 在 Quality detail 中补充安全 trace reference 摘要：`traceId`、`agentRunId`、`conversationId`、`caseId`、`gateName`、`failureBucket`、`status`。

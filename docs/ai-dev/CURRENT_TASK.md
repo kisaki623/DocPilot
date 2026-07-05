@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console 求职级升级 Phase 8：求职展示打磨（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Trace Detail / Eval Case Version / Real Audit Case 扩容（READY）
+当前任务：Agent Quality Console Trace Detail 最小入口（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Eval Case Version / Real Audit Case 扩容（READY）
+
+## 2026-07-05 补充：Agent Quality Console Trace Detail 最小入口
+
+- 目标：让 `/quality` 的 Trace 定位项不只复制 ID，而是可以打开一个内部详情页查看同一 run 下的脱敏 trace reference、关联 gate 和关联 eval case。
+- 已完成：新增 `frontend/app/quality/trace/page.tsx`，通过 query 参数接收 marker、caseId、traceId、agentRunId 和 conversationId，复用现有 `GET /api/quality/runs/{marker}` 拉取 QualityRunDetail，并只展示白名单字段。
+- 已完成：`frontend/app/quality/page.tsx` 的 Trace 定位行新增“打开”链接，跳转到 `/quality/trace?...`。
+- 脱敏边界：Trace Detail 不新增后端 API、不读业务数据库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址；只展示 marker、caseId、gateName、traceId、agentRunId、conversationId、failure / review bucket 和安全 metrics / flags。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality/trace?routeSmoke=1&marker=docpilot-route-smoke&caseId=route-smoke` 桌面与 `390px` 移动端无 console error，未见横向溢出；本轮不启动后端、不创建业务数据。
+- 边界：这是基于 artifact 的脱敏定位详情，不是真实业务 Trace 原文页面；后续如要打开业务 ContextTrace 详情，需要单独评估权限和字段白名单。
+- 下一片建议：Eval Case Version v1，为 JSON case 增加 version / owner / lastUpdated / riskLevel 等安全元数据，或扩容真实 audit case。
 
 ## 2026-07-05 补充：Agent Quality Console 求职展示打磨
 

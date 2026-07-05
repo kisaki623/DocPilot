@@ -986,7 +986,10 @@ function RunDetailContent({
         onChange={setFilters}
       />
 
-      <TraceReferencePanel references={filteredTraceReferences} />
+      <TraceReferencePanel
+        references={filteredTraceReferences}
+        runMarker={summary.marker}
+      />
 
       <section className="dp-card min-w-0">
         <h3 className="dp-section-title">Gate 列表</h3>
@@ -1201,7 +1204,13 @@ function TriageSelect({
   );
 }
 
-function TraceReferencePanel({ references }: { references: QualityTraceReference[] }) {
+function TraceReferencePanel({
+  references,
+  runMarker,
+}: {
+  references: QualityTraceReference[];
+  runMarker: string;
+}) {
   return (
     <section className="dp-card min-w-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1221,6 +1230,7 @@ function TraceReferencePanel({ references }: { references: QualityTraceReference
             <TraceReferenceRow
               key={`${reference.caseId}-${reference.traceId}-${reference.agentRunId}`}
               reference={reference}
+              runMarker={runMarker}
             />
           ))
         )}
@@ -1229,8 +1239,15 @@ function TraceReferencePanel({ references }: { references: QualityTraceReference
   );
 }
 
-function TraceReferenceRow({ reference }: { reference: QualityTraceReference }) {
+function TraceReferenceRow({
+  reference,
+  runMarker,
+}: {
+  reference: QualityTraceReference;
+  runMarker: string;
+}) {
   const status = reference.status || "REVIEW";
+  const traceHref = buildTraceHref(runMarker, reference);
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1242,7 +1259,15 @@ function TraceReferenceRow({ reference }: { reference: QualityTraceReference }) 
             {reference.gateName || "-"} / {reference.caseType || "agent_quality"}
           </p>
         </div>
-        <span className={statusBadge(status)}>{status}</span>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link
+            href={traceHref}
+            className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:border-blue-300"
+          >
+            打开
+          </Link>
+          <span className={statusBadge(status)}>{status}</span>
+        </div>
       </div>
       <div className="mt-3 grid gap-2 lg:grid-cols-3">
         <TraceIdBox label="traceId" value={reference.traceId} />
@@ -1259,6 +1284,24 @@ function TraceReferenceRow({ reference }: { reference: QualityTraceReference }) 
       </div>
     </div>
   );
+}
+
+function buildTraceHref(runMarker: string, reference: QualityTraceReference): string {
+  const params = new URLSearchParams();
+  params.set("marker", runMarker);
+  if (reference.caseId) {
+    params.set("caseId", reference.caseId);
+  }
+  if (reference.traceId) {
+    params.set("traceId", reference.traceId);
+  }
+  if (reference.agentRunId) {
+    params.set("agentRunId", reference.agentRunId);
+  }
+  if (reference.conversationId) {
+    params.set("conversationId", reference.conversationId);
+  }
+  return `/quality/trace?${params.toString()}`;
 }
 
 function TraceIdBox({ label, value }: { label: string; value: string }) {

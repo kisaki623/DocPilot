@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Trace Detail 最小入口
+
+- 新增 `frontend/app/quality/trace/page.tsx`，通过 marker / caseId / traceId / agentRunId / conversationId 定位同一 Quality run 里的脱敏 trace reference，并展示关联 gate / eval case 的安全 metrics、flags 和 failure / review buckets。
+- `/quality` Run Detail 的 Trace 定位行新增“打开”链接，跳转到 `/quality/trace?...`；页面支持 `routeSmoke=1`，便于不启动后端时做前端路由 smoke。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality/trace?routeSmoke=1&marker=docpilot-route-smoke&caseId=route-smoke` 桌面与 `390px` 移动端无 console error，未见横向溢出。
+- 边界：本片不新增后端 API，不读业务数据库，不展示 prompt、answer 原文、文档全文、evidence context、凭据、连接串或云地址。
+
 ## 2026-07-05 Agent Quality Console 求职展示打磨
 
 - README 已更新为“企业文档知识库 RAG + 会话记忆工程化平台”口径，补充 `/quality` 内部质量控制台、Conversation Memory、Context Trace、RAG / Memory 真实质量门禁和当前边界。

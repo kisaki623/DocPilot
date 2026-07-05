@@ -1,0 +1,406 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getToken } from "@/lib/auth";
+import {
+  getQualityRunDetail,
+  type QualityEvalCaseResultDetail,
+  type QualityGateSummary,
+  type QualityRunDetail,
+  type QualityTraceReference,
+} from "@/lib/quality-api";
+
+interface TraceQuery {
+  marker: string;
+  caseId: string;
+  traceId: string;
+  agentRunId: string;
+  conversationId: string;
+}
+
+function statusBadge(status?: string): string {
+  if (status === "PASS" || status === "SUCCESS") {
+    return "dp-badge dp-badge-success";
+  }
+  if (status === "REVIEW" || status === "BLOCKED") {
+    return "dp-badge dp-badge-warning";
+  }
+  if (status?.startsWith("FAILED")) {
+    return "dp-badge dp-badge-danger";
+  }
+  return "dp-badge dp-badge-info";
+}
+
+function summarizeBuckets(values?: string[]): string {
+  if (!values || values.length === 0) {
+    return "-";
+  }
+  return values.slice(0, 5).join(" / ");
+}
+
+function formatNumber(value?: number | null): string {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "-";
+  }
+  if (Math.abs(value) < 1 && value !== 0) {
+    return value.toFixed(4);
+  }
+  return new Intl.NumberFormat("zh-CN").format(value);
+}
+
+function compactMetrics(metrics?: Record<string, number>): string {
+  const entries = Object.entries(metrics || {});
+  if (entries.length === 0) {
+    return "-";
+  }
+  return entries
+    .slice(0, 8)
+    .map(([key, value]) => `${key}: ${formatNumber(value)}`)
+    .join(" / ");
+}
+
+function compactFlags(flags?: Record<string, boolean>): string {
+  const entries = Object.entries(flags || {});
+  if (entries.length === 0) {
+    return "-";
+  }
+  return entries
+    .slice(0, 8)
+    .map(([key, value]) => `${key}: ${value ? "true" : "false"}`)
+    .join(" / ");
+}
+
+function readTraceQuery(): TraceQuery {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    marker: params.get("marker") || "",
+    caseId: params.get("caseId") || "",
+    traceId: params.get("traceId") || "",
+    agentRunId: params.get("agentRunId") || "",
+    conversationId: params.get("conversationId") || "",
+  };
+}
+
+function matchesQuery(reference: QualityTraceReference, query: TraceQuery): boolean {
+  if (query.caseId && reference.caseId !== query.caseId) {
+    return false;
+  }
+  if (query.traceId && reference.traceId !== query.traceId) {
+    return false;
+  }
+  if (query.agentRunId && reference.agentRunId !== query.agentRunId) {
+    return false;
+  }
+  if (query.conversationId && reference.conversationId !== query.conversationId) {
+    return false;
+  }
+  return true;
+}
+
+export default function QualityTracePage() {
+  const [query, setQuery] = useState<TraceQuery>({
+    marker: "",
+    caseId: "",
+    traceId: "",
+    agentRunId: "",
+    conversationId: "",
+  });
+  const [hasToken, setHasToken] = useState<boolean | null>(null);
+  const [detail, setDetail] = useState<QualityRunDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const loadDetail = useCallback(async (marker: string) => {
+    setLoading(true);
+    setErrorMessage("");
+    try {
+      const response = await getQualityRunDetail(marker);
+      setDetail(response.data);
+    } catch (error) {
+      setDetail(null);
+      setErrorMessage(
+        error instanceof Error ? error.message : "加载 Trace 定位详情失败"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const nextQuery = readTraceQuery();
+    setQuery(nextQuery);
+    const routeSmoke = new URLSearchParams(window.location.search).get("routeSmoke");
+    if (routeSmoke === "1") {
+      setHasToken(true);
+      setLoading(false);
+      setErrorMessage("");
+      return;
+    }
+    const token = getToken();
+    if (!token) {
+      setHasToken(false);
+      setLoading(false);
+      setErrorMessage("未检测到登录状态。");
+      return;
+    }
+    setHasToken(true);
+    if (!nextQuery.marker) {
+      setLoading(false);
+      setErrorMessage("缺少 quality run marker。");
+      return;
+    }
+    void loadDetail(nextQuery.marker);
+  }, [loadDetail]);
+
+  const references = useMemo(
+    () => (detail?.traceReferences || []).filter((item) => matchesQuery(item, query)),
+    [detail?.traceReferences, query]
+  );
+
+  const primaryReference = references[0] || null;
+  const relatedGate = useMemo(
+    () =>
+      primaryReference
+        ? detail?.gates.find((gate) => gate.name === primaryReference.gateName) || null
+        : null,
+    [detail?.gates, primaryReference]
+  );
+  const relatedEvalCase = useMemo(
+    () =>
+      primaryReference
+        ? detail?.evalCases.find((item) => item.caseId === primaryReference.caseId) ||
+          null
+        : null,
+    [detail?.evalCases, primaryReference]
+  );
+
+  if (hasToken === false) {
+    return (
+      <main className="dp-page mx-auto max-w-5xl px-4 py-8">
+        <section className="dp-hero">
+          <p className="dp-eyebrow">Agent Quality Console</p>
+          <h1 className="dp-title">Trace 定位</h1>
+          <p className="dp-subtitle">登录后查看内部质量定位详情。</p>
+          <div className="mt-5">
+            <Link href="/login" className="dp-btn dp-btn-primary">
+              登录
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  return (
+    <main className="dp-page mx-auto max-w-6xl px-4 py-8">
+      <section className="dp-hero">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <p className="dp-eyebrow">Agent Quality Console</p>
+            <h1 className="dp-title">Trace 定位</h1>
+            <p className="dp-subtitle max-w-3xl">
+              只展示 quality artifact 中的脱敏定位摘要和安全指标。
+            </p>
+          </div>
+          <Link href="/quality?autoload=1" className="dp-btn dp-btn-secondary">
+            返回 Overview
+          </Link>
+        </div>
+      </section>
+
+      {errorMessage ? (
+        <section className="dp-card border-red-200 bg-red-50 text-sm text-red-700">
+          {errorMessage}
+        </section>
+      ) : null}
+
+      <section className="dp-card min-w-0">
+        <h2 className="dp-section-title">定位参数</h2>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <SmallFact label="marker" value={query.marker || "-"} />
+          <SmallFact label="caseId" value={query.caseId || "-"} />
+          <SmallFact label="traceId" value={query.traceId || "-"} />
+          <SmallFact label="agentRunId" value={query.agentRunId || "-"} />
+          <SmallFact label="conversationId" value={query.conversationId || "-"} />
+        </div>
+      </section>
+
+      {loading ? (
+        <section className="dp-card">
+          <p className="dp-meta">加载中...</p>
+        </section>
+      ) : detail ? (
+        <>
+          <section className="dp-card min-w-0">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="min-w-0">
+                <p className="dp-eyebrow">Run</p>
+                <h2 className="mt-2 break-words text-xl font-bold text-slate-950">
+                  {detail.summary.marker}
+                </h2>
+                <p className="mt-2 break-words text-sm text-slate-600">
+                  {detail.summary.source} / {detail.summary.artifactName}
+                </p>
+              </div>
+              <span className={statusBadge(detail.summary.status)}>
+                {detail.summary.status}
+              </span>
+            </div>
+          </section>
+
+          <section className="dp-card min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="dp-section-title">匹配 Trace Reference</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  {references.length} matched
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {references.length === 0 ? (
+                <p className="dp-meta">没有匹配的 trace reference。</p>
+              ) : (
+                references.map((reference) => (
+                  <TraceReferenceCard
+                    key={`${reference.caseId}-${reference.traceId}-${reference.agentRunId}`}
+                    reference={reference}
+                  />
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            <RelatedGateCard gate={relatedGate} />
+            <RelatedEvalCaseCard item={relatedEvalCase} />
+          </section>
+        </>
+      ) : null}
+    </main>
+  );
+}
+
+function SmallFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-slate-900">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TraceReferenceCard({ reference }: { reference: QualityTraceReference }) {
+  const status = reference.status || "REVIEW";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold text-slate-900">
+            {reference.caseId || "-"}
+          </p>
+          <p className="mt-1 break-words text-xs text-slate-500">
+            {reference.gateName || "-"} / {reference.caseType || "agent_quality"}
+          </p>
+        </div>
+        <span className={statusBadge(status)}>{status}</span>
+      </div>
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <SmallFact label="traceId" value={reference.traceId || "-"} />
+        <SmallFact label="agentRunId" value={reference.agentRunId || "-"} />
+        <SmallFact label="conversationId" value={reference.conversationId || "-"} />
+      </div>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
+        <SmallFact
+          label="failure buckets"
+          value={summarizeBuckets(reference.failureBuckets)}
+        />
+        <SmallFact
+          label="review buckets"
+          value={summarizeBuckets(reference.reviewBuckets)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function RelatedGateCard({ gate }: { gate: QualityGateSummary | null }) {
+  return (
+    <section className="dp-card min-w-0">
+      <h2 className="dp-section-title">关联 Gate</h2>
+      {!gate ? (
+        <p className="mt-3 dp-meta">暂无关联 gate。</p>
+      ) : (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+          <div className="flex items-start justify-between gap-3">
+            <p className="break-words text-sm font-semibold text-slate-900">
+              {gate.name}
+            </p>
+            <span className={statusBadge(gate.status || (gate.passed ? "PASS" : "FAILED"))}>
+              {gate.status || (gate.passed ? "PASS" : "FAILED")}
+            </span>
+          </div>
+          <p className="mt-3 break-words text-xs text-slate-600">
+            metrics: {compactMetrics(gate.metrics)}
+          </p>
+          <p className="mt-2 break-words text-xs text-slate-600">
+            flags: {compactFlags(gate.flags)}
+          </p>
+          <p className="mt-2 break-words text-xs text-red-700">
+            failure: {summarizeBuckets(gate.failureBuckets)}
+          </p>
+          <p className="mt-1 break-words text-xs text-amber-700">
+            review: {summarizeBuckets(gate.reviewBuckets)}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RelatedEvalCaseCard({
+  item,
+}: {
+  item: QualityEvalCaseResultDetail | null;
+}) {
+  return (
+    <section className="dp-card min-w-0">
+      <h2 className="dp-section-title">关联 Eval Case</h2>
+      {!item ? (
+        <p className="mt-3 dp-meta">暂无关联 eval case。</p>
+      ) : (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="break-words text-sm font-semibold text-slate-900">
+                {item.caseId}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                {item.caseType || "agent_quality"}
+              </p>
+            </div>
+            <span className={statusBadge(item.status)}>{item.status}</span>
+          </div>
+          <p className="mt-3 break-words text-xs text-slate-600">
+            trace: {item.traceId || "-"} / agentRun: {item.agentRunId || "-"}
+          </p>
+          <p className="mt-2 break-words text-xs text-slate-600">
+            metrics: {compactMetrics(item.metrics)}
+          </p>
+          <p className="mt-2 break-words text-xs text-slate-600">
+            flags: {compactFlags(item.flags)}
+          </p>
+          <p className="mt-2 break-words text-xs text-red-700">
+            failure: {summarizeBuckets(item.failureBuckets)}
+          </p>
+          <p className="mt-1 break-words text-xs text-amber-700">
+            review: {summarizeBuckets(item.reviewBuckets)}
+          </p>
+        </div>
+      )}
+    </section>
+  );
+}
