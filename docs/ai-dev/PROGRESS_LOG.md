@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console 三线升级收口
+
+- 已将求职级 Agent Quality Console 的后续自驱循环收口为三条主线：Trace Drill-down v3、Eval Asset v2、Quality Trend v1。
+- `ROADMAP_AGENT_QUALITY_CONSOLE.md` 已补充三线目标、统一安全边界、每条主线的最小实现和验收标准。
+- `CURRENT_TASK.md` 已指向下一片 Trace Drill-down v3；`STATE.md` 已记录当前路线图事实。
+- 边界：本片只改文档，不改业务代码，不启动服务，不创建业务数据，不提交 artifact 原文，不 push。
+
 ## 2026-07-05 Agent Quality Console 7-case 真实审计回归
 
 - `real-user-qa-experience-audit.ps1 -Mode plan` PASS；`-Mode dry-run -FrontendBaseUrl http://127.0.0.1:3007` PASS。

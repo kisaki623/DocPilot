@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console 7-case 真实审计回归（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Console 面试展示收口或下一轮 RAG / Memory 质量增强（READY）
+当前任务：Agent Quality Console 三线升级收口（DONE）；下一片：Trace Drill-down v3，把现有 trace reference 升级为脱敏链路瀑布图（READY）
+
+## 2026-07-05 补充：Agent Quality Console 三线升级收口
+
+- 目标：把当前距离求职级 Agent Quality Console 还差的三条主线写成后续自驱循环依据，避免后续实现时在 Trace、Eval 和 Trend 之间漂移。
+- 已完成：`docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md` 增加“三线升级收口”，明确后续只围绕 Trace Drill-down v3、Eval Asset v2 和 Quality Trend v1 三条主线推进。
+- Trace Drill-down v3 目标：从“能定位 trace reference”升级为“能查看脱敏链路瀑布图”，覆盖 run、gate、eval case、agent step、RAG retrieve、tool call、model call、citation 和 failure bucket 的安全摘要。
+- Eval Asset v2 目标：把 7 个 eval catalog case 继续推进成长期质量资产，补齐 case 分层、risk gate、scoring summary、regression policy 和 failure history marker。
+- Quality Trend v1 目标：基于最近 N 个脱敏 artifact 展示状态趋势、case pass rate、失败桶、token / cost、latency 和反复失败 case。
+- 统一边界：继续 artifact-only，不新增数据库表；不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址；token usage / latency / cost 只展示数值统计。
+- 下一片建议：进入 Trace Drill-down v3 的最小实现，优先复用现有 QualityRunDetail / traceReferences，不读业务库、不新增后端业务流程。
 
 ## 2026-07-05 补充：Agent Quality Console 7-case 真实审计回归
 

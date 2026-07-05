@@ -22,12 +22,26 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 主要差距：
 
-- Trace drill-down 仍偏浅：失败 case 还不能稳定跳到具体 trace / agent run 的定位视图。
-- Failure triage 还只是桶列表，缺少稳定 taxonomy、筛选和“新失败 / 已修复失败”视角。
-- Eval case 还不像完整评测资产：缺少 case catalog、case version、scoring rule 摘要和失败归因说明。
-- Run comparison 还不明显：缺少修复前后质量差异展示。
-- 成本和性能观测还偏弱：token usage 已有，但 model call count、tool call count、latency、retry 等摘要还不完整。
-- 面试故事还需要闭环：最好能演示“case 失败 -> Console 定位 -> 修复 -> 新 run 对比通过”。
+- Trace drill-down v2 已能定位 trace reference，但还不是完整链路瀑布图；下一轮需要展示用户请求、Agent step、RAG retrieve、tool call、model call、citation 和 failure bucket 的脱敏摘要关系。
+- Eval catalog 已从 3 个 case 扩到 7 个，并已有 owner、risk、version、source issue、verified marker 和 remediation hint；下一轮要把它继续推进成长期评测资产，补齐 case 分层、评分规则解释、失败历史和按风险级别的回归策略。
+- Run comparison 已能对比两次 run，但趋势分析还偏弱；下一轮要能观察最近 N 次 run 的 case pass rate、失败桶、token cost、latency 和反复失败 case。
+- 面试故事已经能讲“小样本真实链路质量闭环”，但如果要更像求职级内部质量控制台，需要把 Trace 深度、Eval 资产化和 Trend 视角连成一条清晰演示路径。
+
+## 2.1 2026-07-05 三线升级收口
+
+本轮之后 Agent Quality Console 的后续自驱循环只围绕三条主线推进：
+
+1. **Trace Drill-down v3**：从“能定位 ID”升级为“能看脱敏链路瀑布图”。
+2. **Eval Asset v2**：从“有 case catalog”升级为“有长期维护语义的质量题库”。
+3. **Quality Trend v1**：从“两次 run 对比”升级为“最近 N 次质量趋势”。
+
+统一收口标准：
+
+- 继续保持 artifact-only，不新增数据库表，除非用户单独确认 Phase 7 持久化。
+- 继续使用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址。
+- token usage、latency、cost、case pass rate、failure bucket count 只允许作为数值或枚举摘要展示。
+- 每个切片都必须有对应后端单测、前端 lint/build 或浏览器 smoke；真实用户体验结论必须用真实链路 smoke / audit 收口。
+- 每个切片完成后回写 `CURRENT_TASK.md`、`STATE.md`、`PROGRESS_LOG.md`，并做精确 commit，不 push。
 
 ## 3. 分阶段路线
 
@@ -191,6 +205,60 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 - 能现场演示 `/quality`。
 - 能展示至少一个“发现问题 -> 定位 -> 修复 -> 回归通过”的闭环。
 - 对外材料保持克制，不把小样本 smoke 写成大规模 benchmark。
+
+### Phase 9：Trace Drill-down v3
+
+目标：把 Trace 从“定位 reference”升级为脱敏链路瀑布图，让面试官能看到一次 Agent / RAG 请求内部发生了什么，但仍不暴露原文。
+
+最小实现：
+
+- 在现有 QualityRunDetail / traceReferences 基础上聚合安全 step 摘要，不读业务库、不新增数据库表。
+- 展示链路顺序：run -> gate -> eval case -> trace reference -> agent step -> RAG retrieve -> tool call -> model call -> citation -> failure bucket。
+- 每个 step 只展示白名单字段：stepType、status、durationMs、token usage 数值、toolName、modelName 安全标识、retrieval hit count、citation count、bucket、caseId、traceId / agentRunId。
+- `/quality/trace` 第一版使用表格或 timeline 块，不做复杂图形编辑器。
+
+验收标准：
+
+- 一个失败或 REVIEW case 能打开 `/quality/trace`，看到对应脱敏链路摘要。
+- Trace 页面不展示 prompt、answer 原文、文档全文、evidence context 或真实用户输入。
+- `mvn "-Dtest=*Quality*" test` PASS；`npm run lint` PASS；`npm run build` PASS。
+- Playwright 打开 `/quality/trace` 桌面和 `390px` 移动端无 console error、无横向溢出。
+
+### Phase 10：Eval Asset v2
+
+目标：把 Eval Catalog 从“case 列表”升级为长期质量资产，能解释每个 case 为什么存在、属于什么风险、失败后如何回归。
+
+最小实现：
+
+- 继续使用 `agent-quality-eval-cases.json`，不建表。
+- 增加安全元数据：caseLayer、riskGate、scoringSummary、regressionPolicy、failureHistoryMarkers。
+- `failureHistoryMarkers` 只保存脱敏 marker、状态和 issue id，不保存问题原文、回答原文、文档原文或 evidence context。
+- `/quality` Eval Catalog 展示 case 分层、风险门禁、评分摘要和最近失败 / 修复历史。
+
+验收标准：
+
+- 7 个默认 case 都能说明：验什么、风险级别、失败时归到哪个 bucket、需要如何回归。
+- 后端 catalog parser 对新增字段继续使用白名单和安全 identifier 过滤。
+- 离线 eval runner 与旧 artifact 兼容。
+- `mvn "-Dtest=*Quality*" test` PASS；`npm run lint` PASS；`npm run build` PASS。
+
+### Phase 11：Quality Trend v1
+
+目标：基于最近 N 个脱敏 artifact 给出质量趋势，让 Console 不只看单次 run，也能回答“这个系统最近是在变好还是反复退化”。
+
+最小实现：
+
+- 后端在现有 artifact 聚合 service 中增加最近 N 次趋势摘要，默认 N=20，不新增数据库表。
+- 趋势指标：status distribution、case pass rate、failure bucket count、token total、estimated cost、latency / duration、repeated failing cases。
+- 前端 `/quality` 增加轻量 Trend 面板，优先用折线 / 小表格 / badge 展示，不做复杂 BI。
+- 趋势只使用现有 Quality DTO 的安全字段，不读取或展示原始 artifact。
+
+验收标准：
+
+- `/quality` 能展示最近 N 次 run 的状态趋势、失败桶趋势、case pass rate 趋势、成本 / 耗时趋势和反复失败 case。
+- 坏 JSON、缺 artifact、不同 artifact schema 不会导致趋势面板崩溃，最多降级为 REVIEW 或空趋势。
+- `mvn "-Dtest=*Quality*" test` PASS；`npm run lint` PASS；`npm run build` PASS。
+- Playwright 打开 `/quality` 桌面和 `390px` 移动端无 console error、无横向溢出。
 
 ## 4. 自驱循环规则
 
