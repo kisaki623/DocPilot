@@ -31,6 +31,18 @@ export interface QualityEvalCaseResultDetail {
   flags: Record<string, boolean>;
 }
 
+export interface QualityTraceReference {
+  caseId: string;
+  caseType: string;
+  status: string;
+  gateName: string;
+  traceId: string;
+  agentRunId: string;
+  conversationId: string;
+  failureBuckets: string[];
+  reviewBuckets: string[];
+}
+
 export interface QualityRunSummary {
   marker: string;
   source: string;
@@ -51,6 +63,7 @@ export interface QualityRunDetail {
   summary: QualityRunSummary;
   gates: QualityGateSummary[];
   evalCases: QualityEvalCaseResultDetail[];
+  traceReferences: QualityTraceReference[];
 }
 
 export function listQualityRuns(

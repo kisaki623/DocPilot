@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console 求职级升级 Phase 0：路线图沉淀（DONE）；下一片：Phase 1 Trace Drill-down v2（READY）
+当前任务：Agent Quality Console 求职级升级 Phase 1：Trace Drill-down v2（DONE）；下一片：Phase 2 Failure Triage v1（READY）
+
+## 2026-07-05 补充：Agent Quality Console Trace 定位入口
+
+- 目标：让 `/quality` Run Detail 不只裸展示 eval case 的 `traceId` / `agentRunId`，而是提供可定位的内部 Trace reference 摘要，用于从失败 / REVIEW case 回到具体 trace / agent run。
+- 已完成后端：新增 `QualityTraceReference`，`QualityRunDetail` 增加 `traceReferences`；`QualityArtifactServiceImpl` 递归收集 `caseResults` / `caseEvaluations` / `evalCases`，保留父级 `gateName`，并只输出 caseId、caseType、status、gateName、traceId、agentRunId、conversationId、failureBuckets 和 reviewBuckets。
+- 已完成前端：`/quality` Run Detail 新增“Trace 定位”面板，展示脱敏定位项，并提供复制 `traceId` / `agentRunId` / `conversationId` 的按钮；当前不新增真实 Trace 详情页，不读取业务数据库。
+- 脱敏边界：仍不返回或展示 prompt、answer 原文、文档全文、evidence context、question、API key、token、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，30 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；浏览器打开 `/quality?routeSmoke=2` 在 `390x844` 下无 console error、无横向溢出；清理脚本确认 `3007` / `8081` 等端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 2 Failure Triage v1，统一失败桶 taxonomy，并让 Run Detail 支持按 status、failure bucket、case tag / gate name 过滤。
 
 ## 2026-07-05 补充：Agent Quality Console 求职级升级路线图
 

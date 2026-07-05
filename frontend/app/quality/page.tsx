@@ -11,6 +11,7 @@ import {
   type QualityRunDetail,
   type QualityRunSummary,
   type QualityTokenUsageSummary,
+  type QualityTraceReference,
 } from "@/lib/quality-api";
 
 const RESERVED_TABS = ["Overview", "Trace", "Eval", "Failures"];
@@ -135,6 +136,17 @@ function compactFlags(flags: Record<string, boolean>): string {
     .slice(0, 4)
     .map(([key, value]) => `${key}: ${value ? "true" : "false"}`)
     .join(" / ");
+}
+
+async function copyToClipboard(value: string): Promise<void> {
+  if (!value || !navigator.clipboard) {
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    // Clipboard permission is best-effort for the internal console locator.
+  }
 }
 
 export default function QualityPage() {
@@ -431,6 +443,8 @@ function RunDetailPanel({
         </div>
       </section>
 
+      <TraceReferencePanel references={detail.traceReferences || []} />
+
       <section className="dp-card min-w-0">
         <h3 className="dp-section-title">Gate 列表</h3>
         <div className="mt-3 grid gap-2">
@@ -454,6 +468,88 @@ function RunDetailPanel({
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function TraceReferencePanel({ references }: { references: QualityTraceReference[] }) {
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="dp-section-title">Trace 定位</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            失败和 REVIEW case 的脱敏定位入口。
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-neutral">{references.length}</span>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {references.length === 0 ? (
+          <p className="dp-meta">暂无 trace 定位项。</p>
+        ) : (
+          references.map((reference) => (
+            <TraceReferenceRow
+              key={`${reference.caseId}-${reference.traceId}-${reference.agentRunId}`}
+              reference={reference}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function TraceReferenceRow({ reference }: { reference: QualityTraceReference }) {
+  const status = reference.status || "REVIEW";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold text-slate-900">
+            {reference.caseId}
+          </p>
+          <p className="mt-1 break-words text-xs text-slate-500">
+            {reference.gateName || "-"} / {reference.caseType || "agent_quality"}
+          </p>
+        </div>
+        <span className={statusBadge(status)}>{status}</span>
+      </div>
+      <div className="mt-3 grid gap-2 lg:grid-cols-3">
+        <TraceIdBox label="traceId" value={reference.traceId} />
+        <TraceIdBox label="agentRunId" value={reference.agentRunId} />
+        <TraceIdBox label="conversationId" value={reference.conversationId} />
+      </div>
+      <div className="mt-2 grid gap-2 md:grid-cols-2">
+        <p className="break-words text-xs text-red-700">
+          failure: {summarizeBuckets(reference.failureBuckets)}
+        </p>
+        <p className="break-words text-xs text-amber-700">
+          review: {summarizeBuckets(reference.reviewBuckets)}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function TraceIdBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md border border-slate-100 bg-slate-50 px-2 py-2">
+      <p className="truncate text-[11px] uppercase text-slate-500">{label}</p>
+      <div className="mt-1 flex min-w-0 items-center gap-2">
+        <p className="min-w-0 flex-1 break-words text-xs font-semibold text-slate-900">
+          {value || "-"}
+        </p>
+        {value ? (
+          <button
+            type="button"
+            className="shrink-0 rounded border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-blue-200 hover:text-blue-700"
+            onClick={() => void copyToClipboard(value)}
+          >
+            复制
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Trace Drill-down v2
+
+- 后端新增脱敏 `QualityTraceReference`，`QualityRunDetail` 增加 `traceReferences`；artifact parser 现在递归收集多个 `caseResults` / `caseEvaluations` / `evalCases`，保留父级 `gateName`，并只输出安全定位字段和失败 / REVIEW 桶。
+- 前端 `/quality` Run Detail 新增“Trace 定位”面板，展示 caseId、gateName、status、traceId、agentRunId、conversationId 和桶信息，并提供复制 ID 按钮；不新增真实 Trace 详情页，不读取业务数据库。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，30 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；浏览器 `/quality?routeSmoke=2` 在 `390x844` 下无 console error、无横向溢出；清理脚本确认端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+
 ## 2026-07-05 Agent Quality Console 求职级升级路线图
 
 - 新增 `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`，把当前 Agent Quality Console 与求职级内部质量控制台之间的差距、Phase 0-8 路线、每片验收标准、自驱循环规则和停止条件沉淀为长期事实源。

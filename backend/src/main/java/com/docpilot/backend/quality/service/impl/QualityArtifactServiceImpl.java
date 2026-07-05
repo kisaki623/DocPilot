@@ -6,6 +6,7 @@ import com.docpilot.backend.quality.vo.QualityGateSummary;
 import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
 import com.docpilot.backend.quality.vo.QualityTokenUsageSummary;
+import com.docpilot.backend.quality.vo.QualityTraceReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -154,7 +155,9 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 false,
                 false
         );
-        return new QualityRunDetail(summary, gates, extractEvalCases(root));
+        List<ExtractedEvalCase> extractedEvalCases = extractEvalCaseNodes(root);
+        List<QualityEvalCaseResultDetail> evalCases = toEvalCaseDetails(extractedEvalCases);
+        return new QualityRunDetail(summary, gates, evalCases, toTraceReferences(extractedEvalCases));
     }
 
     private QualityRunDetail parseFailedDetail(QualityArtifactFile file) {
@@ -233,13 +236,53 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         );
     }
 
-    private List<QualityEvalCaseResultDetail> extractEvalCases(JsonNode root) {
-        JsonNode caseResults = findFirstArray(root, "caseResults", "caseEvaluations", "evalCases");
-        if (caseResults == null) {
-            return List.of();
+    private List<ExtractedEvalCase> extractEvalCaseNodes(JsonNode root) {
+        List<ExtractedEvalCase> results = new ArrayList<>();
+        collectEvalCaseNodes(root, "", "", results);
+        return results;
+    }
+
+    private void collectEvalCaseNodes(JsonNode node,
+                                      String currentName,
+                                      String gateName,
+                                      List<ExtractedEvalCase> results) {
+        if (node == null || !node.isContainerNode()) {
+            return;
         }
+        if (node.isObject()) {
+            String resolvedGateName = gateName;
+            if (resolvedGateName.isBlank() && !currentName.isBlank() && looksLikeGate(node)) {
+                resolvedGateName = currentName;
+            }
+            for (String fieldName : List.of("caseResults", "caseEvaluations", "evalCases")) {
+                JsonNode cases = node.get(fieldName);
+                if (cases != null && cases.isArray()) {
+                    for (JsonNode item : cases) {
+                        if (item.isObject()) {
+                            results.add(new ExtractedEvalCase(item, resolvedGateName));
+                        }
+                    }
+                }
+            }
+            String nextGateName = resolvedGateName;
+            node.fields().forEachRemaining(entry -> {
+                if (!TOP_LEVEL_SKIP_FIELDS.contains(entry.getKey())
+                        && !isSensitiveField(entry.getKey())
+                        && entry.getValue().isContainerNode()) {
+                    collectEvalCaseNodes(entry.getValue(), entry.getKey(), nextGateName, results);
+                }
+            });
+            return;
+        }
+        for (JsonNode item : node) {
+            collectEvalCaseNodes(item, currentName, gateName, results);
+        }
+    }
+
+    private List<QualityEvalCaseResultDetail> toEvalCaseDetails(List<ExtractedEvalCase> extractedEvalCases) {
         List<QualityEvalCaseResultDetail> results = new ArrayList<>();
-        for (JsonNode item : caseResults) {
+        for (ExtractedEvalCase extracted : extractedEvalCases) {
+            JsonNode item = extracted.node();
             if (!item.isObject()) {
                 continue;
             }
@@ -252,8 +295,8 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                     firstText(item, "caseType", "category").orElse(null),
                     firstText(item, "status").map(this::normalizeStatus).orElse(null),
                     optionalBoolean(item, "passed").orElse(null),
-                    firstText(item, "traceId").orElse(null),
-                    firstText(item, "agentRunId").orElse(null),
+                    firstScalarText(item, "traceId").orElse(null),
+                    firstScalarText(item, "agentRunId").orElse(null),
                     stringList(item.path("failureBuckets")),
                     stringList(item.path("reviewBuckets")),
                     safeMetrics(item),
@@ -261,6 +304,59 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             ));
         }
         return results;
+    }
+
+    private List<QualityTraceReference> toTraceReferences(List<ExtractedEvalCase> extractedEvalCases) {
+        List<QualityTraceReference> references = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (ExtractedEvalCase extracted : extractedEvalCases) {
+            JsonNode item = extracted.node();
+            String caseId = firstText(item, "caseId").orElse("");
+            if (caseId.isBlank()) {
+                continue;
+            }
+            String traceId = firstScalarText(item, "traceId").orElse("");
+            String agentRunId = firstScalarText(item, "agentRunId").orElse("");
+            List<String> failureBuckets = stringList(item.path("failureBuckets"));
+            List<String> reviewBuckets = stringList(item.path("reviewBuckets"));
+            String status = firstText(item, "status").map(this::normalizeStatus).orElse("");
+            boolean hasLocator = !traceId.isBlank() || !agentRunId.isBlank();
+            boolean needsAttention = !failureBuckets.isEmpty()
+                    || !reviewBuckets.isEmpty()
+                    || "REVIEW".equals(status)
+                    || status.startsWith("FAILED");
+            if (!hasLocator && !needsAttention) {
+                continue;
+            }
+            String dedupeKey = caseId + "|" + traceId + "|" + agentRunId;
+            if (!seen.add(dedupeKey)) {
+                continue;
+            }
+            references.add(new QualityTraceReference(
+                    caseId,
+                    firstText(item, "caseType", "category").orElse(null),
+                    status,
+                    extracted.gateName(),
+                    traceId,
+                    agentRunId,
+                    firstScalarText(item, "conversationId").orElse(null),
+                    failureBuckets,
+                    reviewBuckets
+            ));
+        }
+        return references.stream()
+                .sorted(Comparator.comparingInt(this::traceReferencePriority))
+                .toList();
+    }
+
+    private int traceReferencePriority(QualityTraceReference reference) {
+        if (!reference.failureBuckets().isEmpty() || reference.status().startsWith("FAILED")) {
+            return 0;
+        }
+        if (!reference.reviewBuckets().isEmpty() || "REVIEW".equals(reference.status())) {
+            return 1;
+        }
+        return 2;
     }
 
     private Map<String, Number> safeMetrics(JsonNode node) {
@@ -428,6 +524,22 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         return Optional.empty();
     }
 
+    private Optional<String> firstScalarText(JsonNode node, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            JsonNode value = node.path(fieldName);
+            if (isSensitiveField(fieldName) || value == null || value.isMissingNode() || value.isNull()) {
+                continue;
+            }
+            if (value.isTextual() && !value.asText().isBlank()) {
+                return Optional.of(value.asText());
+            }
+            if (value.isNumber() || value.isBoolean()) {
+                return Optional.of(value.asText());
+            }
+        }
+        return Optional.empty();
+    }
+
     private Optional<Boolean> optionalBoolean(JsonNode node, String fieldName) {
         JsonNode value = node.path(fieldName);
         if (value.isBoolean()) {
@@ -576,6 +688,9 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         private Instant updatedAt() {
             return modifiedTime.toInstant();
         }
+    }
+
+    private record ExtractedEvalCase(JsonNode node, String gateName) {
     }
 
     private static final class TokenUsageAccumulator {

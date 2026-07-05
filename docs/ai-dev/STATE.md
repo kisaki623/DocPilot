@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-05 Agent Quality Console Trace Drill-down v2 已完成第一片轻量定位入口。后端 `QualityRunDetail` 现在包含脱敏 `traceReferences`，从 artifact 中递归收集 eval case 的 `traceId` / `agentRunId` / `conversationId`、父级 `gateName` 和 failure / review buckets；前端 `/quality` Run Detail 新增“Trace 定位”面板和复制 ID 按钮。该能力只做定位摘要，不新增数据库表、不读取业务库、不返回 prompt、answer 原文、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console 求职级升级路线图已沉淀为 `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`。后续自驱循环以该文档为长期路线图，当前任务仍以 `CURRENT_TASK.md` 为准；下一片优先进入 Trace Drill-down v2，让失败 / REVIEW eval case 能定位 `traceId` / `agentRunId`。
 - 2026-07-05 Agent Quality Console Explainability v1 已完成。后端 Quality artifact 聚合现在能解析 cloud quality / real-user audit 的嵌套 `gates.*`，并把单个 `checks` object 中的安全 metrics / flags 聚合到 gate；eval case detail 暴露脱敏 `metrics` / `flags`，不返回 question、answer 原文、文档全文、prompt 或 evidence context。
 - `/quality` Run Detail 已展示 gate / eval case signals。真实回归 marker `docpilot-real-user-qa-20260705151944-950f42` PASS；Console autoload 验证可见最新 marker、`naturalCorpus`、`CASEPASSRATE`、`DISTRACTORCITATIONFREECOUNT` 和 eval case `ops-incident-support-summary`，console error count 为 `0`。本轮 `naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`。

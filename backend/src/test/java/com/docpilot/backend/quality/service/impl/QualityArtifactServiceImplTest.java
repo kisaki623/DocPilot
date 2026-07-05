@@ -1,5 +1,6 @@
 package com.docpilot.backend.quality.service.impl;
 
+import com.docpilot.backend.quality.vo.QualityEvalCaseResultDetail;
 import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -65,6 +66,7 @@ class QualityArtifactServiceImplTest {
                       "passed": true,
                       "traceId": "trace-1",
                       "agentRunId": "agent-run-1",
+                      "conversationId": 17,
                       "question": "QUESTION_SHOULD_NOT_LEAK",
                       "failureBuckets": [],
                       "reviewBuckets": []
@@ -97,6 +99,11 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.evalCases().get(0).caseId()).isEqualTo("case-safe-1");
         assertThat(detail.evalCases().get(0).metrics()).isEmpty();
         assertThat(detail.evalCases().get(0).flags()).isEmpty();
+        assertThat(detail.traceReferences()).hasSize(1);
+        assertThat(detail.traceReferences().get(0).caseId()).isEqualTo("case-safe-1");
+        assertThat(detail.traceReferences().get(0).traceId()).isEqualTo("trace-1");
+        assertThat(detail.traceReferences().get(0).agentRunId()).isEqualTo("agent-run-1");
+        assertThat(detail.traceReferences().get(0).conversationId()).isEqualTo("17");
 
         String serialized = objectMapper.writeValueAsString(detail);
         assertThat(serialized)
@@ -139,6 +146,9 @@ class QualityArtifactServiceImplTest {
                               "targetCitationCovered": true,
                               "noEvidenceCorrect": true,
                               "expectedEvidenceSupported": true,
+                              "traceId": "trace-natural-1",
+                              "agentRunId": "agent-natural-1",
+                              "conversationId": "conversation-1",
                               "question": "QUESTION_SHOULD_NOT_LEAK",
                               "answerText": "ANSWER_SHOULD_NOT_LEAK",
                               "evidenceContext": "EVIDENCE_SHOULD_NOT_LEAK",
@@ -153,6 +163,16 @@ class QualityArtifactServiceImplTest {
                       "status": "PASS",
                       "checks": [
                         { "consoleErrorCount": 0, "permissionMessageVisible": true }
+                      ],
+                      "caseEvaluations": [
+                        {
+                          "caseId": "frontend-permission-message",
+                          "caseType": "frontend_permission",
+                          "status": "REVIEW",
+                          "traceId": "trace-frontend-1",
+                          "failureBuckets": [],
+                          "reviewBuckets": ["permissionUx"]
+                        }
                       ]
                     }
                   }
@@ -174,15 +194,18 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.gates().get(0).flags())
                 .containsEntry("traceRagTriggered", true)
                 .containsEntry("traceRagRequired", true);
-        assertThat(detail.evalCases()).hasSize(1);
+        assertThat(detail.evalCases()).hasSize(2);
+        assertThat(detail.evalCases()).extracting(QualityEvalCaseResultDetail::caseId)
+                .containsExactly("ops-incident-support-summary", "frontend-permission-message");
         assertThat(detail.evalCases().get(0).metrics())
-                .containsEntry("retrieveHits", 4)
-                .containsEntry("qaCitations", 2)
-                .containsEntry("distractorCitationCount", 0);
-        assertThat(detail.evalCases().get(0).flags())
-                .containsEntry("targetCitationCovered", true)
-                .containsEntry("noEvidenceCorrect", true)
-                .containsEntry("expectedEvidenceSupported", true);
+                .containsEntry("retrieveHits", 4);
+        assertThat(detail.traceReferences()).hasSize(2);
+        assertThat(detail.traceReferences()).extracting(ref -> ref.caseId())
+                .containsExactly("frontend-permission-message", "ops-incident-support-summary");
+        assertThat(detail.traceReferences().get(0).gateName()).isEqualTo("frontendInteraction");
+        assertThat(detail.traceReferences().get(0).reviewBuckets()).containsExactly("permissionUx");
+        assertThat(detail.traceReferences().get(1).gateName()).isEqualTo("naturalCorpus");
+        assertThat(detail.traceReferences().get(1).conversationId()).isEqualTo("conversation-1");
 
         String serialized = objectMapper.writeValueAsString(detail);
         assertThat(serialized)
