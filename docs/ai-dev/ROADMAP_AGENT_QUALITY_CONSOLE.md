@@ -168,6 +168,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 目标：形成可讲清楚的面试故事。
 
+2026-07-05 状态：DONE。README、Project Interview Brief、Resume Bullets 和 Interview QA 已同步 Agent Quality Console、RAG / Memory 质量闭环和真实审计回归故事；对外口径保持“内部质量控制台 + 小样本真实链路证据”，不写成企业级 APM、线上 SLA 或大规模 benchmark。
+
 最小实现：
 
 - README / showcase 中只写已验证事实，不夸大成商业 SaaS 或线上 SLA。

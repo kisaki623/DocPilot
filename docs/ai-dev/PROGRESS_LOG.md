@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console 求职展示打磨
+
+- README 已更新为“企业文档知识库 RAG + 会话记忆工程化平台”口径，补充 `/quality` 内部质量控制台、Conversation Memory、Context Trace、RAG / Memory 真实质量门禁和当前边界。
+- `PROJECT_INTERVIEW_BRIEF.md` 已更新项目定位、已实现能力、简历亮点、展示优先级和高风险追问，重点讲清“真实审计发现问题 -> Console / artifact 定位 -> 修复 -> 真实回归 PASS”的闭环。
+- `RESUME_BULLETS.md` 已增加 Agent Quality Console、真实 audit / eval artifact、Memory governance 和 RAG 质量门禁相关 bullet，并保留不夸大边界。
+- `INTERVIEW_QA.md` 已更新一分钟介绍、核心亮点、RAG 完整性、Agent Quality Console 价值、项目不足和下一步回答。
+- 边界：本片只改文档，不改业务代码，不启动服务，不创建业务数据，不提交 artifact 原文，不 push。
+
 ## 2026-07-05 Agent Quality Console 真实体验审计集成 v2
 
 - 首轮真实审计 `docpilot-real-user-qa-20260705164732-f54da1` 为 `BLOCKED`：backend health 未 UP。定位到 `QualityEvalCatalogServiceImpl` 多构造器缺少显式 `@Autowired`，真实 Spring 启动尝试找默认构造器失败。

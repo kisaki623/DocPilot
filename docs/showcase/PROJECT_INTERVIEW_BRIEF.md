@@ -4,11 +4,11 @@
 
 ## 1. 一句话定位
 
-DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答工程化项目，覆盖文件上传、异步解析、RAG indexing、单文档 / 多文档检索问答、SSE 流式输出和最小 Agent 工具链演示。
+DocPilot 是一个基于 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记忆工程化项目，覆盖文件上传、异步解析、结构化 chunk、Qdrant indexing、单文档 / 多文档 KnowledgeBase RAG、可信 citation、Conversation Trace、用户记忆治理和内部 Agent Quality Console 质量门禁。
 
-更克制的面试讲法：这是一个展示后端工程链路和 AI 应用工程化意识的项目，不是生产级 SaaS、完整向量 RAG 平台或成熟多 Agent 系统。
+更克制的面试讲法：这是一个把 RAG、Memory、Trace、Eval 和真实链路 smoke 串成闭环的 AI 应用工程项目，不是完整商业 SaaS、线上 SLA 平台或成熟多 Agent 编排系统。
 
-面向 AI Agent / RAG 实习岗位的讲法：DocPilot 当前已经具备可演示的 Agent 工具选择、workflow timeline、执行轨迹、引用证据和 RAG 召回展示；并新增默认关闭的 LLM tool execution mode，用 allowlist 校验模型返回的 toolName，再由服务端执行已有工具。RAG 侧已有 chunk 持久化、EmbeddingProvider 抽象、真实 embedding + Qdrant smoke、单文档 / KnowledgeBase 多文档 retrieval / QA、scope isolation、no-evidence / hard-negative / answer-grounding 质量门禁、脱敏 trace / debug snapshot、index lifecycle 和离线 eval；但仍不是生产级完整向量 RAG。
+面向 AI Agent / RAG 实习岗位的讲法：DocPilot 的主线是生产化知识库 RAG 核心闭环。RAG 侧已有 chunk 持久化、EmbeddingProvider 抽象、真实 embedding + Qdrant smoke、单文档 / KnowledgeBase 多文档 retrieval / QA、scope isolation、no-evidence / hard-negative / answer-grounding / answer faithfulness 质量门禁、Conversation Trace、Memory governance 和真实体验审计。Agent 侧保留工具选择、ToolCall、AgentTask / AgentStep trace 和默认关闭的 LLM tool execution mode；Agent Quality Console 则把真实 audit、eval case、failure bucket、trace reference、run comparison 和 token / cost 数值聚合成内部质量控制台。
 
 ## 2. 当前真实已实现能力
 
@@ -16,6 +16,8 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 - 基于 Outbox + RocketMQ 的异步解析链路，包含解析任务、消费幂等、Redisson 分布式锁和补偿思路，并已完成 active MQ smoke。
 - MySQL 持久化、Redis 缓存 / 限流 / 会话上下文、MinIO 对象存储和分片上传；MinIO active storage 已完成最小 smoke。
 - RAG 文档问答：基于文档切分、chunk 持久化、EmbeddingProvider、Qdrant / in-memory VectorStore、上下文组装、AI 回答和引用展示。
+- KnowledgeBase 多文档 RAG：支持知识库创建、文档加入、跨文档 retrieval / QA、quote-level citation、`documentHitCounts`、no-evidence 和多文档 coverage 质量门禁。
+- Conversation Context / Memory：支持会话、摘要、ACTIVE / SUGGESTED / IGNORED memory、候选治理、冲突 / 重复提示、KnowledgeBase evidence 进入 Context Trace，并保持 memory 与 RAG evidence 分层。
 - SSE 流式问答，前端支持流式事件解析、引用展示和失败降级。
 - 最小 Agent 演示：`DocumentToolSelector` 按规则选择状态 / 摘要 / 问答工具，Agent run 返回可解释路由信息。
 - AgentTask / AgentStep 持久化：记录 Agent run 和工具步骤，支持按 taskId 查询并在前端展示 trace。
@@ -27,7 +29,8 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 - Agent + RAG Showcase：`/agent` 页面已通过 runtime 验证，`rag_tool` 能展示 retrieved chunk、score / similarity、citation metadata、routingReason、matchedKeywords、脱敏 RAG trace 摘要和 persisted steps；普通 QA 路径仍展示 citations。
 - Agent Workflow 展示：`/agent` 页面基于已有响应和 persisted trace 展示接收任务、选择工具、执行工具、生成结果和持久化 trace，不新增 API 或后端路由逻辑。
 - Prompt Engineering 证据链：`docs/PROMPT_ENGINEERING_NOTES.md` 说明 tool selection prompt 结构、JSON 输出协议、parser 校验、allowlist、fallback 和 bad cases，不记录真实文档内容或完整运行时 prompt。
-- 单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、真实 embedding + Qdrant、RAG no-evidence / hard-negative / answer-grounding 质量门禁、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例均已有 smoke 记录。
+- Agent Quality Console 内部质量控制台：`/quality` 可展示最近真实 audit / eval run、Gate 状态、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary；所有 parser / API 采用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context 或凭据。
+- 单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、真实 embedding + Qdrant、Memory governance、RAG no-evidence / hard-negative / answer faithfulness 质量门禁、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例均已有 smoke 记录。
 
 ## 3. 当前半实现能力
 
@@ -36,7 +39,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 - Agent 是同步 API 下的最小工具链闭环，不是异步多 Agent 编排。
 - LLM execute mode 只在显式配置时启用；默认仍是 keyword selector。真实 provider / execute 类验证必须在用户授权、配置可用和日志脱敏边界下运行。
 - selector metrics 当前主要是内存态和 debug dump；Actuator endpoint 默认关闭，Prometheus 仅有设计文档。
-- eval / benchmark 有 artifact 和脚本基础，但仍需补运行时配置记录和重跑验证。
+- eval / benchmark 已有 artifact、脚本和 Console 聚合入口；当前仍是小样本真实 smoke + 离线 eval 组合，不代表大规模 relevance benchmark。
 
 ## 4. 当前仍不能夸大的能力
 
@@ -56,18 +59,18 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 ## 6. 最适合写进简历的 5 个工程亮点
 
 1. 设计并实现文档上传后的异步解析链路，结合 Outbox、RocketMQ、Redisson 分布式锁和幂等消费，降低同步阻塞和重复消费风险。
-2. 实现普通问答与 SSE 流式问答链路，支持引用片段展示、历史问答和流式失败降级，提升 AI 文档问答体验。
-3. 实现最小 Agent 工具链闭环，抽象 ToolRegistry / ToolSelector，并将 AgentTask / AgentStep 落库，支持可解释路由和持久化 trace。
-4. 构建 selector shadow mode：在不改变生产 routing 的前提下，对比 primary / shadow decision，记录 match / mismatch、provider 聚合和 threshold policy。
-5. 实现默认关闭的 LLM 工具选择执行模式，通过 allowlist 校验模型返回的 toolName，并由服务端执行 summary / QA / RAG 等工具；支持 provider 失败回退规则路由。
+2. 构建知识库 RAG 主链路：chunk 持久化、EmbeddingProvider 抽象、Qdrant 检索、scope guard、no-evidence、grounded QA、quote-level citation 和 MySQL / Qdrant 一致性门禁。
+3. 实现 Conversation Context / Memory 闭环：短期上下文、摘要、长期记忆候选、用户可控治理、KnowledgeBase evidence 和 Context Trace 分层。
+4. 建设真实链路质量门禁和 Agent Quality Console：用 smoke / audit / eval artifact 聚合 PASS / REVIEW / BLOCKED、failure bucket、trace reference、run comparison 和 token / cost 数值。
+5. 实现最小 Agent 工具链和 ToolCall 底座，支持工具注册、规则 selector、AgentTask / AgentStep trace，以及默认关闭的 LLM tool execution mode。
 
 ## 7. 求职展示优先级
 
-1. 先展示 `/agent` Agent Showcase：文档选择、任务模板、workflow timeline、工具决策、routingReason、matchedKeywords、taskId、steps 和 citations。
-2. 再展示详情页普通问答 / SSE 流式问答：说明 citations 如何来自轻量检索增强。
-3. 对 RAG 保持诚实：当前已能展示单文档 / 多文档 RAG、chunk 持久化、真实 embedding + Qdrant smoke、scope isolation、citations、Trace、no-evidence / hard-negative / answer-grounding gate 和 offline eval；但不要说成生产级完整向量 RAG。
-4. 对 Function Calling 保持诚实：当前有工具定义、prompt、parser、real provider shadow-only，以及默认关闭的 `llm_execute` 执行模式；默认生产行为仍是 keyword selector。
-5. 面试时不要优先讲 Actuator / Prometheus / Spring Security，除非面试官追问可观测性或安全边界。
+1. 先展示 `/quality` Agent Quality Console：最近真实 audit、Gate 列表、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary。
+2. 再展示 KnowledgeBase / Conversations：说明多文档 RAG citation、Context Trace、`ragTriggered=true`、`evidenceCount>0` 和 ACTIVE memory 如何进入上下文。
+3. 然后展示文档详情普通问答 / SSE 流式问答：说明 quote-level citation 和 no-evidence 如何约束回答可信度。
+4. 最后展示 `/agent` Agent Showcase：工具选择、routingReason、matchedKeywords、taskId、steps 和 citations，强调 Agent 是围绕文档工具和 Trace 的辅助层。
+5. 对 RAG / Memory / Quality Console 保持诚实：当前是小样本真实链路 smoke + 离线 eval + 内部质量台，不是线上 SLA、大规模 benchmark 或商业 APM。
 
 可补充材料：`docs/PROMPT_ENGINEERING_NOTES.md` 适合用来讲 Tool Selection Engineering，不包含真实 prompt、文档正文或 secret。
 
@@ -75,7 +78,12 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的 RAG + Agent 文档问答
 
 ### 你这个是完整 RAG 吗？
 
-不是生产级完整 RAG。当前已做出求职展示用 RAG 工程闭环：chunk 持久化、EmbeddingProvider、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、scope isolation、citations、no-evidence、answer grounding、hard negative 支持度门禁、脱敏 trace / debug snapshot、index lifecycle 和 offline eval。KnowledgeBase RAG 还有默认关闭的 Hybrid / Rerank 可选增强，但大规模语料治理、固定 SLA 和通用 entailment scorer 仍要单独建设；我会把它描述为 RAG 工程化链路，不包装成生产完整向量 RAG。
+
+不是线上级完整 RAG，但已经不是只会拼接口的玩具 RAG。当前做到了知识库 RAG 核心闭环：chunk 持久化、EmbeddingProvider、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、scope isolation、quote-level citations、no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace、MySQL / Qdrant 一致性和真实链路质量门禁。仍不能夸大为大规模 relevance benchmark、固定 SLA 或通用语义蕴含系统。
+
+### Agent Quality Console 解决了什么问题？
+
+它解决的是“AI 功能出了问题怎么发现、定位和回归”的问题。比如 2026-07-05 的真实审计首轮发现 Quality Eval Catalog 构造器注入缺失导致 backend health BLOCKED；通过 Console / audit artifact 定位后修复，再跑真实审计 `docpilot-real-user-qa-20260705165151-bbe588` PASS，并在 `/quality?autoload=1` 看到 Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary。边界是它是内部质量控制台，不是企业级 APM，也不保存 prompt、answer 原文、文档全文或 evidence context。
 
 ### Agent 是多 Agent 吗？
 

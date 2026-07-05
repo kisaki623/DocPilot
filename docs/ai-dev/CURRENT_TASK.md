@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console 求职级升级 Phase 6：真实体验审计集成 v2（DONE）；下一片：Phase 8 求职展示打磨（READY，Phase 7 持久化继续默认不做）
+当前任务：Agent Quality Console 求职级升级 Phase 8：求职展示打磨（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Trace Detail / Eval Case Version / Real Audit Case 扩容（READY）
+
+## 2026-07-05 补充：Agent Quality Console 求职展示打磨
+
+- 目标：把 Agent Quality Console、RAG / Memory 真实质量闭环和 2026-07-05 “真实审计发现问题 -> 定位 -> 修复 -> 回归 PASS”的故事同步到 README / showcase / 面试材料。
+- 已完成：`README.md` 已从旧的“RAG + Agent 文档问答”口径更新为“企业文档知识库 RAG + 会话记忆 + 内部质量门禁”口径，并补充 `/quality`、Conversation Memory、Context Trace 和 Agent Quality Console 边界。
+- 已完成：`docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 更新项目定位、已实现能力、简历亮点、展示优先级和高风险追问；明确 Agent 是围绕文档工具和 Trace 的辅助层，核心主线是 RAG / Memory / Quality Console。
+- 已完成：`docs/showcase/RESUME_BULLETS.md` 增加 Agent Quality Console、真实 audit / eval artifact、Memory governance 和 RAG 质量门禁相关 bullet，并明确不能写成商业 APM、大规模 benchmark 或线上 SLA。
+- 已完成：`docs/showcase/INTERVIEW_QA.md` 更新一分钟介绍、核心亮点、RAG 完整性、Agent Quality Console 价值和项目不足回答；可讲 2026-07-05 真实 audit 首轮 BLOCKED、定位构造器注入问题、修复后 PASS 的闭环。
+- 边界：本片只更新对外展示和内部事实源文档，不改业务代码，不启动服务，不创建业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：如果继续 Agent Quality Console，可优先做 Trace Detail 最小跳转 / Eval Case version 元数据 / 真实 audit case 扩容；Phase 7 数据库存储继续默认不做，除非出现跨机器历史、权限审计或趋势查询刚需。
 
 ## 2026-07-05 补充：Agent Quality Console 真实体验审计集成 v2
 

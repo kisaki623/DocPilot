@@ -6,33 +6,33 @@
 
 ### Q1：请用一分钟介绍 DocPilot。
 
-面试可背版回答：DocPilot 是一个 Java Spring Boot + Next.js 的 RAG + Agent 文档问答工程化项目，覆盖文件上传、异步解析、RAG indexing、单文档 / 多文档检索问答、SSE 流式输出和最小 Agent 工具链。后端重点在 Outbox + RocketMQ、Redisson 幂等锁、Redis 缓存限流、MinIO 对象存储、Qdrant 检索和 Agent trace 持久化。
+面试可背版回答：DocPilot 是一个 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记忆工程化项目，覆盖文件上传、异步解析、RAG indexing、单文档 / 多文档 KnowledgeBase 检索问答、SSE 流式输出、Conversation Trace、用户记忆治理和内部 Agent Quality Console。后端重点在 Outbox + RocketMQ、Redisson 幂等锁、Redis 缓存限流、MinIO 对象存储、Qdrant 检索、Context Trace 和脱敏质量门禁。
 
 面试官追问：它和普通 CRUD 项目相比有什么工程价值？
 
-诚实边界：它不是生产级 SaaS，也不是完整向量 RAG，价值在于把中间件、AI 调用、流式输出、可观测性和验证文档串成一个可讲清楚的工程闭环。
+诚实边界：它不是完整商业 SaaS、线上 SLA 或大规模 benchmark，价值在于把中间件、AI 调用、RAG 可信引用、Memory、Trace、真实链路审计和质量控制台串成一个可解释的工程闭环。
 
-对应位置：`backend/src/main/java/com/docpilot/backend`、`frontend/app`、`docs/PROJECT_INTERVIEW_BRIEF.md`。
+对应位置：`backend/src/main/java/com/docpilot/backend`、`frontend/app`、`docs/showcase/PROJECT_INTERVIEW_BRIEF.md`。
 
 ### Q2：项目最核心的技术亮点是什么？
 
-面试可背版回答：我会讲五点：异步解析链路、SSE 问答、Agent 工具链和持久化 trace、selector shadow compare、默认关闭的安全观测入口设计。
+面试可背版回答：我会讲五点：Outbox + RocketMQ 异步解析、知识库 RAG 与可信 citation、Conversation Memory 与 Context Trace、真实链路质量门禁、Agent Quality Console 内部质量控制台。
 
 面试官追问：哪个最能体现后端能力？
 
-诚实边界：最能体现后端能力的是 Outbox + RocketMQ + 幂等消费，以及 AgentTask / AgentStep 的执行轨迹持久化。
+诚实边界：最能体现后端能力的是 Outbox + RocketMQ + 幂等消费、MySQL / Qdrant 一致性校验、RAG scope guard 和真实 smoke / audit 的质量闭环。
 
-对应位置：`backend/src/main/java/com/docpilot/backend/mq`、`backend/src/main/java/com/docpilot/backend/ai/agent`。
+对应位置：`backend/src/main/java/com/docpilot/backend/mq`、`backend/src/main/java/com/docpilot/backend/ai/rag`、`backend/src/main/java/com/docpilot/backend/quality`。
 
 ### Q3：你在项目中最关注什么？
 
-面试可背版回答：我关注的是“AI 功能怎么工程化落地”：失败降级、幂等、可观测、可复现测试、边界文档和不夸大能力。
+面试可背版回答：我关注的是“AI 功能怎么工程化落地”：证据是否足够、引用是否可信、无证据时是否拒答、Memory 是否污染上下文、失败能否被 eval / trace / audit 定位，以及修复后能否真实回归。
 
 面试官追问：为什么不继续堆功能？
 
-诚实边界：当前阶段更适合把真实链路讲清楚，继续堆 Prometheus 或 Spring Security 之前应先把 README、smoke 证据和边界口径收稳。
+诚实边界：当前阶段更适合把 RAG / Memory / Quality Console 的真实链路质量做实。Prometheus、Spring Security、企业级 APM 可以作为后续增强，但不能盖过当前主线。
 
-对应位置：`docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`。
+对应位置：`docs/ai-dev/ROADMAP_RAG.md`、`docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`。
 
 ## 2. 文档上传与解析
 
@@ -126,7 +126,7 @@
 
 面试官追问：引用一定准确吗？
 
-诚实边界：不能保证绝对准确；当前是轻量检索增强。KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，但真实 provider 效果、阈值策略和更多样本仍需要持续校准。
+诚实边界：不能保证绝对准确，但现在已经不只是展示 snippet。项目有 quote-level citation、no-evidence、answer grounding、answer faithfulness、干扰 citation 检查和真实 audit 回归；KnowledgeBase RAG 还有默认关闭的 Hybrid / Rerank 可选增强。更大规模语料、人工标注和通用 entailment 仍需后续建设。
 
 对应位置：`DocumentQaServiceImpl`、`frontend/app/documents/[documentId]/page.tsx`。
 
@@ -226,13 +226,23 @@
 
 ### Q18-2：这是完整 RAG 吗？
 
-面试可背版回答：不是生产级完整 RAG，但已经是可演示、可评测的 RAG 工程闭环。项目已覆盖 chunk 持久化、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 retrieval / QA、metadata scope filter、prompt evidence、citations、no-evidence、answer grounding、hard negative 和 Conversation Trace。
+面试可背版回答：不是线上级完整 RAG，但已经是求职级可讲清楚的知识库 RAG 工程闭环。项目已覆盖 chunk 持久化、EmbeddingProvider 抽象、Qdrant adapter、真实 embedding + Qdrant smoke、单文档 / 多文档 KnowledgeBase retrieval / QA、metadata scope filter、quote-level citation、no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace、Memory 分层和真实链路质量门禁。
 
 面试官追问：那它还缺什么？
 
-诚实边界：缺线上治理和固定 SLA；离线 eval 仍使用 mock embedding + in-memory vector store，真实 embedding + Qdrant 是 smoke 证据，KnowledgeBase Hybrid / Rerank 目前是默认关闭的可选增强。hard-negative 支持度门禁是近阈值启发式，不是通用语义蕴含模型，也不能包装成大规模 relevance benchmark。
+诚实边界：缺线上治理、固定 SLA、大规模人工标注和通用语义蕴含 scorer；离线 eval 仍有 mock embedding + in-memory vector store 边界，真实 embedding + Qdrant 是小规模 smoke 证据，KnowledgeBase Hybrid / Rerank 目前是默认关闭的可选增强。
 
 对应位置：`RagIndexingServiceImpl`、`RagDocumentRetrievalServiceImpl`、`QdrantVectorStoreClient`、`docs/showcase/DEMO_SMOKE_RECORD.md`。
+
+### Q18-3：Agent Quality Console 是什么，为什么有价值？
+
+面试可背版回答：它是项目内部质量控制台，不是普通用户功能。它聚合真实 audit / eval artifact，展示最近 run、Gate 状态、Eval Catalog、Failure Triage、Trace Reference、Run Comparison 和 token / cost 数值。它的价值是把“AI 回答质量问题”从口头感觉变成可复现的质量闭环。
+
+面试官追问：有没有真实发现过问题？
+
+诚实边界：有。2026-07-05 真实审计首轮发现 Quality Eval Catalog 构造器注入缺失，导致 backend health BLOCKED；修复后复跑真实用户 QA 审计 `docpilot-real-user-qa-20260705165151-bbe588` PASS，`/quality?autoload=1` 能看到最新 run、Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary。边界是当前仍基于 ignored artifact 聚合，不是企业级 APM，也不保存 prompt、answer 原文、文档全文或 evidence context。
+
+对应位置：`backend/src/main/java/com/docpilot/backend/quality`、`frontend/app/quality/page.tsx`、`docs/showcase/DEMO_SMOKE_RECORD.md`。
 
 ## 7. 真实 LLM provider shadow-only
 
@@ -306,7 +316,7 @@
 
 面试官追问：那现在最强证据是什么？
 
-诚实边界：最强证据是真实 smoke record：单文档 RAG、多文档 KnowledgeBase RAG、MinIO active storage、RocketMQ + Outbox active parse、真实回答模型、真实 embedding + Qdrant 和权限越界失败案例。
+诚实边界：最强证据是真实 smoke / audit record：单文档 RAG、多文档 KnowledgeBase RAG、Conversation Trace、Memory quality、Agent Quality Console、MinIO active storage、RocketMQ + Outbox active parse、真实回答模型、真实 embedding + Qdrant 和权限越界失败案例。
 
 对应位置：`docs/showcase/DEMO_SMOKE_RECORD.md`。
 
@@ -334,17 +344,17 @@
 
 ### Q28：项目最大不足是什么？
 
-面试可背版回答：最大不足是完整上传解析链路在当前环境下还没重新跑通，另一个是 Actuator 鉴权体系还停留在设计阶段。
+面试可背版回答：最大不足不是“链路没跑通”，而是质量证据还偏小样本：真实 audit / eval 已能发现和回归问题，但还不是大规模人工评测或线上 SLA；另外 Spring Security / Prometheus / 企业级 APM 仍不是当前能力。
 
 面试官追问：优先优化哪个？
 
-诚实边界：优先恢复 MQ 解析链路，因为它影响主业务闭环；安全体系要另开任务，避免影响现有接口。
+诚实边界：优先继续扩大 RAG / Memory 的真实问答评测和 Trace drill-down，再评估是否引入持久化质量表；安全体系要另开任务，避免影响现有接口。
 
-对应位置：`docs/TODO_NEXT.md`。
+对应位置：`docs/ai-dev/ROADMAP_RAG.md`、`docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`。
 
 ### Q29：如果继续做，你下一步做什么？
 
-面试可背版回答：我会先做 T010m 只读 MQ readiness check，确认 no-op producer 生效条件和恢复 MQ 所需环境；或者做 T030-design-review，收窄鉴权验证方案。
+面试可背版回答：我会继续沿 Agent Quality Console 和 RAG / Memory 质量路线做：更细的 Trace drill-down、Eval case 版本化、更多真实用户问答审计 case、Memory provider 小样本扩容，以及必要时再评估质量结果持久化。
 
 面试官追问：为什么不是接 Prometheus？
 

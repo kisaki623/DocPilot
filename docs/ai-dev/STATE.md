@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-05 Agent Quality Console 求职展示打磨已完成。README 与 showcase 面试材料已从旧的“Agent 文档问答 demo”口径更新为“企业文档知识库 RAG + 会话记忆 + 内部质量门禁”口径；展示优先级调整为 `/quality` 质量闭环、KnowledgeBase / Conversations 的 RAG + Memory + Trace、文档详情 quote-level citation，最后再展示 Agent 工具链。对外材料明确 Agent Quality Console 是内部质量控制台，不是企业级 APM；真实 audit / eval 是小样本质量证据，不写成线上 SLA 或大规模 benchmark。
 - 2026-07-05 Agent Quality Console 真实体验审计集成 v2 已完成。首轮真实 audit `docpilot-real-user-qa-20260705164732-f54da1` 暴露 Quality Eval Catalog service 构造器注入缺失导致 backend health BLOCKED；已补 `@Autowired` 和 Spring context 防回归测试。复跑真实审计 `docpilot-real-user-qa-20260705165151-bbe588` PASS，核心 RAG / Memory / Trace / 权限 / frontendInteraction / artifact redaction gate 均通过。开启 Quality Console 后，`/quality?autoload=1` 可见最新 marker、Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary，console error 为 `0`，移动端无横向溢出。
 - 2026-07-05 Agent Quality Console Cost / Latency / Model Summary v1 已完成。Quality artifact parser 允许 `latencyMs`、`durationMs`、`estimatedCost` 等安全数值进入 metrics；`/quality` Run Detail 新增 `Model / Cost Summary` 面板，聚合展示 token usage、estimated cost、model calls、tool calls、latency、duration 和 retry 数值。本片仍不返回 prompt、answer 原文、provider 原始输出、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console Run Comparison v1 已完成前端最小闭环。`/quality` Run Detail 新增 `Run Comparison` 面板，可选择 previous run，并展示 status、gate count、failed / review gate、token total、casePassRate、失败桶、gate status 和 eval case status 的脱敏差异。本片复用现有 Quality API，不新增 compare endpoint、不新增数据库表、不展示原始 artifact 或敏感原文。
