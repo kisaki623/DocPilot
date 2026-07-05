@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getToken } from "@/lib/auth";
 import {
   getQualityRunDetail,
+  getQualityTrendSummary,
   listQualityEvalCases,
   listQualityRuns,
   type QualityEvalCaseCatalogItem,
@@ -14,6 +15,7 @@ import {
   type QualityRunSummary,
   type QualityTokenUsageSummary,
   type QualityTraceReference,
+  type QualityTrendSummary,
 } from "@/lib/quality-api";
 
 const RESERVED_TABS = ["Overview", "Trace", "Eval", "Failures"];
@@ -365,6 +367,7 @@ export default function QualityPage() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [runs, setRuns] = useState<QualityRunSummary[]>([]);
   const [evalCatalog, setEvalCatalog] = useState<QualityEvalCaseCatalogItem[]>([]);
+  const [trend, setTrend] = useState<QualityTrendSummary | null>(null);
   const [selectedMarker, setSelectedMarker] = useState("");
   const [compareMarker, setCompareMarker] = useState("");
   const [detail, setDetail] = useState<QualityRunDetail | null>(null);
@@ -395,6 +398,12 @@ export default function QualityPage() {
       setSelectedMarker((current) => current || nextRuns[0]?.marker || "");
       setCompareMarker((current) => current || nextRuns[1]?.marker || "");
       try {
+        const trendResponse = await getQualityTrendSummary(20);
+        setTrend(trendResponse.data || null);
+      } catch {
+        setTrend(null);
+      }
+      try {
         const catalogResponse = await listQualityEvalCases();
         setEvalCatalog(catalogResponse.data || []);
       } catch {
@@ -403,6 +412,7 @@ export default function QualityPage() {
     } catch (error) {
       setRuns([]);
       setEvalCatalog([]);
+      setTrend(null);
       setDetail(null);
       setCompareDetail(null);
       setErrorMessage(
@@ -615,6 +625,7 @@ export default function QualityPage() {
           </div>
 
           <EvalCatalogPanel items={evalCatalog} />
+          <TrendPanel trend={trend} />
         </div>
 
         <RunDetailPanel
@@ -837,6 +848,146 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
       </p>
     </div>
   );
+}
+
+function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
+  const statusText = summarizeCountMap(trend?.statusCounts);
+  const failureText = summarizeCountMap(trend?.failureBucketCounts);
+  const reviewText = summarizeCountMap(trend?.reviewBucketCounts);
+  return (
+    <div className="dp-card min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="dp-section-title">Quality Trend</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            最近 {trend?.runCount || 0} / {trend?.limit || 20} runs
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-info">artifact-only</span>
+      </div>
+
+      {!trend || trend.runCount === 0 ? (
+        <p className="mt-4 dp-meta">暂无可聚合的趋势摘要。</p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <SmallMetric label="avg pass rate" value={formatPercent(trend.averageCasePassRate)} />
+            <SmallMetric label="tokens" value={formatNumber(trend.totalTokens)} />
+            <SmallMetric label="cost" value={formatNumber(trend.estimatedCost)} />
+            <SmallMetric label="avg latency" value={formatNumber(trend.averageLatencyMs)} />
+          </div>
+          <TrendTextRow label="status" value={statusText} />
+          <TrendTextRow label="failure buckets" value={failureText} tone="danger" />
+          <TrendTextRow label="review buckets" value={reviewText} tone="warning" />
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-400">
+              repeated cases
+            </p>
+            <div className="mt-2 grid gap-2">
+              {trend.repeatedCases.length === 0 ? (
+                <p className="dp-meta">暂无反复失败 / REVIEW case。</p>
+              ) : (
+                trend.repeatedCases.slice(0, 5).map((item) => (
+                  <div
+                    key={item.caseId}
+                    className="rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-600"
+                  >
+                    <p className="break-words font-semibold text-slate-900">
+                      {item.caseId}
+                    </p>
+                    <p className="mt-1 break-words">
+                      failed {item.failedCount} / review {item.reviewCount} / latest{" "}
+                      {item.latestStatus || "-"}
+                    </p>
+                    <p className="mt-1 break-words text-slate-500">
+                      {item.latestRunMarker || "-"}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase text-slate-400">
+              recent points
+            </p>
+            <div className="mt-2 grid gap-2">
+              {trend.points.slice(0, 5).map((point) => (
+                <div
+                  key={point.marker}
+                  className="rounded-lg border border-slate-200 bg-white p-2"
+                >
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <p className="min-w-0 break-words text-xs font-semibold text-slate-900">
+                      {point.marker}
+                    </p>
+                    <span className={statusBadge(point.status)}>{point.status}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    pass {formatPercent(point.casePassRate)} / failed{" "}
+                    {point.failedGateCount} / review {point.reviewGateCount}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SmallMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-2">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-slate-900">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TrendTextRow({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "warning" | "danger";
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "text-red-700"
+      : tone === "warning"
+        ? "text-amber-700"
+        : "text-slate-600";
+  return (
+    <p className={`break-words text-xs ${toneClass}`}>
+      <span className="font-semibold uppercase text-slate-400">{label}: </span>
+      {value}
+    </p>
+  );
+}
+
+function summarizeCountMap(values?: Record<string, number>): string {
+  const entries = Object.entries(values || {});
+  if (entries.length === 0) {
+    return "-";
+  }
+  return entries
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 4)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(" / ");
+}
+
+function formatPercent(value?: number | null): string {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "-";
+  }
+  return `${(value * 100).toFixed(1)}%`;
 }
 
 function RunDetailPanel({

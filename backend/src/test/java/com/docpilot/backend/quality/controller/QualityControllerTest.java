@@ -9,6 +9,7 @@ import com.docpilot.backend.quality.vo.QualityEvalCaseCatalogItem;
 import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
 import com.docpilot.backend.quality.vo.QualityTokenUsageSummary;
+import com.docpilot.backend.quality.vo.QualityTrendSummary;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -138,6 +139,32 @@ class QualityControllerTest {
         assertThat(response.data().get(0).sourceIssueIds()).containsExactly("REA-20260703-P1-001");
         assertThat(response.data().get(0).lastVerifiedMarker()).isEqualTo("docpilot-cloud-quality-20260703213703-dbef08");
         verify(qualityEvalCatalogService).listEvalCases();
+    }
+
+    @Test
+    void shouldReturnTrendSummary() {
+        UserHolder.setUserId(7L);
+        QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, true);
+        when(qualityArtifactService.getTrendSummary(5)).thenReturn(new QualityTrendSummary(
+                5,
+                1,
+                java.util.Map.of("PASS", 1),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                1.0,
+                17,
+                0.01,
+                120.0,
+                140.0,
+                List.of(),
+                List.of()
+        ));
+
+        var response = controller.trends(5);
+
+        assertThat(response.data().runCount()).isEqualTo(1);
+        assertThat(response.data().totalTokens()).isEqualTo(17);
+        verify(qualityArtifactService).getTrendSummary(5);
     }
 
     private QualityRunSummary summary(String marker) {

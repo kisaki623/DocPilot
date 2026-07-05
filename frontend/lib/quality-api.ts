@@ -103,6 +103,44 @@ export interface QualityRunDetail {
   traceReferences: QualityTraceReference[];
 }
 
+export interface QualityTrendPoint {
+  marker: string;
+  status: string;
+  updatedAt: string;
+  failedGateCount: number;
+  reviewGateCount: number;
+  casePassRate?: number | null;
+  totalTokens?: number | null;
+  estimatedCost?: number | null;
+  latencyMs?: number | null;
+  durationMs?: number | null;
+  failureBuckets: string[];
+  reviewBuckets: string[];
+}
+
+export interface QualityRepeatedCaseSummary {
+  caseId: string;
+  failedCount: number;
+  reviewCount: number;
+  latestStatus: string;
+  latestRunMarker: string;
+}
+
+export interface QualityTrendSummary {
+  limit: number;
+  runCount: number;
+  statusCounts: Record<string, number>;
+  failureBucketCounts: Record<string, number>;
+  reviewBucketCounts: Record<string, number>;
+  averageCasePassRate?: number | null;
+  totalTokens?: number | null;
+  estimatedCost?: number | null;
+  averageLatencyMs?: number | null;
+  averageDurationMs?: number | null;
+  repeatedCases: QualityRepeatedCaseSummary[];
+  points: QualityTrendPoint[];
+}
+
 export function listQualityRuns(
   limit = 20
 ): Promise<ApiResponse<QualityRunSummary[]>> {
@@ -131,6 +169,18 @@ export function getQualityRunDetail(
 
 export function listQualityEvalCases(): Promise<ApiResponse<QualityEvalCaseCatalogItem[]>> {
   return apiRequest<QualityEvalCaseCatalogItem[]>("/api/quality/eval-cases", {
+    method: "GET",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
+  });
+}
+
+export function getQualityTrendSummary(
+  limit = 20
+): Promise<ApiResponse<QualityTrendSummary>> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  return apiRequest<QualityTrendSummary>(`/api/quality/trends?${params.toString()}`, {
     method: "GET",
     headers: {
       ...buildAuthorizationHeader()

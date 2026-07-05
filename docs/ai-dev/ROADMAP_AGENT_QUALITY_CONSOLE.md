@@ -250,6 +250,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 目标：基于最近 N 个脱敏 artifact 给出质量趋势，让 Console 不只看单次 run，也能回答“这个系统最近是在变好还是反复退化”。
 
+2026-07-05 状态：DONE。后端新增 `GET /api/quality/trends?limit=20` 和趋势 DTO，基于最近 N 个 parsed Quality detail 聚合状态分布、failure / review bucket、平均 casePassRate、token / cost、latency / duration 和反复失败 case；前端 `/quality` 新增 `Quality Trend` 面板。该阶段仍保持 artifact-only、不新增数据库表、不展示原始 artifact 或敏感原文。
+
 最小实现：
 
 - 后端在现有 artifact 聚合 service 中增加最近 N 次趋势摘要，默认 N=20，不新增数据库表。

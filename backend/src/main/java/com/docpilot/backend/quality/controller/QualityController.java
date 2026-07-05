@@ -9,6 +9,7 @@ import com.docpilot.backend.quality.service.QualityEvalCatalogService;
 import com.docpilot.backend.quality.vo.QualityEvalCaseCatalogItem;
 import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
+import com.docpilot.backend.quality.vo.QualityTrendSummary;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -54,6 +55,14 @@ public class QualityController {
     public ApiResponse<List<QualityEvalCaseCatalogItem>> listEvalCases() {
         requireInternalAccess();
         return ApiResponse.success(qualityEvalCatalogService.listEvalCases());
+    }
+
+    @GetMapping("/trends")
+    public ApiResponse<QualityTrendSummary> trends(
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        requireInternalAccess();
+        int resolvedLimit = limit == null ? QualityArtifactService.DEFAULT_LIMIT : limit;
+        return ApiResponse.success(qualityArtifactService.getTrendSummary(resolvedLimit));
     }
 
     private void requireInternalAccess() {

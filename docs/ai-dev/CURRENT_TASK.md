@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console Eval Asset v2（DONE）；下一片：Quality Trend v1，基于最近 N 个脱敏 artifact 展示质量趋势（READY）
+当前任务：Agent Quality Console Quality Trend v1（DONE）；下一片：可选进入真实链路回归，验证 `/quality?autoload=1` 能看到 Trace v3 / Eval v2 / Trend v1（READY）
+
+## 2026-07-05 补充：Agent Quality Console Quality Trend v1
+
+- 目标：让 Console 不只看单次 run 或两次 run 对比，而是能基于最近 N 个脱敏 artifact 展示质量趋势。
+- 已完成后端：新增 `QualityTrendSummary`、`QualityTrendPoint` 和 `QualityRepeatedCaseSummary`；`QualityArtifactService.getTrendSummary(limit)` 从最近 N 个 parsed detail 聚合状态分布、failure / review bucket 计数、平均 casePassRate、token / cost、latency / duration 和反复失败 / REVIEW case。
+- 已完成 API：新增内部只读 `GET /api/quality/trends?limit=20`，复用 `/api/quality/**` 的 console enabled 和登录上下文控制。
+- 已完成前端：`frontend/lib/quality-api.ts` 增加 trend 类型和请求；`/quality` 新增 `Quality Trend` 面板，展示最近 run 数、状态分布、Top failure / review buckets、平均 pass rate、tokens / cost / latency、反复失败 case 和最近 points。
+- 脱敏边界：trend 只使用现有 Quality DTO 的状态、计数、数值、caseId、marker 和 bucket 摘要，不读取或展示原始 artifact、prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：首次 `mvn "-Dtest=*Quality*" test` 暴露趋势未统计 eval case 层 bucket，已修正；复跑 `mvn "-Dtest=*Quality*" test` PASS，37 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；`/quality?routeSmoke=2` 在 `390px` 宽度下无 console error、无横向溢出。
+- 清理：本轮启动的前端 dev server 和浏览器进程已通过 `scripts/dev/cleanup-agent-processes.ps1` 清理，`3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：跑一轮真实链路回归，开启 `/quality?autoload=1` 验证最新真实 audit run、Trace 瀑布图、Eval 资产字段和 Trend 面板能一起展示；仍不提交 artifact 原文、不 push。
 
 ## 2026-07-05 补充：Agent Quality Console Eval Asset v2
 

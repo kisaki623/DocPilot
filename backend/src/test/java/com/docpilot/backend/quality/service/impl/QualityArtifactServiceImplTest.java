@@ -282,6 +282,37 @@ class QualityArtifactServiceImplTest {
     }
 
     @Test
+    void shouldBuildTrendSummaryFromRecentSafeDetails() throws Exception {
+        Instant base = Instant.parse("2026-07-04T00:00:00Z");
+        writeTrendArtifact("docpilot-trend-old", "PASS", 0.75, 100, "case-repeat", "REVIEW", "citationNeedsReview", base);
+        writeTrendArtifact("docpilot-trend-mid", "REVIEW", 0.50, 200, "case-repeat", "REVIEW", "citationNeedsReview", base.plusSeconds(60));
+        writeTrendArtifact("docpilot-trend-new", "FAILED_CORE_FLOW", 0.25, 300, "case-other", "FAILED_CORE_FLOW", "retrievalMiss", base.plusSeconds(120));
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        var trend = service.getTrendSummary(3);
+
+        assertThat(trend.runCount()).isEqualTo(3);
+        assertThat(trend.statusCounts()).containsEntry("PASS", 1)
+                .containsEntry("REVIEW", 1)
+                .containsEntry("FAILED_CORE_FLOW", 1);
+        assertThat(trend.reviewBucketCounts()).containsEntry("citationNeedsReview", 2);
+        assertThat(trend.failureBucketCounts()).containsEntry("retrievalMiss", 1);
+        assertThat(trend.totalTokens()).isEqualTo(600);
+        assertThat(trend.estimatedCost()).isEqualTo(0.06);
+        assertThat(trend.averageCasePassRate()).isEqualTo(0.5);
+        assertThat(trend.points()).extracting(point -> point.marker())
+                .containsExactly("docpilot-trend-new", "docpilot-trend-mid", "docpilot-trend-old");
+        assertThat(trend.repeatedCases()).hasSize(1);
+        assertThat(trend.repeatedCases().get(0).caseId()).isEqualTo("case-repeat");
+
+        String serialized = objectMapper.writeValueAsString(trend);
+        assertThat(serialized)
+                .doesNotContain("RAW_ANSWER_SHOULD_NOT_LEAK")
+                .doesNotContain("QUESTION_SHOULD_NOT_LEAK");
+    }
+
+    @Test
     void shouldReadLegacyAuditReportName() throws Exception {
         Path artifact = artifactPath("backend/target/audit", "docpilot-real-audit-legacy", "real-experience-audit-report.json");
         Files.writeString(artifact, """
@@ -330,5 +361,43 @@ class QualityArtifactServiceImplTest {
         Path dir = repoRoot.resolve(root).resolve(marker);
         Files.createDirectories(dir);
         return dir.resolve(fileName);
+    }
+
+    private void writeTrendArtifact(String marker,
+                                    String status,
+                                    double casePassRate,
+                                    int totalTokens,
+                                    String caseId,
+                                    String caseStatus,
+                                    String bucket,
+                                    Instant updatedAt) throws Exception {
+        Path artifact = artifactPath("backend/target/audit", marker, "artifact.json");
+        String bucketField = caseStatus.startsWith("FAILED") ? "failureBuckets" : "reviewBuckets";
+        Files.writeString(artifact, """
+                {
+                  "smokeMarker": "%s",
+                  "status": "%s",
+                  "answer": "RAW_ANSWER_SHOULD_NOT_LEAK",
+                  "token_usage": { "total_tokens": %d, "estimated_cost": 0.02 },
+                  "naturalCorpus": {
+                    "status": "%s",
+                    "casePassRate": %s,
+                    "latencyMs": 100,
+                    "durationMs": 120,
+                    "caseResults": [
+                      {
+                        "caseId": "%s",
+                        "caseType": "rag",
+                        "status": "%s",
+                        "traceId": "trace-%s",
+                        "question": "QUESTION_SHOULD_NOT_LEAK",
+                        "%s": ["%s"]
+                      }
+                    ]
+                  }
+                }
+                """.formatted(marker, status, totalTokens, status, casePassRate, caseId, caseStatus, marker, bucketField, bucket),
+                StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(artifact, FileTime.from(updatedAt));
     }
 }

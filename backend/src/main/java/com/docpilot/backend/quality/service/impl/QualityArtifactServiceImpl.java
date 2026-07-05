@@ -8,6 +8,9 @@ import com.docpilot.backend.quality.vo.QualityRunSummary;
 import com.docpilot.backend.quality.vo.QualityTokenUsageSummary;
 import com.docpilot.backend.quality.vo.QualityTraceReference;
 import com.docpilot.backend.quality.vo.QualityTraceStepDetail;
+import com.docpilot.backend.quality.vo.QualityTrendPoint;
+import com.docpilot.backend.quality.vo.QualityTrendSummary;
+import com.docpilot.backend.quality.vo.QualityRepeatedCaseSummary;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -89,6 +92,147 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 .map(this::parseDetail)
                 .filter(detail -> expected.equals(detail.summary().marker()))
                 .findFirst();
+    }
+
+    @Override
+    public QualityTrendSummary getTrendSummary(int limit) {
+        int resolvedLimit = limit <= 0 ? DEFAULT_LIMIT : limit;
+        List<QualityRunDetail> details = discoverArtifacts().stream()
+                .sorted(Comparator.comparing(QualityArtifactFile::updatedAt).reversed())
+                .limit(resolvedLimit)
+                .map(this::parseDetail)
+                .toList();
+        Map<String, Integer> statusCounts = new LinkedHashMap<>();
+        Map<String, Integer> failureBucketCounts = new LinkedHashMap<>();
+        Map<String, Integer> reviewBucketCounts = new LinkedHashMap<>();
+        CaseTrendAccumulator caseAccumulator = new CaseTrendAccumulator();
+        List<QualityTrendPoint> points = new ArrayList<>();
+        int totalTokens = 0;
+        boolean hasTokens = false;
+        BigDecimal estimatedCost = BigDecimal.ZERO;
+        boolean hasCost = false;
+        double casePassRateSum = 0.0;
+        int casePassRateCount = 0;
+        double latencySum = 0.0;
+        int latencyCount = 0;
+        double durationSum = 0.0;
+        int durationCount = 0;
+
+        for (QualityRunDetail detail : details) {
+            QualityRunSummary summary = detail.summary();
+            increment(statusCounts, summary.status());
+            summary.failureBuckets().forEach(bucket -> increment(failureBucketCounts, bucket));
+            summary.reviewBuckets().forEach(bucket -> increment(reviewBucketCounts, bucket));
+            detail.evalCases().forEach(item -> {
+                item.failureBuckets().forEach(bucket -> increment(failureBucketCounts, bucket));
+                item.reviewBuckets().forEach(bucket -> increment(reviewBucketCounts, bucket));
+            });
+            Double casePassRate = findMetric(detail, "casePassRate");
+            if (casePassRate != null) {
+                casePassRateSum += casePassRate;
+                casePassRateCount++;
+            }
+            Double latencyMs = sumMetric(detail, "latencyMs");
+            if (latencyMs != null) {
+                latencySum += latencyMs;
+                latencyCount++;
+            }
+            Double durationMs = sumMetric(detail, "durationMs");
+            if (durationMs != null) {
+                durationSum += durationMs;
+                durationCount++;
+            }
+            Integer runTokens = summary.tokenUsage().totalTokens();
+            if (runTokens != null) {
+                totalTokens += runTokens;
+                hasTokens = true;
+            }
+            if (summary.tokenUsage().estimatedCost() != null) {
+                estimatedCost = estimatedCost.add(summary.tokenUsage().estimatedCost());
+                hasCost = true;
+            }
+            caseAccumulator.accept(detail);
+            points.add(new QualityTrendPoint(
+                    summary.marker(),
+                    summary.status(),
+                    summary.updatedAt(),
+                    summary.failedGateCount(),
+                    summary.reviewGateCount(),
+                    casePassRate,
+                    runTokens,
+                    summary.tokenUsage().estimatedCost() == null ? null : summary.tokenUsage().estimatedCost().doubleValue(),
+                    latencyMs,
+                    durationMs,
+                    summary.failureBuckets(),
+                    summary.reviewBuckets()
+            ));
+        }
+
+        return new QualityTrendSummary(
+                resolvedLimit,
+                details.size(),
+                statusCounts,
+                failureBucketCounts,
+                reviewBucketCounts,
+                average(casePassRateSum, casePassRateCount),
+                hasTokens ? totalTokens : null,
+                hasCost ? estimatedCost.doubleValue() : null,
+                average(latencySum, latencyCount),
+                average(durationSum, durationCount),
+                caseAccumulator.repeatedCases(),
+                points
+        );
+    }
+
+    private void increment(Map<String, Integer> counts, String key) {
+        String resolved = key == null || key.isBlank() ? "UNKNOWN" : key;
+        counts.merge(resolved, 1, Integer::sum);
+    }
+
+    private Double findMetric(QualityRunDetail detail, String name) {
+        String expected = normalizeFieldName(name);
+        for (QualityGateSummary gate : detail.gates()) {
+            for (Map.Entry<String, Number> entry : gate.metrics().entrySet()) {
+                if (expected.equals(normalizeFieldName(entry.getKey()))) {
+                    return entry.getValue().doubleValue();
+                }
+            }
+        }
+        for (QualityEvalCaseResultDetail item : detail.evalCases()) {
+            for (Map.Entry<String, Number> entry : item.metrics().entrySet()) {
+                if (expected.equals(normalizeFieldName(entry.getKey()))) {
+                    return entry.getValue().doubleValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    private Double sumMetric(QualityRunDetail detail, String name) {
+        String expected = normalizeFieldName(name);
+        double sum = 0.0;
+        boolean found = false;
+        for (QualityGateSummary gate : detail.gates()) {
+            for (Map.Entry<String, Number> entry : gate.metrics().entrySet()) {
+                if (expected.equals(normalizeFieldName(entry.getKey()))) {
+                    sum += entry.getValue().doubleValue();
+                    found = true;
+                }
+            }
+        }
+        for (QualityEvalCaseResultDetail item : detail.evalCases()) {
+            for (Map.Entry<String, Number> entry : item.metrics().entrySet()) {
+                if (expected.equals(normalizeFieldName(entry.getKey()))) {
+                    sum += entry.getValue().doubleValue();
+                    found = true;
+                }
+            }
+        }
+        return found ? sum : null;
+    }
+
+    private Double average(double sum, int count) {
+        return count <= 0 ? null : sum / count;
     }
 
     private List<QualityArtifactFile> discoverArtifacts() {
@@ -846,6 +990,64 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     }
 
     private record ExtractedEvalCase(JsonNode node, String gateName) {
+    }
+
+    private static final class CaseTrendAccumulator {
+        private final Map<String, CaseCounts> counts = new LinkedHashMap<>();
+
+        private void accept(QualityRunDetail detail) {
+            String marker = detail.summary().marker();
+            for (QualityEvalCaseResultDetail item : detail.evalCases()) {
+                boolean failed = item.status().startsWith("FAILED") || !item.failureBuckets().isEmpty();
+                boolean review = "REVIEW".equals(item.status()) || !item.reviewBuckets().isEmpty();
+                if (!failed && !review) {
+                    continue;
+                }
+                counts.computeIfAbsent(item.caseId(), ignored -> new CaseCounts())
+                        .accept(failed, review, item.status(), marker);
+            }
+        }
+
+        private List<QualityRepeatedCaseSummary> repeatedCases() {
+            return counts.entrySet().stream()
+                    .filter(entry -> entry.getValue().failedCount + entry.getValue().reviewCount >= 2)
+                    .sorted((left, right) -> Integer.compare(
+                            right.getValue().failedCount + right.getValue().reviewCount,
+                            left.getValue().failedCount + left.getValue().reviewCount
+                    ))
+                    .limit(10)
+                    .map(entry -> {
+                        CaseCounts value = entry.getValue();
+                        return new QualityRepeatedCaseSummary(
+                                entry.getKey(),
+                                value.failedCount,
+                                value.reviewCount,
+                                value.latestStatus,
+                                value.latestRunMarker
+                        );
+                    })
+                    .toList();
+        }
+    }
+
+    private static final class CaseCounts {
+        private int failedCount;
+        private int reviewCount;
+        private String latestStatus = "";
+        private String latestRunMarker = "";
+
+        private void accept(boolean failed, boolean review, String status, String marker) {
+            if (failed) {
+                failedCount++;
+            }
+            if (review) {
+                reviewCount++;
+            }
+            if (latestRunMarker.isBlank()) {
+                latestStatus = status == null ? "" : status;
+                latestRunMarker = marker == null ? "" : marker;
+            }
+        }
     }
 
     private static final class TokenUsageAccumulator {

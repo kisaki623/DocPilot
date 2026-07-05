@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Quality Trend v1
+
+- 后端新增 `/api/quality/trends?limit=20`，基于最近 N 个脱敏 artifact detail 聚合状态分布、failure / review bucket、casePassRate、token / cost、latency / duration 和反复失败 case。
+- 前端 `/quality` 新增 `Quality Trend` 面板，展示最近 run 趋势、Top buckets、平均指标、repeated cases 和 recent points。
+- 首次后端测试暴露趋势未统计 eval case 层 bucket，已修正为同时统计 run/gate 和 eval case buckets。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，37 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；`/quality?routeSmoke=2` 移动端无 console error、无横向溢出。
+- 边界：本片不新增数据库表，不读取业务库，不展示原始 artifact、prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；本轮启动的前端和浏览器进程已清理。
+
 ## 2026-07-05 Agent Quality Console Eval Asset v2
 
 - 7 个默认 eval catalog case 已新增 `caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy` 和 `failureHistoryMarkers`，把 case catalog 继续推进为可解释质量资产。
