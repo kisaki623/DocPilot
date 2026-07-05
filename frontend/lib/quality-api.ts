@@ -45,6 +45,10 @@ export interface QualityTraceReference {
 
 export interface QualityEvalCaseCatalogItem {
   caseId: string;
+  caseVersion: number;
+  owner: string;
+  lastUpdated: string;
+  riskLevel: string;
   caseType: string;
   tags: string[];
   expectedEvidence: string[];

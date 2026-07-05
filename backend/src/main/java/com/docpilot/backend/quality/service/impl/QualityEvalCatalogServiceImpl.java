@@ -71,6 +71,10 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
                 if (item != null && item.isObject()) {
                     firstSafeText(item, "caseId").ifPresent(caseId -> definitions.add(new CatalogCaseDefinition(
                             caseId,
+                            safeVersion(item.path("caseVersion")),
+                            firstSafeText(item, "owner").orElse(""),
+                            firstSafeText(item, "lastUpdated").orElse(""),
+                            firstSafeText(item, "riskLevel").orElse(""),
                             safeList(item.path("tags")),
                             safeList(item.path("expectedEvidence")),
                             safeList(item.path("expectedTools")),
@@ -101,6 +105,10 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
         Optional<LatestCaseResult> latest = findLatestResult(definition.caseId(), recentDetails);
         return new QualityEvalCaseCatalogItem(
                 definition.caseId(),
+                definition.caseVersion(),
+                definition.owner(),
+                definition.lastUpdated(),
+                definition.riskLevel(),
                 definition.tags().isEmpty() ? "agent_quality" : definition.tags().get(0),
                 definition.tags(),
                 definition.expectedEvidence(),
@@ -172,6 +180,14 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
         return List.copyOf(values);
     }
 
+    private int safeVersion(JsonNode node) {
+        if (!node.isInt()) {
+            return 0;
+        }
+        int value = node.asInt(0);
+        return value < 0 || value > 9999 ? 0 : value;
+    }
+
     private boolean isSafeIdentifier(String value) {
         if (value == null || value.isBlank() || value.length() > 80) {
             return false;
@@ -202,6 +218,10 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
 
     private record CatalogCaseDefinition(
             String caseId,
+            int caseVersion,
+            String owner,
+            String lastUpdated,
+            String riskLevel,
             List<String> tags,
             List<String> expectedEvidence,
             List<String> expectedTools,

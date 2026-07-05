@@ -4,6 +4,10 @@ import java.util.List;
 
 public record QualityEvalCaseCatalogItem(
         String caseId,
+        int caseVersion,
+        String owner,
+        String lastUpdated,
+        String riskLevel,
         String caseType,
         List<String> tags,
         List<String> expectedEvidence,
@@ -19,6 +23,10 @@ public record QualityEvalCaseCatalogItem(
 
     public QualityEvalCaseCatalogItem {
         caseId = safe(caseId);
+        caseVersion = Math.max(caseVersion, 0);
+        owner = safe(owner);
+        lastUpdated = safe(lastUpdated);
+        riskLevel = safe(riskLevel);
         caseType = safe(caseType);
         tags = safeList(tags);
         expectedEvidence = safeList(expectedEvidence);

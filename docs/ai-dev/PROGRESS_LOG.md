@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Eval Case Version v1
+
+- `agent-quality-eval-cases.json` 为默认 3 个 case 增加 `caseVersion`、`owner`、`lastUpdated` 和 `riskLevel`，让 Eval Catalog 更像可维护的质量题库。
+- `QualityEvalCatalogServiceImpl` / `QualityEvalCaseCatalogItem` / `/quality` Eval Catalog 已同步安全字段；question、expectedBehavior、mustContain、mustNotContain 仍不返回到 API 或页面。
+- test-side `AgentQualityEvalCase` 允许忽略未知 JSON 字段，避免 catalog 元数据破坏离线 eval runner；eval result artifact 仍只保存脱敏 case result。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+
 ## 2026-07-05 Agent Quality Console Trace Detail 最小入口
 
 - 新增 `frontend/app/quality/trace/page.tsx`，通过 marker / caseId / traceId / agentRunId / conversationId 定位同一 Quality run 里的脱敏 trace reference，并展示关联 gate / eval case 的安全 metrics、flags 和 failure / review buckets。

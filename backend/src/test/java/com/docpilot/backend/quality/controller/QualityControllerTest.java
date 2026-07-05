@@ -106,6 +106,10 @@ class QualityControllerTest {
         QualityController controller = new QualityController(qualityArtifactService, qualityEvalCatalogService, true);
         when(qualityEvalCatalogService.listEvalCases()).thenReturn(List.of(new QualityEvalCaseCatalogItem(
                 "agent-rag-evidence-trace",
+                1,
+                "quality-console",
+                "2026-07-05",
+                "P1",
                 "rag",
                 List.of("rag", "trace"),
                 List.of("ragEvidence"),

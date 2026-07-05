@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console Trace Detail 最小入口（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Eval Case Version / Real Audit Case 扩容（READY）
+当前任务：Agent Quality Console Eval Case Version v1（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Real Audit Case 扩容（READY）
+
+## 2026-07-05 补充：Agent Quality Console Eval Case Version v1
+
+- 目标：让轻量 Eval Case JSON 不只是 caseId 清单，而是带有最小维护元数据，便于后续解释 case 版本、归属、更新时间和风险级别。
+- 已完成：`agent-quality-eval-cases.json` 为 3 个默认 case 增加 `caseVersion`、`owner`、`lastUpdated` 和 `riskLevel`。
+- 已完成：`QualityEvalCatalogServiceImpl` 读取并白名单返回上述安全字段；`QualityEvalCaseCatalogItem` 和 `GET /api/quality/eval-cases` 同步扩展。
+- 已完成：`/quality` 的 Eval Catalog 卡片展示 version、owner、lastUpdated 和 riskLevel。
+- 兼容性：test-side `AgentQualityEvalCase` 忽略未知 JSON 字段，避免 catalog 元数据破坏离线 eval runner；eval result artifact 仍不保存 question、expectedBehavior、mustContain、mustNotContain、prompt、answer 原文、文档全文或 evidence context。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不新增数据库表，不新增业务 API，不改变 eval scoring 语义，不调用真实 provider，不创建业务数据，不提交 artifact 原文。
+- 下一片建议：Real Audit Case 扩容 v1，把真实体验审计中最常见的 RAG / Memory / frontend issue 抽成更多脱敏 audit case 或 gate 摘要；仍先不做 Phase 7 持久化。
 
 ## 2026-07-05 补充：Agent Quality Console Trace Detail 最小入口
 

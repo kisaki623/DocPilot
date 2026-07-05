@@ -1,6 +1,10 @@
 [
   {
     "caseId": "agent-rag-evidence-trace",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-05",
+    "riskLevel": "P1",
     "question": "Use the bound knowledge base and explain which evidence supports the answer.",
     "expectedBehavior": "Agent should use RAG evidence and produce a trace-linked answer.",
     "expectedEvidence": ["ragEvidence"],
@@ -16,6 +20,10 @@
   },
   {
     "caseId": "agent-memory-context-split",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-05",
+    "riskLevel": "P1",
     "question": "Answer with user memory when it is relevant, but do not store RAG evidence as memory.",
     "expectedBehavior": "Agent should keep memory context and RAG evidence separated.",
     "expectedEvidence": ["userMemory", "ragEvidence"],
@@ -31,6 +39,10 @@
   },
   {
     "caseId": "agent-no-evidence-refusal",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-05",
+    "riskLevel": "P1",
     "question": "Ask an out-of-scope question that should not be answered from unrelated evidence.",
     "expectedBehavior": "Agent should refuse or mark no-evidence instead of fabricating an answer.",
     "expectedEvidence": ["noEvidence"],

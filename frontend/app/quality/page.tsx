@@ -696,12 +696,19 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
           <p className="mt-1 break-words text-xs text-slate-500">
             {item.caseType || "agent_quality"}
           </p>
+          <p className="mt-1 break-words text-xs text-slate-500">
+            v{item.caseVersion || 0} / {item.owner || "-"} /{" "}
+            {item.lastUpdated || "-"}
+          </p>
         </div>
         <span className={statusBadge(item.latestStatus)}>
           {item.latestStatus || "NOT_RUN"}
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
+        {item.riskLevel ? (
+          <span className="dp-badge dp-badge-warning">{item.riskLevel}</span>
+        ) : null}
         {item.tags.slice(0, 4).map((tag) => (
           <span key={`${item.caseId}-${tag}`} className="dp-badge dp-badge-neutral">
             {tag}

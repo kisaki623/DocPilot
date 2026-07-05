@@ -31,6 +31,10 @@ class QualityEvalCatalogServiceImplTest {
                 [
                   {
                     "caseId": "agent-rag-evidence-trace",
+                    "caseVersion": 2,
+                    "owner": "quality-console",
+                    "lastUpdated": "2026-07-05",
+                    "riskLevel": "P1",
                     "question": "sensitive question must not be returned",
                     "expectedBehavior": "internal behavior text must not be returned",
                     "expectedEvidence": ["ragEvidence"],
@@ -74,6 +78,10 @@ class QualityEvalCatalogServiceImplTest {
         assertThat(items).hasSize(1);
         var item = items.get(0);
         assertThat(item.caseId()).isEqualTo("agent-rag-evidence-trace");
+        assertThat(item.caseVersion()).isEqualTo(2);
+        assertThat(item.owner()).isEqualTo("quality-console");
+        assertThat(item.lastUpdated()).isEqualTo("2026-07-05");
+        assertThat(item.riskLevel()).isEqualTo("P1");
         assertThat(item.caseType()).isEqualTo("rag");
         assertThat(item.tags()).containsExactly("rag", "trace");
         assertThat(item.expectedEvidence()).containsExactly("ragEvidence");
@@ -97,6 +105,10 @@ class QualityEvalCatalogServiceImplTest {
                 [
                   {
                     "caseId": "safe-case",
+                    "caseVersion": 3,
+                    "owner": "apiKeyOwner",
+                    "lastUpdated": "https://example.invalid/date",
+                    "riskLevel": "P2",
                     "expectedEvidence": ["ragEvidence", "https://example.invalid/evidence"],
                     "expectedTools": ["rag_qa_tool", "secretTool"],
                     "tags": ["rag", "accessToken"],
@@ -115,6 +127,10 @@ class QualityEvalCatalogServiceImplTest {
 
         var item = service.listEvalCases().get(0);
 
+        assertThat(item.caseVersion()).isEqualTo(3);
+        assertThat(item.owner()).isEmpty();
+        assertThat(item.lastUpdated()).isEmpty();
+        assertThat(item.riskLevel()).isEqualTo("P2");
         assertThat(item.expectedEvidence()).containsExactly("ragEvidence");
         assertThat(item.expectedTools()).containsExactly("rag_qa_tool");
         assertThat(item.tags()).containsExactly("rag");

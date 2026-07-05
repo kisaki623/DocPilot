@@ -88,6 +88,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 目标：让 eval 不只是 smoke 聚合，而是可解释的评测资产。
 
+2026-07-05 追加状态：DONE。Eval Catalog 已补 `caseVersion`、`owner`、`lastUpdated` 和 `riskLevel` 安全元数据；`/api/quality/eval-cases` 与 `/quality` 卡片同步展示，离线 eval runner 对这些 catalog 元数据保持兼容。
+
 最小实现：
 
 - 继续使用 JSON 文件，不新增数据库表。

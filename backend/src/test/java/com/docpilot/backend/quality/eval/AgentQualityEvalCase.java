@@ -1,8 +1,11 @@
 package com.docpilot.backend.quality.eval;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.List;
 import java.util.Map;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record AgentQualityEvalCase(
         String caseId,
         String question,
