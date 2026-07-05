@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console 三线升级收口（DONE）；下一片：Trace Drill-down v3，把现有 trace reference 升级为脱敏链路瀑布图（READY）
+当前任务：Agent Quality Console Trace Drill-down v3（DONE）；下一片：Eval Asset v2，把 7 个 eval catalog case 继续推进为长期质量资产（READY）
+
+## 2026-07-05 补充：Agent Quality Console Trace Drill-down v3
+
+- 目标：把现有 trace reference 从“能定位 ID”升级为“能查看脱敏链路瀑布图”，用于解释一次 Agent / RAG 质量问题如何从 eval case 定位到 RAG retrieve、tool call、model call、citation 和 failure bucket。
+- 已完成后端：新增 `QualityTraceStepDetail`，`QualityTraceReference` 增加 `steps`；`QualityArtifactServiceImpl` 从 eval case 的安全 metrics / flags / buckets 推断 `eval_case`、`agent_step`、`rag_retrieve`、`tool_call`、`model_call`、`citation` 和 `failure_bucket` 步骤摘要。
+- 已完成前端：`frontend/lib/quality-api.ts` 增加 `QualityTraceStepDetail` 类型；`/quality/trace` 新增“链路瀑布图”面板，按顺序展示 step type、status、metrics、flags 和 buckets。
+- 脱敏边界：本片仍只读 artifact 聚合结果，不读业务数据库、不新增 API、不新增数据库表；step 只来自白名单数值、布尔值和安全 bucket，不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality/trace?routeSmoke=1&marker=docpilot-route-smoke&caseId=route-smoke&traceId=trace-route-smoke&agentRunId=agent-route-smoke` 无 console error；`390px` 宽度 `scrollWidth == clientWidth == 390`。
+- 清理：本轮启动的前端 dev server、Playwright / Chromium 进程已通过 `scripts/dev/cleanup-agent-processes.ps1` 清理，`3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：进入 Eval Asset v2，在 `agent-quality-eval-cases.json` 上补 caseLayer、riskGate、scoringSummary、regressionPolicy 和脱敏 failureHistoryMarkers，并同步 API / 前端 catalog 展示和测试。
 
 ## 2026-07-05 补充：Agent Quality Console 三线升级收口
 

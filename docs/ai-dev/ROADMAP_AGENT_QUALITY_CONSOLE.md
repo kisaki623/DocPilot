@@ -210,6 +210,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 目标：把 Trace 从“定位 reference”升级为脱敏链路瀑布图，让面试官能看到一次 Agent / RAG 请求内部发生了什么，但仍不暴露原文。
 
+2026-07-05 状态：DONE。后端新增 `QualityTraceStepDetail` 并挂到 `QualityTraceReference.steps`；artifact 聚合 service 会从 eval case 的安全 metrics / flags / buckets 推断 `eval_case`、`agent_step`、`rag_retrieve`、`tool_call`、`model_call`、`citation` 和 `failure_bucket` 步骤摘要。前端 `/quality/trace` 已展示“链路瀑布图”面板。本阶段仍不读业务库、不新增 API、不新增数据库表、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入或凭据。
+
 最小实现：
 
 - 在现有 QualityRunDetail / traceReferences 基础上聚合安全 step 摘要，不读业务库、不新增数据库表。

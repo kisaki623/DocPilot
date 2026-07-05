@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Trace Drill-down v3
+
+- 后端新增 `QualityTraceStepDetail`，并在 `QualityTraceReference.steps` 中返回脱敏 trace step 摘要。
+- `QualityArtifactServiceImpl` 从 eval case 的安全 metrics / flags / buckets 推断 eval case、agent step、RAG retrieve、tool call、model call、citation 和 failure bucket 链路步骤，不读取业务库、不新增数据库表。
+- `/quality/trace` 新增“链路瀑布图”面板，展示 step type、status、metrics、flags 和 buckets。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright route smoke 无 console error，`390px` 宽度无横向溢出。
+- 边界：本片不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；本轮启动的前端和浏览器进程已清理。
+
 ## 2026-07-05 Agent Quality Console 三线升级收口
 
 - 已将求职级 Agent Quality Console 的后续自驱循环收口为三条主线：Trace Drill-down v3、Eval Asset v2、Quality Trend v1。

@@ -12,7 +12,8 @@ public record QualityTraceReference(
         String agentRunId,
         String conversationId,
         List<String> failureBuckets,
-        List<String> reviewBuckets
+        List<String> reviewBuckets,
+        List<QualityTraceStepDetail> steps
 ) {
 
     public QualityTraceReference {
@@ -25,6 +26,21 @@ public record QualityTraceReference(
         conversationId = cleanIdentifier(conversationId);
         failureBuckets = failureBuckets == null ? List.of() : List.copyOf(failureBuckets);
         reviewBuckets = reviewBuckets == null ? List.of() : List.copyOf(reviewBuckets);
+        steps = steps == null ? List.of() : List.copyOf(steps);
+    }
+
+    public QualityTraceReference(
+            String caseId,
+            String caseType,
+            String status,
+            String gateName,
+            String traceId,
+            String agentRunId,
+            String conversationId,
+            List<String> failureBuckets,
+            List<String> reviewBuckets) {
+        this(caseId, caseType, status, gateName, traceId, agentRunId, conversationId,
+                failureBuckets, reviewBuckets, List.of());
     }
 
     private static String clean(String value) {

@@ -7,6 +7,7 @@ import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
 import com.docpilot.backend.quality.vo.QualityTokenUsageSummary;
 import com.docpilot.backend.quality.vo.QualityTraceReference;
+import com.docpilot.backend.quality.vo.QualityTraceStepDetail;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -320,6 +321,8 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             List<String> failureBuckets = stringList(item.path("failureBuckets"));
             List<String> reviewBuckets = stringList(item.path("reviewBuckets"));
             String status = firstText(item, "status").map(this::normalizeStatus).orElse("");
+            Map<String, Number> metrics = safeMetrics(item);
+            Map<String, Boolean> flags = safeFlags(item);
             boolean hasLocator = !traceId.isBlank() || !agentRunId.isBlank();
             boolean needsAttention = !failureBuckets.isEmpty()
                     || !reviewBuckets.isEmpty()
@@ -341,12 +344,160 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                     agentRunId,
                     firstScalarText(item, "conversationId").orElse(null),
                     failureBuckets,
-                    reviewBuckets
+                    reviewBuckets,
+                    buildTraceSteps(item, status, metrics, flags, failureBuckets, reviewBuckets, hasLocator)
             ));
         }
         return references.stream()
                 .sorted(Comparator.comparingInt(this::traceReferencePriority))
                 .toList();
+    }
+
+    private List<QualityTraceStepDetail> buildTraceSteps(JsonNode item,
+                                                         String status,
+                                                         Map<String, Number> metrics,
+                                                         Map<String, Boolean> flags,
+                                                         List<String> failureBuckets,
+                                                         List<String> reviewBuckets,
+                                                         boolean hasLocator) {
+        List<QualityTraceStepDetail> steps = new ArrayList<>();
+        List<String> combinedBuckets = mergeLists(failureBuckets, reviewBuckets);
+        String resolvedStatus = status == null || status.isBlank() ? "REVIEW" : status;
+        steps.add(traceStep("eval_case", resolvedStatus, "Eval case",
+                metricsByName(metrics, "casePassRate", "score"),
+                flagsByName(flags, "expectedEvidenceSupported", "noEvidenceCorrect"),
+                combinedBuckets));
+        if (hasLocator) {
+            steps.add(traceStep("agent_step", resolvedStatus, "Agent trace reference",
+                    metricsByName(metrics, "durationMs", "latencyMs", "retryCount"),
+                    flagsByName(flags, "ragTriggered", "ragRequired"),
+                    List.of()));
+        }
+        Map<String, Number> retrievalMetrics = metricsBySuffix(metrics, "hits", "topK");
+        if (!retrievalMetrics.isEmpty()
+                || hasAnyFlag(flags, "ragTriggered", "ragRequired")
+                || hasField(item, "retrieveHits", "retrievalHitCount", "evidenceCount")) {
+            steps.add(traceStep("rag_retrieve", resolvedStatus, "RAG retrieval",
+                    mergeMaps(retrievalMetrics, metricsByName(metrics, "retrieveHits", "evidenceCount", "documentHitCount")),
+                    flagsByName(flags, "ragTriggered", "ragRequired"),
+                    List.of()));
+        }
+        Map<String, Number> toolMetrics = metricsByName(metrics, "toolCallCount");
+        if (!toolMetrics.isEmpty() || hasField(item, "toolCallCount", "toolName")) {
+            steps.add(traceStep("tool_call", resolvedStatus, "Tool call",
+                    toolMetrics,
+                    Map.of(),
+                    List.of()));
+        }
+        Map<String, Number> modelMetrics = metricsByName(metrics,
+                "modelCallCount", "promptTokens", "completionTokens", "totalTokens",
+                "estimatedCost", "latencyMs", "durationMs", "retryCount");
+        if (!modelMetrics.isEmpty() || hasField(item, "modelCallCount", "totalTokens")) {
+            steps.add(traceStep("model_call", resolvedStatus, "Model call",
+                    modelMetrics,
+                    Map.of(),
+                    List.of()));
+        }
+        Map<String, Number> citationMetrics = mergeMaps(
+                metricsBySuffix(metrics, "citations"),
+                metricsByName(metrics, "qaCitations", "citationCount", "distractorCitationCount")
+        );
+        Map<String, Boolean> citationFlags = flagsByName(flags,
+                "targetCitationCovered", "citationPhraseSupport", "citationMarkerPresent");
+        if (!citationMetrics.isEmpty() || !citationFlags.isEmpty()) {
+            steps.add(traceStep("citation", resolvedStatus, "Citation",
+                    citationMetrics,
+                    citationFlags,
+                    List.of()));
+        }
+        if (!combinedBuckets.isEmpty()) {
+            steps.add(traceStep("failure_bucket", resolvedStatus, "Failure bucket",
+                    Map.of(),
+                    Map.of(),
+                    combinedBuckets));
+        }
+        return steps;
+    }
+
+    private QualityTraceStepDetail traceStep(String stepType,
+                                             String status,
+                                             String label,
+                                             Map<String, Number> metrics,
+                                             Map<String, Boolean> flags,
+                                             List<String> buckets) {
+        return new QualityTraceStepDetail(stepType, status, label, metrics, flags, buckets);
+    }
+
+    private Map<String, Number> metricsByName(Map<String, Number> metrics, String... names) {
+        Map<String, Number> selected = new LinkedHashMap<>();
+        Set<String> expected = new LinkedHashSet<>();
+        for (String name : names) {
+            expected.add(normalizeFieldName(name));
+        }
+        metrics.forEach((key, value) -> {
+            if (expected.contains(normalizeFieldName(key))) {
+                selected.put(key, value);
+            }
+        });
+        return selected;
+    }
+
+    private Map<String, Number> metricsBySuffix(Map<String, Number> metrics, String... suffixes) {
+        Map<String, Number> selected = new LinkedHashMap<>();
+        metrics.forEach((key, value) -> {
+            String normalized = normalizeFieldName(key);
+            for (String suffix : suffixes) {
+                if (normalized.endsWith(normalizeFieldName(suffix))) {
+                    selected.put(key, value);
+                    return;
+                }
+            }
+        });
+        return selected;
+    }
+
+    private Map<String, Boolean> flagsByName(Map<String, Boolean> flags, String... names) {
+        Map<String, Boolean> selected = new LinkedHashMap<>();
+        Set<String> expected = new LinkedHashSet<>();
+        for (String name : names) {
+            expected.add(normalizeFieldName(name));
+        }
+        flags.forEach((key, value) -> {
+            if (expected.contains(normalizeFieldName(key))) {
+                selected.put(key, value);
+            }
+        });
+        return selected;
+    }
+
+    private boolean hasAnyFlag(Map<String, Boolean> flags, String... names) {
+        return !flagsByName(flags, names).isEmpty();
+    }
+
+    private boolean hasField(JsonNode node, String... fieldNames) {
+        for (String fieldName : fieldNames) {
+            if (node.has(fieldName) && !isSensitiveField(fieldName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Map<String, Number> mergeMaps(Map<String, Number> first, Map<String, Number> second) {
+        Map<String, Number> merged = new LinkedHashMap<>(first);
+        second.forEach(merged::putIfAbsent);
+        return merged;
+    }
+
+    private List<String> mergeLists(List<String> first, List<String> second) {
+        LinkedHashSet<String> merged = new LinkedHashSet<>();
+        if (first != null) {
+            merged.addAll(first);
+        }
+        if (second != null) {
+            merged.addAll(second);
+        }
+        return List.copyOf(merged);
     }
 
     private int traceReferencePriority(QualityTraceReference reference) {

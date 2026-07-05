@@ -114,6 +114,9 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.traceReferences().get(0).traceId()).isEqualTo("trace-1");
         assertThat(detail.traceReferences().get(0).agentRunId()).isEqualTo("agent-run-1");
         assertThat(detail.traceReferences().get(0).conversationId()).isEqualTo("17");
+        assertThat(detail.traceReferences().get(0).steps())
+                .extracting(step -> step.stepType())
+                .containsExactly("eval_case", "agent_step");
 
         String serialized = objectMapper.writeValueAsString(detail);
         assertThat(serialized)
@@ -216,6 +219,21 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.traceReferences().get(0).reviewBuckets()).containsExactly("permissionUx");
         assertThat(detail.traceReferences().get(1).gateName()).isEqualTo("naturalCorpus");
         assertThat(detail.traceReferences().get(1).conversationId()).isEqualTo("conversation-1");
+        assertThat(detail.traceReferences().get(1).steps())
+                .extracting(step -> step.stepType())
+                .contains("eval_case", "agent_step", "rag_retrieve", "citation");
+        assertThat(detail.traceReferences().get(1).steps())
+                .anySatisfy(step -> {
+                    assertThat(step.stepType()).isEqualTo("rag_retrieve");
+                    assertThat(step.metrics()).containsEntry("retrieveHits", 4);
+                })
+                .anySatisfy(step -> {
+                    assertThat(step.stepType()).isEqualTo("citation");
+                    assertThat(step.metrics()).containsEntry("qaCitations", 2);
+                });
+        assertThat(detail.traceReferences().get(0).steps())
+                .extracting(step -> step.stepType())
+                .contains("failure_bucket");
 
         String serialized = objectMapper.writeValueAsString(detail);
         assertThat(serialized)

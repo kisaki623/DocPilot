@@ -9,6 +9,7 @@ import {
   type QualityGateSummary,
   type QualityRunDetail,
   type QualityTraceReference,
+  type QualityTraceStepDetail,
 } from "@/lib/quality-api";
 
 interface TraceQuery {
@@ -69,6 +70,32 @@ function compactFlags(flags?: Record<string, boolean>): string {
     .slice(0, 8)
     .map(([key, value]) => `${key}: ${value ? "true" : "false"}`)
     .join(" / ");
+}
+
+function stepDisplayName(stepType?: string): string {
+  const normalized = (stepType || "").toLowerCase();
+  if (normalized === "eval_case") {
+    return "Eval Case";
+  }
+  if (normalized === "agent_step") {
+    return "Agent Step";
+  }
+  if (normalized === "rag_retrieve") {
+    return "RAG Retrieve";
+  }
+  if (normalized === "tool_call") {
+    return "Tool Call";
+  }
+  if (normalized === "model_call") {
+    return "Model Call";
+  }
+  if (normalized === "citation") {
+    return "Citation";
+  }
+  if (normalized === "failure_bucket") {
+    return "Failure Bucket";
+  }
+  return stepType || "Trace Step";
 }
 
 function readTraceQuery(): TraceQuery {
@@ -272,6 +299,8 @@ export default function QualityTracePage() {
             </div>
           </section>
 
+          <TraceWaterfallCard reference={primaryReference} />
+
           <section className="grid gap-4 lg:grid-cols-2">
             <RelatedGateCard gate={relatedGate} />
             <RelatedEvalCaseCard item={relatedEvalCase} />
@@ -322,6 +351,76 @@ function TraceReferenceCard({ reference }: { reference: QualityTraceReference })
           label="review buckets"
           value={summarizeBuckets(reference.reviewBuckets)}
         />
+      </div>
+    </div>
+  );
+}
+
+function TraceWaterfallCard({
+  reference,
+}: {
+  reference: QualityTraceReference | null;
+}) {
+  const steps = reference?.steps || [];
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="dp-section-title">链路瀑布图</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            仅展示脱敏 step、状态、数值指标和失败桶。
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-info">{steps.length} steps</span>
+      </div>
+      {steps.length === 0 ? (
+        <p className="mt-4 dp-meta">
+          当前 artifact 没有可展示的 step 摘要；后续 run 会继续沉淀。
+        </p>
+      ) : (
+        <div className="mt-5 space-y-3">
+          {steps.map((step, index) => (
+            <TraceStepRow
+              key={`${step.stepType}-${index}`}
+              step={step}
+              index={index}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TraceStepRow({
+  step,
+  index,
+}: {
+  step: QualityTraceStepDetail;
+  index: number;
+}) {
+  return (
+    <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-[44px_1fr]">
+      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+        {index + 1}
+      </div>
+      <div className="min-w-0">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div className="min-w-0">
+            <p className="break-words text-sm font-semibold text-slate-900">
+              {stepDisplayName(step.stepType)}
+            </p>
+            <p className="mt-1 break-words text-xs text-slate-500">
+              {step.label || step.stepType || "-"}
+            </p>
+          </div>
+          <span className={statusBadge(step.status)}>{step.status || "REVIEW"}</span>
+        </div>
+        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+          <SmallFact label="metrics" value={compactMetrics(step.metrics)} />
+          <SmallFact label="flags" value={compactFlags(step.flags)} />
+          <SmallFact label="buckets" value={summarizeBuckets(step.buckets)} />
+        </div>
       </div>
     </div>
   );

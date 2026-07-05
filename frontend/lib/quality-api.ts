@@ -31,6 +31,15 @@ export interface QualityEvalCaseResultDetail {
   flags: Record<string, boolean>;
 }
 
+export interface QualityTraceStepDetail {
+  stepType: string;
+  status: string;
+  label: string;
+  metrics: Record<string, number>;
+  flags: Record<string, boolean>;
+  buckets: string[];
+}
+
 export interface QualityTraceReference {
   caseId: string;
   caseType: string;
@@ -41,6 +50,7 @@ export interface QualityTraceReference {
   conversationId: string;
   failureBuckets: string[];
   reviewBuckets: string[];
+  steps: QualityTraceStepDetail[];
 }
 
 export interface QualityEvalCaseCatalogItem {
