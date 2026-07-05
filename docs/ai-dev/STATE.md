@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-05 Agent Quality Console Real Audit Case 扩容 v1 已完成。默认 `agent-quality-eval-cases.json` 从 3 个 case 扩到 7 个，新增短文档单文档 RAG evidence、短文档 KB 双文档覆盖、summary 干扰 citation 裁剪和 Quality Console backend health 四类真实审计沉淀 case；`sourceIssueIds` 只暴露 `REA-...` 脱敏问题编号，API / 前端仍不返回 question、expectedBehavior、mustContain、mustNotContain、prompt、answer 原文、文档全文、evidence context 或凭据。已验证 `mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
 - 2026-07-05 Agent Quality Console Eval Case Version v1 已完成。默认 `agent-quality-eval-cases.json` 增加 `caseVersion`、`owner`、`lastUpdated` 和 `riskLevel`；`GET /api/quality/eval-cases` 与 `/quality` Eval Catalog 卡片同步展示这些安全元数据。离线 eval runner 对未知 JSON 字段保持兼容，result artifact 仍不保存 question、expectedBehavior、mustContain、mustNotContain、prompt、answer 原文、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console Trace Detail 最小入口已完成。前端新增内部 `/quality/trace` 页面，从现有 QualityRunDetail 中按 marker / caseId / traceId / agentRunId / conversationId 定位脱敏 trace reference，并展示关联 gate / eval case 的安全 metrics、flags 和 failure / review buckets；`/quality` Trace 定位行新增“打开”链接。本片未新增后端 API、不读业务库、不展示 prompt、answer 原文、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console 求职展示打磨已完成。README 与 showcase 面试材料已从旧的“Agent 文档问答 demo”口径更新为“企业文档知识库 RAG + 会话记忆 + 内部质量门禁”口径；展示优先级调整为 `/quality` 质量闭环、KnowledgeBase / Conversations 的 RAG + Memory + Trace、文档详情 quote-level citation，最后再展示 Agent 工具链。对外材料明确 Agent Quality Console 是内部质量控制台，不是企业级 APM；真实 audit / eval 是小样本质量证据，不写成线上 SLA 或大规模 benchmark。

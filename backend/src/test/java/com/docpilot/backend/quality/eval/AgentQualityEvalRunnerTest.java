@@ -1,5 +1,6 @@
 package com.docpilot.backend.quality.eval;
 
+import com.docpilot.backend.quality.vo.QualityEvalCaseResultDetail;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
@@ -20,7 +21,15 @@ class AgentQualityEvalRunnerTest {
         AgentQualityEvalResult result = runner.evaluateDefaultCases();
 
         assertThat(result.status()).isEqualTo("PASS");
-        assertThat(result.metrics().caseCount()).isGreaterThanOrEqualTo(3);
+        assertThat(result.metrics().caseCount()).isGreaterThanOrEqualTo(7);
+        assertThat(result.caseResults())
+                .extracting(QualityEvalCaseResultDetail::caseId)
+                .contains(
+                        "short-document-rag-evidence",
+                        "kb-two-document-coverage",
+                        "citation-distractor-pruning",
+                        "quality-console-startup-health"
+                );
         assertThat(result.metrics().casePassRate()).isEqualTo(1.0D);
         assertThat(result.metrics().traceLinkedCaseCount()).isEqualTo(result.metrics().caseCount());
         assertThat(result.caseResults()).allSatisfy(caseResult -> {
@@ -44,6 +53,10 @@ class AgentQualityEvalRunnerTest {
                 .doesNotContain("Agent should use RAG evidence")
                 .doesNotContain("Answer with user memory")
                 .doesNotContain("Ask an out-of-scope question")
+                .doesNotContain("parsed short txt document")
+                .doesNotContain("summary over two short documents")
+                .doesNotContain("unrelated distractor citations")
+                .doesNotContain("backend startup health")
                 .doesNotContain("SYSTEM_PROMPT")
                 .doesNotContain("RAW_ANSWER")
                 .doesNotContain("DOCUMENT_FULL_TEXT");

@@ -35,6 +35,7 @@ class QualityEvalCatalogServiceImplTest {
                     "owner": "quality-console",
                     "lastUpdated": "2026-07-05",
                     "riskLevel": "P1",
+                    "sourceIssueIds": ["REA-20260703-P1-001"],
                     "question": "sensitive question must not be returned",
                     "expectedBehavior": "internal behavior text must not be returned",
                     "expectedEvidence": ["ragEvidence"],
@@ -82,6 +83,7 @@ class QualityEvalCatalogServiceImplTest {
         assertThat(item.owner()).isEqualTo("quality-console");
         assertThat(item.lastUpdated()).isEqualTo("2026-07-05");
         assertThat(item.riskLevel()).isEqualTo("P1");
+        assertThat(item.sourceIssueIds()).containsExactly("REA-20260703-P1-001");
         assertThat(item.caseType()).isEqualTo("rag");
         assertThat(item.tags()).containsExactly("rag", "trace");
         assertThat(item.expectedEvidence()).containsExactly("ragEvidence");
@@ -109,6 +111,7 @@ class QualityEvalCatalogServiceImplTest {
                     "owner": "apiKeyOwner",
                     "lastUpdated": "https://example.invalid/date",
                     "riskLevel": "P2",
+                    "sourceIssueIds": ["REA-20260703-P1-001", "https://example.invalid/issue"],
                     "expectedEvidence": ["ragEvidence", "https://example.invalid/evidence"],
                     "expectedTools": ["rag_qa_tool", "secretTool"],
                     "tags": ["rag", "accessToken"],
@@ -131,6 +134,7 @@ class QualityEvalCatalogServiceImplTest {
         assertThat(item.owner()).isEmpty();
         assertThat(item.lastUpdated()).isEmpty();
         assertThat(item.riskLevel()).isEqualTo("P2");
+        assertThat(item.sourceIssueIds()).containsExactly("REA-20260703-P1-001");
         assertThat(item.expectedEvidence()).containsExactly("ragEvidence");
         assertThat(item.expectedTools()).containsExactly("rag_qa_tool");
         assertThat(item.tags()).containsExactly("rag");

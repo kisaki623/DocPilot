@@ -110,6 +110,7 @@ class QualityControllerTest {
                 "quality-console",
                 "2026-07-05",
                 "P1",
+                List.of("REA-20260703-P1-001"),
                 "rag",
                 List.of("rag", "trace"),
                 List.of("ragEvidence"),
@@ -127,6 +128,7 @@ class QualityControllerTest {
 
         assertThat(response.data()).hasSize(1);
         assertThat(response.data().get(0).caseId()).isEqualTo("agent-rag-evidence-trace");
+        assertThat(response.data().get(0).sourceIssueIds()).containsExactly("REA-20260703-P1-001");
         verify(qualityEvalCatalogService).listEvalCases();
     }
 

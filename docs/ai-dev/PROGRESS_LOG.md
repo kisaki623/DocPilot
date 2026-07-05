@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Real Audit Case 扩容 v1
+
+- `agent-quality-eval-cases.json` 从 3 个默认 case 扩到 7 个，新增短文档 RAG evidence、KB 双文档覆盖、summary 干扰 citation 裁剪和 Quality Console backend health 四类真实审计沉淀 case。
+- 新增 `sourceIssueIds` 安全字段，只展示 `REA-...` 脱敏问题编号；`QualityEvalCatalogServiceImpl`、`QualityEvalCaseCatalogItem`、`/quality` Eval Catalog 和相关测试已同步。
+- 首次后端测试暴露 `distractor_citation_free` 与 `distractor_citation` 子串匹配冲突，已改成不重叠 marker；复跑通过。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不启动真实链路，不创建业务数据，不调用 provider，不提交 artifact 原文；这是评测资产沉淀，不代表新一轮 runtime audit。
+
 ## 2026-07-05 Agent Quality Console Eval Case Version v1
 
 - `agent-quality-eval-cases.json` 为默认 3 个 case 增加 `caseVersion`、`owner`、`lastUpdated` 和 `riskLevel`，让 Eval Catalog 更像可维护的质量题库。

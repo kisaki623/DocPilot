@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console Eval Case Version v1（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Real Audit Case 扩容（READY）
+当前任务：Agent Quality Console Real Audit Case 扩容 v1（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Eval Catalog failure owner / remediation hint 或小规模真实审计回归（READY）
+
+## 2026-07-05 补充：Agent Quality Console Real Audit Case 扩容 v1
+
+- 目标：把真实体验审计中已经暴露并修复验证过的典型问题沉淀为常驻 eval catalog case，让 `/quality` 能展示“这些真实风险后续会被持续盯住”。
+- 已完成：`agent-quality-eval-cases.json` 从 3 个默认 case 扩到 7 个，新增 `short-document-rag-evidence`、`kb-two-document-coverage`、`citation-distractor-pruning` 和 `quality-console-startup-health`。
+- 已完成：新增安全字段 `sourceIssueIds`，只返回 `REA-...` 这类脱敏问题编号；`QualityEvalCatalogServiceImpl` 继续使用字段白名单和安全 identifier 过滤，URL / token / secret / 连接串形态不会进入 API。
+- 已完成：`/quality` Eval Catalog 卡片展示 source issue 摘要；`QualityControllerTest`、`QualityEvalCatalogServiceImplTest` 和 `AgentQualityEvalRunnerTest` 固定新增字段、默认 case 数和 artifact 不泄露原文的约束。
+- 脱敏边界：新增 case 的 question / expectedBehavior 只作为离线 synthetic contract；result artifact、API 和前端仍不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址。
+- 已验证：首次 `mvn "-Dtest=*Quality*" test` 暴露 fixture marker 自相矛盾，已修正；复跑 `mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不新增数据库表，不启动 tunnel / backend / frontend，不调用真实 provider，不创建业务数据，不提交 artifact 原文，不 push；这是质量题库沉淀，不是新一轮真实链路审计。
+- 下一片建议：给 Eval Catalog 增加 failure owner / remediation hint / last verified marker 的安全摘要，或跑一轮小规模真实审计确认 7 个 catalog case 在 `/quality` 中可见。
 
 ## 2026-07-05 补充：Agent Quality Console Eval Case Version v1
 

@@ -90,6 +90,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 2026-07-05 追加状态：DONE。Eval Catalog 已补 `caseVersion`、`owner`、`lastUpdated` 和 `riskLevel` 安全元数据；`/api/quality/eval-cases` 与 `/quality` 卡片同步展示，离线 eval runner 对这些 catalog 元数据保持兼容。
 
+2026-07-05 追加状态：DONE。Real Audit Case 扩容 v1 已把默认 case 从 3 个扩到 7 个，新增短文档单文档 RAG evidence、短文档 KB 双文档覆盖、summary 干扰 citation 裁剪和 Quality Console backend health 四类真实审计沉淀 case；`sourceIssueIds` 只暴露 `REA-...` 脱敏编号，仍不返回 question、expectedBehavior、prompt、answer 原文、文档全文或 evidence context。
+
 最小实现：
 
 - 继续使用 JSON 文件，不新增数据库表。

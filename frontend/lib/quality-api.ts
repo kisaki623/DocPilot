@@ -49,6 +49,7 @@ export interface QualityEvalCaseCatalogItem {
   owner: string;
   lastUpdated: string;
   riskLevel: string;
+  sourceIssueIds: string[];
   caseType: string;
   tags: string[];
   expectedEvidence: string[];

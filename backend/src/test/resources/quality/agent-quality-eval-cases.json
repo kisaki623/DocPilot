@@ -55,5 +55,89 @@
       "requireExpectedTools": true,
       "requireTraceLink": true
     }
+  },
+  {
+    "caseId": "short-document-rag-evidence",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-05",
+    "riskLevel": "P1",
+    "sourceIssueIds": ["REA-20260703-P1-001"],
+    "question": "Check that a parsed short txt document with an explicit marker returns grounded single-document evidence.",
+    "expectedBehavior": "Short document RAG should return evidence and citation or expose a clear no-evidence reason.",
+    "expectedEvidence": ["shortDocumentEvidence", "singleDocumentCitation"],
+    "expectedTools": ["document_rag_retrieve", "document_rag_qa"],
+    "mustContain": ["short_document_evidence_present", "citation_present"],
+    "mustNotContain": ["retrieval_miss", "citation_missing"],
+    "tags": ["rag", "short_document", "retrieval"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true,
+      "requireCitation": true
+    }
+  },
+  {
+    "caseId": "kb-two-document-coverage",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-05",
+    "riskLevel": "P1",
+    "sourceIssueIds": ["REA-20260703-P1-002"],
+    "question": "Check that a knowledge base summary over two short documents covers both documents.",
+    "expectedBehavior": "KnowledgeBase RAG should cover both target documents or expose partial coverage.",
+    "expectedEvidence": ["knowledgeBaseEvidence", "documentCoverage"],
+    "expectedTools": ["knowledge_base_retrieve", "knowledge_base_qa"],
+    "mustContain": ["multi_document_coverage", "citation_present"],
+    "mustNotContain": ["single_document_only", "partial_coverage_hidden"],
+    "tags": ["rag", "knowledge_base", "multi_document"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true,
+      "minDocumentCoverage": 2
+    }
+  },
+  {
+    "caseId": "citation-distractor-pruning",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-05",
+    "riskLevel": "P2",
+    "sourceIssueIds": ["REA-20260704-P2-006"],
+    "question": "Check that a multi-document summary keeps target coverage without carrying unrelated distractor citations.",
+    "expectedBehavior": "Citation selection should keep supported target citations and prune low-confidence distractors.",
+    "expectedEvidence": ["targetCoverage", "distractorPruned"],
+    "expectedTools": ["knowledge_base_qa", "citation_selector"],
+    "mustContain": ["target_coverage_retained", "distractor_free"],
+    "mustNotContain": ["distractor_citation_present"],
+    "tags": ["rag", "citation", "distractor"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true,
+      "requireDistractorFreeCitation": true
+    }
+  },
+  {
+    "caseId": "quality-console-startup-health",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-05",
+    "riskLevel": "P1",
+    "sourceIssueIds": ["REA-20260705-P1-007"],
+    "question": "Check that enabling the internal quality console does not break backend startup health.",
+    "expectedBehavior": "Backend health should stay UP and quality APIs should be visible when the console switch is enabled.",
+    "expectedEvidence": ["backendHealth", "qualityConsoleEnabled"],
+    "expectedTools": ["quality_console_api", "spring_context"],
+    "mustContain": ["backend_health_up", "quality_console_visible"],
+    "mustNotContain": ["backend_health_blocked", "constructor_injection_failure"],
+    "tags": ["quality_console", "backend_health"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true,
+      "requireBackendHealth": true
+    }
   }
 ]

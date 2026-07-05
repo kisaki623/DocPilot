@@ -700,6 +700,9 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
             v{item.caseVersion || 0} / {item.owner || "-"} /{" "}
             {item.lastUpdated || "-"}
           </p>
+          <p className="mt-1 break-words text-xs text-slate-500">
+            source: {summarizeBuckets(item.sourceIssueIds || [])}
+          </p>
         </div>
         <span className={statusBadge(item.latestStatus)}>
           {item.latestStatus || "NOT_RUN"}
