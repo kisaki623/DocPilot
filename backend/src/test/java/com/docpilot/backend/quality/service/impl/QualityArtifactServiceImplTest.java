@@ -95,6 +95,8 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.gates().get(0).flags()).containsEntry("ragTriggered", true);
         assertThat(detail.evalCases()).hasSize(1);
         assertThat(detail.evalCases().get(0).caseId()).isEqualTo("case-safe-1");
+        assertThat(detail.evalCases().get(0).metrics()).isEmpty();
+        assertThat(detail.evalCases().get(0).flags()).isEmpty();
 
         String serialized = objectMapper.writeValueAsString(detail);
         assertThat(serialized)
@@ -105,6 +107,88 @@ class QualityArtifactServiceImplTest {
                 .doesNotContain("CONNECTION_STRING_SHOULD_NOT_LEAK")
                 .doesNotContain("NATURAL_ANSWER_SHOULD_NOT_LEAK")
                 .doesNotContain("QUESTION_SHOULD_NOT_LEAK");
+    }
+
+    @Test
+    void shouldParseNestedCloudQualityGatesAndSafeEvalCaseSignals() throws Exception {
+        Path artifact = artifactPath("backend/target/audit", "docpilot-cloud-quality-nested", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "smokeMarker": "docpilot-cloud-quality-nested",
+                  "overallStatus": "PASS",
+                  "gates": {
+                    "naturalCorpus": {
+                      "status": "PASS",
+                      "checks": [
+                        {
+                          "casePassRate": 1.0,
+                          "distractorCitationFreeCount": 25,
+                          "answerFaithfulnessPassCount": 11,
+                          "citationPhraseSupportPassCount": 22,
+                          "traceRagTriggered": true,
+                          "traceRagRequired": true,
+                          "hardFailureBuckets": [],
+                          "reviewBuckets": [],
+                          "caseResults": [
+                            {
+                              "caseId": "ops-incident-support-summary",
+                              "caseType": "natural_multi_doc_summary",
+                              "retrieveHits": 4,
+                              "qaCitations": 2,
+                              "distractorCitationCount": 0,
+                              "targetCitationCovered": true,
+                              "noEvidenceCorrect": true,
+                              "expectedEvidenceSupported": true,
+                              "question": "QUESTION_SHOULD_NOT_LEAK",
+                              "answerText": "ANSWER_SHOULD_NOT_LEAK",
+                              "evidenceContext": "EVIDENCE_SHOULD_NOT_LEAK",
+                              "failureBuckets": [],
+                              "reviewBuckets": []
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "frontendInteraction": {
+                      "status": "PASS",
+                      "checks": [
+                        { "consoleErrorCount": 0, "permissionMessageVisible": true }
+                      ]
+                    }
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-cloud-quality-nested").orElseThrow();
+
+        assertThat(detail.summary().status()).isEqualTo("PASS");
+        assertThat(detail.summary().gateCount()).isEqualTo(2);
+        assertThat(detail.gates()).extracting(gate -> gate.name())
+                .containsExactly("naturalCorpus", "frontendInteraction");
+        assertThat(detail.gates().get(0).metrics())
+                .containsEntry("checkCount", 1)
+                .containsEntry("casePassRate", 1.0)
+                .containsEntry("distractorCitationFreeCount", 25);
+        assertThat(detail.gates().get(0).flags())
+                .containsEntry("traceRagTriggered", true)
+                .containsEntry("traceRagRequired", true);
+        assertThat(detail.evalCases()).hasSize(1);
+        assertThat(detail.evalCases().get(0).metrics())
+                .containsEntry("retrieveHits", 4)
+                .containsEntry("qaCitations", 2)
+                .containsEntry("distractorCitationCount", 0);
+        assertThat(detail.evalCases().get(0).flags())
+                .containsEntry("targetCitationCovered", true)
+                .containsEntry("noEvidenceCorrect", true)
+                .containsEntry("expectedEvidenceSupported", true);
+
+        String serialized = objectMapper.writeValueAsString(detail);
+        assertThat(serialized)
+                .doesNotContain("QUESTION_SHOULD_NOT_LEAK")
+                .doesNotContain("ANSWER_SHOULD_NOT_LEAK")
+                .doesNotContain("EVIDENCE_SHOULD_NOT_LEAK");
     }
 
     @Test

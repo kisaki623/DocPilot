@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Explainability v1 Slice A
+
+- 完成后端 artifact 聚合增强：`QualityArtifactServiceImpl` 现在能解析 cloud quality / real-user audit artifact 中的嵌套 `gates.*`，并从单个 `checks` object 中抽取安全数值 / 布尔指标；多个 check 只保留 `checkCount`。
+- `QualityEvalCaseResultDetail` 新增脱敏 `metrics` / `flags`，用于后续 `/quality` 展示 eval case 的召回数、citation 数、干扰 citation 数和覆盖布尔结果。
+- 安全边界保持字段白名单：不返回 prompt、answer 原文、文档全文、evidence context、question、API key、token、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，30 tests，1 skipped。
+
 ## 2026-07-05 RAG citation 精度收口
 
 - 修复 `REA-20260704-P2-006`：KnowledgeBase QA 在答案生成后的 citation 后处理阶段新增极低分引用裁剪，只在 summary / compare 等多文档意图下、且裁剪后仍保留至少两份文档 coverage 时生效。

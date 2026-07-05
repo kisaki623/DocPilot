@@ -106,7 +106,9 @@ public class AgentQualityEvalRunner {
                 resolved.traceId(),
                 resolved.agentRunId(),
                 failureBuckets,
-                List.of()
+                List.of(),
+                Map.of(),
+                Map.of()
         );
     }
 

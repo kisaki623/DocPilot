@@ -179,10 +179,19 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
 
     private List<QualityGateSummary> extractGates(JsonNode root) {
         List<QualityGateSummary> gates = new ArrayList<>();
+        JsonNode nestedGates = root.path("gates");
+        if (nestedGates.isObject()) {
+            nestedGates.fields().forEachRemaining(entry -> {
+                JsonNode value = entry.getValue();
+                if (value.isObject() && looksLikeGate(value)) {
+                    gates.add(toGateSummary(entry.getKey(), value));
+                }
+            });
+        }
         root.fields().forEachRemaining(entry -> {
             String name = entry.getKey();
             JsonNode value = entry.getValue();
-            if (!value.isObject() || TOP_LEVEL_SKIP_FIELDS.contains(name)) {
+            if (!value.isObject() || "gates".equals(name) || TOP_LEVEL_SKIP_FIELDS.contains(name)) {
                 return;
             }
             if (!looksLikeGate(value)) {
@@ -198,27 +207,18 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 || node.has("passed")
                 || node.has("pass")
                 || node.has("failureBuckets")
+                || node.has("hardFailureBuckets")
                 || node.has("reviewBuckets")
+                || node.has("checks")
                 || node.has("casePassRate")
                 || node.has("modelCallCount")
                 || node.has("evidenceCount");
     }
 
     private QualityGateSummary toGateSummary(String name, JsonNode node) {
-        Map<String, Number> metrics = new LinkedHashMap<>();
-        Map<String, Boolean> flags = new LinkedHashMap<>();
-        node.fields().forEachRemaining(entry -> {
-            String field = entry.getKey();
-            JsonNode value = entry.getValue();
-            if (isSensitiveField(field) || "failureBuckets".equals(field) || "reviewBuckets".equals(field)) {
-                return;
-            }
-            if (value.isNumber() && isSafeMetricName(field)) {
-                metrics.put(field, value.numberValue());
-            } else if (value.isBoolean() && isSafeFlagName(field)) {
-                flags.put(field, value.booleanValue());
-            }
-        });
+        Map<String, Number> metrics = safeMetrics(node);
+        Map<String, Boolean> flags = safeFlags(node);
+        mergeCheckSummaries(node.path("checks"), metrics, flags);
         Boolean passed = optionalBoolean(node, "passed")
                 .or(() -> optionalBoolean(node, "pass"))
                 .orElse(null);
@@ -228,7 +228,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 passed,
                 metrics,
                 flags,
-                stringList(node.path("failureBuckets")),
+                gateFailureBuckets(node),
                 stringList(node.path("reviewBuckets"))
         );
     }
@@ -255,10 +255,67 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                     firstText(item, "traceId").orElse(null),
                     firstText(item, "agentRunId").orElse(null),
                     stringList(item.path("failureBuckets")),
-                    stringList(item.path("reviewBuckets"))
+                    stringList(item.path("reviewBuckets")),
+                    safeMetrics(item),
+                    safeFlags(item)
             ));
         }
         return results;
+    }
+
+    private Map<String, Number> safeMetrics(JsonNode node) {
+        Map<String, Number> metrics = new LinkedHashMap<>();
+        if (node == null || !node.isObject()) {
+            return metrics;
+        }
+        node.fields().forEachRemaining(entry -> {
+            String field = entry.getKey();
+            JsonNode value = entry.getValue();
+            if (!isSensitiveField(field) && value.isNumber() && isSafeMetricName(field)) {
+                metrics.put(field, value.numberValue());
+            }
+        });
+        return metrics;
+    }
+
+    private Map<String, Boolean> safeFlags(JsonNode node) {
+        Map<String, Boolean> flags = new LinkedHashMap<>();
+        if (node == null || !node.isObject()) {
+            return flags;
+        }
+        node.fields().forEachRemaining(entry -> {
+            String field = entry.getKey();
+            JsonNode value = entry.getValue();
+            String normalized = normalizeFieldName(field);
+            if (!"pass".equals(normalized)
+                    && !"passed".equals(normalized)
+                    && !isSensitiveField(field)
+                    && value.isBoolean()
+                    && isSafeFlagName(field)) {
+                flags.put(field, value.booleanValue());
+            }
+        });
+        return flags;
+    }
+
+    private void mergeCheckSummaries(JsonNode checks,
+                                     Map<String, Number> metrics,
+                                     Map<String, Boolean> flags) {
+        if (!checks.isArray()) {
+            return;
+        }
+        metrics.put("checkCount", checks.size());
+        if (checks.size() != 1 || !checks.get(0).isObject()) {
+            return;
+        }
+        safeMetrics(checks.get(0)).forEach(metrics::putIfAbsent);
+        safeFlags(checks.get(0)).forEach(flags::putIfAbsent);
+    }
+
+    private List<String> gateFailureBuckets(JsonNode node) {
+        LinkedHashSet<String> buckets = new LinkedHashSet<>(stringList(node.path("failureBuckets")));
+        buckets.addAll(stringList(node.path("hardFailureBuckets")));
+        return List.copyOf(buckets);
     }
 
     private QualityTokenUsageSummary extractTokenUsage(JsonNode root) {
@@ -300,6 +357,9 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
 
     private List<String> mergeBuckets(JsonNode root, List<QualityGateSummary> gates, String fieldName) {
         LinkedHashSet<String> buckets = new LinkedHashSet<>(stringList(root.path(fieldName)));
+        if ("failureBuckets".equals(fieldName)) {
+            buckets.addAll(stringList(root.path("hardFailureBuckets")));
+        }
         for (QualityGateSummary gate : gates) {
             if ("failureBuckets".equals(fieldName)) {
                 buckets.addAll(gate.failureBuckets());
@@ -411,6 +471,8 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 || normalized.endsWith("rate")
                 || normalized.endsWith("score")
                 || normalized.endsWith("tokens")
+                || normalized.endsWith("hits")
+                || normalized.endsWith("citations")
                 || normalized.equals("topk")
                 || normalized.equals("modelcallcount")
                 || normalized.equals("casepassrate");
@@ -423,8 +485,13 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 || normalized.endsWith("passed")
                 || normalized.endsWith("pass")
                 || normalized.endsWith("hit")
+                || normalized.endsWith("triggered")
                 || normalized.endsWith("visible")
                 || normalized.endsWith("stored")
+                || normalized.endsWith("covered")
+                || normalized.endsWith("correct")
+                || normalized.endsWith("supported")
+                || normalized.endsWith("required")
                 || normalized.equals("noevidence")
                 || normalized.equals("ragtriggered")
                 || normalized.equals("ragrequired");

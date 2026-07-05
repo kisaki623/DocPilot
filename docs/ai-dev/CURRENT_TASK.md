@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：`REA-20260704-P2-006` 多文档 summary 干扰 citation 修复（DONE）
+当前任务：Agent Quality Console Explainability v1 Slice A：后端 artifact 聚合增强（DONE）
+
+## 2026-07-05 补充：Quality Console 嵌套 gate 与 eval case 安全指标
+
+- 目标：让 Agent Quality Console 能正确读取 cloud quality / real-user audit artifact 中嵌套的 `gates.*`，并为 Run Detail 提供更可解释的脱敏 gate / eval case 指标。
+- 已完成：`QualityArtifactServiceImpl` 支持解析顶层 `gates` 容器下的嵌套 gate；`checks` 为单个 object 时合并安全数值 / 布尔字段，多个 check 时只保留 `checkCount`，避免透传明细。
+- 已完成：`hardFailureBuckets` 纳入 failure bucket 聚合；`QualityEvalCaseResultDetail` 新增安全 `metrics` / `flags`，用于展示 `retrieveHits`、`qaCitations`、`distractorCitationCount`、`targetCitationCovered`、`noEvidenceCorrect` 等脱敏指标。
+- 脱敏边界：仍不返回 prompt、answer 原文、文档全文、evidence context、question、API key、token、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，30 tests，1 skipped。
+- 边界：本片未新增数据库表，未新增 endpoint，未启动真实服务，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一步：进入 Slice B，更新 `/quality` Run Detail 的 Evidence / Eval Lens 展示。
 
 ## 2026-07-05 补充：多文档 summary citation 精度收口
 
