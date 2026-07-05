@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-05 Agent Quality Console Cost / Latency / Model Summary v1 已完成。Quality artifact parser 允许 `latencyMs`、`durationMs`、`estimatedCost` 等安全数值进入 metrics；`/quality` Run Detail 新增 `Model / Cost Summary` 面板，聚合展示 token usage、estimated cost、model calls、tool calls、latency、duration 和 retry 数值。本片仍不返回 prompt、answer 原文、provider 原始输出、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console Run Comparison v1 已完成前端最小闭环。`/quality` Run Detail 新增 `Run Comparison` 面板，可选择 previous run，并展示 status、gate count、failed / review gate、token total、casePassRate、失败桶、gate status 和 eval case status 的脱敏差异。本片复用现有 Quality API，不新增 compare endpoint、不新增数据库表、不展示原始 artifact 或敏感原文。
 - 2026-07-05 Agent Quality Console Eval Case Catalog v1 已完成。后端新增 `GET /api/quality/eval-cases`，从现有 `agent-quality-eval-cases.json` 读取安全 case 目录，并关联最近 Quality run 的 latest status / marker / traceId / agentRunId；前端 `/quality` 左侧新增 `Eval Catalog` 卡片。该 catalog 只返回 caseId、caseType、tags、expectedEvidence、expectedTools、scoringRules 和最近状态，不返回 question、expectedBehavior、mustContain、mustNotContain、answer 原文、prompt、文档全文或 evidence context。
 - 2026-07-05 Agent Quality Console Failure Triage v1 已完成前端定位闭环。`/quality` Run Detail 新增 Failure Triage 面板，支持按 status、失败桶 taxonomy、gate name 和 case type 过滤 Gate、Eval Case 与 Trace 定位项；失败桶归一化覆盖 RAG retrieval miss、citation unsupported、distractor citation、no-evidence false positive、memory conflict、tool failure、permission regression、frontend UX 和 env blocked。本片未新增后端 API、未新增数据库表，仍只展示现有脱敏 Quality DTO。

@@ -73,6 +73,18 @@ interface RunComparisonSummary {
   changedCaseStatuses: string[];
 }
 
+interface OperationalMetricSummary {
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  estimatedCost: number | null;
+  modelCallCount: number | null;
+  toolCallCount: number | null;
+  latencyMs: number | null;
+  durationMs: number | null;
+  retryCount: number | null;
+}
+
 const DEFAULT_TRIAGE_FILTERS: TriageFilters = {
   status: "ALL",
   bucketCategory: "ALL",
@@ -302,6 +314,40 @@ function formatDelta(value: number | null, fractionDigits = 0): string {
 function uniqueDiff(left: string[], right: string[]): string[] {
   const rightSet = new Set(right);
   return uniqueSorted(left.filter((item) => !rightSet.has(item)));
+}
+
+function sumMetric(detail: QualityRunDetail, names: string[]): number | null {
+  let sum = 0;
+  let found = false;
+  const normalizedNames = new Set(names.map((name) => name.toLowerCase()));
+  [...detail.gates, ...detail.evalCases].forEach((item) => {
+    Object.entries(item.metrics || {}).forEach(([key, value]) => {
+      if (normalizedNames.has(key.toLowerCase()) && typeof value === "number") {
+        sum += value;
+        found = true;
+      }
+    });
+  });
+  return found ? sum : null;
+}
+
+function operationalSummary(detail: QualityRunDetail): OperationalMetricSummary {
+  const tokenUsage = detail.summary.tokenUsage;
+  return {
+    promptTokens:
+      typeof tokenUsage?.promptTokens === "number" ? tokenUsage.promptTokens : null,
+    completionTokens:
+      typeof tokenUsage?.completionTokens === "number" ? tokenUsage.completionTokens : null,
+    totalTokens:
+      typeof tokenUsage?.totalTokens === "number" ? tokenUsage.totalTokens : null,
+    estimatedCost:
+      typeof tokenUsage?.estimatedCost === "number" ? tokenUsage.estimatedCost : null,
+    modelCallCount: sumMetric(detail, ["modelCallCount"]),
+    toolCallCount: sumMetric(detail, ["toolCallCount"]),
+    latencyMs: sumMetric(detail, ["latencyMs"]),
+    durationMs: sumMetric(detail, ["durationMs"]),
+    retryCount: sumMetric(detail, ["retryCount"]),
+  };
 }
 
 async function copyToClipboard(value: string): Promise<void> {
@@ -915,6 +961,8 @@ function RunDetailContent({
         </div>
       </section>
 
+      <OperationalSummaryPanel summary={operationalSummary(detail)} />
+
       <RunComparisonPanel
         current={detail}
         previous={compareDetail}
@@ -1316,6 +1364,42 @@ function EvalCaseRow({ item }: { item: QualityEvalCaseResultDetail }) {
         review: {summarizeBuckets(item.reviewBuckets)}
       </p>
     </div>
+  );
+}
+
+function OperationalSummaryPanel({
+  summary,
+}: {
+  summary: OperationalMetricSummary;
+}) {
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="dp-section-title">Model / Cost Summary</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            token usage and runtime counters
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-neutral">numeric only</span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SmallFact label="Prompt tokens" value={formatNumber(summary.promptTokens)} />
+        <SmallFact
+          label="Completion tokens"
+          value={formatNumber(summary.completionTokens)}
+        />
+        <SmallFact label="Total tokens" value={formatNumber(summary.totalTokens)} />
+        <SmallFact label="Estimated cost" value={formatNumber(summary.estimatedCost)} />
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <SmallFact label="Model calls" value={formatNumber(summary.modelCallCount)} />
+        <SmallFact label="Tool calls" value={formatNumber(summary.toolCallCount)} />
+        <SmallFact label="Latency ms" value={formatNumber(summary.latencyMs)} />
+        <SmallFact label="Duration ms" value={formatNumber(summary.durationMs)} />
+        <SmallFact label="Retries" value={formatNumber(summary.retryCount)} />
+      </div>
+    </section>
   );
 }
 

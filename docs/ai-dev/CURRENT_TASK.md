@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console 求职级升级 Phase 4：Run Comparison v1（DONE）；下一片：Phase 5 Cost / Latency / Model Summary v1（READY）
+当前任务：Agent Quality Console 求职级升级 Phase 5：Cost / Latency / Model Summary v1（DONE）；下一片：Phase 6 真实体验审计集成 v2（READY）
+
+## 2026-07-05 补充：Agent Quality Console Cost / Latency / Model Summary v1
+
+- 目标：补齐 Agent Quality Console 的 AI 系统成本和运行摘要，让 Run Detail 能回答本次评测用了多少 token、模型调用、工具调用、耗时和 retry。
+- 已完成后端：`QualityArtifactServiceImpl` 的安全 metric 白名单新增 `*Ms`、`latencyMs`、`durationMs` 和 `estimatedCost` 等数值字段；`modelCallCount`、`toolCallCount`、`retryCount` 继续作为 count 类安全字段保留。
+- 已完成前端：Run Detail 新增 `Model / Cost Summary` 面板，聚合展示 prompt / completion / total tokens、estimated cost、model calls、tool calls、latency ms、duration ms 和 retries。
+- 脱敏边界：只展示数值统计，不返回或展示 system prompt、user prompt、answer 原文、provider 原始输出、文档全文、evidence context、API key、token、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，34 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 6 真实体验审计集成 v2，跑一次真实 quality audit，并验证 `/quality?autoload=1` 能看到最新 run 和新增 summary / comparison / catalog 面板。
 
 ## 2026-07-05 补充：Agent Quality Console Run Comparison v1
 

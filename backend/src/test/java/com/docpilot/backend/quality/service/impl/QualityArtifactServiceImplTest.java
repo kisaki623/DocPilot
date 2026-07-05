@@ -54,6 +54,11 @@ class QualityArtifactServiceImplTest {
                     "passed": true,
                     "casePassRate": 1.0,
                     "answerFaithfulnessPassCount": 3,
+                    "modelCallCount": 2,
+                    "toolCallCount": 4,
+                    "retryCount": 1,
+                    "latencyMs": 1250,
+                    "durationMs": 1300,
                     "ragTriggered": true,
                     "answerText": "NATURAL_ANSWER_SHOULD_NOT_LEAK",
                     "failureBuckets": [],
@@ -93,7 +98,12 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.gates()).hasSize(1);
         assertThat(detail.gates().get(0).metrics())
                 .containsEntry("casePassRate", 1.0)
-                .containsEntry("answerFaithfulnessPassCount", 3);
+                .containsEntry("answerFaithfulnessPassCount", 3)
+                .containsEntry("modelCallCount", 2)
+                .containsEntry("toolCallCount", 4)
+                .containsEntry("retryCount", 1)
+                .containsEntry("latencyMs", 1250)
+                .containsEntry("durationMs", 1300);
         assertThat(detail.gates().get(0).flags()).containsEntry("ragTriggered", true);
         assertThat(detail.evalCases()).hasSize(1);
         assertThat(detail.evalCases().get(0).caseId()).isEqualTo("case-safe-1");

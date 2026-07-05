@@ -583,9 +583,13 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 || normalized.endsWith("rate")
                 || normalized.endsWith("score")
                 || normalized.endsWith("tokens")
+                || normalized.endsWith("ms")
                 || normalized.endsWith("hits")
                 || normalized.endsWith("citations")
                 || normalized.equals("topk")
+                || normalized.equals("estimatedcost")
+                || normalized.equals("latencyms")
+                || normalized.equals("durationms")
                 || normalized.equals("modelcallcount")
                 || normalized.equals("casepassrate");
     }

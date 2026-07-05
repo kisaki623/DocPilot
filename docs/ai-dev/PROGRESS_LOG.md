@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Cost / Latency / Model Summary v1
+
+- `QualityArtifactServiceImpl` 的安全 metric 白名单扩展到 `latencyMs`、`durationMs`、`estimatedCost` 和 `*Ms` 数值字段；已有 `modelCallCount`、`toolCallCount`、`retryCount` 继续作为 count 类指标保留。
+- 前端 `/quality` Run Detail 新增 `Model / Cost Summary` 面板，聚合展示 token usage、estimated cost、model calls、tool calls、latency、duration 和 retry 数值。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，34 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 移动端 smoke 无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+- 边界：仅展示数值统计，不展示 prompt、answer 原文、provider 原始输出、文档全文、evidence context、凭据、连接串或云地址。
+
 ## 2026-07-05 Agent Quality Console Run Comparison v1
 
 - 前端 `/quality` Run Detail 新增 `Run Comparison` 面板，可选择 previous run，并复用现有 run detail API 展示当前 run 相对 previous run 的状态、gate、失败桶、eval case、token total 和 casePassRate 差异。
