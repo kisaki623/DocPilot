@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console Real Audit Case 扩容 v1（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入 Eval Catalog failure owner / remediation hint 或小规模真实审计回归（READY）
+当前任务：Agent Quality Console Eval Catalog Remediation Hint v1（DONE）；下一片：继续保持 Phase 7 持久化默认不做，可选进入小规模真实审计回归或 Eval Catalog owner 分组筛选（READY）
+
+## 2026-07-05 补充：Agent Quality Console Eval Catalog Remediation Hint v1
+
+- 目标：让 Eval Catalog 不只展示 case 和来源问题编号，还能展示上次验证 marker 和修复排查方向，支撑“失败 -> 定位 -> 修复 -> 回归”的面试讲述。
+- 已完成：`agent-quality-eval-cases.json` 为 7 个默认 case 增加 `lastVerifiedMarker` 和 `remediationHints`，marker 均来自已记录的脱敏 smoke / audit run，hint 只使用安全 identifier。
+- 已完成：`QualityEvalCatalogServiceImpl`、`QualityEvalCaseCatalogItem`、`GET /api/quality/eval-cases` 和 `/quality` Eval Catalog 同步展示 verified marker / remediation hints；URL、secret-like hint 和连接串形态继续被字段白名单过滤。
+- 已完成：`QualityControllerTest` 和 `QualityEvalCatalogServiceImplTest` 覆盖新字段返回与不安全值过滤。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不新增数据库表，不启动真实链路，不创建业务数据，不调用真实 provider，不提交 artifact 原文，不 push；这是 catalog 可解释性增强，不是新一轮 runtime audit。
+- 下一片建议：跑一轮小规模真实审计，确认 `/quality?autoload=1` 能看到 7 个 case 的 catalog、来源编号、verified marker 和 remediation hints；或先做 Eval Catalog 按 owner / riskLevel / latestStatus 的前端筛选。
 
 ## 2026-07-05 补充：Agent Quality Console Real Audit Case 扩容 v1
 

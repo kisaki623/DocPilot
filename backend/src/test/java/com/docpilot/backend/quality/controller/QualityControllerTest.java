@@ -111,6 +111,8 @@ class QualityControllerTest {
                 "2026-07-05",
                 "P1",
                 List.of("REA-20260703-P1-001"),
+                "docpilot-cloud-quality-20260703213703-dbef08",
+                List.of("check_short_document_chunk"),
                 "rag",
                 List.of("rag", "trace"),
                 List.of("ragEvidence"),
@@ -129,6 +131,7 @@ class QualityControllerTest {
         assertThat(response.data()).hasSize(1);
         assertThat(response.data().get(0).caseId()).isEqualTo("agent-rag-evidence-trace");
         assertThat(response.data().get(0).sourceIssueIds()).containsExactly("REA-20260703-P1-001");
+        assertThat(response.data().get(0).lastVerifiedMarker()).isEqualTo("docpilot-cloud-quality-20260703213703-dbef08");
         verify(qualityEvalCatalogService).listEvalCases();
     }
 

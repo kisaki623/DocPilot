@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Eval Catalog Remediation Hint v1
+
+- 7 个默认 eval catalog case 已补 `lastVerifiedMarker` 和 `remediationHints`，让 Console 能展示每个 case 最近验证 marker 和修复排查方向。
+- `QualityEvalCatalogServiceImpl` / `QualityEvalCaseCatalogItem` / `/quality` Eval Catalog 已同步展示安全字段；URL、secret-like hint 和连接串形态继续被过滤。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不启动真实链路，不创建业务数据，不调用 provider，不提交 artifact 原文；这是 catalog 可解释性增强。
+
 ## 2026-07-05 Agent Quality Console Real Audit Case 扩容 v1
 
 - `agent-quality-eval-cases.json` 从 3 个默认 case 扩到 7 个，新增短文档 RAG evidence、KB 双文档覆盖、summary 干扰 citation 裁剪和 Quality Console backend health 四类真实审计沉淀 case。

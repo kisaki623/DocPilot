@@ -36,6 +36,8 @@ class QualityEvalCatalogServiceImplTest {
                     "lastUpdated": "2026-07-05",
                     "riskLevel": "P1",
                     "sourceIssueIds": ["REA-20260703-P1-001"],
+                    "lastVerifiedMarker": "docpilot-cloud-quality-20260703213703-dbef08",
+                    "remediationHints": ["check_short_document_chunk", "verify_quote_citation"],
                     "question": "sensitive question must not be returned",
                     "expectedBehavior": "internal behavior text must not be returned",
                     "expectedEvidence": ["ragEvidence"],
@@ -84,6 +86,8 @@ class QualityEvalCatalogServiceImplTest {
         assertThat(item.lastUpdated()).isEqualTo("2026-07-05");
         assertThat(item.riskLevel()).isEqualTo("P1");
         assertThat(item.sourceIssueIds()).containsExactly("REA-20260703-P1-001");
+        assertThat(item.lastVerifiedMarker()).isEqualTo("docpilot-cloud-quality-20260703213703-dbef08");
+        assertThat(item.remediationHints()).containsExactly("check_short_document_chunk", "verify_quote_citation");
         assertThat(item.caseType()).isEqualTo("rag");
         assertThat(item.tags()).containsExactly("rag", "trace");
         assertThat(item.expectedEvidence()).containsExactly("ragEvidence");
@@ -112,6 +116,8 @@ class QualityEvalCatalogServiceImplTest {
                     "lastUpdated": "https://example.invalid/date",
                     "riskLevel": "P2",
                     "sourceIssueIds": ["REA-20260703-P1-001", "https://example.invalid/issue"],
+                    "lastVerifiedMarker": "http://example.invalid/run",
+                    "remediationHints": ["check_kb_document_coverage", "secret_hint"],
                     "expectedEvidence": ["ragEvidence", "https://example.invalid/evidence"],
                     "expectedTools": ["rag_qa_tool", "secretTool"],
                     "tags": ["rag", "accessToken"],
@@ -135,6 +141,8 @@ class QualityEvalCatalogServiceImplTest {
         assertThat(item.lastUpdated()).isEmpty();
         assertThat(item.riskLevel()).isEqualTo("P2");
         assertThat(item.sourceIssueIds()).containsExactly("REA-20260703-P1-001");
+        assertThat(item.lastVerifiedMarker()).isEmpty();
+        assertThat(item.remediationHints()).containsExactly("check_kb_document_coverage");
         assertThat(item.expectedEvidence()).containsExactly("ragEvidence");
         assertThat(item.expectedTools()).containsExactly("rag_qa_tool");
         assertThat(item.tags()).containsExactly("rag");

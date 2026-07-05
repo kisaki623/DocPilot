@@ -703,6 +703,9 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
           <p className="mt-1 break-words text-xs text-slate-500">
             source: {summarizeBuckets(item.sourceIssueIds || [])}
           </p>
+          <p className="mt-1 break-words text-xs text-slate-500">
+            verified: {item.lastVerifiedMarker || "-"}
+          </p>
         </div>
         <span className={statusBadge(item.latestStatus)}>
           {item.latestStatus || "NOT_RUN"}
@@ -726,6 +729,9 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
         scoring: {summarizeBuckets(item.scoringRules)}
+      </p>
+      <p className="mt-1 break-words text-xs text-slate-600">
+        remediation: {summarizeBuckets(item.remediationHints || [])}
       </p>
       <p className="mt-2 break-words text-xs text-slate-500">
         latest: {item.latestRunMarker || "-"}

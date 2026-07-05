@@ -9,6 +9,8 @@ public record QualityEvalCaseCatalogItem(
         String lastUpdated,
         String riskLevel,
         List<String> sourceIssueIds,
+        String lastVerifiedMarker,
+        List<String> remediationHints,
         String caseType,
         List<String> tags,
         List<String> expectedEvidence,
@@ -29,6 +31,8 @@ public record QualityEvalCaseCatalogItem(
         lastUpdated = safe(lastUpdated);
         riskLevel = safe(riskLevel);
         sourceIssueIds = safeList(sourceIssueIds);
+        lastVerifiedMarker = safe(lastVerifiedMarker);
+        remediationHints = safeList(remediationHints);
         caseType = safe(caseType);
         tags = safeList(tags);
         expectedEvidence = safeList(expectedEvidence);
