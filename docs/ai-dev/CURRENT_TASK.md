@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Agent Quality Console Explainability v1 Slice A：后端 artifact 聚合增强（DONE）
+当前任务：Agent Quality Console Explainability v1 Slice B：前端 Run Detail 可解释性展示（DONE）
+
+## 2026-07-05 补充：`/quality` Evidence / Eval Lens 展示
+
+- 目标：让 Agent Quality Console Run Detail 能展示 Slice A 暴露的脱敏 gate / eval case 指标，使质量结果更容易解释和排查。
+- 已完成：`frontend/lib/quality-api.ts` 同步 `QualityEvalCaseResultDetail.metrics` / `flags` 类型；`frontend/app/quality/page.tsx` 在 gate 和 eval case 行中新增安全 signals 小格子，展示数值指标和布尔结果。
+- 已完成：Eval case 现在同时展示 failure / review buckets、traceId / agentRunId 和脱敏 signals；不展示 question、answer 原文、文档全文、prompt 或 evidence context。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `http://127.0.0.1:3007/quality?routeSmoke=2` 页面非空、console error count 为 `0`、`390x844` 无横向溢出。
+- 边界：本片未新增后端 API，未启动 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一步：进入 Slice C，跑真实 quality audit，并用 `/quality?autoload=1` 验证最新 run 的 `naturalCorpus` gate 和 eval case signals 可见。
 
 ## 2026-07-05 补充：Quality Console 嵌套 gate 与 eval case 安全指标
 

@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console Explainability v1 Slice B
+
+- 完成 `/quality` Run Detail 可解释性展示：gate 和 eval case 行新增脱敏 signals 小格子，展示安全 metrics / flags；Eval case 同时展示 failure / review buckets 和 traceId / agentRunId。
+- 前端类型同步 `QualityEvalCaseResultDetail.metrics` / `flags`，不展示 question、answer 原文、文档全文、prompt 或 evidence context。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `http://127.0.0.1:3007/quality?routeSmoke=2` 页面非空、console error count 为 `0`、`390x844` 无横向溢出。
+
 ## 2026-07-05 Agent Quality Console Explainability v1 Slice A
 
 - 完成后端 artifact 聚合增强：`QualityArtifactServiceImpl` 现在能解析 cloud quality / real-user audit artifact 中的嵌套 `gates.*`，并从单个 `checks` object 中抽取安全数值 / 布尔指标；多个 check 只保留 `checkCount`。

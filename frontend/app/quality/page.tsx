@@ -88,6 +88,23 @@ function compactMetrics(metrics: Record<string, number>): string {
     .join(" / ");
 }
 
+function signalEntries(
+  metrics: Record<string, number>,
+  flags: Record<string, boolean>,
+  limit = 8
+): Array<{ key: string; value: string; tone?: "success" | "warning" }> {
+  const metricEntries = Object.entries(metrics || {}).map(([key, value]) => ({
+    key,
+    value: formatNumber(value),
+  }));
+  const flagEntries = Object.entries(flags || {}).map(([key, value]) => ({
+    key,
+    value: value ? "true" : "false",
+    tone: value ? "success" as const : "warning" as const,
+  }));
+  return [...metricEntries, ...flagEntries].slice(0, limit);
+}
+
 function compactFlags(flags: Record<string, boolean>): string {
   const entries = Object.entries(flags || {});
   if (entries.length === 0) {
@@ -444,6 +461,7 @@ function BucketBox({ title, values }: { title: string; values: string[] }) {
 
 function GateRow({ gate }: { gate: QualityGateSummary }) {
   const status = gate.status || (gate.passed === false ? "FAILED" : "PASS");
+  const signals = signalEntries(gate.metrics, gate.flags);
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -460,6 +478,7 @@ function GateRow({ gate }: { gate: QualityGateSummary }) {
         </div>
         <span className={statusBadge(status)}>{status}</span>
       </div>
+      {signals.length > 0 ? <SignalGrid signals={signals} /> : null}
       <div className="mt-2 grid gap-2 md:grid-cols-2">
         <p className="break-words text-xs text-red-700">
           failure: {summarizeBuckets(gate.failureBuckets)}
@@ -473,6 +492,7 @@ function GateRow({ gate }: { gate: QualityGateSummary }) {
 }
 
 function EvalCaseRow({ item }: { item: QualityEvalCaseResultDetail }) {
+  const signals = signalEntries(item.metrics, item.flags);
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -490,9 +510,45 @@ function EvalCaseRow({ item }: { item: QualityEvalCaseResultDetail }) {
         <p className="break-words">trace: {item.traceId || "-"}</p>
         <p className="break-words">agentRun: {item.agentRunId || "-"}</p>
       </div>
+      {signals.length > 0 ? <SignalGrid signals={signals} /> : null}
       <p className="mt-2 break-words text-xs text-red-700">
         failure: {summarizeBuckets(item.failureBuckets)}
       </p>
+      <p className="mt-1 break-words text-xs text-amber-700">
+        review: {summarizeBuckets(item.reviewBuckets)}
+      </p>
+    </div>
+  );
+}
+
+function SignalGrid({
+  signals,
+}: {
+  signals: Array<{ key: string; value: string; tone?: "success" | "warning" }>;
+}) {
+  return (
+    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      {signals.map((signal) => {
+        const valueClass =
+          signal.tone === "success"
+            ? "text-emerald-700"
+            : signal.tone === "warning"
+              ? "text-amber-700"
+              : "text-slate-900";
+        return (
+          <div
+            key={`${signal.key}-${signal.value}`}
+            className="min-w-0 rounded-md border border-slate-100 bg-slate-50 px-2 py-2"
+          >
+            <p className="truncate text-[11px] uppercase text-slate-500">
+              {signal.key}
+            </p>
+            <p className={`mt-1 break-words text-xs font-semibold ${valueClass}`}>
+              {signal.value}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }

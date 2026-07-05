@@ -27,6 +27,8 @@ export interface QualityEvalCaseResultDetail {
   agentRunId: string;
   failureBuckets: string[];
   reviewBuckets: string[];
+  metrics: Record<string, number>;
+  flags: Record<string, boolean>;
 }
 
 export interface QualityRunSummary {
