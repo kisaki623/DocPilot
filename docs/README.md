@@ -4,17 +4,18 @@
 
 ## 1. 当前推进优先级
 
-现在项目推进的重点是 RAG Quality / Memory Quality 生产化升级：把核心路线从“可演示 RAG”推进到“可拒答、可引用、可追踪、可评测的知识库 RAG + 会话记忆闭环”。阅读顺序建议如下：
+现在项目推进的重点是 RAG Quality / Memory Quality 生产化升级，以及 Agent Quality Console 内部质量控制台的求职级升级：把核心路线从“可演示 RAG”推进到“可拒答、可引用、可追踪、可评测、可观测的知识库 RAG + 会话记忆闭环”。阅读顺序建议如下：
 
 1. `docs/ai-dev/STATE.md`：先确认项目当前真实状态和边界。
 2. `docs/ai-dev/CURRENT_TASK.md`：确认当前要做的任务。`RAG Quality Upgrade v8`、Phase 2 真实体验审计修复、Phase 3 小规模真实 rerank provider 验证、RAG Real QA Eval v1、Memory Quality Eval v1 和 Frontend UX Audit v1 已完成；当前进入 RAG Real Corpus Eval / Memory Governance 的循环迭代。
 3. `docs/showcase/DEMO_SMOKE_RECORD.md`：确认最近真实链路 smoke 证据。
 4. `docs/ai-dev/ROADMAP_RAG.md`：确认 RAG 长期路线和任务拆分。
-5. `docs/ai-dev/DECISIONS.md`：确认关键技术决策，例如 RAG 主链路自研、Qdrant、MySQL/Qdrant 分工。
-6. `docs/ai-dev/CONSTRAINTS.md`：确认协作和安全约束。
-7. `docs/ai-dev/PROGRESS_LOG.md`：只看最近简短进度，不追旧流水账。
+5. `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`：确认 Agent Quality Console 求职级升级路线、Slice 队列和验收标准。
+6. `docs/ai-dev/DECISIONS.md`：确认关键技术决策，例如 RAG 主链路自研、Qdrant、MySQL/Qdrant 分工。
+7. `docs/ai-dev/CONSTRAINTS.md`：确认协作和安全约束。
+8. `docs/ai-dev/PROGRESS_LOG.md`：只看最近简短进度，不追旧流水账。
 
-一句话原则：当前任务看 `CURRENT_TASK.md`，项目事实看 `STATE.md`，展示证据看 `DEMO_SMOKE_RECORD.md`，RAG 总路线看 `ROADMAP_RAG.md`。
+一句话原则：当前任务看 `CURRENT_TASK.md`，项目事实看 `STATE.md`，展示证据看 `DEMO_SMOKE_RECORD.md`，RAG 总路线看 `ROADMAP_RAG.md`，Agent Quality Console 升级路线看 `ROADMAP_AGENT_QUALITY_CONSOLE.md`。
 
 ## 2. docs/ai-dev：当前开发事实源
 
@@ -23,6 +24,7 @@
 - `docs/ai-dev/STATE.md`：当前项目状态。写清楚已实现能力、默认关闭能力、RAG/Agent 边界。
 - `docs/ai-dev/CURRENT_TASK.md`：当前任务卡。后续实现时优先按它推进，不被旧 TODO 带偏。
 - `docs/ai-dev/ROADMAP_RAG.md`：RAG / Memory 生产化升级路线。包含当前真实基础、质量缺口、v3-v7 任务拆分和 smoke / eval 门禁；v3 no-evidence gate 已完成 smoke 级 PASS。
+- `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`：Agent Quality Console 求职级升级路线。用于后续自驱循环推进 Trace drill-down、Failure triage、Eval catalog、Run comparison、Cost / latency summary 和真实体验审计集成。
 - `docs/ai-dev/DECISIONS.md`：ADR 简版。记录认证、异步解析、存储、AI 模式、RAG 选型等关键决策。
 - `docs/ai-dev/CONSTRAINTS.md`：项目协作约束和安全边界。
 - `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`：真实体验审计问题台账。记录 Codex 启动真实本地项目后发现的 bug / 体验问题 / 环境阻塞，以及后续修复和验证闭环；只保存脱敏摘要，不提交 artifact 原文；记录内容默认用中文。

@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：Agent Quality Console Explainability v1 Slice C：真实回归与可见性验证（DONE）
+当前任务：Agent Quality Console 求职级升级 Phase 0：路线图沉淀（DONE）；下一片：Phase 1 Trace Drill-down v2（READY）
+
+## 2026-07-05 补充：Agent Quality Console 求职级升级路线图
+
+- 目标：把 Agent Quality Console 从当前 MVP / Explainability v1 推进到求职级内部质量控制台，并把后续可连续自驱执行的 Slice、验收标准和停止条件沉淀到项目文档。
+- 已完成：新增 `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`，明确当前基础、主要差距、Phase 0-8、每阶段验收标准、自驱循环规则和明确不做事项。
+- 已完成：`docs/README.md` 已把 Agent Quality Console 路线图纳入默认文档地图；后续路线图看 `ROADMAP_AGENT_QUALITY_CONSOLE.md`，当前任务仍看 `CURRENT_TASK.md`。
+- 下一片建议：进入 Phase 1 Trace Drill-down v2，优先让失败 / REVIEW eval case 在 `/quality` Run Detail 中能定位 `traceId` / `agentRunId`；若真实 trace detail API 暂不足，先做“复制 ID + 失败桶过滤”的轻量闭环。
+- 边界：本片只更新文档与任务口径，未修改业务代码，未启动服务，未创建业务数据，未提交 artifact 原文，未 push。
 
 ## 2026-07-05 补充：Quality Console signals 真实链路验证
 

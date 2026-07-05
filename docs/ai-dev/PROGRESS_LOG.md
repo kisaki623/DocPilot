@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console 求职级升级路线图
+
+- 新增 `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`，把当前 Agent Quality Console 与求职级内部质量控制台之间的差距、Phase 0-8 路线、每片验收标准、自驱循环规则和停止条件沉淀为长期事实源。
+- 更新 `docs/README.md`，把 Agent Quality Console 路线图纳入默认文档地图；后续当前任务仍看 `CURRENT_TASK.md`，长期升级路线看 `ROADMAP_AGENT_QUALITY_CONSOLE.md`。
+- 更新 `CURRENT_TASK.md` 和 `STATE.md`：Phase 0 已完成，下一片建议进入 Trace Drill-down v2，优先让失败 / REVIEW eval case 能定位 `traceId` / `agentRunId`。
+- 边界：本片只改文档和任务口径，未改业务代码，未启动服务，未创建业务数据，未提交 artifact 原文，未 push。
+
 ## 2026-07-05 Agent Quality Console Explainability v1 Slice C
 
 - 完成真实回归：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705151944-950f42`。
