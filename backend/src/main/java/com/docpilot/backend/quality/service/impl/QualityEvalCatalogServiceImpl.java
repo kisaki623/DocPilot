@@ -8,6 +8,7 @@ import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -31,6 +32,7 @@ public class QualityEvalCatalogServiceImpl implements QualityEvalCatalogService 
     private final ObjectMapper objectMapper;
     private final QualityArtifactService qualityArtifactService;
 
+    @Autowired
     public QualityEvalCatalogServiceImpl(ObjectMapper objectMapper, QualityArtifactService qualityArtifactService) {
         this(resolveRepoRoot(), objectMapper, qualityArtifactService);
     }

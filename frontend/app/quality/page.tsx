@@ -588,7 +588,7 @@ export default function QualityPage() {
                     key={`${run.source}-${run.marker}`}
                     type="button"
                     onClick={() => setSelectedMarker(run.marker)}
-                    className={`w-full rounded-lg border p-3 text-left transition ${
+                    className={`w-full min-w-0 rounded-lg border p-3 text-left transition ${
                       selectedMarker === run.marker
                         ? "border-blue-300 bg-blue-50"
                         : "border-slate-200 bg-white hover:border-blue-200"

@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-05 Agent Quality Console 真实体验审计集成 v2
+
+- 首轮真实审计 `docpilot-real-user-qa-20260705164732-f54da1` 为 `BLOCKED`：backend health 未 UP。定位到 `QualityEvalCatalogServiceImpl` 多构造器缺少显式 `@Autowired`，真实 Spring 启动尝试找默认构造器失败。
+- 已修复构造器注入并新增 `QualityEvalCatalogServiceSpringContextTest`；随后真实审计 `docpilot-real-user-qa-20260705165151-bbe588` PASS，核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Console 可见性验证 PASS：`/api/quality/runs` 可见最新 marker，detail 为 `PASS`，`/api/quality/eval-cases` 返回 3 个 case；浏览器 `/quality?autoload=1` 可见最新 marker、Eval Catalog、Failure Triage、Run Comparison、Model / Cost Summary，console error count 为 `0`，`390px` 无横向溢出。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；清理脚本确认端口释放。
+- 边界：创建了临时 smoke 数据和 ignored 脱敏 artifact；未删除业务数据，未操作远程 Docker / hk-ops，未改 schema，未提交 artifact 原文，未 push。
+
 ## 2026-07-05 Agent Quality Console Cost / Latency / Model Summary v1
 
 - `QualityArtifactServiceImpl` 的安全 metric 白名单扩展到 `latencyMs`、`durationMs`、`estimatedCost` 和 `*Ms` 数值字段；已有 `modelCallCount`、`toolCallCount`、`retryCount` 继续作为 count 类指标保留。

@@ -34,6 +34,8 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-05 | `docpilot-real-user-qa-20260705165151-bbe588` | PASS（Agent Quality Console Phase 6 回归） | `backend/target/audit/docpilot-real-user-qa-20260705165151-bbe588/artifact.json` | 修复 Quality Eval Catalog 构造器注入后真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；`/quality?autoload=1` 可见最新 marker、Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary。 |
+| 2026-07-05 | `docpilot-real-user-qa-20260705164732-f54da1` | BLOCKED（已修复验证） | `backend/target/audit/docpilot-real-user-qa-20260705164732-f54da1/artifact.json` | tunnel / config consistency PASS，但 backend health 未 UP；本地日志定位为 `QualityEvalCatalogServiceImpl` 多构造器缺少显式 `@Autowired`，已记录为 `REA-20260705-P1-007` 并修复验证。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705145304-7a53b8` | PASS（干扰 citation 修复验证） | `backend/target/audit/docpilot-real-user-qa-20260705145304-7a53b8/artifact.json` | 修复 `REA-20260704-P2-006` 后真实用户 QA 审计通过；`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`，frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact 脱敏均 PASS。 |
 | 2026-07-04 | `docpilot-real-user-qa-20260704221704-4abc6f` | REVIEW（Agent Quality Console 回归） | `backend/target/audit/docpilot-real-user-qa-20260704221704-4abc6f/artifact.json` | Agent Quality Console 可展示最新真实 audit run；核心 gate、frontendInteraction、Memory、权限隔离和脱敏均 PASS，但 `naturalCorpus` 中 `ops-incident-support-summary` 出现 `distractorCitation` review，`distractorCitationFreeCount=24/25`，已记录为 `REA-20260704-P2-006`。 |
 | 2026-07-04 | `docpilot-real-user-qa-20260704191307-661bc0` | PASS（真实用户 QA 体验审计） | `backend/target/audit/docpilot-real-user-qa-20260704191307-661bc0/artifact.json` | 新增真实用户 QA 审计入口，组合 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate；最终 25 个自然语料 case、answer faithfulness、citation support、Conversation Trace、Memory、权限隔离和 artifact 脱敏均 PASS。首轮先暴露 answer 事实表达门禁对单一英文短语过度敏感，已改为同义表达组后验证通过。 |
@@ -60,6 +62,78 @@
 | `REA-20260704-P3-004` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner | `docpilot-rag-natural-corpus-20260704150252-a675b6` | 自然语料 governance 临时用户名超过注册长度约束 |
 | `REA-20260704-P3-005` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Answer Faithfulness Gate | `docpilot-real-user-qa-20260704190235-553df7` | 自然语料 answer fact expression 对单一英文短语过度敏感 |
 | `REA-20260704-P2-006` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-real-user-qa-20260704221704-4abc6f` | 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation |
+| `REA-20260705-P1-007` | VERIFIED（已验证） | P1 | 功能 bug | Agent Quality Console / Backend Startup | `docpilot-real-user-qa-20260705164732-f54da1` | Eval Catalog service 构造器注入缺失导致 backend health BLOCKED |
+
+## 2026-07-05 Agent Quality Console Phase 6 回归
+
+验证 marker：`docpilot-real-user-qa-20260705165151-bbe588`
+
+状态：PASS
+
+已验证：
+
+- 真实用户 QA 审计通过：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、naturalCorpus、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Agent Quality Console 可见最新真实 run：`/api/quality/runs` 可见最新 marker，`/api/quality/runs/{marker}` 状态为 `PASS`，`/api/quality/eval-cases` 返回 3 个 case。
+- 浏览器 `/quality?autoload=1` 可见最新 marker、`Eval Catalog`、`Failure Triage`、`Run Comparison` 和 `Model / Cost Summary`；console error count 为 `0`，`390px` 宽度无横向溢出。
+
+本轮发现并修复：
+
+- `REA-20260705-P1-007`：首轮真实审计 `docpilot-real-user-qa-20260705164732-f54da1` 在 backend health 阶段 BLOCKED。根因是新增 `QualityEvalCatalogServiceImpl` 存在多个构造器，但主构造器缺少显式 `@Autowired`，真实 Spring 启动时尝试使用默认构造器并失败。
+
+边界：
+
+- 本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；artifact 位于 ignored 的 `backend/target/audit/`。
+- 未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+### `REA-20260705-P1-007` Eval Catalog service 构造器注入缺失导致 backend health BLOCKED
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P1
+- 类型：功能 bug
+- 模块：Agent Quality Console / Backend Startup
+- 发现于：`docpilot-real-user-qa-20260705164732-f54da1`
+- 修复验证：`docpilot-real-user-qa-20260705165151-bbe588`
+
+复现步骤：
+
+1. 运行 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`。
+2. 等待脚本启动本地 backend 并轮询 `/actuator/health`。
+3. 查看本地后端启动日志摘要。
+
+实际结果：
+
+- `configConsistency` 和 `tunnel` 均 PASS。
+- `backendHealth` 为 BLOCKED，safe message 为 backend health 未在超时内 UP。
+- 本地日志显示 `qualityEvalCatalogServiceImpl` 创建失败，原因是没有默认构造器。
+
+预期结果：
+
+- backend 应在开启 Agent Quality Console 后正常启动，`/actuator/health` 返回 `UP`。
+
+可能原因：
+
+- `QualityEvalCatalogServiceImpl` 有 public Spring 构造器和 package-private 测试构造器，但没有用 `@Autowired` 标记主构造器；Spring 在真实启动路径中未选择正确构造器。
+
+建议修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/quality/service/impl/QualityEvalCatalogServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/quality/service/impl/QualityEvalCatalogServiceSpringContextTest.java`
+
+修复提交：本轮提交 `fix(quality): stabilize console real audit`
+
+修复摘要：
+
+- 给 `QualityEvalCatalogServiceImpl` 主构造器补充 `@Autowired`。
+- 新增 Spring context runner 测试，防止 Quality Eval Catalog service 真实装配回归。
+- 顺手修复 `/quality` autoload 后移动端 Overview run 卡片被长 marker 撑宽的问题。
+
+验证记录：
+
+- `mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped。
+- `npm run lint` PASS。
+- `npm run build` PASS。
+- `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705165151-bbe588`。
+- `/quality?autoload=1` 可见最新 marker、Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary；console error count 为 `0`，`390px` 无横向溢出。
 
 ## 2026-07-04 Agent Quality Console 回归审计
 

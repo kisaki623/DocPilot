@@ -1,6 +1,18 @@
 # Current Task
 
-当前任务：Agent Quality Console 求职级升级 Phase 5：Cost / Latency / Model Summary v1（DONE）；下一片：Phase 6 真实体验审计集成 v2（READY）
+当前任务：Agent Quality Console 求职级升级 Phase 6：真实体验审计集成 v2（DONE）；下一片：Phase 8 求职展示打磨（READY，Phase 7 持久化继续默认不做）
+
+## 2026-07-05 补充：Agent Quality Console 真实体验审计集成 v2
+
+- 目标：跑一次真实用户 QA 审计，并验证 `/quality?autoload=1` 能看到最新真实 run、Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary。
+- 首轮结果：`docpilot-real-user-qa-20260705164732-f54da1` 为 `BLOCKED`，tunnel / config consistency PASS，但 backend health 超时。根因是 `QualityEvalCatalogServiceImpl` 有多个构造器但缺少显式 `@Autowired`，真实 Spring 启动时尝试找默认构造器失败。
+- 已修复：`QualityEvalCatalogServiceImpl` 主构造器补 `@Autowired`，新增 `QualityEvalCatalogServiceSpringContextTest` 防回归。
+- 真实审计复跑：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705165151-bbe588`。
+- 真实结果：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、naturalCorpus、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Console 可见性：开启 `APP_QUALITY_CONSOLE_ENABLED=true` 后，`/api/quality/runs` 可见最新 marker，detail 状态为 `PASS`，`/api/quality/eval-cases` 返回 3 个 case；浏览器 `/quality?autoload=1` 可见最新 marker、`Eval Catalog`、`Failure Triage`、`Run Comparison` 和 `Model / Cost Summary`，console error count 为 `0`，`390px` 宽度无横向溢出。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；真实审计 PASS；Console autoload 验证 PASS；清理脚本确认端口释放。
+- 边界：本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+- 下一片建议：跳过默认不做的 Phase 7 持久化，进入 Phase 8 求职展示打磨，把“失败 -> 定位 -> 修复 -> 回归通过”的 Agent Quality Console 故事同步到 showcase / 面试材料。
 
 ## 2026-07-05 补充：Agent Quality Console Cost / Latency / Model Summary v1
 
