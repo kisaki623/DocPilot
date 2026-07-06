@@ -2321,6 +2321,7 @@ function RunDetailContent({
 
       {activeSection === "artifacts" ? (
         <>
+          <ParserArtifactPanel detail={detail} />
           <ArtifactSummaryPanel summary={summary} />
           <EvalCatalogPanel items={evalCatalog} />
           <TrendPanel trend={trend} />
@@ -2726,6 +2727,126 @@ function ArtifactSummaryPanel({ summary }: { summary: QualityRunSummary }) {
       </details>
     </section>
   );
+}
+
+function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
+  const realChain = findGate(detail, "parserRealChain");
+  const boundary = findGate(detail, "parserBoundary");
+  if (!realChain && !boundary) {
+    return (
+      <section className="dp-card min-w-0">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="dp-section-title">文档解析质量摘要</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              当前 run 没有 parser smoke 摘要，可能不是文档解析质量运行。
+            </p>
+          </div>
+          <span className="dp-badge dp-badge-neutral">暂无样本</span>
+        </div>
+      </section>
+    );
+  }
+
+  const fileCount = gateMetric(realChain, "fileCount");
+  const parsedFileCount = gateMetric(realChain, "parsedFileCount");
+  const negativeCaseCount = gateMetric(boundary, "negativeCaseCount");
+  const negativeCasePassCount = gateMetric(boundary, "negativeCasePassCount");
+
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="dp-section-title">文档解析质量摘要</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            只展示 parser smoke 的脱敏数值，用来判断 PDF / HTML / DOCX 解析链路和错误边界是否健康。
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {realChain ? (
+            <span className={statusBadge(getGateStatus(realChain))}>
+              {formatStatus(getGateStatus(realChain))}
+            </span>
+          ) : null}
+          {boundary ? (
+            <span className={statusBadge(getGateStatus(boundary))}>
+              边界 {formatStatus(getGateStatus(boundary))}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SmallFact
+          label="解析成功文件"
+          value={formatMetricPair(parsedFileCount, fileCount)}
+        />
+        <SmallFact
+          label="切片总数"
+          value={formatNullableStat(gateMetric(realChain, "chunkCount"))}
+        />
+        <SmallFact
+          label="检索 / 引用"
+          value={`${formatNullableStat(gateMetric(realChain, "retrieveHitCount"))} / ${formatNullableStat(gateMetric(realChain, "citationCount"))}`}
+        />
+        <SmallFact
+          label="来源定位"
+          value={formatMetricPair(gateMetric(realChain, "sourceLocatorCount"), fileCount)}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SmallFact
+          label="解析失败数"
+          value={formatNullableStat(gateMetric(realChain, "parserFailureCount"))}
+        />
+        <SmallFact
+          label="运行耗时 ms"
+          value={formatNullableStat(gateMetric(realChain, "durationMs"))}
+        />
+        <SmallFact
+          label="负向边界通过"
+          value={formatMetricPair(negativeCasePassCount, negativeCaseCount)}
+        />
+        <SmallFact
+          label="不支持格式拒绝"
+          value={formatQualityBoolean(gateFlag(boundary, "unsupportedUploadRejected"))}
+        />
+      </div>
+
+      <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+          查看 parser gate 脱敏信号
+        </summary>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {realChain ? <GateRow gate={realChain} /> : <p className="dp-meta">暂无真实链路 gate。</p>}
+          {boundary ? <GateRow gate={boundary} /> : <p className="dp-meta">暂无错误边界 gate。</p>}
+        </div>
+      </details>
+    </section>
+  );
+}
+
+function findGate(detail: QualityRunDetail, name: string): QualityGateSummary | null {
+  const expected = name.toLowerCase();
+  return detail.gates.find((gate) => gate.name.toLowerCase() === expected) || null;
+}
+
+function gateMetric(gate: QualityGateSummary | null | undefined, name: string): number | null {
+  const value = gate?.metrics?.[name];
+  return typeof value === "number" && !Number.isNaN(value) ? value : null;
+}
+
+function gateFlag(gate: QualityGateSummary | null | undefined, name: string): boolean | null {
+  const value = gate?.flags?.[name];
+  return typeof value === "boolean" ? value : null;
+}
+
+function formatMetricPair(numerator: number | null, denominator: number | null): string {
+  if (numerator === null || denominator === null) {
+    return "暂无统计";
+  }
+  return `${formatNumber(numerator)} / ${formatNumber(denominator)}`;
 }
 
 function countTrueFlags(detail: QualityRunDetail, names: string[]): number | null {

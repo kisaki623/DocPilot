@@ -46,6 +46,16 @@ const METRIC_LABELS: Record<string, string> = {
   gateCount: "质量门禁数",
   failedGateCount: "失败门禁数",
   reviewGateCount: "复查门禁数",
+  fileCount: "文件数",
+  parsedFileCount: "解析成功文件数",
+  parserFailureCount: "解析失败数",
+  chunkCount: "切片数",
+  retrieveHitCount: "检索命中文件数",
+  citationCount: "引用文件数",
+  sourceLocatorCount: "来源定位数",
+  negativeCaseCount: "负向用例数",
+  negativeCasePassCount: "负向通过数",
+  negativeCaseFailCount: "负向失败数",
 };
 
 const FLAG_LABELS: Record<string, string> = {
@@ -59,6 +69,10 @@ const FLAG_LABELS: Record<string, string> = {
   citationMarkerPresent: "引用标记存在",
   forbiddenMarkerHit: "命中禁止标记",
   expectedMarkersSatisfied: "预期标记满足",
+  sourceLocatorPresent: "来源定位存在",
+  retrieveHit: "检索已命中",
+  citationPresent: "引用已生成",
+  unsupportedUploadRejected: "不支持格式已拒绝",
 };
 
 const CASE_TYPE_LABELS: Record<string, string> = {
@@ -100,6 +114,8 @@ const GATE_LABELS: Record<string, string> = {
   memoryQuality: "记忆质量",
   permissionIsolation: "权限隔离",
   artifactRedaction: "Artifact 脱敏",
+  parserRealChain: "文档解析真实链路",
+  parserBoundary: "解析错误边界",
   cleanup: "清理检查",
   realProviderFaithfulness: "真实模型忠实性",
 };

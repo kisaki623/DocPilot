@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-06 Document Parser Quality Console parser 指标展示增强
+
+- `/quality` 的 Artifact 分区新增“文档解析质量摘要”，直接展示 Document Parser smoke 的关键脱敏指标：解析成功文件、切片总数、检索 / 引用、来源定位、解析失败数、运行耗时、负向边界通过和不支持格式拒绝。
+- `frontend/lib/quality-labels.ts` 补充 parser gate / metric / flag 中文标签，`parserRealChain` 显示为“文档解析真实链路”，`parserBoundary` 显示为“解析错误边界”。
+- 本片只读取 `QualityRunDetail.gates` 的现有数值和布尔字段，不改后端 API、不新增数据库表、不读取 raw artifact、不展示文档全文、prompt、answer、evidence context、异常堆栈、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 可见“文档解析质量摘要”“负向边界通过”“不支持格式拒绝”，桌面和 `390px` 移动端无横向溢出，最新 console error 为 0。
+- 收尾：本轮启动 `npx next start -p 3007` 做浏览器验证；验证后已停止对应进程并复跑清理脚本，目标端口均释放。
+
 ## 2026-07-06 Document Parser fixture corpus v2
 
 - HTML parser 增强表格抽取：`tr` 会按 `th/td` 单元格生成 `Metric | Value` 这类结构化文本，避免表格行被压成难以阅读的普通空格文本。

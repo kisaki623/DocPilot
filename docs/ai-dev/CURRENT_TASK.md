@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Document Parser fixture corpus v2（DONE）；下一片：Document Parser Quality Console parser 指标展示增强（READY）
+当前任务：Document Parser Quality Console parser 指标展示增强（DONE）；下一片：Document Parser 解析质量报告 / fixture corpus v3（READY）
+
+## 2026-07-06 补充：Document Parser Quality Console parser 指标展示增强
+
+- 目标：让 Agent Quality Console 的 `/quality` 能直接读懂 Document Parser smoke 的关键指标，不再只在 Artifact 元信息或门禁明细里找 `parserRealChain` / `parserBoundary`。
+- 已完成前端：`/quality` 的 Artifact 分区新增“文档解析质量摘要”，展示解析成功文件、切片总数、检索 / 引用、来源定位、解析失败数、运行耗时、不支持格式拒绝和负向边界通过数。
+- 已完成中文标签：`frontend/lib/quality-labels.ts` 补充 parser gate 和 metrics 的中文展示，包括 `parserRealChain`、`parserBoundary`、`fileCount`、`parsedFileCount`、`sourceLocatorCount`、`negativeCasePassCount`、`unsupportedUploadRejected` 等。
+- 脱敏边界：本片只读取已有 `QualityRunDetail.gates` 中的数值和布尔字段，不改后端 API、不读取 raw artifact、不展示文档全文、prompt、answer、evidence context、异常堆栈、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 打开 `/quality?autoload=1` 后可见“文档解析质量摘要”“负向边界通过”“不支持格式拒绝”，桌面与 `390px` 移动端均无横向溢出，最新 console error 为 0。
+- 边界：本片不新增数据库表、不改 parser / RAG 主链路、不创建业务数据、不提交 artifact 原文、不 push；本轮启动的前端预览进程已清理，端口释放。
+- 下一片建议：进入 Document Parser 解析质量报告 / fixture corpus v3，把 fixture 结构质量、parser warning、source locator 覆盖和 boundary 结果汇总成更可读的脱敏报告，或继续扩展 PDF / HTML / DOCX fixture 到更复杂但仍不涉及 OCR 的样例。
 
 ## 2026-07-06 补充：Document Parser fixture corpus v2
 
