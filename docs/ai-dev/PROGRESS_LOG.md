@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-06 Agent Quality Console 前端可读性增强
+
+- 新增 `frontend/lib/quality-labels.ts`，统一 status、failure bucket、metric、flag、case type、gate 和 trace step 的中文展示；页面仍保留 raw key，便于和 artifact / API 字段对应。
+- `/quality` 已把 Overview、Eval Catalog、Quality Trend、Run Detail、Failure Triage、Trace 定位、Gate / Eval Case 明细、Model / Cost Summary 和 Run Comparison 的关键参数改为中文可读标签。
+- `/quality/trace` 已把 Trace Reference、链路瀑布图、关联 Gate 和关联 Eval Case 同步改为同一套中文标签。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright route smoke 覆盖 `/quality?routeSmoke=2` 与 `/quality/trace?routeSmoke=1...`，桌面和 `390px` 移动端均无业务 console error、无横向溢出。
+- 边界：本片只改前端展示和状态文档，不改 Quality API、不读取业务库、不创建业务数据、不提交 artifact 原文、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；本轮启动的前端进程已清理。
+
 ## 2026-07-05 Agent Quality Console Trace / Eval / Trend 真实链路回归
 
 - `real-user-qa-experience-audit.ps1 -Mode plan` PASS；`-Mode dry-run -FrontendBaseUrl http://127.0.0.1:3007` PASS。

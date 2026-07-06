@@ -17,6 +17,19 @@ import {
   type QualityTraceReference,
   type QualityTrendSummary,
 } from "@/lib/quality-api";
+import {
+  formatBucketList,
+  formatCaseType,
+  formatFlagKey,
+  formatFlagList,
+  formatGate,
+  formatMetricKey,
+  formatMetricList,
+  formatMetricValue,
+  formatQualityBoolean,
+  formatStatus,
+  labelBucket,
+} from "@/lib/quality-labels";
 
 const RESERVED_TABS = ["Overview", "Trace", "Eval", "Failures"];
 const SIGNAL_PRIORITY = [
@@ -228,10 +241,7 @@ function formatNumber(value?: number | null): string {
 }
 
 function summarizeBuckets(values?: string[]): string {
-  if (!values || values.length === 0) {
-    return "-";
-  }
-  return values.slice(0, 4).join(" / ");
+  return formatBucketList(values, 4);
 }
 
 function tokenUsageTotal(runs: QualityRunSummary[]): number {
@@ -247,41 +257,36 @@ function formatTokenUsage(tokenUsage?: QualityTokenUsageSummary): string {
     return "-";
   }
   const parts = [
-    ["prompt", tokenUsage.promptTokens],
-    ["completion", tokenUsage.completionTokens],
-    ["total", tokenUsage.totalTokens],
+    ["Prompt tokens", tokenUsage.promptTokens],
+    ["Completion tokens", tokenUsage.completionTokens],
+    ["总 tokens", tokenUsage.totalTokens],
   ]
     .filter(([, value]) => typeof value === "number")
     .map(([label, value]) => `${label}: ${formatNumber(value as number)}`);
   if (typeof tokenUsage.estimatedCost === "number") {
-    parts.push(`cost: ${formatNumber(tokenUsage.estimatedCost)}`);
+    parts.push(`估算成本: ${formatNumber(tokenUsage.estimatedCost)}`);
   }
   return parts.length === 0 ? "-" : parts.join(" / ");
 }
 
 function compactMetrics(metrics: Record<string, number>): string {
-  const entries = Object.entries(metrics || {});
-  if (entries.length === 0) {
-    return "-";
-  }
-  return entries
-    .slice(0, 4)
-    .map(([key, value]) => `${key}: ${formatNumber(value)}`)
-    .join(" / ");
+  return formatMetricList(metrics, 4);
 }
 
 function signalEntries(
   metrics: Record<string, number>,
   flags: Record<string, boolean>,
   limit = 8
-): Array<{ key: string; value: string; tone?: "success" | "warning" }> {
+): Array<{ key: string; label: string; value: string; tone?: "success" | "warning" }> {
   const metricEntries = Object.entries(metrics || {}).map(([key, value]) => ({
     key,
-    value: formatNumber(value),
+    label: formatMetricKey(key),
+    value: formatMetricValue(key, value),
   }));
   const flagEntries = Object.entries(flags || {}).map(([key, value]) => ({
     key,
-    value: value ? "true" : "false",
+    label: formatFlagKey(key),
+    value: formatQualityBoolean(value),
     tone: value ? "success" as const : "warning" as const,
   }));
   return [...metricEntries, ...flagEntries]
@@ -295,14 +300,7 @@ function signalPriority(key: string): number {
 }
 
 function compactFlags(flags: Record<string, boolean>): string {
-  const entries = Object.entries(flags || {});
-  if (entries.length === 0) {
-    return "-";
-  }
-  return entries
-    .slice(0, 4)
-    .map(([key, value]) => `${key}: ${value ? "true" : "false"}`)
-    .join(" / ");
+  return formatFlagList(flags, 4);
 }
 
 function formatDelta(value: number | null, fractionDigits = 0): string {
@@ -561,7 +559,7 @@ export default function QualityPage() {
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <MetricCard label="Runs" value={stats.total} />
         <MetricCard label="PASS" value={stats.pass} tone="success" />
-        <MetricCard label="REVIEW" value={stats.review} tone="warning" />
+        <MetricCard label="REVIEW / 阻塞" value={stats.review} tone="warning" />
         <MetricCard label="FAILED" value={stats.failed} tone="danger" />
         <MetricCard label="Tokens" value={formatNumber(stats.tokens)} />
       </section>
@@ -608,14 +606,16 @@ export default function QualityPage() {
                       <span className="truncate text-sm font-semibold text-slate-900">
                         {run.marker}
                       </span>
-                      <span className={statusBadge(run.status)}>{run.status}</span>
+                      <span className={statusBadge(run.status)}>
+                        {formatStatus(run.status)}
+                      </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
                       <span>{run.source}</span>
                       <span>{formatDateTime(run.updatedAt)}</span>
                     </div>
                     <div className="mt-2 text-xs text-slate-600">
-                      gates {run.gateCount} / failed {run.failedGateCount} / review{" "}
+                      门禁 {run.gateCount} / 失败 {run.failedGateCount} / 复查{" "}
                       {run.reviewGateCount}
                     </div>
                   </button>
@@ -705,22 +705,23 @@ function EvalCatalogPanel({ items }: { items: QualityEvalCaseCatalogItem[] }) {
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <CatalogFilterSelect
-          label="risk"
+          label="风险"
           value={riskFilter}
           options={riskOptions}
           onChange={setRiskFilter}
         />
         <CatalogFilterSelect
-          label="owner"
+          label="负责人"
           value={ownerFilter}
           options={ownerOptions}
           onChange={setOwnerFilter}
         />
         <CatalogFilterSelect
-          label="status"
+          label="状态"
           value={statusFilter}
           options={statusOptions}
           onChange={setStatusFilter}
+          formatOption={formatStatus}
         />
       </div>
 
@@ -742,11 +743,13 @@ function CatalogFilterSelect({
   value,
   options,
   onChange,
+  formatOption,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  formatOption?: (value: string) => string;
 }) {
   return (
     <label className="min-w-0 text-xs font-medium text-slate-600">
@@ -759,7 +762,7 @@ function CatalogFilterSelect({
         <option value="ALL">ALL</option>
         {options.map((option) => (
           <option key={`${label}-${option}`} value={option}>
-            {option}
+            {formatOption ? formatOption(option) : option}
           </option>
         ))}
       </select>
@@ -786,21 +789,21 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
             {item.caseId}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
-            {item.caseType || "agent_quality"}
+            {formatCaseType(item.caseType || "agent_quality")}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
             v{item.caseVersion || 0} / {item.owner || "-"} /{" "}
             {item.lastUpdated || "-"}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
-            source: {summarizeBuckets(item.sourceIssueIds || [])}
+            来源问题: {summarizeBuckets(item.sourceIssueIds || [])}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
             verified: {item.lastVerifiedMarker || "-"}
           </p>
         </div>
         <span className={statusBadge(item.latestStatus)}>
-          {item.latestStatus || "NOT_RUN"}
+          {formatStatus(item.latestStatus || "NOT_RUN")}
         </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -820,31 +823,31 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
         ))}
       </div>
       <p className="mt-3 break-words text-xs text-slate-600">
-        evidence: {summarizeBuckets(item.expectedEvidence)}
+        预期证据: {summarizeBuckets(item.expectedEvidence)}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        tools: {summarizeBuckets(item.expectedTools)}
+        预期工具: {summarizeBuckets(item.expectedTools)}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        scoring: {summarizeBuckets(item.scoringRules)}
+        评分规则: {summarizeBuckets(item.scoringRules)}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        scoring summary: {summarizeBuckets(item.scoringSummary || [])}
+        评分摘要: {summarizeBuckets(item.scoringSummary || [])}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        regression: {summarizeBuckets(item.regressionPolicy || [])}
+        回归策略: {summarizeBuckets(item.regressionPolicy || [])}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        history: {summarizeBuckets(item.failureHistoryMarkers || [])}
+        失败历史: {summarizeBuckets(item.failureHistoryMarkers || [])}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        remediation: {summarizeBuckets(item.remediationHints || [])}
+        修复提示: {summarizeBuckets(item.remediationHints || [])}
       </p>
       <p className="mt-2 break-words text-xs text-slate-500">
-        latest: {item.latestRunMarker || "-"}
+        最近 run: {item.latestRunMarker || "-"}
       </p>
       <p className="mt-1 break-words text-xs text-amber-700">
-        buckets: {bucketText}
+        失败/复查类型: {bucketText}
       </p>
     </div>
   );
@@ -852,8 +855,8 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
 
 function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
   const statusText = summarizeCountMap(trend?.statusCounts);
-  const failureText = summarizeCountMap(trend?.failureBucketCounts);
-  const reviewText = summarizeCountMap(trend?.reviewBucketCounts);
+  const failureText = summarizeCountMap(trend?.failureBucketCounts, labelBucket);
+  const reviewText = summarizeCountMap(trend?.reviewBucketCounts, labelBucket);
   return (
     <div className="dp-card min-w-0">
       <div className="flex items-start justify-between gap-3">
@@ -871,14 +874,14 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
       ) : (
         <div className="mt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
-            <SmallMetric label="avg pass rate" value={formatPercent(trend.averageCasePassRate)} />
-            <SmallMetric label="tokens" value={formatNumber(trend.totalTokens)} />
-            <SmallMetric label="cost" value={formatNumber(trend.estimatedCost)} />
-            <SmallMetric label="avg latency" value={formatNumber(trend.averageLatencyMs)} />
+            <SmallMetric label="平均通过率" value={formatPercent(trend.averageCasePassRate)} />
+            <SmallMetric label="总 Token" value={formatNumber(trend.totalTokens)} />
+            <SmallMetric label="估算成本" value={formatNumber(trend.estimatedCost)} />
+            <SmallMetric label="平均延迟" value={formatNumber(trend.averageLatencyMs)} />
           </div>
-          <TrendTextRow label="status" value={statusText} />
-          <TrendTextRow label="failure buckets" value={failureText} tone="danger" />
-          <TrendTextRow label="review buckets" value={reviewText} tone="warning" />
+          <TrendTextRow label="状态分布" value={statusText} />
+          <TrendTextRow label="失败类型" value={failureText} tone="danger" />
+          <TrendTextRow label="复查类型" value={reviewText} tone="warning" />
           <div>
             <p className="text-xs font-semibold uppercase text-slate-400">
               repeated cases
@@ -896,8 +899,8 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
                       {item.caseId}
                     </p>
                     <p className="mt-1 break-words">
-                      failed {item.failedCount} / review {item.reviewCount} / latest{" "}
-                      {item.latestStatus || "-"}
+                      失败 {item.failedCount} / 复查 {item.reviewCount} / 最近{" "}
+                      {formatStatus(item.latestStatus || "-")}
                     </p>
                     <p className="mt-1 break-words text-slate-500">
                       {item.latestRunMarker || "-"}
@@ -921,11 +924,13 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
                     <p className="min-w-0 break-words text-xs font-semibold text-slate-900">
                       {point.marker}
                     </p>
-                    <span className={statusBadge(point.status)}>{point.status}</span>
+                    <span className={statusBadge(point.status)}>
+                      {formatStatus(point.status)}
+                    </span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    pass {formatPercent(point.casePassRate)} / failed{" "}
-                    {point.failedGateCount} / review {point.reviewGateCount}
+                    通过率 {formatPercent(point.casePassRate)} / 失败{" "}
+                    {point.failedGateCount} / 复查 {point.reviewGateCount}
                   </p>
                 </div>
               ))}
@@ -971,7 +976,10 @@ function TrendTextRow({
   );
 }
 
-function summarizeCountMap(values?: Record<string, number>): string {
+function summarizeCountMap(
+  values?: Record<string, number>,
+  labeler: (key: string) => string = (key) => formatStatus(key)
+): string {
   const entries = Object.entries(values || {});
   if (entries.length === 0) {
     return "-";
@@ -979,7 +987,11 @@ function summarizeCountMap(values?: Record<string, number>): string {
   return entries
     .sort((left, right) => right[1] - left[1])
     .slice(0, 4)
-    .map(([key, value]) => `${key}: ${value}`)
+    .map(([key, value]) => {
+      const label = labeler(key);
+      const display = label.includes(`(${key})`) ? label : `${label} (${key})`;
+      return `${display}: ${value}`;
+    })
     .join(" / ");
 }
 
@@ -1205,22 +1217,24 @@ function RunDetailContent({
               {summary.source} / {summary.artifactName}
             </p>
           </div>
-          <span className={statusBadge(summary.status)}>{summary.status}</span>
+          <span className={statusBadge(summary.status)}>
+            {formatStatus(summary.status)}
+          </span>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SmallFact label="更新时间" value={formatDateTime(summary.updatedAt)} />
-          <SmallFact label="Gate" value={`${summary.gateCount}`} />
+          <SmallFact label="质量门禁" value={`${summary.gateCount}`} />
           <SmallFact
-            label="失败 / REVIEW"
+            label="失败 / 复查"
             value={`${summary.failedGateCount} / ${summary.reviewGateCount}`}
           />
-          <SmallFact label="Token usage" value={formatTokenUsage(summary.tokenUsage)} />
+          <SmallFact label="Token 用量" value={formatTokenUsage(summary.tokenUsage)} />
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
-          <BucketBox title="Failure Buckets" values={summary.failureBuckets} />
-          <BucketBox title="Review Buckets" values={summary.reviewBuckets} />
+          <BucketBox title="失败类型" values={summary.failureBuckets} />
+          <BucketBox title="复查类型" values={summary.reviewBuckets} />
         </div>
       </section>
 
@@ -1359,9 +1373,9 @@ function FailureTriagePanel({
     <section className="dp-card min-w-0">
       <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
         <div>
-          <h3 className="dp-section-title">Failure Triage</h3>
+          <h3 className="dp-section-title">失败分桶</h3>
           <p className="mt-1 text-xs text-slate-500">
-            gates {resultCounts.gates} / eval {resultCounts.evalCases} / traces{" "}
+            门禁 {resultCounts.gates} / Eval {resultCounts.evalCases} / Trace{" "}
             {resultCounts.traces}
           </p>
         </div>
@@ -1376,28 +1390,32 @@ function FailureTriagePanel({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <TriageSelect
-          label="Status"
+          label="状态"
           value={filters.status}
           options={TRIAGE_STATUS_OPTIONS}
           onChange={(value) => updateFilter("status", value)}
+          formatOption={(value) => (value === "ALL" ? "全部" : formatStatus(value))}
         />
         <TriageSelect
-          label="Bucket"
+          label="失败类型"
           value={filters.bucketCategory}
           options={["ALL", ...TRIAGE_BUCKET_CATEGORIES]}
           onChange={(value) => updateFilter("bucketCategory", value)}
+          formatOption={(value) => (value === "ALL" ? "全部" : `${labelBucket(value)} (${value})`)}
         />
         <TriageSelect
-          label="Gate"
+          label="门禁"
           value={filters.gateName}
           options={["ALL", ...gateNames]}
           onChange={(value) => updateFilter("gateName", value)}
+          formatOption={(value) => (value === "ALL" ? "全部" : formatGate(value))}
         />
         <TriageSelect
-          label="Case Type"
+          label="Case 类型"
           value={filters.caseType}
           options={["ALL", ...caseTypes]}
           onChange={(value) => updateFilter("caseType", value)}
+          formatOption={(value) => (value === "ALL" ? "全部" : formatCaseType(value))}
         />
       </div>
 
@@ -1418,12 +1436,12 @@ function FailureTriagePanel({
             >
               <div className="flex min-w-0 items-start justify-between gap-2">
                 <p className="break-words text-xs font-semibold text-slate-900">
-                  {item.category}
+                  {labelBucket(item.category)}
                 </p>
                 <span className="dp-badge dp-badge-neutral">{item.count}</span>
               </div>
               <p className="mt-2 text-xs text-slate-600">
-                failed {item.failedCount} / review {item.reviewCount}
+                失败 {item.failedCount} / 复查 {item.reviewCount}
               </p>
               <p className="mt-2 break-words text-xs text-slate-500">
                 {summarizeBuckets(item.examples)}
@@ -1441,11 +1459,13 @@ function TriageSelect({
   value,
   options,
   onChange,
+  formatOption,
 }: {
   label: string;
   value: string;
   options: string[];
   onChange: (value: string) => void;
+  formatOption?: (value: string) => string;
 }) {
   return (
     <label className="min-w-0">
@@ -1459,7 +1479,7 @@ function TriageSelect({
       >
         {options.map((option) => (
           <option key={`${label}-${option}`} value={option}>
-            {option}
+            {formatOption ? formatOption(option) : option}
           </option>
         ))}
       </select>
@@ -1519,7 +1539,7 @@ function TraceReferenceRow({
             {reference.caseId}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
-            {reference.gateName || "-"} / {reference.caseType || "agent_quality"}
+            {formatGate(reference.gateName)} / {formatCaseType(reference.caseType || "agent_quality")}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -1529,7 +1549,7 @@ function TraceReferenceRow({
           >
             打开
           </Link>
-          <span className={statusBadge(status)}>{status}</span>
+          <span className={statusBadge(status)}>{formatStatus(status)}</span>
         </div>
       </div>
       <div className="mt-3 grid gap-2 lg:grid-cols-3">
@@ -1539,10 +1559,10 @@ function TraceReferenceRow({
       </div>
       <div className="mt-2 grid gap-2 md:grid-cols-2">
         <p className="break-words text-xs text-red-700">
-          failure: {summarizeBuckets(reference.failureBuckets)}
+          失败: {summarizeBuckets(reference.failureBuckets)}
         </p>
         <p className="break-words text-xs text-amber-700">
-          review: {summarizeBuckets(reference.reviewBuckets)}
+          复查: {summarizeBuckets(reference.reviewBuckets)}
         </p>
       </div>
     </div>
@@ -1619,24 +1639,24 @@ function GateRow({ gate }: { gate: QualityGateSummary }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="break-words text-sm font-semibold text-slate-900">
-            {gate.name}
+            {formatGate(gate.name)}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
-            metrics: {compactMetrics(gate.metrics)}
+            指标: {compactMetrics(gate.metrics)}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
-            flags: {compactFlags(gate.flags)}
+            布尔门禁: {compactFlags(gate.flags)}
           </p>
         </div>
-        <span className={statusBadge(status)}>{status}</span>
+        <span className={statusBadge(status)}>{formatStatus(status)}</span>
       </div>
       {signals.length > 0 ? <SignalGrid signals={signals} /> : null}
       <div className="mt-2 grid gap-2 md:grid-cols-2">
         <p className="break-words text-xs text-red-700">
-          failure: {summarizeBuckets(gate.failureBuckets)}
+          失败: {summarizeBuckets(gate.failureBuckets)}
         </p>
         <p className="break-words text-xs text-amber-700">
-          review: {summarizeBuckets(gate.reviewBuckets)}
+          复查: {summarizeBuckets(gate.reviewBuckets)}
         </p>
       </div>
     </div>
@@ -1653,21 +1673,21 @@ function EvalCaseRow({ item }: { item: QualityEvalCaseResultDetail }) {
             {item.caseId}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            {item.caseType || "agent_quality"}
+            {formatCaseType(item.caseType || "agent_quality")}
           </p>
         </div>
-        <span className={statusBadge(item.status)}>{item.status}</span>
+        <span className={statusBadge(item.status)}>{formatStatus(item.status)}</span>
       </div>
       <div className="mt-2 grid gap-2 text-xs text-slate-600 md:grid-cols-2">
-        <p className="break-words">trace: {item.traceId || "-"}</p>
-        <p className="break-words">agentRun: {item.agentRunId || "-"}</p>
+        <p className="break-words">traceId: {item.traceId || "-"}</p>
+        <p className="break-words">agentRunId: {item.agentRunId || "-"}</p>
       </div>
       {signals.length > 0 ? <SignalGrid signals={signals} /> : null}
       <p className="mt-2 break-words text-xs text-red-700">
-        failure: {summarizeBuckets(item.failureBuckets)}
+        失败: {summarizeBuckets(item.failureBuckets)}
       </p>
       <p className="mt-1 break-words text-xs text-amber-700">
-        review: {summarizeBuckets(item.reviewBuckets)}
+        复查: {summarizeBuckets(item.reviewBuckets)}
       </p>
     </div>
   );
@@ -1682,9 +1702,9 @@ function OperationalSummaryPanel({
     <section className="dp-card min-w-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="dp-section-title">Model / Cost Summary</h3>
+          <h3 className="dp-section-title">模型与成本摘要</h3>
           <p className="mt-1 text-xs text-slate-500">
-            token usage and runtime counters
+            仅展示 token、成本和运行计数，不展示 prompt 或回答原文。
           </p>
         </div>
         <span className="dp-badge dp-badge-neutral">numeric only</span>
@@ -1695,15 +1715,15 @@ function OperationalSummaryPanel({
           label="Completion tokens"
           value={formatNumber(summary.completionTokens)}
         />
-        <SmallFact label="Total tokens" value={formatNumber(summary.totalTokens)} />
-        <SmallFact label="Estimated cost" value={formatNumber(summary.estimatedCost)} />
+        <SmallFact label="总 tokens" value={formatNumber(summary.totalTokens)} />
+        <SmallFact label="估算成本" value={formatNumber(summary.estimatedCost)} />
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <SmallFact label="Model calls" value={formatNumber(summary.modelCallCount)} />
-        <SmallFact label="Tool calls" value={formatNumber(summary.toolCallCount)} />
-        <SmallFact label="Latency ms" value={formatNumber(summary.latencyMs)} />
-        <SmallFact label="Duration ms" value={formatNumber(summary.durationMs)} />
-        <SmallFact label="Retries" value={formatNumber(summary.retryCount)} />
+        <SmallFact label="模型调用数" value={formatNumber(summary.modelCallCount)} />
+        <SmallFact label="工具调用数" value={formatNumber(summary.toolCallCount)} />
+        <SmallFact label="延迟 ms" value={formatNumber(summary.latencyMs)} />
+        <SmallFact label="耗时 ms" value={formatNumber(summary.durationMs)} />
+        <SmallFact label="重试次数" value={formatNumber(summary.retryCount)} />
       </div>
     </section>
   );
@@ -1736,21 +1756,21 @@ function RunComparisonPanel({
     <section className="dp-card min-w-0">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h3 className="dp-section-title">Run Comparison</h3>
+          <h3 className="dp-section-title">Run 对比</h3>
           <p className="mt-1 text-xs text-slate-500">
-            current vs previous
+            当前 run 与历史 run 的质量变化。
           </p>
         </div>
         <label className="min-w-0 lg:min-w-72">
           <span className="text-xs font-semibold uppercase text-slate-500">
-            Previous Run
+            对比 Run
           </span>
           <select
             value={compareMarker}
             onChange={(event) => onCompareMarkerChange(event.target.value)}
             className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
           >
-            <option value="">NONE</option>
+            <option value="">不对比</option>
             {options.map((run) => (
               <option key={run.marker} value={run.marker}>
                 {run.marker}
@@ -1767,42 +1787,42 @@ function RunComparisonPanel({
       ) : (
         <>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SmallFact label="Status" value={comparison.statusChange} />
-            <SmallFact label="Gate delta" value={formatDelta(comparison.gateDelta)} />
+            <SmallFact label="状态变化" value={comparison.statusChange} />
+            <SmallFact label="门禁增量" value={formatDelta(comparison.gateDelta)} />
             <SmallFact
-              label="Failed delta"
+              label="失败增量"
               value={formatDelta(comparison.failedGateDelta)}
             />
             <SmallFact
-              label="Token delta"
+              label="Token 增量"
               value={formatDelta(comparison.tokenDelta)}
             />
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SmallFact
-              label="Review delta"
+              label="复查增量"
               value={formatDelta(comparison.reviewGateDelta)}
             />
             <SmallFact
-              label="Case pass rate"
+              label="Case 通过率变化"
               value={formatDelta(comparison.casePassRateDelta, 4)}
             />
             <SmallFact
-              label="New failures"
+              label="新增失败类型"
               value={`${comparison.newFailureBuckets.length}`}
             />
             <SmallFact
-              label="Resolved failures"
+              label="已恢复失败类型"
               value={`${comparison.resolvedFailureBuckets.length}`}
             />
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <BucketBox title="New Failure Buckets" values={comparison.newFailureBuckets} />
-            <BucketBox title="Resolved Failure Buckets" values={comparison.resolvedFailureBuckets} />
+            <BucketBox title="新增失败类型" values={comparison.newFailureBuckets} />
+            <BucketBox title="已恢复失败类型" values={comparison.resolvedFailureBuckets} />
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <BucketBox title="Gate Status Changes" values={comparison.changedGateStatuses} />
-            <BucketBox title="Eval Case Changes" values={comparison.changedCaseStatuses} />
+            <BucketBox title="门禁状态变化" values={comparison.changedGateStatuses} />
+            <BucketBox title="Eval Case 状态变化" values={comparison.changedCaseStatuses} />
           </div>
         </>
       )}
@@ -1822,7 +1842,7 @@ function buildRunComparison(
   const previousPassRate = findMetric(previous, "casePassRate");
 
   return {
-    statusChange: `${previousSummary.status || "-"} -> ${currentSummary.status || "-"}`,
+    statusChange: `${formatStatus(previousSummary.status)} -> ${formatStatus(currentSummary.status)}`,
     gateDelta: currentSummary.gateCount - previousSummary.gateCount,
     failedGateDelta: currentSummary.failedGateCount - previousSummary.failedGateCount,
     reviewGateDelta: currentSummary.reviewGateCount - previousSummary.reviewGateCount,
@@ -1871,7 +1891,7 @@ function changedGateStatuses(
       if (!previousStatus || previousStatus === currentStatus) {
         return "";
       }
-      return `${gate.name}: ${previousStatus} -> ${currentStatus}`;
+      return `${formatGate(gate.name)}: ${formatStatus(previousStatus)} -> ${formatStatus(currentStatus)}`;
     })
     .filter(Boolean)
     .slice(0, 6);
@@ -1890,7 +1910,7 @@ function changedCaseStatuses(
       if (!previousStatus || previousStatus === item.status) {
         return "";
       }
-      return `${item.caseId}: ${previousStatus} -> ${item.status}`;
+      return `${item.caseId}: ${formatStatus(previousStatus)} -> ${formatStatus(item.status)}`;
     })
     .filter(Boolean)
     .slice(0, 6);
@@ -1899,7 +1919,7 @@ function changedCaseStatuses(
 function SignalGrid({
   signals,
 }: {
-  signals: Array<{ key: string; value: string; tone?: "success" | "warning" }>;
+  signals: Array<{ key: string; label: string; value: string; tone?: "success" | "warning" }>;
 }) {
   return (
     <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -1916,7 +1936,7 @@ function SignalGrid({
             className="min-w-0 rounded-md border border-slate-100 bg-slate-50 px-2 py-2"
           >
             <p className="truncate text-[11px] uppercase text-slate-500">
-              {signal.key}
+              {signal.label}
             </p>
             <p className={`mt-1 break-words text-xs font-semibold ${valueClass}`}>
               {signal.value}

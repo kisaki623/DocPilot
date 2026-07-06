@@ -11,6 +11,15 @@ import {
   type QualityTraceReference,
   type QualityTraceStepDetail,
 } from "@/lib/quality-api";
+import {
+  formatBucketList,
+  formatCaseType,
+  formatFlagList,
+  formatGate,
+  formatMetricList,
+  formatStatus,
+  labelTraceStep,
+} from "@/lib/quality-labels";
 
 interface TraceQuery {
   marker: string;
@@ -34,68 +43,15 @@ function statusBadge(status?: string): string {
 }
 
 function summarizeBuckets(values?: string[]): string {
-  if (!values || values.length === 0) {
-    return "-";
-  }
-  return values.slice(0, 5).join(" / ");
-}
-
-function formatNumber(value?: number | null): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-  if (Math.abs(value) < 1 && value !== 0) {
-    return value.toFixed(4);
-  }
-  return new Intl.NumberFormat("zh-CN").format(value);
+  return formatBucketList(values, 5);
 }
 
 function compactMetrics(metrics?: Record<string, number>): string {
-  const entries = Object.entries(metrics || {});
-  if (entries.length === 0) {
-    return "-";
-  }
-  return entries
-    .slice(0, 8)
-    .map(([key, value]) => `${key}: ${formatNumber(value)}`)
-    .join(" / ");
+  return formatMetricList(metrics, 8);
 }
 
 function compactFlags(flags?: Record<string, boolean>): string {
-  const entries = Object.entries(flags || {});
-  if (entries.length === 0) {
-    return "-";
-  }
-  return entries
-    .slice(0, 8)
-    .map(([key, value]) => `${key}: ${value ? "true" : "false"}`)
-    .join(" / ");
-}
-
-function stepDisplayName(stepType?: string): string {
-  const normalized = (stepType || "").toLowerCase();
-  if (normalized === "eval_case") {
-    return "Eval Case";
-  }
-  if (normalized === "agent_step") {
-    return "Agent Step";
-  }
-  if (normalized === "rag_retrieve") {
-    return "RAG Retrieve";
-  }
-  if (normalized === "tool_call") {
-    return "Tool Call";
-  }
-  if (normalized === "model_call") {
-    return "Model Call";
-  }
-  if (normalized === "citation") {
-    return "Citation";
-  }
-  if (normalized === "failure_bucket") {
-    return "Failure Bucket";
-  }
-  return stepType || "Trace Step";
+  return formatFlagList(flags, 8);
 }
 
 function readTraceQuery(): TraceQuery {
@@ -271,7 +227,7 @@ export default function QualityTracePage() {
                 </p>
               </div>
               <span className={statusBadge(detail.summary.status)}>
-                {detail.summary.status}
+                {formatStatus(detail.summary.status)}
               </span>
             </div>
           </section>
@@ -332,10 +288,10 @@ function TraceReferenceCard({ reference }: { reference: QualityTraceReference })
             {reference.caseId || "-"}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
-            {reference.gateName || "-"} / {reference.caseType || "agent_quality"}
+            {formatGate(reference.gateName)} / {formatCaseType(reference.caseType || "agent_quality")}
           </p>
         </div>
-        <span className={statusBadge(status)}>{status}</span>
+        <span className={statusBadge(status)}>{formatStatus(status)}</span>
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-3">
         <SmallFact label="traceId" value={reference.traceId || "-"} />
@@ -344,11 +300,11 @@ function TraceReferenceCard({ reference }: { reference: QualityTraceReference })
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <SmallFact
-          label="failure buckets"
+          label="失败类型"
           value={summarizeBuckets(reference.failureBuckets)}
         />
         <SmallFact
-          label="review buckets"
+          label="复查类型"
           value={summarizeBuckets(reference.reviewBuckets)}
         />
       </div>
@@ -408,18 +364,20 @@ function TraceStepRow({
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
             <p className="break-words text-sm font-semibold text-slate-900">
-              {stepDisplayName(step.stepType)}
+              {labelTraceStep(step.stepType)}
             </p>
             <p className="mt-1 break-words text-xs text-slate-500">
               {step.label || step.stepType || "-"}
             </p>
           </div>
-          <span className={statusBadge(step.status)}>{step.status || "REVIEW"}</span>
+          <span className={statusBadge(step.status)}>
+            {formatStatus(step.status || "REVIEW")}
+          </span>
         </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-3">
-          <SmallFact label="metrics" value={compactMetrics(step.metrics)} />
-          <SmallFact label="flags" value={compactFlags(step.flags)} />
-          <SmallFact label="buckets" value={summarizeBuckets(step.buckets)} />
+          <SmallFact label="数值指标" value={compactMetrics(step.metrics)} />
+          <SmallFact label="布尔门禁" value={compactFlags(step.flags)} />
+          <SmallFact label="失败/复查类型" value={summarizeBuckets(step.buckets)} />
         </div>
       </div>
     </div>
@@ -436,23 +394,23 @@ function RelatedGateCard({ gate }: { gate: QualityGateSummary | null }) {
         <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
           <div className="flex items-start justify-between gap-3">
             <p className="break-words text-sm font-semibold text-slate-900">
-              {gate.name}
+              {formatGate(gate.name)}
             </p>
             <span className={statusBadge(gate.status || (gate.passed ? "PASS" : "FAILED"))}>
-              {gate.status || (gate.passed ? "PASS" : "FAILED")}
+              {formatStatus(gate.status || (gate.passed ? "PASS" : "FAILED"))}
             </span>
           </div>
           <p className="mt-3 break-words text-xs text-slate-600">
-            metrics: {compactMetrics(gate.metrics)}
+            指标: {compactMetrics(gate.metrics)}
           </p>
           <p className="mt-2 break-words text-xs text-slate-600">
-            flags: {compactFlags(gate.flags)}
+            布尔门禁: {compactFlags(gate.flags)}
           </p>
           <p className="mt-2 break-words text-xs text-red-700">
-            failure: {summarizeBuckets(gate.failureBuckets)}
+            失败: {summarizeBuckets(gate.failureBuckets)}
           </p>
           <p className="mt-1 break-words text-xs text-amber-700">
-            review: {summarizeBuckets(gate.reviewBuckets)}
+            复查: {summarizeBuckets(gate.reviewBuckets)}
           </p>
         </div>
       )}
@@ -478,25 +436,25 @@ function RelatedEvalCaseCard({
                 {item.caseId}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {item.caseType || "agent_quality"}
+                {formatCaseType(item.caseType || "agent_quality")}
               </p>
             </div>
-            <span className={statusBadge(item.status)}>{item.status}</span>
+            <span className={statusBadge(item.status)}>{formatStatus(item.status)}</span>
           </div>
           <p className="mt-3 break-words text-xs text-slate-600">
-            trace: {item.traceId || "-"} / agentRun: {item.agentRunId || "-"}
+            traceId: {item.traceId || "-"} / agentRunId: {item.agentRunId || "-"}
           </p>
           <p className="mt-2 break-words text-xs text-slate-600">
-            metrics: {compactMetrics(item.metrics)}
+            指标: {compactMetrics(item.metrics)}
           </p>
           <p className="mt-2 break-words text-xs text-slate-600">
-            flags: {compactFlags(item.flags)}
+            布尔门禁: {compactFlags(item.flags)}
           </p>
           <p className="mt-2 break-words text-xs text-red-700">
-            failure: {summarizeBuckets(item.failureBuckets)}
+            失败: {summarizeBuckets(item.failureBuckets)}
           </p>
           <p className="mt-1 break-words text-xs text-amber-700">
-            review: {summarizeBuckets(item.reviewBuckets)}
+            复查: {summarizeBuckets(item.reviewBuckets)}
           </p>
         </div>
       )}
