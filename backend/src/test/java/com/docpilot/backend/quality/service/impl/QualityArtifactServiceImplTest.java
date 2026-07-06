@@ -243,6 +243,57 @@ class QualityArtifactServiceImplTest {
     }
 
     @Test
+    void shouldBuildSafeDiagnosticsWithoutLeakingDocumentKeys() throws Exception {
+        Path artifact = artifactPath("backend/target/audit", "docpilot-quality-diagnostics", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "smokeMarker": "docpilot-quality-diagnostics",
+                  "status": "REVIEW",
+                  "naturalCorpus": {
+                    "status": "REVIEW",
+                    "documentHitCounts": {
+                      "private-doc-alpha": 3,
+                      "private-doc-beta": 0
+                    },
+                    "contextSourceCounts": {
+                      "userMemory": 2,
+                      "ragEvidence": 5
+                    },
+                    "toolCallCount": 4,
+                    "memoryCount": 2,
+                    "reviewBuckets": ["toolArgsReview", "memoryGovernanceReview"],
+                    "prompt": "PROMPT_SHOULD_NOT_LEAK",
+                    "answerText": "ANSWER_SHOULD_NOT_LEAK",
+                    "evidenceContext": "EVIDENCE_SHOULD_NOT_LEAK"
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-quality-diagnostics").orElseThrow();
+
+        assertThat(detail.diagnostics().documentCoverage().documentCount()).isEqualTo(2);
+        assertThat(detail.diagnostics().documentCoverage().coveredDocumentCount()).isEqualTo(1);
+        assertThat(detail.diagnostics().documentCoverage().zeroHitDocumentCount()).isEqualTo(1);
+        assertThat(detail.diagnostics().documentCoverage().maxHitsPerDocument()).isEqualTo(3);
+        assertThat(detail.diagnostics().documentCoverage().minHitsPerDocument()).isEqualTo(0);
+        assertThat(detail.diagnostics().toolQuality().toolCallCount()).isEqualTo(4);
+        assertThat(detail.diagnostics().toolQuality().toolArgsReviewCount()).isEqualTo(1);
+        assertThat(detail.diagnostics().memoryQuality().memoryHitCount()).isEqualTo(2);
+        assertThat(detail.diagnostics().memoryQuality().memoryReviewCount()).isEqualTo(1);
+        assertThat(detail.diagnostics().memoryQuality().ragEvidenceCount()).isEqualTo(5);
+
+        String serialized = objectMapper.writeValueAsString(detail);
+        assertThat(serialized)
+                .doesNotContain("private-doc-alpha")
+                .doesNotContain("private-doc-beta")
+                .doesNotContain("PROMPT_SHOULD_NOT_LEAK")
+                .doesNotContain("ANSWER_SHOULD_NOT_LEAK")
+                .doesNotContain("EVIDENCE_SHOULD_NOT_LEAK");
+    }
+
+    @Test
     void shouldMarkBadJsonAsReviewWithoutLeakingRawContent() throws Exception {
         Path artifact = artifactPath("backend/target/audit", "docpilot-quality-bad-json", "artifact.json");
         Files.writeString(artifact, "{ \"smokeMarker\": \"docpilot-quality-bad-json\", \"secret\": \"BAD_SECRET\" ",

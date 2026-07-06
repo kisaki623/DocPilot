@@ -53,6 +53,33 @@ export interface QualityTraceReference {
   steps: QualityTraceStepDetail[];
 }
 
+export interface QualityDocumentCoverageSummary {
+  documentCount?: number | null;
+  coveredDocumentCount?: number | null;
+  zeroHitDocumentCount?: number | null;
+  maxHitsPerDocument?: number | null;
+  minHitsPerDocument?: number | null;
+}
+
+export interface QualityToolQualitySummary {
+  toolCallCount?: number | null;
+  toolFailureCount?: number | null;
+  toolArgsReviewCount?: number | null;
+}
+
+export interface QualityMemoryQualitySummary {
+  memoryTriggerCount?: number | null;
+  memoryHitCount?: number | null;
+  memoryReviewCount?: number | null;
+  ragEvidenceCount?: number | null;
+}
+
+export interface QualityRunDiagnostics {
+  documentCoverage?: QualityDocumentCoverageSummary | null;
+  toolQuality?: QualityToolQualitySummary | null;
+  memoryQuality?: QualityMemoryQualitySummary | null;
+}
+
 export interface QualityEvalCaseCatalogItem {
   caseId: string;
   caseVersion: number;
@@ -101,6 +128,7 @@ export interface QualityRunDetail {
   gates: QualityGateSummary[];
   evalCases: QualityEvalCaseResultDetail[];
   traceReferences: QualityTraceReference[];
+  diagnostics?: QualityRunDiagnostics | null;
 }
 
 export interface QualityTrendPoint {

@@ -729,6 +729,21 @@ function buildRunDiagnostics(
   const passByTag = passRateByTag(detail, evalCatalog);
   const previousFailures = compareDetail ? allBuckets(compareDetail, "failure") : [];
   const currentFailures = allBuckets(detail, "failure");
+  const documentCoverage = detail.diagnostics?.documentCoverage;
+  const toolQuality = detail.diagnostics?.toolQuality;
+  const memoryQuality = detail.diagnostics?.memoryQuality;
+  const documentCoverageText =
+    typeof documentCoverage?.documentCount === "number" && documentCoverage.documentCount > 0
+      ? `${formatNumber(documentCoverage.coveredDocumentCount)}/${formatNumber(documentCoverage.documentCount)}，未命中 ${formatNumber(documentCoverage.zeroHitDocumentCount)}`
+      : "暂无安全摘要";
+  const memoryQualityText =
+    typeof memoryQuality?.memoryHitCount === "number" || typeof memoryQuality?.ragEvidenceCount === "number"
+      ? `记忆 ${formatNumber(memoryQuality?.memoryHitCount ?? null)} / RAG 证据 ${formatNumber(memoryQuality?.ragEvidenceCount ?? null)}`
+      : "暂无安全摘要";
+  const toolArgsReviewText =
+    typeof toolQuality?.toolArgsReviewCount === "number"
+      ? formatNumber(toolQuality.toolArgsReviewCount)
+      : "暂无安全摘要";
 
   return {
     rag: [
@@ -807,9 +822,10 @@ function buildRunDiagnostics(
       },
       {
         label: "命中文档分布",
-        value: "需 P1 parser 增强",
-        helper: "当前 DTO 不透传 documentHitCounts 对象，P1 可转成脱敏 document coverage 摘要。",
+        value: documentCoverageText,
+        helper: "后端只返回 documentHitCounts 的覆盖数量摘要，不透传文档 ID 或原始 map。",
         tone: "neutral",
+        action: "未命中文档偏多时，检查多文档 coverage、query rewrite 和 summary backfill。",
       },
     ],
     memory: [
@@ -846,10 +862,11 @@ function buildRunDiagnostics(
         action: "偏高时检查记忆去重、冲突合并和 suggestion accept 门禁。",
       },
       {
-        label: "记忆有用命中率",
-        value: "需 eval schema 扩展",
-        helper: "需要 eval artifact 提供 useful/noise verdict。",
+        label: "记忆命中摘要",
+        value: memoryQualityText,
+        helper: "基于 memoryCount 与 contextSourceCounts 的安全数值摘要，不展示记忆内容。",
         tone: "neutral",
+        action: "记忆命中低时检查 ACTIVE memory、ContextAssembly 和会话绑定模式。",
       },
     ],
     tools: [
@@ -891,10 +908,11 @@ function buildRunDiagnostics(
         tone: "neutral",
       },
       {
-        label: "工具选择准确率",
-        value: "需 eval schema 扩展",
-        helper: "需要 expectedTools 与 actualTools / args verdict。",
+        label: "工具参数复查",
+        value: toolArgsReviewText,
+        helper: `工具调用数 ${formatNumber(toolQuality?.toolCallCount ?? null)}，只统计参数相关复查 bucket。`,
         tone: "neutral",
+        action: "参数复查偏高时检查 tool schema、参数校验和 fallback 文案。",
       },
     ],
     eval: [

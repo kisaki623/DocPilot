@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：Agent Quality Console 诊断指标 P0（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或 P1 parser 安全摘要增强（READY）
+当前任务：Agent Quality Console P1 parser 安全摘要增强（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+
+## 2026-07-06 补充：Agent Quality Console P1 parser 安全摘要增强
+
+- 目标：把 P0 页面中需要 parser 支撑的诊断项推进为后端白名单安全摘要，让 `/quality` 能展示文档覆盖、工具参数复查和记忆命中摘要，而不是继续停留在占位文案。
+- 已完成后端：`QualityRunDetail` 新增 `diagnostics`，包含 `documentCoverage`、`toolQuality` 和 `memoryQuality` 三组安全数值摘要；`QualityArtifactServiceImpl` 从 artifact 中的 `documentHitCounts`、`contextSourceCounts`、tool / memory metrics 和 bucket 聚合统计。
+- 脱敏边界：`documentHitCounts` 只转成 `documentCount`、`coveredDocumentCount`、`zeroHitDocumentCount`、`maxHitsPerDocument`、`minHitsPerDocument`，不返回文档 ID、原始 map、query、snippet、answer、prompt、文档全文或 evidence context。
+- 已完成前端：`frontend/lib/quality-api.ts` 同步 `QualityRunDiagnostics` 类型；`/quality` 的 RAG / 记忆 / 工具调用诊断卡改为展示命中文档分布、记忆命中摘要和工具参数复查摘要；缺少 diagnostics 时保留“暂无安全摘要”降级。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，38 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 覆盖桌面和 `390px` 移动端，新增安全摘要可见、无 console error、无横向溢出；端口已清理释放。
 
 ## 2026-07-06 补充：Agent Quality Console 诊断指标 P0
 

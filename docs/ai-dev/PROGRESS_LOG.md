@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-06 Agent Quality Console P1 parser 安全摘要增强
+
+- `QualityRunDetail` 新增 `diagnostics` 安全摘要，包含文档覆盖、工具质量和记忆质量三组数值统计。
+- `QualityArtifactServiceImpl` 从 `documentHitCounts`、`contextSourceCounts`、tool / memory metrics 和 bucket 聚合摘要；文档命中只返回覆盖数量、零命中文档数和 min/max 命中数，不返回文档 ID 或原始 map。
+- `/quality` 的 RAG / 记忆 / 工具调用诊断卡已使用后端摘要展示“命中文档分布”“记忆命中摘要”“工具参数复查”；缺字段时显示“暂无安全摘要”。
+- 脱敏边界：不新增数据库表、不新增 API、不读取业务库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，38 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 桌面和 `390px` 移动端 PASS，无 console error、无横向溢出；前端进程已清理。
+
 ## 2026-07-06 Agent Quality Console 诊断指标 P0
 
 - `/quality` 新增前端派生诊断指标层，基于现有脱敏 `runs`、`trend`、`QualityRunDetail` 和 eval catalog 计算比率，不改后端 DTO / API。

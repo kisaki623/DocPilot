@@ -3,6 +3,7 @@ package com.docpilot.backend.quality.service.impl;
 import com.docpilot.backend.quality.service.QualityArtifactService;
 import com.docpilot.backend.quality.vo.QualityEvalCaseResultDetail;
 import com.docpilot.backend.quality.vo.QualityGateSummary;
+import com.docpilot.backend.quality.vo.QualityRunDiagnostics;
 import com.docpilot.backend.quality.vo.QualityRunDetail;
 import com.docpilot.backend.quality.vo.QualityRunSummary;
 import com.docpilot.backend.quality.vo.QualityTokenUsageSummary;
@@ -302,7 +303,9 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         );
         List<ExtractedEvalCase> extractedEvalCases = extractEvalCaseNodes(root);
         List<QualityEvalCaseResultDetail> evalCases = toEvalCaseDetails(extractedEvalCases);
-        return new QualityRunDetail(summary, gates, evalCases, toTraceReferences(extractedEvalCases));
+        List<QualityTraceReference> traceReferences = toTraceReferences(extractedEvalCases);
+        return new QualityRunDetail(summary, gates, evalCases, traceReferences,
+                buildDiagnostics(root, gates, evalCases, traceReferences));
     }
 
     private QualityRunDetail parseFailedDetail(QualityArtifactFile file) {
@@ -746,6 +749,202 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         }
     }
 
+    private QualityRunDiagnostics buildDiagnostics(JsonNode root,
+                                                   List<QualityGateSummary> gates,
+                                                   List<QualityEvalCaseResultDetail> evalCases,
+                                                   List<QualityTraceReference> traceReferences) {
+        DocumentCoverageAccumulator documentCoverage = new DocumentCoverageAccumulator();
+        ContextSourceAccumulator contextSources = new ContextSourceAccumulator();
+        collectSafeObjectSummaries(root, documentCoverage, contextSources);
+        int toolCallCount = sumMetric(gates, evalCases, "toolCallCount");
+        int toolFailureCount = countBuckets(gates, evalCases, traceReferences, "tool");
+        int toolArgsReviewCount = countBuckets(gates, evalCases, traceReferences, "tool", "arg", "param");
+        int memoryMetricCount = sumMetric(gates, evalCases, "memoryCount");
+        int memoryHitCount = Math.max(memoryMetricCount, contextSources.memoryHitCount);
+        int memoryReviewCount = countBuckets(gates, evalCases, traceReferences, "memory");
+        int memoryTriggerCount = Math.max(
+                countPositiveMetric(gates, evalCases, "memoryCount"),
+                countTrueFlag(gates, evalCases, "memoryTriggered", "memoryHit")
+        );
+
+        return new QualityRunDiagnostics(
+                documentCoverage.toSummary(),
+                new QualityRunDiagnostics.ToolQualitySummary(
+                        nullableInt(toolCallCount),
+                        nullableInt(toolFailureCount),
+                        nullableInt(toolArgsReviewCount)
+                ),
+                new QualityRunDiagnostics.MemoryQualitySummary(
+                        nullableInt(memoryTriggerCount),
+                        nullableInt(memoryHitCount),
+                        nullableInt(memoryReviewCount),
+                        nullableInt(contextSources.ragEvidenceCount)
+                )
+        );
+    }
+
+    private void collectSafeObjectSummaries(JsonNode node,
+                                            DocumentCoverageAccumulator documentCoverage,
+                                            ContextSourceAccumulator contextSources) {
+        if (node == null || !node.isContainerNode()) {
+            return;
+        }
+        if (node.isObject()) {
+            node.fields().forEachRemaining(entry -> {
+                String field = entry.getKey();
+                JsonNode value = entry.getValue();
+                if (isSensitiveField(field)) {
+                    return;
+                }
+                String normalized = normalizeFieldName(field);
+                if ("documenthitcounts".equals(normalized) && value.isObject()) {
+                    value.fields().forEachRemaining(hitEntry -> {
+                        if (hitEntry.getValue().isNumber()) {
+                            documentCoverage.accept(hitEntry.getValue().intValue());
+                        }
+                    });
+                    return;
+                }
+                if ("contextsourcecounts".equals(normalized) && value.isObject()) {
+                    value.fields().forEachRemaining(sourceEntry -> {
+                        if (sourceEntry.getValue().isNumber()) {
+                            contextSources.accept(sourceEntry.getKey(), sourceEntry.getValue().intValue());
+                        }
+                    });
+                    return;
+                }
+                if (value.isContainerNode() && !TOP_LEVEL_SKIP_FIELDS.contains(field)) {
+                    collectSafeObjectSummaries(value, documentCoverage, contextSources);
+                }
+            });
+            return;
+        }
+        for (JsonNode item : node) {
+            collectSafeObjectSummaries(item, documentCoverage, contextSources);
+        }
+    }
+
+    private int sumMetric(List<QualityGateSummary> gates,
+                          List<QualityEvalCaseResultDetail> evalCases,
+                          String metricName) {
+        String expected = normalizeFieldName(metricName);
+        int sum = 0;
+        for (QualityGateSummary gate : gates) {
+            sum += sumMetricValues(gate.metrics(), expected);
+        }
+        for (QualityEvalCaseResultDetail evalCase : evalCases) {
+            sum += sumMetricValues(evalCase.metrics(), expected);
+        }
+        return sum;
+    }
+
+    private int sumMetricValues(Map<String, Number> metrics, String expected) {
+        int sum = 0;
+        for (Map.Entry<String, Number> entry : metrics.entrySet()) {
+            if (expected.equals(normalizeFieldName(entry.getKey()))) {
+                sum += entry.getValue().intValue();
+            }
+        }
+        return sum;
+    }
+
+    private int countPositiveMetric(List<QualityGateSummary> gates,
+                                    List<QualityEvalCaseResultDetail> evalCases,
+                                    String metricName) {
+        String expected = normalizeFieldName(metricName);
+        int count = 0;
+        for (QualityGateSummary gate : gates) {
+            count += countPositiveValues(gate.metrics(), expected);
+        }
+        for (QualityEvalCaseResultDetail evalCase : evalCases) {
+            count += countPositiveValues(evalCase.metrics(), expected);
+        }
+        return count;
+    }
+
+    private int countPositiveValues(Map<String, Number> metrics, String expected) {
+        int count = 0;
+        for (Map.Entry<String, Number> entry : metrics.entrySet()) {
+            if (expected.equals(normalizeFieldName(entry.getKey())) && entry.getValue().doubleValue() > 0) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int countTrueFlag(List<QualityGateSummary> gates,
+                              List<QualityEvalCaseResultDetail> evalCases,
+                              String... flagNames) {
+        Set<String> expected = new LinkedHashSet<>();
+        for (String flagName : flagNames) {
+            expected.add(normalizeFieldName(flagName));
+        }
+        int count = 0;
+        for (QualityGateSummary gate : gates) {
+            count += countTrueFlags(gate.flags(), expected);
+        }
+        for (QualityEvalCaseResultDetail evalCase : evalCases) {
+            count += countTrueFlags(evalCase.flags(), expected);
+        }
+        return count;
+    }
+
+    private int countTrueFlags(Map<String, Boolean> flags, Set<String> expected) {
+        int count = 0;
+        for (Map.Entry<String, Boolean> entry : flags.entrySet()) {
+            if (Boolean.TRUE.equals(entry.getValue()) && expected.contains(normalizeFieldName(entry.getKey()))) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int countBuckets(List<QualityGateSummary> gates,
+                             List<QualityEvalCaseResultDetail> evalCases,
+                             List<QualityTraceReference> traceReferences,
+                             String required,
+                             String... optionalAny) {
+        int count = 0;
+        for (QualityGateSummary gate : gates) {
+            count += countMatchingBuckets(gate.failureBuckets(), required, optionalAny);
+            count += countMatchingBuckets(gate.reviewBuckets(), required, optionalAny);
+        }
+        for (QualityEvalCaseResultDetail evalCase : evalCases) {
+            count += countMatchingBuckets(evalCase.failureBuckets(), required, optionalAny);
+            count += countMatchingBuckets(evalCase.reviewBuckets(), required, optionalAny);
+        }
+        for (QualityTraceReference traceReference : traceReferences) {
+            count += countMatchingBuckets(traceReference.failureBuckets(), required, optionalAny);
+            count += countMatchingBuckets(traceReference.reviewBuckets(), required, optionalAny);
+        }
+        return count;
+    }
+
+    private int countMatchingBuckets(List<String> buckets, String required, String... optionalAny) {
+        int count = 0;
+        for (String bucket : buckets) {
+            String normalized = normalizeFieldName(bucket);
+            if (!normalized.contains(normalizeFieldName(required))) {
+                continue;
+            }
+            if (optionalAny.length == 0) {
+                count++;
+                continue;
+            }
+            for (String optional : optionalAny) {
+                if (normalized.contains(normalizeFieldName(optional))) {
+                    count++;
+                    break;
+                }
+            }
+        }
+        return count;
+    }
+
+    private Integer nullableInt(int value) {
+        return value == 0 ? null : value;
+    }
+
     private List<String> mergeBuckets(JsonNode root, List<QualityGateSummary> gates, String fieldName) {
         LinkedHashSet<String> buckets = new LinkedHashSet<>(stringList(root.path(fieldName)));
         if ("failureBuckets".equals(fieldName)) {
@@ -990,6 +1189,53 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     }
 
     private record ExtractedEvalCase(JsonNode node, String gateName) {
+    }
+
+    private static final class DocumentCoverageAccumulator {
+        private int documentCount;
+        private int coveredDocumentCount;
+        private int zeroHitDocumentCount;
+        private Integer maxHitsPerDocument;
+        private Integer minHitsPerDocument;
+
+        private void accept(int hits) {
+            documentCount++;
+            if (hits > 0) {
+                coveredDocumentCount++;
+            } else {
+                zeroHitDocumentCount++;
+            }
+            maxHitsPerDocument = maxHitsPerDocument == null ? hits : Math.max(maxHitsPerDocument, hits);
+            minHitsPerDocument = minHitsPerDocument == null ? hits : Math.min(minHitsPerDocument, hits);
+        }
+
+        private QualityRunDiagnostics.DocumentCoverageSummary toSummary() {
+            if (documentCount == 0) {
+                return QualityRunDiagnostics.DocumentCoverageSummary.empty();
+            }
+            return new QualityRunDiagnostics.DocumentCoverageSummary(
+                    documentCount,
+                    coveredDocumentCount,
+                    zeroHitDocumentCount,
+                    maxHitsPerDocument,
+                    minHitsPerDocument
+            );
+        }
+    }
+
+    private final class ContextSourceAccumulator {
+        private int memoryHitCount;
+        private int ragEvidenceCount;
+
+        private void accept(String source, int count) {
+            String normalized = normalizeFieldName(source);
+            if (normalized.contains("memory")) {
+                memoryHitCount += count;
+            }
+            if (normalized.contains("rag") || normalized.contains("evidence")) {
+                ragEvidenceCount += count;
+            }
+        }
     }
 
     private static final class CaseTrendAccumulator {
