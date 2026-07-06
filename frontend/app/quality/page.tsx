@@ -381,9 +381,9 @@ function formatTokenUsage(tokenUsage?: QualityTokenUsageSummary): string {
     return "暂无统计";
   }
   const parts = [
-    ["提示词 tokens", tokenUsage.promptTokens],
-    ["回答 tokens", tokenUsage.completionTokens],
-    ["总 tokens", tokenUsage.totalTokens],
+    ["提示词 token 数", tokenUsage.promptTokens],
+    ["回答 token 数", tokenUsage.completionTokens],
+    ["总 token 数", tokenUsage.totalTokens],
   ]
     .filter(([, value]) => typeof value === "number")
     .map(([label, value]) => `${label}: ${formatNumber(value as number)}`);
@@ -1400,7 +1400,7 @@ function QualityOverviewHeader({
       priority: "LLM / RAG / Tool latency",
     },
     {
-      label: "平均 tokens",
+      label: "平均 token 数",
       value: formatNullableStat(diagnostics.avgTokens),
       helper: "最近运行中存在 totalTokens 样本时才计算平均值；字段缺失不按 0 处理。",
       tone: "neutral",
@@ -1413,7 +1413,7 @@ function QualityOverviewHeader({
       helper: "存在 estimatedCost 样本且有成功运行时才计算；字段缺失显示暂无样本。",
       tone: "neutral",
       action: "升高时优先排查高 token 或重复模型调用路径。",
-      priority: "Model calls / Token usage / Retry",
+      priority: "模型调用 / token 用量 / 重试",
     },
   ];
 
@@ -1460,7 +1460,7 @@ function QualityOverviewHeader({
         <MetricCard label="通过" value={stats.pass} tone="success" />
         <MetricCard label="需复查 / 阻塞" value={stats.review} tone="warning" />
         <MetricCard label="失败" value={stats.failed} tone="danger" />
-        <MetricCard label="总 tokens" value={formatNullableStat(stats.tokens)} />
+        <MetricCard label="总 token 数" value={formatNullableStat(stats.tokens)} />
       </section>
 
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -1830,7 +1830,7 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
         <div className="mt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <SmallMetric label="平均通过率" value={formatPercent(trend.averageCasePassRate)} />
-            <SmallMetric label="总 Token" value={formatNullableStat(trend.totalTokens)} />
+            <SmallMetric label="总 token 数" value={formatNullableStat(trend.totalTokens)} />
             <SmallMetric label="估算成本" value={formatCost(trend.estimatedCost ?? null)} />
             <SmallMetric label="平均延迟" value={formatNullableStat(trend.averageLatencyMs)} />
           </div>
@@ -2211,7 +2211,7 @@ function RunDetailContent({
             label="失败 / 复查"
             value={`${summary.failedGateCount} / ${summary.reviewGateCount}`}
           />
-          <SmallFact label="Token 用量" value={formatTokenUsage(summary.tokenUsage)} />
+          <SmallFact label="token 用量" value={formatTokenUsage(summary.tokenUsage)} />
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -3243,12 +3243,12 @@ function OperationalSummaryPanel({
         <span className="dp-badge dp-badge-neutral">仅数值</span>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SmallFact label="提示词 tokens" value={formatNullableStat(summary.promptTokens)} />
+        <SmallFact label="提示词 token 数" value={formatNullableStat(summary.promptTokens)} />
         <SmallFact
-          label="回答 tokens"
+          label="回答 token 数"
           value={formatNullableStat(summary.completionTokens)}
         />
-        <SmallFact label="总 tokens" value={formatNullableStat(summary.totalTokens)} />
+        <SmallFact label="总 token 数" value={formatNullableStat(summary.totalTokens)} />
         <SmallFact label="估算成本" value={formatCost(summary.estimatedCost)} />
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -3327,7 +3327,7 @@ function RunComparisonPanel({
               value={formatDelta(comparison.failedGateDelta)}
             />
             <SmallFact
-              label="Token 增量"
+              label="token 增量"
               value={formatDelta(comparison.tokenDelta)}
             />
           </div>

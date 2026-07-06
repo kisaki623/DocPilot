@@ -1,6 +1,12 @@
 # Current Task
 
-当前任务：Agent Quality Console 延迟指标缺样本语义修正（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+当前任务：Agent Quality Console token 文案一致性收口（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+
+## 2026-07-06 补充：Agent Quality Console token 文案一致性收口
+
+- 目标：继续改善 `/quality` 页面可读性，不新增指标，只统一 token 相关展示文案。
+- 已完成前端：`Token / TOKENS / tokens` 混用的显示文案已收敛为“token 数”“token 用量”“token 增量”，诊断卡优先排查文案中的成本入口也改为“模型调用 / token 用量 / 重试”。
+- 边界：本片只改页面展示文字，不改 DTO、不改 API、不新增功能、不启动真实链路。
 
 ## 2026-07-06 补充：Agent Quality Console 延迟指标缺样本语义修正
 

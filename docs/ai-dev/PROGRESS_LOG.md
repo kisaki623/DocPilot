@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-06 Agent Quality Console token 文案一致性收口
+
+- `/quality` 面向用户的 token 相关文案已统一为“token 数”“token 用量”“token 增量”，避免 `Token / TOKENS / tokens` 大小写混用。
+- 诊断卡优先排查文案中的成本入口已改为“模型调用 / token 用量 / 重试”。
+- 边界：本片只改前端展示文字，不改 DTO、不改 API、不新增功能。
+
 ## 2026-07-06 Agent Quality Console 延迟指标缺样本语义修正
 
 - `/quality` Trend 面板“平均延迟”已改为缺样本显示“暂无统计”，与 token / 成本缺样本语义保持一致。
