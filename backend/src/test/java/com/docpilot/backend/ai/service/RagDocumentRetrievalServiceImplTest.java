@@ -87,6 +87,8 @@ class RagDocumentRetrievalServiceImplTest {
         assertThat(result.citations()).hasSize(1);
         assertThat(result.citations().get(0).index()).isEqualTo(1);
         assertThat(result.citations().get(0).chunkId()).isEqualTo(501L);
+        assertThat(result.citations().get(0).sourceName()).isEqualTo("parser-fixture.pdf");
+        assertThat(result.citations().get(0).sectionPath()).isEqualTo("Parser Fixture / Evidence");
     }
 
     @Test
@@ -303,6 +305,7 @@ class RagDocumentRetrievalServiceImplTest {
         Document document = new Document();
         document.setId(documentId);
         document.setUserId(userId);
+        document.setTitle("parser-fixture.pdf");
         return document;
     }
 
@@ -338,7 +341,9 @@ class RagDocumentRetrievalServiceImplTest {
                         "startOffset", 10,
                         "endOffset", 31,
                         "tokenCount", 4,
-                        "embeddingModel", "mock-model"
+                        "embeddingModel", "mock-model",
+                        "sectionPath", "Parser Fixture / Evidence",
+                        "structureType", "section"
                 )
         );
     }

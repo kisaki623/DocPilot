@@ -6,6 +6,7 @@ public class RagCitationResponse {
 
     private Integer index;
     private Long documentId;
+    private String sourceName;
     private Integer indexVersion;
     private Long chunkId;
     private Integer chunkIndex;
@@ -16,12 +17,15 @@ public class RagCitationResponse {
     private String quoteText;
     private Integer quoteStartOffset;
     private Integer quoteEndOffset;
+    private String sectionPath;
+    private String structureType;
     private Double score;
 
     public static RagCitationResponse from(RagEvidenceCitation citation) {
         RagCitationResponse response = new RagCitationResponse();
         response.setIndex(citation.index());
         response.setDocumentId(citation.documentId());
+        response.setSourceName(citation.sourceName());
         response.setIndexVersion(citation.indexVersion());
         response.setChunkId(citation.chunkId());
         response.setChunkIndex(citation.chunkIndex());
@@ -32,6 +36,8 @@ public class RagCitationResponse {
         response.setQuoteText(citation.quoteText());
         response.setQuoteStartOffset(citation.quoteStartOffset());
         response.setQuoteEndOffset(citation.quoteEndOffset());
+        response.setSectionPath(citation.sectionPath());
+        response.setStructureType(citation.structureType());
         response.setScore(citation.score());
         return response;
     }
@@ -50,6 +56,14 @@ public class RagCitationResponse {
 
     public void setDocumentId(Long documentId) {
         this.documentId = documentId;
+    }
+
+    public String getSourceName() {
+        return sourceName;
+    }
+
+    public void setSourceName(String sourceName) {
+        this.sourceName = sourceName;
     }
 
     public Integer getIndexVersion() {
@@ -130,6 +144,22 @@ public class RagCitationResponse {
 
     public void setQuoteEndOffset(Integer quoteEndOffset) {
         this.quoteEndOffset = quoteEndOffset;
+    }
+
+    public String getSectionPath() {
+        return sectionPath;
+    }
+
+    public void setSectionPath(String sectionPath) {
+        this.sectionPath = sectionPath;
+    }
+
+    public String getStructureType() {
+        return structureType;
+    }
+
+    public void setStructureType(String structureType) {
+        this.structureType = structureType;
     }
 
     public Double getScore() {

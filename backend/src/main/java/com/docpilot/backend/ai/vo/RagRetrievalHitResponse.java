@@ -7,6 +7,7 @@ public class RagRetrievalHitResponse {
     private Integer citationIndex;
     private String vectorId;
     private Double score;
+    private String sourceName;
     private Long chunkId;
     private Integer chunkIndex;
     private String content;
@@ -18,12 +19,15 @@ public class RagRetrievalHitResponse {
     private Integer quoteEndOffset;
     private Integer tokenCount;
     private String embeddingModel;
+    private String sectionPath;
+    private String structureType;
 
     public static RagRetrievalHitResponse from(RagRetrievalHit hit) {
         RagRetrievalHitResponse response = new RagRetrievalHitResponse();
         response.setCitationIndex(hit.citationIndex());
         response.setVectorId(hit.vectorId());
         response.setScore(hit.score());
+        response.setSourceName(hit.sourceName());
         response.setChunkId(hit.chunkId());
         response.setChunkIndex(hit.chunkIndex());
         response.setContent(hit.content());
@@ -35,6 +39,8 @@ public class RagRetrievalHitResponse {
         response.setQuoteEndOffset(hit.quoteEndOffset());
         response.setTokenCount(hit.tokenCount());
         response.setEmbeddingModel(hit.embeddingModel());
+        response.setSectionPath(hit.sectionPath());
+        response.setStructureType(hit.structureType());
         return response;
     }
 
@@ -60,6 +66,14 @@ public class RagRetrievalHitResponse {
 
     public void setScore(Double score) {
         this.score = score;
+    }
+
+    public String getSourceName() {
+        return sourceName;
+    }
+
+    public void setSourceName(String sourceName) {
+        this.sourceName = sourceName;
     }
 
     public Long getChunkId() {
@@ -148,5 +162,21 @@ public class RagRetrievalHitResponse {
 
     public void setEmbeddingModel(String embeddingModel) {
         this.embeddingModel = embeddingModel;
+    }
+
+    public String getSectionPath() {
+        return sectionPath;
+    }
+
+    public void setSectionPath(String sectionPath) {
+        this.sectionPath = sectionPath;
+    }
+
+    public String getStructureType() {
+        return structureType;
+    }
+
+    public void setStructureType(String structureType) {
+        this.structureType = structureType;
     }
 }

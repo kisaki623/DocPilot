@@ -10,6 +10,7 @@ public record RagRetrievalHit(
         double score,
         Long userId,
         Long documentId,
+        String sourceName,
         Integer indexVersion,
         Long chunkId,
         Integer chunkIndex,
@@ -18,10 +19,30 @@ public record RagRetrievalHit(
         Integer startOffset,
         Integer endOffset,
         Integer tokenCount,
-        String embeddingModel
+        String embeddingModel,
+        String sectionPath,
+        String structureType
 ) {
 
     private static final int SNIPPET_MAX_LENGTH = 320;
+
+    public RagRetrievalHit(int citationIndex,
+                           String vectorId,
+                           double score,
+                           Long userId,
+                           Long documentId,
+                           Integer indexVersion,
+                           Long chunkId,
+                           Integer chunkIndex,
+                           String content,
+                           String contentHash,
+                           Integer startOffset,
+                           Integer endOffset,
+                           Integer tokenCount,
+                           String embeddingModel) {
+        this(citationIndex, vectorId, score, userId, documentId, "", indexVersion, chunkId, chunkIndex,
+                content, contentHash, startOffset, endOffset, tokenCount, embeddingModel, "", "");
+    }
 
     public RagRetrievalHit {
         if (citationIndex <= 0) {
@@ -45,9 +66,12 @@ public record RagRetrievalHit(
         if (chunkIndex == null || chunkIndex < 0) {
             throw new IllegalArgumentException("chunkIndex must not be negative");
         }
+        sourceName = sourceName == null ? "" : sourceName.trim();
         content = content == null ? "" : content.trim();
         contentHash = contentHash == null ? "" : contentHash.trim();
         embeddingModel = embeddingModel == null ? "" : embeddingModel.trim();
+        sectionPath = sectionPath == null ? "" : sectionPath.trim();
+        structureType = structureType == null ? "" : structureType.trim();
     }
 
     public static RagRetrievalHit fromVectorHit(int citationIndex, VectorSearchHit hit) {
@@ -61,6 +85,7 @@ public record RagRetrievalHit(
                 hit.score(),
                 hit.userId(),
                 hit.documentId(),
+                "",
                 hit.indexVersion(),
                 longValue(payload.get("chunkId")),
                 hit.chunkIndex(),
@@ -69,7 +94,31 @@ public record RagRetrievalHit(
                 intValue(payload.get("startOffset")),
                 intValue(payload.get("endOffset")),
                 intValue(payload.get("tokenCount")),
-                stringValue(payload.get("embeddingModel"))
+                stringValue(payload.get("embeddingModel")),
+                stringValue(payload.get("sectionPath")),
+                stringValue(payload.get("structureType"))
+        );
+    }
+
+    public RagRetrievalHit withSourceName(String resolvedSourceName) {
+        return new RagRetrievalHit(
+                citationIndex,
+                vectorId,
+                score,
+                userId,
+                documentId,
+                resolvedSourceName,
+                indexVersion,
+                chunkId,
+                chunkIndex,
+                content,
+                contentHash,
+                startOffset,
+                endOffset,
+                tokenCount,
+                embeddingModel,
+                sectionPath,
+                structureType
         );
     }
 
@@ -78,6 +127,7 @@ public record RagRetrievalHit(
         return new RagEvidenceCitation(
                 citationIndex,
                 documentId,
+                sourceName,
                 indexVersion,
                 chunkId,
                 chunkIndex,
@@ -88,6 +138,8 @@ public record RagRetrievalHit(
                 quote.text(),
                 absoluteOffset(quote.startOffset()),
                 absoluteOffset(quote.endOffset()),
+                sectionPath,
+                structureType,
                 score
         );
     }

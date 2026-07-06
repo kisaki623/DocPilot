@@ -19,6 +19,7 @@ import com.docpilot.backend.ai.service.RagScopeGuard;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.document.mapper.DocumentMapper;
+import com.docpilot.backend.document.entity.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -107,7 +108,7 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
         ));
         List<VectorSearchHit> scopedHits = scopedHits(resolved, searchResult.hits());
         List<VectorSearchHit> filteredHits = applySimilarityThreshold(resolved, scopedHits);
-        List<RagRetrievalHit> hits = toHits(filteredHits);
+        List<RagRetrievalHit> hits = toHits(filteredHits, sourceName(resolved.documentId()));
         List<RagEvidenceCitation> citations = hits.stream()
                 .map(RagRetrievalHit::toCitation)
                 .toList();
@@ -236,12 +237,23 @@ public class RagDocumentRetrievalServiceImpl implements RagDocumentRetrievalServ
         return markerTokens.stream().anyMatch(normalized::contains);
     }
 
-    private List<RagRetrievalHit> toHits(List<VectorSearchHit> hits) {
+    private List<RagRetrievalHit> toHits(List<VectorSearchHit> hits, String sourceName) {
         List<RagRetrievalHit> result = new ArrayList<>();
         for (int i = 0; i < hits.size(); i++) {
-            result.add(RagRetrievalHit.fromVectorHit(i + 1, hits.get(i)));
+            result.add(RagRetrievalHit.fromVectorHit(i + 1, hits.get(i)).withSourceName(sourceName));
         }
         return List.copyOf(result);
+    }
+
+    private String sourceName(Long documentId) {
+        if (documentId == null || documentMapper == null) {
+            return "";
+        }
+        Document document = documentMapper.selectById(documentId);
+        if (document == null || document.getTitle() == null || document.getTitle().isBlank()) {
+            return "document-" + documentId;
+        }
+        return document.getTitle();
     }
 
     private record ResolvedQuery(

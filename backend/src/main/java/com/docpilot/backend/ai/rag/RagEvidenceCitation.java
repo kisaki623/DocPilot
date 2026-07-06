@@ -3,6 +3,7 @@ package com.docpilot.backend.ai.rag;
 public record RagEvidenceCitation(
         int index,
         Long documentId,
+        String sourceName,
         Integer indexVersion,
         Long chunkId,
         Integer chunkIndex,
@@ -13,6 +14,8 @@ public record RagEvidenceCitation(
         String quoteText,
         Integer quoteStartOffset,
         Integer quoteEndOffset,
+        String sectionPath,
+        String structureType,
         double score
 ) {
 
@@ -32,8 +35,11 @@ public record RagEvidenceCitation(
         if (!Double.isFinite(score)) {
             throw new IllegalArgumentException("score must be finite");
         }
+        sourceName = sourceName == null ? "" : sourceName.trim();
         contentHash = contentHash == null ? "" : contentHash.trim();
         snippet = snippet == null ? "" : snippet.trim();
         quoteText = quoteText == null ? "" : quoteText.trim();
+        sectionPath = sectionPath == null ? "" : sectionPath.trim();
+        structureType = structureType == null ? "" : structureType.trim();
     }
 }
