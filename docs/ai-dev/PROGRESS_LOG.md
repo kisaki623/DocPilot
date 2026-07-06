@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-06 Document Parser MVP 真实链路验证
+
+- 修复 parser locator 传递：HTML / DOCX parser 的 `fullText` 现在保留 Markdown heading，便于现有 chunker 生成 `sectionPath` / `structureType`；单文档 RAG retrieve / QA citation 已暴露脱敏 `sourceName`、`sectionPath`、`structureType`，让真实 citation 能定位文件和章节摘要。
+- 新增 `scripts/smoke/document-parser-real-chain-smoke.ps1`，支持 `plan / dry-run / run`。`run` 生成小型 PDF / HTML / DOCX fixture，注册临时用户，上传三类文档，等待 parse `SUCCESS`，验证 chunk count、RAG retrieve、QA citation、source locator 和 unsupported format boundary，并写入 ignored 脱敏 artifact。
+- Agent Quality Console 已纳入 parser smoke artifact root：`backend/target/smoke/document-parser-real-chain`；`parserRealChain` gate 暴露 `fileCount`、`parsedFileCount`、`parserFailureCount`、`chunkCount`、`retrieveHitCount`、`citationCount`、`sourceLocatorCount` 和 `durationMs` 等安全数值，不返回 prompt、answer 原文、文档全文或 evidence context。
+- 真实 run：`docpilot-parser-real-chain-20260706172220-f03956` PASS。PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`；tunnel、backend、frontend、artifact redaction 均 PASS。
+- 中途首轮真实 run 曾出现 QA citation 为 0 和 chunkCount 显示 49；定位为 smoke 问题设计和 PowerShell 单行字符串转数字 bug，已修复为 marker-aware QA 问题和正确 chunk count 解析，复跑通过。未发现新的业务 bug。
+- 已验证：`mvn "-Dtest=*Quality*,DocumentParserTest,ChunkingServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS，70 tests，1 skipped；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS。
+- 边界：真实 run 创建 marker 临时用户和临时文档；不删除已有业务数据，不改数据库结构，不操作远程 Docker，不提交 artifact 原文，不 push。
+
 ## 2026-07-06 Document Parser MVP 第一片
 
 - 新增统一 `DocumentParser` / `ParserRegistry` / `ParseResult` / `DocumentBlock` 抽象，解析结果保留 `fullText`、block、pageNumber、sectionPath、blockType、parserName、parserVersion、parseDurationMs、extractedChars、pageCount、blockCount 和 warnings。

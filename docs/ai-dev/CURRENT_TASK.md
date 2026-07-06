@@ -1,6 +1,18 @@
 # Current Task
 
-当前任务：Document Parser MVP 第一片（DONE）；下一片：真实上传 PDF / HTML / DOCX runtime smoke 或 parser block locator 接入 chunk metadata（READY）
+当前任务：Document Parser MVP 真实链路验证（DONE）；下一片：Document Parser 质量增强 P1（READY）
+
+## 2026-07-06 补充：Document Parser MVP 真实链路验证
+
+- 目标：把 Document Parser MVP 从离线单测推进到真实上传链路，验证 PDF / HTML / DOCX 能经过上传、异步解析、chunk、embedding / index、RAG retrieve、QA citation 和脱敏 artifact。
+- 已完成 parser locator 修复：HTML / DOCX parser 在 `fullText` 中保留 Markdown heading 形式，便于现有 chunker 生成 `sectionPath` / `structureType`；block 原始标题文本和 parser metadata 不变。
+- 已完成 citation source metadata：单文档 RAG retrieve / QA citation 现在返回脱敏 `sourceName`、`sectionPath`、`structureType` 等来源摘要，便于真实 smoke 判断 citation locator 是否可用；不返回 prompt、answer 原文、文档全文或 evidence context。
+- 已新增真实链路 runner：`scripts/smoke/document-parser-real-chain-smoke.ps1` 支持 `plan / dry-run / run`。`run` 会生成小型 PDF / HTML / DOCX 临时 fixture，启动或复用本地 tunnel / backend / frontend，注册临时用户，上传三类文档，等待 parse `SUCCESS`，验证 chunk count、RAG retrieve、QA citation 和 source locator，并写入 ignored 脱敏 `artifact.json`。
+- 已接入 Agent Quality Console：`backend/target/smoke/document-parser-real-chain` 加入 Quality artifact 白名单，parser smoke 的 `parserRealChain` gate 暴露 `fileCount`、`parsedFileCount`、`parserFailureCount`、`chunkCount`、`retrieveHitCount`、`citationCount`、`sourceLocatorCount` 和 `durationMs` 等安全数值。
+- 已验证真实 run：`docpilot-parser-real-chain-20260706172220-f03956` 状态 PASS；PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`；tunnel、backend、frontend、unsupported format boundary 和 artifact redaction 均 PASS。
+- 已验证测试：`mvn "-Dtest=*Quality*,DocumentParserTest,ChunkingServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS，70 tests，1 skipped；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS。
+- 边界：本轮不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原 / PDF 坐标级 citation；真实 run 创建 marker 临时用户和临时文档，不删除已有业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：进入 Parser 质量增强 P1，重点补 block/page locator 到 chunk metadata 的更强桥接、损坏 PDF / DOCX API 级负向 smoke、空文件 / 超大文件真实 API 边界、以及 `/quality` 页面 parser 指标展示文案。
 
 ## 2026-07-06 补充：Document Parser MVP 第一片
 

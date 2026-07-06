@@ -42,6 +42,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             "backend/target/audit",
             "backend/target/rag-natural-corpus",
             "backend/target/rag-real-qa",
+            "backend/target/smoke/document-parser-real-chain",
             "backend/target/memory-quality",
             "backend/target/memory-provider",
             "backend/target/agent-quality-eval",
@@ -1098,6 +1099,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 || normalized.endsWith("triggered")
                 || normalized.endsWith("visible")
                 || normalized.endsWith("stored")
+                || normalized.endsWith("present")
                 || normalized.endsWith("covered")
                 || normalized.endsWith("correct")
                 || normalized.endsWith("supported")

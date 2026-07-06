@@ -243,6 +243,75 @@ class QualityArtifactServiceImplTest {
     }
 
     @Test
+    void shouldParseDocumentParserSmokeArtifactAsQualityRun() throws Exception {
+        Path artifact = artifactPath("backend/target/smoke/document-parser-real-chain",
+                "docpilot-parser-real-chain", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "marker": "docpilot-parser-real-chain",
+                  "status": "PASS",
+                  "gates": {
+                    "parserRealChain": {
+                      "status": "PASS",
+                      "fileCount": 3,
+                      "parsedFileCount": 3,
+                      "parserFailureCount": 0,
+                      "chunkCount": 3,
+                      "retrieveHitCount": 3,
+                      "citationCount": 3,
+                      "sourceLocatorCount": 3,
+                      "durationMs": 12000,
+                      "retrieveHit": true,
+                      "citationPresent": true,
+                      "sourceLocatorPresent": true
+                    }
+                  },
+                  "files": [
+                    {
+                      "fileType": "PDF",
+                      "parserName": "pdfbox",
+                      "parseStatus": "SUCCESS",
+                      "extractedChars": 200,
+                      "chunkCount": 1,
+                      "retrieveHit": true,
+                      "citationPresent": true,
+                      "sourceLocatorPresent": true,
+                      "prompt": "PROMPT_SHOULD_NOT_LEAK",
+                      "answer": "ANSWER_SHOULD_NOT_LEAK",
+                      "content": "DOCUMENT_TEXT_SHOULD_NOT_LEAK"
+                    }
+                  ]
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-parser-real-chain").orElseThrow();
+
+        assertThat(detail.summary().source())
+                .isEqualTo("backend/target/smoke/document-parser-real-chain");
+        assertThat(detail.summary().status()).isEqualTo("PASS");
+        assertThat(detail.gates()).hasSize(1);
+        assertThat(detail.gates().get(0).name()).isEqualTo("parserRealChain");
+        assertThat(detail.gates().get(0).metrics())
+                .containsEntry("fileCount", 3)
+                .containsEntry("parsedFileCount", 3)
+                .containsEntry("chunkCount", 3)
+                .containsEntry("citationCount", 3)
+                .containsEntry("durationMs", 12000);
+        assertThat(detail.gates().get(0).flags())
+                .containsEntry("retrieveHit", true)
+                .containsEntry("citationPresent", true)
+                .containsEntry("sourceLocatorPresent", true);
+
+        String serialized = objectMapper.writeValueAsString(detail);
+        assertThat(serialized)
+                .doesNotContain("PROMPT_SHOULD_NOT_LEAK")
+                .doesNotContain("ANSWER_SHOULD_NOT_LEAK")
+                .doesNotContain("DOCUMENT_TEXT_SHOULD_NOT_LEAK");
+    }
+
+    @Test
     void shouldBuildSafeDiagnosticsWithoutLeakingDocumentKeys() throws Exception {
         Path artifact = artifactPath("backend/target/audit", "docpilot-quality-diagnostics", "artifact.json");
         Files.writeString(artifact, """

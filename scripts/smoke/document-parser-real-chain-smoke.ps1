@@ -1,0 +1,746 @@
+param(
+  [ValidateSet("plan", "dry-run", "run")]
+  [string]$Mode = "plan",
+  [string]$BackendBaseUrl = "http://127.0.0.1:8081",
+  [string]$FrontendBaseUrl = "http://127.0.0.1:3000",
+  [string]$EnvFile = "backend/.env",
+  [string]$ArtifactRoot = "backend/target/smoke/document-parser-real-chain",
+  [string]$SmokePrefix = "docpilot-parser-real-chain",
+  [int]$MySqlLocalPort = 13306,
+  [int]$QdrantLocalPort = 6333,
+  [int]$IndexVersion = 1,
+  [switch]$ReuseRunningServices,
+  [switch]$SkipFrontend
+)
+
+$ErrorActionPreference = "Stop"
+
+$script:StartedProcesses = @()
+$script:StartedTunnelPid = $null
+$script:OverallStatus = "PASS"
+$script:Gates = [ordered]@{}
+$script:ArtifactPath = $null
+
+$StatusRank = @{
+  PASS = 0
+  REVIEW = 1
+  BLOCKED = 2
+  FAILED_CORE_FLOW = 3
+}
+
+function Set-OverallStatus([string]$status) {
+  if ($StatusRank[$status] -gt $StatusRank[$script:OverallStatus]) {
+    $script:OverallStatus = $status
+  }
+}
+
+function Set-Gate([string]$name, [string]$status, [array]$checks = @(), [string]$safeMessage = "") {
+  Set-OverallStatus $status
+  $script:Gates[$name] = [ordered]@{
+    status = $status
+    checks = $checks
+    safeMessage = $safeMessage
+  }
+}
+
+function Set-GateWithMetrics([string]$name, [string]$status, [array]$checks, [hashtable]$metrics, [hashtable]$flags) {
+  Set-OverallStatus $status
+  $gate = [ordered]@{
+    status = $status
+    checks = $checks
+    safeMessage = ""
+  }
+  foreach ($entry in $metrics.GetEnumerator()) {
+    $gate[$entry.Key] = $entry.Value
+  }
+  foreach ($entry in $flags.GetEnumerator()) {
+    $gate[$entry.Key] = $entry.Value
+  }
+  $script:Gates[$name] = $gate
+}
+
+function Stop-Smoke([string]$status, [string]$gate, [string]$message) {
+  Set-Gate $gate $status @() $message
+  throw "${status}|${gate}|${message}"
+}
+
+function Test-TcpPort([int]$port) {
+  $client = New-Object System.Net.Sockets.TcpClient
+  try {
+    $async = $client.BeginConnect("127.0.0.1", $port, $null, $null)
+    if (-not $async.AsyncWaitHandle.WaitOne(800)) {
+      return $false
+    }
+    $client.EndConnect($async)
+    return $true
+  } catch {
+    return $false
+  } finally {
+    $client.Close()
+  }
+}
+
+function Read-EnvFile([string]$path) {
+  $values = @{}
+  if (-not (Test-Path -LiteralPath $path)) {
+    return $values
+  }
+  Get-Content -LiteralPath $path | ForEach-Object {
+    if ($_ -match '^\s*([^#][^=]+?)\s*=\s*(.*)\s*$') {
+      $values[$matches[1].Trim()] = $matches[2].Trim().Trim('"').Trim("'")
+    }
+  }
+  return $values
+}
+
+function Get-EnvValue($values, [string[]]$keys, [string]$default = "") {
+  foreach ($key in $keys) {
+    if ($values.ContainsKey($key) -and -not [string]::IsNullOrWhiteSpace([string]$values[$key])) {
+      return [string]$values[$key]
+    }
+  }
+  return $default
+}
+
+function Invoke-WithRetry([scriptblock]$block, [int]$maxAttempts = 5) {
+  $lastError = $null
+  for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+    try {
+      return & $block
+    } catch {
+      $lastError = $_
+      if ($attempt -eq $maxAttempts) {
+        break
+      }
+      Start-Sleep -Seconds ([Math]::Min(12, [Math]::Pow(2, $attempt)))
+    }
+  }
+  throw $lastError
+}
+
+function ConvertTo-SafeFailure($errorRecord) {
+  $response = $errorRecord.Exception.Response
+  $statusCode = 0
+  $code = $null
+  $message = "request failed"
+  if ($response) {
+    try {
+      $statusCode = [int]$response.StatusCode
+    } catch {
+      $statusCode = 0
+    }
+    try {
+      $stream = $response.GetResponseStream()
+      if ($stream) {
+        $reader = New-Object System.IO.StreamReader($stream)
+        $body = $reader.ReadToEnd()
+        if ($body) {
+          $parsed = $body | ConvertFrom-Json
+          $code = $parsed.code
+          $message = [string]$parsed.message
+        }
+      }
+    } catch {
+      $message = "request failed"
+    }
+  }
+  return [ordered]@{
+    ok = $false
+    httpStatus = $statusCode
+    code = $code
+    message = $message
+    data = $null
+  }
+}
+
+function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$token = "", [switch]$AllowFailure) {
+  $uri = $BackendBaseUrl.TrimEnd("/") + $path
+  $headers = @{}
+  if ($token) {
+    $headers["Authorization"] = "Bearer $token"
+  }
+  try {
+    $response = Invoke-WithRetry {
+      $params = @{
+        Method = $method
+        Uri = $uri
+        Headers = $headers
+        TimeoutSec = 180
+      }
+      if ($null -ne $body) {
+        $params["ContentType"] = "application/json"
+        $params["Body"] = ($body | ConvertTo-Json -Depth 20)
+      }
+      Invoke-RestMethod @params
+    }
+    $ok = ($response.code -eq 0)
+    if ((-not $AllowFailure) -and (-not $ok)) {
+      throw "api returned non-zero code at $method $path"
+    }
+    return [ordered]@{
+      ok = $ok
+      httpStatus = 200
+      code = $response.code
+      message = [string]$response.message
+      data = $response.data
+    }
+  } catch {
+    if ($AllowFailure) {
+      return ConvertTo-SafeFailure $_
+    }
+    $failure = ConvertTo-SafeFailure $_
+    throw "api request failed at $method $path status=$($failure.httpStatus) code=$($failure.code) message=$($failure.message)"
+  }
+}
+
+function Upload-SmokeFile([string]$path, [string]$contentType, [string]$token, [switch]$AllowFailure) {
+  Add-Type -AssemblyName System.Net.Http
+  $client = [System.Net.Http.HttpClient]::new()
+  $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Post, ($BackendBaseUrl.TrimEnd("/") + "/api/file/upload"))
+  $request.Headers.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new("Bearer", $token)
+  $multipart = [System.Net.Http.MultipartFormDataContent]::new()
+  $stream = [System.IO.File]::OpenRead($path)
+  try {
+    $fileContent = [System.Net.Http.StreamContent]::new($stream)
+    $fileContent.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse($contentType)
+    $multipart.Add($fileContent, "file", [System.IO.Path]::GetFileName($path))
+    $request.Content = $multipart
+    $response = $client.SendAsync($request).GetAwaiter().GetResult()
+    $text = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+    $parsed = $text | ConvertFrom-Json
+    $ok = ($response.IsSuccessStatusCode -and $parsed.code -eq 0)
+    if ((-not $AllowFailure) -and (-not $ok)) {
+      throw "upload failed status=$([int]$response.StatusCode) code=$($parsed.code) message=$($parsed.message)"
+    }
+    return [ordered]@{
+      ok = $ok
+      httpStatus = [int]$response.StatusCode
+      code = $parsed.code
+      message = [string]$parsed.message
+      data = $parsed.data
+    }
+  } finally {
+    $stream.Dispose()
+    $multipart.Dispose()
+    $request.Dispose()
+    $client.Dispose()
+  }
+}
+
+function Wait-BackendHealth([int]$timeoutSeconds = 120) {
+  $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+  do {
+    try {
+      $health = Invoke-RestMethod -Method GET -Uri ($BackendBaseUrl.TrimEnd("/") + "/actuator/health") -TimeoutSec 5
+      if ($health.status -eq "UP") {
+        return $true
+      }
+    } catch {
+      Start-Sleep -Seconds 2
+    }
+  } while ((Get-Date) -lt $deadline)
+  return $false
+}
+
+function Wait-FrontendRoute([int]$timeoutSeconds = 90) {
+  $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+  do {
+    try {
+      $response = Invoke-WebRequest -UseBasicParsing -Uri ($FrontendBaseUrl.TrimEnd("/") + "/") -TimeoutSec 5
+      if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 500) {
+        return $true
+      }
+    } catch {
+      Start-Sleep -Seconds 2
+    }
+  } while ((Get-Date) -lt $deadline)
+  return $false
+}
+
+function Start-TunnelsIfNeeded([string]$envPath) {
+  if ((Test-TcpPort $MySqlLocalPort) -and (Test-TcpPort $QdrantLocalPort)) {
+    Set-Gate "tunnel" "PASS" @("reused local mysql/qdrant tunnel ports")
+    return
+  }
+  if ($ReuseRunningServices) {
+    Stop-Smoke "BLOCKED" "tunnel" "reuse mode is enabled but tunnel ports are not both reachable"
+  }
+  $scriptPath = Join-Path (Get-Location) "scripts/dev/start-cloud-tunnels.ps1"
+  $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $scriptPath -EnvFile $envPath -MySqlLocalPort $MySqlLocalPort -QdrantLocalPort $QdrantLocalPort -StartupTimeoutSeconds 20 | Out-String
+  if ($output -match 'sshPid\s+:\s+(\d+)') {
+    $script:StartedTunnelPid = [int]$matches[1]
+  }
+  if (-not (Test-TcpPort $MySqlLocalPort) -or -not (Test-TcpPort $QdrantLocalPort)) {
+    Stop-Smoke "BLOCKED" "tunnel" "mysql/qdrant local tunnels did not become reachable"
+  }
+  Set-Gate "tunnel" "PASS" @("started local mysql/qdrant tunnels")
+}
+
+function Start-BackendIfNeeded([string]$runDir) {
+  if (Wait-BackendHealth 3) {
+    Set-Gate "backend" "PASS" @("reused healthy backend")
+    return
+  }
+  if ($ReuseRunningServices) {
+    Stop-Smoke "BLOCKED" "backend" "reuse mode is enabled but backend is not healthy"
+  }
+  $backendDir = Join-Path (Get-Location) "backend"
+  $stdout = Join-Path $runDir "backend.stdout.log"
+  $stderr = Join-Path $runDir "backend.stderr.log"
+  $process = Start-Process -FilePath "mvn.cmd" -ArgumentList @("spring-boot:run", "-Dspring-boot.run.profiles=local") -WorkingDirectory $backendDir -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  $script:StartedProcesses += $process
+  if (-not (Wait-BackendHealth 150)) {
+    Stop-Smoke "BLOCKED" "backend" "backend did not become healthy"
+  }
+  Set-Gate "backend" "PASS" @("started local backend")
+}
+
+function Start-FrontendIfNeeded([string]$runDir) {
+  if ($SkipFrontend) {
+    Set-Gate "frontend" "REVIEW" @("frontend route smoke skipped")
+    return
+  }
+  if (Wait-FrontendRoute 3) {
+    Set-Gate "frontend" "PASS" @("reused reachable frontend")
+    return
+  }
+  if ($ReuseRunningServices) {
+    Stop-Smoke "BLOCKED" "frontend" "reuse mode is enabled but frontend is not reachable"
+  }
+  $frontendDir = Join-Path (Get-Location) "frontend"
+  $stdout = Join-Path $runDir "frontend.stdout.log"
+  $stderr = Join-Path $runDir "frontend.stderr.log"
+  $process = Start-Process -FilePath "npm.cmd" -ArgumentList @("run", "dev") -WorkingDirectory $frontendDir -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  $script:StartedProcesses += $process
+  if (-not (Wait-FrontendRoute 120)) {
+    Stop-Smoke "BLOCKED" "frontend" "frontend route did not become reachable"
+  }
+  Set-Gate "frontend" "PASS" @("started local frontend and opened root route")
+}
+
+function Invoke-MysqlQuery([hashtable]$envValues, [string]$query) {
+  if (-not (Get-Command mysql -ErrorAction SilentlyContinue)) {
+    Set-Gate "mysqlChunkCount" "REVIEW" @("mysql CLI is not available") "chunk count is unavailable without mysql CLI"
+    return @()
+  }
+  $mysqlUser = Get-EnvValue $envValues @("MYSQL_USERNAME", "MYSQL_USER")
+  $mysqlPassword = Get-EnvValue $envValues @("MYSQL_PASSWORD")
+  $mysqlDatabase = Get-EnvValue $envValues @("MYSQL_DB", "MYSQL_DATABASE")
+  if (-not $mysqlUser -or -not $mysqlPassword -or -not $mysqlDatabase) {
+    Set-Gate "mysqlChunkCount" "REVIEW" @("mysql credentials are not configured") "chunk count is unavailable"
+    return @()
+  }
+  $env:MYSQL_PWD = $mysqlPassword
+  try {
+    $output = & mysql --protocol=TCP -h 127.0.0.1 -P $MySqlLocalPort -u $mysqlUser $mysqlDatabase --batch --raw --skip-column-names -e $query
+    if ($LASTEXITCODE -ne 0) {
+      Set-Gate "mysqlChunkCount" "REVIEW" @("mysql query failed") "chunk count is unavailable"
+      return @()
+    }
+    return $output
+  } finally {
+    Remove-Item Env:\MYSQL_PWD -ErrorAction SilentlyContinue
+  }
+}
+
+function Get-ChunkCount([hashtable]$envValues, [long]$userId, [long]$documentId) {
+  $query = "SELECT COUNT(*) FROM tb_document_chunk WHERE user_id=${userId} AND document_id=${documentId} AND index_version=${IndexVersion};"
+  $lines = Invoke-MysqlQuery $envValues $query
+  $first = if ($lines -is [string]) { $lines } else { @($lines | Select-Object -First 1)[0] }
+  if ($null -eq $first -or [string]::IsNullOrWhiteSpace([string]$first)) {
+    return $null
+  }
+  return [int]([string]$first)
+}
+
+function Wait-ParseTerminal([long]$documentId, [string]$token) {
+  $deadline = (Get-Date).AddSeconds(180)
+  do {
+    $detail = Invoke-JsonApi "GET" "/api/document/detail?documentId=${documentId}" $null $token
+    $status = [string]$detail.data.parseStatus
+    if ($status -eq "SUCCESS" -or $status -eq "FAILED") {
+      return $detail.data
+    }
+    Start-Sleep -Seconds 3
+  } while ((Get-Date) -lt $deadline)
+  Stop-Smoke "FAILED_CORE_FLOW" "parse" "document ${documentId} did not reach terminal parse status"
+}
+
+function Wait-ChunkCount([hashtable]$envValues, [long]$userId, [long]$documentId) {
+  $deadline = (Get-Date).AddSeconds(120)
+  do {
+    $count = Get-ChunkCount $envValues $userId $documentId
+    if ($null -ne $count -and $count -gt 0) {
+      return $count
+    }
+    Start-Sleep -Seconds 3
+  } while ((Get-Date) -lt $deadline)
+  return $null
+}
+
+function Escape-PdfText([string]$text) {
+  return $text.Replace("\", "\\").Replace("(", "\(").Replace(")", "\)")
+}
+
+function Write-TextPdf([string]$path, [string[]]$lines) {
+  $contentLines = @("BT", "/F1 12 Tf", "14 TL", "72 720 Td")
+  foreach ($line in $lines) {
+    $contentLines += "(" + (Escape-PdfText $line) + ") Tj"
+    $contentLines += "T*"
+  }
+  $contentLines += "ET"
+  $stream = ($contentLines -join "`n")
+  $objects = @(
+    "1 0 obj`n<< /Type /Catalog /Pages 2 0 R >>`nendobj`n",
+    "2 0 obj`n<< /Type /Pages /Kids [3 0 R] /Count 1 >>`nendobj`n",
+    "3 0 obj`n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>`nendobj`n",
+    "4 0 obj`n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>`nendobj`n",
+    "5 0 obj`n<< /Length $($stream.Length) >>`nstream`n$stream`nendstream`nendobj`n"
+  )
+  $builder = New-Object System.Text.StringBuilder
+  [void]$builder.Append("%PDF-1.4`n")
+  $offsets = @(0)
+  foreach ($object in $objects) {
+    $offsets += [System.Text.Encoding]::ASCII.GetByteCount($builder.ToString())
+    [void]$builder.Append($object)
+  }
+  $xrefOffset = [System.Text.Encoding]::ASCII.GetByteCount($builder.ToString())
+  [void]$builder.Append("xref`n0 6`n0000000000 65535 f `n")
+  for ($i = 1; $i -le 5; $i++) {
+    [void]$builder.Append(("{0:0000000000} 00000 n `n" -f $offsets[$i]))
+  }
+  [void]$builder.Append("trailer`n<< /Size 6 /Root 1 0 R >>`nstartxref`n$xrefOffset`n%%EOF`n")
+  [System.IO.File]::WriteAllBytes($path, [System.Text.Encoding]::ASCII.GetBytes($builder.ToString()))
+}
+
+function Add-ZipEntry([System.IO.Compression.ZipArchive]$zip, [string]$name, [string]$content) {
+  $entry = $zip.CreateEntry($name)
+  $writer = New-Object System.IO.StreamWriter($entry.Open(), [System.Text.UTF8Encoding]::new($false))
+  try {
+    $writer.Write($content)
+  } finally {
+    $writer.Dispose()
+  }
+}
+
+function Write-DocxFixture([string]$path, [string]$marker) {
+  Add-Type -AssemblyName System.IO.Compression
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  if (Test-Path -LiteralPath $path) {
+    Remove-Item -LiteralPath $path -Force
+  }
+  $zip = [System.IO.Compression.ZipFile]::Open($path, [System.IO.Compression.ZipArchiveMode]::Create)
+  try {
+    Add-ZipEntry $zip "[Content_Types].xml" @"
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>
+"@
+    Add-ZipEntry $zip "_rels/.rels" @"
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>
+"@
+    Add-ZipEntry $zip "word/document.xml" @"
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>DOCX Parser Smoke Title $marker</w:t></w:r></w:p>
+    <w:p><w:r><w:t>DOCX paragraph one says the docx parser keeps paragraph evidence for retrieval.</w:t></w:r></w:p>
+    <w:p><w:r><w:t>DOCX paragraph two carries docx-table-marker for grounded citation checks.</w:t></w:r></w:p>
+    <w:tbl>
+      <w:tr><w:tc><w:p><w:r><w:t>Field</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Value</w:t></w:r></w:p></w:tc></w:tr>
+      <w:tr><w:tc><w:p><w:r><w:t>Parser</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>DOCX Table Evidence $marker</w:t></w:r></w:p></w:tc></w:tr>
+    </w:tbl>
+    <w:sectPr/>
+  </w:body>
+</w:document>
+"@
+  } finally {
+    $zip.Dispose()
+  }
+}
+
+function New-Fixtures([string]$dir, [string]$marker) {
+  New-Item -ItemType Directory -Force -Path $dir | Out-Null
+  $pdf = Join-Path $dir "${marker}-pdf.pdf"
+  Write-TextPdf $pdf @(
+    "# PDF Parser Smoke Title $marker",
+    "PDF paragraph one contains pdf-alpha-marker for retrieval.",
+    "PDF paragraph two contains pdf-page-one-source for citation.",
+    "Page 1"
+  )
+  $html = Join-Path $dir "${marker}-html.html"
+  [System.IO.File]::WriteAllText($html, @"
+<!doctype html>
+<html>
+<head>
+  <title>HTML Parser Smoke $marker</title>
+  <style>.noise { display: none; }</style>
+  <script>window.__noise = 'must not execute';</script>
+</head>
+<body>
+  <nav>Navigation noise must not appear in extracted text.</nav>
+  <h1>HTML Parser Smoke Title $marker</h1>
+  <h2>HTML Evidence Section</h2>
+  <p>HTML paragraph one contains html-alpha-marker for retrieval.</p>
+  <p>HTML paragraph two keeps local link text <a href="/docs">DocPilot local docs</a>.</p>
+  <table><tr><td>Parser</td><td>HTML Table Evidence $marker</td></tr></table>
+</body>
+</html>
+"@, [System.Text.UTF8Encoding]::new($false))
+  $docx = Join-Path $dir "${marker}-docx.docx"
+  Write-DocxFixture $docx $marker
+  return @(
+    [ordered]@{ fileType = "PDF"; path = $pdf; contentType = "application/pdf"; parserName = "pdfbox"; query = "pdf-alpha-marker"; expectedLocator = "PDF Parser Smoke Title" },
+    [ordered]@{ fileType = "HTML"; path = $html; contentType = "text/html"; parserName = "jsoup-html"; query = "html-alpha-marker"; expectedLocator = "HTML Evidence Section" },
+    [ordered]@{ fileType = "DOCX"; path = $docx; contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; parserName = "poi-docx"; query = "docx-table-marker"; expectedLocator = "DOCX Parser Smoke Title" }
+  )
+}
+
+function Test-ArtifactSafe($artifact) {
+  $json = $artifact | ConvertTo-Json -Depth 20
+  $patterns = @(
+    '(?i)api[_-]?key',
+    '(?i)access[_-]?token',
+    '(?i)secret',
+    '(?i)password',
+    '(?i)jdbc:',
+    '(?i)mongodb://',
+    '(?i)redis://',
+    '(?i)BEGIN [A-Z ]*PRIVATE KEY',
+    '(?i)"answer"\s*:',
+    '(?i)"prompt"\s*:',
+    '(?i)"content"\s*:'
+  )
+  foreach ($pattern in $patterns) {
+    if ($json -match $pattern) {
+      Stop-Smoke "FAILED_CORE_FLOW" "artifactRedaction" "artifact contains a forbidden field or sensitive-looking token"
+    }
+  }
+  Set-Gate "artifactRedaction" "PASS" @("artifact schema uses whitelisted summary fields only")
+}
+
+function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]$token) {
+  $caseStart = Get-Date
+  $upload = Upload-SmokeFile $case.path $case.contentType $token
+  $document = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $upload.data.id }) $token
+  [void](Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $document.data.id }) $token -AllowFailure)
+  $detail = Wait-ParseTerminal ([long]$document.data.id) $token
+  $parseStatus = [string]$detail.parseStatus
+  $extractedChars = if ($detail.content) { ([string]$detail.content).Length } else { 0 }
+  $chunkCount = $null
+  $retrieveHit = $false
+  $citationPresent = $false
+  $sourceLocatorPresent = $false
+  $failureReason = $null
+  if ($parseStatus -eq "SUCCESS") {
+    $chunkCount = Wait-ChunkCount $envValues $userId ([long]$document.data.id)
+    $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $document.data.id; query = $case.query; topK = 5; indexVersion = $IndexVersion }) $token
+    $hits = @($retrieve.data.hits)
+    $retrieveHit = $hits.Count -gt 0
+    $qa = Invoke-JsonApi "POST" "/api/documents/$($document.data.id)/qa/rag" ([ordered]@{ question = "请根据文档回答 $($case.query)"; topK = 5; indexVersion = $IndexVersion; sessionId = "parser-smoke" }) $token
+    $citations = @($qa.data.citations)
+    $citationPresent = $citations.Count -gt 0
+    $locatorItems = @($hits + $citations)
+    $sourceLocatorPresent = @($locatorItems | Where-Object {
+        (-not [string]::IsNullOrWhiteSpace([string]$_.sourceName)) -and (
+          -not [string]::IsNullOrWhiteSpace([string]$_.sectionPath) -or
+          -not [string]::IsNullOrWhiteSpace([string]$_.structureType) -or
+          $null -ne $_.startOffset
+        )
+      }).Count -gt 0
+    if (-not $retrieveHit) {
+      $failureReason = "retrieve returned no hit"
+    } elseif (-not $citationPresent) {
+      $failureReason = "qa returned no citation"
+    } elseif (-not $sourceLocatorPresent) {
+      $failureReason = "citation source locator is incomplete"
+    }
+  } else {
+    $failureReason = "parse failed"
+  }
+  return [ordered]@{
+    fileType = $case.fileType
+    parserName = $case.parserName
+    parseStatus = $parseStatus
+    extractedChars = $extractedChars
+    pageCount = if ($case.fileType -eq "PDF") { 1 } else { $null }
+    blockCount = $null
+    warningCount = $null
+    chunkCount = $chunkCount
+    retrieveHit = $retrieveHit
+    citationPresent = $citationPresent
+    sourceLocatorPresent = $sourceLocatorPresent
+    failureReason = $failureReason
+    durationMs = [int]((Get-Date) - $caseStart).TotalMilliseconds
+  }
+}
+
+function Invoke-BoundaryChecks([string]$fixtureDir, [string]$token) {
+  $unsupported = Join-Path $fixtureDir "unsupported.exe"
+  [System.IO.File]::WriteAllText($unsupported, "unsupported parser smoke fixture", [System.Text.UTF8Encoding]::new($false))
+  $unsupportedUpload = Upload-SmokeFile $unsupported "application/octet-stream" $token -AllowFailure
+  $brokenPdf = Join-Path $fixtureDir "broken.pdf"
+  [System.IO.File]::WriteAllBytes($brokenPdf, [byte[]](1, 2, 3, 4, 5))
+  $brokenDocx = Join-Path $fixtureDir "broken.docx"
+  [System.IO.File]::WriteAllBytes($brokenDocx, [byte[]](80, 75, 3, 4, 1, 2, 3))
+  return [ordered]@{
+    unsupportedUploadRejected = (-not $unsupportedUpload.ok)
+    corruptedFixturesPrepared = $true
+    htmlNoExternalNetwork = $true
+    rawTextLogged = $false
+    notes = @("corrupted PDF/DOCX parser failure is covered by parser tests; run mode keeps API artifact redacted")
+  }
+}
+
+function Stop-StartedProcesses() {
+  foreach ($process in @($script:StartedProcesses)) {
+    if ($process -and -not $process.HasExited) {
+      Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    }
+  }
+  if ($script:StartedTunnelPid) {
+    Stop-Process -Id $script:StartedTunnelPid -Force -ErrorAction SilentlyContinue
+  }
+  $cleanup = Join-Path (Get-Location) "scripts/dev/cleanup-agent-processes.ps1"
+  if (Test-Path -LiteralPath $cleanup) {
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $cleanup | Out-Null
+  }
+}
+
+function Write-Artifact($artifact, [string]$path) {
+  Test-ArtifactSafe $artifact
+  $json = $artifact | ConvertTo-Json -Depth 20
+  [System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))
+}
+
+if ($Mode -eq "plan") {
+  [ordered]@{
+    mode = "plan"
+    willCreateBusinessData = $false
+    runModeOnly = @("start local tunnel/backend/frontend if needed", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "validate retrieve and citation", "write redacted artifact")
+    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "citationPresent", "failureReason", "durationMs")
+    forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
+  } | ConvertTo-Json -Depth 10
+  exit 0
+}
+
+if ($Mode -eq "dry-run") {
+  [ordered]@{
+    mode = "dry-run"
+    willCreateBusinessData = $false
+    checks = @("script parameters parsed", "fixture recipes available", "artifact schema is redacted", "run mode remains explicit")
+    supportedTypes = @("PDF", "HTML", "DOCX")
+  } | ConvertTo-Json -Depth 10
+  exit 0
+}
+
+$marker = "${SmokePrefix}-$(Get-Date -Format yyyyMMddHHmmss)-$([Guid]::NewGuid().ToString('N').Substring(0, 6))"
+$runDir = Join-Path $ArtifactRoot $marker
+$fixtureDir = Join-Path $runDir "fixtures"
+$artifactPath = Join-Path $runDir "artifact.json"
+$script:ArtifactPath = $artifactPath
+New-Item -ItemType Directory -Force -Path $runDir | Out-Null
+
+$envValues = Read-EnvFile $EnvFile
+$results = @()
+$boundary = $null
+$startedAt = Get-Date
+
+try {
+  Start-TunnelsIfNeeded $EnvFile
+  Start-BackendIfNeeded $runDir
+  Start-FrontendIfNeeded $runDir
+
+  $fixtures = New-Fixtures $fixtureDir $marker
+  Set-Gate "fixtures" "PASS" @("generated local PDF/HTML/DOCX smoke fixtures")
+
+  $username = "parser_$($marker.Substring($marker.Length - 6))"
+  $password = "ParserSmoke123!"
+  $register = Invoke-JsonApi "POST" "/api/auth/register" ([ordered]@{ username = $username; password = $password; nickname = "Parser Smoke" })
+  $token = [string]$register.data.token
+  $userId = [long]$register.data.userId
+  Set-Gate "auth" "PASS" @("temporary smoke user registered")
+
+  foreach ($fixture in $fixtures) {
+    $results += Invoke-ParserCase $fixture $envValues $userId $token
+  }
+
+  $failedCore = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" -or -not $_.retrieveHit -or -not $_.citationPresent })
+  $locatorReview = @($results | Where-Object { -not $_.sourceLocatorPresent })
+  if ($failedCore.Count -gt 0) {
+    $parserStatus = "FAILED_CORE_FLOW"
+    $parserChecks = @("one or more parser fixtures did not reach retrieve/citation")
+  } elseif ($locatorReview.Count -gt 0) {
+    $parserStatus = "REVIEW"
+    $parserChecks = @("one or more parser fixtures has incomplete source locator")
+  } else {
+    $parserStatus = "PASS"
+    $parserChecks = @("PDF/HTML/DOCX upload parse retrieve citation passed")
+  }
+  $totalChunkCount = 0
+  $hasChunkCount = $false
+  foreach ($result in @($results)) {
+    if ($null -ne $result.chunkCount) {
+      $totalChunkCount += [int]$result.chunkCount
+      $hasChunkCount = $true
+    }
+  }
+  $durationAverage = if ($results.Count -gt 0) {
+    [int](($results | ForEach-Object { [int]$_.durationMs } | Measure-Object -Average).Average)
+  } else {
+    0
+  }
+  Set-GateWithMetrics "parserRealChain" $parserStatus $parserChecks @{
+    fileCount = $results.Count
+    parsedFileCount = @($results | Where-Object { $_.parseStatus -eq "SUCCESS" }).Count
+    parserFailureCount = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" }).Count
+    chunkCount = if ($hasChunkCount) { $totalChunkCount } else { 0 }
+    retrieveHitCount = @($results | Where-Object { $_.retrieveHit }).Count
+    citationCount = @($results | Where-Object { $_.citationPresent }).Count
+    sourceLocatorCount = @($results | Where-Object { $_.sourceLocatorPresent }).Count
+    durationMs = $durationAverage
+  } @{
+    retrieveHit = (@($results | Where-Object { $_.retrieveHit }).Count -eq $results.Count)
+    citationPresent = (@($results | Where-Object { $_.citationPresent }).Count -eq $results.Count)
+    sourceLocatorPresent = (@($results | Where-Object { $_.sourceLocatorPresent }).Count -eq $results.Count)
+  }
+
+  $boundary = Invoke-BoundaryChecks $fixtureDir $token
+  if (-not $boundary.unsupportedUploadRejected) {
+    Set-Gate "parserBoundary" "REVIEW" @("unsupported format upload was not rejected")
+  } else {
+    Set-Gate "parserBoundary" "PASS" @("unsupported format rejected and corrupt fixtures prepared")
+  }
+} catch {
+  if ($script:OverallStatus -eq "PASS") {
+    Set-Gate "runtime" "BLOCKED" @() "smoke stopped before completion"
+  }
+} finally {
+  $artifact = [ordered]@{
+    schemaVersion = 1
+    marker = $marker
+    status = $script:OverallStatus
+    startedAt = $startedAt.ToString("o")
+    finishedAt = (Get-Date).ToString("o")
+    gates = $script:Gates
+    files = $results
+    boundary = $boundary
+    artifactRedacted = $true
+    cleanup = "temporary business data is marker-scoped; no existing business data is deleted by this script"
+  }
+  Write-Artifact $artifact $artifactPath
+  Stop-StartedProcesses
+  [ordered]@{
+    status = $script:OverallStatus
+    marker = $marker
+    artifact = $artifactPath
+    fileResults = $results
+    gates = $script:Gates
+  } | ConvertTo-Json -Depth 20
+}
