@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-06 Agent Quality Console 指标可信度与失败桶可行动化
+
+- `/quality` 的通过率、复查率、失败率已改为百分比 + 分子 / 分母展示，并在说明中明确分母为 `totalRuns`。
+- token / 成本展示语义已修正：缺少 `token_usage` 或 `estimatedCost` 样本时显示“暂无统计”或“暂无样本”，只有明确数值为 `0` 时才显示 `0`。
+- 质量诊断卡新增“优先排查”字段，把异常指标直接指向 `Failures / Gates / Trace`、`Citation / RAG / Eval Scorer`、`LLM / RAG / Tool latency`、`Context / Prompt / RAG chunks` 等排查入口。
+- 失败类型 TopN 和复查类型 TopN 已增加模块标签、次数、简短说明和建议动作；bucket 归类优先识别 RAG、Citation、Tool、Memory、Security、Env，无法归类时保留 `Unknown / 其他` 并提示需要补充映射规则。
+- 边界：本片只改前端现有 DTO 映射，不改后端 API、不新增数据库表、不展示 raw artifact、prompt、answer 原文、文档全文、evidence context、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 打开 `/quality?autoload=1`，桌面和 `390px` 移动端无 console error、无横向溢出；已验证分子 / 分母、缺失 token 降级、模块标签、建议动作和 Unknown fallback 文案。
+
 ## 2026-07-06 Agent Quality Console P1 parser 安全摘要增强
 
 - `QualityRunDetail` 新增 `diagnostics` 安全摘要，包含文档覆盖、工具质量和记忆质量三组数值统计。

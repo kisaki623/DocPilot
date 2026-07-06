@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console P1 parser 安全摘要增强（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+当前任务：Agent Quality Console 质量指标可信度与失败桶可行动化增强（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+
+## 2026-07-06 补充：Agent Quality Console 质量指标可信度与失败桶可行动化
+
+- 目标：不继续堆新指标、不做 P1 / P2 大功能，只把当前 `/quality` 已有通过率、复查率、失败率、token、成本、失败类型 TopN 和复查类型 TopN 改得更可信、更可解释、更能指导排查。
+- 已完成前端：Overview 诊断卡的通过率、复查率、失败率现在展示百分比和分子 / 分母，例如 `1 / 3`，并在说明中明确分母为 `totalRuns`；复查率说明已明确 REVIEW / BLOCKED 是质量风险，不一定阻断核心链路。
+- 已完成指标语义修正：`token_usage` 缺失或无法解析时显示“暂无统计”，不再误显示为 `0`；只有明确 `totalTokens=0` 时才显示 `0`。成本同理，缺少 `estimatedCost` 样本时显示“暂无样本”。
+- 已完成质量诊断增强：每张诊断卡保留原建议，并新增“优先排查”字段，例如失败率优先看 `Failures / Gates / Trace`，复查率优先看 `Citation / RAG / Eval Scorer`，P95 延迟优先看 `LLM / RAG / Tool latency`，token 偏高优先看 `Context / Prompt / RAG chunks`。
+- 已完成失败 / 复查 TopN 增强：每个 bucket 现在展示类型名称、次数、简短说明、建议动作和模块标签；模块标签覆盖 `RAG`、`Citation`、`Tool`、`Memory`、`Security`、`Env` 和 `Unknown`。无法可靠归类时仍保留 `Unknown / 其他`，并提示需要补充 bucket 映射规则。
+- 边界：本片只改前端基于现有 DTO 的安全映射，不改后端 API、不新增数据库表、不读取 raw artifact、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 打开 `/quality?autoload=1`，桌面和 `390px` 移动端均无 console error、无横向溢出，并验证分子 / 分母、缺失 token 降级、模块标签、建议动作和 Unknown fallback 文案可见。
 
 ## 2026-07-06 补充：Agent Quality Console P1 parser 安全摘要增强
 

@@ -125,18 +125,24 @@ interface DiagnosticItem {
   helper: string;
   tone?: DiagnosticTone;
   action?: string;
+  priority?: string;
 }
 
 interface BucketDiagnostic {
   bucket: string;
   label: string;
   count: number;
+  module: "RAG" | "Citation" | "Tool" | "Memory" | "Security" | "Env" | "Unknown";
+  description: string;
   action: string;
   tone: DiagnosticTone;
 }
 
 interface OverviewDiagnostics {
   totalRuns: number;
+  passRuns: number;
+  reviewRuns: number;
+  failedRuns: number;
   passRate: number | null;
   reviewRate: number | null;
   failRate: number | null;
@@ -196,6 +202,7 @@ function normalizeTriageBucket(value?: string): string {
   }
   if (
     lower.includes("citation") ||
+    lower.includes("quote") ||
     lower.includes("unsupported") ||
     lower.includes("grounding") ||
     lower.includes("support")
@@ -203,6 +210,11 @@ function normalizeTriageBucket(value?: string): string {
     return "CITATION_UNSUPPORTED";
   }
   if (
+    lower.includes("chunk") ||
+    lower.includes("embedding") ||
+    lower.includes("vector") ||
+    lower.includes("qdrant") ||
+    lower.includes("index") ||
     lower.includes("retrieval") ||
     lower.includes("retrieve") ||
     lower.includes("miss") ||
@@ -220,7 +232,10 @@ function normalizeTriageBucket(value?: string): string {
     lower.includes("permission") ||
     lower.includes("forbidden") ||
     lower.includes("unauthorized") ||
-    lower.includes("scope")
+    lower.includes("scope") ||
+    lower.includes("security") ||
+    lower.includes("redaction") ||
+    lower.includes("auth")
   ) {
     return "PERMISSION_REGRESSION";
   }
@@ -239,6 +254,10 @@ function normalizeTriageBucket(value?: string): string {
     lower.includes("timeout") ||
     lower.includes("health") ||
     lower.includes("tunnel") ||
+    lower.includes("mysql") ||
+    lower.includes("redis") ||
+    lower.includes("minio") ||
+    lower.includes("rocketmq") ||
     lower.includes("env") ||
     lower.includes("parsefailed") ||
     lower.includes("artifactparsefailed")
@@ -343,8 +362,14 @@ function summarizeTextList(values?: string[]): string {
   return values.slice(0, 4).join(" / ");
 }
 
-function tokenUsageTotal(runs: QualityRunSummary[]): number {
-  return runs.reduce((sum, item) => sum + (item.tokenUsage?.totalTokens || 0), 0);
+function tokenUsageTotalOrNull(runs: QualityRunSummary[]): number | null {
+  const values = runs
+    .map((item) => item.tokenUsage?.totalTokens)
+    .filter((value): value is number => typeof value === "number" && !Number.isNaN(value));
+  if (values.length === 0) {
+    return null;
+  }
+  return values.reduce((sum, value) => sum + value, 0);
 }
 
 function tokenUsageValue(tokenUsage?: QualityTokenUsageSummary): number | null {
@@ -353,7 +378,7 @@ function tokenUsageValue(tokenUsage?: QualityTokenUsageSummary): number | null {
 
 function formatTokenUsage(tokenUsage?: QualityTokenUsageSummary): string {
   if (!tokenUsage) {
-    return "-";
+    return "暂无统计";
   }
   const parts = [
     ["提示词 tokens", tokenUsage.promptTokens],
@@ -365,7 +390,7 @@ function formatTokenUsage(tokenUsage?: QualityTokenUsageSummary): string {
   if (typeof tokenUsage.estimatedCost === "number") {
     parts.push(`估算成本: ${formatNumber(tokenUsage.estimatedCost)}`);
   }
-  return parts.length === 0 ? "-" : parts.join(" / ");
+  return parts.length === 0 ? "暂无统计" : parts.join(" / ");
 }
 
 function formatRate(value: number | null): string {
@@ -373,6 +398,17 @@ function formatRate(value: number | null): string {
     return "暂无样本";
   }
   return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatRateWithSample(value: number | null, numerator: number, denominator: number): string {
+  if (value === null || denominator <= 0) {
+    return "暂无样本";
+  }
+  return `${formatRate(value)} (${numerator} / ${denominator})`;
+}
+
+function formatNullableStat(value: number | null | undefined, emptyText = "暂无统计"): string {
+  return typeof value === "number" && !Number.isNaN(value) ? formatNumber(value) : emptyText;
 }
 
 function formatCost(value: number | null): string {
@@ -486,6 +522,55 @@ function bucketAction(bucket: string): string {
   }
 }
 
+function bucketDescription(bucket: string): string {
+  const category = normalizeTriageBucket(bucket);
+  switch (category) {
+    case "RAG_RETRIEVAL_MISS":
+      return "检索、切片、索引或召回覆盖不足，可能导致有答案却无证据。";
+    case "CITATION_UNSUPPORTED":
+      return "回答引用与证据支撑关系需要复核，属于可信引用风险。";
+    case "DISTRACTOR_CITATION":
+      return "答案挂载了干扰文档或低相关引用，影响 grounded QA 可信度。";
+    case "NO_EVIDENCE_FALSE_POSITIVE":
+      return "无证据判断边界异常，可能误答或误拒答。";
+    case "MEMORY_CONFLICT":
+      return "长期记忆命中、去重、冲突或治理链路需要复查。";
+    case "TOOL_FAILURE":
+      return "工具选择、参数、超时、重试或 fallback 存在风险。";
+    case "PERMISSION_REGRESSION":
+      return "权限隔离、脱敏或访问控制相关风险，应优先确认。";
+    case "FRONTEND_UX":
+      return "前端路径、控制台错误或移动端展示影响真实排查体验。";
+    case "ENV_BLOCKED":
+      return "本地依赖、tunnel、健康检查或 artifact 解析阻塞了质量判断。";
+    default:
+      return "当前只能归为 Unknown，需要补充 bucket 映射规则或上游更稳定的失败类型。";
+  }
+}
+
+function bucketModule(bucket: string): BucketDiagnostic["module"] {
+  const category = normalizeTriageBucket(bucket);
+  switch (category) {
+    case "RAG_RETRIEVAL_MISS":
+    case "NO_EVIDENCE_FALSE_POSITIVE":
+      return "RAG";
+    case "CITATION_UNSUPPORTED":
+    case "DISTRACTOR_CITATION":
+      return "Citation";
+    case "TOOL_FAILURE":
+      return "Tool";
+    case "MEMORY_CONFLICT":
+      return "Memory";
+    case "PERMISSION_REGRESSION":
+      return "Security";
+    case "FRONTEND_UX":
+    case "ENV_BLOCKED":
+      return "Env";
+    default:
+      return "Unknown";
+  }
+}
+
 function bucketTone(bucket: string): DiagnosticTone {
   const category = normalizeTriageBucket(bucket);
   if (category === "PERMISSION_REGRESSION") {
@@ -513,6 +598,8 @@ function topBucketDiagnostics(values: string[], limit = 5): BucketDiagnostic[] {
       bucket,
       label: labelBucket(bucket),
       count,
+      module: bucketModule(bucket),
+      description: bucketDescription(bucket),
       action: bucketAction(bucket),
       tone: bucketTone(bucket),
     }));
@@ -675,6 +762,9 @@ function buildOverviewDiagnostics(
 
   return {
     totalRuns,
+    passRuns,
+    reviewRuns,
+    failedRuns,
     passRate: ratio(passRuns, totalRuns),
     reviewRate: ratio(reviewRuns, totalRuns),
     failRate: ratio(failedRuns, totalRuns),
@@ -1154,7 +1244,7 @@ export default function QualityPage() {
       pass,
       review,
       failed,
-      tokens: tokenUsageTotal(runs),
+      tokens: tokenUsageTotalOrNull(runs),
     };
   }, [runs]);
 
@@ -1257,7 +1347,7 @@ function QualityOverviewHeader({
     pass: number;
     review: number;
     failed: number;
-    tokens: number;
+    tokens: number | null;
   };
   diagnostics: OverviewDiagnostics;
   latestRun?: QualityRunSummary;
@@ -1267,45 +1357,63 @@ function QualityOverviewHeader({
   const overviewCards: DiagnosticItem[] = [
     {
       label: "通过率",
-      value: formatRate(diagnostics.passRate),
-      helper: "最近加载运行中 PASS / SUCCESS 的比例。",
+      value: formatRateWithSample(
+        diagnostics.passRate,
+        diagnostics.passRuns,
+        diagnostics.totalRuns
+      ),
+      helper: "最近加载运行中 PASS / SUCCESS 的比例，分母为 totalRuns。",
       tone: diagnosticToneForRate(diagnostics.passRate, 0.9, 0.75),
       action: "偏低时先看失败桶 TopN 和最新 run 的待处理项。",
+      priority: "Failures / Gates / Trace",
     },
     {
       label: "复查率",
-      value: formatRate(diagnostics.reviewRate),
-      helper: "REVIEW / BLOCKED 运行占比。",
+      value: formatRateWithSample(
+        diagnostics.reviewRate,
+        diagnostics.reviewRuns,
+        diagnostics.totalRuns
+      ),
+      helper: "REVIEW / BLOCKED 运行占比，分母为 totalRuns；复查表示质量风险，不一定阻断核心链路。",
       tone: diagnosticToneForBadRate(diagnostics.reviewRate, 0.15, 0.3),
       action: "偏高时优先补齐 evidence、Trace 和环境稳定性。",
+      priority: "Citation / RAG / Eval Scorer",
     },
     {
       label: "失败率",
-      value: formatRate(diagnostics.failRate),
-      helper: "FAILED_* 运行占比。",
+      value: formatRateWithSample(
+        diagnostics.failRate,
+        diagnostics.failedRuns,
+        diagnostics.totalRuns
+      ),
+      helper: "FAILED_* 运行占比，分母为 totalRuns。",
       tone: diagnosticToneForBadRate(diagnostics.failRate, 0.05, 0.15),
       action: "偏高时直接进入 Failures，先处理核心链路失败。",
+      priority: "Failures / Gates / Trace",
     },
     {
       label: "P95 延迟",
-      value: formatNumber(diagnostics.p95LatencyMs),
+      value: formatNullableStat(diagnostics.p95LatencyMs),
       helper: "基于最近 trend points 的 latencyMs。",
       tone: diagnostics.p95LatencyMs === null ? "neutral" : diagnostics.p95LatencyMs > 5000 ? "warning" : "success",
       action: "明显升高时检查模型调用、工具调用和重试次数。",
+      priority: "LLM / RAG / Tool latency",
     },
     {
       label: "平均 tokens",
-      value: formatNumber(diagnostics.avgTokens),
-      helper: "最近运行 totalTokens 的平均值。",
+      value: formatNullableStat(diagnostics.avgTokens),
+      helper: "最近运行中存在 totalTokens 样本时才计算平均值；字段缺失不按 0 处理。",
       tone: "neutral",
       action: "持续升高时检查 prompt 上下文、RAG evidence 和历史消息裁剪。",
+      priority: "Context / Prompt / RAG chunks",
     },
     {
       label: "成功运行成本",
       value: formatCost(diagnostics.costPerSuccessfulRun),
-      helper: "总估算成本 / 成功运行数。",
+      helper: "存在 estimatedCost 样本且有成功运行时才计算；字段缺失显示暂无样本。",
       tone: "neutral",
       action: "升高时优先排查高 token 或重复模型调用路径。",
+      priority: "Model calls / Token usage / Retry",
     },
   ];
 
@@ -1352,7 +1460,7 @@ function QualityOverviewHeader({
         <MetricCard label="通过" value={stats.pass} tone="success" />
         <MetricCard label="需复查 / 阻塞" value={stats.review} tone="warning" />
         <MetricCard label="失败" value={stats.failed} tone="danger" />
-        <MetricCard label="总 tokens" value={formatNumber(stats.tokens)} />
+        <MetricCard label="总 tokens" value={formatNullableStat(stats.tokens)} />
       </section>
 
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -1722,8 +1830,8 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
         <div className="mt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <SmallMetric label="平均通过率" value={formatPercent(trend.averageCasePassRate)} />
-            <SmallMetric label="总 Token" value={formatNumber(trend.totalTokens)} />
-            <SmallMetric label="估算成本" value={formatNumber(trend.estimatedCost)} />
+            <SmallMetric label="总 Token" value={formatNullableStat(trend.totalTokens)} />
+            <SmallMetric label="估算成本" value={formatCost(trend.estimatedCost ?? null)} />
             <SmallMetric label="平均延迟" value={formatNumber(trend.averageLatencyMs)} />
           </div>
           <TrendTextRow label="状态分布" value={statusText} />
@@ -2271,6 +2379,11 @@ function DiagnosticCard({ item }: { item: DiagnosticItem }) {
         {item.value}
       </p>
       <p className="mt-2 break-words text-xs text-slate-600">{item.helper}</p>
+      {item.priority ? (
+        <p className="mt-2 break-words text-xs font-semibold text-slate-800">
+          优先排查：{item.priority}
+        </p>
+      ) : null}
       {item.action ? (
         <p className="mt-2 break-words text-xs font-semibold text-slate-800">
           建议：{item.action}
@@ -2317,13 +2430,23 @@ function BucketActionRow({ item }: { item: BucketDiagnostic }) {
           : "border-slate-200 bg-slate-50";
   return (
     <div className={`min-w-0 rounded-lg border p-3 ${toneClass}`}>
-      <div className="flex min-w-0 items-start justify-between gap-2">
-        <p className="break-words text-sm font-semibold text-slate-900">
-          {item.label}
-        </p>
-        <span className="dp-badge dp-badge-neutral">{item.count}</span>
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold text-slate-900">
+            {item.label}
+          </p>
+          <p className="mt-1 break-words text-xs text-slate-600">
+            {item.description}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <span className="dp-badge dp-badge-neutral">{item.module}</span>
+          <span className="dp-badge dp-badge-neutral">次数 {item.count}</span>
+        </div>
       </div>
-      <p className="mt-2 break-words text-xs text-slate-600">{item.action}</p>
+      <p className="mt-2 break-words text-xs font-semibold text-slate-800">
+        建议动作：{item.action}
+      </p>
     </div>
   );
 }
@@ -3120,13 +3243,13 @@ function OperationalSummaryPanel({
         <span className="dp-badge dp-badge-neutral">仅数值</span>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SmallFact label="提示词 tokens" value={formatNumber(summary.promptTokens)} />
+        <SmallFact label="提示词 tokens" value={formatNullableStat(summary.promptTokens)} />
         <SmallFact
           label="回答 tokens"
-          value={formatNumber(summary.completionTokens)}
+          value={formatNullableStat(summary.completionTokens)}
         />
-        <SmallFact label="总 tokens" value={formatNumber(summary.totalTokens)} />
-        <SmallFact label="估算成本" value={formatNumber(summary.estimatedCost)} />
+        <SmallFact label="总 tokens" value={formatNullableStat(summary.totalTokens)} />
+        <SmallFact label="估算成本" value={formatCost(summary.estimatedCost)} />
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <SmallFact label="模型调用数" value={formatNumber(summary.modelCallCount)} />
