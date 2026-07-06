@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-06 Agent Quality Console 延迟指标缺样本语义修正
+
+- `/quality` Trend 面板“平均延迟”已改为缺样本显示“暂无统计”，与 token / 成本缺样本语义保持一致。
+- Overview 的 P95 延迟说明已补充：该指标基于最近 trend points 的 `latencyMs`，没有 point 样本时显示“暂无统计”，不硬算。
+- 边界：本片只改前端展示语义，不改后端 API、不新增数据库表、不读取 raw artifact、不启动真实链路。
+
 ## 2026-07-06 前端文档详情错误提示乱码兜底清理
 
 - `frontend/app/documents/[documentId]/page.tsx` 已移除历史 mojibake 错误消息字面量匹配，文档错误 hint 只基于正常中文 `无权` / `不存在` 判断。

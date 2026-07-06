@@ -1,6 +1,12 @@
 # Current Task
 
-当前任务：前端文档详情错误提示乱码兜底清理（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+当前任务：Agent Quality Console 延迟指标缺样本语义修正（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+
+## 2026-07-06 补充：Agent Quality Console 延迟指标缺样本语义修正
+
+- 目标：继续收口 `/quality` 质量指标可信度，避免 Trend 面板里的延迟字段在缺少样本时显示不明确的 `-`。
+- 已完成前端：Trend 面板“平均延迟”改为缺样本显示“暂无统计”；Overview 的 P95 延迟说明补充“基于最近 trend points 的 `latencyMs`，没有 point 样本时显示暂无统计”。
+- 边界：本片只改前端展示语义，不改后端 API、不新增数据库表、不读取 raw artifact、不启动真实链路。
 
 ## 2026-07-06 补充：前端文档详情错误提示乱码兜底清理
 

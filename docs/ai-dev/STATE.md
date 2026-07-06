@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-06 Agent Quality Console 延迟指标缺样本语义修正已完成。`/quality` Trend 面板“平均延迟”在缺少样本时显示“暂无统计”，Overview 的 P95 延迟说明明确依赖最近 trend points 的 `latencyMs`，没有 point 样本时不硬算。本片只改前端展示语义，不改后端 API、不新增数据库表、不读取 raw artifact。
 - 2026-07-06 前端文档详情错误提示乱码兜底清理已完成。`frontend/app/documents/[documentId]/page.tsx` 的文档错误 hint 不再匹配历史 mojibake 字面量，只基于统一 API 错误归一后的正常中文 `无权` / `不存在` 生成提示；`frontend/lib/api.ts` 已负责把文档和知识库权限 / 不存在错误归一为中文。已验证 `npm run lint` PASS、`npm run build` PASS，前端源码和本轮文档乱码扫描无命中。
 - 2026-07-06 Agent Quality Console 质量指标可信度与失败桶可行动化增强已完成。`/quality` 的通过率、复查率、失败率现在展示分子 / 分母并明确分母为 `totalRuns`；`token_usage` 或 `estimatedCost` 缺失时显示“暂无统计”或“暂无样本”，只有明确数值为 `0` 时才展示 `0`。质量诊断卡新增“优先排查”字段，失败 / 复查类型 TopN 新增模块标签、次数、说明和建议动作，无法归类时保留 `Unknown / 其他` 并提示需要补充 bucket 映射规则。本片只改前端安全映射，不改后端 API、不新增数据库表、不读取 raw artifact、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。已验证 `npm run lint` PASS、`npm run build` PASS，Playwright mock Quality API 桌面和 `390px` 移动端 PASS。
 - 2026-07-06 Agent Quality Console P1 parser 安全摘要增强已完成。后端 `QualityRunDetail` 新增 `diagnostics`，从 artifact 白名单字段聚合 `documentCoverage`、`toolQuality` 和 `memoryQuality` 三组安全数值摘要；`documentHitCounts` 只转成覆盖数量、零命中文档数和 min/max 命中数，不返回文档 ID 或原始 map。前端 `/quality` 的 RAG / 记忆 / 工具调用诊断卡已展示命中文档分布、记忆命中摘要和工具参数复查摘要；缺字段时降级为“暂无安全摘要”。本片不新增数据库表、不新增 API、不读取业务库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。已验证 `mvn "-Dtest=*Quality*" test` PASS，38 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 桌面和 `390px` 移动端 PASS，端口已清理释放。

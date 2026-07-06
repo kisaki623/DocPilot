@@ -1394,7 +1394,7 @@ function QualityOverviewHeader({
     {
       label: "P95 延迟",
       value: formatNullableStat(diagnostics.p95LatencyMs),
-      helper: "基于最近 trend points 的 latencyMs。",
+      helper: "基于最近 trend points 的 latencyMs；没有 point 样本时显示暂无统计。",
       tone: diagnostics.p95LatencyMs === null ? "neutral" : diagnostics.p95LatencyMs > 5000 ? "warning" : "success",
       action: "明显升高时检查模型调用、工具调用和重试次数。",
       priority: "LLM / RAG / Tool latency",
@@ -1832,7 +1832,7 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
             <SmallMetric label="平均通过率" value={formatPercent(trend.averageCasePassRate)} />
             <SmallMetric label="总 Token" value={formatNullableStat(trend.totalTokens)} />
             <SmallMetric label="估算成本" value={formatCost(trend.estimatedCost ?? null)} />
-            <SmallMetric label="平均延迟" value={formatNumber(trend.averageLatencyMs)} />
+            <SmallMetric label="平均延迟" value={formatNullableStat(trend.averageLatencyMs)} />
           </div>
           <TrendTextRow label="状态分布" value={statusText} />
           <TrendTextRow label="失败类型" value={failureText} tone="danger" />
