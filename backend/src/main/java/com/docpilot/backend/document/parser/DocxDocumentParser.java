@@ -80,7 +80,7 @@ public class DocxDocumentParser implements DocumentParser {
         if (text.isBlank()) {
             return;
         }
-        BlockType blockType = isHeading(paragraph) ? BlockType.HEADING : BlockType.PARAGRAPH;
+        BlockType blockType = blockType(paragraph);
         if (blockType == BlockType.HEADING) {
             updateSectionPath(sectionPath, headingDepth(paragraph), text);
         }
@@ -141,6 +141,17 @@ public class DocxDocumentParser implements DocumentParser {
     private boolean isHeading(XWPFParagraph paragraph) {
         String style = paragraph.getStyle();
         return style != null && style.toLowerCase().startsWith("heading");
+    }
+
+    private BlockType blockType(XWPFParagraph paragraph) {
+        if (isHeading(paragraph)) {
+            return BlockType.HEADING;
+        }
+        String style = paragraph.getStyle();
+        if (paragraph.getNumID() != null || (style != null && style.toLowerCase().contains("list"))) {
+            return BlockType.LIST;
+        }
+        return BlockType.PARAGRAPH;
     }
 
     private int headingDepth(XWPFParagraph paragraph) {

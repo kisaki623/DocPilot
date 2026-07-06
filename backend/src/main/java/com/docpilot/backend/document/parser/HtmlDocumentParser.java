@@ -56,7 +56,7 @@ public class HtmlDocumentParser implements DocumentParser {
                 if (shouldSkipLink(element)) {
                     continue;
                 }
-                String text = ParserTextUtils.normalize(element.text());
+                String text = elementText(element);
                 if (text.isBlank()) {
                     continue;
                 }
@@ -121,6 +121,17 @@ public class HtmlDocumentParser implements DocumentParser {
             return BlockType.LINK;
         }
         return BlockType.PARAGRAPH;
+    }
+
+    private String elementText(Element element) {
+        if ("tr".equals(element.normalName())) {
+            List<String> cells = element.select("th,td").stream()
+                    .map(cell -> ParserTextUtils.normalize(cell.text()))
+                    .filter(text -> !text.isBlank())
+                    .toList();
+            return ParserTextUtils.normalize(String.join(" | ", cells));
+        }
+        return ParserTextUtils.normalize(element.text());
     }
 
     private int headingDepth(Element element) {

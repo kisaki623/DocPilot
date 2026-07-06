@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Document Parser 错误边界 API 负向增强（DONE）；下一片：Document Parser fixture corpus v2（READY）
+当前任务：Document Parser fixture corpus v2（DONE）；下一片：Document Parser Quality Console parser 指标展示增强（READY）
+
+## 2026-07-06 补充：Document Parser fixture corpus v2
+
+- 目标：把 parser 单测 fixture 从最简单文本样例推进到更接近真实文档结构的质量门禁，覆盖多页 PDF、HTML 层级 / 表格 / 链接和 DOCX 标题 / 列表 / 表格。
+- 已完成 HTML parser 增强：`tr` 行现在按 `th/td` 单元格抽取并用 ` | ` 分隔，避免表格结构被压成不可读空格文本；独立链接仍作为 `LINK` block，段落 / 列表内链接继续合并进正文。
+- 已完成 DOCX parser 增强：带编号或 list 样式的段落会标记为 `BlockType.LIST`，并继承当前 `sectionPath`，方便后续 chunk metadata 和 citation 定位列表来源。
+- 已完成 fixture 断言：PDF fixture 覆盖 3 页且中间空页生成 `empty_page:2` warning；HTML fixture 覆盖 `h1/h2`、表格行、列表、独立链接和噪声标签剔除；DOCX fixture 覆盖 `Heading1/Heading2`、普通段落、list 样式段落和表格。
+- 已验证离线测试：`mvn "-Dtest=DocumentParserTest" test` PASS，7 tests；`mvn "-Dtest=*Parser*,ParseTaskConsumeEntryServiceImplTest,FileContentReaderTest,FileServiceImplTest" test` PASS，44 tests。
+- 已验证真实链路：`document-parser-real-chain-smoke.ps1 -Mode run` PASS，marker `docpilot-parser-real-chain-20260706215802-78374c`，PDF / HTML / DOCX 均 parse SUCCESS、chunk、retrieve、QA citation 和 source locator PASS，parserBoundary 继续 PASS。
+- 边界：本片不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原；真实 run 创建临时 smoke 数据和 ignored 脱敏 artifact，不删除业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：把 Document Parser 的安全摘要接入 Agent Quality Console 的 Run Detail，让 parserName、parseStatus、extractedChars、pageCount、blockCount、warningCount 和 parserBoundary 结果在内部质量控制台更容易阅读。
 
 ## 2026-07-06 补充：Document Parser 错误边界 API 负向增强
 

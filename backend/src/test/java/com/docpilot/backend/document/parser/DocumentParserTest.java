@@ -46,16 +46,19 @@ class DocumentParserTest {
     void shouldExtractPdfTextWithPageBlocks() throws Exception {
         PdfDocumentParser parser = new PdfDocumentParser(fileContentReader);
         when(fileContentReader.readBytes(eq("demo.pdf"), anyLong()))
-                .thenReturn(pdfBytes("PDF first page marker", "PDF second page marker"));
+                .thenReturn(pdfBytes("PDF first page marker", "", "PDF third page marker"));
 
         ParseResult result = parser.parse(input("demo.pdf", "pdf", "application/pdf", 1024L));
 
         assertEquals("pdfbox", result.parserName());
-        assertEquals(2, result.pageCount());
+        assertEquals(3, result.pageCount());
         assertEquals(2, result.blocks().size());
         assertEquals(1, result.blocks().get(0).pageNumber());
+        assertEquals(3, result.blocks().get(1).pageNumber());
+        assertEquals("page:3", result.blocks().get(1).sourceLocator());
+        assertTrue(result.warnings().contains("empty_page:2"));
         assertTrue(result.fullText().contains("PDF first page marker"));
-        assertTrue(result.fullText().contains("PDF second page marker"));
+        assertTrue(result.fullText().contains("PDF third page marker"));
     }
 
     @Test
@@ -75,19 +78,29 @@ class DocumentParserTest {
         when(fileContentReader.readText("demo.html")).thenReturn("""
                 <html><head><style>.x{}</style><script>alert(1)</script></head>
                 <body><nav>Navigation noise</nav><h1>Alpha Title</h1>
+                <h2>Metrics Section</h2>
                 <p>Useful body marker <a href="/local">local link</a></p>
-                <ul><li>List marker</li></ul><footer>Footer noise</footer></body></html>
+                <table><tr><th>Metric</th><th>Value</th></tr><tr><td>Parser</td><td>HTML</td></tr></table>
+                <ul><li>List marker</li></ul><a href="/standalone">Standalone reference</a>
+                <footer>Footer noise</footer></body></html>
                 """);
 
         ParseResult result = parser.parse(input("demo.html", "html", "text/html", 200L));
 
         assertEquals("jsoup-html", result.parserName());
         assertTrue(result.fullText().contains("# Alpha Title"));
+        assertTrue(result.fullText().contains("## Metrics Section"));
         assertTrue(result.fullText().contains("Useful body marker local link"));
+        assertTrue(result.fullText().contains("Metric | Value"));
+        assertTrue(result.fullText().contains("Parser | HTML"));
         assertTrue(result.fullText().contains("List marker"));
+        assertTrue(result.fullText().contains("Standalone reference"));
         assertFalse(result.fullText().contains("Navigation noise"));
         assertFalse(result.fullText().contains("alert"));
         assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.HEADING));
+        assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.TABLE
+                && "Alpha Title / Metrics Section".equals(block.sectionPath())));
+        assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.LINK));
         DocumentBlock heading = result.blocks().stream()
                 .filter(block -> block.blockType() == BlockType.HEADING)
                 .findFirst()
@@ -106,9 +119,13 @@ class DocumentParserTest {
 
         assertEquals("poi-docx", result.parserName());
         assertTrue(result.fullText().contains("# Docx Section"));
+        assertTrue(result.fullText().contains("## Docx Nested Section"));
         assertTrue(result.fullText().contains("Docx paragraph marker"));
+        assertTrue(result.fullText().contains("Docx list marker"));
         assertTrue(result.fullText().contains("Parser | DOCX"));
         assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.TABLE));
+        assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.LIST
+                && "Docx Section / Docx Nested Section".equals(block.sectionPath())));
         DocumentBlock heading = result.blocks().stream()
                 .filter(block -> block.blockType() == BlockType.HEADING)
                 .findFirst()
@@ -174,8 +191,14 @@ class DocumentParserTest {
             XWPFParagraph heading = document.createParagraph();
             heading.setStyle("Heading1");
             heading.createRun().setText("Docx Section");
+            XWPFParagraph nestedHeading = document.createParagraph();
+            nestedHeading.setStyle("Heading2");
+            nestedHeading.createRun().setText("Docx Nested Section");
             XWPFParagraph paragraph = document.createParagraph();
             paragraph.createRun().setText("Docx paragraph marker");
+            XWPFParagraph list = document.createParagraph();
+            list.setStyle("ListParagraph");
+            list.createRun().setText("Docx list marker");
             XWPFTable table = document.createTable(2, 2);
             table.getRow(0).getCell(0).setText("Name");
             table.getRow(0).getCell(1).setText("Value");

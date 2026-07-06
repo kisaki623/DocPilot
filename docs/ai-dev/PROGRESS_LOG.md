@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-06 Document Parser fixture corpus v2
+
+- HTML parser 增强表格抽取：`tr` 会按 `th/td` 单元格生成 `Metric | Value` 这类结构化文本，避免表格行被压成难以阅读的普通空格文本。
+- DOCX parser 增强列表识别：带编号或 list 样式的段落现在标记为 `BlockType.LIST`，并继承当前 `sectionPath`，便于 chunk metadata 和 citation 定位列表来源。
+- `DocumentParserTest` 的 fixture 已扩到更真实结构：PDF 三页含空页 warning；HTML 覆盖 h1/h2、表格、列表、独立链接和 script/style/nav/footer 噪声剔除；DOCX 覆盖 Heading1/Heading2、普通段落、list 样式段落和表格。
+- 已验证：`mvn "-Dtest=DocumentParserTest" test` PASS，7 tests；`mvn "-Dtest=*Parser*,ParseTaskConsumeEntryServiceImplTest,FileContentReaderTest,FileServiceImplTest" test` PASS，44 tests。
+- 已复跑真实链路：`document-parser-real-chain-smoke.ps1 -Mode run` PASS，marker `docpilot-parser-real-chain-20260706215802-78374c`；PDF / HTML / DOCX 均完成上传、parse、chunk、retrieve、QA citation 和 source locator；`parserBoundary` 继续 PASS。
+- 边界：不新增数据库表、不改 schema、不做 OCR、扫描件、外部网页抓取、`.doc` 旧格式或复杂版面还原；真实 run 创建临时 smoke 数据和 ignored 脱敏 artifact，未提交 artifact 原文。
+
 ## 2026-07-06 Document Parser 错误边界 API 负向增强
 
 - `document-parser-real-chain-smoke.ps1` 的 `parserBoundary` gate 已从“准备坏文件”升级为真实 API 负向验证：每个负向 case 都经过 upload / document create / parse task create / parse terminal polling。
