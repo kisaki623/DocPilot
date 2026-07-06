@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：Agent Quality Console token 文案一致性收口（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+当前任务：Agent Quality Console 真实可见性回归（DONE）；下一片：可选进入趋势解释 v2 或真实失败样本 drill-down 演示（READY）
+
+## 2026-07-06 补充：Agent Quality Console 真实可见性回归
+
+- 目标：在本地 backend + frontend + cloud tunnel 环境下打开 `/quality?autoload=1`，确认最近几片展示语义改动没有破坏真实控制台可见性。
+- 已完成真实回归：本地 tunnel 已可用，backend `/actuator/health` 为 `UP`；前端使用 `next build` + `next start -p 3007` 启动，注册临时 smoke 用户后用浏览器打开 `/quality?autoload=1`。
+- 验证结果：页面可见“内部质量排查控制台”和“质量诊断”，质量运行记录已加载；分母为 `totalRuns` 的提示和“暂无统计”缺样本语义可见；桌面 `1440px` 与移动端 `390px` 均无横向溢出，console error 为 `0`。
+- 插曲：`next dev -p 3007` 本轮卡在 Starting 且端口监听但 HTTP 超时，改用生产预览完成验证；暂不作为业务 bug 记录。
+- 边界：本轮只创建临时登录用户，不上传文档、不创建 KB / Conversation、不提交 artifact 原文、不 push。
 
 ## 2026-07-06 补充：Agent Quality Console token 文案一致性收口
 

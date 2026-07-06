@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-06 Agent Quality Console 真实可见性回归
+
+- 本地 tunnel 可用，backend `/actuator/health` 为 `UP`；前端使用 `next build` + `next start -p 3007` 启动。
+- 注册临时 smoke 用户后，Playwright 打开 `/quality?autoload=1`，页面可见“内部质量排查控制台”“质量诊断”和已加载质量运行记录。
+- 验证新的指标语义可见：分母为 `totalRuns` 的说明和“暂无统计”缺样本文案均出现在真实页面中。
+- 桌面 `1440px` 和移动端 `390px` 均无横向溢出，console error 为 `0`。
+- 插曲：`next dev -p 3007` 本轮卡在 Starting 且 HTTP 超时，改用生产预览完成验证；暂不作为业务 bug 记录。
+- 边界：只创建临时登录用户，不上传文档、不创建 KB / Conversation、不提交 artifact 原文、不 push。
+
 ## 2026-07-06 Agent Quality Console token 文案一致性收口
 
 - `/quality` 面向用户的 token 相关文案已统一为“token 数”“token 用量”“token 增量”，避免 `Token / TOKENS / tokens` 大小写混用。
