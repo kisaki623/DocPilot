@@ -1,6 +1,12 @@
 # Current Task
 
-当前任务：Agent Quality Console 质量指标可信度与失败桶可行动化增强（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+当前任务：前端文档详情错误提示乱码兜底清理（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或趋势解释 v2（READY）
+
+## 2026-07-06 补充：前端文档详情错误提示乱码兜底清理
+
+- 目标：收口上一片自检发现的前端源码乱码残留，避免文档详情页继续包含历史 mojibake 字面量。
+- 已完成前端：`frontend/app/documents/[documentId]/page.tsx` 的 `buildErrorHint` 只保留正常中文 `无权` / `不存在` 判断；底层 `frontend/lib/api.ts` 已统一把文档和知识库权限 / 不存在错误归一为中文提示，因此页面无需再识别乱码变体。
+- 边界：本片不改 API 协议、不改后端、不新增功能、不触碰真实业务数据、不展示 prompt、answer 原文、文档全文、evidence context、凭据、连接串或云地址。
 
 ## 2026-07-06 补充：Agent Quality Console 质量指标可信度与失败桶可行动化
 

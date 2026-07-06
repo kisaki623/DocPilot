@@ -53,10 +53,10 @@ function normalizeDocumentId(rawValue: string | string[] | undefined): string {
 }
 
 function buildErrorHint(message: string): string {
-  if (message.includes("无权") || message.includes("鏃犳潈")) {
+  if (message.includes("无权")) {
     return "该文档不属于当前登录用户，请返回列表选择自己的文档。";
   }
-  if (message.includes("不存在") || message.includes("涓嶅瓨鍦")) {
+  if (message.includes("不存在")) {
     return "文档可能不存在，或已被删除。";
   }
   return "";

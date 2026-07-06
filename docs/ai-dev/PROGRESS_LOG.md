@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-06 前端文档详情错误提示乱码兜底清理
+
+- `frontend/app/documents/[documentId]/page.tsx` 已移除历史 mojibake 错误消息字面量匹配，文档错误 hint 只基于正常中文 `无权` / `不存在` 判断。
+- `frontend/lib/api.ts` 现有统一错误归一仍负责把文档和知识库权限 / 不存在错误转换为可读中文，页面不再需要乱码兼容分支。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；前端源码和本轮文档乱码扫描无命中；`git diff --check` PASS。
+- 边界：本片不改 API 协议、不改后端、不新增功能、不启动真实链路、不触碰业务数据。
+
 ## 2026-07-06 Agent Quality Console 指标可信度与失败桶可行动化
 
 - `/quality` 的通过率、复查率、失败率已改为百分比 + 分子 / 分母展示，并在说明中明确分母为 `totalRuns`。
