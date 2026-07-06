@@ -14,17 +14,18 @@ Runner:
 
 Marker:
 
-- `docpilot-parser-real-chain-20260706214209-dcb8f2`
+- `docpilot-parser-real-chain-20260706215134-857b73`
 
 已验证：
 
 - PDF / HTML / DOCX 三类临时 fixture 均完成上传、异步解析、chunk、embedding / index、RAG retrieve 和 QA citation。
 - 三类文件均为 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
 - 本轮 source locator 回归已验证 parser block 的 `pageNumber` / `sourceLocator` / `blockType` 可进入 chunk metadata、vector payload、retrieve hit 和 QA citation response；artifact 只保留 `sourceLocatorPresent` 等脱敏布尔和计数结论。
-- tunnel、backend health、frontend root route、临时用户注册、unsupported format boundary 和 artifact redaction 均 PASS。
+- tunnel、backend health、frontend root route、临时用户注册、parser boundary 和 artifact redaction 均 PASS。
+- `parserBoundary` 真实 API 负向验证 PASS：不支持格式上传拒绝、空白 TXT 返回 `PARSER_EMPTY_CONTENT`、损坏 PDF / DOCX 返回 `PARSER_CORRUPTED_FILE`，`negativeCasePassCount=4/4`、`negativeCaseFailCount=0`、`unsupportedUploadRejected=true`。
 - Agent Quality Console artifact root 已纳入 `backend/target/smoke/document-parser-real-chain`，`parserRealChain` gate 可展示 `fileCount=3`、`parsedFileCount=3`、`parserFailureCount=0`、`chunkCount=3`、`retrieveHitCount=3`、`citationCount=3`、`sourceLocatorCount=3` 和 `durationMs`。
 
-边界：本次 run 是小规模真实链路 parser smoke，不是 OCR、扫描件识别、复杂版面理解、外部网页抓取、`.doc` 旧格式支持或大规模解析质量 benchmark。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token；本轮未删除已有业务数据、未改 schema、未 push。
+边界：本次 run 是小规模真实链路 parser smoke，不是 OCR、扫描件识别、复杂版面理解、外部网页抓取、`.doc` 旧格式支持或大规模解析质量 benchmark。boundary artifact 只保存脱敏失败码和计数，不保存文件内容、异常堆栈或原始错误上下文。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token；本轮未删除已有业务数据、未改 schema、未 push。
 
 ## 2026-07-05 Agent Quality Console Trace Eval Trend Regression
 

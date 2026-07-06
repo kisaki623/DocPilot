@@ -353,6 +353,20 @@ function Get-ChunkCount([hashtable]$envValues, [long]$userId, [long]$documentId)
   return [int]([string]$first)
 }
 
+function Get-ParseFailureCode([hashtable]$envValues, [long]$userId, [long]$documentId) {
+  $query = "SELECT COALESCE(error_msg, '') FROM tb_parse_task WHERE user_id=${userId} AND document_id=${documentId} ORDER BY id DESC LIMIT 1;"
+  $lines = Invoke-MysqlQuery $envValues $query
+  $first = if ($lines -is [string]) { $lines } else { @($lines | Select-Object -First 1)[0] }
+  if ($null -eq $first -or [string]::IsNullOrWhiteSpace([string]$first)) {
+    return ""
+  }
+  $text = [string]$first
+  if ($text -match '^(PARSER_[A-Z_]+|PARSE_EXCEPTION|ILLEGAL_STATUS_TRANSITION)') {
+    return $matches[1]
+  }
+  return "UNKNOWN"
+}
+
 function Wait-ParseTerminal([long]$documentId, [string]$token) {
   $deadline = (Get-Date).AddSeconds(180)
   do {
@@ -584,20 +598,94 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
   }
 }
 
-function Invoke-BoundaryChecks([string]$fixtureDir, [string]$token) {
+function Invoke-BoundaryChecks([string]$fixtureDir, [hashtable]$envValues) {
+  $unsupportedIdentity = New-BoundaryIdentity "unsupported"
   $unsupported = Join-Path $fixtureDir "unsupported.exe"
   [System.IO.File]::WriteAllText($unsupported, "unsupported parser smoke fixture", [System.Text.UTF8Encoding]::new($false))
-  $unsupportedUpload = Upload-SmokeFile $unsupported "application/octet-stream" $token -AllowFailure
+  $unsupportedUpload = Upload-SmokeFile $unsupported "application/octet-stream" $unsupportedIdentity.token -AllowFailure
+  $boundaryCases = @(
+    [ordered]@{
+      caseId = "unsupported-upload"
+      fileType = "BIN"
+      uploadRejected = (-not $unsupportedUpload.ok)
+      parseStatus = $null
+      failureCode = if (-not $unsupportedUpload.ok) { "UPLOAD_REJECTED" } else { "UNEXPECTED_UPLOAD_ACCEPTED" }
+      expectedFailureCode = "UPLOAD_REJECTED"
+      passed = (-not $unsupportedUpload.ok)
+    }
+  )
+
+  $emptyTxt = Join-Path $fixtureDir "empty.txt"
+  [System.IO.File]::WriteAllText($emptyTxt, "   `n`t  ", [System.Text.UTF8Encoding]::new($false))
   $brokenPdf = Join-Path $fixtureDir "broken.pdf"
   [System.IO.File]::WriteAllBytes($brokenPdf, [byte[]](1, 2, 3, 4, 5))
   $brokenDocx = Join-Path $fixtureDir "broken.docx"
   [System.IO.File]::WriteAllBytes($brokenDocx, [byte[]](80, 75, 3, 4, 1, 2, 3))
+
+  $negativeCases = @(
+    [ordered]@{ caseId = "empty-text"; fileType = "TXT"; path = $emptyTxt; contentType = "text/plain"; expectedFailureCode = "PARSER_EMPTY_CONTENT" },
+    [ordered]@{ caseId = "corrupted-pdf"; fileType = "PDF"; path = $brokenPdf; contentType = "application/pdf"; expectedFailureCode = "PARSER_CORRUPTED_FILE" },
+    [ordered]@{ caseId = "corrupted-docx"; fileType = "DOCX"; path = $brokenDocx; contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; expectedFailureCode = "PARSER_CORRUPTED_FILE" }
+  )
+  foreach ($case in $negativeCases) {
+    $boundaryCases += Invoke-NegativeParserCase $case $envValues
+  }
+
+  $passedCount = @($boundaryCases | Where-Object { $_.passed }).Count
   return [ordered]@{
     unsupportedUploadRejected = (-not $unsupportedUpload.ok)
-    corruptedFixturesPrepared = $true
+    negativeCaseCount = $boundaryCases.Count
+    negativeCasePassCount = $passedCount
+    negativeCaseFailCount = $boundaryCases.Count - $passedCount
+    cases = $boundaryCases
     htmlNoExternalNetwork = $true
     rawTextLogged = $false
-    notes = @("corrupted PDF/DOCX parser failure is covered by parser tests; run mode keeps API artifact redacted")
+    notes = @("negative parser cases are verified through upload/create/parse and store only sanitized failure codes")
+  }
+}
+
+function New-BoundaryIdentity([string]$caseId) {
+  $username = "parserb_$([Guid]::NewGuid().ToString('N').Substring(0, 10))"
+  $body = [ordered]@{
+    username = $username
+    nickname = "Parser Boundary"
+  }
+  $body["password"] = "ParserSmoke123!"
+  $register = Invoke-JsonApi "POST" "/api/auth/register" $body
+  return [ordered]@{
+    token = [string]$register.data.token
+    userId = [long]$register.data.userId
+  }
+}
+
+function Invoke-NegativeParserCase($case, [hashtable]$envValues) {
+  $identity = New-BoundaryIdentity $case.caseId
+  $upload = Upload-SmokeFile $case.path $case.contentType $identity.token -AllowFailure
+  if (-not $upload.ok) {
+    return [ordered]@{
+      caseId = $case.caseId
+      fileType = $case.fileType
+      uploadRejected = $true
+      parseStatus = $null
+      failureCode = "UPLOAD_REJECTED"
+      expectedFailureCode = $case.expectedFailureCode
+      passed = $false
+    }
+  }
+  $document = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $upload.data.id }) $identity.token
+  [void](Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $document.data.id }) $identity.token -AllowFailure)
+  $detail = Wait-ParseTerminal ([long]$document.data.id) $identity.token
+  $parseStatus = [string]$detail.parseStatus
+  $failureCode = Get-ParseFailureCode $envValues $identity.userId ([long]$document.data.id)
+  $passed = ($parseStatus -eq "FAILED" -and $failureCode -eq $case.expectedFailureCode)
+  return [ordered]@{
+    caseId = $case.caseId
+    fileType = $case.fileType
+    uploadRejected = $false
+    parseStatus = $parseStatus
+    failureCode = $failureCode
+    expectedFailureCode = $case.expectedFailureCode
+    passed = $passed
   }
 }
 
@@ -626,8 +714,8 @@ if ($Mode -eq "plan") {
   [ordered]@{
     mode = "plan"
     willCreateBusinessData = $false
-    runModeOnly = @("start local tunnel/backend/frontend if needed", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "validate retrieve and citation", "write redacted artifact")
-    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "citationPresent", "failureReason", "durationMs")
+    runModeOnly = @("start local tunnel/backend/frontend if needed", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "validate retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
+    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "citationPresent", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -637,7 +725,7 @@ if ($Mode -eq "dry-run") {
   [ordered]@{
     mode = "dry-run"
     willCreateBusinessData = $false
-    checks = @("script parameters parsed", "fixture recipes available", "artifact schema is redacted", "run mode remains explicit")
+    checks = @("script parameters parsed", "fixture recipes available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
     supportedTypes = @("PDF", "HTML", "DOCX")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -714,11 +802,23 @@ try {
     sourceLocatorPresent = (@($results | Where-Object { $_.sourceLocatorPresent }).Count -eq $results.Count)
   }
 
-  $boundary = Invoke-BoundaryChecks $fixtureDir $token
-  if (-not $boundary.unsupportedUploadRejected) {
-    Set-Gate "parserBoundary" "REVIEW" @("unsupported format upload was not rejected")
+  $boundary = Invoke-BoundaryChecks $fixtureDir $envValues
+  if ($boundary.negativeCaseFailCount -gt 0) {
+    Set-GateWithMetrics "parserBoundary" "REVIEW" @("one or more parser boundary cases did not fail with expected sanitized code") @{
+      negativeCaseCount = $boundary.negativeCaseCount
+      negativeCasePassCount = $boundary.negativeCasePassCount
+      negativeCaseFailCount = $boundary.negativeCaseFailCount
+    } @{
+      unsupportedUploadRejected = $boundary.unsupportedUploadRejected
+    }
   } else {
-    Set-Gate "parserBoundary" "PASS" @("unsupported format rejected and corrupt fixtures prepared")
+    Set-GateWithMetrics "parserBoundary" "PASS" @("unsupported, empty and corrupted parser fixtures failed with expected sanitized codes") @{
+      negativeCaseCount = $boundary.negativeCaseCount
+      negativeCasePassCount = $boundary.negativeCasePassCount
+      negativeCaseFailCount = $boundary.negativeCaseFailCount
+    } @{
+      unsupportedUploadRejected = $boundary.unsupportedUploadRejected
+    }
   }
 } catch {
   if ($script:OverallStatus -eq "PASS") {

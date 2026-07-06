@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Document Parser source locator 贯通到 RAG citation（DONE）；下一片：Document Parser 错误边界 API 负向增强（READY）
+当前任务：Document Parser 错误边界 API 负向增强（DONE）；下一片：Document Parser fixture corpus v2（READY）
+
+## 2026-07-06 补充：Document Parser 错误边界 API 负向增强
+
+- 目标：把 parser smoke 的错误边界从“准备坏文件 / 依赖单测”推进到真实 API 链路，覆盖 upload 拒绝、空内容、损坏 PDF 和损坏 DOCX 的稳定失败状态与脱敏错误码。
+- 已完成 runner 增强：`scripts/smoke/document-parser-real-chain-smoke.ps1` 的 `run` 模式新增 `parserBoundary` gate，真实执行 upload / document create / parse task create / parse terminal polling；失败原因只读取并保存白名单错误码，不保存异常堆栈、文件内容、prompt、answer 或 evidence context。
+- 已完成负向 case：不支持格式上传返回 `UPLOAD_REJECTED`；空白 `TXT` 解析终态为 `FAILED` 且错误码为 `PARSER_EMPTY_CONTENT`；损坏 `PDF` / `DOCX` 解析终态为 `FAILED` 且错误码为 `PARSER_CORRUPTED_FILE`。
+- 已处理真实链路插曲：首轮 boundary run 触发同一临时用户上传频率限制，导致负向 case 在 parser 前被 upload 拒绝；runner 已改为每个负向 case 使用独立临时 smoke 用户，避免把限流误判为 parser 失败。
+- 已验证：`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-parser-real-chain-20260706215134-857b73`，`parserBoundary` 为 PASS，`negativeCasePassCount=4/4`、`negativeCaseFailCount=0`、`unsupportedUploadRejected=true`。
+- 边界：本片不删除业务数据、不改数据库结构、不操作远程 Docker、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原，不提交 artifact 原文，不 push。
+- 下一片建议：进入 Parser fixture corpus v2，补多页 PDF、HTML 列表 / 表格 / 噪声结构、DOCX 表格 / 列表 / 标题层级等可复现 fixture，并让单测和 smoke 更能证明真实解析质量。
 
 ## 2026-07-06 补充：Document Parser source locator 贯通到 RAG citation
 

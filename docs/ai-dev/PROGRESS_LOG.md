@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-06 Document Parser 错误边界 API 负向增强
+
+- `document-parser-real-chain-smoke.ps1` 的 `parserBoundary` gate 已从“准备坏文件”升级为真实 API 负向验证：每个负向 case 都经过 upload / document create / parse task create / parse terminal polling。
+- 负向 artifact 只保存 `caseId`、`fileType`、`uploadRejected`、`parseStatus`、`failureCode`、`expectedFailureCode` 和 `passed` 等脱敏摘要，不保存文档全文、异常堆栈、prompt、answer、evidence context、凭据、连接串或云地址。
+- 已覆盖 4 个边界：不支持格式上传拒绝、空白 TXT 返回 `PARSER_EMPTY_CONTENT`、损坏 PDF 返回 `PARSER_CORRUPTED_FILE`、损坏 DOCX 返回 `PARSER_CORRUPTED_FILE`。
+- 首轮 run 曾因同一临时用户上传频率限制导致负向 case 在 parser 前被拒绝；runner 已改为每个负向 case 使用独立临时 smoke 用户，复跑后 `parserBoundary` PASS。
+- 已验证：`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-parser-real-chain-20260706215134-857b73`，`negativeCasePassCount=4/4`、`negativeCaseFailCount=0`、`unsupportedUploadRejected=true`。
+- 边界：真实 run 创建临时 smoke 数据和 ignored 脱敏 artifact；未删除业务数据，未改数据库结构，未操作远程 Docker，未提交 artifact 原文，未 push。
+
 ## 2026-07-06 Document Parser source locator 贯通到 RAG citation
 
 - 新增 `RagSourceBlock`，将 parser block 的 `blockIndex`、`blockType`、`pageNumber`、`sectionTitle`、`sectionPath`、offset 和 `sourceLocator` 作为 RAG indexing 的脱敏来源结构传递。
