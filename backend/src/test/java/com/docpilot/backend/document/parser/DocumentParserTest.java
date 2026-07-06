@@ -82,7 +82,7 @@ class DocumentParserTest {
         ParseResult result = parser.parse(input("demo.html", "html", "text/html", 200L));
 
         assertEquals("jsoup-html", result.parserName());
-        assertTrue(result.fullText().contains("Alpha Title"));
+        assertTrue(result.fullText().contains("# Alpha Title"));
         assertTrue(result.fullText().contains("Useful body marker local link"));
         assertTrue(result.fullText().contains("List marker"));
         assertFalse(result.fullText().contains("Navigation noise"));
@@ -99,7 +99,7 @@ class DocumentParserTest {
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 2048L));
 
         assertEquals("poi-docx", result.parserName());
-        assertTrue(result.fullText().contains("Docx Section"));
+        assertTrue(result.fullText().contains("# Docx Section"));
         assertTrue(result.fullText().contains("Docx paragraph marker"));
         assertTrue(result.fullText().contains("Parser | DOCX"));
         assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.TABLE));

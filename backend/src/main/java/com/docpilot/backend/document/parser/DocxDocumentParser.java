@@ -84,7 +84,10 @@ public class DocxDocumentParser implements DocumentParser {
         if (blockType == BlockType.HEADING) {
             updateSectionPath(sectionPath, headingDepth(paragraph), text);
         }
-        int startOffset = ParserTextUtils.appendText(fullText, text);
+        String fullTextBlock = blockType == BlockType.HEADING
+                ? markdownHeading(headingDepth(paragraph), text)
+                : text;
+        int startOffset = ParserTextUtils.appendText(fullText, fullTextBlock);
         String currentSection = sectionPath.isEmpty() ? "" : sectionPath.get(sectionPath.size() - 1);
         blocks.add(new DocumentBlock(
                 blocks.size(),
@@ -158,5 +161,9 @@ public class DocxDocumentParser implements DocumentParser {
             sectionPath.remove(sectionPath.size() - 1);
         }
         sectionPath.add(title);
+    }
+
+    private String markdownHeading(int depth, String title) {
+        return "#".repeat(Math.max(1, Math.min(6, depth))) + " " + title;
     }
 }
