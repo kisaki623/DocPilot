@@ -1,5 +1,24 @@
 # Progress Log
 
+## 2026-07-06 Agent Quality Console 诊断指标 P0
+
+- `/quality` 新增前端派生诊断指标层，基于现有脱敏 `runs`、`trend`、`QualityRunDetail` 和 eval catalog 计算比率，不改后端 DTO / API。
+- Overview 新增通过率、复查率、失败率、P95 延迟、平均 tokens、成功运行成本，以及失败 / 复查类型 TopN 与建议动作。
+- Run Detail 新增“评测”tab；RAG / 记忆 / 工具调用 tab 增加诊断比率卡，Failures tab 增加当前失败、复查、新增失败和已恢复失败类型的建议动作。
+- P0 对暂时无法可靠计算的指标做显式降级：`documentHitCounts`、严格工具选择准确率、工具参数准确率、记忆有用命中率和记忆噪声率仍需 P1/P2 parser 或 eval schema 扩展。
+- 脱敏边界：只展示数值、比率、bucket、短安全 ID 和建议动作，不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS。后续继续用 mock Quality API 和真实 `/quality?autoload=1` 做浏览器回归。
+
+## 2026-07-06 Agent Quality Console 前端信息架构重构
+
+- `/quality` 已从“所有 summary 和 artifact 堆在长页面里”改为“顶部 Overview + 左侧运行筛选 + 右侧分区排查”的内部质量控制台结构。
+- 顶部 Overview 显示最近 run 健康判断、状态、运行次数、通过 / 复查 / 失败统计和 token 数值摘要；左侧运行记录支持状态筛选和 marker / 来源搜索。
+- Run Detail 拆成“摘要 / 门禁 / 待处理 / 链路 / RAG / 记忆 / 工具调用 / Artifact”分区；FAILED / REVIEW 门禁默认展开，PASS 门禁默认折叠。
+- 链路分区保留 Trace 定位，并让失败或需复查 eval case 显示“查看 Trace”入口；RAG / Memory / Tool Calls 分区只展示现有脱敏数值摘要。
+- Artifact 分区只展示脱敏元信息，Eval Catalog 和 Trend 移到非首屏区域；仍不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- Gemini CLI 可用，但正式建议调用返回 malformed / empty response；本轮按约束降级为 Codex 直接集成、验证和回写。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 静态 route smoke 和 mock Quality API smoke 覆盖桌面与 `390px` 移动端，无 console error、无横向溢出，并验证失败门禁突出、PASS 折叠、Eval “查看 Trace”入口和 run 搜索可见；前端进程已清理。
+
 ## 2026-07-06 Agent Quality Console 前端中文化二次增强
 
 - `gemini.cmd --version` 和 READY 探测通过；正式文案建议调用连续超时，本轮按协作约束降级为 Codex 直接集成、验证和回写。

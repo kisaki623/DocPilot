@@ -1,6 +1,28 @@
 # Current Task
 
-当前任务：Agent Quality Console 前端中文化二次增强（DONE）；下一片：可选进入 Agent Quality Console 历史趋势可解释性增强或回到 RAG / Memory 真实体验审计（READY）
+当前任务：Agent Quality Console 诊断指标 P0（DONE）；下一片：可选进入真实 `/quality?autoload=1` 回归或 P1 parser 安全摘要增强（READY）
+
+## 2026-07-06 补充：Agent Quality Console 诊断指标 P0
+
+- 目标：在不改后端 DTO / API、不读取 raw artifact 的前提下，让 `/quality` 能基于现有脱敏 summary/detail/trend/eval catalog 派生更多诊断比率，帮助判断 RAG、Memory、Tool、Eval 和失败桶的优化方向。
+- 已完成 Overview：新增质量诊断区，展示通过率、复查率、失败率、P95 延迟、平均 tokens、成功运行成本，并展示失败类型 TopN / 复查类型 TopN 及建议动作。
+- 已完成 Run Detail：新增独立“评测”tab；RAG / 记忆 / 工具调用 tab 增加诊断比率卡。RAG 覆盖检索命中率、引用覆盖率、证据覆盖率、引用支撑率、无证据拒答正确率、平均检索 chunk、干扰引用通过率；记忆覆盖记忆触发率、记忆证据覆盖、治理复查率；工具覆盖工具触发率、工具失败率、工具调用数、Agent 步骤失败率、最大链路步数。
+- 已完成 Eval / Failures：Eval tab 展示用例数、评测通过率、失败用例数、失败用例 Trace 覆盖、按标签通过率；Failures tab 展示当前失败/复查、新增失败、已恢复失败及 failure bucket 到建议动作的映射。
+- 降级边界：`documentHitCounts`、严格 `toolSelectionAccuracy` / `toolArgsAccuracy`、`memoryUsefulHitRate` / `memoryNoiseRate` 仍标记为需要 P1/P2 parser 或 eval schema 扩展，不在 P0 硬算。
+- 脱敏边界：本片只展示数值、比率、bucket、短安全 ID 和建议动作；不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS。浏览器 mock Quality API 验证和最终自检见本轮收尾记录。
+
+## 2026-07-06 补充：Agent Quality Console 前端信息架构重构
+
+- 目标：把 `/quality` 从“长页面数据展示”改成更像内部质量排查控制台的结构，让用户先判断最近 run 是否健康，再定位失败门禁、复查项、Trace、RAG、Memory、Tool Calls 和 artifact 摘要。
+- 已完成前端：`/quality` 顶部改为“内部质量排查控制台”Overview，显示最近运行健康判断、状态、运行次数、PASS / REVIEW / FAILED 统计和 token 数值摘要。
+- 已完成左侧：运行记录列表增加状态筛选和 marker / 来源搜索；空数据、筛选无结果和加载状态都有明确中文文案。
+- 已完成右侧：Run Detail 增加分区导航，拆成“摘要 / 门禁 / 待处理 / 链路 / RAG / 记忆 / 工具调用 / Artifact”。摘要区保留模型成本和运行对比；门禁区将 FAILED / REVIEW 默认展开，PASS 默认折叠；链路区保留 Trace 定位，并让失败或需复查 eval case 直接显示“查看 Trace”入口。
+- 已完成摘要卡：RAG、Memory 和 Tool Calls 只基于现有脱敏 metrics / flags / buckets 展示数值摘要，不新增后端 API。
+- 已完成 Artifact 区：只展示 source、artifactName、marker、updatedAt、artifactMissing、artifactParseFailed 等脱敏元信息；Eval Catalog 和 Trend 移到非首屏分区，避免抢占排查主线。
+- Gemini 协作：`gemini.cmd --version` 可用，但正式建议调用返回 malformed / empty response；已按约束降级为 Codex 直接集成、验证和回写。
+- 脱敏边界：本片不改 Quality API、不新增后端字段、不读取业务库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；token usage 仍只作为数值统计展示。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 静态 route smoke 和 mock Quality API smoke 覆盖桌面与 `390px` 移动端，均无 console error、无横向溢出；mock smoke 验证失败门禁突出、PASS 门禁折叠、Eval “查看 Trace”入口和 run 搜索可见。
 
 ## 2026-07-06 补充：Agent Quality Console 前端中文化二次增强
 

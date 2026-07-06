@@ -31,7 +31,23 @@ import {
   labelBucket,
 } from "@/lib/quality-labels";
 
-const RESERVED_TABS = ["质量总览", "链路追踪", "自动评测", "失败项"];
+const RUN_STATUS_FILTERS = [
+  { value: "ALL", label: "全部" },
+  { value: "PASS", label: "通过" },
+  { value: "REVIEW", label: "需复查 / 阻塞" },
+  { value: "FAILED", label: "失败" },
+];
+const DETAIL_SECTIONS = [
+  { id: "summary", label: "摘要" },
+  { id: "gates", label: "门禁" },
+  { id: "failures", label: "待处理" },
+  { id: "trace", label: "链路" },
+  { id: "eval", label: "评测" },
+  { id: "rag", label: "RAG" },
+  { id: "memory", label: "记忆" },
+  { id: "tools", label: "工具调用" },
+  { id: "artifacts", label: "Artifact" },
+] as const;
 const SIGNAL_PRIORITY = [
   "casePassRate",
   "distractorCitationFreeCount",
@@ -98,6 +114,53 @@ interface OperationalMetricSummary {
   latencyMs: number | null;
   durationMs: number | null;
   retryCount: number | null;
+}
+
+type DetailSectionId = (typeof DETAIL_SECTIONS)[number]["id"];
+type DiagnosticTone = "success" | "warning" | "danger" | "neutral";
+
+interface DiagnosticItem {
+  label: string;
+  value: string;
+  helper: string;
+  tone?: DiagnosticTone;
+  action?: string;
+}
+
+interface BucketDiagnostic {
+  bucket: string;
+  label: string;
+  count: number;
+  action: string;
+  tone: DiagnosticTone;
+}
+
+interface OverviewDiagnostics {
+  totalRuns: number;
+  passRate: number | null;
+  reviewRate: number | null;
+  failRate: number | null;
+  coreFlowFailRate: number | null;
+  securityGateFailRate: number | null;
+  avgLatencyMs: number | null;
+  p95LatencyMs: number | null;
+  totalTokens: number | null;
+  avgTokens: number | null;
+  avgEstimatedCost: number | null;
+  costPerSuccessfulRun: number | null;
+  topFailureBuckets: BucketDiagnostic[];
+  topReviewBuckets: BucketDiagnostic[];
+}
+
+interface RunDiagnostics {
+  rag: DiagnosticItem[];
+  memory: DiagnosticItem[];
+  tools: DiagnosticItem[];
+  eval: DiagnosticItem[];
+  topFailureBuckets: BucketDiagnostic[];
+  topReviewBuckets: BucketDiagnostic[];
+  newFailureBuckets: BucketDiagnostic[];
+  recoveredFailureBuckets: BucketDiagnostic[];
 }
 
 const DEFAULT_TRIAGE_FILTERS: TriageFilters = {
@@ -203,6 +266,35 @@ function statusMatches(status: string | undefined, filter: string): boolean {
   return normalized === filter;
 }
 
+function isFailedStatus(status?: string | null): boolean {
+  const normalized = status || "";
+  return normalized.startsWith("FAILED") || normalized === "FAIL";
+}
+
+function isReviewStatus(status?: string | null): boolean {
+  return status === "REVIEW" || status === "BLOCKED";
+}
+
+function isPassStatus(status?: string | null): boolean {
+  return status === "PASS" || status === "SUCCESS";
+}
+
+function runStatusMatches(status: string | undefined, filter: string): boolean {
+  if (filter === "ALL") {
+    return true;
+  }
+  if (filter === "FAILED") {
+    return isFailedStatus(status);
+  }
+  if (filter === "REVIEW") {
+    return isReviewStatus(status);
+  }
+  if (filter === "PASS") {
+    return isPassStatus(status);
+  }
+  return status === filter;
+}
+
 function bucketCategoryMatches(
   buckets: string[] | undefined,
   filter: string
@@ -274,6 +366,156 @@ function formatTokenUsage(tokenUsage?: QualityTokenUsageSummary): string {
     parts.push(`估算成本: ${formatNumber(tokenUsage.estimatedCost)}`);
   }
   return parts.length === 0 ? "-" : parts.join(" / ");
+}
+
+function formatRate(value: number | null): string {
+  if (value === null || Number.isNaN(value)) {
+    return "暂无样本";
+  }
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatCost(value: number | null): string {
+  if (value === null || Number.isNaN(value)) {
+    return "暂无样本";
+  }
+  return value < 1 ? value.toFixed(4) : formatNumber(value);
+}
+
+function ratio(numerator: number, denominator: number): number | null {
+  return denominator <= 0 ? null : numerator / denominator;
+}
+
+function average(values: Array<number | null | undefined>): number | null {
+  const resolved = values.filter((value): value is number =>
+    typeof value === "number" && !Number.isNaN(value)
+  );
+  if (resolved.length === 0) {
+    return null;
+  }
+  return resolved.reduce((sum, value) => sum + value, 0) / resolved.length;
+}
+
+function percentile(values: Array<number | null | undefined>, p: number): number | null {
+  const resolved = values
+    .filter((value): value is number => typeof value === "number" && !Number.isNaN(value))
+    .sort((left, right) => left - right);
+  if (resolved.length === 0) {
+    return null;
+  }
+  const index = Math.min(
+    resolved.length - 1,
+    Math.max(0, Math.ceil((p / 100) * resolved.length) - 1)
+  );
+  return resolved[index];
+}
+
+function diagnosticToneForRate(
+  value: number | null,
+  goodAtLeast: number,
+  warnAtLeast: number
+): DiagnosticTone {
+  if (value === null) {
+    return "neutral";
+  }
+  if (value >= goodAtLeast) {
+    return "success";
+  }
+  if (value >= warnAtLeast) {
+    return "warning";
+  }
+  return "danger";
+}
+
+function diagnosticToneForBadRate(
+  value: number | null,
+  warningAtLeast: number,
+  dangerAtLeast: number
+): DiagnosticTone {
+  if (value === null) {
+    return "neutral";
+  }
+  if (value >= dangerAtLeast) {
+    return "danger";
+  }
+  if (value >= warningAtLeast) {
+    return "warning";
+  }
+  return "success";
+}
+
+function runHealthMessage(run?: QualityRunSummary): string {
+  if (!run) {
+    return "还没有加载质量运行记录。";
+  }
+  if (isFailedStatus(run.status)) {
+    return "最近一次运行失败，优先处理失败门禁和待处理项。";
+  }
+  if (isReviewStatus(run.status)) {
+    return "最近一次运行需要复查，请先看待处理项和链路定位。";
+  }
+  if (isPassStatus(run.status)) {
+    return "最近一次运行通过，可以抽查门禁和 Trace 摘要。";
+  }
+  return "最近一次运行状态不明确，请查看详情。";
+}
+
+function bucketAction(bucket: string): string {
+  const category = normalizeTriageBucket(bucket);
+  switch (category) {
+    case "RAG_RETRIEVAL_MISS":
+      return "优先检查 chunk 质量、embedding 配置、query rewrite 和检索阈值。";
+    case "CITATION_UNSUPPORTED":
+      return "检查 citation selector、grounding gate 和回答引用组装。";
+    case "DISTRACTOR_CITATION":
+      return "检查 rerank、干扰文档裁剪和多文档 coverage 策略。";
+    case "NO_EVIDENCE_FALSE_POSITIVE":
+      return "检查 no-evidence threshold、near-miss case 和 support gate。";
+    case "MEMORY_CONFLICT":
+      return "检查长期记忆去重、冲突治理和 RAG evidence 分层。";
+    case "TOOL_FAILURE":
+      return "检查工具参数校验、超时、重试和 fallback 路径。";
+    case "PERMISSION_REGRESSION":
+      return "立即复查 scope guard、用户归属校验和前端权限提示。";
+    case "FRONTEND_UX":
+      return "用 Playwright 复现页面路径，检查 console error 和移动端溢出。";
+    case "ENV_BLOCKED":
+      return "先确认 tunnel、backend health、artifact parse 和本地依赖。";
+    default:
+      return "查看关联 gate、eval case 和 Trace，再补充更细失败桶。";
+  }
+}
+
+function bucketTone(bucket: string): DiagnosticTone {
+  const category = normalizeTriageBucket(bucket);
+  if (category === "PERMISSION_REGRESSION") {
+    return "danger";
+  }
+  if (category === "ENV_BLOCKED" || category === "FRONTEND_UX") {
+    return "warning";
+  }
+  if (category === "OTHER") {
+    return "neutral";
+  }
+  return "danger";
+}
+
+function topBucketDiagnostics(values: string[], limit = 5): BucketDiagnostic[] {
+  const counts = new Map<string, number>();
+  values.forEach((bucket) => {
+    const normalized = normalizeTriageBucket(bucket);
+    counts.set(normalized, (counts.get(normalized) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, limit)
+    .map(([bucket, count]) => ({
+      bucket,
+      label: labelBucket(bucket),
+      count,
+      action: bucketAction(bucket),
+      tone: bucketTone(bucket),
+    }));
 }
 
 function compactMetrics(metrics: Record<string, number>): string {
@@ -357,6 +599,380 @@ function operationalSummary(detail: QualityRunDetail): OperationalMetricSummary 
   };
 }
 
+function metricValues(detail: QualityRunDetail, names: string[]): number[] {
+  const normalizedNames = new Set(names.map((name) => name.toLowerCase()));
+  const values: number[] = [];
+  [...detail.gates, ...detail.evalCases].forEach((item) => {
+    Object.entries(item.metrics || {}).forEach(([key, value]) => {
+      if (normalizedNames.has(key.toLowerCase()) && typeof value === "number") {
+        values.push(value);
+      }
+    });
+  });
+  return values;
+}
+
+function flagValues(detail: QualityRunDetail, names: string[]): boolean[] {
+  const normalizedNames = new Set(names.map((name) => name.toLowerCase()));
+  const values: boolean[] = [];
+  [...detail.gates, ...detail.evalCases].forEach((item) => {
+    Object.entries(item.flags || {}).forEach(([key, value]) => {
+      if (normalizedNames.has(key.toLowerCase()) && typeof value === "boolean") {
+        values.push(value);
+      }
+    });
+  });
+  return values;
+}
+
+function allBuckets(detail: QualityRunDetail, type: "failure" | "review" | "all" = "all"): string[] {
+  const buckets: string[] = [];
+  if (type !== "review") {
+    buckets.push(...detail.summary.failureBuckets);
+    detail.gates.forEach((gate) => buckets.push(...gate.failureBuckets));
+    detail.evalCases.forEach((item) => buckets.push(...item.failureBuckets));
+    detail.traceReferences.forEach((reference) => buckets.push(...reference.failureBuckets));
+  }
+  if (type !== "failure") {
+    buckets.push(...detail.summary.reviewBuckets);
+    detail.gates.forEach((gate) => buckets.push(...gate.reviewBuckets));
+    detail.evalCases.forEach((item) => buckets.push(...item.reviewBuckets));
+    detail.traceReferences.forEach((reference) => buckets.push(...reference.reviewBuckets));
+  }
+  return buckets;
+}
+
+function buildOverviewDiagnostics(
+  runs: QualityRunSummary[],
+  trend: QualityTrendSummary | null
+): OverviewDiagnostics {
+  const totalRuns = runs.length;
+  const passRuns = runs.filter((run) => isPassStatus(run.status)).length;
+  const reviewRuns = runs.filter((run) => isReviewStatus(run.status)).length;
+  const failedRuns = runs.filter((run) => isFailedStatus(run.status)).length;
+  const coreFlowFailedRuns = runs.filter((run) => run.status === "FAILED_CORE_FLOW").length;
+  const securityFailedRuns = runs.filter((run) => run.status === "FAILED_SECURITY_GATE").length;
+  const tokenValues = runs
+    .map((run) => run.tokenUsage?.totalTokens)
+    .filter((value): value is number => typeof value === "number");
+  const costValues = runs
+    .map((run) => run.tokenUsage?.estimatedCost)
+    .filter((value): value is number => typeof value === "number");
+  const latencyValues = trend?.points?.map((point) => point.latencyMs) || [];
+  const failureBuckets = [
+    ...runs.flatMap((run) => run.failureBuckets),
+    ...Object.entries(trend?.failureBucketCounts || {}).flatMap(([bucket, count]) =>
+      Array.from({ length: count }, () => bucket)
+    ),
+  ];
+  const reviewBuckets = [
+    ...runs.flatMap((run) => run.reviewBuckets),
+    ...Object.entries(trend?.reviewBucketCounts || {}).flatMap(([bucket, count]) =>
+      Array.from({ length: count }, () => bucket)
+    ),
+  ];
+  const totalCost = costValues.reduce((sum, value) => sum + value, 0);
+
+  return {
+    totalRuns,
+    passRate: ratio(passRuns, totalRuns),
+    reviewRate: ratio(reviewRuns, totalRuns),
+    failRate: ratio(failedRuns, totalRuns),
+    coreFlowFailRate: ratio(coreFlowFailedRuns, totalRuns),
+    securityGateFailRate: ratio(securityFailedRuns, totalRuns),
+    avgLatencyMs: trend?.averageLatencyMs ?? average(latencyValues),
+    p95LatencyMs: percentile(latencyValues, 95),
+    totalTokens:
+      tokenValues.length === 0
+        ? trend?.totalTokens ?? null
+        : tokenValues.reduce((sum, value) => sum + value, 0),
+    avgTokens: average(tokenValues),
+    avgEstimatedCost: average(costValues),
+    costPerSuccessfulRun: passRuns > 0 && costValues.length > 0 ? totalCost / passRuns : null,
+    topFailureBuckets: topBucketDiagnostics(failureBuckets),
+    topReviewBuckets: topBucketDiagnostics(reviewBuckets),
+  };
+}
+
+function buildRunDiagnostics(
+  detail: QualityRunDetail,
+  compareDetail: QualityRunDetail | null,
+  evalCatalog: QualityEvalCaseCatalogItem[]
+): RunDiagnostics {
+  const retrieveHits = metricValues(detail, ["retrieveHits", "retrievalHitCount"]);
+  const qaCitations = metricValues(detail, ["qaCitations", "citationCount"]);
+  const evidenceCounts = metricValues(detail, ["evidenceCount"]);
+  const noEvidenceFlags = flagValues(detail, ["noEvidenceCorrect"]);
+  const citationSupportFlags = flagValues(detail, [
+    "targetCitationCovered",
+    "expectedEvidenceSupported",
+    "citationMarkerPresent",
+    "citationPhraseSupport",
+  ]);
+  const distractorCounts = metricValues(detail, ["distractorCitationCount"]);
+  const toolCallCounts = metricValues(detail, ["toolCallCount"]);
+  const toolFailureBuckets = allBuckets(detail).filter(
+    (bucket) => normalizeTriageBucket(bucket) === "TOOL_FAILURE"
+  );
+  const memoryCounts = metricValues(detail, ["memoryCount"]);
+  const memoryConflictBuckets = allBuckets(detail).filter(
+    (bucket) => normalizeTriageBucket(bucket) === "MEMORY_CONFLICT"
+  );
+  const traceSteps = detail.traceReferences.flatMap((reference) => reference.steps || []);
+  const failedTraceSteps = traceSteps.filter((step) => isFailedStatus(step.status));
+  const failedOrReviewCases = detail.evalCases.filter(
+    (item) => isFailedStatus(item.status) || isReviewStatus(item.status)
+  );
+  const linkedFailedOrReviewCases = failedOrReviewCases.filter(
+    (item) => Boolean(item.traceId || item.agentRunId)
+  );
+  const passByTag = passRateByTag(detail, evalCatalog);
+  const previousFailures = compareDetail ? allBuckets(compareDetail, "failure") : [];
+  const currentFailures = allBuckets(detail, "failure");
+
+  return {
+    rag: [
+      {
+        label: "检索命中率",
+        value: formatRate(ratio(retrieveHits.filter((value) => value > 0).length, retrieveHits.length)),
+        helper: "有 retrieveHits 样本时，命中数大于 0 的比例。",
+        tone: diagnosticToneForRate(
+          ratio(retrieveHits.filter((value) => value > 0).length, retrieveHits.length),
+          0.9,
+          0.75
+        ),
+        action: "偏低时优先检查 chunk 质量、embedding、query rewrite 和检索阈值。",
+      },
+      {
+        label: "引用覆盖率",
+        value: formatRate(ratio(qaCitations.filter((value) => value > 0).length, qaCitations.length)),
+        helper: "有 qaCitations 样本时，引用数大于 0 的比例。",
+        tone: diagnosticToneForRate(
+          ratio(qaCitations.filter((value) => value > 0).length, qaCitations.length),
+          0.9,
+          0.75
+        ),
+        action: "偏低时检查 QA citation builder 和 quote-first citation 输出。",
+      },
+      {
+        label: "证据覆盖率",
+        value: formatRate(ratio(evidenceCounts.filter((value) => value > 0).length, evidenceCounts.length)),
+        helper: "有 evidenceCount 样本时，证据数大于 0 的比例。",
+        tone: diagnosticToneForRate(
+          ratio(evidenceCounts.filter((value) => value > 0).length, evidenceCounts.length),
+          0.9,
+          0.75
+        ),
+        action: "偏低时检查 Conversation Trace 是否写入 RAG evidence。",
+      },
+      {
+        label: "引用支撑率",
+        value: formatRate(ratio(citationSupportFlags.filter(Boolean).length, citationSupportFlags.length)),
+        helper: "基于 citation / evidence 支撑类布尔门禁的通过比例。",
+        tone: diagnosticToneForRate(
+          ratio(citationSupportFlags.filter(Boolean).length, citationSupportFlags.length),
+          0.9,
+          0.75
+        ),
+        action: "偏低时检查 answer grounding 和 citation selector。",
+      },
+      {
+        label: "无证据拒答正确率",
+        value: formatRate(ratio(noEvidenceFlags.filter(Boolean).length, noEvidenceFlags.length)),
+        helper: "基于 noEvidenceCorrect 布尔门禁。",
+        tone: diagnosticToneForRate(
+          ratio(noEvidenceFlags.filter(Boolean).length, noEvidenceFlags.length),
+          0.95,
+          0.8
+        ),
+        action: "偏低时检查 no-evidence threshold 和 hard negative case。",
+      },
+      {
+        label: "平均检索 chunk",
+        value: formatNumber(average(retrieveHits)),
+        helper: "基于 retrieveHits 的平均值。",
+        tone: "neutral",
+        action: "过低可能漏召回，过高可能带来干扰 citation。",
+      },
+      {
+        label: "干扰引用通过率",
+        value: formatRate(ratio(distractorCounts.filter((value) => value === 0).length, distractorCounts.length)),
+        helper: "有 distractorCitationCount 样本时，干扰引用为 0 的比例。",
+        tone: diagnosticToneForRate(
+          ratio(distractorCounts.filter((value) => value === 0).length, distractorCounts.length),
+          0.95,
+          0.8
+        ),
+        action: "偏低时检查 rerank、summary citation pruning 和多文档 coverage。",
+      },
+      {
+        label: "命中文档分布",
+        value: "需 P1 parser 增强",
+        helper: "当前 DTO 不透传 documentHitCounts 对象，P1 可转成脱敏 document coverage 摘要。",
+        tone: "neutral",
+      },
+    ],
+    memory: [
+      {
+        label: "记忆触发率",
+        value: formatRate(ratio(memoryCounts.filter((value) => value > 0).length, memoryCounts.length)),
+        helper: "有 memoryCount 样本时，记忆数大于 0 的比例。",
+        tone: diagnosticToneForRate(
+          ratio(memoryCounts.filter((value) => value > 0).length, memoryCounts.length),
+          0.8,
+          0.5
+        ),
+        action: "偏低时检查 ACTIVE memory、ContextAssembly 和会话模式。",
+      },
+      {
+        label: "记忆证据覆盖",
+        value: formatRate(ratio(
+          memoryCounts.filter((value, index) => value > 0 && (evidenceCounts[index] || 0) > 0).length,
+          Math.max(memoryCounts.length, evidenceCounts.length)
+        )),
+        helper: "近似衡量 memory 与 evidence 同时进入 trace 的比例。",
+        tone: "neutral",
+        action: "偏低时检查 memory 与 RAG evidence 是否同时进入 Context Trace。",
+      },
+      {
+        label: "记忆治理复查率",
+        value: formatRate(ratio(memoryConflictBuckets.length, Math.max(1, allBuckets(detail).length))),
+        helper: "memory conflict bucket 在全部失败/复查 bucket 中的占比。",
+        tone: diagnosticToneForBadRate(
+          ratio(memoryConflictBuckets.length, Math.max(1, allBuckets(detail).length)),
+          0.1,
+          0.25
+        ),
+        action: "偏高时检查记忆去重、冲突合并和 suggestion accept 门禁。",
+      },
+      {
+        label: "记忆有用命中率",
+        value: "需 eval schema 扩展",
+        helper: "需要 eval artifact 提供 useful/noise verdict。",
+        tone: "neutral",
+      },
+    ],
+    tools: [
+      {
+        label: "工具触发率",
+        value: formatRate(ratio(toolCallCounts.filter((value) => value > 0).length, toolCallCounts.length)),
+        helper: "有 toolCallCount 样本时，工具调用数大于 0 的比例。",
+        tone: "neutral",
+        action: "过低可能没触发工具，过高可能存在工具循环或选择过度。",
+      },
+      {
+        label: "工具失败率",
+        value: formatRate(ratio(toolFailureBuckets.length, Math.max(1, allBuckets(detail).length))),
+        helper: "tool failure bucket 在全部失败/复查 bucket 中的占比。",
+        tone: diagnosticToneForBadRate(
+          ratio(toolFailureBuckets.length, Math.max(1, allBuckets(detail).length)),
+          0.1,
+          0.25
+        ),
+        action: "偏高时检查工具参数校验、超时、重试和 fallback。",
+      },
+      {
+        label: "本次工具调用数",
+        value: formatNumber(sumMetric(detail, ["toolCallCount"])),
+        helper: "当前 run 内 toolCallCount 的聚合值。",
+        tone: "neutral",
+      },
+      {
+        label: "Agent 步骤失败率",
+        value: formatRate(ratio(failedTraceSteps.length, traceSteps.length)),
+        helper: "基于脱敏 trace step status。",
+        tone: diagnosticToneForBadRate(ratio(failedTraceSteps.length, traceSteps.length), 0.05, 0.2),
+        action: "偏高时从 Trace tab 查看失败步骤和 failure bucket。",
+      },
+      {
+        label: "最大链路步数",
+        value: formatNumber(Math.max(0, ...detail.traceReferences.map((reference) => reference.steps.length))),
+        helper: "用于观察是否出现异常长链路。",
+        tone: "neutral",
+      },
+      {
+        label: "工具选择准确率",
+        value: "需 eval schema 扩展",
+        helper: "需要 expectedTools 与 actualTools / args verdict。",
+        tone: "neutral",
+      },
+    ],
+    eval: [
+      {
+        label: "评测用例数",
+        value: formatNumber(detail.evalCases.length),
+        helper: "当前 run 解析到的 eval case 数。",
+        tone: "neutral",
+      },
+      {
+        label: "评测通过率",
+        value: formatRate(ratio(detail.evalCases.filter((item) => isPassStatus(item.status)).length, detail.evalCases.length)),
+        helper: "PASS / SUCCESS eval case 占比。",
+        tone: diagnosticToneForRate(
+          ratio(detail.evalCases.filter((item) => isPassStatus(item.status)).length, detail.evalCases.length),
+          0.9,
+          0.75
+        ),
+        action: "偏低时先看失败 case 的 bucket 和 Trace 链接覆盖。",
+      },
+      {
+        label: "失败用例数",
+        value: formatNumber(detail.evalCases.filter((item) => isFailedStatus(item.status)).length),
+        helper: "FAILED eval case 数。",
+        tone: detail.evalCases.some((item) => isFailedStatus(item.status)) ? "danger" : "success",
+      },
+      {
+        label: "失败用例 Trace 覆盖",
+        value: formatRate(ratio(linkedFailedOrReviewCases.length, failedOrReviewCases.length)),
+        helper: "失败/需复查 eval case 中带 traceId 或 agentRunId 的比例。",
+        tone: diagnosticToneForRate(
+          ratio(linkedFailedOrReviewCases.length, failedOrReviewCases.length),
+          0.95,
+          0.75
+        ),
+        action: "偏低时先修 artifact 中 traceId / agentRunId 写入。",
+      },
+      {
+        label: "按标签通过率",
+        value: passByTag.length === 0 ? "暂无标签样本" : passByTag.slice(0, 3).join(" / "),
+        helper: "基于 eval catalog tags 与当前 caseId 关联。",
+        tone: "neutral",
+      },
+    ],
+    topFailureBuckets: topBucketDiagnostics(currentFailures),
+    topReviewBuckets: topBucketDiagnostics(allBuckets(detail, "review")),
+    newFailureBuckets: topBucketDiagnostics(uniqueDiff(currentFailures, previousFailures)),
+    recoveredFailureBuckets: topBucketDiagnostics(uniqueDiff(previousFailures, currentFailures)).map((bucket) => ({
+      ...bucket,
+      tone: "success",
+      action: "该失败类型较对比运行已恢复，可作为修复回归证据。",
+    })),
+  };
+}
+
+function passRateByTag(
+  detail: QualityRunDetail,
+  evalCatalog: QualityEvalCaseCatalogItem[]
+): string[] {
+  const tagsByCase = new Map(evalCatalog.map((item) => [item.caseId, item.tags || []]));
+  const stats = new Map<string, { pass: number; total: number }>();
+  detail.evalCases.forEach((item) => {
+    const tags = tagsByCase.get(item.caseId) || [];
+    const resolvedTags = tags.length === 0 ? ["未分组"] : tags;
+    resolvedTags.forEach((tag) => {
+      const current = stats.get(tag) || { pass: 0, total: 0 };
+      current.total += 1;
+      if (isPassStatus(item.status)) {
+        current.pass += 1;
+      }
+      stats.set(tag, current);
+    });
+  });
+  return Array.from(stats.entries())
+    .sort((left, right) => right[1].total - left[1].total)
+    .map(([tag, value]) => `${tag}: ${formatRate(ratio(value.pass, value.total))}`);
+}
+
 async function copyToClipboard(value: string): Promise<void> {
   if (!value || !navigator.clipboard) {
     return;
@@ -375,6 +991,8 @@ export default function QualityPage() {
   const [trend, setTrend] = useState<QualityTrendSummary | null>(null);
   const [selectedMarker, setSelectedMarker] = useState("");
   const [compareMarker, setCompareMarker] = useState("");
+  const [runStatusFilter, setRunStatusFilter] = useState("ALL");
+  const [runSearch, setRunSearch] = useState("");
   const [detail, setDetail] = useState<QualityRunDetail | null>(null);
   const [compareDetail, setCompareDetail] = useState<QualityRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -522,6 +1140,30 @@ export default function QualityPage() {
     };
   }, [runs]);
 
+  const filteredRuns = useMemo(() => {
+    const query = runSearch.trim().toLowerCase();
+    return runs.filter((run) => {
+      const searchable = [
+        run.marker,
+        run.source,
+        run.artifactName,
+        formatStatus(run.status),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return (
+        runStatusMatches(run.status, runStatusFilter) &&
+        (!query || searchable.includes(query))
+      );
+    });
+  }, [runSearch, runStatusFilter, runs]);
+
+  const latestRun = runs[0];
+  const overviewDiagnostics = useMemo(
+    () => buildOverviewDiagnostics(runs, trend),
+    [runs, trend]
+  );
+
   if (hasToken === false) {
     return (
       <main className="dp-page max-w-5xl mx-auto py-8 px-4">
@@ -541,24 +1183,148 @@ export default function QualityPage() {
 
   return (
     <main className="dp-page max-w-7xl mx-auto py-8 px-4">
+      <QualityOverviewHeader
+        stats={stats}
+        diagnostics={overviewDiagnostics}
+        latestRun={latestRun}
+        loading={loading}
+        onRefresh={() => loadRuns()}
+      />
+
+      {errorMessage ? (
+        <section className="dp-card border-red-200 bg-red-50 text-sm text-red-700">
+          {errorMessage}
+        </section>
+      ) : null}
+
+      <section className="grid gap-4 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.75fr)]">
+        <RunListSidebar
+          runs={filteredRuns}
+          allRunCount={runs.length}
+          loading={loading}
+          selectedMarker={selectedMarker}
+          statusFilter={runStatusFilter}
+          search={runSearch}
+          onStatusFilterChange={setRunStatusFilter}
+          onSearchChange={setRunSearch}
+          onSelect={setSelectedMarker}
+        />
+
+        <RunDetailPanel
+          detail={detail}
+          loading={detailLoading}
+          runs={runs}
+          evalCatalog={evalCatalog}
+          trend={trend}
+          selectedMarker={selectedMarker}
+          compareMarker={compareMarker}
+          compareDetail={compareDetail}
+          compareLoading={compareLoading}
+          onCompareMarkerChange={setCompareMarker}
+        />
+      </section>
+    </main>
+  );
+}
+
+function QualityOverviewHeader({
+  stats,
+  diagnostics,
+  latestRun,
+  loading,
+  onRefresh,
+}: {
+  stats: {
+    total: number;
+    pass: number;
+    review: number;
+    failed: number;
+    tokens: number;
+  };
+  diagnostics: OverviewDiagnostics;
+  latestRun?: QualityRunSummary;
+  loading: boolean;
+  onRefresh: () => void;
+}) {
+  const overviewCards: DiagnosticItem[] = [
+    {
+      label: "通过率",
+      value: formatRate(diagnostics.passRate),
+      helper: "最近加载运行中 PASS / SUCCESS 的比例。",
+      tone: diagnosticToneForRate(diagnostics.passRate, 0.9, 0.75),
+      action: "偏低时先看失败桶 TopN 和最新 run 的待处理项。",
+    },
+    {
+      label: "复查率",
+      value: formatRate(diagnostics.reviewRate),
+      helper: "REVIEW / BLOCKED 运行占比。",
+      tone: diagnosticToneForBadRate(diagnostics.reviewRate, 0.15, 0.3),
+      action: "偏高时优先补齐 evidence、Trace 和环境稳定性。",
+    },
+    {
+      label: "失败率",
+      value: formatRate(diagnostics.failRate),
+      helper: "FAILED_* 运行占比。",
+      tone: diagnosticToneForBadRate(diagnostics.failRate, 0.05, 0.15),
+      action: "偏高时直接进入 Failures，先处理核心链路失败。",
+    },
+    {
+      label: "P95 延迟",
+      value: formatNumber(diagnostics.p95LatencyMs),
+      helper: "基于最近 trend points 的 latencyMs。",
+      tone: diagnostics.p95LatencyMs === null ? "neutral" : diagnostics.p95LatencyMs > 5000 ? "warning" : "success",
+      action: "明显升高时检查模型调用、工具调用和重试次数。",
+    },
+    {
+      label: "平均 tokens",
+      value: formatNumber(diagnostics.avgTokens),
+      helper: "最近运行 totalTokens 的平均值。",
+      tone: "neutral",
+      action: "持续升高时检查 prompt 上下文、RAG evidence 和历史消息裁剪。",
+    },
+    {
+      label: "成功运行成本",
+      value: formatCost(diagnostics.costPerSuccessfulRun),
+      helper: "总估算成本 / 成功运行数。",
+      tone: "neutral",
+      action: "升高时优先排查高 token 或重复模型调用路径。",
+    },
+  ];
+
+  return (
+    <>
       <section className="dp-hero">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <p className="dp-eyebrow">Agent Quality Console</p>
-            <h1 className="dp-title">内部质量控制台</h1>
+            <h1 className="dp-title">内部质量排查控制台</h1>
             <p className="dp-subtitle max-w-3xl">
-              聚合冒烟、审计、RAG、Memory 和自动评测的脱敏质量摘要。
+              先判断最近运行是否健康，再沿着门禁、失败项和链路定位排查问题。
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {RESERVED_TABS.map((tab, index) => (
-              <span
-                key={tab}
-                className={index === 0 ? "dp-badge dp-badge-info" : "dp-badge dp-badge-neutral"}
-              >
-                {tab}
-              </span>
-            ))}
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="dp-btn dp-btn-secondary px-4 py-2"
+            disabled={loading}
+          >
+            {loading ? "刷新中..." : "刷新"}
+          </button>
+        </div>
+        <div className="mt-5 rounded-lg border border-slate-200 bg-white/70 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">
+                {runHealthMessage(latestRun)}
+              </p>
+              <p className="mt-1 break-words text-xs text-slate-500">
+                最近运行: {latestRun?.marker || "-"} /{" "}
+                {latestRun ? formatDateTime(latestRun.updatedAt) : "-"}
+              </p>
+            </div>
+            <span className={statusBadge(latestRun?.status)}>
+              {latestRun ? formatStatus(latestRun.status) : "未加载"}
+            </span>
           </div>
         </div>
       </section>
@@ -571,82 +1337,138 @@ export default function QualityPage() {
         <MetricCard label="总 tokens" value={formatNumber(stats.tokens)} />
       </section>
 
-      {errorMessage ? (
-        <section className="dp-card border-red-200 bg-red-50 text-sm text-red-700">
-          {errorMessage}
-        </section>
-      ) : null}
-
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.55fr)]">
-        <div className="grid min-w-0 gap-4">
-          <div className="dp-card min-w-0">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="dp-section-title">质量总览</h2>
-              <button
-                type="button"
-                onClick={() => loadRuns()}
-                className="dp-btn dp-btn-secondary px-3 py-2"
-                disabled={loading}
-              >
-                刷新
-              </button>
+      <section className="grid gap-3 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <div className="dp-card min-w-0">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="dp-section-title">质量诊断</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                只展示能指导排查的脱敏比率和成本数值。
+              </p>
             </div>
-
-            <div className="mt-4 grid gap-2">
-              {loading ? (
-                <p className="dp-meta">加载中...</p>
-              ) : runs.length === 0 ? (
-                <p className="dp-meta">暂无质量运行记录。</p>
-              ) : (
-                runs.map((run) => (
-                  <button
-                    key={`${run.source}-${run.marker}`}
-                    type="button"
-                    onClick={() => setSelectedMarker(run.marker)}
-                    className={`w-full min-w-0 rounded-lg border p-3 text-left transition ${
-                      selectedMarker === run.marker
-                        ? "border-blue-300 bg-blue-50"
-                        : "border-slate-200 bg-white hover:border-blue-200"
-                    }`}
-                  >
-                    <div className="flex min-w-0 items-center justify-between gap-2">
-                      <span className="truncate text-sm font-semibold text-slate-900">
-                        {run.marker}
-                      </span>
-                      <span className={statusBadge(run.status)}>
-                        {formatStatus(run.status)}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
-                      <span>{run.source}</span>
-                      <span>{formatDateTime(run.updatedAt)}</span>
-                    </div>
-                    <div className="mt-2 text-xs text-slate-600">
-                      门禁 {run.gateCount} / 失败 {run.failedGateCount} / 复查{" "}
-                      {run.reviewGateCount}
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
+            <span className="dp-badge dp-badge-neutral">P0 派生指标</span>
           </div>
-
-          <EvalCatalogPanel items={evalCatalog} />
-          <TrendPanel trend={trend} />
+          <DiagnosticGrid items={overviewCards} />
         </div>
-
-        <RunDetailPanel
-          detail={detail}
-          loading={detailLoading}
-          runs={runs}
-          selectedMarker={selectedMarker}
-          compareMarker={compareMarker}
-          compareDetail={compareDetail}
-          compareLoading={compareLoading}
-          onCompareMarkerChange={setCompareMarker}
-        />
+        <div className="grid min-w-0 gap-3">
+          <BucketActionPanel
+            title="失败类型 TopN"
+            items={diagnostics.topFailureBuckets}
+            emptyText="暂无失败类型。"
+          />
+          <BucketActionPanel
+            title="复查类型 TopN"
+            items={diagnostics.topReviewBuckets}
+            emptyText="暂无复查类型。"
+          />
+        </div>
       </section>
-    </main>
+    </>
+  );
+}
+
+function RunListSidebar({
+  runs,
+  allRunCount,
+  loading,
+  selectedMarker,
+  statusFilter,
+  search,
+  onStatusFilterChange,
+  onSearchChange,
+  onSelect,
+}: {
+  runs: QualityRunSummary[];
+  allRunCount: number;
+  loading: boolean;
+  selectedMarker: string;
+  statusFilter: string;
+  search: string;
+  onStatusFilterChange: (value: string) => void;
+  onSearchChange: (value: string) => void;
+  onSelect: (marker: string) => void;
+}) {
+  return (
+    <aside className="dp-card min-w-0 self-start lg:sticky lg:top-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="dp-section-title">运行记录</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            已加载 {allRunCount} 条，当前显示 {runs.length} 条
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <label className="min-w-0">
+          <span className="text-xs font-semibold uppercase text-slate-500">
+            状态筛选
+          </span>
+          <select
+            value={statusFilter}
+            onChange={(event) => onStatusFilterChange(event.target.value)}
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+          >
+            {RUN_STATUS_FILTERS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0">
+          <span className="text-xs font-semibold uppercase text-slate-500">
+            搜索 marker / 来源
+          </span>
+          <input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="输入 marker、来源或状态"
+            className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 grid max-h-[620px] gap-2 overflow-y-auto pr-1">
+        {loading ? (
+          <p className="dp-meta">正在加载运行记录...</p>
+        ) : allRunCount === 0 ? (
+          <p className="dp-meta">暂无质量运行记录。点击刷新后仍为空时，说明还没有生成脱敏 artifact。</p>
+        ) : runs.length === 0 ? (
+          <p className="dp-meta">没有匹配的运行记录，请调整筛选或搜索。</p>
+        ) : (
+          runs.map((run) => (
+            <button
+              key={`${run.source}-${run.marker}`}
+              type="button"
+              onClick={() => onSelect(run.marker)}
+              className={`w-full min-w-0 rounded-lg border p-3 text-left transition ${
+                selectedMarker === run.marker
+                  ? "border-blue-300 bg-blue-50"
+                  : "border-slate-200 bg-white hover:border-blue-200"
+              }`}
+            >
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <span className="min-w-0 break-words text-sm font-semibold text-slate-900">
+                  {run.marker}
+                </span>
+                <span className={`${statusBadge(run.status)} shrink-0`}>
+                  {formatStatus(run.status)}
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-500">
+                <span>{run.source}</span>
+                <span>{formatDateTime(run.updatedAt)}</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-600">
+                门禁 {run.gateCount} / 失败 {run.failedGateCount} / 复查{" "}
+                {run.reviewGateCount}
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+    </aside>
   );
 }
 
@@ -1009,6 +1831,8 @@ function RunDetailPanel({
   detail,
   loading,
   runs,
+  evalCatalog,
+  trend,
   selectedMarker,
   compareMarker,
   compareDetail,
@@ -1018,6 +1842,8 @@ function RunDetailPanel({
   detail: QualityRunDetail | null;
   loading: boolean;
   runs: QualityRunSummary[];
+  evalCatalog: QualityEvalCaseCatalogItem[];
+  trend: QualityTrendSummary | null;
   selectedMarker: string;
   compareMarker: string;
   compareDetail: QualityRunDetail | null;
@@ -1044,6 +1870,8 @@ function RunDetailPanel({
     <RunDetailContent
       detail={detail}
       runs={runs}
+      evalCatalog={evalCatalog}
+      trend={trend}
       selectedMarker={selectedMarker}
       compareMarker={compareMarker}
       compareDetail={compareDetail}
@@ -1056,6 +1884,8 @@ function RunDetailPanel({
 function RunDetailContent({
   detail,
   runs,
+  evalCatalog,
+  trend,
   selectedMarker,
   compareMarker,
   compareDetail,
@@ -1064,6 +1894,8 @@ function RunDetailContent({
 }: {
   detail: QualityRunDetail;
   runs: QualityRunSummary[];
+  evalCatalog: QualityEvalCaseCatalogItem[];
+  trend: QualityTrendSummary | null;
   selectedMarker: string;
   compareMarker: string;
   compareDetail: QualityRunDetail | null;
@@ -1072,9 +1904,11 @@ function RunDetailContent({
 }) {
   const { summary } = detail;
   const [filters, setFilters] = useState<TriageFilters>(DEFAULT_TRIAGE_FILTERS);
+  const [activeSection, setActiveSection] = useState<DetailSectionId>("summary");
 
   useEffect(() => {
     setFilters(DEFAULT_TRIAGE_FILTERS);
+    setActiveSection("summary");
   }, [summary.marker]);
 
   const traceReferences = useMemo(
@@ -1207,9 +2041,28 @@ function RunDetailContent({
     [filters, traceReferences]
   );
 
+  const failedGateCount = detail.gates.filter((gate) =>
+    isFailedStatus(getGateStatus(gate))
+  ).length;
+  const reviewGateCount = detail.gates.filter((gate) =>
+    isReviewStatus(getGateStatus(gate))
+  ).length;
+  const failedEvalCount = detail.evalCases.filter((item) =>
+    isFailedStatus(item.status)
+  ).length;
+  const reviewEvalCount = detail.evalCases.filter((item) =>
+    isReviewStatus(item.status)
+  ).length;
+  const attentionCount =
+    failedGateCount + reviewGateCount + failedEvalCount + reviewEvalCount;
+  const runDiagnostics = useMemo(
+    () => buildRunDiagnostics(detail, compareDetail, evalCatalog),
+    [compareDetail, detail, evalCatalog]
+  );
+
   return (
     <div className="grid min-w-0 gap-4">
-      <section className="dp-card min-w-0">
+      <section className="dp-card min-w-0 border-slate-200">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
             <p className="dp-eyebrow">运行详情</p>
@@ -1239,62 +2092,531 @@ function RunDetailContent({
           <BucketBox title="失败类型" values={summary.failureBuckets} />
           <BucketBox title="复查类型" values={summary.reviewBuckets} />
         </div>
+
+        {attentionCount > 0 ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            当前运行有 {attentionCount} 个失败或需复查项，建议先查看“待处理”和“链路”。
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            当前运行未发现失败或需复查项，可以按需抽查门禁和链路摘要。
+          </div>
+        )}
       </section>
 
-      <OperationalSummaryPanel summary={operationalSummary(detail)} />
-
-      <RunComparisonPanel
-        current={detail}
-        previous={compareDetail}
-        runs={runs}
-        selectedMarker={selectedMarker}
-        compareMarker={compareMarker}
-        loading={compareLoading}
-        onCompareMarkerChange={onCompareMarkerChange}
-      />
-
-      <FailureTriagePanel
-        filters={filters}
-        gateNames={gateNames}
-        caseTypes={caseTypes}
-        bucketSummaries={bucketSummaries}
-        resultCounts={{
-          gates: filteredGates.length,
-          evalCases: filteredEvalCases.length,
-          traces: filteredTraceReferences.length,
-        }}
-        onChange={setFilters}
-      />
-
-      <TraceReferencePanel
-        references={filteredTraceReferences}
-        runMarker={summary.marker}
-      />
-
       <section className="dp-card min-w-0">
-        <h3 className="dp-section-title">门禁列表</h3>
-        <div className="mt-3 grid gap-2">
-          {filteredGates.length === 0 ? (
-            <p className="dp-meta">暂无门禁明细。</p>
-          ) : (
-            filteredGates.map((gate) => <GateRow key={gate.name} gate={gate} />)
-          )}
+        <div className="flex flex-wrap gap-2">
+          {DETAIL_SECTIONS.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setActiveSection(section.id)}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                activeSection === section.id
+                  ? "border-blue-300 bg-blue-50 text-blue-700"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:text-blue-700"
+              }`}
+            >
+              {section.label}
+            </button>
+          ))}
         </div>
       </section>
 
-      <section className="dp-card min-w-0">
-        <h3 className="dp-section-title">评测用例</h3>
+      {activeSection === "summary" ? (
+        <>
+          <OperationalSummaryPanel summary={operationalSummary(detail)} />
+          <RunComparisonPanel
+            current={detail}
+            previous={compareDetail}
+            runs={runs}
+            selectedMarker={selectedMarker}
+            compareMarker={compareMarker}
+            loading={compareLoading}
+            onCompareMarkerChange={onCompareMarkerChange}
+          />
+        </>
+      ) : null}
+
+      {activeSection === "gates" ? (
+        <GateStatusGroups gates={detail.gates} />
+      ) : null}
+
+      {activeSection === "failures" ? (
+        <>
+          <FailureActionSummary diagnostics={runDiagnostics} />
+          <FailureTriagePanel
+            filters={filters}
+            gateNames={gateNames}
+            caseTypes={caseTypes}
+            bucketSummaries={bucketSummaries}
+            resultCounts={{
+              gates: filteredGates.length,
+              evalCases: filteredEvalCases.length,
+              traces: filteredTraceReferences.length,
+            }}
+            onChange={setFilters}
+          />
+        </>
+      ) : null}
+
+      {activeSection === "trace" ? (
+        <TraceReferencePanel
+          references={filteredTraceReferences}
+          runMarker={summary.marker}
+        />
+      ) : null}
+
+      {activeSection === "eval" ? (
+        <>
+          <DiagnosticsSection
+            title="评测诊断"
+            description="评测通过率、失败用例和 Trace 关联覆盖。"
+            items={runDiagnostics.eval}
+          />
+          <EvalCasesPanel
+            items={filteredEvalCases}
+            runMarker={summary.marker}
+          />
+        </>
+      ) : null}
+
+      {activeSection === "rag" ? (
+        <DomainSummaryPanel detail={detail} domain="rag" diagnostics={runDiagnostics.rag} />
+      ) : null}
+
+      {activeSection === "memory" ? (
+        <DomainSummaryPanel detail={detail} domain="memory" diagnostics={runDiagnostics.memory} />
+      ) : null}
+
+      {activeSection === "tools" ? (
+        <DomainSummaryPanel detail={detail} domain="tools" diagnostics={runDiagnostics.tools} />
+      ) : null}
+
+      {activeSection === "artifacts" ? (
+        <>
+          <ArtifactSummaryPanel summary={summary} />
+          <EvalCatalogPanel items={evalCatalog} />
+          <TrendPanel trend={trend} />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function DiagnosticsSection({
+  title,
+  description,
+  items,
+}: {
+  title: string;
+  description: string;
+  items: DiagnosticItem[];
+}) {
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="dp-section-title">{title}</h3>
+          <p className="mt-1 text-xs text-slate-500">{description}</p>
+        </div>
+        <span className="dp-badge dp-badge-neutral">诊断比率</span>
+      </div>
+      <DiagnosticGrid items={items} />
+    </section>
+  );
+}
+
+function DiagnosticGrid({ items }: { items: DiagnosticItem[] }) {
+  return (
+    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {items.map((item) => (
+        <DiagnosticCard key={`${item.label}-${item.value}`} item={item} />
+      ))}
+    </div>
+  );
+}
+
+function DiagnosticCard({ item }: { item: DiagnosticItem }) {
+  const toneClass =
+    item.tone === "success"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : item.tone === "warning"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : item.tone === "danger"
+          ? "border-red-200 bg-red-50 text-red-800"
+          : "border-slate-200 bg-slate-50 text-slate-700";
+  return (
+    <div className={`min-w-0 rounded-lg border p-3 ${toneClass}`}>
+      <p className="text-xs font-semibold uppercase text-slate-500">{item.label}</p>
+      <p className="mt-2 break-words text-xl font-bold text-slate-950">
+        {item.value}
+      </p>
+      <p className="mt-2 break-words text-xs text-slate-600">{item.helper}</p>
+      {item.action ? (
+        <p className="mt-2 break-words text-xs font-semibold text-slate-800">
+          建议：{item.action}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function BucketActionPanel({
+  title,
+  items,
+  emptyText,
+}: {
+  title: string;
+  items: BucketDiagnostic[];
+  emptyText: string;
+}) {
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <h3 className="dp-section-title">{title}</h3>
+        <span className="dp-badge dp-badge-neutral">{items.length}</span>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {items.length === 0 ? (
+          <p className="dp-meta">{emptyText}</p>
+        ) : (
+          items.map((item) => <BucketActionRow key={item.bucket} item={item} />)
+        )}
+      </div>
+    </section>
+  );
+}
+
+function BucketActionRow({ item }: { item: BucketDiagnostic }) {
+  const toneClass =
+    item.tone === "success"
+      ? "border-emerald-200 bg-emerald-50"
+      : item.tone === "warning"
+        ? "border-amber-200 bg-amber-50"
+        : item.tone === "danger"
+          ? "border-red-200 bg-red-50"
+          : "border-slate-200 bg-slate-50";
+  return (
+    <div className={`min-w-0 rounded-lg border p-3 ${toneClass}`}>
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <p className="break-words text-sm font-semibold text-slate-900">
+          {item.label}
+        </p>
+        <span className="dp-badge dp-badge-neutral">{item.count}</span>
+      </div>
+      <p className="mt-2 break-words text-xs text-slate-600">{item.action}</p>
+    </div>
+  );
+}
+
+function FailureActionSummary({ diagnostics }: { diagnostics: RunDiagnostics }) {
+  return (
+    <section className="grid gap-3 lg:grid-cols-2">
+      <BucketActionPanel
+        title="当前失败类型"
+        items={diagnostics.topFailureBuckets}
+        emptyText="当前 run 暂无失败类型。"
+      />
+      <BucketActionPanel
+        title="当前复查类型"
+        items={diagnostics.topReviewBuckets}
+        emptyText="当前 run 暂无复查类型。"
+      />
+      <BucketActionPanel
+        title="新增失败类型"
+        items={diagnostics.newFailureBuckets}
+        emptyText="没有相对对比运行新增的失败类型。"
+      />
+      <BucketActionPanel
+        title="已恢复失败类型"
+        items={diagnostics.recoveredFailureBuckets}
+        emptyText="没有相对对比运行恢复的失败类型。"
+      />
+    </section>
+  );
+}
+
+function GateStatusGroups({ gates }: { gates: QualityGateSummary[] }) {
+  const failed = gates.filter((gate) => isFailedStatus(getGateStatus(gate)));
+  const review = gates.filter((gate) => isReviewStatus(getGateStatus(gate)));
+  const pass = gates.filter((gate) => isPassStatus(getGateStatus(gate)));
+  const other = gates.filter((gate) => {
+    const status = getGateStatus(gate);
+    return !isFailedStatus(status) && !isReviewStatus(status) && !isPassStatus(status);
+  });
+
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="dp-section-title">门禁排查</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            失败和需复查默认展开，通过项默认压缩。
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-neutral">{gates.length}</span>
+      </div>
+
+      <GateGroup title="失败门禁" gates={failed} tone="danger" emptyText="暂无失败门禁。" />
+      <GateGroup title="需复查门禁" gates={review} tone="warning" emptyText="暂无需复查门禁。" />
+      {other.length > 0 ? (
+        <GateGroup title="其他状态" gates={other} tone="neutral" emptyText="暂无其他状态门禁。" />
+      ) : null}
+
+      <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+          已通过门禁 {pass.length} 项
+        </summary>
         <div className="mt-3 grid gap-2">
-          {filteredEvalCases.length === 0 ? (
-            <p className="dp-meta">暂无评测用例明细。</p>
+          {pass.length === 0 ? (
+            <p className="dp-meta">暂无通过门禁。</p>
           ) : (
-            filteredEvalCases.map((item) => (
-              <EvalCaseRow key={item.caseId} item={item} />
+            pass.map((gate) => <GateRow key={gate.name} gate={gate} compact />)
+          )}
+        </div>
+      </details>
+    </section>
+  );
+}
+
+function GateGroup({
+  title,
+  gates,
+  tone,
+  emptyText,
+}: {
+  title: string;
+  gates: QualityGateSummary[];
+  tone: "danger" | "warning" | "neutral";
+  emptyText: string;
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "border-red-200 bg-red-50"
+      : tone === "warning"
+        ? "border-amber-200 bg-amber-50"
+        : "border-slate-200 bg-white";
+  return (
+    <div className={`mt-4 rounded-lg border p-3 ${toneClass}`}>
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
+        <span className="dp-badge dp-badge-neutral">{gates.length}</span>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {gates.length === 0 ? (
+          <p className="dp-meta">{emptyText}</p>
+        ) : (
+          gates.map((gate) => <GateRow key={gate.name} gate={gate} />)
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EvalCasesPanel({
+  items,
+  runMarker,
+}: {
+  items: QualityEvalCaseResultDetail[];
+  runMarker: string;
+}) {
+  const failedOrReview = items.filter(
+    (item) => isFailedStatus(item.status) || isReviewStatus(item.status)
+  );
+  const pass = items.filter((item) => isPassStatus(item.status));
+  const other = items.filter(
+    (item) =>
+      !isFailedStatus(item.status) &&
+      !isReviewStatus(item.status) &&
+      !isPassStatus(item.status)
+  );
+
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="dp-section-title">评测用例定位</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            失败或需复查用例会显示 Trace 入口。
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-neutral">{items.length}</span>
+      </div>
+      <div className="mt-3 grid gap-2">
+        {failedOrReview.length === 0 ? (
+          <p className="dp-meta">暂无失败或需复查评测用例。</p>
+        ) : (
+          failedOrReview.map((item) => (
+            <EvalCaseRow key={item.caseId} item={item} runMarker={runMarker} />
+          ))
+        )}
+      </div>
+      {other.length > 0 ? (
+        <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+            其他状态用例 {other.length} 项
+          </summary>
+          <div className="mt-3 grid gap-2">
+            {other.map((item) => (
+              <EvalCaseRow key={item.caseId} item={item} runMarker={runMarker} />
+            ))}
+          </div>
+        </details>
+      ) : null}
+      <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+          已通过用例 {pass.length} 项
+        </summary>
+        <div className="mt-3 grid gap-2">
+          {pass.length === 0 ? (
+            <p className="dp-meta">暂无通过用例。</p>
+          ) : (
+            pass.map((item) => (
+              <EvalCaseRow key={item.caseId} item={item} runMarker={runMarker} compact />
             ))
           )}
         </div>
-      </section>
-    </div>
+      </details>
+    </section>
+  );
+}
+
+function DomainSummaryPanel({
+  detail,
+  domain,
+  diagnostics,
+}: {
+  detail: QualityRunDetail;
+  domain: "rag" | "memory" | "tools";
+  diagnostics: DiagnosticItem[];
+}) {
+  const config =
+    domain === "rag"
+      ? {
+          title: "RAG 摘要",
+          description: "关注检索命中、证据、引用和回答依据性。",
+          facts: [
+            ["检索命中数", sumMetric(detail, ["retrieveHits"])],
+            ["回答引用数", sumMetric(detail, ["qaCitations"])],
+            ["证据数", sumMetric(detail, ["evidenceCount"])],
+            ["干扰引用数", sumMetric(detail, ["distractorCitationCount"])],
+          ],
+          buckets: ["RAG_RETRIEVAL_MISS", "CITATION_UNSUPPORTED", "DISTRACTOR_CITATION", "NO_EVIDENCE_FALSE_POSITIVE"],
+        }
+      : domain === "memory"
+        ? {
+            title: "记忆摘要",
+            description: "关注记忆数量、会话链路和长期记忆相关复查项。",
+            facts: [
+              ["记忆数", sumMetric(detail, ["memoryCount"])],
+              ["证据数", sumMetric(detail, ["evidenceCount"])],
+              ["RAG 已触发", countTrueFlags(detail, ["ragTriggered", "traceRagTriggered"])],
+              ["需要 RAG", countTrueFlags(detail, ["ragRequired", "traceRagRequired"])],
+            ],
+            buckets: ["MEMORY_CONFLICT"],
+          }
+        : {
+            title: "工具调用摘要",
+            description: "关注工具调用、模型调用、重试和耗时等数值。",
+            facts: [
+              ["工具调用数", sumMetric(detail, ["toolCallCount"])],
+              ["模型调用数", sumMetric(detail, ["modelCallCount"])],
+              ["重试次数", sumMetric(detail, ["retryCount"])],
+              ["耗时 ms", sumMetric(detail, ["durationMs"])],
+            ],
+            buckets: ["TOOL_FAILURE", "ENV_BLOCKED"],
+          };
+  const relatedBuckets = relatedBucketLabels(detail, config.buckets);
+
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="dp-section-title">{config.title}</h3>
+          <p className="mt-1 text-xs text-slate-500">{config.description}</p>
+        </div>
+        <span className="dp-badge dp-badge-neutral">脱敏摘要</span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {config.facts.map(([label, value]) => (
+          <SmallFact key={label as string} label={label as string} value={formatNumber(value as number | null)} />
+        ))}
+      </div>
+      <DiagnosticGrid items={diagnostics} />
+      <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          相关失败 / 复查类型
+        </p>
+        <p className="mt-2 break-words text-sm text-slate-700">
+          {relatedBuckets.length === 0 ? "暂无相关失败或复查类型。" : relatedBuckets.join(" / ")}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function ArtifactSummaryPanel({ summary }: { summary: QualityRunSummary }) {
+  return (
+    <section className="dp-card min-w-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="dp-section-title">Artifact 摘要</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            只展示脱敏元信息，不展示原始 JSON 内容。
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-neutral">默认折叠原文</span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SmallFact label="来源" value={summary.source || "-"} />
+        <SmallFact label="Artifact" value={summary.artifactName || "-"} />
+        <SmallFact label="缺失" value={summary.artifactMissing ? "是" : "否"} />
+        <SmallFact label="解析失败" value={summary.artifactParseFailed ? "是" : "否"} />
+      </div>
+      <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-700">
+          查看脱敏定位字段
+        </summary>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <SmallFact label="marker" value={summary.marker || "-"} />
+          <SmallFact label="更新时间" value={formatDateTime(summary.updatedAt)} />
+        </div>
+      </details>
+    </section>
+  );
+}
+
+function countTrueFlags(detail: QualityRunDetail, names: string[]): number | null {
+  let count = 0;
+  let found = false;
+  const normalizedNames = new Set(names.map((name) => name.toLowerCase()));
+  [...detail.gates, ...detail.evalCases].forEach((item) => {
+    Object.entries(item.flags || {}).forEach(([key, value]) => {
+      if (normalizedNames.has(key.toLowerCase())) {
+        found = true;
+        if (value) {
+          count += 1;
+        }
+      }
+    });
+  });
+  return found ? count : null;
+}
+
+function relatedBucketLabels(detail: QualityRunDetail, categories: string[]): string[] {
+  const categorySet = new Set(categories);
+  const buckets = [
+    ...detail.summary.failureBuckets,
+    ...detail.summary.reviewBuckets,
+    ...detail.gates.flatMap((gate) => [...gate.failureBuckets, ...gate.reviewBuckets]),
+    ...detail.evalCases.flatMap((item) => [...item.failureBuckets, ...item.reviewBuckets]),
+  ];
+  return uniqueSorted(
+    buckets
+      .map((bucket) => normalizeTriageBucket(bucket))
+      .filter((bucket) => categorySet.has(bucket))
+      .map((bucket) => labelBucket(bucket))
   );
 }
 
@@ -1643,7 +2965,13 @@ function BucketBox({
   );
 }
 
-function GateRow({ gate }: { gate: QualityGateSummary }) {
+function GateRow({
+  gate,
+  compact = false,
+}: {
+  gate: QualityGateSummary;
+  compact?: boolean;
+}) {
   const status = gate.status || (gate.passed === false ? "FAILED" : "PASS");
   const signals = signalEntries(gate.metrics, gate.flags);
   return (
@@ -1653,30 +2981,47 @@ function GateRow({ gate }: { gate: QualityGateSummary }) {
           <p className="break-words text-sm font-semibold text-slate-900">
             <span title={gate.name}>{formatGate(gate.name)}</span>
           </p>
-          <p className="mt-1 break-words text-xs text-slate-500">
-            指标: {compactMetrics(gate.metrics)}
-          </p>
-          <p className="mt-1 break-words text-xs text-slate-500">
-            布尔门禁: {compactFlags(gate.flags)}
-          </p>
+          {!compact ? (
+            <>
+              <p className="mt-1 break-words text-xs text-slate-500">
+                指标: {compactMetrics(gate.metrics)}
+              </p>
+              <p className="mt-1 break-words text-xs text-slate-500">
+                布尔门禁: {compactFlags(gate.flags)}
+              </p>
+            </>
+          ) : null}
         </div>
         <span className={statusBadge(status)}>{formatStatus(status)}</span>
       </div>
-      {signals.length > 0 ? <SignalGrid signals={signals} /> : null}
-      <div className="mt-2 grid gap-2 md:grid-cols-2">
-        <p className="break-words text-xs text-red-700">
-          失败: {summarizeBuckets(gate.failureBuckets)}
-        </p>
-        <p className="break-words text-xs text-amber-700">
-          复查: {summarizeBuckets(gate.reviewBuckets)}
-        </p>
-      </div>
+      {!compact && signals.length > 0 ? <SignalGrid signals={signals} /> : null}
+      {!compact || gate.failureBuckets.length > 0 || gate.reviewBuckets.length > 0 ? (
+        <div className="mt-2 grid gap-2 md:grid-cols-2">
+          <p className="break-words text-xs text-red-700">
+            失败: {summarizeBuckets(gate.failureBuckets)}
+          </p>
+          <p className="break-words text-xs text-amber-700">
+            复查: {summarizeBuckets(gate.reviewBuckets)}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function EvalCaseRow({ item }: { item: QualityEvalCaseResultDetail }) {
+function EvalCaseRow({
+  item,
+  runMarker,
+  compact = false,
+}: {
+  item: QualityEvalCaseResultDetail;
+  runMarker?: string;
+  compact?: boolean;
+}) {
   const signals = signalEntries(item.metrics, item.flags);
+  const traceHref = buildEvalCaseTraceHref(runMarker, item);
+  const shouldShowTraceLink =
+    Boolean(traceHref) && (isFailedStatus(item.status) || isReviewStatus(item.status));
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1688,21 +3033,56 @@ function EvalCaseRow({ item }: { item: QualityEvalCaseResultDetail }) {
             {formatCaseType(item.caseType || "agent_quality")}
           </p>
         </div>
-        <span className={statusBadge(item.status)}>{formatStatus(item.status)}</span>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {shouldShowTraceLink ? (
+            <Link
+              href={traceHref || "#"}
+              className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:border-blue-300"
+            >
+              查看 Trace
+            </Link>
+          ) : null}
+          <span className={statusBadge(item.status)}>{formatStatus(item.status)}</span>
+        </div>
       </div>
-      <div className="mt-2 grid gap-2 text-xs text-slate-600 md:grid-cols-2">
-        <p className="break-words">traceId: {item.traceId || "-"}</p>
-        <p className="break-words">agentRunId: {item.agentRunId || "-"}</p>
-      </div>
-      {signals.length > 0 ? <SignalGrid signals={signals} /> : null}
-      <p className="mt-2 break-words text-xs text-red-700">
-        失败: {summarizeBuckets(item.failureBuckets)}
-      </p>
-      <p className="mt-1 break-words text-xs text-amber-700">
-        复查: {summarizeBuckets(item.reviewBuckets)}
-      </p>
+      {!compact ? (
+        <>
+          <div className="mt-2 grid gap-2 text-xs text-slate-600 md:grid-cols-2">
+            <p className="break-words">traceId: {item.traceId || "-"}</p>
+            <p className="break-words">agentRunId: {item.agentRunId || "-"}</p>
+          </div>
+          {signals.length > 0 ? <SignalGrid signals={signals} /> : null}
+          <p className="mt-2 break-words text-xs text-red-700">
+            失败: {summarizeBuckets(item.failureBuckets)}
+          </p>
+          <p className="mt-1 break-words text-xs text-amber-700">
+            复查: {summarizeBuckets(item.reviewBuckets)}
+          </p>
+        </>
+      ) : null}
     </div>
   );
+}
+
+function buildEvalCaseTraceHref(
+  runMarker: string | undefined,
+  item: QualityEvalCaseResultDetail
+): string | null {
+  if (!runMarker || (!item.traceId && !item.agentRunId)) {
+    return null;
+  }
+  const params = new URLSearchParams();
+  params.set("marker", runMarker);
+  if (item.caseId) {
+    params.set("caseId", item.caseId);
+  }
+  if (item.traceId) {
+    params.set("traceId", item.traceId);
+  }
+  if (item.agentRunId) {
+    params.set("agentRunId", item.agentRunId);
+  }
+  return `/quality/trace?${params.toString()}`;
 }
 
 function OperationalSummaryPanel({
