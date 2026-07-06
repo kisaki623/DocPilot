@@ -34,6 +34,10 @@ spring:
       max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:20MB}
 
 app:
+  document:
+    parser:
+      max-file-size-bytes: ${APP_DOCUMENT_PARSER_MAX_FILE_SIZE_BYTES:20971520}
+      timeout-ms: ${APP_DOCUMENT_PARSER_TIMEOUT_MS:10000}
   file:
     upload-dir: ${FILE_UPLOAD_DIR:./data/uploads}
     storage:

@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 @Service
 public class FileServiceImpl implements FileService {
 
-    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "md", "txt");
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "md", "txt", "html", "htm", "docx");
     private static final String META_FIELD_USER_ID = "userId";
     private static final String META_FIELD_FILE_NAME = "fileName";
     private static final String META_FIELD_FILE_EXT = "fileExt";
@@ -269,7 +269,7 @@ public class FileServiceImpl implements FileService {
 
         String extension = fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
         if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new BusinessException(ErrorCode.FILE_TYPE_NOT_SUPPORTED, "仅支持 pdf、md、txt 文件");
+            throw new BusinessException(ErrorCode.FILE_TYPE_NOT_SUPPORTED, "仅支持 pdf、md、txt、html、htm、docx 文件");
         }
         return extension;
     }

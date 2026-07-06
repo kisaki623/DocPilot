@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.ObjectProvider;
 
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -36,8 +38,8 @@ class FileContentReaderTest {
     @Test
     void shouldReadMinioTextWhenWriterAvailable() {
         MinioFileStorageWriter minioFileStorageWriter = mock(MinioFileStorageWriter.class);
-        when(minioFileStorageWriter.readText("minio://docpilot/uploads/demo.txt"))
-                .thenReturn("DocPilot MinIO 读取测试");
+        when(minioFileStorageWriter.readBytes("minio://docpilot/uploads/demo.txt", Long.MAX_VALUE))
+                .thenReturn("DocPilot MinIO 读取测试".getBytes(StandardCharsets.UTF_8));
 
         @SuppressWarnings("unchecked")
         ObjectProvider<MinioFileStorageWriter> provider = mock(ObjectProvider.class);
@@ -50,6 +52,53 @@ class FileContentReaderTest {
     }
 
     @Test
+    void shouldReadLocalBytesWithLimit() throws Exception {
+        Path file = tempDir.resolve("sample.bin");
+        Files.write(file, new byte[]{1, 2, 3});
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<MinioFileStorageWriter> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+        FileContentReader reader = new FileContentReader(provider);
+
+        byte[] bytes = reader.readBytes(file.toString(), 10);
+
+        assertEquals(3, bytes.length);
+        assertEquals(2, bytes[1]);
+    }
+
+    @Test
+    void shouldRejectLocalFileOverLimit() throws Exception {
+        Path file = tempDir.resolve("sample.bin");
+        Files.write(file, new byte[]{1, 2, 3});
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<MinioFileStorageWriter> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+        FileContentReader reader = new FileContentReader(provider);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> reader.readBytes(file.toString(), 2));
+
+        assertTrue(ex.getMessage().contains("exceeds parser size limit"));
+    }
+
+    @Test
+    void shouldOpenLocalStream() throws Exception {
+        Path file = tempDir.resolve("stream.txt");
+        Files.writeString(file, "stream content");
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<MinioFileStorageWriter> provider = mock(ObjectProvider.class);
+        when(provider.getIfAvailable()).thenReturn(null);
+        FileContentReader reader = new FileContentReader(provider);
+
+        try (InputStream stream = reader.openStream(file.toString())) {
+            assertEquals("stream content", new String(stream.readAllBytes(), StandardCharsets.UTF_8));
+        }
+    }
+
+    @Test
     void shouldFailClearlyWhenMinioPathButWriterMissing() {
         @SuppressWarnings("unchecked")
         ObjectProvider<MinioFileStorageWriter> provider = mock(ObjectProvider.class);
@@ -59,7 +108,7 @@ class FileContentReaderTest {
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> reader.readText("minio://docpilot/uploads/demo.txt"));
 
-        assertTrue(ex.getMessage().contains("未启用 MinIO 模式"));
+        assertTrue(ex.getMessage().contains("MinIO storage is not enabled"));
     }
 }
 

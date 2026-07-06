@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console 真实可见性回归（DONE）；下一片：可选进入趋势解释 v2 或真实失败样本 drill-down 演示（READY）
+当前任务：Document Parser MVP 第一片（DONE）；下一片：真实上传 PDF / HTML / DOCX runtime smoke 或 parser block locator 接入 chunk metadata（READY）
+
+## 2026-07-06 补充：Document Parser MVP 第一片
+
+- 目标：把文档解析从 `txt / md` 和 PDF 占位推进到工程化 Parser MVP，支持 `txt / md`、文本型 PDF、本地 HTML 和 DOCX 的稳定文本抽取，并接入既有“上传 -> 异步解析 -> chunk -> embedding -> vector index -> RAG QA”链路。
+- 已完成后端：新增 `backend/src/main/java/com/docpilot/backend/document/parser/**`，包含 `DocumentParser`、`ParserRegistry`、`ParseResult`、`DocumentBlock`、PDFBox parser、Jsoup HTML parser、Apache POI DOCX parser 和文本 parser。
+- 已完成链路接入：`ParseTaskConsumeEntryServiceImpl` 现在按 contentType / extension 选择 parser，解析成功后继续写入 document content / summary、推进 parse status、触发 RAG indexing；RAG indexing trigger 失败仍与 parse success 隔离。
+- 已完成上传与配置：上传 allowlist 扩展到 `pdf/md/txt/html/htm/docx`；`application.yml` 和 `.env*.example` 新增 `APP_DOCUMENT_PARSER_MAX_FILE_SIZE_BYTES` 与 `APP_DOCUMENT_PARSER_TIMEOUT_MS`。
+- 已完成可观测边界：parser metrics 记录 parserName、status、duration、extractedChars、pageCount、blockCount 和 warningCount；日志不打印文档全文。
+- 已验证：`mvn "-Dtest=*Parser*,ParseTaskConsumeEntryServiceImplTest,FileContentReaderTest,FileServiceImplTest" test` PASS，44 tests；`mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,RagDocumentRetrievalQualitySmokeTest" test` PASS，34 tests；此前 `mvn -DskipTests compile` PASS。
+- 边界：本片不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原 / PDF 坐标级 citation；未启动 tunnel / backend / frontend，未创建业务数据，未做真实 PDF / HTML / DOCX cloud runtime smoke。
+- 下一片建议：启动本地 tunnel + backend + frontend，上传小型 PDF / HTML / DOCX 临时文档，验证 parse SUCCESS、chunk 进入 MySQL、Qdrant indexing、单文档 RAG retrieve / QA citation 和脱敏 artifact。
 
 ## 2026-07-06 补充：Agent Quality Console 真实可见性回归
 

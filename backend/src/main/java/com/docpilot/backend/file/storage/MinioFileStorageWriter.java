@@ -43,7 +43,7 @@ public class MinioFileStorageWriter implements FileStorageWriter {
     @PostConstruct
     public void ensureBucket() {
         if (bucket == null || bucket.isBlank()) {
-            throw new IllegalStateException("MinIO bucket 不能为空，请检查 app.file.storage.minio.bucket");
+            throw new IllegalStateException("MinIO bucket must not be blank");
         }
         try {
             boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build());
@@ -51,7 +51,7 @@ public class MinioFileStorageWriter implements FileStorageWriter {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
             }
         } catch (Exception ex) {
-            throw new IllegalStateException("MinIO bucket 初始化失败", ex);
+            throw new IllegalStateException("MinIO bucket initialization failed", ex);
         }
     }
 
@@ -69,7 +69,7 @@ public class MinioFileStorageWriter implements FileStorageWriter {
             );
             return toStoragePath(bucket, objectName);
         } catch (Exception ex) {
-            throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED, "文件上传到 MinIO 失败");
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED, "upload to MinIO failed");
         }
     }
 
@@ -87,7 +87,7 @@ public class MinioFileStorageWriter implements FileStorageWriter {
             );
             return toStoragePath(bucket, objectName);
         } catch (Exception ex) {
-            throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED, "文件上传到 MinIO 失败");
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_FAILED, "upload to MinIO failed");
         }
     }
 
@@ -97,12 +97,31 @@ public class MinioFileStorageWriter implements FileStorageWriter {
     }
 
     public String readText(String storagePath) {
-        MinioObjectAddress address = parse(storagePath);
-        try (InputStream inputStream = minioClient.getObject(
-                GetObjectArgs.builder().bucket(address.bucket()).object(address.objectName()).build())) {
-            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        return new String(readBytes(storagePath, Long.MAX_VALUE), StandardCharsets.UTF_8);
+    }
+
+    public byte[] readBytes(String storagePath, long maxBytes) {
+        if (maxBytes <= 0) {
+            throw new IllegalArgumentException("maxBytes must be positive");
+        }
+        try (InputStream inputStream = openStream(storagePath)) {
+            byte[] bytes = inputStream.readAllBytes();
+            if (bytes.length > maxBytes) {
+                throw new IllegalStateException("MinIO object exceeds parser size limit");
+            }
+            return bytes;
         } catch (Exception ex) {
-            throw new IllegalStateException("读取 MinIO 文件失败: " + storagePath, ex);
+            throw new IllegalStateException("failed to read MinIO object", ex);
+        }
+    }
+
+    public InputStream openStream(String storagePath) {
+        MinioObjectAddress address = parse(storagePath);
+        try {
+            return minioClient.getObject(
+                    GetObjectArgs.builder().bucket(address.bucket()).object(address.objectName()).build());
+        } catch (Exception ex) {
+            throw new IllegalStateException("failed to open MinIO object", ex);
         }
     }
 
@@ -112,12 +131,12 @@ public class MinioFileStorageWriter implements FileStorageWriter {
 
     public static MinioObjectAddress parse(String storagePath) {
         if (!isMinioPath(storagePath)) {
-            throw new IllegalArgumentException("非法 MinIO 存储路径: " + storagePath);
+            throw new IllegalArgumentException("invalid MinIO storage path");
         }
         String raw = storagePath.substring(MINIO_PREFIX.length());
         int split = raw.indexOf('/');
         if (split <= 0 || split == raw.length() - 1) {
-            throw new IllegalArgumentException("非法 MinIO 存储路径: " + storagePath);
+            throw new IllegalArgumentException("invalid MinIO storage path");
         }
         return new MinioObjectAddress(raw.substring(0, split), raw.substring(split + 1));
     }
@@ -135,5 +154,3 @@ public class MinioFileStorageWriter implements FileStorageWriter {
     public record MinioObjectAddress(String bucket, String objectName) {
     }
 }
-
-

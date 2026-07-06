@@ -13,6 +13,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的企业文档知识库 RAG
 ## 2. 当前真实已实现能力
 
 - 账号密码注册 / 登录、文档上传、文档创建、文档列表和详情页。
+- Document Parser MVP：支持 `txt / md`、文本型 PDF、本地 HTML 和 DOCX 的基础文本抽取，并保留 page / block / section 级来源字段供后续 citation 细化。
 - 基于 Outbox + RocketMQ 的异步解析链路，包含解析任务、消费幂等、Redisson 分布式锁和补偿思路，并已完成 active MQ smoke。
 - MySQL 持久化、Redis 缓存 / 限流 / 会话上下文、MinIO 对象存储和分片上传；MinIO active storage 已完成最小 smoke。
 - RAG 文档问答：基于文档切分、chunk 持久化、EmbeddingProvider、Qdrant / in-memory VectorStore、上下文组装、AI 回答和引用展示。
@@ -35,7 +36,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的企业文档知识库 RAG
 ## 3. 当前半实现能力
 
 - RAG 测试 / eval 仍保留 fake embedding + in-memory vector store，便于稳定复现；真实 embedding + Qdrant 已在 smoke collection 验证；KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，近阈值 hard-negative 支持度门禁已通过小规模真实 smoke，但不是线上治理完整的生产 RAG 或通用 entailment scorer。
-- PDF 支持偏占位，主能力更适合 txt / md 文档。
+- PDF / HTML / DOCX 解析已从占位推进为基础文本抽取 MVP，但仍不是 OCR、扫描件识别、外部网页抓取、复杂版面理解或商业级文档理解平台。
 - Agent 是同步 API 下的最小工具链闭环，不是异步多 Agent 编排。
 - LLM execute mode 只在显式配置时启用；默认仍是 keyword selector。真实 provider / execute 类验证必须在用户授权、配置可用和日志脱敏边界下运行。
 - selector metrics 当前主要是内存态和 debug dump；Actuator endpoint 默认关闭，Prometheus 仅有设计文档。
@@ -59,10 +60,10 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的企业文档知识库 RAG
 ## 6. 最适合写进简历的 5 个工程亮点
 
 1. 设计并实现文档上传后的异步解析链路，结合 Outbox、RocketMQ、Redisson 分布式锁和幂等消费，降低同步阻塞和重复消费风险。
-2. 构建知识库 RAG 主链路：chunk 持久化、EmbeddingProvider 抽象、Qdrant 检索、scope guard、no-evidence、grounded QA、quote-level citation 和 MySQL / Qdrant 一致性门禁。
-3. 实现 Conversation Context / Memory 闭环：短期上下文、摘要、长期记忆候选、用户可控治理、KnowledgeBase evidence 和 Context Trace 分层。
-4. 建设真实链路质量门禁和 Agent Quality Console：用 smoke / audit / eval artifact 聚合 PASS / REVIEW / BLOCKED、failure bucket、trace reference、run comparison 和 token / cost 数值。
-5. 实现最小 Agent 工具链和 ToolCall 底座，支持工具注册、规则 selector、AgentTask / AgentStep trace，以及默认关闭的 LLM tool execution mode。
+2. 设计统一 Document Parser 抽象并接入异步解析到 RAG indexing 链路，支持 txt / md、文本型 PDF、本地 HTML、DOCX 的基础文本抽取和 parser metrics。
+3. 构建知识库 RAG 主链路：chunk 持久化、EmbeddingProvider 抽象、Qdrant 检索、scope guard、no-evidence、grounded QA、quote-level citation 和 MySQL / Qdrant 一致性门禁。
+4. 实现 Conversation Context / Memory 闭环：短期上下文、摘要、长期记忆候选、用户可控治理、KnowledgeBase evidence 和 Context Trace 分层。
+5. 建设真实链路质量门禁和 Agent Quality Console：用 smoke / audit / eval artifact 聚合 PASS / REVIEW / BLOCKED、failure bucket、trace reference、run comparison 和 token / cost 数值。
 
 ## 7. 求职展示优先级
 

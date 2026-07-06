@@ -58,13 +58,13 @@
 
 ### Q6：PDF 解析能力怎么样？
 
-面试可背版回答：当前项目主能力是 txt / md 的文本解析和轻量检索增强。PDF 支持更偏占位，不能说成生产级 PDF 结构化解析。
+面试可背版回答：当前已经不是 PDF 占位了。项目做了统一 Document Parser 抽象，`txt / md` 走文本解析，文本型 PDF 走 PDFBox 页级文本抽取，本地 HTML 走 Jsoup 去噪，DOCX 走 Apache POI 抽取段落、标题和表格文本。解析结果会进入既有 chunk、embedding、vector index 和 RAG QA 链路。
 
 面试官追问：如果要增强 PDF 怎么做？
 
-诚实边界：需要接更可靠的 PDF 文本抽取、版面结构处理和解析质量评测，当前还没做。
+诚实边界：当前是文本抽取 MVP，不是商业级文档理解。它不支持 OCR、扫描件识别、复杂版面还原、外部网页抓取或 `.doc` 旧格式；页码 / block locator 已保留在 parser result，但更精确的 PDF 坐标级 citation 还需要后续接入。
 
-对应位置：`docs/PROJECT_INTERVIEW_BRIEF.md`、`README.md`。
+对应位置：`backend/src/main/java/com/docpilot/backend/document/parser`、`ParseTaskConsumeEntryServiceImpl`、`docs/showcase/PROJECT_INTERVIEW_BRIEF.md`、`README.md`。
 
 ## 3. RocketMQ / 异步任务
 

@@ -85,6 +85,8 @@ curl http://localhost:8081/actuator/health
 补充口径：
 
 - 当前问答链路为“轻量检索增强”（分片检索 + 上下文组装 + 生成 + 引用）。
+- Document Parser MVP 支持 `txt / md`、文本型 PDF、本地 HTML 和 DOCX 基础文本抽取；PDF 使用 PDFBox 页级文本，HTML 只解析本地上传内容且不访问外部网络，DOCX 使用 Apache POI 抽取段落 / 标题 / 表格文本。
+- Parser 运行边界由 `APP_DOCUMENT_PARSER_MAX_FILE_SIZE_BYTES` 和 `APP_DOCUMENT_PARSER_TIMEOUT_MS` 控制；当前不做 OCR、扫描件识别、复杂版面还原、外部网页抓取或 `.doc` 旧格式。
 - SSE 事件使用 `meta/chunk/done/error`；`meta/done` 会携带 `sessionId/documentId/citations`。
 - Agent 当前为单 Agent 最小闭环，包含工具步骤：文档状态查询 -> 摘要或问答。
 

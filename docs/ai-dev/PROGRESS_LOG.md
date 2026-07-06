@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-06 Document Parser MVP 第一片
+
+- 新增统一 `DocumentParser` / `ParserRegistry` / `ParseResult` / `DocumentBlock` 抽象，解析结果保留 `fullText`、block、pageNumber、sectionPath、blockType、parserName、parserVersion、parseDurationMs、extractedChars、pageCount、blockCount 和 warnings。
+- 新增 parser 实现：`TextDocumentParser` 支持 `txt / md`；`PdfDocumentParser` 使用 PDFBox 抽取文本型 PDF 页级文本；`HtmlDocumentParser` 使用 Jsoup 解析本地上传 HTML 并去除 `script/style/nav/footer/header` 等噪声；`DocxDocumentParser` 使用 Apache POI 抽取 DOCX 段落、标题和表格文本。
+- `ParseTaskConsumeEntryServiceImpl` 已接入 parser registry，解析成功后继续进入 summary、chunking、RAG indexing trigger 和原有 parse status 流转；RAG indexing trigger 异常仍不会反向打断 parse success。
+- `FileContentReader` / `MinioFileStorageWriter` 增加 `readBytes` 和 `openStream`，支持 PDF / DOCX parser 读取本地或 MinIO 对象；上传 allowlist 扩到 `pdf/md/txt/html/htm/docx`。
+- 新增 parser metrics 和配置：`APP_DOCUMENT_PARSER_MAX_FILE_SIZE_BYTES`、`APP_DOCUMENT_PARSER_TIMEOUT_MS`；只记录 parserName、耗时、字符数、页数、block 数和 warning 数，不记录文档全文。
+- 已验证：`mvn "-Dtest=*Parser*,ParseTaskConsumeEntryServiceImplTest,FileContentReaderTest,FileServiceImplTest" test` PASS，44 tests；`mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,RagDocumentRetrievalQualitySmokeTest" test` PASS，34 tests。
+- 边界：不新增数据库表、不改 schema、不做 OCR、扫描件识别、复杂版面还原、外部网页抓取、`.doc` 旧格式或 PDF 坐标级 citation；本片未启动真实链路，未创建业务数据，未提交 artifact 原文。
+
 ## 2026-07-06 Agent Quality Console 真实可见性回归
 
 - 本地 tunnel 可用，backend `/actuator/health` 为 `UP`；前端使用 `next build` + `next start -p 3007` 启动。

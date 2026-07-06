@@ -1,28 +1,32 @@
 package com.docpilot.backend.task.service.impl;
 
+import com.docpilot.backend.ai.service.RagIndexingTriggerService;
 import com.docpilot.backend.common.constant.CommonConstants;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
 import com.docpilot.backend.common.metrics.DocPilotMetrics;
 import com.docpilot.backend.common.util.SummaryUtils;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
+import com.docpilot.backend.document.parser.ParseResult;
+import com.docpilot.backend.document.parser.ParserException;
+import com.docpilot.backend.document.parser.ParserInput;
+import com.docpilot.backend.document.parser.ParserOptions;
+import com.docpilot.backend.document.parser.ParserRegistry;
 import com.docpilot.backend.file.entity.FileRecord;
 import com.docpilot.backend.file.mapper.FileRecordMapper;
-import com.docpilot.backend.file.storage.FileContentReader;
 import com.docpilot.backend.mq.entity.ParseTaskConsumeRecord;
 import com.docpilot.backend.mq.mapper.ParseTaskConsumeRecordMapper;
 import com.docpilot.backend.mq.message.ParseTaskMessage;
-import com.docpilot.backend.ai.service.RagIndexingTriggerService;
 import com.docpilot.backend.task.entity.ParseTask;
 import com.docpilot.backend.task.mapper.ParseTaskMapper;
 import com.docpilot.backend.task.service.ParseTaskConsumeEntryService;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.Locale;
 
 @Service
 public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntryService {
@@ -30,31 +34,36 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
     private static final Logger log = LoggerFactory.getLogger(ParseTaskConsumeEntryServiceImpl.class);
     private static final int SUMMARY_MAX_LENGTH = 200;
     private static final int ERROR_MSG_MAX_LENGTH = 512;
-    private static final String PDF_PLACEHOLDER_CONTENT = "当前阶段（4.2）暂未实现 PDF 真实解析。";
     private static final String CONSUME_STATUS_FAILED = "FAILED";
 
     private final ParseTaskMapper parseTaskMapper;
     private final DocumentMapper documentMapper;
     private final FileRecordMapper fileRecordMapper;
-    private final FileContentReader fileContentReader;
+    private final ParserRegistry parserRegistry;
     private final ParseTaskConsumeRecordMapper parseTaskConsumeRecordMapper;
     private final StringRedisTemplate stringRedisTemplate;
     private final RagIndexingTriggerService ragIndexingTriggerService;
+    private final long parserMaxFileSizeBytes;
+    private final long parserTimeoutMillis;
 
     public ParseTaskConsumeEntryServiceImpl(ParseTaskMapper parseTaskMapper,
                                             DocumentMapper documentMapper,
                                             FileRecordMapper fileRecordMapper,
-                                            FileContentReader fileContentReader,
+                                            ParserRegistry parserRegistry,
                                             ParseTaskConsumeRecordMapper parseTaskConsumeRecordMapper,
                                             StringRedisTemplate stringRedisTemplate,
-                                            RagIndexingTriggerService ragIndexingTriggerService) {
+                                            RagIndexingTriggerService ragIndexingTriggerService,
+                                            @Value("${app.document.parser.max-file-size-bytes:20971520}") long parserMaxFileSizeBytes,
+                                            @Value("${app.document.parser.timeout-ms:10000}") long parserTimeoutMillis) {
         this.parseTaskMapper = parseTaskMapper;
         this.documentMapper = documentMapper;
         this.fileRecordMapper = fileRecordMapper;
-        this.fileContentReader = fileContentReader;
+        this.parserRegistry = parserRegistry;
         this.parseTaskConsumeRecordMapper = parseTaskConsumeRecordMapper;
         this.stringRedisTemplate = stringRedisTemplate;
         this.ragIndexingTriggerService = ragIndexingTriggerService;
+        this.parserMaxFileSizeBytes = parserMaxFileSizeBytes;
+        this.parserTimeoutMillis = parserTimeoutMillis;
     }
 
     @Override
@@ -65,7 +74,7 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
                 || message.getFileRecordId() == null) {
             log.warn("[PARSE_INVALID_MESSAGE] message={}", message);
             if (message != null && message.getTaskId() != null) {
-                markFailed(message.getTaskId(), null, message.getDocumentId(), "INVALID_MESSAGE", "解析任务消息字段缺失");
+                markFailed(message.getTaskId(), null, message.getDocumentId(), "INVALID_MESSAGE", "parse message missing required fields");
             }
             return;
         }
@@ -107,7 +116,8 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
                     parseTask.getDocumentId(),
                     message.getFileRecordId(),
                     parseTask.getFileRecordId());
-            markFailed(parseTask.getId(), parseTask.getUserId(), parseTask.getDocumentId(), "MESSAGE_TASK_MISMATCH", "消息中的 ID 与解析任务不一致");
+            markFailed(parseTask.getId(), parseTask.getUserId(), parseTask.getDocumentId(),
+                    "MESSAGE_TASK_MISMATCH", "message ids do not match parse task");
             return;
         }
 
@@ -115,7 +125,8 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
         if (document == null) {
             log.warn("[PARSE_DOCUMENT_NOT_FOUND] taskId={}, documentId={}, fileRecordId={}",
                     message.getTaskId(), message.getDocumentId(), message.getFileRecordId());
-            markFailed(parseTask.getId(), parseTask.getUserId(), parseTask.getDocumentId(), "DOCUMENT_NOT_FOUND", "文档不存在");
+            markFailed(parseTask.getId(), parseTask.getUserId(), parseTask.getDocumentId(),
+                    "DOCUMENT_NOT_FOUND", "document does not exist");
             return;
         }
 
@@ -123,7 +134,8 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
         if (fileRecord == null) {
             log.warn("[PARSE_FILE_RECORD_NOT_FOUND] taskId={}, documentId={}, fileRecordId={}",
                     message.getTaskId(), message.getDocumentId(), message.getFileRecordId());
-            markFailed(parseTask.getId(), document.getUserId(), document.getId(), "FILE_RECORD_NOT_FOUND", "文件记录不存在");
+            markFailed(parseTask.getId(), document.getUserId(), document.getId(),
+                    "FILE_RECORD_NOT_FOUND", "file record does not exist");
             return;
         }
 
@@ -133,7 +145,8 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
                     message.getDocumentId(),
                     message.getFileRecordId(),
                     document.getFileRecordId());
-            markFailed(parseTask.getId(), document.getUserId(), document.getId(), "DOCUMENT_FILE_MISMATCH", "文档与文件记录不匹配");
+            markFailed(parseTask.getId(), document.getUserId(), document.getId(),
+                    "DOCUMENT_FILE_MISMATCH", "document and file record mismatch");
             return;
         }
 
@@ -144,8 +157,18 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
 
             transitionToStage(parseTask, document, ParseStatusConstants.PARSING);
             long parsingStart = System.nanoTime();
-            String parsedContent = parseContentByFileType(fileRecord);
+            ParseResult parseResult = parseDocument(fileRecord, document);
+            String parsedContent = parseResult.fullText();
             DocPilotMetrics.recordParseStageDuration(ParseStatusConstants.PARSING, System.nanoTime() - parsingStart);
+            DocPilotMetrics.recordDocumentParserResult(
+                    parseResult.parserName(),
+                    "success",
+                    parseResult.parseDurationMs(),
+                    parseResult.extractedChars(),
+                    parseResult.pageCount(),
+                    parseResult.blockCount(),
+                    parseResult.warnings().size()
+            );
 
             long splittingStart = System.nanoTime();
             transitionToStage(parseTask, document, ParseStatusConstants.SPLITTING);
@@ -177,23 +200,41 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             DocPilotMetrics.recordParseStageDuration(ParseStatusConstants.INDEXING, System.nanoTime() - indexingStart);
             triggerRagIndexingSafely(document.getUserId(), document.getId(), parsedContent);
 
-            log.info("Parse task consume entry accepted. taskId={}, documentId={}, fileRecordId={}, contentLength={}, summaryLength={}",
+            log.info("Parse task consume entry accepted. taskId={}, documentId={}, fileRecordId={}, parser={}, contentLength={}, summaryLength={}, blockCount={}, warningCount={}",
                     parseTask.getId(),
                     document.getId(),
                     fileRecord.getId(),
+                    parseResult.parserName(),
                     parsedContent.length(),
-                    summary.length());
+                    summary.length(),
+                    parseResult.blockCount(),
+                    parseResult.warnings().size());
         } catch (Exception ex) {
-            log.error("[PARSE_PROCESS_EXCEPTION] taskId={}, documentId={}, fileRecordId={}",
-                    parseTask.getId(),
-                    document.getId(),
-                    fileRecord.getId(),
-                    ex);
-            if (ex instanceof IllegalStateException && ex.getMessage() != null && ex.getMessage().startsWith("非法状态流转")) {
+            if (ex instanceof IllegalStateException && ex.getMessage() != null && ex.getMessage().startsWith("illegal status transition")) {
                 return;
             }
-            markFailed(parseTask, document.getUserId(), document.getId(), "PARSE_EXCEPTION", ex.getMessage());
+            String errorType = ex instanceof ParserException parserException
+                    ? "PARSER_" + parserException.getErrorCode().name()
+                    : "PARSE_EXCEPTION";
+            DocPilotMetrics.recordDocumentParserResult("unknown", "failed", 0, 0, 0, 0, 0);
+            log.error("[PARSE_PROCESS_EXCEPTION] taskId={}, documentId={}, fileRecordId={}, errorType={}",
+                    parseTask.getId(), document.getId(), fileRecord.getId(), errorType, ex);
+            markFailed(parseTask, document.getUserId(), document.getId(), errorType, ex.getMessage());
         }
+    }
+
+    private ParseResult parseDocument(FileRecord fileRecord, Document document) {
+        ParserInput input = new ParserInput(
+                document.getId(),
+                fileRecord.getId(),
+                fileRecord.getFileName(),
+                fileRecord.getFileExt(),
+                fileRecord.getContentType(),
+                fileRecord.getFileSize(),
+                fileRecord.getStoragePath(),
+                new ParserOptions(parserMaxFileSizeBytes, parserTimeoutMillis)
+        );
+        return parserRegistry.parse(input);
     }
 
     private void triggerRagIndexingSafely(Long userId, Long documentId, String parsedContent) {
@@ -246,7 +287,7 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
     private void transitionToStage(ParseTask parseTask, Document document, String targetStatus) {
         String currentStatus = parseTask.getStatus();
         if (!ParseStatusConstants.canTransit(currentStatus, targetStatus)) {
-            String transitionError = "非法状态流转: " + currentStatus + " -> " + targetStatus;
+            String transitionError = "illegal status transition: " + currentStatus + " -> " + targetStatus;
             markFailed(parseTask, document.getUserId(), document.getId(), "ILLEGAL_STATUS_TRANSITION", transitionError);
             throw new IllegalStateException(transitionError);
         }
@@ -314,39 +355,8 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
         try {
             stringRedisTemplate.delete(cacheKey);
         } catch (Exception ex) {
-            log.warn("文档详情缓存失效失败，cacheKey={}", cacheKey, ex);
+            log.warn("Document detail cache eviction failed. cacheKey={}", cacheKey, ex);
         }
-    }
-
-    private String parseContentByFileType(FileRecord fileRecord) {
-        String extension = safeExtension(fileRecord.getFileExt(), fileRecord.getFileName());
-        if ("txt".equals(extension) || "md".equals(extension)) {
-            return readTextFile(fileRecord.getStoragePath());
-        }
-        if ("pdf".equals(extension)) {
-            return PDF_PLACEHOLDER_CONTENT;
-        }
-        log.warn("[PARSE_UNSUPPORTED_FILE_TYPE] fileRecordId={}, ext={}",
-                fileRecord.getId(), extension);
-        throw new UnsupportedOperationException("不支持的文件类型: " + extension);
-    }
-
-    private String readTextFile(String storagePath) {
-        return fileContentReader.readText(storagePath);
-    }
-
-    private String safeExtension(String fileExt, String fileName) {
-        if (fileExt != null && !fileExt.trim().isEmpty()) {
-            return fileExt.trim().toLowerCase(Locale.ROOT);
-        }
-        if (fileName == null) {
-            return "unknown";
-        }
-        int dotIndex = fileName.lastIndexOf('.');
-        if (dotIndex < 0 || dotIndex == fileName.length() - 1) {
-            return "unknown";
-        }
-        return fileName.substring(dotIndex + 1).toLowerCase(Locale.ROOT);
     }
 
     private String buildSummary(String content) {
@@ -355,11 +365,11 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
 
     private String limitError(String errorMessage) {
         if (errorMessage == null) {
-            return "未知错误";
+            return "unknown error";
         }
         String trimmed = errorMessage.trim();
         if (trimmed.isEmpty()) {
-            return "未知错误";
+            return "unknown error";
         }
         if (trimmed.length() <= ERROR_MSG_MAX_LENGTH) {
             return trimmed;
@@ -369,7 +379,6 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
 
     private String buildErrorMsg(String errorType, String stage, String errorMessage) {
         String resolvedStage = (stage == null || stage.isBlank()) ? "UNKNOWN" : stage;
-        return errorType + " [stage=" + resolvedStage + "]: " + errorMessage;
+        return errorType + " [stage=" + resolvedStage + "]: " + limitError(errorMessage);
     }
 }
-

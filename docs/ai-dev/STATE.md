@@ -2,6 +2,7 @@
 
 ## 2026-06-29 当前补充
 
+- 2026-07-06 Document Parser MVP 第一片已完成离线收口。后端新增统一 `DocumentParser` / `ParserRegistry` / `ParseResult` 抽象，支持 `txt / md`、文本型 PDF、上传的本地 HTML 和 DOCX 基础文本抽取；PDF 保留页级 block，HTML 去除 `script/style/nav/footer/header` 等噪声，DOCX 抽取段落、标题和表格文本。解析消费侧已接入 parser registry，解析成功后继续进入既有 summary、chunking、RAG indexing trigger 和状态流转；新增 parser metrics 记录 parserName、duration、extractedChars、pageCount、blockCount 和 warningCount，不打印文档全文。上传 allowlist 已扩到 `pdf/md/txt/html/htm/docx`，配置新增 `APP_DOCUMENT_PARSER_MAX_FILE_SIZE_BYTES` 和 `APP_DOCUMENT_PARSER_TIMEOUT_MS`。已验证 targeted parser / parse / file tests 44/44 PASS，chunk/index/retrieval 回归 34/34 PASS，`mvn -DskipTests compile` 此前已 PASS；本片未启动真实 tunnel / backend / frontend，未创建业务数据，未做云端 PDF/HTML/DOCX runtime smoke。当前边界：不支持 OCR、扫描件、复杂版面还原、外部网页抓取、`.doc` 旧格式或 PDF 坐标级 citation。
 - 2026-07-06 Agent Quality Console 真实可见性回归已完成。本地 tunnel 可用，backend `/actuator/health` 为 `UP`；前端通过 `next build` + `next start -p 3007` 启动后，临时 smoke 用户打开 `/quality?autoload=1` 可见质量运行记录、`totalRuns` 分母提示和“暂无统计”缺样本语义。Playwright 验证桌面 `1440px` 与移动端 `390px` 均无横向溢出，console error 为 `0`。本轮只创建临时登录用户，未上传文档、未创建 KB / Conversation、未提交 artifact 原文、未 push。
 - 2026-07-06 Agent Quality Console token 文案一致性收口已完成。`/quality` 中面向用户的 `Token / TOKENS / tokens` 混用显示已统一为“token 数”“token 用量”“token 增量”，诊断卡优先排查文案同步改为“模型调用 / token 用量 / 重试”。本片只改前端展示文字，不改 DTO、不改 API、不新增功能。
 - 2026-07-06 Agent Quality Console 延迟指标缺样本语义修正已完成。`/quality` Trend 面板“平均延迟”在缺少样本时显示“暂无统计”，Overview 的 P95 延迟说明明确依赖最近 trend points 的 `latencyMs`，没有 point 样本时不硬算。本片只改前端展示语义，不改后端 API、不新增数据库表、不读取 raw artifact。

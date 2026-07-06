@@ -1,6 +1,11 @@
 package com.docpilot.backend.task.service;
 
 import com.docpilot.backend.common.constant.CommonConstants;
+import com.docpilot.backend.document.parser.DocxDocumentParser;
+import com.docpilot.backend.document.parser.HtmlDocumentParser;
+import com.docpilot.backend.document.parser.ParserRegistry;
+import com.docpilot.backend.document.parser.PdfDocumentParser;
+import com.docpilot.backend.document.parser.TextDocumentParser;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.docpilot.backend.file.entity.FileRecord;
@@ -19,8 +24,14 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -67,10 +78,17 @@ class ParseTaskConsumeEntryServiceImplTest {
                 parseTaskMapper,
                 documentMapper,
                 fileRecordMapper,
-                fileContentReader,
+                new ParserRegistry(List.of(
+                        new TextDocumentParser(fileContentReader),
+                        new PdfDocumentParser(fileContentReader),
+                        new HtmlDocumentParser(fileContentReader),
+                        new DocxDocumentParser(fileContentReader)
+                )),
                 parseTaskConsumeRecordMapper,
                 stringRedisTemplate,
-                ragIndexingTriggerService
+                ragIndexingTriggerService,
+                20L * 1024L * 1024L,
+                10_000L
         );
     }
 
@@ -153,7 +171,7 @@ class ParseTaskConsumeEntryServiceImplTest {
     }
 
     @Test
-    void shouldWritePdfPlaceholderWhenPdfMessageConsumed() {
+    void shouldParsePdfAndTriggerRagIndexingWhenPdfMessageConsumed() throws Exception {
         ParseTaskConsumeEntryServiceImpl service = buildService();
 
         ParseTaskMessage message = new ParseTaskMessage();
@@ -178,20 +196,23 @@ class ParseTaskConsumeEntryServiceImplTest {
         fileRecord.setId(33L);
         fileRecord.setFileExt("pdf");
         fileRecord.setFileName("demo.pdf");
-        fileRecord.setStoragePath("ignored-in-phase-4.2");
+        fileRecord.setStoragePath("demo.pdf");
         when(fileRecordMapper.selectById(33L)).thenReturn(fileRecord);
+        when(fileContentReader.readBytes(org.mockito.ArgumentMatchers.eq("demo.pdf"), anyLong()))
+                .thenReturn(pdfBytes("DocPilot parser pdf first page", "DocPilot parser pdf second page"));
 
         service.handle(message);
 
         ArgumentCaptor<Document> updateCaptor = ArgumentCaptor.forClass(Document.class);
         verify(documentMapper, org.mockito.Mockito.times(6)).updateById(updateCaptor.capture());
         Document successUpdated = updateCaptor.getAllValues().get(updateCaptor.getAllValues().size() - 1);
-        assertTrue(successUpdated.getContent().contains("暂未实现 PDF 真实解析"));
-        assertTrue(successUpdated.getSummary().contains("暂未实现 PDF 真实解析"));
+        assertTrue(successUpdated.getContent().contains("DocPilot parser pdf first page"));
+        assertTrue(successUpdated.getContent().contains("DocPilot parser pdf second page"));
+        assertTrue(successUpdated.getSummary().contains("DocPilot parser pdf first page"));
         verify(ragIndexingTriggerService).triggerAfterParseSuccess(
                 org.mockito.ArgumentMatchers.eq(100L),
                 org.mockito.ArgumentMatchers.eq(22L),
-                org.mockito.ArgumentMatchers.contains("暂未实现 PDF 真实解析")
+                org.mockito.ArgumentMatchers.contains("DocPilot parser pdf first page")
         );
     }
 
@@ -402,8 +423,8 @@ class ParseTaskConsumeEntryServiceImplTest {
 
         FileRecord fileRecord = new FileRecord();
         fileRecord.setId(9L);
-        fileRecord.setFileExt("docx");
-        fileRecord.setFileName("demo.docx");
+        fileRecord.setFileExt("bin");
+        fileRecord.setFileName("demo.bin");
         fileRecord.setStoragePath("ignored");
         when(fileRecordMapper.selectById(9L)).thenReturn(fileRecord);
 
@@ -495,6 +516,25 @@ class ParseTaskConsumeEntryServiceImplTest {
         verify(parseTaskMapper, never()).selectById(1L);
         verify(parseTaskMapper, never()).updateById(any(ParseTask.class));
         verify(documentMapper, never()).updateById(any(Document.class));
+    }
+
+    private byte[] pdfBytes(String... pages) throws IOException {
+        try (PDDocument document = new PDDocument();
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            for (String pageText : pages) {
+                PDPage page = new PDPage();
+                document.addPage(page);
+                try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                    contentStream.beginText();
+                    contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                    contentStream.newLineAtOffset(72, 720);
+                    contentStream.showText(pageText);
+                    contentStream.endText();
+                }
+            }
+            document.save(output);
+            return output.toByteArray();
+        }
     }
 }
 

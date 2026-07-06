@@ -101,6 +101,27 @@ class FileServiceImplTest {
     }
 
     @Test
+    void shouldAllowParserMvpFileTypes() {
+        FileServiceImpl fileService = buildService();
+        doAnswer(invocation -> {
+            FileRecord record = invocation.getArgument(0);
+            record.setId(10L);
+            return 1;
+        }).when(fileRecordMapper).insert(any(FileRecord.class));
+        when(fileStorageWriter.store(any(MockMultipartFile.class), anyString()))
+                .thenAnswer(invocation -> tempDir.resolve(invocation.getArgument(0, MockMultipartFile.class)
+                        .getOriginalFilename()).toString());
+
+        assertEquals("pdf", fileService.upload(
+                new MockMultipartFile("file", "demo.pdf", "application/pdf", "pdf".getBytes()), 100L).getFileExt());
+        assertEquals("html", fileService.upload(
+                new MockMultipartFile("file", "demo.html", "text/html", "html".getBytes()), 100L).getFileExt());
+        assertEquals("docx", fileService.upload(new MockMultipartFile("file", "demo.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx".getBytes()), 100L)
+                .getFileExt());
+    }
+
+    @Test
     void shouldRejectWhenUploadRateLimitExceeded() {
         FileServiceImpl fileService = buildService();
         when(valueOperations.increment(CommonConstants.buildFileUploadRateLimitKey(100L)))

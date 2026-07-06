@@ -28,7 +28,7 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 
 ```text
 登录工作台
--> 上传 txt / md 文档
+-> 上传 txt / md / 文本型 PDF / 本地 HTML / DOCX 文档
 -> 观察异步解析状态
 -> 进入文档详情页提问
 -> 查看 SSE 输出、Markdown 渲染和引用证据
@@ -52,7 +52,7 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 | 能力 | 当前状态 |
 | --- | --- |
 | 文档上传与创建 | 已实现普通上传、分片上传会话、文档创建与解析任务创建 |
-| 异步解析任务 | 已实现 Outbox / RocketMQ 链路、解析任务状态追踪、补偿与幂等；演示环境已验证 MQ 投递、消费和解析成功 |
+| 异步解析任务 | 已实现 Outbox / RocketMQ 链路、解析任务状态追踪、补偿与幂等；解析模块支持 txt / md、文本型 PDF、本地 HTML 和 DOCX；演示环境已验证 MQ 投递、消费和解析成功 |
 | 文档问答 | 已实现普通问答、历史问答、引用展示、Markdown 渲染，以及单文档 RAG QA |
 | SSE 流式问答 | 已实现流式事件解析、增量输出与失败降级 |
 | Agent 工具链 | 已实现文档状态、摘要、问答、检索召回工具，以及 ToolRegistry / ToolSelector |
@@ -85,7 +85,7 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 ## 系统主链路
 
 1. 用户注册 / 登录，前端保存 token。
-2. 用户上传 `txt / md / pdf` 文件，后端写入对象存储。
+2. 用户上传 `txt / md / pdf / html / docx` 文件，后端写入对象存储。
 3. 用户创建文档，后端创建解析任务并进入异步解析链路。
 4. 前端轮询文档状态，展示 `PENDING / PARSING / SUCCESS / FAILED` 等状态。
 5. 用户进入文档详情，查看摘要、正文、解析状态和引用证据。
@@ -93,7 +93,7 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 7. 用户进入 `/agent`，选择已解析文档并运行摘要、问答或检索召回类任务。
 8. 前端展示 Agent 工具决策、执行步骤、持久化 trace、citations 和最终回答。
 
-> 说明：`pdf` 目前主要是占位 / 基础解析边界，真实文本解析能力以 `txt / md` 更稳定。
+> 说明：当前 Document Parser MVP 支持稳定文本抽取：`txt / md` 走 UTF-8 文本解析，文本型 PDF 走 PDFBox 页级文本抽取，本地 HTML 走 Jsoup 去除 `script/style/nav` 等噪声，DOCX 走 Apache POI 抽取段落、标题和表格文本。它不是 OCR、扫描件识别、外部网页抓取或复杂版面理解平台。
 
 ## 核心工程设计
 
@@ -108,6 +108,10 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 ### MinIO 上传与对象存储
 
 项目包含普通上传和分片上传会话，支持上传状态查询和合并完成。对象存储与文档业务记录分离，便于说明文件系统、数据库记录和解析任务之间的边界；演示环境已补充 MinIO active storage 最小上传 / 解析 smoke。
+
+### Document Parser MVP
+
+解析消费侧已引入统一 `DocumentParser` / `ParserRegistry` / `ParseResult` 抽象，解析结果包含 `fullText`、blocks、pageNumber / sectionPath / blockType、parserName、parserVersion、parseDurationMs、extractedChars、pageCount、blockCount 和 warnings。上传后的异步解析会按 contentType / file extension 选择 txt / md、PDF、HTML 或 DOCX parser，再进入既有 chunking、embedding、vector index 和 RAG QA 链路。解析日志和 metrics 只记录 parserName、耗时、字符数、页数、block 数和 warning 数，不打印文档全文。
 
 ### AI 问答 + SSE 降级
 
@@ -252,7 +256,7 @@ DocPilot/
 - 项目定位为工程展示与面试演示环境，不按生产 SaaS 的 SLA 或运维标准承诺。
 - 完整上传解析 runtime 依赖可用 RocketMQ NameServer / Broker / consumer；演示环境已跑通 active MQ smoke，若关闭 MQ，会进入 no-op producer 路径，适合做接口联调但不会推进真实异步解析。
 - AI 默认可使用 mock answer service；真实回答模型已完成一次 smoke，复现仍依赖本地环境变量和可用 OpenAI-compatible provider。
-- PDF 解析能力有限，当前更适合展示 `txt / md` 文档链路。
+- Document Parser MVP 支持文本型 PDF、本地 HTML 和 DOCX 的基础文本抽取，但不支持 OCR、扫描件识别、外部网页抓取、`.doc` 旧格式或复杂版面还原；页码 / block locator 已进入 parser 结果，后续还需进一步接入更精细的 citation 坐标。
 - RAG 测试 / eval 仍可使用 fake embedding + in-memory vector store；真实 embedding provider + Qdrant 已在 smoke collection 验证，KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，hard-negative 支持度门禁是近阈值启发式而不是通用语义蕴含模型；这些都不等同于生产级完整向量 RAG、生产默认 rerank / hybrid search 或线上 SLA。
 - Agent Quality Console 是内部质量控制台，当前基于 ignored artifact 聚合最近 run；它不是企业级 APM、告警系统、多租户后台或长期质量数据仓库。
 - Agent 当前围绕文档业务工具形成同步 API 闭环，MQ 异步 Agent 和多 Agent 编排属于后续演进方向。
