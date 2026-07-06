@@ -182,6 +182,43 @@ class ChunkingServiceImplTest {
     }
 
     @Test
+    void shouldCarryParserSourceBlockLocatorIntoChunkMetadata() {
+        String text = "# Parser Fixture\n\nPDF page body marker.";
+        List<RagSourceBlock> sourceBlocks = List.of(new RagSourceBlock(
+                3,
+                "PAGE",
+                2,
+                "Parser Fixture",
+                "Parser Fixture",
+                0,
+                text.length(),
+                "page:2"
+        ));
+
+        List<DocumentChunkCandidate> chunks = chunkingService.chunk(
+                101L,
+                7L,
+                text,
+                sourceBlocks,
+                new ChunkingOptions(120, 10)
+        );
+
+        assertThat(chunks).hasSize(1);
+        DocumentChunkCandidate chunk = chunks.get(0);
+        assertThat(chunk.sectionTitle()).isEqualTo("Parser Fixture");
+        assertThat(chunk.sectionPath()).isEqualTo("Parser Fixture");
+        assertThat(chunk.sourceBlockOrdinal()).isEqualTo(3);
+        assertThat(chunk.structureType()).isEqualTo("page");
+        assertThat(chunk.pageNumber()).isEqualTo(2);
+        assertThat(chunk.sourceLocator()).isEqualTo("page:2");
+        assertThat(chunk.blockType()).isEqualTo("PAGE");
+        assertThat(chunk.structureMetadata())
+                .containsEntry("pageNumber", "2")
+                .containsEntry("sourceLocator", "page:2")
+                .containsEntry("blockType", "PAGE");
+    }
+
+    @Test
     void shouldFlagWindowSplitsAndDuplicateContent() {
         String text = "repeatable duplicate marker one.\n\n"
                 + "repeatable duplicate marker one.\n\n"

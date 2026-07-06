@@ -4,6 +4,7 @@ import com.docpilot.backend.common.constant.CommonConstants;
 import com.docpilot.backend.document.parser.DocxDocumentParser;
 import com.docpilot.backend.document.parser.HtmlDocumentParser;
 import com.docpilot.backend.document.parser.ParserRegistry;
+import com.docpilot.backend.document.parser.ParseResult;
 import com.docpilot.backend.document.parser.PdfDocumentParser;
 import com.docpilot.backend.document.parser.TextDocumentParser;
 import com.docpilot.backend.document.entity.Document;
@@ -108,6 +109,7 @@ class ParseTaskConsumeEntryServiceImplTest {
         verify(parseTaskMapper).updateById(any(ParseTask.class));
         verify(documentMapper, never()).updateById(any(Document.class));
         verify(ragIndexingTriggerService, never()).triggerAfterParseSuccess(any(), any(), anyString());
+        verify(ragIndexingTriggerService, never()).triggerAfterParseSuccess(any(), any(), any(ParseResult.class));
     }
 
     @Test
@@ -167,7 +169,13 @@ class ParseTaskConsumeEntryServiceImplTest {
         assertEquals("DocPilot parse content test", successDocument.getSummary());
         verify(stringRedisTemplate, org.mockito.Mockito.times(6))
                 .delete(CommonConstants.buildDocumentDetailCacheKey(100L, 2L));
-        verify(ragIndexingTriggerService).triggerAfterParseSuccess(100L, 2L, "DocPilot parse content test");
+        ArgumentCaptor<ParseResult> parseResultCaptor = ArgumentCaptor.forClass(ParseResult.class);
+        verify(ragIndexingTriggerService).triggerAfterParseSuccess(
+                org.mockito.ArgumentMatchers.eq(100L),
+                org.mockito.ArgumentMatchers.eq(2L),
+                parseResultCaptor.capture()
+        );
+        assertEquals("DocPilot parse content test", parseResultCaptor.getValue().fullText());
     }
 
     @Test
@@ -209,11 +217,15 @@ class ParseTaskConsumeEntryServiceImplTest {
         assertTrue(successUpdated.getContent().contains("DocPilot parser pdf first page"));
         assertTrue(successUpdated.getContent().contains("DocPilot parser pdf second page"));
         assertTrue(successUpdated.getSummary().contains("DocPilot parser pdf first page"));
+        ArgumentCaptor<ParseResult> parseResultCaptor = ArgumentCaptor.forClass(ParseResult.class);
         verify(ragIndexingTriggerService).triggerAfterParseSuccess(
                 org.mockito.ArgumentMatchers.eq(100L),
                 org.mockito.ArgumentMatchers.eq(22L),
-                org.mockito.ArgumentMatchers.contains("DocPilot parser pdf first page")
+                parseResultCaptor.capture()
         );
+        assertTrue(parseResultCaptor.getValue().fullText().contains("DocPilot parser pdf first page"));
+        assertTrue(parseResultCaptor.getValue().blocks().stream()
+                .anyMatch(block -> Integer.valueOf(1).equals(block.pageNumber())));
     }
 
     @Test
@@ -247,7 +259,11 @@ class ParseTaskConsumeEntryServiceImplTest {
         when(fileContentReader.readText("sample.txt")).thenReturn("RAG trigger isolation content");
         doThrow(new IllegalStateException("trigger down"))
                 .when(ragIndexingTriggerService)
-                .triggerAfterParseSuccess(100L, 23L, "RAG trigger isolation content");
+                .triggerAfterParseSuccess(
+                        org.mockito.ArgumentMatchers.eq(100L),
+                        org.mockito.ArgumentMatchers.eq(23L),
+                        any(ParseResult.class)
+                );
 
         service.handle(message);
 
@@ -281,6 +297,7 @@ class ParseTaskConsumeEntryServiceImplTest {
         assertEquals("FAILED", taskCaptor.getValue().getStatus());
         verify(documentMapper).updateById(any(Document.class));
         verify(ragIndexingTriggerService, never()).triggerAfterParseSuccess(any(), any(), anyString());
+        verify(ragIndexingTriggerService, never()).triggerAfterParseSuccess(any(), any(), any(ParseResult.class));
     }
 
     @Test

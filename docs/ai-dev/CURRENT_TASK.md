@@ -1,6 +1,18 @@
 # Current Task
 
-当前任务：Document Parser MVP 真实链路验证（DONE）；下一片：Document Parser 质量增强 P1（READY）
+当前任务：Document Parser source locator 贯通到 RAG citation（DONE）；下一片：Document Parser 错误边界 API 负向增强（READY）
+
+## 2026-07-06 补充：Document Parser source locator 贯通到 RAG citation
+
+- 目标：把 `ParseResult.blocks()` 中的 page / block / section locator 从 parser 层继续传到 chunk metadata、embedding metadata、vector payload、RAG retrieve hit 和 QA citation，避免真实引用只能停留在文件名或粗粒度 section。
+- 已完成后端：新增 `RagSourceBlock`，`RagIndexingTriggerService` 支持接收 `ParseResult`；`ParseTaskConsumeEntryServiceImpl` 在 parse success 后把完整 parse result 交给 RAG indexing trigger；`ChunkingService` 根据 parser source block 为 chunk 写入 `pageNumber`、`sourceLocator`、`blockType`、`sectionPath` 和 `structureType`。
+- 已完成 RAG citation：`RagIndexingServiceImpl` 将 page/source/block 元数据写入 embedding metadata 和 vector payload；`RagRetrievalHit`、`RagEvidenceCitation`、`RagRetrievalHitResponse`、`RagCitationResponse` 返回脱敏 locator 字段，方便前端和 smoke 判断 citation 来源是否可定位。
+- 已完成 parser offset 回归：HTML / DOCX heading block 的 `endOffset` 与 `fullText` 中的 Markdown heading 片段对齐，避免后续 chunk source block overlap 判断偏移。
+- 已完成 smoke 增强：`scripts/smoke/document-parser-real-chain-smoke.ps1` 的 `sourceLocatorPresent` 现在优先识别 `sourceLocator`、`pageNumber`、`blockType`，而不是只依赖文件名 / section / offset。
+- 已验证离线测试：`mvn "-Dtest=DocumentParserTest,ChunkingServiceImplTest,RagIndexingServiceImplTest,RagDocumentRetrievalServiceImplTest,ParseTaskConsumeEntryServiceImplTest" test` PASS，56 tests；`mvn "-Dtest=*Parser*,ParseTaskConsumeEntryServiceImplTest,FileContentReaderTest,FileServiceImplTest,ChunkingServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,RagDocumentRetrievalQualitySmokeTest,RagDocumentRetrievalServiceImplTest" test` PASS，88 tests。
+- 已验证真实链路：`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-parser-real-chain-20260706214209-dcb8f2`，PDF / HTML / DOCX 均为 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- 边界：本片不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原 / PDF 坐标级 citation；真实 run 创建临时 smoke 用户和文档，不删除已有业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：进入 Parser 错误边界 API 负向增强，补空文件、极短文件、损坏 PDF / DOCX、超限文件和不支持格式在真实 API 链路中的稳定失败状态与脱敏错误码。
 
 ## 2026-07-06 补充：Document Parser MVP 真实链路验证
 

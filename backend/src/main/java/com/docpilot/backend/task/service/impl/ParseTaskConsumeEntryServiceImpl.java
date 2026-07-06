@@ -198,7 +198,7 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             parseTaskMapper.updateById(successTask);
             parseTask.setStatus(ParseStatusConstants.SUCCESS);
             DocPilotMetrics.recordParseStageDuration(ParseStatusConstants.INDEXING, System.nanoTime() - indexingStart);
-            triggerRagIndexingSafely(document.getUserId(), document.getId(), parsedContent);
+            triggerRagIndexingSafely(document.getUserId(), document.getId(), parseResult);
 
             log.info("Parse task consume entry accepted. taskId={}, documentId={}, fileRecordId={}, parser={}, contentLength={}, summaryLength={}, blockCount={}, warningCount={}",
                     parseTask.getId(),
@@ -237,12 +237,12 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
         return parserRegistry.parse(input);
     }
 
-    private void triggerRagIndexingSafely(Long userId, Long documentId, String parsedContent) {
+    private void triggerRagIndexingSafely(Long userId, Long documentId, ParseResult parseResult) {
         if (ragIndexingTriggerService == null) {
             return;
         }
         try {
-            ragIndexingTriggerService.triggerAfterParseSuccess(userId, documentId, parsedContent);
+            ragIndexingTriggerService.triggerAfterParseSuccess(userId, documentId, parseResult);
         } catch (RuntimeException ex) {
             log.warn("RAG indexing trigger returned an exception after parse success. userId={}, documentId={}, errorType={}",
                     userId, documentId, ex.getClass().getSimpleName());

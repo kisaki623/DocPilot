@@ -88,6 +88,12 @@ class DocumentParserTest {
         assertFalse(result.fullText().contains("Navigation noise"));
         assertFalse(result.fullText().contains("alert"));
         assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.HEADING));
+        DocumentBlock heading = result.blocks().stream()
+                .filter(block -> block.blockType() == BlockType.HEADING)
+                .findFirst()
+                .orElseThrow();
+        assertEquals("# Alpha Title",
+                result.fullText().substring(heading.startOffset(), heading.endOffset()));
     }
 
     @Test
@@ -103,6 +109,12 @@ class DocumentParserTest {
         assertTrue(result.fullText().contains("Docx paragraph marker"));
         assertTrue(result.fullText().contains("Parser | DOCX"));
         assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.TABLE));
+        DocumentBlock heading = result.blocks().stream()
+                .filter(block -> block.blockType() == BlockType.HEADING)
+                .findFirst()
+                .orElseThrow();
+        assertEquals("# Docx Section",
+                result.fullText().substring(heading.startOffset(), heading.endOffset()));
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.docpilot.backend.ai.rag.ChunkingService;
 import com.docpilot.backend.ai.rag.ChunkingOptions;
 import com.docpilot.backend.ai.rag.DocumentChunkCandidate;
 import com.docpilot.backend.ai.rag.DocumentChunkIndexStatus;
+import com.docpilot.backend.ai.rag.ChunkingServiceImpl;
 import com.docpilot.backend.ai.rag.EmbeddingProvider;
 import com.docpilot.backend.ai.rag.EmbeddingRequest;
 import com.docpilot.backend.ai.rag.EmbeddingResult;
@@ -13,6 +14,7 @@ import com.docpilot.backend.ai.rag.RagEmbeddingProperties;
 import com.docpilot.backend.ai.rag.RagIndexingRequest;
 import com.docpilot.backend.ai.rag.RagIndexingResult;
 import com.docpilot.backend.ai.rag.RagIndexingStatus;
+import com.docpilot.backend.ai.rag.RagSourceBlock;
 import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
 import com.docpilot.backend.ai.rag.vector.VectorPoint;
 import com.docpilot.backend.ai.rag.vector.VectorSearchRequest;
@@ -96,6 +98,55 @@ class RagIndexingServiceImplTest {
         assertThat(chunkService.indexedChunks).hasSize(2);
         assertThat(chunkService.indexedChunks).extracting(DocumentChunkEntity::getIndexStatus)
                 .containsExactly(DocumentChunkIndexStatus.INDEXED, DocumentChunkIndexStatus.INDEXED);
+    }
+
+    @Test
+    void shouldPropagateParserSourceBlockMetadataToVectorPayload() {
+        List<String> events = new ArrayList<>();
+        FakeDocumentChunkService chunkService = new FakeDocumentChunkService(events);
+        FakeEmbeddingProvider embeddingProvider = new FakeEmbeddingProvider(events, List.of(
+                embedding("model-a", 0.1D, 0.2D)
+        ));
+        FakeVectorStoreClient vectorClient = new FakeVectorStoreClient(events);
+        String text = "# Parser Fixture\n\nPDF page body marker.";
+
+        RagIndexingResult result = service(
+                new ChunkingServiceImpl(),
+                chunkService,
+                embeddingProvider,
+                vectorClient,
+                new RagVectorStoreProperties()
+        ).index(new RagIndexingRequest(
+                61L,
+                7L,
+                text,
+                1,
+                "model-a",
+                List.of(new RagSourceBlock(
+                        5,
+                        "PAGE",
+                        2,
+                        "Parser Fixture",
+                        "Parser Fixture",
+                        0,
+                        text.length(),
+                        "page:2"
+                ))
+        ));
+
+        assertThat(result.status()).isEqualTo(RagIndexingStatus.SUCCESS);
+        assertThat(embeddingProvider.requests).hasSize(1);
+        assertThat(embeddingProvider.requests.get(0).metadata())
+                .containsEntry("pageNumber", "2")
+                .containsEntry("sourceLocator", "page:2")
+                .containsEntry("blockType", "PAGE")
+                .containsEntry("structureType", "page");
+        assertThat(vectorClient.points).hasSize(1);
+        assertThat(vectorClient.points.get(0).payload())
+                .containsEntry("pageNumber", "2")
+                .containsEntry("sourceLocator", "page:2")
+                .containsEntry("blockType", "PAGE")
+                .containsEntry("structureType", "page");
     }
 
     @Test
@@ -362,6 +413,15 @@ class RagIndexingServiceImplTest {
 
         @Override
         public List<DocumentChunkCandidate> chunk(Long documentId, Long userId, String text, ChunkingOptions options) {
+            return chunk(documentId, userId, text);
+        }
+
+        @Override
+        public List<DocumentChunkCandidate> chunk(Long documentId,
+                                                  Long userId,
+                                                  String text,
+                                                  List<RagSourceBlock> sourceBlocks,
+                                                  ChunkingOptions options) {
             return chunk(documentId, userId, text);
         }
     }

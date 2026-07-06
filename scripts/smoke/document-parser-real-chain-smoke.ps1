@@ -549,6 +549,9 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     $locatorItems = @($hits + $citations)
     $sourceLocatorPresent = @($locatorItems | Where-Object {
         (-not [string]::IsNullOrWhiteSpace([string]$_.sourceName)) -and (
+          -not [string]::IsNullOrWhiteSpace([string]$_.sourceLocator) -or
+          -not [string]::IsNullOrWhiteSpace([string]$_.blockType) -or
+          $null -ne $_.pageNumber -or
           -not [string]::IsNullOrWhiteSpace([string]$_.sectionPath) -or
           -not [string]::IsNullOrWhiteSpace([string]$_.structureType) -or
           $null -ne $_.startOffset

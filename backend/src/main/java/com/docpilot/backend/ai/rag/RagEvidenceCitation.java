@@ -16,6 +16,9 @@ public record RagEvidenceCitation(
         Integer quoteEndOffset,
         String sectionPath,
         String structureType,
+        Integer pageNumber,
+        String sourceLocator,
+        String blockType,
         double score
 ) {
 
@@ -41,5 +44,7 @@ public record RagEvidenceCitation(
         quoteText = quoteText == null ? "" : quoteText.trim();
         sectionPath = sectionPath == null ? "" : sectionPath.trim();
         structureType = structureType == null ? "" : structureType.trim();
+        sourceLocator = sourceLocator == null ? "" : sourceLocator.trim();
+        blockType = blockType == null ? "" : blockType.trim();
     }
 }

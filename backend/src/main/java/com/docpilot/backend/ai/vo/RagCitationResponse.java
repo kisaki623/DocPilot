@@ -19,6 +19,9 @@ public class RagCitationResponse {
     private Integer quoteEndOffset;
     private String sectionPath;
     private String structureType;
+    private Integer pageNumber;
+    private String sourceLocator;
+    private String blockType;
     private Double score;
 
     public static RagCitationResponse from(RagEvidenceCitation citation) {
@@ -38,6 +41,9 @@ public class RagCitationResponse {
         response.setQuoteEndOffset(citation.quoteEndOffset());
         response.setSectionPath(citation.sectionPath());
         response.setStructureType(citation.structureType());
+        response.setPageNumber(citation.pageNumber());
+        response.setSourceLocator(citation.sourceLocator());
+        response.setBlockType(citation.blockType());
         response.setScore(citation.score());
         return response;
     }
@@ -160,6 +166,30 @@ public class RagCitationResponse {
 
     public void setStructureType(String structureType) {
         this.structureType = structureType;
+    }
+
+    public Integer getPageNumber() {
+        return pageNumber;
+    }
+
+    public void setPageNumber(Integer pageNumber) {
+        this.pageNumber = pageNumber;
+    }
+
+    public String getSourceLocator() {
+        return sourceLocator;
+    }
+
+    public void setSourceLocator(String sourceLocator) {
+        this.sourceLocator = sourceLocator;
+    }
+
+    public String getBlockType() {
+        return blockType;
+    }
+
+    public void setBlockType(String blockType) {
+        this.blockType = blockType;
     }
 
     public Double getScore() {

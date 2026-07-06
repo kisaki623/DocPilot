@@ -16,6 +16,7 @@ import com.docpilot.backend.ai.rag.RagQaProperties;
 import com.docpilot.backend.ai.rag.RagRetrievalProperties;
 import com.docpilot.backend.ai.rag.RagRetrievalQuery;
 import com.docpilot.backend.ai.rag.RagRetrievalResult;
+import com.docpilot.backend.ai.rag.RagSourceBlock;
 import com.docpilot.backend.ai.rag.RagVectorStoreProperties;
 import com.docpilot.backend.ai.rag.vector.VectorSearchHit;
 import com.docpilot.backend.ai.rag.vector.VectorSearchRequest;
@@ -89,6 +90,9 @@ class RagDocumentRetrievalServiceImplTest {
         assertThat(result.citations().get(0).chunkId()).isEqualTo(501L);
         assertThat(result.citations().get(0).sourceName()).isEqualTo("parser-fixture.pdf");
         assertThat(result.citations().get(0).sectionPath()).isEqualTo("Parser Fixture / Evidence");
+        assertThat(result.citations().get(0).pageNumber()).isEqualTo(2);
+        assertThat(result.citations().get(0).sourceLocator()).isEqualTo("page:2");
+        assertThat(result.citations().get(0).blockType()).isEqualTo("PAGE");
     }
 
     @Test
@@ -343,7 +347,10 @@ class RagDocumentRetrievalServiceImplTest {
                         "tokenCount", 4,
                         "embeddingModel", "mock-model",
                         "sectionPath", "Parser Fixture / Evidence",
-                        "structureType", "section"
+                        "structureType", "section",
+                        "pageNumber", "2",
+                        "sourceLocator", "page:2",
+                        "blockType", "PAGE"
                 )
         );
     }
@@ -368,6 +375,15 @@ class RagDocumentRetrievalServiceImplTest {
         public List<DocumentChunkCandidate> chunk(Long documentId,
                                                   Long userId,
                                                   String text,
+                                                  ChunkingOptions options) {
+            return chunk(documentId, userId, text);
+        }
+
+        @Override
+        public List<DocumentChunkCandidate> chunk(Long documentId,
+                                                  Long userId,
+                                                  String text,
+                                                  List<RagSourceBlock> sourceBlocks,
                                                   ChunkingOptions options) {
             return chunk(documentId, userId, text);
         }

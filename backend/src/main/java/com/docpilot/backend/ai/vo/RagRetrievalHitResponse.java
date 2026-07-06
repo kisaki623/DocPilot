@@ -21,6 +21,9 @@ public class RagRetrievalHitResponse {
     private String embeddingModel;
     private String sectionPath;
     private String structureType;
+    private Integer pageNumber;
+    private String sourceLocator;
+    private String blockType;
 
     public static RagRetrievalHitResponse from(RagRetrievalHit hit) {
         RagRetrievalHitResponse response = new RagRetrievalHitResponse();
@@ -41,6 +44,9 @@ public class RagRetrievalHitResponse {
         response.setEmbeddingModel(hit.embeddingModel());
         response.setSectionPath(hit.sectionPath());
         response.setStructureType(hit.structureType());
+        response.setPageNumber(hit.pageNumber());
+        response.setSourceLocator(hit.sourceLocator());
+        response.setBlockType(hit.blockType());
         return response;
     }
 
@@ -178,5 +184,29 @@ public class RagRetrievalHitResponse {
 
     public void setStructureType(String structureType) {
         this.structureType = structureType;
+    }
+
+    public Integer getPageNumber() {
+        return pageNumber;
+    }
+
+    public void setPageNumber(Integer pageNumber) {
+        this.pageNumber = pageNumber;
+    }
+
+    public String getSourceLocator() {
+        return sourceLocator;
+    }
+
+    public void setSourceLocator(String sourceLocator) {
+        this.sourceLocator = sourceLocator;
+    }
+
+    public String getBlockType() {
+        return blockType;
+    }
+
+    public void setBlockType(String blockType) {
+        this.blockType = blockType;
     }
 }

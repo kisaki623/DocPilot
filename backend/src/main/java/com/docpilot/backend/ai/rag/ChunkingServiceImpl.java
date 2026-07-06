@@ -21,6 +21,15 @@ public class ChunkingServiceImpl implements ChunkingService {
 
     @Override
     public List<DocumentChunkCandidate> chunk(Long documentId, Long userId, String text, ChunkingOptions options) {
+        return chunk(documentId, userId, text, List.of(), options);
+    }
+
+    @Override
+    public List<DocumentChunkCandidate> chunk(Long documentId,
+                                              Long userId,
+                                              String text,
+                                              List<RagSourceBlock> sourceBlocks,
+                                              ChunkingOptions options) {
         if (documentId == null) {
             throw new IllegalArgumentException("documentId must not be null");
         }
@@ -38,7 +47,7 @@ public class ChunkingServiceImpl implements ChunkingService {
         List<TextSpan> chunkSpans = packBlocks(normalizedText, blocks, resolvedOptions);
         List<DocumentChunkCandidate> chunks = new ArrayList<>();
         for (TextSpan chunkSpan : chunkSpans) {
-            appendChunks(documentId, userId, normalizedText, chunkSpan, resolvedOptions, chunks);
+            appendChunks(documentId, userId, normalizedText, chunkSpan, sourceBlocks, resolvedOptions, chunks);
         }
         return markDuplicateChunks(chunks);
     }
@@ -47,6 +56,7 @@ public class ChunkingServiceImpl implements ChunkingService {
                               Long userId,
                               String normalizedText,
                               TextSpan paragraph,
+                              List<RagSourceBlock> sourceBlocks,
                               ChunkingOptions options,
                               List<DocumentChunkCandidate> chunks) {
         int start = paragraph.startOffset();
@@ -57,6 +67,7 @@ public class ChunkingServiceImpl implements ChunkingService {
             if (!chunkSpan.isEmpty()) {
                 String content = normalizedText.substring(chunkSpan.startOffset(), chunkSpan.endOffset()).trim();
                 SectionContext section = sectionContext(normalizedText, chunkSpan.startOffset(), chunkSpan.endOffset());
+                SourceBlockContext sourceBlock = sourceBlockContext(sourceBlocks, chunkSpan.startOffset(), chunkSpan.endOffset());
                 chunks.add(new DocumentChunkCandidate(
                         documentId,
                         userId,
@@ -66,17 +77,20 @@ public class ChunkingServiceImpl implements ChunkingService {
                         chunkSpan.startOffset(),
                         chunkSpan.endOffset(),
                         content.length(),
-                        section.title(),
+                        firstNonBlank(sourceBlock.sectionTitle(), section.title()),
                         section.ordinal(),
-                        section.path(),
-                        paragraph.startBlockOrdinal(),
-                        structureType(content),
+                        firstNonBlank(sourceBlock.sectionPath(), section.path()),
+                        sourceBlock.blockIndex() == null ? paragraph.startBlockOrdinal() : sourceBlock.blockIndex(),
+                        firstNonBlank(structureTypeFromBlock(sourceBlock.blockType()), structureType(content)),
                         qualityFlags(
                                 content,
                                 options,
                                 chunkSpan.startOffset() > paragraph.startOffset(),
                                 chunkSpan.endOffset() < paragraph.endOffset()
-                        )
+                        ),
+                        sourceBlock.pageNumber(),
+                        sourceBlock.sourceLocator(),
+                        sourceBlock.blockType()
                 ));
             }
             if (end == paragraphEnd) {
@@ -248,6 +262,53 @@ public class ChunkingServiceImpl implements ChunkingService {
         return "paragraph";
     }
 
+    private SourceBlockContext sourceBlockContext(List<RagSourceBlock> sourceBlocks, int startOffset, int endOffset) {
+        if (sourceBlocks == null || sourceBlocks.isEmpty()) {
+            return SourceBlockContext.empty();
+        }
+        RagSourceBlock best = null;
+        int bestOverlap = 0;
+        for (RagSourceBlock block : sourceBlocks) {
+            int overlap = Math.min(endOffset, block.endOffset()) - Math.max(startOffset, block.startOffset());
+            if (overlap > bestOverlap) {
+                best = block;
+                bestOverlap = overlap;
+            }
+        }
+        if (best == null) {
+            return SourceBlockContext.empty();
+        }
+        return new SourceBlockContext(
+                best.blockIndex(),
+                best.blockType(),
+                best.pageNumber(),
+                best.sectionTitle(),
+                best.sectionPath(),
+                best.sourceLocator()
+        );
+    }
+
+    private String structureTypeFromBlock(String blockType) {
+        if (blockType == null || blockType.isBlank()) {
+            return "";
+        }
+        return switch (blockType.trim().toUpperCase()) {
+            case "PAGE" -> "page";
+            case "HEADING" -> "section";
+            case "TABLE" -> "table";
+            case "LIST" -> "list";
+            case "LINK" -> "link";
+            default -> "";
+        };
+    }
+
+    private String firstNonBlank(String preferred, String fallback) {
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred.trim();
+        }
+        return fallback == null ? "" : fallback.trim();
+    }
+
     private String qualityFlags(String content,
                                 ChunkingOptions options,
                                 boolean splitFromPreviousWindow,
@@ -377,5 +438,17 @@ public class ChunkingServiceImpl implements ChunkingService {
     }
 
     private record SectionContext(String title, int ordinal, String path) {
+    }
+
+    private record SourceBlockContext(Integer blockIndex,
+                                      String blockType,
+                                      Integer pageNumber,
+                                      String sectionTitle,
+                                      String sectionPath,
+                                      String sourceLocator) {
+
+        private static SourceBlockContext empty() {
+            return new SourceBlockContext(null, "", null, "", "", "");
+        }
     }
 }

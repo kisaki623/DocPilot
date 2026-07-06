@@ -17,7 +17,10 @@ public record DocumentChunkCandidate(
         String sectionPath,
         int sourceBlockOrdinal,
         String structureType,
-        String qualityFlags
+        String qualityFlags,
+        Integer pageNumber,
+        String sourceLocator,
+        String blockType
 ) {
 
     public DocumentChunkCandidate(Long documentId,
@@ -29,7 +32,26 @@ public record DocumentChunkCandidate(
                                   int endOffset,
                                   int tokenCount) {
         this(documentId, userId, chunkIndex, content, contentHash, startOffset, endOffset, tokenCount,
-                "", 0, "", chunkIndex, "paragraph", "none");
+                "", 0, "", chunkIndex, "paragraph", "none", null, "", "");
+    }
+
+    public DocumentChunkCandidate(Long documentId,
+                                  Long userId,
+                                  int chunkIndex,
+                                  String content,
+                                  String contentHash,
+                                  int startOffset,
+                                  int endOffset,
+                                  int tokenCount,
+                                  String sectionTitle,
+                                  int sectionOrdinal,
+                                  String sectionPath,
+                                  int sourceBlockOrdinal,
+                                  String structureType,
+                                  String qualityFlags) {
+        this(documentId, userId, chunkIndex, content, contentHash, startOffset, endOffset, tokenCount,
+                sectionTitle, sectionOrdinal, sectionPath, sourceBlockOrdinal, structureType, qualityFlags,
+                null, "", "");
     }
 
     public DocumentChunkCandidate {
@@ -70,6 +92,8 @@ public record DocumentChunkCandidate(
         if (qualityFlags.isBlank()) {
             qualityFlags = "none";
         }
+        sourceLocator = safeText(sourceLocator);
+        blockType = safeText(blockType);
     }
 
     public Map<String, String> structureMetadata() {
@@ -80,6 +104,15 @@ public record DocumentChunkCandidate(
         metadata.put("sourceBlockOrdinal", String.valueOf(sourceBlockOrdinal));
         metadata.put("structureType", structureType);
         metadata.put("qualityFlags", qualityFlags);
+        if (pageNumber != null && pageNumber > 0) {
+            metadata.put("pageNumber", String.valueOf(pageNumber));
+        }
+        if (!sourceLocator.isBlank()) {
+            metadata.put("sourceLocator", sourceLocator);
+        }
+        if (!blockType.isBlank()) {
+            metadata.put("blockType", blockType);
+        }
         return metadata;
     }
 
@@ -98,7 +131,10 @@ public record DocumentChunkCandidate(
                 sectionPath,
                 sourceBlockOrdinal,
                 structureType,
-                resolvedQualityFlags
+                resolvedQualityFlags,
+                pageNumber,
+                sourceLocator,
+                blockType
         );
     }
 

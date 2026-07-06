@@ -77,7 +77,7 @@ public class HtmlDocumentParser implements DocumentParser {
                         currentSection,
                         String.join(" / ", sectionPath),
                         startOffset,
-                        startOffset + text.length(),
+                        startOffset + fullTextBlock.length(),
                         "html:" + element.normalName() + ":" + blocks.size()
                 ));
             }

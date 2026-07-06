@@ -97,7 +97,7 @@ public class DocxDocumentParser implements DocumentParser {
                 currentSection,
                 String.join(" / ", sectionPath),
                 startOffset,
-                startOffset + text.length(),
+                startOffset + fullTextBlock.length(),
                 "docx:paragraph:" + blocks.size()
         ));
     }

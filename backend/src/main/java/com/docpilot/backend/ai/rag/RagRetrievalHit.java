@@ -21,7 +21,10 @@ public record RagRetrievalHit(
         Integer tokenCount,
         String embeddingModel,
         String sectionPath,
-        String structureType
+        String structureType,
+        Integer pageNumber,
+        String sourceLocator,
+        String blockType
 ) {
 
     private static final int SNIPPET_MAX_LENGTH = 320;
@@ -41,7 +44,29 @@ public record RagRetrievalHit(
                            Integer tokenCount,
                            String embeddingModel) {
         this(citationIndex, vectorId, score, userId, documentId, "", indexVersion, chunkId, chunkIndex,
-                content, contentHash, startOffset, endOffset, tokenCount, embeddingModel, "", "");
+                content, contentHash, startOffset, endOffset, tokenCount, embeddingModel, "", "", null, "", "");
+    }
+
+    public RagRetrievalHit(int citationIndex,
+                           String vectorId,
+                           double score,
+                           Long userId,
+                           Long documentId,
+                           String sourceName,
+                           Integer indexVersion,
+                           Long chunkId,
+                           Integer chunkIndex,
+                           String content,
+                           String contentHash,
+                           Integer startOffset,
+                           Integer endOffset,
+                           Integer tokenCount,
+                           String embeddingModel,
+                           String sectionPath,
+                           String structureType) {
+        this(citationIndex, vectorId, score, userId, documentId, sourceName, indexVersion, chunkId, chunkIndex,
+                content, contentHash, startOffset, endOffset, tokenCount, embeddingModel, sectionPath, structureType,
+                null, "", "");
     }
 
     public RagRetrievalHit {
@@ -72,6 +97,8 @@ public record RagRetrievalHit(
         embeddingModel = embeddingModel == null ? "" : embeddingModel.trim();
         sectionPath = sectionPath == null ? "" : sectionPath.trim();
         structureType = structureType == null ? "" : structureType.trim();
+        sourceLocator = sourceLocator == null ? "" : sourceLocator.trim();
+        blockType = blockType == null ? "" : blockType.trim();
     }
 
     public static RagRetrievalHit fromVectorHit(int citationIndex, VectorSearchHit hit) {
@@ -96,7 +123,10 @@ public record RagRetrievalHit(
                 intValue(payload.get("tokenCount")),
                 stringValue(payload.get("embeddingModel")),
                 stringValue(payload.get("sectionPath")),
-                stringValue(payload.get("structureType"))
+                stringValue(payload.get("structureType")),
+                intValue(payload.get("pageNumber")),
+                stringValue(payload.get("sourceLocator")),
+                stringValue(payload.get("blockType"))
         );
     }
 
@@ -118,7 +148,10 @@ public record RagRetrievalHit(
                 tokenCount,
                 embeddingModel,
                 sectionPath,
-                structureType
+                structureType,
+                pageNumber,
+                sourceLocator,
+                blockType
         );
     }
 
@@ -140,6 +173,9 @@ public record RagRetrievalHit(
                 absoluteOffset(quote.endOffset()),
                 sectionPath,
                 structureType,
+                pageNumber,
+                sourceLocator,
+                blockType,
                 score
         );
     }

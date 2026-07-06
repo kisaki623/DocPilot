@@ -14,12 +14,13 @@ Runner:
 
 Marker:
 
-- `docpilot-parser-real-chain-20260706172220-f03956`
+- `docpilot-parser-real-chain-20260706214209-dcb8f2`
 
 已验证：
 
 - PDF / HTML / DOCX 三类临时 fixture 均完成上传、异步解析、chunk、embedding / index、RAG retrieve 和 QA citation。
 - 三类文件均为 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- 本轮 source locator 回归已验证 parser block 的 `pageNumber` / `sourceLocator` / `blockType` 可进入 chunk metadata、vector payload、retrieve hit 和 QA citation response；artifact 只保留 `sourceLocatorPresent` 等脱敏布尔和计数结论。
 - tunnel、backend health、frontend root route、临时用户注册、unsupported format boundary 和 artifact redaction 均 PASS。
 - Agent Quality Console artifact root 已纳入 `backend/target/smoke/document-parser-real-chain`，`parserRealChain` gate 可展示 `fileCount=3`、`parsedFileCount=3`、`parserFailureCount=0`、`chunkCount=3`、`retrieveHitCount=3`、`citationCount=3`、`sourceLocatorCount=3` 和 `durationMs`。
 

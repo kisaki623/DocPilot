@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-06 Document Parser source locator 贯通到 RAG citation
+
+- 新增 `RagSourceBlock`，将 parser block 的 `blockIndex`、`blockType`、`pageNumber`、`sectionTitle`、`sectionPath`、offset 和 `sourceLocator` 作为 RAG indexing 的脱敏来源结构传递。
+- `ParseTaskConsumeEntryServiceImpl` parse success 后不再只把 `fullText` 交给 RAG trigger，而是传入完整 `ParseResult`；`RagIndexingTriggerServiceImpl` 将 `DocumentBlock` 转成 `RagSourceBlock` 后异步索引。
+- `ChunkingServiceImpl` 根据 chunk offset 与 parser source block 的 overlap 选择最合适的来源块，并把 `pageNumber`、`sourceLocator`、`blockType`、`sectionPath` 和 `structureType` 写入 `DocumentChunkCandidate.structureMetadata()`。
+- `RagIndexingServiceImpl` 已将这些 locator 进入 embedding metadata 和 vector payload；`RagRetrievalHit`、`RagEvidenceCitation` 以及 retrieve / citation response 现在返回 `pageNumber`、`sourceLocator`、`blockType`，便于真实 citation 定位页码或区块。
+- 修复 HTML / DOCX heading block 的 `endOffset`，确保 block offset 对齐 `fullText` 中的 Markdown heading 片段；smoke runner 的 `sourceLocatorPresent` 判定已优先识别 `sourceLocator`、`pageNumber`、`blockType`。
+- 已验证：targeted parser / chunk / index / retrieval / parse consume 56 tests PASS；broader parser/RAG 88 tests PASS；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-parser-real-chain-20260706214209-dcb8f2`。
+- 边界：不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原 / PDF 坐标级 citation；真实 run 只创建临时 smoke 数据，artifact 仍为 ignored 脱敏摘要。
+
 ## 2026-07-06 Document Parser MVP 真实链路验证
 
 - 修复 parser locator 传递：HTML / DOCX parser 的 `fullText` 现在保留 Markdown heading，便于现有 chunker 生成 `sectionPath` / `structureType`；单文档 RAG retrieve / QA citation 已暴露脱敏 `sourceName`、`sectionPath`、`structureType`，让真实 citation 能定位文件和章节摘要。

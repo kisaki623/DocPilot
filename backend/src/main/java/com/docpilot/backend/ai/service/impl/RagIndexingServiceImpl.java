@@ -104,7 +104,9 @@ public class RagIndexingServiceImpl implements RagIndexingService {
         List<DocumentChunkCandidate> candidates = chunkingService.chunk(
                 resolvedRequest.documentId(),
                 resolvedRequest.userId(),
-                resolvedRequest.text()
+                resolvedRequest.text(),
+                resolvedRequest.sourceBlocks(),
+                null
         );
         if (candidates.isEmpty()) {
             return result(
@@ -201,7 +203,8 @@ public class RagIndexingServiceImpl implements RagIndexingService {
                 request.userId(),
                 request.text(),
                 indexVersion,
-                request.embeddingModel()
+                request.embeddingModel(),
+                request.sourceBlocks()
         );
     }
 
@@ -286,6 +289,9 @@ public class RagIndexingServiceImpl implements RagIndexingService {
         copyMetadata(metadata, structure, "sectionPath");
         copyMetadata(metadata, structure, "sourceBlockOrdinal");
         copyMetadata(metadata, structure, "structureType");
+        copyMetadata(metadata, structure, "pageNumber");
+        copyMetadata(metadata, structure, "sourceLocator");
+        copyMetadata(metadata, structure, "blockType");
         copyMetadata(metadata, structure, "qualityFlags");
         return structure;
     }

@@ -7,4 +7,10 @@ public interface ChunkingService {
     List<DocumentChunkCandidate> chunk(Long documentId, Long userId, String text);
 
     List<DocumentChunkCandidate> chunk(Long documentId, Long userId, String text, ChunkingOptions options);
+
+    List<DocumentChunkCandidate> chunk(Long documentId,
+                                       Long userId,
+                                       String text,
+                                       List<RagSourceBlock> sourceBlocks,
+                                       ChunkingOptions options);
 }
