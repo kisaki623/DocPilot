@@ -1,11 +1,21 @@
 # Current Task
 
-当前任务：Agent Quality Console 前端可读性增强（DONE）；下一片：可选进入 Agent Quality Console 历史趋势可解释性增强或回到 RAG / Memory 真实体验审计（READY）
+当前任务：Agent Quality Console 前端中文化二次增强（DONE）；下一片：可选进入 Agent Quality Console 历史趋势可解释性增强或回到 RAG / Memory 真实体验审计（READY）
+
+## 2026-07-06 补充：Agent Quality Console 前端中文化二次增强
+
+- 目标：按用户反馈继续改善 `/quality` 和 `/quality/trace` 可读性，中文能表达清楚的字段默认直接显示中文，不再在正文里追加英文 raw key 或枚举注释。
+- 已完成前端：`frontend/lib/quality-labels.ts` 的 format 函数改为默认返回纯中文；状态、失败桶、指标、布尔门禁、用例类型、门禁名和链路步骤不再显示 `通过 (PASS)`、`RAG 漏召回 (RAG_RETRIEVAL_MISS)` 这类形式。
+- 已完成页面文案：`Overview / Eval Catalog / Quality Trend / Run Detail / Run Comparison / Trace Reference / Gate / Eval Case` 等标题和计数文案进一步改为“质量总览 / 评测用例库 / 质量趋势 / 运行详情 / 运行对比 / 链路定位 / 门禁 / 评测用例”。
+- 调试边界：少数排查需要的 raw key 只保留在 `title` 悬停信息、`marker`、`caseId`、`traceId`、`agentRunId` 等技术定位 ID 中，不作为中文字段后的括号注释展示。
+- Gemini 协作：`gemini.cmd --version` 和 READY 探测通过，但正式文案建议调用连续超时；已按约束降级为 Codex 直接集成、验证和回写。
+- 脱敏边界：本片不改 Quality API、不新增后端字段、不读取业务库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；token usage 仍只作为数值统计展示。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright route smoke 和最终清理见本轮提交记录。
 
 ## 2026-07-06 补充：Agent Quality Console 前端可读性增强
 
 - 目标：降低 `/quality` 和 `/quality/trace` 的阅读门槛，让用户不必理解所有 raw artifact key，也能看懂状态、指标、失败桶、Trace step 和成本摘要。
-- 已完成前端：新增 `frontend/lib/quality-labels.ts`，集中维护 status、failure bucket、metric、flag、case type、gate 和 trace step 的中文展示；页面保留 raw key 作为括号内定位信息，便于继续排查 artifact / API 字段。
+- 已完成前端：新增 `frontend/lib/quality-labels.ts`，集中维护 status、failure bucket、metric、flag、case type、gate 和 trace step 的中文展示；后续二次增强已把默认正文改为纯中文展示。
 - 已完成 `/quality`：Overview、Eval Catalog、Quality Trend、Run Detail、Failure Triage、Trace 定位、Gate / Eval Case 明细、Model / Cost Summary 和 Run Comparison 已改为更易读的中文标签。
 - 已完成 `/quality/trace`：Trace Reference、链路瀑布图、关联 Gate 和关联 Eval Case 已使用同一套中文标签；仍只展示脱敏状态、数值、布尔门禁和失败 / 复查类型。
 - 脱敏边界：本片不改 Quality API、不新增后端字段、不读取业务库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；token usage 仍只作为数值统计展示。

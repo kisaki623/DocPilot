@@ -24,7 +24,7 @@ const BUCKET_LABELS: Record<string, string> = {
 };
 
 const METRIC_LABELS: Record<string, string> = {
-  casePassRate: "Case 通过率",
+  casePassRate: "用例通过率",
   distractorCitationFreeCount: "无干扰引用数",
   answerFaithfulnessPassCount: "回答忠实通过数",
   citationPhraseSupportPassCount: "引用短语支撑数",
@@ -34,8 +34,8 @@ const METRIC_LABELS: Record<string, string> = {
   evidenceCount: "证据数",
   memoryCount: "记忆数",
   documentHitCount: "命中文档数",
-  promptTokens: "Prompt tokens",
-  completionTokens: "Completion tokens",
+  promptTokens: "提示词 tokens",
+  completionTokens: "回答 tokens",
   totalTokens: "总 tokens",
   estimatedCost: "估算成本",
   latencyMs: "延迟 ms",
@@ -52,8 +52,8 @@ const FLAG_LABELS: Record<string, string> = {
   targetCitationCovered: "目标引用已覆盖",
   noEvidenceCorrect: "无证据判断正确",
   expectedEvidenceSupported: "预期证据已支撑",
-  traceRagTriggered: "Trace 中 RAG 已触发",
-  traceRagRequired: "Trace 要求 RAG",
+  traceRagTriggered: "链路中 RAG 已触发",
+  traceRagRequired: "链路要求 RAG",
   ragTriggered: "RAG 已触发",
   ragRequired: "需要 RAG",
   citationMarkerPresent: "引用标记存在",
@@ -65,11 +65,13 @@ const CASE_TYPE_LABELS: Record<string, string> = {
   agent_quality: "Agent 质量",
   rag_quality: "RAG 质量",
   memory_quality: "记忆质量",
-  route_smoke: "路由 smoke",
+  route_smoke: "路由冒烟",
+  natural_corpus: "自然语料",
+  conversation_trace: "会话链路",
 };
 
 const TRACE_STEP_LABELS: Record<string, string> = {
-  eval_case: "Eval Case",
+  eval_case: "评测用例",
   agent_step: "Agent 步骤",
   rag_retrieve: "RAG 检索",
   tool_call: "工具调用",
@@ -78,19 +80,36 @@ const TRACE_STEP_LABELS: Record<string, string> = {
   failure_bucket: "失败桶",
 };
 
+const GATE_LABELS: Record<string, string> = {
+  tunnel: "Tunnel 连通性",
+  backendHealth: "后端健康检查",
+  frontendRoutes: "前端路由",
+  frontendInteraction: "前端交互",
+  auth: "注册登录",
+  uploadParseIndexing: "上传解析索引",
+  chunkQuality: "切片质量",
+  mysqlQdrantConsistency: "MySQL / Qdrant 一致性",
+  singleDocumentRag: "单文档 RAG",
+  knowledgeBaseRag: "知识库 RAG",
+  shortDocumentRag: "短文档 RAG",
+  naturalCorpus: "自然语料",
+  multiQueryRag: "多查询检索",
+  answerGrounding: "回答依据性",
+  noEvidenceThreshold: "无证据拒答",
+  conversationTrace: "会话链路",
+  memoryQuality: "记忆质量",
+  permissionIsolation: "权限隔离",
+  artifactRedaction: "Artifact 脱敏",
+  cleanup: "清理检查",
+  realProviderFaithfulness: "真实模型忠实性",
+};
+
 function normalize(value?: string | null): string {
   return (value || "").trim();
 }
 
 function compactKey(value: string): string {
   return value.toLowerCase().replace(/[\s_-]+/g, "");
-}
-
-function labelWithRaw(label: string, raw: string): string {
-  if (!raw || label === raw) {
-    return label || "-";
-  }
-  return `${label} (${raw})`;
 }
 
 export function formatQualityNumber(value?: number | null): string {
@@ -117,7 +136,7 @@ export function labelStatus(status?: string | null): string {
 
 export function formatStatus(status?: string | null): string {
   const raw = normalize(status);
-  return labelWithRaw(labelStatus(raw), raw);
+  return labelStatus(raw);
 }
 
 export function labelBucket(bucket?: string | null): string {
@@ -192,7 +211,7 @@ export function labelBucket(bucket?: string | null): string {
 
 export function formatBucket(bucket?: string | null): string {
   const raw = normalize(bucket);
-  return labelWithRaw(labelBucket(raw), raw);
+  return labelBucket(raw);
 }
 
 export function formatBucketList(values?: string[], limit = 5): string {
@@ -209,7 +228,7 @@ export function labelMetric(key?: string | null): string {
 
 export function formatMetricKey(key?: string | null): string {
   const raw = normalize(key);
-  return labelWithRaw(labelMetric(raw), raw);
+  return labelMetric(raw);
 }
 
 export function labelFlag(key?: string | null): string {
@@ -219,7 +238,7 @@ export function labelFlag(key?: string | null): string {
 
 export function formatFlagKey(key?: string | null): string {
   const raw = normalize(key);
-  return labelWithRaw(labelFlag(raw), raw);
+  return labelFlag(raw);
 }
 
 export function formatMetricValue(key: string, value: number): string {
@@ -262,7 +281,7 @@ export function labelCaseType(caseType?: string | null): string {
 
 export function formatCaseType(caseType?: string | null): string {
   const raw = normalize(caseType);
-  return labelWithRaw(labelCaseType(raw), raw);
+  return labelCaseType(raw);
 }
 
 export function labelGate(gateName?: string | null): string {
@@ -270,7 +289,8 @@ export function labelGate(gateName?: string | null): string {
   if (!raw) {
     return "-";
   }
-  return raw
+  const label = GATE_LABELS[raw] || raw;
+  return label
     .replace(/_/g, " ")
     .replace(/\bqa\b/gi, "QA")
     .replace(/\brag\b/gi, "RAG")
@@ -279,10 +299,10 @@ export function labelGate(gateName?: string | null): string {
 
 export function formatGate(gateName?: string | null): string {
   const raw = normalize(gateName);
-  return labelWithRaw(labelGate(raw), raw);
+  return labelGate(raw);
 }
 
 export function labelTraceStep(stepType?: string | null): string {
   const raw = normalize(stepType);
-  return TRACE_STEP_LABELS[raw] || raw || "Trace Step";
+  return TRACE_STEP_LABELS[raw] || raw || "链路步骤";
 }

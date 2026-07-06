@@ -103,7 +103,7 @@ export default function QualityTracePage() {
     } catch (error) {
       setDetail(null);
       setErrorMessage(
-        error instanceof Error ? error.message : "加载 Trace 定位详情失败"
+        error instanceof Error ? error.message : "加载链路定位详情失败"
       );
     } finally {
       setLoading(false);
@@ -130,7 +130,7 @@ export default function QualityTracePage() {
     setHasToken(true);
     if (!nextQuery.marker) {
       setLoading(false);
-      setErrorMessage("缺少 quality run marker。");
+      setErrorMessage("缺少质量运行 marker。");
       return;
     }
     void loadDetail(nextQuery.marker);
@@ -163,7 +163,7 @@ export default function QualityTracePage() {
       <main className="dp-page mx-auto max-w-5xl px-4 py-8">
         <section className="dp-hero">
           <p className="dp-eyebrow">Agent Quality Console</p>
-          <h1 className="dp-title">Trace 定位</h1>
+          <h1 className="dp-title">链路定位</h1>
           <p className="dp-subtitle">登录后查看内部质量定位详情。</p>
           <div className="mt-5">
             <Link href="/login" className="dp-btn dp-btn-primary">
@@ -181,13 +181,13 @@ export default function QualityTracePage() {
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
             <p className="dp-eyebrow">Agent Quality Console</p>
-            <h1 className="dp-title">Trace 定位</h1>
+            <h1 className="dp-title">链路定位</h1>
             <p className="dp-subtitle max-w-3xl">
-              只展示 quality artifact 中的脱敏定位摘要和安全指标。
+              只展示脱敏质量结果中的定位摘要和安全指标。
             </p>
           </div>
           <Link href="/quality?autoload=1" className="dp-btn dp-btn-secondary">
-            返回 Overview
+            返回总览
           </Link>
         </div>
       </section>
@@ -218,7 +218,7 @@ export default function QualityTracePage() {
           <section className="dp-card min-w-0">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
-                <p className="dp-eyebrow">Run</p>
+                <p className="dp-eyebrow">运行</p>
                 <h2 className="mt-2 break-words text-xl font-bold text-slate-950">
                   {detail.summary.marker}
                 </h2>
@@ -235,15 +235,15 @@ export default function QualityTracePage() {
           <section className="dp-card min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 className="dp-section-title">匹配 Trace Reference</h2>
+                <h2 className="dp-section-title">匹配链路</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  {references.length} matched
+                  匹配 {references.length} 条
                 </p>
               </div>
             </div>
             <div className="mt-4 grid gap-3">
               {references.length === 0 ? (
-                <p className="dp-meta">没有匹配的 trace reference。</p>
+                <p className="dp-meta">没有匹配的链路定位项。</p>
               ) : (
                 references.map((reference) => (
                   <TraceReferenceCard
@@ -324,14 +324,14 @@ function TraceWaterfallCard({
         <div>
           <h2 className="dp-section-title">链路瀑布图</h2>
           <p className="mt-1 text-xs text-slate-500">
-            仅展示脱敏 step、状态、数值指标和失败桶。
+            仅展示脱敏步骤、状态、数值指标和失败桶。
           </p>
         </div>
-        <span className="dp-badge dp-badge-info">{steps.length} steps</span>
+        <span className="dp-badge dp-badge-info">{steps.length} 步</span>
       </div>
       {steps.length === 0 ? (
         <p className="mt-4 dp-meta">
-          当前 artifact 没有可展示的 step 摘要；后续 run 会继续沉淀。
+          当前脱敏结果没有可展示的步骤摘要；后续运行会继续沉淀。
         </p>
       ) : (
         <div className="mt-5 space-y-3">
@@ -364,10 +364,10 @@ function TraceStepRow({
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
             <p className="break-words text-sm font-semibold text-slate-900">
-              {labelTraceStep(step.stepType)}
+              <span title={step.stepType || ""}>{labelTraceStep(step.stepType)}</span>
             </p>
             <p className="mt-1 break-words text-xs text-slate-500">
-              {step.label || step.stepType || "-"}
+              {step.label || labelTraceStep(step.stepType)}
             </p>
           </div>
           <span className={statusBadge(step.status)}>
@@ -387,14 +387,14 @@ function TraceStepRow({
 function RelatedGateCard({ gate }: { gate: QualityGateSummary | null }) {
   return (
     <section className="dp-card min-w-0">
-      <h2 className="dp-section-title">关联 Gate</h2>
+      <h2 className="dp-section-title">关联门禁</h2>
       {!gate ? (
-        <p className="mt-3 dp-meta">暂无关联 gate。</p>
+        <p className="mt-3 dp-meta">暂无关联门禁。</p>
       ) : (
         <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
           <div className="flex items-start justify-between gap-3">
             <p className="break-words text-sm font-semibold text-slate-900">
-              {formatGate(gate.name)}
+              <span title={gate.name}>{formatGate(gate.name)}</span>
             </p>
             <span className={statusBadge(gate.status || (gate.passed ? "PASS" : "FAILED"))}>
               {formatStatus(gate.status || (gate.passed ? "PASS" : "FAILED"))}
@@ -425,9 +425,9 @@ function RelatedEvalCaseCard({
 }) {
   return (
     <section className="dp-card min-w-0">
-      <h2 className="dp-section-title">关联 Eval Case</h2>
+      <h2 className="dp-section-title">关联评测用例</h2>
       {!item ? (
-        <p className="mt-3 dp-meta">暂无关联 eval case。</p>
+        <p className="mt-3 dp-meta">暂无关联评测用例。</p>
       ) : (
         <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
           <div className="flex items-start justify-between gap-3">

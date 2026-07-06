@@ -31,7 +31,7 @@ import {
   labelBucket,
 } from "@/lib/quality-labels";
 
-const RESERVED_TABS = ["Overview", "Trace", "Eval", "Failures"];
+const RESERVED_TABS = ["质量总览", "链路追踪", "自动评测", "失败项"];
 const SIGNAL_PRIORITY = [
   "casePassRate",
   "distractorCitationFreeCount",
@@ -244,6 +244,13 @@ function summarizeBuckets(values?: string[]): string {
   return formatBucketList(values, 4);
 }
 
+function summarizeTextList(values?: string[]): string {
+  if (!values || values.length === 0) {
+    return "-";
+  }
+  return values.slice(0, 4).join(" / ");
+}
+
 function tokenUsageTotal(runs: QualityRunSummary[]): number {
   return runs.reduce((sum, item) => sum + (item.tokenUsage?.totalTokens || 0), 0);
 }
@@ -257,8 +264,8 @@ function formatTokenUsage(tokenUsage?: QualityTokenUsageSummary): string {
     return "-";
   }
   const parts = [
-    ["Prompt tokens", tokenUsage.promptTokens],
-    ["Completion tokens", tokenUsage.completionTokens],
+    ["提示词 tokens", tokenUsage.promptTokens],
+    ["回答 tokens", tokenUsage.completionTokens],
     ["总 tokens", tokenUsage.totalTokens],
   ]
     .filter(([, value]) => typeof value === "number")
@@ -540,7 +547,7 @@ export default function QualityPage() {
             <p className="dp-eyebrow">Agent Quality Console</p>
             <h1 className="dp-title">内部质量控制台</h1>
             <p className="dp-subtitle max-w-3xl">
-              聚合 smoke、audit、RAG、Memory 和 Eval 的脱敏质量摘要。
+              聚合冒烟、审计、RAG、Memory 和自动评测的脱敏质量摘要。
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -557,11 +564,11 @@ export default function QualityPage() {
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <MetricCard label="Runs" value={stats.total} />
-        <MetricCard label="PASS" value={stats.pass} tone="success" />
-        <MetricCard label="REVIEW / 阻塞" value={stats.review} tone="warning" />
-        <MetricCard label="FAILED" value={stats.failed} tone="danger" />
-        <MetricCard label="Tokens" value={formatNumber(stats.tokens)} />
+        <MetricCard label="运行次数" value={stats.total} />
+        <MetricCard label="通过" value={stats.pass} tone="success" />
+        <MetricCard label="需复查 / 阻塞" value={stats.review} tone="warning" />
+        <MetricCard label="失败" value={stats.failed} tone="danger" />
+        <MetricCard label="总 tokens" value={formatNumber(stats.tokens)} />
       </section>
 
       {errorMessage ? (
@@ -574,7 +581,7 @@ export default function QualityPage() {
         <div className="grid min-w-0 gap-4">
           <div className="dp-card min-w-0">
             <div className="flex items-center justify-between gap-3">
-              <h2 className="dp-section-title">Overview</h2>
+              <h2 className="dp-section-title">质量总览</h2>
               <button
                 type="button"
                 onClick={() => loadRuns()}
@@ -695,9 +702,9 @@ function EvalCatalogPanel({ items }: { items: QualityEvalCaseCatalogItem[] }) {
     <div className="dp-card min-w-0">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="dp-section-title">Eval Catalog</h2>
+          <h2 className="dp-section-title">评测用例库</h2>
           <p className="mt-1 text-xs text-slate-500">
-            {filteredItems.length} / {items.length} cases
+            {filteredItems.length} / {items.length} 个用例
           </p>
         </div>
         <span className="dp-badge dp-badge-neutral">P0</span>
@@ -759,7 +766,7 @@ function CatalogFilterSelect({
         onChange={(event) => onChange(event.target.value)}
         className="w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700 outline-none focus:border-blue-300"
       >
-        <option value="ALL">ALL</option>
+        <option value="ALL">全部</option>
         {options.map((option) => (
           <option key={`${label}-${option}`} value={option}>
             {formatOption ? formatOption(option) : option}
@@ -796,10 +803,10 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
             {item.lastUpdated || "-"}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
-            来源问题: {summarizeBuckets(item.sourceIssueIds || [])}
+            来源问题: {summarizeTextList(item.sourceIssueIds || [])}
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
-            verified: {item.lastVerifiedMarker || "-"}
+            最近验证: {item.lastVerifiedMarker || "-"}
           </p>
         </div>
         <span className={statusBadge(item.latestStatus)}>
@@ -823,28 +830,28 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
         ))}
       </div>
       <p className="mt-3 break-words text-xs text-slate-600">
-        预期证据: {summarizeBuckets(item.expectedEvidence)}
+        预期证据: {summarizeTextList(item.expectedEvidence)}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        预期工具: {summarizeBuckets(item.expectedTools)}
+        预期工具: {summarizeTextList(item.expectedTools)}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        评分规则: {summarizeBuckets(item.scoringRules)}
+        评分规则: {summarizeTextList(item.scoringRules)}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        评分摘要: {summarizeBuckets(item.scoringSummary || [])}
+        评分摘要: {summarizeTextList(item.scoringSummary || [])}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        回归策略: {summarizeBuckets(item.regressionPolicy || [])}
+        回归策略: {summarizeTextList(item.regressionPolicy || [])}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        失败历史: {summarizeBuckets(item.failureHistoryMarkers || [])}
+        失败历史: {summarizeTextList(item.failureHistoryMarkers || [])}
       </p>
       <p className="mt-1 break-words text-xs text-slate-600">
-        修复提示: {summarizeBuckets(item.remediationHints || [])}
+        修复提示: {summarizeTextList(item.remediationHints || [])}
       </p>
       <p className="mt-2 break-words text-xs text-slate-500">
-        最近 run: {item.latestRunMarker || "-"}
+        最近运行: {item.latestRunMarker || "-"}
       </p>
       <p className="mt-1 break-words text-xs text-amber-700">
         失败/复查类型: {bucketText}
@@ -861,12 +868,12 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
     <div className="dp-card min-w-0">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="dp-section-title">Quality Trend</h2>
+          <h2 className="dp-section-title">质量趋势</h2>
           <p className="mt-1 text-xs text-slate-500">
-            最近 {trend?.runCount || 0} / {trend?.limit || 20} runs
+            最近 {trend?.runCount || 0} / {trend?.limit || 20} 次运行
           </p>
         </div>
-        <span className="dp-badge dp-badge-info">artifact-only</span>
+        <span className="dp-badge dp-badge-info">脱敏摘要</span>
       </div>
 
       {!trend || trend.runCount === 0 ? (
@@ -884,11 +891,11 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
           <TrendTextRow label="复查类型" value={reviewText} tone="warning" />
           <div>
             <p className="text-xs font-semibold uppercase text-slate-400">
-              repeated cases
+              反复失败用例
             </p>
             <div className="mt-2 grid gap-2">
               {trend.repeatedCases.length === 0 ? (
-                <p className="dp-meta">暂无反复失败 / REVIEW case。</p>
+                <p className="dp-meta">暂无反复失败或需复查的用例。</p>
               ) : (
                 trend.repeatedCases.slice(0, 5).map((item) => (
                   <div
@@ -912,7 +919,7 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
           </div>
           <div>
             <p className="text-xs font-semibold uppercase text-slate-400">
-              recent points
+              最近运行点
             </p>
             <div className="mt-2 grid gap-2">
               {trend.points.slice(0, 5).map((point) => (
@@ -987,11 +994,7 @@ function summarizeCountMap(
   return entries
     .sort((left, right) => right[1] - left[1])
     .slice(0, 4)
-    .map(([key, value]) => {
-      const label = labeler(key);
-      const display = label.includes(`(${key})`) ? label : `${label} (${key})`;
-      return `${display}: ${value}`;
-    })
+    .map(([key, value]) => `${labeler(key)}: ${value}`)
     .join(" / ");
 }
 
@@ -1032,7 +1035,7 @@ function RunDetailPanel({
   if (!detail) {
     return (
       <div className="dp-card">
-        <p className="dp-meta">选择一条 run 查看详情。</p>
+        <p className="dp-meta">选择一条运行记录查看详情。</p>
       </div>
     );
   }
@@ -1209,7 +1212,7 @@ function RunDetailContent({
       <section className="dp-card min-w-0">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="min-w-0">
-            <p className="dp-eyebrow">Run Detail</p>
+            <p className="dp-eyebrow">运行详情</p>
             <h2 className="mt-2 break-words text-xl font-bold text-slate-950">
               {summary.marker}
             </h2>
@@ -1269,10 +1272,10 @@ function RunDetailContent({
       />
 
       <section className="dp-card min-w-0">
-        <h3 className="dp-section-title">Gate 列表</h3>
+        <h3 className="dp-section-title">门禁列表</h3>
         <div className="mt-3 grid gap-2">
           {filteredGates.length === 0 ? (
-            <p className="dp-meta">暂无 gate 明细。</p>
+            <p className="dp-meta">暂无门禁明细。</p>
           ) : (
             filteredGates.map((gate) => <GateRow key={gate.name} gate={gate} />)
           )}
@@ -1280,10 +1283,10 @@ function RunDetailContent({
       </section>
 
       <section className="dp-card min-w-0">
-        <h3 className="dp-section-title">Eval Case</h3>
+        <h3 className="dp-section-title">评测用例</h3>
         <div className="mt-3 grid gap-2">
           {filteredEvalCases.length === 0 ? (
-            <p className="dp-meta">暂无 eval case 明细。</p>
+            <p className="dp-meta">暂无评测用例明细。</p>
           ) : (
             filteredEvalCases.map((item) => (
               <EvalCaseRow key={item.caseId} item={item} />
@@ -1324,7 +1327,7 @@ function buildBucketSummaries(
         current.reviewCount += 1;
       }
       if (bucket && current.examples.length < 3) {
-        current.examples.push(`${label}: ${bucket}`);
+        current.examples.push(`${label}: ${labelBucket(bucket)}`);
       }
       summaryMap.set(category, current);
     });
@@ -1375,7 +1378,7 @@ function FailureTriagePanel({
         <div>
           <h3 className="dp-section-title">失败分桶</h3>
           <p className="mt-1 text-xs text-slate-500">
-            门禁 {resultCounts.gates} / Eval {resultCounts.evalCases} / Trace{" "}
+            门禁 {resultCounts.gates} / 评测 {resultCounts.evalCases} / 链路{" "}
             {resultCounts.traces}
           </p>
         </div>
@@ -1401,7 +1404,7 @@ function FailureTriagePanel({
           value={filters.bucketCategory}
           options={["ALL", ...TRIAGE_BUCKET_CATEGORIES]}
           onChange={(value) => updateFilter("bucketCategory", value)}
-          formatOption={(value) => (value === "ALL" ? "全部" : `${labelBucket(value)} (${value})`)}
+          formatOption={(value) => (value === "ALL" ? "全部" : labelBucket(value))}
         />
         <TriageSelect
           label="门禁"
@@ -1411,7 +1414,7 @@ function FailureTriagePanel({
           formatOption={(value) => (value === "ALL" ? "全部" : formatGate(value))}
         />
         <TriageSelect
-          label="Case 类型"
+          label="用例类型"
           value={filters.caseType}
           options={["ALL", ...caseTypes]}
           onChange={(value) => updateFilter("caseType", value)}
@@ -1421,12 +1424,13 @@ function FailureTriagePanel({
 
       <div className="mt-4 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
         {bucketSummaries.length === 0 ? (
-          <p className="dp-meta">暂无失败桶或 REVIEW 桶。</p>
+          <p className="dp-meta">暂无失败项或需复查项。</p>
         ) : (
           bucketSummaries.map((item) => (
             <button
               key={item.category}
               type="button"
+              title={item.category}
               onClick={() => updateFilter("bucketCategory", item.category)}
               className={`min-w-0 rounded-lg border p-3 text-left transition ${
                 filters.bucketCategory === item.category
@@ -1498,16 +1502,16 @@ function TraceReferencePanel({
     <section className="dp-card min-w-0">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="dp-section-title">Trace 定位</h3>
+          <h3 className="dp-section-title">链路定位</h3>
           <p className="mt-1 text-xs text-slate-500">
-            失败和 REVIEW case 的脱敏定位入口。
+            失败和需复查用例的脱敏定位入口。
           </p>
         </div>
         <span className="dp-badge dp-badge-neutral">{references.length}</span>
       </div>
       <div className="mt-3 grid gap-2">
         {references.length === 0 ? (
-          <p className="dp-meta">暂无 trace 定位项。</p>
+          <p className="dp-meta">暂无链路定位项。</p>
         ) : (
           references.map((reference) => (
             <TraceReferenceRow
@@ -1620,12 +1624,20 @@ function SmallFact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function BucketBox({ title, values }: { title: string; values: string[] }) {
+function BucketBox({
+  title,
+  values,
+  format = "bucket",
+}: {
+  title: string;
+  values: string[];
+  format?: "bucket" | "text";
+}) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <p className="text-xs font-semibold uppercase text-slate-500">{title}</p>
       <p className="mt-2 break-words text-sm text-slate-700">
-        {summarizeBuckets(values)}
+        {format === "text" ? summarizeTextList(values) : summarizeBuckets(values)}
       </p>
     </div>
   );
@@ -1639,7 +1651,7 @@ function GateRow({ gate }: { gate: QualityGateSummary }) {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="break-words text-sm font-semibold text-slate-900">
-            {formatGate(gate.name)}
+            <span title={gate.name}>{formatGate(gate.name)}</span>
           </p>
           <p className="mt-1 break-words text-xs text-slate-500">
             指标: {compactMetrics(gate.metrics)}
@@ -1707,12 +1719,12 @@ function OperationalSummaryPanel({
             仅展示 token、成本和运行计数，不展示 prompt 或回答原文。
           </p>
         </div>
-        <span className="dp-badge dp-badge-neutral">numeric only</span>
+        <span className="dp-badge dp-badge-neutral">仅数值</span>
       </div>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SmallFact label="Prompt tokens" value={formatNumber(summary.promptTokens)} />
+        <SmallFact label="提示词 tokens" value={formatNumber(summary.promptTokens)} />
         <SmallFact
-          label="Completion tokens"
+          label="回答 tokens"
           value={formatNumber(summary.completionTokens)}
         />
         <SmallFact label="总 tokens" value={formatNumber(summary.totalTokens)} />
@@ -1756,14 +1768,14 @@ function RunComparisonPanel({
     <section className="dp-card min-w-0">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h3 className="dp-section-title">Run 对比</h3>
+          <h3 className="dp-section-title">运行对比</h3>
           <p className="mt-1 text-xs text-slate-500">
-            当前 run 与历史 run 的质量变化。
+            当前运行与历史运行的质量变化。
           </p>
         </div>
         <label className="min-w-0 lg:min-w-72">
           <span className="text-xs font-semibold uppercase text-slate-500">
-            对比 Run
+            对比运行
           </span>
           <select
             value={compareMarker}
@@ -1781,9 +1793,9 @@ function RunComparisonPanel({
       </div>
 
       {loading ? (
-        <p className="mt-4 dp-meta">加载对比 run...</p>
+        <p className="mt-4 dp-meta">加载对比运行...</p>
       ) : !comparison ? (
-        <p className="mt-4 dp-meta">选择 previous run 后查看差异。</p>
+        <p className="mt-4 dp-meta">选择历史运行后查看差异。</p>
       ) : (
         <>
           <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1804,7 +1816,7 @@ function RunComparisonPanel({
               value={formatDelta(comparison.reviewGateDelta)}
             />
             <SmallFact
-              label="Case 通过率变化"
+              label="用例通过率变化"
               value={formatDelta(comparison.casePassRateDelta, 4)}
             />
             <SmallFact
@@ -1821,8 +1833,16 @@ function RunComparisonPanel({
             <BucketBox title="已恢复失败类型" values={comparison.resolvedFailureBuckets} />
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <BucketBox title="门禁状态变化" values={comparison.changedGateStatuses} />
-            <BucketBox title="Eval Case 状态变化" values={comparison.changedCaseStatuses} />
+            <BucketBox
+              title="门禁状态变化"
+              values={comparison.changedGateStatuses}
+              format="text"
+            />
+            <BucketBox
+              title="评测用例状态变化"
+              values={comparison.changedCaseStatuses}
+              format="text"
+            />
           </div>
         </>
       )}
@@ -1933,6 +1953,7 @@ function SignalGrid({
         return (
           <div
             key={`${signal.key}-${signal.value}`}
+            title={signal.key}
             className="min-w-0 rounded-md border border-slate-100 bg-slate-50 px-2 py-2"
           >
             <p className="truncate text-[11px] uppercase text-slate-500">

@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-06 Agent Quality Console 前端中文化二次增强
+
+- `gemini.cmd --version` 和 READY 探测通过；正式文案建议调用连续超时，本轮按协作约束降级为 Codex 直接集成、验证和回写。
+- `frontend/lib/quality-labels.ts` 已改为默认返回纯中文标签，不再把 raw key 拼到正文里；状态、失败桶、指标、布尔门禁、用例类型、门禁名和链路步骤都走中文展示。
+- `/quality` 已把 Overview、Eval Catalog、Quality Trend、Run Detail、Run Comparison、Gate、Eval Case 等默认标题进一步改为中文；失败桶和普通列表分开格式化，避免 source issue、评分规则等普通字段被误当作失败类型翻译。
+- `/quality/trace` 已把 Trace 定位、Trace Reference、Run、Gate、Eval Case、steps 等页面文案进一步中文化；必要 raw key 只保留在 `title` 悬停信息或 `traceId` / `agentRunId` 等技术定位 ID 中。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright route smoke 覆盖 `/quality?routeSmoke=2` 与 `/quality/trace?routeSmoke=1...` 的桌面和 `390px` 移动端，均无业务 console error、无横向溢出，且正文无典型 raw key 括号残留；乱码扫描和敏感扫描无命中，端口已清理释放。
+- 边界：本片只改前端展示和状态文档，不改 Quality API、不读取业务库、不创建业务数据、不提交 artifact 原文、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+
 ## 2026-07-06 Agent Quality Console 前端可读性增强
 
 - 新增 `frontend/lib/quality-labels.ts`，统一 status、failure bucket、metric、flag、case type、gate 和 trace step 的中文展示；页面仍保留 raw key，便于和 artifact / API 字段对应。
