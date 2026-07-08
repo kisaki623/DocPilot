@@ -8,7 +8,8 @@ public record AgentQualityEvalObservation(
         Set<String> observedTools,
         String sanitizedOutput,
         String traceId,
-        String agentRunId
+        String agentRunId,
+        String observedDecision
 ) {
 
     public AgentQualityEvalObservation {
@@ -18,6 +19,17 @@ public record AgentQualityEvalObservation(
         sanitizedOutput = clean(sanitizedOutput);
         traceId = clean(traceId);
         agentRunId = clean(agentRunId);
+        observedDecision = clean(observedDecision);
+    }
+
+    public AgentQualityEvalObservation(
+            String caseId,
+            Set<String> observedEvidence,
+            Set<String> observedTools,
+            String sanitizedOutput,
+            String traceId,
+            String agentRunId) {
+        this(caseId, observedEvidence, observedTools, sanitizedOutput, traceId, agentRunId, "");
     }
 
     private static String clean(String value) {

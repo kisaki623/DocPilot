@@ -28,14 +28,18 @@ class AgentQualityEvalRunnerTest {
                         "short-document-rag-evidence",
                         "kb-two-document-coverage",
                         "citation-distractor-pruning",
-                        "quality-console-startup-health"
+                        "quality-console-startup-health",
+                        "agent-document-search-route",
+                        "agent-rag-answer-route"
                 );
         assertThat(result.metrics().casePassRate()).isEqualTo(1.0D);
-        assertThat(result.metrics().traceLinkedCaseCount()).isEqualTo(result.metrics().caseCount());
+        assertThat(result.metrics().traceLinkedCaseCount()).isGreaterThanOrEqualTo(result.metrics().caseCount() - 1);
         assertThat(result.caseResults()).allSatisfy(caseResult -> {
             assertThat(caseResult.caseId()).isNotBlank();
-            assertThat(caseResult.traceId()).isNotBlank();
-            assertThat(caseResult.agentRunId()).isNotBlank();
+            if (!"agent-document-search-route".equals(caseResult.caseId())) {
+                assertThat(caseResult.traceId()).isNotBlank();
+                assertThat(caseResult.agentRunId()).isNotBlank();
+            }
             assertThat(caseResult.failureBuckets()).isEmpty();
         });
 
@@ -57,6 +61,8 @@ class AgentQualityEvalRunnerTest {
                 .doesNotContain("summary over two short documents")
                 .doesNotContain("unrelated distractor citations")
                 .doesNotContain("backend startup health")
+                .doesNotContain("RAG retrieve topK chunks and show similarity score")
+                .doesNotContain("retrieve evidence and answer what")
                 .doesNotContain("SYSTEM_PROMPT")
                 .doesNotContain("RAW_ANSWER")
                 .doesNotContain("DOCUMENT_FULL_TEXT");
@@ -102,5 +108,35 @@ class AgentQualityEvalRunnerTest {
                 .doesNotContain("Question text should stay out of artifact")
                 .doesNotContain("Expected behavior should stay out of artifact")
                 .doesNotContain("RAW_ANSWER_SHOULD_NOT_LEAK");
+    }
+
+    @Test
+    void shouldEvaluateExpectedDecisionWithoutStoringRawQuestion() throws Exception {
+        AgentQualityEvalCase evalCase = new AgentQualityEvalCase(
+                "agent-search-route-mismatch",
+                "RAG retrieve topK chunks and show similarity score",
+                "Expected behavior should stay out of artifact",
+                List.of("documentSearchEvidence"),
+                List.of("document_search_tool"),
+                List.of("search_intent"),
+                List.of("rag_answer_generated"),
+                List.of("agent_search"),
+                Map.of("expectedDecision", "rag_tool")
+        );
+
+        AgentQualityEvalResult result = new AgentQualityEvalRunner(new ObjectMapper().findAndRegisterModules())
+                .evaluateDefaultCases();
+        AgentQualityEvalResult mismatch = new AgentQualityEvalRunner(new ObjectMapper().findAndRegisterModules())
+                .evaluate(List.of(evalCase), Map.of());
+
+        assertThat(result.status()).isEqualTo("PASS");
+        assertThat(mismatch.status()).isEqualTo("FAILED_CORE_FLOW");
+        assertThat(mismatch.caseResults().get(0).failureBuckets())
+                .contains("expectedToolMissing", "expectedDecisionMismatch");
+
+        String serialized = new ObjectMapper().findAndRegisterModules().writeValueAsString(mismatch.toSafeMap());
+        assertThat(serialized)
+                .doesNotContain("RAG retrieve topK chunks and show similarity score")
+                .doesNotContain("Expected behavior should stay out of artifact");
     }
 }

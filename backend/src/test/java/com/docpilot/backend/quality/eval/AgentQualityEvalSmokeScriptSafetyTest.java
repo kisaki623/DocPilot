@@ -41,6 +41,8 @@ class AgentQualityEvalSmokeScriptSafetyTest {
                 .contains("mustContain")
                 .contains("mustNotContain")
                 .contains("scoringRules")
+                .contains("scoringRules.expectedDecision")
+                .contains("expectedDecisionMatched")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer ")
                 .doesNotContain("api" + "Key =");

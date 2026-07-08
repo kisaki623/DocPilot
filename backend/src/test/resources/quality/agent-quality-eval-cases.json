@@ -188,5 +188,59 @@
       "requireTraceLink": true,
       "requireBackendHealth": true
     }
+  },
+  {
+    "caseId": "agent-document-search-route",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-08",
+    "riskLevel": "P1",
+    "caseLayer": "agent_search_routing",
+    "riskGate": "FAILED_CORE_FLOW",
+    "scoringSummary": ["search_decision_required", "document_search_tool_required", "answer_generation_forbidden"],
+    "regressionPolicy": ["quality_tests", "agent_quality_eval_smoke"],
+    "failureHistoryMarkers": [],
+    "lastVerifiedMarker": "",
+    "remediationHints": ["check_document_tool_selector", "verify_retrieval_only_keywords", "verify_search_tool_output_redaction"],
+    "question": "RAG retrieve topK chunks and show similarity score.",
+    "expectedBehavior": "Agent should route retrieval-only requests to document_search_tool and avoid generating a business answer.",
+    "expectedEvidence": ["documentSearchEvidence"],
+    "expectedTools": ["document_search_tool"],
+    "mustContain": ["search_intent", "citation_list_present"],
+    "mustNotContain": ["rag_answer_generated"],
+    "tags": ["agent_search", "retrieval_only", "routing"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": false,
+      "expectedDecision": "search_tool"
+    }
+  },
+  {
+    "caseId": "agent-rag-answer-route",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-08",
+    "riskLevel": "P1",
+    "caseLayer": "agent_search_routing",
+    "riskGate": "FAILED_CORE_FLOW",
+    "scoringSummary": ["rag_decision_required", "rag_qa_tool_required", "search_overrouting_forbidden"],
+    "regressionPolicy": ["quality_tests", "agent_quality_eval_smoke"],
+    "failureHistoryMarkers": [],
+    "lastVerifiedMarker": "",
+    "remediationHints": ["check_answer_intent_keywords", "verify_rag_tool_for_answer_tasks", "verify_chinese_explain_intent"],
+    "question": "Retrieve evidence and answer what policy controls the contract amount.",
+    "expectedBehavior": "Agent should route source-grounded answer requests to rag_qa_tool instead of retrieval-only search.",
+    "expectedEvidence": ["ragEvidence"],
+    "expectedTools": ["rag_qa_tool"],
+    "mustContain": ["rag_answer_required", "citation_present"],
+    "mustNotContain": ["search_only_response"],
+    "tags": ["agent_search", "rag_answer", "routing"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true,
+      "expectedDecision": "rag_tool"
+    }
   }
 ]

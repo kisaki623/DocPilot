@@ -29,9 +29,10 @@ function Show-AgentQualityEvalPlan {
       "mustContain",
       "mustNotContain",
       "tags",
-      "scoringRules"
+      "scoringRules",
+      "scoringRules.expectedDecision"
     )
-    resultPolicy = "Stores caseId, tags, pass/fail booleans, failure buckets, traceId/agentRunId only. No raw question, answer, prompt, document text, evidence context, token, credential, cloud address or connection string."
+    resultPolicy = "Stores caseId, tags, pass/fail booleans, failure buckets, traceId/agentRunId and numeric expectedDecisionMatched only. No raw question, answer, prompt, document text, evidence context, token, credential, cloud address or connection string."
     boundary = "Offline lightweight eval contract only. No remote Docker, no hk-ops, no schema migration, no business-data deletion, no artifact commit, no push."
   } | ConvertTo-Json -Depth 5
 }

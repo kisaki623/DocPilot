@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-08 Agent search eval 路由质量门禁
+
+- `AgentQualityEvalRunner` 对带 `scoringRules.expectedDecision` 的 case 增加真实 selector 评测：调用 `DocumentToolSelector` 生成观测决策与工具列表，若决策漂移则输出 `expectedDecisionMismatch`。
+- 默认 `agent-quality-eval-cases.json` 新增 `agent-document-search-route` 与 `agent-rag-answer-route`：前者要求 retrieval-only 任务走 `search_tool` / `document_search_tool`，后者要求 grounded answer 任务继续走 `rag_tool` / `rag_qa_tool`。
+- eval artifact 只新增安全数值 `expectedDecisionMatched`，不保存原始 question、expectedBehavior、prompt、answer 原文、文档全文或 evidence context；search routing case 不强制 trace，避免把纯离线路由门禁伪装成真实链路 trace。
+- `agent-quality-eval-smoke.ps1` plan / dry-run 已同步 expectedDecision 字段说明，`run` 仍只执行离线 JUnit 并生成 ignored 脱敏 artifact。
+- 验证：Agent Quality Eval targeted 18 tests PASS（1 skipped）；`mvn "-Dtest=*Quality*" test` PASS（41 tests，1 skipped）；`agent-quality-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-quality-eval-20260708231648-f178d4`。
+- 边界：本片不启动 backend / frontend / tunnel，不创建业务数据，不新增数据库表，不改生产 API，不提交 artifact 原文，不 push。
+
 ## 2026-07-08 Agent search intent 路由与评测门禁
 
 - `DocumentToolSelector` 新增 `search_tool` 决策：retrieval-only 的 topK、similarity、source、citation list、evidence list 走 `document_search_tool`；回答、解释、总结并引用证据或“说明”事实的任务继续走 `rag_qa_tool`。

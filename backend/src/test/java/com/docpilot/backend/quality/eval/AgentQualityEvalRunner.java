@@ -1,6 +1,7 @@
 package com.docpilot.backend.quality.eval;
 
 import com.docpilot.backend.quality.vo.QualityEvalCaseResultDetail;
+import com.docpilot.backend.ai.agent.tool.DocumentToolSelector;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -22,6 +23,7 @@ public class AgentQualityEvalRunner {
     private static final String DEFAULT_CASE_RESOURCE = "quality/agent-quality-eval-cases.json";
 
     private final ObjectMapper objectMapper;
+    private final DocumentToolSelector documentToolSelector = new DocumentToolSelector();
 
     public AgentQualityEvalRunner() {
         this(new ObjectMapper().findAndRegisterModules());
@@ -48,7 +50,7 @@ public class AgentQualityEvalRunner {
         Map<String, AgentQualityEvalObservation> observations = cases.stream()
                 .collect(Collectors.toMap(
                         AgentQualityEvalCase::caseId,
-                        this::passingObservation,
+                        this::defaultObservation,
                         (left, right) -> left,
                         LinkedHashMap::new
                 ));
@@ -96,6 +98,10 @@ public class AgentQualityEvalRunner {
         if (requiresTrace(evalCase) && resolved.traceId().isBlank() && resolved.agentRunId().isBlank()) {
             failureBuckets.add("traceLinkMissing");
         }
+        if (!expectedDecision(evalCase).isBlank()
+                && !expectedDecision(evalCase).equals(resolved.observedDecision())) {
+            failureBuckets.add("expectedDecisionMismatch");
+        }
 
         boolean passed = failureBuckets.isEmpty();
         return new QualityEvalCaseResultDetail(
@@ -107,8 +113,29 @@ public class AgentQualityEvalRunner {
                 resolved.agentRunId(),
                 failureBuckets,
                 List.of(),
-                Map.of(),
+                Map.of("expectedDecisionMatched", expectedDecision(evalCase).isBlank() || expectedDecision(evalCase).equals(resolved.observedDecision()) ? 1 : 0),
                 Map.of()
+        );
+    }
+
+    private AgentQualityEvalObservation defaultObservation(AgentQualityEvalCase evalCase) {
+        if (!expectedDecision(evalCase).isBlank()) {
+            return routingObservation(evalCase);
+        }
+        return passingObservation(evalCase);
+    }
+
+    private AgentQualityEvalObservation routingObservation(AgentQualityEvalCase evalCase) {
+        DocumentToolSelector.SelectResult selectResult = documentToolSelector.select(evalCase.question());
+        String output = String.join(" ", evalCase.mustContain());
+        return new AgentQualityEvalObservation(
+                evalCase.caseId(),
+                Set.copyOf(evalCase.expectedEvidence()),
+                Set.copyOf(selectResult.toolNames()),
+                output,
+                requiresTrace(evalCase) ? "trace-" + evalCase.caseId() : "",
+                requiresTrace(evalCase) ? "agent-run-" + evalCase.caseId() : "",
+                selectResult.decision()
         );
     }
 
@@ -120,13 +147,19 @@ public class AgentQualityEvalRunner {
                 Set.copyOf(evalCase.expectedTools()),
                 output,
                 "trace-" + evalCase.caseId(),
-                "agent-run-" + evalCase.caseId()
+                "agent-run-" + evalCase.caseId(),
+                expectedDecision(evalCase)
         );
     }
 
     private boolean requiresTrace(AgentQualityEvalCase evalCase) {
         Object value = evalCase.scoringRules().get("requireTraceLink");
         return Boolean.TRUE.equals(value) || "true".equalsIgnoreCase(String.valueOf(value));
+    }
+
+    private String expectedDecision(AgentQualityEvalCase evalCase) {
+        Object value = evalCase.scoringRules().get("expectedDecision");
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     private boolean containsAll(String text, List<String> markers) {

@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent search intent 路由与评测门禁（DONE）；下一片：Agent search eval / Quality Console search diagnostics（READY）
+当前任务：Agent search eval 路由质量门禁（DONE）；下一片：Agent Quality Console search diagnostics（READY）
+
+## 2026-07-08 补充：Agent search eval 路由质量门禁
+
+- 目标：把 `document_search_tool` 与 `search_tool` 路由从普通单测提升为 Agent Quality Eval 可复查的质量资产，防止后续把 retrieval-only 意图误路由到 QA，或把 grounded answer 意图过度路由到 search。
+- 已完成 eval runner：`AgentQualityEvalRunner` 对带 `scoringRules.expectedDecision` 的 case 会真实调用 `DocumentToolSelector`，并用 `expectedDecisionMismatch` 标记漂移；artifact 只保存 `expectedDecisionMatched` 数值，不保存原始 question、expectedBehavior、prompt、answer 原文、文档全文或 evidence context。
+- 已完成 catalog：`agent-quality-eval-cases.json` 新增 `agent-document-search-route` 和 `agent-rag-answer-route` 两个 case，分别覆盖 `search_tool -> document_search_tool` 与 `rag_tool -> rag_qa_tool`，让检索意图和回答意图都有回归门禁。
+- 已完成 smoke：`agent-quality-eval-smoke.ps1` 的 plan 输出新增 `scoringRules.expectedDecision` 与 `expectedDecisionMatched` 说明；`plan`、`dry-run` 和 `run` 均保持不读 env、不启动服务、不创建业务数据、不提交 artifact 原文。
+- 已验证：`mvn "-Dtest=AgentQualityEvalRunnerTest,AgentQualityEvalRunnerSmokeTest,AgentQualityEvalSmokeScriptSafetyTest,QualityEvalCatalogServiceImplTest,QualityControllerTest" test` PASS（18 tests，1 skipped）；`mvn "-Dtest=*Quality*" test` PASS（41 tests，1 skipped）；`agent-quality-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-quality-eval-20260708231648-f178d4`。
+- 边界：本片仍是离线 eval / smoke 资产，不启动 backend / frontend / tunnel，不创建业务数据，不新增数据库表，不改 Agent 业务 API，不提交 ignored artifact，不 push。
+- 下一片建议：进入 Agent Quality Console search diagnostics，在 `/quality` 的 Eval / Tool / Failures 区域把 search route case、`expectedDecisionMatched`、search-overrouting / answer-overrouting failure bucket 做成更可读的诊断入口。
 
 ## 2026-07-08 补充：Agent search intent 路由与评测门禁
 
