@@ -13,6 +13,7 @@ class DocumentToolSelectorTest {
     private static final List<String> STATUS_ONLY = List.of("document_status_tool");
     private static final List<String> SUMMARY_CHAIN = List.of("document_status_tool", "document_summary_tool");
     private static final List<String> QA_CHAIN = List.of("document_status_tool", "document_qa_tool");
+    private static final List<String> SEARCH_CHAIN = List.of("document_status_tool", DocumentSearchTool.TOOL_NAME);
     private static final List<String> RAG_CHAIN = List.of("document_status_tool", DocumentRagQaTool.TOOL_NAME);
 
     private final DocumentToolSelector selector = new DocumentToolSelector();
@@ -51,10 +52,19 @@ class DocumentToolSelectorTest {
     void shouldRouteExplicitRagRetrievalToRagTool() {
         ToolSelector.SelectResult result = selector.select("RAG retrieve topK chunks and show similarity score");
 
+        assertEquals("search_tool", result.decision());
+        assertEquals(SEARCH_CHAIN, result.toolNames());
+        assertFalse(result.matchedKeywords().isEmpty());
+        assertTrue(result.reason().contains("document search") || result.reason().contains("\u68c0\u7d22"));
+    }
+
+    @Test
+    void shouldKeepEvidenceAnswerSelectionAsRag() {
+        ToolSelector.SelectResult result = selector.select("retrieve evidence and answer what the payment clause says");
+
         assertEquals("rag_tool", result.decision());
         assertEquals(RAG_CHAIN, result.toolNames());
         assertFalse(result.matchedKeywords().isEmpty());
-        assertTrue(result.reason().contains("RAG") || result.reason().contains("score"));
     }
 
     @Test

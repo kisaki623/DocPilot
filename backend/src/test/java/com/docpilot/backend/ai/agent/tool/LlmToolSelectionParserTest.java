@@ -13,7 +13,8 @@ class LlmToolSelectionParserTest {
     private final LlmToolSelectionParser parser = new LlmToolSelectionParser(Set.of(
             "document_status_tool",
             "document_summary_tool",
-            "document_qa_tool"
+            "document_qa_tool",
+            DocumentSearchTool.TOOL_NAME
     ));
 
     @Test
@@ -52,6 +53,16 @@ class LlmToolSelectionParserTest {
         assertThrows(IllegalArgumentException.class, () -> parser.parse("""
                 {"decision":"delete_tool","toolNames":["document_status_tool"],"routingReason":"bad","matchedKeywords":[],"confidence":0.4}
                 """));
+    }
+
+    @Test
+    void shouldParseSearchToolDecision() {
+        LlmToolSelectionResult result = parser.parse("""
+                {"decision":"search_tool","toolNames":["document_status_tool","document_search_tool"],"routingReason":"Retrieval only.","matchedKeywords":["retrieve"],"confidence":0.88}
+                """);
+
+        assertEquals("search_tool", result.decision());
+        assertEquals(List.of("document_status_tool", DocumentSearchTool.TOOL_NAME), result.toolNames());
     }
 
     @Test

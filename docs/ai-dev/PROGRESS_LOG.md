@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-08 Agent search intent 路由与评测门禁
+
+- `DocumentToolSelector` 新增 `search_tool` 决策：retrieval-only 的 topK、similarity、source、citation list、evidence list 走 `document_search_tool`；回答、解释、总结并引用证据或“说明”事实的任务继续走 `rag_qa_tool`。
+- `LlmToolSelectionParser`、`LlmToolSelectionPromptBuilder`、`FakeLlmToolSelectionClient` 和 `DocumentAgentServiceImpl` 已同步 `search_tool`；Agent 执行 search intent 时调用 ToolCall API 的 `document_search_tool`，返回检索摘要而不是生成式业务答案。
+- search 输出继续保持脱敏边界：最多展示 3 条限长 quote/snippet，以及 chunkId、chunkIndex、score、sourceLocator 等定位信息；不透传完整 chunk content、文档全文、prompt、answer 原文、secret、连接串或云地址。
+- 评测用例已同步新语义：`cite the source for the main claim` 作为来源查找走 `search_tool`；`请引用原文说明合同金额` 保持 `rag_tool`，避免中文 grounded QA 被误切到 retrieval-only。
+- 验证：selector / fake / parser / prompt / service targeted 53 tests PASS；selector eval targeted 27 tests PASS；Agent / ToolCall / Tool / RAG retrieval broader 212 tests PASS（1 skipped）。
+- 边界：本片不做 KB Agent 路由、不新增数据库表、不改 RAG 主链路、不启动真实链路、不提交 artifact 原文、不 push。
+
 ## 2026-07-08 KnowledgeBase search tool 最小闭环
 
 - 新增 `KnowledgeBaseSearchTool`，复用 `KnowledgeBaseRagRetrievalService`，提供 retrieval-only 多文档 KB 检索工具；ToolSpec、ToolCall callable subset、参数校验和输入映射已同步接入。

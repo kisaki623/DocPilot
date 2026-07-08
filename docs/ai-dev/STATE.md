@@ -2,6 +2,7 @@
 
 ## 2026-07-08 当前补充
 
+- Agent search intent 路由与评测门禁已完成。单文档 Agent 现在能把 retrieval-only 意图路由到 `document_search_tool`，例如检索 topK、展示相似度、列出来源或 citation list；需要回答、解释、总结并引用证据或“说明”事实的任务继续走 `rag_qa_tool`。`DocumentAgentServiceImpl` 对 `search_tool` 只返回检索摘要和限长引用预览，不生成业务答案，不返回完整 chunk content、文档全文、prompt 或 answer 原文。已验证 targeted 53 tests PASS、selector eval 27 tests PASS、Agent/Tool/RAG broader 212 tests PASS（1 skipped）。当前仍未做 KB Agent 路由，因为现有 `DocumentAgentRequest` 是单文档上下文语义。
 - KnowledgeBase `knowledge_base_search_tool` 已完成最小闭环。ToolCall API 现在可调用多文档 retrieval-only 工具，复用 `KnowledgeBaseRagRetrievalService`，返回脱敏 `documentHitCounts`、retrieval mode、rerank / multi-query 摘要和限长 evidence previews；不生成 answer，不返回完整 chunk content、文档全文或 prompt。当前 Agent 旧关键词路由仍未切到 search intent，后续需要单独做路由与评测门禁。
 - 单文档 `document_search_tool` 已完成最小闭环。ToolCall API 现在除 `document_status_tool` 和 `rag_qa_tool` 外，也可调用 `document_search_tool`；该工具复用现有单文档 RAG retrieval 和 scope guard，只返回脱敏、限长的 retrieval hits / citations 摘要，不生成 answer，不返回完整 chunk content 或文档全文。当前仍未改 Agent 旧路由，后续再做 KB search tool 与 search intent routing。
 - Agent 工具当前进入 Document Search Tool 求职级增强。现状是 `rag_qa_tool` 已能通过现有 RAG QA 链路返回 answer、retrieval hits 和 citations，但项目还缺少一等 retrieval-only `document_search_tool`，导致 Agent 在“先搜证据 / 展示检索命中 / 诊断漏召回”场景只能绕到 QA 工具。下一片以单文档 search tool 为最小闭环，复用 `RagDocumentRetrievalService` 与既有 scope guard，不返回完整 chunk content、文档全文、prompt 或 answer 原文。

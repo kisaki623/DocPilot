@@ -9,6 +9,7 @@ import com.docpilot.backend.ai.agent.dto.ToolCallRequest;
 import com.docpilot.backend.ai.agent.service.ToolCallService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
@@ -54,6 +55,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
 
     private static final String DOCUMENT_STATUS_TOOL_NAME = "document_status_tool";
     private static final int STEP_OUTPUT_MAX_LENGTH = 200;
+    private static final String SEARCH_TOOL_UNAVAILABLE_ANSWER = "Document search tool is temporarily unavailable. Please try again later.";
     private static final String STATUS_TOOL_UNAVAILABLE_ANSWER = "文档状态检查暂不可用，请稍后重试。";
     private static final String RAG_TOOL_UNAVAILABLE_ANSWER = "RAG 工具调用暂不可用，请稍后重试。";
 
@@ -203,6 +205,10 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                 return completeSuccess(taskId, response, beginNanos);
             }
 
+            if ("search_tool".equals(executionDecision.finalDecision())) {
+                return runDocumentSearchTool(userId, request, task, response, steps, taskId, beginNanos);
+            }
+
             if ("rag_tool".equals(executionDecision.finalDecision())) {
                 return runRagQaTool(userId, request, task, response, steps, taskId, beginNanos);
             }
@@ -289,6 +295,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         return switch (decision) {
             case "status_only" -> "document_status_tool";
             case "summary_tool" -> "document_summary_tool";
+            case "search_tool" -> DocumentSearchTool.TOOL_NAME;
             case "rag_tool" -> DocumentRagQaTool.TOOL_NAME;
             case "qa_tool" -> "document_qa_tool";
             default -> throw new IllegalArgumentException("Unsupported LLM tool decision");
@@ -480,6 +487,42 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         return completeSuccess(taskId, response, beginNanos);
     }
 
+    private DocumentAgentResponse runDocumentSearchTool(Long userId,
+                                                        DocumentAgentRequest request,
+                                                        String task,
+                                                        DocumentAgentResponse response,
+                                                        List<DocumentAgentResponse.AgentStep> steps,
+                                                        Long taskId,
+                                                        long beginNanos) {
+        String inputSummary = "documentId=" + request.getDocumentId()
+                + ", topK=" + safeNumber(request.getTopK())
+                + ", indexVersion=" + safeNumber(request.getIndexVersion())
+                + ", query=" + summarize(task);
+        ToolCallResult searchCall = toolCallService.call(userId, toolCallRequest(
+                DocumentSearchTool.TOOL_NAME,
+                searchArguments(request, task)
+        ));
+        steps.add(buildStepFromToolCall(2, inputSummary, searchCall));
+        persistLastStep(taskId, steps);
+
+        response.setDecision("search_tool");
+        response.setSteps(steps);
+        if (!searchCall.success()) {
+            rethrowProtectedToolFailure(searchCall);
+            response.setFinalAnswer(SEARCH_TOOL_UNAVAILABLE_ANSWER);
+            response.setRagResults(List.of());
+            response.setRagCitations(List.of());
+            response.setCitations(List.of());
+            response.setRagAnswerContext("");
+            return completeSuccess(taskId, response, beginNanos);
+        }
+
+        DocumentSearchTool.SearchResult search = requireToolResult(searchCall, DocumentSearchTool.SearchResult.class);
+        response.setFinalAnswer(buildSearchAnswer(search));
+        response.setRagAnswerContext(buildSearchAnswerContext(search.citations()));
+        return completeSuccess(taskId, response, beginNanos);
+    }
+
     private ToolCallRequest toolCallRequest(String toolName, Map<String, Object> arguments) {
         ToolCallRequest request = new ToolCallRequest();
         request.setToolName(toolName);
@@ -494,6 +537,19 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         if (sessionId != null && !sessionId.isBlank()) {
             arguments.put("sessionId", sessionId);
         }
+        if (request.getTopK() != null) {
+            arguments.put("topK", request.getTopK());
+        }
+        if (request.getIndexVersion() != null) {
+            arguments.put("indexVersion", request.getIndexVersion());
+        }
+        return arguments;
+    }
+
+    private Map<String, Object> searchArguments(DocumentAgentRequest request, String task) {
+        Map<String, Object> arguments = new LinkedHashMap<>();
+        arguments.put("documentId", request.getDocumentId());
+        arguments.put("query", task);
         if (request.getTopK() != null) {
             arguments.put("topK", request.getTopK());
         }
@@ -605,6 +661,51 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         }
         StringBuilder context = new StringBuilder();
         for (RagEvidenceCitation citation : safeCitations) {
+            if (!context.isEmpty()) {
+                context.append('\n');
+            }
+            context.append('[').append(citation.index()).append("] ").append(citation.snippet());
+        }
+        return context.toString();
+    }
+
+    private String buildSearchAnswer(DocumentSearchTool.SearchResult search) {
+        if (search == null || search.noEvidence() || search.hitCount() <= 0) {
+            return "No evidence chunks were retrieved for the current document.";
+        }
+        StringBuilder answer = new StringBuilder();
+        answer.append("Retrieved ")
+                .append(search.hitCount())
+                .append(" evidence chunk(s), citationCount=")
+                .append(search.citationCount())
+                .append(", topK=")
+                .append(search.topK())
+                .append(".");
+        int limit = Math.min(3, search.citations().size());
+        for (int i = 0; i < limit; i++) {
+            DocumentSearchTool.SearchCitation citation = search.citations().get(i);
+            answer.append("\n[").append(citation.index()).append("] ")
+                    .append("chunkId=").append(citation.chunkId())
+                    .append(", chunkIndex=").append(citation.chunkIndex())
+                    .append(", score=").append(String.format(java.util.Locale.ROOT, "%.4f", citation.score()));
+            if (!citation.sourceLocator().isBlank()) {
+                answer.append(", sourceLocator=").append(citation.sourceLocator());
+            }
+            if (!citation.quoteText().isBlank()) {
+                answer.append(", quote=").append(citation.quoteText());
+            }
+        }
+        return answer.toString();
+    }
+
+    private String buildSearchAnswerContext(List<DocumentSearchTool.SearchCitation> citations) {
+        if (citations == null || citations.isEmpty()) {
+            return "";
+        }
+        StringBuilder context = new StringBuilder();
+        int limit = Math.min(3, citations.size());
+        for (int i = 0; i < limit; i++) {
+            DocumentSearchTool.SearchCitation citation = citations.get(i);
             if (!context.isEmpty()) {
                 context.append('\n');
             }

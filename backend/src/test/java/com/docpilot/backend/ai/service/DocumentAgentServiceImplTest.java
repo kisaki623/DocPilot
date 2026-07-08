@@ -10,6 +10,7 @@ import com.docpilot.backend.ai.agent.service.impl.DocumentAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmSelectorShadowResult;
@@ -191,6 +192,70 @@ class DocumentAgentServiceImplTest {
             } catch (Exception ex) {
                 return ToolCallResult.failed(toolName, ex);
             }
+        });
+    }
+
+    private void stubSearchTool() {
+        when(toolCallService.call(anyLong(), org.mockito.ArgumentMatchers.argThat(request ->
+                request != null && DocumentSearchTool.TOOL_NAME.equals(request.getToolName())
+        ))).thenAnswer(invocation -> {
+            ToolCallRequest request = invocation.getArgument(1);
+            var arguments = request.getArguments();
+            Long documentId = ((Number) arguments.get("documentId")).longValue();
+            String query = String.valueOf(arguments.get("query"));
+            Integer topK = arguments.get("topK") == null ? 3 : ((Number) arguments.get("topK")).intValue();
+            Integer indexVersion = arguments.get("indexVersion") == null ? 1 : ((Number) arguments.get("indexVersion")).intValue();
+            var hit = new DocumentSearchTool.SearchHit(
+                    1,
+                    0.91d,
+                    "Doc",
+                    901L,
+                    0,
+                    2,
+                    "section",
+                    "page=2#block=1",
+                    "PARAGRAPH",
+                    "Payment clause quote",
+                    "Payment clause snippet",
+                    "hash"
+            );
+            var citation = new DocumentSearchTool.SearchCitation(
+                    1,
+                    documentId,
+                    "Doc",
+                    indexVersion,
+                    901L,
+                    0,
+                    2,
+                    "section",
+                    "page=2#block=1",
+                    "PARAGRAPH",
+                    "Payment clause quote",
+                    "Payment clause snippet",
+                    "hash",
+                    0.91d
+            );
+            var result = new DocumentSearchTool.SearchResult(
+                    100L,
+                    documentId,
+                    query,
+                    topK,
+                    indexVersion,
+                    false,
+                    1,
+                    1,
+                    List.of(hit),
+                    List.of(citation),
+                    "topK=" + topK + ", indexVersion=" + indexVersion + ", hitCount=1, citationCount=1, noEvidence=false"
+            );
+            return ToolCallResult.success(
+                    DocumentSearchTool.TOOL_NAME,
+                    result,
+                    result.outputSummary(),
+                    0L,
+                    result.citations(),
+                    result.hits()
+            );
         });
     }
 
@@ -476,6 +541,55 @@ class DocumentAgentServiceImplTest {
         verify(documentRagQaTool).execute(any());
         verify(documentSummaryTool, never()).execute(any());
         verify(documentQaTool, never()).execute(any());
+        verify(documentRagTool, never()).execute(any());
+        assertEmptySelectorMetrics();
+    }
+
+    @Test
+    void shouldUseDocumentSearchToolForRetrievalOnlyIntent() {
+        DocumentAgentServiceImpl service = buildService();
+
+        DocumentAgentRequest request = new DocumentAgentRequest();
+        request.setDocumentId(111L);
+        request.setTask("RAG retrieve topK chunks and show similarity score");
+        request.setTopK(4);
+        request.setIndexVersion(2);
+
+        when(documentStatusTool.execute(new DocumentStatusTool.StatusInput(100L, 111L)))
+                .thenReturn(new DocumentStatusTool.StatusResult(
+                        111L,
+                        "demo",
+                        ParseStatusConstants.SUCCESS,
+                        true,
+                        "ready",
+                        "summary",
+                        "Payment clause content. " + PRIVATE_RAG_DOC_MARKER
+                ));
+        when(documentStatusTool.getToolName()).thenReturn("document_status_tool");
+        when(toolSelector.select(anyString())).thenReturn(new ToolSelector.SelectResult(
+                "search_tool",
+                List.of("document_status_tool", DocumentSearchTool.TOOL_NAME),
+                "search reason",
+                List.of("retrieve", "topK")
+        ));
+        stubStatusTool();
+        stubSearchTool();
+        stubPersistenceTask();
+
+        var response = service.run(100L, request);
+
+        assertEquals("search_tool", response.getDecision());
+        assertEquals("search_tool", response.getFinalDecision());
+        assertTrue(response.getFinalAnswer().contains("Retrieved 1 evidence chunk"));
+        assertTrue(response.getFinalAnswer().contains("sourceLocator=page=2#block=1"));
+        assertTrue(response.getRagAnswerContext().contains("Payment clause snippet"));
+        assertFalse(response.getFinalAnswer().contains(PRIVATE_RAG_DOC_MARKER));
+        assertEquals(2, response.getSteps().size());
+        assertEquals(DocumentSearchTool.TOOL_NAME, response.getSteps().get(1).getToolName());
+        verifyPersistenceSuccess();
+        verify(documentRagQaTool, never()).execute(any());
+        verify(documentQaTool, never()).execute(any());
+        verify(documentSummaryTool, never()).execute(any());
         verify(documentRagTool, never()).execute(any());
         assertEmptySelectorMetrics();
     }

@@ -27,8 +27,10 @@ public class LlmToolSelectionPromptBuilder {
         prompt.append("- status_only -> document_status_tool\n");
         prompt.append("- summary_tool -> document_summary_tool\n");
         prompt.append("- qa_tool -> document_qa_tool\n");
+        prompt.append("- search_tool -> ").append(DocumentSearchTool.TOOL_NAME).append("\n");
         prompt.append("- rag_tool -> ").append(DocumentRagQaTool.TOOL_NAME).append("\n");
-        prompt.append("Use rag_tool for RAG, retrieval, topK chunk, similarity, score, metadata, evidence, citation, or source-grounded requests.\n");
+        prompt.append("Use search_tool for retrieval-only, topK chunk, similarity, score, metadata, evidence list, citation list, or source lookup requests that do not ask for an answer.\n");
+        prompt.append("Use rag_tool when the task asks to answer, explain, summarize with evidence, or produce a source-grounded final answer.\n");
 
         prompt.append("Available tools:\n");
         for (ToolDefinition definition : toolDefinitions) {
@@ -39,12 +41,12 @@ public class LlmToolSelectionPromptBuilder {
                     .append("\n");
         }
 
-        prompt.append("\nSelect exactly one decision from: status_only, summary_tool, qa_tool, rag_tool.\n");
+        prompt.append("\nSelect exactly one decision from: status_only, summary_tool, qa_tool, search_tool, rag_tool.\n");
         prompt.append("toolNames must include document_status_tool and the required tool for the decision. ");
         prompt.append("Only select toolNames from the available tools list. ");
         prompt.append("Do not generate SQL. Do not generate system commands. Do not call tools that are not listed.\n");
         prompt.append("Return only compact JSON: ");
-        prompt.append("{\"decision\":\"status_only|summary_tool|qa_tool|rag_tool\",");
+        prompt.append("{\"decision\":\"status_only|summary_tool|qa_tool|search_tool|rag_tool\",");
         prompt.append("\"toolNames\":[\"document_status_tool\",\"required_tool\"],");
         prompt.append("\"routingReason\":\"short route reason\",");
         prompt.append("\"matchedKeywords\":[\"keyword\"],\"confidence\":0.0}\n");

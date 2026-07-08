@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Search Tool 单文档与 KnowledgeBase 最小闭环（DONE）；下一片：Agent search intent 路由与评测门禁（READY）
+当前任务：Agent search intent 路由与评测门禁（DONE）；下一片：Agent search eval / Quality Console search diagnostics（READY）
+
+## 2026-07-08 补充：Agent search intent 路由与评测门禁
+
+- 目标：让单文档 Agent 能区分 retrieval-only search intent 与 grounded QA intent；“检索 topK / 展示相似度 / 列来源 / citation list”走 `document_search_tool`，“回答 / 解释 / 总结并引用证据 / 说明事实”继续走 `rag_qa_tool`。
+- 已完成后端：`DocumentToolSelector` 新增 `search_tool` 决策；`LlmToolSelectionParser`、`LlmToolSelectionPromptBuilder` 和 `FakeLlmToolSelectionClient` 已同步允许 / 生成 `search_tool`；`DocumentAgentServiceImpl` 在最终决策为 `search_tool` 时调用 `document_search_tool`，并返回检索摘要而不是生成式业务答案。
+- 输出边界：search intent 的 final answer 只包含命中数、citation 数、topK、chunkId、chunkIndex、score、sourceLocator 和最多 3 条已限长 quote；`ragAnswerContext` 只放最多 3 条已限长 snippet；不返回完整 chunk content、文档全文、prompt、answer 原文、secret、连接串或云地址。
+- 评测边界：`tool-selector-eval-cases.json` 已同步新口径，`cite the source for the main claim` 作为 retrieval-only 来源查找走 `search_tool`；`请引用原文说明合同金额` 因包含“说明”事实回答意图，继续走 `rag_tool`。
+- 已验证：`mvn "-Dtest=DocumentToolSelectorTest,FakeLlmToolSelectionClientTest,FakeLlmToolSelectorTest,LlmToolSelectionParserTest,LlmToolSelectionPromptBuilderTest,DocumentAgentServiceImplTest" test` PASS（53 tests）；`mvn "-Dtest=ToolSelectorEvaluationTest,DocumentToolSelectorTest,FakeLlmToolSelectionClientTest,FakeLlmToolSelectorTest" test` PASS（27 tests）；`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*,*ToolCall*,*Tool*,RagDocumentRetrievalServiceImplTest" test` PASS（212 tests，1 skipped）。
+- 边界：本片不接入 KB Agent 路由，因为当前 `DocumentAgentRequest` 仍是单文档语义；不新增数据库表，不改 RAG 主链路，不启动真实链路，不提交 artifact 原文，不 push。
+- 下一片建议：新增 search eval / smoke 资产，覆盖 retrieval-only 召回、QA intent 不误路由、search result 脱敏和 Agent Quality Console search diagnostics；KB Agent 路由需先单独设计 request / context 语义。
 
 ## 2026-07-08 补充：KnowledgeBase `knowledge_base_search_tool` 最小闭环
 

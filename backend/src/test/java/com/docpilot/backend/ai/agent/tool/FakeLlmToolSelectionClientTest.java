@@ -13,6 +13,7 @@ class FakeLlmToolSelectionClientTest {
             "document_status_tool",
             "document_summary_tool",
             "document_qa_tool",
+            DocumentSearchTool.TOOL_NAME,
             DocumentRagQaTool.TOOL_NAME
     ));
 
@@ -35,6 +36,17 @@ class FakeLlmToolSelectionClientTest {
 
         assertThat(result.decision()).isEqualTo("rag_tool");
         assertThat(result.toolNames()).containsExactly("document_status_tool", DocumentRagQaTool.TOOL_NAME);
+        assertValidCommonFields(result);
+    }
+
+    @Test
+    void shouldExtractSearchOnlyTaskFromPrompt() {
+        LlmToolSelectionResult result = parse(
+                "Current task: RAG retrieve topK chunks and show similarity score\nDocument state:\n- parseReady: true"
+        );
+
+        assertThat(result.decision()).isEqualTo("search_tool");
+        assertThat(result.toolNames()).containsExactly("document_status_tool", DocumentSearchTool.TOOL_NAME);
         assertValidCommonFields(result);
     }
 
@@ -151,7 +163,7 @@ class FakeLlmToolSelectionClientTest {
         assertThat(result.matchedKeywords()).isNotEmpty();
         assertThat(result.confidence()).isBetween(0.0d, 1.0d);
         assertThat(result.toolNames()).allSatisfy(toolName ->
-                assertThat(toolName).isIn("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentRagQaTool.TOOL_NAME)
+                assertThat(toolName).isIn("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME)
         );
     }
 }

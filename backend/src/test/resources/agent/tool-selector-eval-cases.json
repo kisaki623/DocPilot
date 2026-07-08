@@ -81,7 +81,7 @@
     "task": "cite the source for the main claim",
     "parseReady": true,
     "hasSummary": true,
-    "expectedDecision": "rag_tool"
+    "expectedDecision": "search_tool"
   },
   {
     "task": "what proof supports the conclusion?",
