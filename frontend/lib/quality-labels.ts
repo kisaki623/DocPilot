@@ -17,6 +17,7 @@ const BUCKET_LABELS: Record<string, string> = {
   NO_EVIDENCE_FALSE_POSITIVE: "无证据误判",
   MEMORY_CONFLICT: "记忆冲突",
   TOOL_FAILURE: "工具调用失败",
+  AGENT_ROUTING_MISMATCH: "Agent 路由不匹配",
   PERMISSION_REGRESSION: "权限隔离回归",
   FRONTEND_UX: "前端体验问题",
   ENV_BLOCKED: "环境/依赖阻塞",
@@ -58,6 +59,7 @@ const METRIC_LABELS: Record<string, string> = {
   negativeCaseCount: "负向用例数",
   negativeCasePassCount: "负向通过数",
   negativeCaseFailCount: "负向失败数",
+  expectedDecisionMatched: "路由决策匹配",
 };
 
 const FLAG_LABELS: Record<string, string> = {
@@ -79,6 +81,7 @@ const FLAG_LABELS: Record<string, string> = {
 
 const CASE_TYPE_LABELS: Record<string, string> = {
   agent_quality: "Agent 质量",
+  agent_search: "Agent 检索路由",
   rag_quality: "RAG 质量",
   memory_quality: "记忆质量",
   route_smoke: "路由冒烟",
@@ -192,6 +195,16 @@ export function labelBucket(bucket?: string | null): string {
   if (lower.includes("memory")) {
     return BUCKET_LABELS.MEMORY_CONFLICT;
   }
+  if (
+    lower.includes("expecteddecision") ||
+    lower.includes("decisionmismatch") ||
+    lower.includes("selector") ||
+    lower.includes("searchoverrouting") ||
+    lower.includes("answeroverrouting") ||
+    lower.includes("routing")
+  ) {
+    return BUCKET_LABELS.AGENT_ROUTING_MISMATCH;
+  }
   if (lower.includes("tool")) {
     return BUCKET_LABELS.TOOL_FAILURE;
   }
@@ -261,6 +274,9 @@ export function formatFlagKey(key?: string | null): string {
 
 export function formatMetricValue(key: string, value: number): string {
   const lower = compactKey(key);
+  if (lower === "expecteddecisionmatched") {
+    return value >= 1 ? "是" : "否";
+  }
   if (lower.includes("rate") && value >= 0 && value <= 1) {
     return `${(value * 100).toFixed(1)}%`;
   }

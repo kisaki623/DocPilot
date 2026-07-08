@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console search diagnostics
+
+- `/quality` 前端标签层新增 Agent search route 诊断映射：`agent_search` 显示为“Agent 检索路由”，`expectedDecisionMatched` 显示为“路由决策匹配”，数值 1 / 0 显示为“是 / 否”。
+- failure triage 新增“Agent 路由不匹配”类别，覆盖 `expectedDecisionMismatch`、selector、routing、search-overrouting、answer-overrouting 等路由漂移；模块标签为 `Agent`，建议动作指向 `DocumentToolSelector`、LLM selector prompt 和 search / answer eval case。
+- `expectedDecisionMatched` 已加入信号优先级，Eval Case 行里更容易看到路由门禁是否匹配，不再被其他指标挤掉。
+- 验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，桌面和 `390px` 移动端 console error 为 0，移动端 snapshot 未见横向溢出。
+- 收尾：本轮启动 `npx next start -p 3007` 做浏览器验证；验证后已停止监听进程，删除 `frontend/.next-route-smoke` 临时日志目录，3007 端口释放。
+- 边界：本片只改前端展示映射，不改后端 API，不读取 raw artifact，不启动后端 / tunnel，不创建业务数据，不提交 artifact 原文，不 push。
+
 ## 2026-07-08 Agent search eval 路由质量门禁
 
 - `AgentQualityEvalRunner` 对带 `scoringRules.expectedDecision` 的 case 增加真实 selector 评测：调用 `DocumentToolSelector` 生成观测决策与工具列表，若决策漂移则输出 `expectedDecisionMismatch`。

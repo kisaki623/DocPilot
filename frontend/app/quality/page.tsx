@@ -62,6 +62,7 @@ const SIGNAL_PRIORITY = [
   "expectedEvidenceSupported",
   "traceRagTriggered",
   "traceRagRequired",
+  "expectedDecisionMatched",
 ];
 const TRIAGE_STATUS_OPTIONS = ["ALL", "FAILED", "REVIEW", "BLOCKED", "PASS"];
 const TRIAGE_BUCKET_CATEGORIES = [
@@ -71,6 +72,7 @@ const TRIAGE_BUCKET_CATEGORIES = [
   "NO_EVIDENCE_FALSE_POSITIVE",
   "MEMORY_CONFLICT",
   "TOOL_FAILURE",
+  "AGENT_ROUTING_MISMATCH",
   "PERMISSION_REGRESSION",
   "FRONTEND_UX",
   "ENV_BLOCKED",
@@ -133,7 +135,7 @@ interface BucketDiagnostic {
   bucket: string;
   label: string;
   count: number;
-  module: "RAG" | "Citation" | "Tool" | "Memory" | "Security" | "Env" | "Unknown";
+  module: "RAG" | "Citation" | "Agent" | "Tool" | "Memory" | "Security" | "Env" | "Unknown";
   description: string;
   action: string;
   tone: DiagnosticTone;
@@ -225,6 +227,16 @@ function normalizeTriageBucket(value?: string): string {
   }
   if (lower.includes("memory")) {
     return "MEMORY_CONFLICT";
+  }
+  if (
+    lower.includes("expecteddecision") ||
+    lower.includes("decisionmismatch") ||
+    lower.includes("selector") ||
+    lower.includes("searchoverrouting") ||
+    lower.includes("answeroverrouting") ||
+    lower.includes("routing")
+  ) {
+    return "AGENT_ROUTING_MISMATCH";
   }
   if (lower.includes("tool")) {
     return "TOOL_FAILURE";
@@ -510,6 +522,8 @@ function bucketAction(bucket: string): string {
       return "检查 no-evidence threshold、near-miss case 和 support gate。";
     case "MEMORY_CONFLICT":
       return "检查长期记忆去重、冲突治理和 RAG evidence 分层。";
+    case "AGENT_ROUTING_MISMATCH":
+      return "检查 DocumentToolSelector、LLM selector prompt 和 search / answer 意图评测用例。";
     case "TOOL_FAILURE":
       return "检查工具参数校验、超时、重试和 fallback 路径。";
     case "PERMISSION_REGRESSION":
@@ -536,6 +550,8 @@ function bucketDescription(bucket: string): string {
       return "无证据判断边界异常，可能误答或误拒答。";
     case "MEMORY_CONFLICT":
       return "长期记忆命中、去重、冲突或治理链路需要复查。";
+    case "AGENT_ROUTING_MISMATCH":
+      return "Agent 工具选择或意图路由与预期不一致，可能导致检索请求被当成问答，或问答请求被降级成只检索。";
     case "TOOL_FAILURE":
       return "工具选择、参数、超时、重试或 fallback 存在风险。";
     case "PERMISSION_REGRESSION":
@@ -558,6 +574,8 @@ function bucketModule(bucket: string): BucketDiagnostic["module"] {
     case "CITATION_UNSUPPORTED":
     case "DISTRACTOR_CITATION":
       return "Citation";
+    case "AGENT_ROUTING_MISMATCH":
+      return "Agent";
     case "TOOL_FAILURE":
       return "Tool";
     case "MEMORY_CONFLICT":

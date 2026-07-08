@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Agent search eval 路由质量门禁（DONE）；下一片：Agent Quality Console search diagnostics（READY）
+当前任务：Agent Quality Console search diagnostics（DONE）；下一片：Agent search real-link smoke / KB Agent route design（READY）
+
+## 2026-07-09 补充：Agent Quality Console search diagnostics
+
+- 目标：让 `/quality` 能更清楚展示 Agent search route eval 的诊断结果，避免 `expectedDecisionMatched`、`expectedDecisionMismatch`、`agent_search` 这类 raw key 直接落到未知指标或未知失败桶。
+- 已完成前端：`quality-labels.ts` 新增 `agent_search`、`expectedDecisionMatched` 和 `AGENT_ROUTING_MISMATCH` 中文标签；`expectedDecisionMatched` 显示为“是 / 否”，不再当普通数字展示。
+- 已完成分桶：`/quality` 的 triage 现在会把 `expectedDecisionMismatch`、selector、routing、search-overrouting、answer-overrouting 归到“Agent 路由不匹配”，模块标签为 `Agent`，建议动作指向 `DocumentToolSelector`、LLM selector prompt 和 search / answer 意图评测用例。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `http://127.0.0.1:3007/quality?routeSmoke=2`，桌面和 `390px` 移动端 console error 均为 0，移动端 snapshot 未见横向溢出；本轮启动的 3007 预览进程和临时日志目录已清理。
+- 边界：本片只改 Quality Console 前端展示映射，不改后端 API，不读取 raw artifact，不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址，不提交 artifact 原文，不 push。
+- 下一片建议：二选一推进：其一，做 Agent search real-link smoke，真实启动后端调用 `DocumentAgentService` 的 search intent 并验证工具调用摘要；其二，先做 KB Agent route design，因为当前 `DocumentAgentRequest` 仍是单文档语义，不能直接把 `knowledge_base_search_tool` 硬塞进单文档 Agent。
 
 ## 2026-07-08 补充：Agent search eval 路由质量门禁
 
