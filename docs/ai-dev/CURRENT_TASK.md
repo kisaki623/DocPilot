@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量回归与 Quality Console 可见性收口（DONE）；下一片：Document Parser fixture corpus v3 结构质量扩容（READY）
+当前任务：Agent Document Search Tool 求职级增强（READY）；下一片：单文档 `document_search_tool` 最小闭环（READY）
+
+## 2026-07-08 补充：Agent Document Search Tool 求职级增强路线
+
+- 目标：把 Agent 工具从“能调用 RAG QA 回答”推进到“能显式执行文档检索、暴露可诊断 evidence，并为后续 KB search / Agent 路由 / Quality Console 评测打基础”。
+- 当前现状：已有 `rag_qa_tool`，它复用 `RagQaService` 返回 answer、retrieval hits 和 citations；但它是问答工具，不适合承担“只检索、不生成答案”的 search intent。ToolCall API 当前只开放 `document_status_tool` 与 `rag_qa_tool`，还没有一等 `document_search_tool`。
+- 第一片实现边界：新增单文档 `document_search_tool`，输入 `userId`、`documentId`、`query`、`topK`、`indexVersion`，复用现有 `RagDocumentRetrievalService` / `RagScopeGuard` 权限边界，只返回限长、脱敏、结构化 retrieval 结果，不返回完整 chunk content、文档全文、prompt 或 answer 原文。
+- 后续切片：`knowledge_base_search_tool`、Agent search intent 路由、search eval / smoke、Agent Quality Console search diagnostics。每片都保持小闭环，先单文档检索能力稳定，再扩到 KB 与自动评测。
+- 验收标准：ToolSpec 可见且 ToolCall API 可调用；非法 userId / documentId / query / topK 正确拒绝；scope rejection 透传为失败结果；返回结果包含 hit count、citation count、source locator、score、chunkId、contentHash 等安全字段；后端 `*Tool*` / RAG retrieval 相关测试通过。
+- 本轮明确不做：不新增数据库表，不改 RAG 主链路，不改变 `rag_qa_tool` QA 行为，不接真实 provider 大规模评测，不提交 artifact 原文，不 push。
 
 ## 2026-07-08 补充：Document Parser 真实链路质量回归与 Quality Console 可见性收口
 

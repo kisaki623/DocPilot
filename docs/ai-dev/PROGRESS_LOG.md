@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-08 Agent Document Search Tool 路线沉淀
+
+- 复核 Agent Tool 现状：项目已有 `rag_qa_tool`，但它是 answer-generating QA 工具；ToolCall API 当前只开放 `document_status_tool` 与 `rag_qa_tool`，没有 retrieval-only 的 `document_search_tool`。
+- 已确定第一片：新增单文档 `document_search_tool`，输入 `userId`、`documentId`、`query`、`topK`、`indexVersion`，复用现有 `RagDocumentRetrievalService` / `RagScopeGuard`，只返回安全 retrieval 摘要、限长 quote/snippet、source locator、score、chunkId 和 contentHash，不返回完整 chunk content、文档全文、prompt 或 answer 原文。
+- 后续方向：再做 `knowledge_base_search_tool`、Agent search intent 路由、search eval / smoke、Agent Quality Console search diagnostics；不在第一片里改 RAG 主链路或数据库结构。
+
 ## 2026-07-08 Document Parser 真实链路质量回归与 Console 可见性收口
 
 - `document-parser-real-chain-smoke.ps1` 修复受控服务策略：默认不再静默复用已有 backend / frontend，只有显式 `-ReuseRunningServices` 才复用；runner 自己启动 backend 时通过子进程环境设置 `AI_MODE=mock` 与 `APP_QUALITY_CONSOLE_ENABLED=true`，避免本地真实 provider 配置或未开启内部控制台导致误判。
