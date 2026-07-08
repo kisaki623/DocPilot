@@ -2757,6 +2757,8 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
   const negativeCasePassCount = parserQuality?.negativeCasePassCount ?? gateMetric(boundary, "negativeCasePassCount");
   const parserFailureCount = parserQuality?.parserFailureCount ?? gateMetric(realChain, "parserFailureCount");
   const retrieveHitCount = parserQuality?.retrieveHitCount ?? gateMetric(realChain, "retrieveHitCount");
+  const directRetrieveHitCount = parserQuality?.directRetrieveHitCount ?? gateMetric(realChain, "directRetrieveHitCount");
+  const qaRetrievalHitCount = parserQuality?.qaRetrievalHitCount ?? gateMetric(realChain, "qaRetrievalHitCount");
   const citationCount = parserQuality?.citationCount ?? gateMetric(realChain, "citationCount");
   const sourceLocatorCount = parserQuality?.sourceLocatorCount ?? gateMetric(realChain, "sourceLocatorCount");
   const parserDiagnostics = buildParserDiagnostics(parserQuality, realChain, boundary);
@@ -2784,7 +2786,7 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <SmallFact
           label="解析成功文件"
           value={formatRateWithOptionalSample(parserQuality?.parsePassRate, parsedFileCount, fileCount)}
@@ -2796,6 +2798,10 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
         <SmallFact
           label="检索 / 引用"
           value={`${formatNullableStat(retrieveHitCount)} / ${formatNullableStat(citationCount)}`}
+        />
+        <SmallFact
+          label="检索来源"
+          value={`直接 ${formatNullableStat(directRetrieveHitCount)} / 问答 ${formatNullableStat(qaRetrievalHitCount)}`}
         />
         <SmallFact
           label="来源定位"
@@ -2862,6 +2868,8 @@ function hasParserQualitySummary(summary: QualityParserQualitySummary | null): b
     summary.parsedFileCount,
     summary.sourceLocatorCount,
     summary.retrieveHitCount,
+    summary.directRetrieveHitCount,
+    summary.qaRetrievalHitCount,
     summary.citationCount,
     summary.negativeCaseCount,
   ].some((value) => typeof value === "number");

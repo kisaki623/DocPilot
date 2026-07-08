@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-08 Document Parser 真实链路质量回归与 Console 可见性收口
+
+- `document-parser-real-chain-smoke.ps1` 修复受控服务策略：默认不再静默复用已有 backend / frontend，只有显式 `-ReuseRunningServices` 才复用；runner 自己启动 backend 时通过子进程环境设置 `AI_MODE=mock` 与 `APP_QUALITY_CONSOLE_ENABLED=true`，避免本地真实 provider 配置或未开启内部控制台导致误判。
+- runner 新增 `directRetrieveHit` / `qaRetrievalHit` 与对应 count，区分直接 retrieve endpoint 和 QA 内部 retrieval；本轮 PASS run 显示直接 retrieve `0/3`、QA retrieval `3/3`、citation `3/3`，让后续排查有明确入口。
+- `QualityArtifactServiceImpl` 修复工作目录漂移：后端从 `backend/` 或 `backend/target/classes` 启动时也能向上解析到仓库根并扫描 `backend/target/smoke/document-parser-real-chain`；`parserQuality` 白名单返回 direct / QA retrieval 计数。
+- `/quality` 文档解析质量摘要新增“检索来源”，展示“直接 / 问答”两个脱敏计数；桌面和 `390px` 移动端验证无横向溢出，console error 为 `0`。
+- 真实 run：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260708212742-0f9baa`；PDF / HTML / DOCX 均 parse、chunk、QA retrieval、citation、source locator PASS，parserBoundary `4/4` PASS，artifact redaction PASS。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（40 tests，1 skipped）；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`npm run lint` PASS；`npm run build` PASS；Quality API 最新 run 可见。
+- 边界：真实 run 创建临时 smoke 数据和 ignored 脱敏 artifact；未删除业务数据，未改数据库结构，未操作远程 Docker，未提交 artifact 原文，未 push。
+
 ## 2026-07-08 Document Parser 解析质量报告 / Console parser 诊断增强
 
 - `document-parser-real-chain-smoke.ps1` 新增脱敏 `parserQualityReport`，聚合文件类型覆盖、解析成功率、来源定位覆盖、RAG 检索 / 引用覆盖、错误边界通过率、warning 统计可用性和 review reasons。

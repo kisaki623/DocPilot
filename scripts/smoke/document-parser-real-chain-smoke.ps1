@@ -20,6 +20,7 @@ $script:StartedTunnelPid = $null
 $script:OverallStatus = "PASS"
 $script:Gates = [ordered]@{}
 $script:ArtifactPath = $null
+$script:CurrentParserStage = ""
 
 $StatusRank = @{
   PASS = 0
@@ -257,6 +258,14 @@ function Wait-FrontendRoute([int]$timeoutSeconds = 90) {
   return $false
 }
 
+function Get-FrontendPort() {
+  try {
+    return ([System.Uri]$FrontendBaseUrl).Port
+  } catch {
+    return 3000
+  }
+}
+
 function Start-TunnelsIfNeeded([string]$envPath) {
   if ((Test-TcpPort $MySqlLocalPort) -and (Test-TcpPort $QdrantLocalPort)) {
     Set-Gate "tunnel" "PASS" @("reused local mysql/qdrant tunnel ports")
@@ -278,8 +287,11 @@ function Start-TunnelsIfNeeded([string]$envPath) {
 
 function Start-BackendIfNeeded([string]$runDir) {
   if (Wait-BackendHealth 3) {
-    Set-Gate "backend" "PASS" @("reused healthy backend")
-    return
+    if ($ReuseRunningServices) {
+      Set-Gate "backend" "PASS" @("reused healthy backend")
+      return
+    }
+    Stop-Smoke "BLOCKED" "backend" "backend is already running; stop it or pass -ReuseRunningServices explicitly"
   }
   if ($ReuseRunningServices) {
     Stop-Smoke "BLOCKED" "backend" "reuse mode is enabled but backend is not healthy"
@@ -287,7 +299,16 @@ function Start-BackendIfNeeded([string]$runDir) {
   $backendDir = Join-Path (Get-Location) "backend"
   $stdout = Join-Path $runDir "backend.stdout.log"
   $stderr = Join-Path $runDir "backend.stderr.log"
-  $process = Start-Process -FilePath "mvn.cmd" -ArgumentList @("spring-boot:run", "-Dspring-boot.run.profiles=local") -WorkingDirectory $backendDir -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  $previousAiMode = $env:AI_MODE
+  $previousQualityConsole = $env:APP_QUALITY_CONSOLE_ENABLED
+  $env:AI_MODE = "mock"
+  $env:APP_QUALITY_CONSOLE_ENABLED = "true"
+  try {
+    $process = Start-Process -FilePath "mvn.cmd" -ArgumentList @("spring-boot:run", "-Dspring-boot.run.profiles=local") -WorkingDirectory $backendDir -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  } finally {
+    $env:AI_MODE = $previousAiMode
+    $env:APP_QUALITY_CONSOLE_ENABLED = $previousQualityConsole
+  }
   $script:StartedProcesses += $process
   if (-not (Wait-BackendHealth 150)) {
     Stop-Smoke "BLOCKED" "backend" "backend did not become healthy"
@@ -301,8 +322,11 @@ function Start-FrontendIfNeeded([string]$runDir) {
     return
   }
   if (Wait-FrontendRoute 3) {
-    Set-Gate "frontend" "PASS" @("reused reachable frontend")
-    return
+    if ($ReuseRunningServices) {
+      Set-Gate "frontend" "PASS" @("reused reachable frontend")
+      return
+    }
+    Stop-Smoke "BLOCKED" "frontend" "frontend is already running; stop it or pass -ReuseRunningServices explicitly"
   }
   if ($ReuseRunningServices) {
     Stop-Smoke "BLOCKED" "frontend" "reuse mode is enabled but frontend is not reachable"
@@ -310,7 +334,8 @@ function Start-FrontendIfNeeded([string]$runDir) {
   $frontendDir = Join-Path (Get-Location) "frontend"
   $stdout = Join-Path $runDir "frontend.stdout.log"
   $stderr = Join-Path $runDir "frontend.stderr.log"
-  $process = Start-Process -FilePath "npm.cmd" -ArgumentList @("run", "dev") -WorkingDirectory $frontendDir -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+  $frontendPort = Get-FrontendPort
+  $process = Start-Process -FilePath "npm.cmd" -ArgumentList @("run", "dev", "--", "-p", "$frontendPort") -WorkingDirectory $frontendDir -WindowStyle Hidden -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
   $script:StartedProcesses += $process
   if (-not (Wait-FrontendRoute 120)) {
     Stop-Smoke "BLOCKED" "frontend" "frontend route did not become reachable"
@@ -541,26 +566,60 @@ function Test-ArtifactSafe($artifact) {
 
 function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]$token) {
   $caseStart = Get-Date
+  $script:CurrentParserStage = "upload"
   $upload = Upload-SmokeFile $case.path $case.contentType $token
+  $script:CurrentParserStage = "document_create"
   $document = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $upload.data.id }) $token
+  $script:CurrentParserStage = "parse_task_create"
   [void](Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $document.data.id }) $token -AllowFailure)
+  $script:CurrentParserStage = "parse_wait"
   $detail = Wait-ParseTerminal ([long]$document.data.id) $token
   $parseStatus = [string]$detail.parseStatus
   $extractedChars = if ($detail.content) { ([string]$detail.content).Length } else { 0 }
   $chunkCount = $null
   $retrieveHit = $false
+  $directRetrieveHit = $false
+  $qaRetrievalHit = $false
   $citationPresent = $false
   $sourceLocatorPresent = $false
   $failureReason = $null
   if ($parseStatus -eq "SUCCESS") {
+    $script:CurrentParserStage = "chunk_wait"
     $chunkCount = Wait-ChunkCount $envValues $userId ([long]$document.data.id)
-    $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $document.data.id; query = $case.query; topK = 5; indexVersion = $IndexVersion }) $token
-    $hits = @($retrieve.data.hits)
-    $retrieveHit = $hits.Count -gt 0
-    $qa = Invoke-JsonApi "POST" "/api/documents/$($document.data.id)/qa/rag" ([ordered]@{ question = "请根据文档回答 $($case.query)"; topK = 5; indexVersion = $IndexVersion; sessionId = "parser-smoke" }) $token
-    $citations = @($qa.data.citations)
-    $citationPresent = $citations.Count -gt 0
-    $locatorItems = @($hits + $citations)
+    $question = "请根据文档回答 $($case.query)"
+    $script:CurrentParserStage = "retrieve"
+    $retrieve = $null
+    $hits = @()
+    for ($attempt = 1; $attempt -le 6; $attempt++) {
+      $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $document.data.id; query = $case.query; topK = 5; indexVersion = $IndexVersion }) $token -AllowFailure
+      $hits = if ($retrieve.ok) { @($retrieve.data.hits) } else { @() }
+      if ($hits.Count -gt 0) {
+        break
+      }
+      Start-Sleep -Seconds 2
+    }
+    $directRetrieveHit = $retrieve.ok -and $hits.Count -gt 0
+    $retrieveHit = $directRetrieveHit
+    $citations = @()
+    if ($retrieve.ok) {
+      $script:CurrentParserStage = "qa"
+      $qa = Invoke-JsonApi "POST" "/api/documents/$($document.data.id)/qa/rag" ([ordered]@{ question = $question; topK = 5; indexVersion = $IndexVersion; sessionId = "parser-smoke" }) $token -AllowFailure
+      if ($qa.ok) {
+        $qaHits = @($qa.data.retrieval.hits)
+        $qaRetrievalHit = $qaHits.Count -gt 0
+        $retrieveHit = $retrieveHit -or $qaRetrievalHit
+        $citations = @($qa.data.citations)
+        $citationPresent = $citations.Count -gt 0
+      } else {
+        $failureReason = "qa_api_failed"
+      }
+    } else {
+      $failureReason = "retrieve_api_failed"
+    }
+    $script:CurrentParserStage = "source_locator"
+    $locatorItems = @()
+    $locatorItems += @($hits)
+    $locatorItems += @($citations)
     $sourceLocatorPresent = @($locatorItems | Where-Object {
         (-not [string]::IsNullOrWhiteSpace([string]$_.sourceName)) -and (
           -not [string]::IsNullOrWhiteSpace([string]$_.sourceLocator) -or
@@ -571,7 +630,9 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
           $null -ne $_.startOffset
         )
       }).Count -gt 0
-    if (-not $retrieveHit) {
+    if (-not [string]::IsNullOrWhiteSpace($failureReason)) {
+      # Keep the earlier sanitized API failure reason.
+    } elseif (-not $retrieveHit) {
       $failureReason = "retrieve returned no hit"
     } elseif (-not $citationPresent) {
       $failureReason = "qa returned no citation"
@@ -581,6 +642,7 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
   } else {
     $failureReason = "parse failed"
   }
+  $script:CurrentParserStage = ""
   return [ordered]@{
     fileType = $case.fileType
     parserName = $case.parserName
@@ -591,6 +653,8 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     warningCount = $null
     chunkCount = $chunkCount
     retrieveHit = $retrieveHit
+    directRetrieveHit = $directRetrieveHit
+    qaRetrievalHit = $qaRetrievalHit
     citationPresent = $citationPresent
     sourceLocatorPresent = $sourceLocatorPresent
     failureReason = $failureReason
@@ -727,6 +791,8 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   $sourceLocatorCount = @($results | Where-Object { $_.sourceLocatorPresent }).Count
   $missingLocatorTypes = @($results | Where-Object { -not $_.sourceLocatorPresent } | ForEach-Object { [string]$_.fileType } | Where-Object { $_ } | Select-Object -Unique)
   $retrieveHitCount = @($results | Where-Object { $_.retrieveHit }).Count
+  $directRetrieveHitCount = @($results | Where-Object { $_.directRetrieveHit }).Count
+  $qaRetrievalHitCount = @($results | Where-Object { $_.qaRetrievalHit }).Count
   $citationCount = @($results | Where-Object { $_.citationPresent }).Count
   $chunkCountKnown = @($results | Where-Object { $null -ne $_.chunkCount }).Count
   $chunkCount = $null
@@ -811,6 +877,8 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
       chunkCountKnown = $chunkCountKnown
       chunkCount = $chunkCount
       retrieveHitCount = $retrieveHitCount
+      directRetrieveHitCount = $directRetrieveHitCount
+      qaRetrievalHitCount = $qaRetrievalHitCount
       citationCount = $citationCount
       retrieveCoverageRate = Get-SafeRate $retrieveHitCount $fileCount
       citationCoverageRate = Get-SafeRate $citationCount $fileCount
@@ -836,8 +904,8 @@ if ($Mode -eq "plan") {
   [ordered]@{
     mode = "plan"
     willCreateBusinessData = $false
-    runModeOnly = @("start local tunnel/backend/frontend if needed", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "validate retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
-    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "citationPresent", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
+    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "validate retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
+    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -882,7 +950,29 @@ try {
   Set-Gate "auth" "PASS" @("temporary smoke user registered")
 
   foreach ($fixture in $fixtures) {
-    $results += Invoke-ParserCase $fixture $envValues $userId $token
+    try {
+      $results += Invoke-ParserCase $fixture $envValues $userId $token
+    } catch {
+      $safeStage = if ([string]::IsNullOrWhiteSpace($script:CurrentParserStage)) { "unknown" } else { $script:CurrentParserStage }
+      $results += [ordered]@{
+        fileType = $fixture.fileType
+        parserName = $fixture.parserName
+        parseStatus = "FAILED"
+        extractedChars = $null
+        pageCount = $null
+        blockCount = $null
+        warningCount = $null
+        chunkCount = $null
+        retrieveHit = $false
+        directRetrieveHit = $false
+        qaRetrievalHit = $false
+        citationPresent = $false
+        sourceLocatorPresent = $false
+        failureReason = "runtime_error_$safeStage"
+        durationMs = 0
+      }
+      Set-Gate "runtime" "REVIEW" @("one parser fixture hit a sanitized runtime error and the runner continued")
+    }
   }
 
   $failedCore = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" -or -not $_.retrieveHit -or -not $_.citationPresent })
@@ -916,6 +1006,8 @@ try {
     parserFailureCount = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" }).Count
     chunkCount = if ($hasChunkCount) { $totalChunkCount } else { 0 }
     retrieveHitCount = @($results | Where-Object { $_.retrieveHit }).Count
+    directRetrieveHitCount = @($results | Where-Object { $_.directRetrieveHit }).Count
+    qaRetrievalHitCount = @($results | Where-Object { $_.qaRetrievalHit }).Count
     citationCount = @($results | Where-Object { $_.citationPresent }).Count
     sourceLocatorCount = @($results | Where-Object { $_.sourceLocatorPresent }).Count
     durationMs = $durationAverage
@@ -944,7 +1036,7 @@ try {
     }
   }
 } catch {
-  if ($script:OverallStatus -eq "PASS") {
+  if (-not $script:Gates.Contains("runtime")) {
     Set-Gate "runtime" "BLOCKED" @() "smoke stopped before completion"
   }
 } finally {

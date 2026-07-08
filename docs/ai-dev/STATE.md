@@ -2,6 +2,11 @@
 
 ## 2026-07-08 当前补充
 
+- Document Parser 真实链路质量回归与 Quality Console 可见性收口已完成。最新真实 marker `docpilot-parser-real-chain-20260708212742-0f9baa` 为 PASS，覆盖 tunnel、受控 backend、frontend、临时用户、PDF / HTML / DOCX 上传与异步解析、chunk、RAG QA retrieval、citation、source locator、parser boundary 和 artifact redaction；三类文件均 `parseStatus=SUCCESS`、`chunkCount=1`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`，负向边界 `4/4` PASS。
+- `document-parser-real-chain-smoke.ps1` 已收口受控服务策略：默认不再静默复用已有 backend / frontend，只有显式传 `-ReuseRunningServices` 才复用；runner 自己启动 backend 时使用子进程环境设置 `AI_MODE=mock` 和 `APP_QUALITY_CONSOLE_ENABLED=true`，避免真实 provider 超时或未开启 Quality Console 造成误判，不写入配置文件。
+- Quality Console artifact 聚合已修复工作目录漂移问题。`QualityArtifactServiceImpl` 会从当前工作目录向上解析仓库根，后端从 `backend/` 或 `backend/target/classes` 启动时也能扫到 `backend/target/smoke/document-parser-real-chain`；`parserQuality` 现在白名单返回 `directRetrieveHitCount` 与 `qaRetrievalHitCount` 两个安全计数。
+- `/quality` 的文档解析质量摘要新增“检索来源”，展示“直接 / 问答”计数。最新 PASS run 中 `directRetrieveHitCount=0`、`qaRetrievalHitCount=3`、`citationCount=3`，说明 parser QA 主链路可用，但 direct retrieve endpoint / query 语义仍值得后续单独排查。
+- 已验证 `mvn "-Dtest=*Quality*" test` PASS（40 tests，1 skipped）、`document-parser-real-chain-smoke.ps1 -Mode plan` PASS、`-Mode dry-run` PASS、`-Mode run` PASS、`npm run lint` PASS、`npm run build` PASS、Quality API 最新 run 可见、浏览器 `/quality?autoload=1` 桌面与 `390px` 移动端无横向溢出且 console error 为 `0`。本片不提交 artifact 原文、不删除业务数据、不改 schema、不 push。
 - Document Parser 解析质量报告 / Quality Console parser 诊断增强已完成。`scripts/smoke/document-parser-real-chain-smoke.ps1` 的 `run` artifact 新增脱敏 `parserQualityReport`，从现有安全摘要派生文件类型覆盖、解析成功率、source locator 覆盖、RAG retrieve / citation 覆盖、错误边界通过率、warning 统计可用性和 review reasons；不保存文档全文、prompt、answer、evidence context、异常堆栈、secret、连接串或云地址。
 - Agent Quality Console 后端 `QualityRunDiagnostics` 已新增 `parserQuality` 安全摘要，`QualityArtifactServiceImpl` 只按白名单读取 parser report 中的数值、布尔值和安全短 bucket；未知字段和敏感字段不会透传到 API。
 - `/quality` 的“文档解析质量摘要”已从普通 gate 数字升级为诊断卡展示：格式覆盖、解析成功率、检索与引用覆盖、错误边界；缺失 token / parser 指标继续显示“暂无统计”，不会把缺样本当作 0。

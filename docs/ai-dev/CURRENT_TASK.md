@@ -1,6 +1,19 @@
 # Current Task
 
-当前任务：Document Parser 解析质量报告 / Quality Console parser 诊断增强（DONE）；下一片：Document Parser fixture corpus v3 / 真实链路质量回归（READY）
+当前任务：Document Parser 真实链路质量回归与 Quality Console 可见性收口（DONE）；下一片：Document Parser fixture corpus v3 结构质量扩容（READY）
+
+## 2026-07-08 补充：Document Parser 真实链路质量回归与 Quality Console 可见性收口
+
+- 目标：用最新 `document-parser-real-chain-smoke.ps1` 跑一次受控真实链路，确认 PDF / HTML / DOCX 上传、异步解析、chunk、RAG QA retrieval、citation、source locator、错误边界和 `/quality` parser 摘要都可用。
+- 已完成 runner 稳定性修复：`run` 默认不再静默复用已经运行的 backend / frontend；只有显式传 `-ReuseRunningServices` 才复用，否则返回 `BLOCKED`，避免把不受控的本地服务配置误判为 parser 业务失败。runner 自己启动 backend 时通过子进程环境强制 `AI_MODE=mock` 和 `APP_QUALITY_CONSOLE_ENABLED=true`，不写入配置文件。
+- 已完成 QA 检索诊断增强：artifact 和 `parserQualityReport` 区分 `directRetrieveHitCount` 与 `qaRetrievalHitCount`；本轮真实 PASS 中直接 retrieve 为 `0/3`，QA 内部 retrieval 为 `3/3`，citation 为 `3/3`，因此核心 parser QA 链路通过，但直接 retrieve endpoint / query 语义仍是后续可排查项。
+- 已完成 Quality Console 工作目录修复：`QualityArtifactServiceImpl` 会从当前工作目录向上解析仓库根，避免 backend 从 `backend/` 或 `backend/target/classes` 启动时扫不到 `backend/target/smoke/...` artifact。
+- 已完成前端展示：`/quality` 的“文档解析质量摘要”新增“检索来源”，显示“直接 / 问答”两个脱敏计数，方便解释 direct retrieve 与 QA retrieval 的差异。
+- 已验证真实链路：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260708212742-0f9baa`；PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`；`parserBoundary` 为 `4/4` PASS；artifact redaction PASS。
+- 已验证 Console 可见性：`GET /api/quality/runs` 最新 run 为 `docpilot-parser-real-chain-20260708212742-0f9baa`，`parserQuality.fileCount=3`、`parsedFileCount=3`、`directRetrieveHitCount=0`、`qaRetrievalHitCount=3`、`citationCount=3`、`boundaryPassRate=1.0`；浏览器 `/quality?autoload=1` 的 Artifact 分区可见最新 marker、“文档解析质量摘要”和“检索来源”，桌面和 `390px` 移动端均无横向溢出，console error 为 `0`。
+- 已验证离线回归：`mvn "-Dtest=*Quality*" test` PASS（40 tests，1 skipped）；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不改 parser / RAG 主链路，不新增数据库表，不删除业务数据，不操作远程 Docker，不提交 artifact 原文，不 push；真实 run 创建临时 smoke 用户 / 文档和 ignored 脱敏 artifact。
+- 下一片建议：进入 Document Parser fixture corpus v3，重点补 PDF 多页结构、HTML 表格 / 列表 / 噪声边界、DOCX 表格 / 列表 / 标题层级与 parser warning 的质量用例，并单独排查 direct retrieve endpoint 在 parser fixture 上 `0/3` 的原因。
 
 ## 2026-07-08 补充：Document Parser 解析质量报告 / Quality Console parser 诊断增强
 

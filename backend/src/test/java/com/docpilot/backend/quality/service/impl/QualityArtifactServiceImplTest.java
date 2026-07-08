@@ -32,6 +32,17 @@ class QualityArtifactServiceImplTest {
     }
 
     @Test
+    void shouldResolveRepoRootFromNestedBackendWorkingDirectory() throws Exception {
+        Path backendClasses = repoRoot.resolve("backend/target/classes");
+        Files.createDirectories(backendClasses);
+        Files.createDirectories(repoRoot.resolve("frontend"));
+        Files.createDirectories(repoRoot.resolve("docs"));
+
+        assertThat(QualityArtifactServiceImpl.normalizeRepoRoot(backendClasses))
+                .isEqualTo(repoRoot.toAbsolutePath().normalize());
+    }
+
+    @Test
     void shouldParseNormalArtifactWithWhitelistedFieldsOnly() throws Exception {
         Path artifact = artifactPath("backend/target/rag-real-qa", "docpilot-quality-normal", "artifact.json");
         Files.writeString(artifact, """
@@ -258,6 +269,8 @@ class QualityArtifactServiceImplTest {
                       "parserFailureCount": 0,
                       "chunkCount": 3,
                       "retrieveHitCount": 3,
+                      "directRetrieveHitCount": 1,
+                      "qaRetrievalHitCount": 3,
                       "citationCount": 3,
                       "sourceLocatorCount": 3,
                       "durationMs": 12000,
@@ -306,6 +319,8 @@ class QualityArtifactServiceImplTest {
                       "chunkCountKnown": 3,
                       "chunkCount": 3,
                       "retrieveHitCount": 3,
+                      "directRetrieveHitCount": 1,
+                      "qaRetrievalHitCount": 3,
                       "citationCount": 3,
                       "retrieveCoverageRate": 1.0,
                       "citationCoverageRate": 1.0
@@ -344,6 +359,8 @@ class QualityArtifactServiceImplTest {
                 .containsEntry("fileCount", 3)
                 .containsEntry("parsedFileCount", 3)
                 .containsEntry("chunkCount", 3)
+                .containsEntry("directRetrieveHitCount", 1)
+                .containsEntry("qaRetrievalHitCount", 3)
                 .containsEntry("citationCount", 3)
                 .containsEntry("durationMs", 12000);
         assertThat(detail.gates().get(0).flags())
@@ -355,6 +372,8 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.diagnostics().parserQuality().parsedFileCount()).isEqualTo(3);
         assertThat(detail.diagnostics().parserQuality().parsePassRate()).isEqualTo(1.0);
         assertThat(detail.diagnostics().parserQuality().sourceLocatorCoverageRate()).isEqualTo(1.0);
+        assertThat(detail.diagnostics().parserQuality().directRetrieveHitCount()).isEqualTo(1);
+        assertThat(detail.diagnostics().parserQuality().qaRetrievalHitCount()).isEqualTo(3);
         assertThat(detail.diagnostics().parserQuality().boundaryPassRate()).isEqualTo(1.0);
         assertThat(detail.diagnostics().parserQuality().unavailableMetrics()).containsExactly("warningCount");
 

@@ -1,10 +1,10 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-07-06
+> Last updated: 2026-07-08
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
-## 2026-07-06 Document Parser Real Chain Smoke
+## 2026-07-08 Document Parser Real Chain Smoke
 
 状态：PASS
 
@@ -14,19 +14,20 @@ Runner:
 
 Marker:
 
-- `docpilot-parser-real-chain-20260706215802-78374c`
+- `docpilot-parser-real-chain-20260708212742-0f9baa`
 
 已验证：
 
 - PDF / HTML / DOCX 三类临时 fixture 均完成上传、异步解析、chunk、embedding / index、RAG retrieve 和 QA citation。
-- 三类文件均为 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- 三类文件均为 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
 - 本轮 source locator 回归已验证 parser block 的 `pageNumber` / `sourceLocator` / `blockType` 可进入 chunk metadata、vector payload、retrieve hit 和 QA citation response；artifact 只保留 `sourceLocatorPresent` 等脱敏布尔和计数结论。
 - parser fixture corpus v2 已通过离线门禁：PDF 覆盖多页和空页 warning；HTML 覆盖标题层级、表格单元格分隔、列表、独立链接和噪声剔除；DOCX 覆盖标题层级、列表 block 和表格文本。
 - tunnel、backend health、frontend root route、临时用户注册、parser boundary 和 artifact redaction 均 PASS。
 - `parserBoundary` 真实 API 负向验证 PASS：不支持格式上传拒绝、空白 TXT 返回 `PARSER_EMPTY_CONTENT`、损坏 PDF / DOCX 返回 `PARSER_CORRUPTED_FILE`，`negativeCasePassCount=4/4`、`negativeCaseFailCount=0`、`unsupportedUploadRejected=true`。
-- Agent Quality Console artifact root 已纳入 `backend/target/smoke/document-parser-real-chain`，`parserRealChain` gate 可展示 `fileCount=3`、`parsedFileCount=3`、`parserFailureCount=0`、`chunkCount=3`、`retrieveHitCount=3`、`citationCount=3`、`sourceLocatorCount=3` 和 `durationMs`。
+- Agent Quality Console artifact root 已纳入 `backend/target/smoke/document-parser-real-chain`，`parserRealChain` gate 可展示 `fileCount=3`、`parsedFileCount=3`、`parserFailureCount=0`、`chunkCount=3`、`retrieveHitCount=3`、`directRetrieveHitCount=0`、`qaRetrievalHitCount=3`、`citationCount=3`、`sourceLocatorCount=3` 和 `durationMs`。
+- `/quality?autoload=1` 可见最新 parser run 与“文档解析质量摘要”；Artifact 分区显示“检索来源：直接 0 / 问答 3”。桌面和 `390px` 移动端均无横向溢出，console error 为 `0`。
 
-边界：本次 run 是小规模真实链路 parser smoke，不是 OCR、扫描件识别、复杂版面理解、外部网页抓取、`.doc` 旧格式支持或大规模解析质量 benchmark。boundary artifact 只保存脱敏失败码和计数，不保存文件内容、异常堆栈或原始错误上下文。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token；本轮未删除已有业务数据、未改 schema、未 push。
+边界：本次 run 是小规模真实链路 parser smoke，不是 OCR、扫描件识别、复杂版面理解、外部网页抓取、`.doc` 旧格式支持或大规模解析质量 benchmark。`directRetrieveHitCount=0` 表明直接 retrieve endpoint / query 语义仍值得后续单独排查；本次 PASS 证明的是 parser 到 QA retrieval / citation 的主链路闭环。boundary artifact 只保存脱敏失败码和计数，不保存文件内容、异常堆栈或原始错误上下文。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token；本轮未删除已有业务数据、未改 schema、未 push。
 
 ## 2026-07-05 Agent Quality Console Trace Eval Trend Regression
 

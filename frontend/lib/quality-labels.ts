@@ -51,6 +51,8 @@ const METRIC_LABELS: Record<string, string> = {
   parserFailureCount: "解析失败数",
   chunkCount: "切片数",
   retrieveHitCount: "检索命中文件数",
+  directRetrieveHitCount: "直接检索命中文件数",
+  qaRetrievalHitCount: "问答检索命中文件数",
   citationCount: "引用文件数",
   sourceLocatorCount: "来源定位数",
   negativeCaseCount: "负向用例数",

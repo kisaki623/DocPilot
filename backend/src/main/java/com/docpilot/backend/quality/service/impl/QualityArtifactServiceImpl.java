@@ -70,7 +70,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     }
 
     QualityArtifactServiceImpl(Path repoRoot, ObjectMapper objectMapper) {
-        this.repoRoot = repoRoot == null ? resolveRepoRoot() : repoRoot.toAbsolutePath().normalize();
+        this.repoRoot = normalizeRepoRoot(repoRoot == null ? Path.of("") : repoRoot);
         this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
     }
 
@@ -809,6 +809,8 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 optionalInt(ragChainSummary, "chunkCountKnown"),
                 optionalInt(ragChainSummary, "chunkCount"),
                 optionalInt(ragChainSummary, "retrieveHitCount"),
+                optionalInt(ragChainSummary, "directRetrieveHitCount"),
+                optionalInt(ragChainSummary, "qaRetrievalHitCount"),
                 optionalInt(ragChainSummary, "citationCount"),
                 optionalDouble(ragChainSummary, "retrieveCoverageRate"),
                 optionalDouble(ragChainSummary, "citationCoverageRate"),
@@ -1227,9 +1229,26 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     }
 
     private static Path resolveRepoRoot() {
-        Path cwd = Path.of("").toAbsolutePath().normalize();
-        if (cwd.getFileName() != null && "backend".equals(cwd.getFileName().toString())) {
-            return cwd.getParent();
+        return normalizeRepoRoot(Path.of(""));
+    }
+
+    static Path normalizeRepoRoot(Path startPath) {
+        Path candidate = startPath == null ? Path.of("") : startPath;
+        Path cwd = candidate.toAbsolutePath().normalize();
+        Path current = cwd;
+        while (current != null) {
+            if (Files.isDirectory(current.resolve("backend"))
+                    && Files.isDirectory(current.resolve("frontend"))
+                    && Files.isDirectory(current.resolve("docs"))) {
+                return current;
+            }
+            if (current.getFileName() != null && "backend".equals(current.getFileName().toString())) {
+                Path parent = current.getParent();
+                if (parent != null) {
+                    return parent;
+                }
+            }
+            current = current.getParent();
         }
         return cwd;
     }

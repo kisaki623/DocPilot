@@ -34,6 +34,8 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-08 | `docpilot-parser-real-chain-20260708212742-0f9baa` | PASS（Document Parser runner 修复验证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260708212742-0f9baa/artifact.json` | 修复 parser smoke runner 静默复用不受控 backend / frontend 后，真实链路 PASS；PDF / HTML / DOCX 均 parse、chunk、QA retrieval、citation、source locator 通过，parserBoundary `4/4` PASS，Quality Console 可见最新 run 和 parser 诊断。 |
+| 2026-07-08 | `docpilot-parser-real-chain-20260708212024-9bd2ea` | FAILED_CORE_FLOW（已修复验证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260708212024-9bd2ea/artifact.json` | parser smoke 复用了手动启动的 backend，该 backend 不在 runner 受控配置内，导致三类文档 QA 阶段均 `qa_api_failed`；已记录为 `REA-20260708-P3-009` 并通过受控启动 PASS run 验证。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705210119-7b8092` | PASS（Trace / Eval / Trend 回归） | `backend/target/audit/docpilot-real-user-qa-20260705210119-7b8092/artifact.json` | 真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；Console API detail 返回 `traceReferenceCount=2`，浏览器 `/quality?autoload=1` 和 `/quality/trace` 桌面 / `390px` 移动端无 console error、无横向溢出。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705205210-8c882e` | FAILED_CORE_FLOW（已增强诊断，未复现） | `backend/target/audit/docpilot-real-user-qa-20260705205210-8c882e/artifact.json` | 核心 RAG / Memory / Trace / 权限 gate 均 PASS，但 `frontendInteraction` 在 KnowledgeBase 阶段捕获 `TypeError` console error；旧 gate 只记录 kind，无法定位字段。已记录为 `REA-20260705-P3-008`，随后增强脱敏 `messageShape` 诊断，最终 PASS run 未复现。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705192354-eba0fc` | PASS（Agent Quality Console 7-case 回归） | `backend/target/audit/docpilot-real-user-qa-20260705192354-eba0fc/artifact.json` | 真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；`/api/quality/eval-cases` 返回 7 个 case，其中 4 个带 `sourceIssueIds`，7 个带 `remediationHints`；浏览器 `/quality?autoload=1` 桌面和 `390px` 移动端无 console error、无横向溢出。 |
@@ -67,6 +69,45 @@
 | `REA-20260704-P2-006` | VERIFIED（已验证） | P2 | 功能质量问题 | KnowledgeBase RAG Citation | `docpilot-real-user-qa-20260704221704-4abc6f` | 多文档 summary 在目标覆盖满足时仍带入一条干扰 citation |
 | `REA-20260705-P1-007` | VERIFIED（已验证） | P1 | 功能 bug | Agent Quality Console / Backend Startup | `docpilot-real-user-qa-20260705164732-f54da1` | Eval Catalog service 构造器注入缺失导致 backend health BLOCKED |
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
+| `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
+
+## 2026-07-08 Document Parser runner 修复验证
+
+验证 marker：`docpilot-parser-real-chain-20260708212742-0f9baa`
+
+状态：PASS
+
+已验证：
+
+- 真实 parser smoke 通过：tunnel、受控 backend、frontend route、auth、PDF / HTML / DOCX 上传、异步解析、chunk、QA retrieval、citation、source locator、parserBoundary 和 artifact redaction 均 PASS。
+- parser 结果：三类文档均 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- 诊断结果：`directRetrieveHitCount=0`、`qaRetrievalHitCount=3`、`citationCount=3`，说明本次 PASS 依赖 QA 内部 retrieval 与 citation 主链路；direct retrieve endpoint / query 语义后续仍可单独排查。
+- Agent Quality Console 可见最新 run：Quality API 返回最新 marker `docpilot-parser-real-chain-20260708212742-0f9baa`，`parserQuality.fileCount=3`、`parsedFileCount=3`、`qaRetrievalHitCount=3`、`boundaryPassRate=1.0`；浏览器 `/quality?autoload=1` 的 Artifact 分区可见“文档解析质量摘要”和“检索来源”，桌面与 `390px` 移动端无横向溢出，console error 为 `0`。
+
+本轮发现并处理：
+
+- `REA-20260708-P3-009`：中途 run `docpilot-parser-real-chain-20260708212024-9bd2ea` 复用了手动启动的 backend。该 backend 不在 runner 受控启动参数内，导致 PDF / HTML / DOCX QA 阶段都记录为 `qa_api_failed`，整体 `FAILED_CORE_FLOW`。runner 已改为默认不静默复用已有 backend / frontend；只有显式 `-ReuseRunningServices` 才复用。runner 自己启动 backend 时通过子进程环境设置 `AI_MODE=mock` 与 `APP_QUALITY_CONSOLE_ENABLED=true`，避免真实 provider 超时或 Quality Console 未开启导致误判。
+
+边界：
+
+- 本轮创建临时 smoke 用户和临时文档；artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/`。
+- 未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+### `REA-20260708-P3-009` parser smoke 静默复用不受控 backend 导致 QA 阶段误失败
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Smoke Runner / Document Parser
+- 发现于：`docpilot-parser-real-chain-20260708212024-9bd2ea`
+- 修复验证：`docpilot-parser-real-chain-20260708212742-0f9baa`
+- 复现步骤：手动启动一个不由 parser smoke runner 管理的 backend，然后运行 `document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`。
+- 实际结果：runner 直接复用健康 backend，但该 backend 不具备 runner 预期的受控配置；PDF / HTML / DOCX 解析和 chunk 已成功，source locator 也存在，但 QA 阶段均记录 `qa_api_failed`，整体状态为 `FAILED_CORE_FLOW`。
+- 预期结果：真实 smoke 应只复用显式授权的运行中服务；默认 run 应自行启动受控 backend / frontend，或在发现已有服务时返回清晰 `BLOCKED`，避免把环境配置问题误判为 parser 业务失败。
+- 可能原因：runner 原先只看 `/actuator/health` 和前端路由是否可达，没有区分“受控启动”和“用户手动启动”的服务配置。
+- 建议修复位置：`scripts/smoke/document-parser-real-chain-smoke.ps1`。
+- 修复提交：本轮提交。
+- 验证记录：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260708212742-0f9baa`；三类文档 QA retrieval / citation / source locator 均 PASS，parserBoundary `4/4` PASS。
 
 ## 2026-07-05 Agent Quality Console Trace / Eval / Trend 回归
 

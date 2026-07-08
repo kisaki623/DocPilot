@@ -75,6 +75,8 @@ public record QualityRunDiagnostics(
             Integer chunkCountKnown,
             Integer chunkCount,
             Integer retrieveHitCount,
+            Integer directRetrieveHitCount,
+            Integer qaRetrievalHitCount,
             Integer citationCount,
             Double retrieveCoverageRate,
             Double citationCoverageRate,
@@ -99,6 +101,7 @@ public record QualityRunDiagnostics(
             return new ParserQualitySummary(
                     null, null, null, null,
                     null, null, null, null,
+                    null, null,
                     null, null, null, null,
                     null, null, null, null,
                     null, null, null, null,

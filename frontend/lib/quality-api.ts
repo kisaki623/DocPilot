@@ -88,6 +88,8 @@ export interface QualityParserQualitySummary {
   chunkCountKnown?: number | null;
   chunkCount?: number | null;
   retrieveHitCount?: number | null;
+  directRetrieveHitCount?: number | null;
+  qaRetrievalHitCount?: number | null;
   citationCount?: number | null;
   retrieveCoverageRate?: number | null;
   citationCoverageRate?: number | null;
