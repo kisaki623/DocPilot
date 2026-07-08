@@ -74,10 +74,40 @@ export interface QualityMemoryQualitySummary {
   ragEvidenceCount?: number | null;
 }
 
+export interface QualityParserQualitySummary {
+  expectedFileTypeCount?: number | null;
+  coveredFileTypeCount?: number | null;
+  missingFileTypeCount?: number | null;
+  allFileTypesCovered?: boolean | null;
+  fileCount?: number | null;
+  parsedFileCount?: number | null;
+  parserFailureCount?: number | null;
+  parsePassRate?: number | null;
+  sourceLocatorCount?: number | null;
+  sourceLocatorCoverageRate?: number | null;
+  chunkCountKnown?: number | null;
+  chunkCount?: number | null;
+  retrieveHitCount?: number | null;
+  citationCount?: number | null;
+  retrieveCoverageRate?: number | null;
+  citationCoverageRate?: number | null;
+  negativeCaseCount?: number | null;
+  negativeCasePassCount?: number | null;
+  negativeCaseFailCount?: number | null;
+  boundaryPassRate?: number | null;
+  unsupportedUploadRejected?: boolean | null;
+  warningCountKnown?: number | null;
+  totalWarningCount?: number | null;
+  filesWithWarnings?: number | null;
+  reviewReasons: string[];
+  unavailableMetrics: string[];
+}
+
 export interface QualityRunDiagnostics {
   documentCoverage?: QualityDocumentCoverageSummary | null;
   toolQuality?: QualityToolQualitySummary | null;
   memoryQuality?: QualityMemoryQualitySummary | null;
+  parserQuality?: QualityParserQualitySummary | null;
 }
 
 export interface QualityEvalCaseCatalogItem {

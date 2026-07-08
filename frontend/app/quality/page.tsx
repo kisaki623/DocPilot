@@ -11,6 +11,7 @@ import {
   type QualityEvalCaseCatalogItem,
   type QualityEvalCaseResultDetail,
   type QualityGateSummary,
+  type QualityParserQualitySummary,
   type QualityRunDetail,
   type QualityRunSummary,
   type QualityTokenUsageSummary,
@@ -2732,7 +2733,9 @@ function ArtifactSummaryPanel({ summary }: { summary: QualityRunSummary }) {
 function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
   const realChain = findGate(detail, "parserRealChain");
   const boundary = findGate(detail, "parserBoundary");
-  if (!realChain && !boundary) {
+  const parserQuality = detail.diagnostics?.parserQuality || null;
+  const hasParserQuality = hasParserQualitySummary(parserQuality);
+  if (!realChain && !boundary && !hasParserQuality) {
     return (
       <section className="dp-card min-w-0">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -2748,10 +2751,15 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
     );
   }
 
-  const fileCount = gateMetric(realChain, "fileCount");
-  const parsedFileCount = gateMetric(realChain, "parsedFileCount");
-  const negativeCaseCount = gateMetric(boundary, "negativeCaseCount");
-  const negativeCasePassCount = gateMetric(boundary, "negativeCasePassCount");
+  const fileCount = parserQuality?.fileCount ?? gateMetric(realChain, "fileCount");
+  const parsedFileCount = parserQuality?.parsedFileCount ?? gateMetric(realChain, "parsedFileCount");
+  const negativeCaseCount = parserQuality?.negativeCaseCount ?? gateMetric(boundary, "negativeCaseCount");
+  const negativeCasePassCount = parserQuality?.negativeCasePassCount ?? gateMetric(boundary, "negativeCasePassCount");
+  const parserFailureCount = parserQuality?.parserFailureCount ?? gateMetric(realChain, "parserFailureCount");
+  const retrieveHitCount = parserQuality?.retrieveHitCount ?? gateMetric(realChain, "retrieveHitCount");
+  const citationCount = parserQuality?.citationCount ?? gateMetric(realChain, "citationCount");
+  const sourceLocatorCount = parserQuality?.sourceLocatorCount ?? gateMetric(realChain, "sourceLocatorCount");
+  const parserDiagnostics = buildParserDiagnostics(parserQuality, realChain, boundary);
 
   return (
     <section className="dp-card min-w-0">
@@ -2779,26 +2787,26 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SmallFact
           label="解析成功文件"
-          value={formatMetricPair(parsedFileCount, fileCount)}
+          value={formatRateWithOptionalSample(parserQuality?.parsePassRate, parsedFileCount, fileCount)}
         />
         <SmallFact
           label="切片总数"
-          value={formatNullableStat(gateMetric(realChain, "chunkCount"))}
+          value={formatNullableStat(parserQuality?.chunkCount ?? gateMetric(realChain, "chunkCount"))}
         />
         <SmallFact
           label="检索 / 引用"
-          value={`${formatNullableStat(gateMetric(realChain, "retrieveHitCount"))} / ${formatNullableStat(gateMetric(realChain, "citationCount"))}`}
+          value={`${formatNullableStat(retrieveHitCount)} / ${formatNullableStat(citationCount)}`}
         />
         <SmallFact
           label="来源定位"
-          value={formatMetricPair(gateMetric(realChain, "sourceLocatorCount"), fileCount)}
+          value={formatRateWithOptionalSample(parserQuality?.sourceLocatorCoverageRate, sourceLocatorCount, fileCount)}
         />
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <SmallFact
           label="解析失败数"
-          value={formatNullableStat(gateMetric(realChain, "parserFailureCount"))}
+          value={formatNullableStat(parserFailureCount)}
         />
         <SmallFact
           label="运行耗时 ms"
@@ -2814,6 +2822,24 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
         />
       </div>
 
+      <DiagnosticGrid items={parserDiagnostics} />
+
+      <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <p className="text-xs font-semibold uppercase text-slate-500">
+          待关注原因
+        </p>
+        <p className="mt-2 break-words text-sm text-slate-700">
+          {parserQuality?.reviewReasons?.length
+            ? parserQuality.reviewReasons.map(formatParserReviewReason).join(" / ")
+            : "暂无需要优先处理的解析质量风险。"}
+        </p>
+        {parserQuality?.unavailableMetrics?.length ? (
+          <p className="mt-2 break-words text-xs text-slate-500">
+            暂无统计字段：{parserQuality.unavailableMetrics.map(formatParserMetricName).join(" / ")}
+          </p>
+        ) : null}
+      </div>
+
       <details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <summary className="cursor-pointer text-sm font-semibold text-slate-700">
           查看 parser gate 脱敏信号
@@ -2825,6 +2851,73 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
       </details>
     </section>
   );
+}
+
+function hasParserQualitySummary(summary: QualityParserQualitySummary | null): boolean {
+  if (!summary) {
+    return false;
+  }
+  return [
+    summary.fileCount,
+    summary.parsedFileCount,
+    summary.sourceLocatorCount,
+    summary.retrieveHitCount,
+    summary.citationCount,
+    summary.negativeCaseCount,
+  ].some((value) => typeof value === "number");
+}
+
+function buildParserDiagnostics(
+  summary: QualityParserQualitySummary | null,
+  realChain: QualityGateSummary | null,
+  boundary: QualityGateSummary | null
+): DiagnosticItem[] {
+  const fileCount = summary?.fileCount ?? gateMetric(realChain, "fileCount");
+  const parsedFileCount = summary?.parsedFileCount ?? gateMetric(realChain, "parsedFileCount");
+  const retrieveHitCount = summary?.retrieveHitCount ?? gateMetric(realChain, "retrieveHitCount");
+  const citationCount = summary?.citationCount ?? gateMetric(realChain, "citationCount");
+  const negativeCaseCount = summary?.negativeCaseCount ?? gateMetric(boundary, "negativeCaseCount");
+  const negativeCasePassCount = summary?.negativeCasePassCount ?? gateMetric(boundary, "negativeCasePassCount");
+  const coveredFileTypeCount = summary?.coveredFileTypeCount ?? null;
+  const expectedFileTypeCount = summary?.expectedFileTypeCount ?? null;
+  const missingFileTypeCount = summary?.missingFileTypeCount ?? null;
+  return [
+    {
+      label: "格式覆盖",
+      value: formatMetricPair(coveredFileTypeCount, expectedFileTypeCount),
+      helper: "确认 PDF / HTML / DOCX 是否都进入真实解析链路。",
+      tone: missingFileTypeCount === 0 ? "success" : missingFileTypeCount === null ? "neutral" : "danger",
+      priority: "上传 fixture / parser registry / allowlist",
+      action: "缺类型时先看 smoke fixture 是否生成，再看上传白名单和 parser 选择。"
+    },
+    {
+      label: "解析成功率",
+      value: formatRateWithOptionalSample(summary?.parsePassRate, parsedFileCount, fileCount),
+      helper: "分母是本次 parser smoke 中的文件数。",
+      tone: rateTone(summary?.parsePassRate),
+      priority: "Parser / ParseTask / storage",
+      action: "失败时优先查看脱敏 failureReason 和 parse status 流转。"
+    },
+    {
+      label: "检索与引用覆盖",
+      value: `${formatRateWithOptionalSample(summary?.retrieveCoverageRate, retrieveHitCount, fileCount)} / ${formatRateWithOptionalSample(summary?.citationCoverageRate, citationCount, fileCount)}`,
+      helper: "前者是 retrieve 覆盖，后者是 QA citation 覆盖。",
+      tone: rateTone(minKnownRate(
+        summary?.retrieveCoverageRate ?? deriveRate(retrieveHitCount, fileCount),
+        summary?.citationCoverageRate ?? deriveRate(citationCount, fileCount)
+      )),
+      priority: "Chunk / embedding / vector index / citation",
+      action: "检索或引用缺失时先看 chunkCount、source locator 和 RAG retrieve gate。"
+    },
+    {
+      label: "错误边界",
+      value: formatRateWithOptionalSample(summary?.boundaryPassRate, negativeCasePassCount, negativeCaseCount),
+      helper: "覆盖不支持格式、空内容和损坏文件的可控失败。",
+      tone: rateTone(summary?.boundaryPassRate),
+      priority: "Upload validation / parser error code",
+      action: "失败时先确认是否被限流或上传层提前拒绝。"
+    }
+  ];
 }
 
 function findGate(detail: QualityRunDetail, name: string): QualityGateSummary | null {
@@ -2847,6 +2940,76 @@ function formatMetricPair(numerator: number | null, denominator: number | null):
     return "暂无统计";
   }
   return `${formatNumber(numerator)} / ${formatNumber(denominator)}`;
+}
+
+function formatRateWithOptionalSample(
+  value: number | null | undefined,
+  numerator: number | null | undefined,
+  denominator: number | null | undefined
+): string {
+  const resolvedRate =
+    typeof value === "number" && !Number.isNaN(value)
+      ? value
+      : typeof numerator === "number" && typeof denominator === "number"
+        ? ratio(numerator, denominator)
+        : null;
+  if (resolvedRate === null) {
+    return "暂无统计";
+  }
+  if (typeof numerator === "number" && typeof denominator === "number" && denominator > 0) {
+    return `${formatRate(resolvedRate)} (${formatNumber(numerator)} / ${formatNumber(denominator)})`;
+  }
+  return formatRate(resolvedRate);
+}
+
+function rateTone(value: number | null | undefined): DiagnosticTone {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return "neutral";
+  }
+  if (value >= 0.99) {
+    return "success";
+  }
+  if (value >= 0.8) {
+    return "warning";
+  }
+  return "danger";
+}
+
+function deriveRate(
+  numerator: number | null | undefined,
+  denominator: number | null | undefined
+): number | null {
+  if (typeof numerator !== "number" || typeof denominator !== "number") {
+    return null;
+  }
+  return ratio(numerator, denominator);
+}
+
+function minKnownRate(...values: Array<number | null | undefined>): number | null {
+  const resolved = values.filter((value): value is number =>
+    typeof value === "number" && !Number.isNaN(value)
+  );
+  return resolved.length === 0 ? null : Math.min(...resolved);
+}
+
+function formatParserReviewReason(value: string): string {
+  const labels: Record<string, string> = {
+    parser_file_type_missing: "文件类型覆盖不完整",
+    parse_status_failed: "存在解析失败",
+    missing_source_locator: "来源定位缺失",
+    retrieval_or_citation_missing: "检索或引用缺失",
+    parser_boundary_failed: "错误边界未通过",
+    unsupported_upload_not_rejected: "不支持格式未被拒绝"
+  };
+  return labels[value] || "未知解析风险";
+}
+
+function formatParserMetricName(value: string): string {
+  const labels: Record<string, string> = {
+    chunkCount: "切片数量",
+    warningCount: "warning 数量"
+  };
+  return labels[value] || value;
 }
 
 function countTrueFlags(detail: QualityRunDetail, names: string[]): number | null {

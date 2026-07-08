@@ -710,12 +710,134 @@ function Write-Artifact($artifact, [string]$path) {
   [System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))
 }
 
+function Get-SafeRate($numerator, $denominator) {
+  if ($null -eq $numerator -or $null -eq $denominator -or [int]$denominator -le 0) {
+    return $null
+  }
+  return [Math]::Round(([double]$numerator / [double]$denominator), 4)
+}
+
+function New-ParserQualityReport([array]$results, $boundary, [string]$qualityStatus) {
+  $expectedTypes = @("PDF", "HTML", "DOCX")
+  $coveredTypes = @($results | ForEach-Object { [string]$_.fileType } | Where-Object { $_ } | Select-Object -Unique)
+  $missingTypes = @($expectedTypes | Where-Object { $coveredTypes -notcontains $_ })
+  $fileCount = @($results).Count
+  $parsedFileCount = @($results | Where-Object { $_.parseStatus -eq "SUCCESS" }).Count
+  $parserFailureCount = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" }).Count
+  $sourceLocatorCount = @($results | Where-Object { $_.sourceLocatorPresent }).Count
+  $missingLocatorTypes = @($results | Where-Object { -not $_.sourceLocatorPresent } | ForEach-Object { [string]$_.fileType } | Where-Object { $_ } | Select-Object -Unique)
+  $retrieveHitCount = @($results | Where-Object { $_.retrieveHit }).Count
+  $citationCount = @($results | Where-Object { $_.citationPresent }).Count
+  $chunkCountKnown = @($results | Where-Object { $null -ne $_.chunkCount }).Count
+  $chunkCount = $null
+  if ($chunkCountKnown -gt 0) {
+    $chunkCount = 0
+    foreach ($result in @($results)) {
+      if ($null -ne $result.chunkCount) {
+        $chunkCount += [int]$result.chunkCount
+      }
+    }
+  }
+  $warningCountKnown = @($results | Where-Object { $null -ne $_.warningCount }).Count
+  $totalWarningCount = $null
+  $filesWithWarnings = $null
+  if ($warningCountKnown -gt 0) {
+    $totalWarningCount = 0
+    $filesWithWarnings = 0
+    foreach ($result in @($results)) {
+      if ($null -ne $result.warningCount) {
+        $totalWarningCount += [int]$result.warningCount
+        if ([int]$result.warningCount -gt 0) {
+          $filesWithWarnings += 1
+        }
+      }
+    }
+  }
+  $negativeCaseCount = if ($boundary) { $boundary.negativeCaseCount } else { $null }
+  $negativeCasePassCount = if ($boundary) { $boundary.negativeCasePassCount } else { $null }
+  $negativeCaseFailCount = if ($boundary) { $boundary.negativeCaseFailCount } else { $null }
+  $unsupportedUploadRejected = if ($boundary) { $boundary.unsupportedUploadRejected } else { $null }
+
+  $reviewReasons = @()
+  if ($missingTypes.Count -gt 0) {
+    $reviewReasons += "parser_file_type_missing"
+  }
+  if ($parserFailureCount -gt 0) {
+    $reviewReasons += "parse_status_failed"
+  }
+  if ($fileCount -gt 0 -and $sourceLocatorCount -lt $fileCount) {
+    $reviewReasons += "missing_source_locator"
+  }
+  if ($fileCount -gt 0 -and ($retrieveHitCount -lt $fileCount -or $citationCount -lt $fileCount)) {
+    $reviewReasons += "retrieval_or_citation_missing"
+  }
+  if ($null -ne $negativeCaseFailCount -and [int]$negativeCaseFailCount -gt 0) {
+    $reviewReasons += "parser_boundary_failed"
+  }
+  if ($null -ne $unsupportedUploadRejected -and -not [bool]$unsupportedUploadRejected) {
+    $reviewReasons += "unsupported_upload_not_rejected"
+  }
+
+  $unavailableMetrics = @()
+  if ($chunkCountKnown -lt $fileCount) {
+    $unavailableMetrics += "chunkCount"
+  }
+  if ($warningCountKnown -lt $fileCount) {
+    $unavailableMetrics += "warningCount"
+  }
+
+  return [ordered]@{
+    schemaVersion = 1
+    qualityStatus = $qualityStatus
+    fileTypeCoverage = [ordered]@{
+      expectedTypes = $expectedTypes
+      coveredTypes = $coveredTypes
+      missingTypes = $missingTypes
+      allCovered = ($missingTypes.Count -eq 0)
+    }
+    parseStatusSummary = [ordered]@{
+      fileCount = $fileCount
+      parsedFileCount = $parsedFileCount
+      parserFailureCount = $parserFailureCount
+      parsePassRate = Get-SafeRate $parsedFileCount $fileCount
+    }
+    sourceLocatorSummary = [ordered]@{
+      sourceLocatorCount = $sourceLocatorCount
+      fileCount = $fileCount
+      sourceLocatorCoverageRate = Get-SafeRate $sourceLocatorCount $fileCount
+      missingLocatorTypes = $missingLocatorTypes
+    }
+    ragChainSummary = [ordered]@{
+      chunkCountKnown = $chunkCountKnown
+      chunkCount = $chunkCount
+      retrieveHitCount = $retrieveHitCount
+      citationCount = $citationCount
+      retrieveCoverageRate = Get-SafeRate $retrieveHitCount $fileCount
+      citationCoverageRate = Get-SafeRate $citationCount $fileCount
+    }
+    boundarySummary = [ordered]@{
+      negativeCaseCount = $negativeCaseCount
+      negativeCasePassCount = $negativeCasePassCount
+      negativeCaseFailCount = $negativeCaseFailCount
+      boundaryPassRate = Get-SafeRate $negativeCasePassCount $negativeCaseCount
+      unsupportedUploadRejected = $unsupportedUploadRejected
+    }
+    warningsSummary = [ordered]@{
+      warningCountKnown = $warningCountKnown
+      totalWarningCount = $totalWarningCount
+      filesWithWarnings = $filesWithWarnings
+    }
+    reviewReasons = $reviewReasons
+    unavailableMetrics = $unavailableMetrics
+  }
+}
+
 if ($Mode -eq "plan") {
   [ordered]@{
     mode = "plan"
     willCreateBusinessData = $false
     runModeOnly = @("start local tunnel/backend/frontend if needed", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "validate retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
-    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "citationPresent", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode")
+    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "citationPresent", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -727,6 +849,7 @@ if ($Mode -eq "dry-run") {
     willCreateBusinessData = $false
     checks = @("script parameters parsed", "fixture recipes available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
     supportedTypes = @("PDF", "HTML", "DOCX")
+    parserQualityReport = @("fileTypeCoverage", "parseStatusSummary", "sourceLocatorSummary", "ragChainSummary", "boundarySummary", "warningsSummary", "reviewReasons")
   } | ConvertTo-Json -Depth 10
   exit 0
 }
@@ -834,6 +957,7 @@ try {
     gates = $script:Gates
     files = $results
     boundary = $boundary
+    parserQualityReport = New-ParserQualityReport $results $boundary $script:OverallStatus
     artifactRedacted = $true
     cleanup = "temporary business data is marker-scoped; no existing business data is deleted by this script"
   }

@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-08 Document Parser 解析质量报告 / Console parser 诊断增强
+
+- `document-parser-real-chain-smoke.ps1` 新增脱敏 `parserQualityReport`，聚合文件类型覆盖、解析成功率、来源定位覆盖、RAG 检索 / 引用覆盖、错误边界通过率、warning 统计可用性和 review reasons。
+- `QualityRunDiagnostics` 新增 `parserQuality`，`QualityArtifactServiceImpl` 只按白名单解析 report 的数值、布尔值和安全短 bucket；单测覆盖 report 解析和 prompt / answer / content 字段不泄露。
+- `/quality` 的“文档解析质量摘要”新增格式覆盖、解析成功率、检索与引用覆盖、错误边界四张诊断卡，并对缺失指标显示“暂无统计”，避免把未知样本显示为 0。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（39 tests，1 skipped）；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 桌面和 `390px` 移动端均无 console error、无横向溢出。
+- 边界：本片不改 parser / RAG 主链路，不新增数据库表，不启动真实 run，不创建业务数据，不提交 artifact 原文，不 push；下一片进入 fixture corpus v3 和真实链路回归。
+
 ## 2026-07-06 Document Parser Quality Console parser 指标展示增强
 
 - `/quality` 的 Artifact 分区新增“文档解析质量摘要”，直接展示 Document Parser smoke 的关键脱敏指标：解析成功文件、切片总数、检索 / 引用、来源定位、解析失败数、运行耗时、负向边界通过和不支持格式拒绝。

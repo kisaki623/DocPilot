@@ -780,8 +780,63 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                         nullableInt(memoryHitCount),
                         nullableInt(memoryReviewCount),
                         nullableInt(contextSources.ragEvidenceCount)
-                )
+                ),
+                parserQualitySummary(root.path("parserQualityReport"))
         );
+    }
+
+    private QualityRunDiagnostics.ParserQualitySummary parserQualitySummary(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return QualityRunDiagnostics.ParserQualitySummary.empty();
+        }
+        JsonNode fileTypeCoverage = node.path("fileTypeCoverage");
+        JsonNode parseStatusSummary = node.path("parseStatusSummary");
+        JsonNode sourceLocatorSummary = node.path("sourceLocatorSummary");
+        JsonNode ragChainSummary = node.path("ragChainSummary");
+        JsonNode boundarySummary = node.path("boundarySummary");
+        JsonNode warningsSummary = node.path("warningsSummary");
+        return new QualityRunDiagnostics.ParserQualitySummary(
+                arraySize(fileTypeCoverage.path("expectedTypes")),
+                arraySize(fileTypeCoverage.path("coveredTypes")),
+                arraySize(fileTypeCoverage.path("missingTypes")),
+                optionalBoolean(fileTypeCoverage, "allCovered").orElse(null),
+                optionalInt(parseStatusSummary, "fileCount"),
+                optionalInt(parseStatusSummary, "parsedFileCount"),
+                optionalInt(parseStatusSummary, "parserFailureCount"),
+                optionalDouble(parseStatusSummary, "parsePassRate"),
+                optionalInt(sourceLocatorSummary, "sourceLocatorCount"),
+                optionalDouble(sourceLocatorSummary, "sourceLocatorCoverageRate"),
+                optionalInt(ragChainSummary, "chunkCountKnown"),
+                optionalInt(ragChainSummary, "chunkCount"),
+                optionalInt(ragChainSummary, "retrieveHitCount"),
+                optionalInt(ragChainSummary, "citationCount"),
+                optionalDouble(ragChainSummary, "retrieveCoverageRate"),
+                optionalDouble(ragChainSummary, "citationCoverageRate"),
+                optionalInt(boundarySummary, "negativeCaseCount"),
+                optionalInt(boundarySummary, "negativeCasePassCount"),
+                optionalInt(boundarySummary, "negativeCaseFailCount"),
+                optionalDouble(boundarySummary, "boundaryPassRate"),
+                optionalBoolean(boundarySummary, "unsupportedUploadRejected").orElse(null),
+                optionalInt(warningsSummary, "warningCountKnown"),
+                optionalInt(warningsSummary, "totalWarningCount"),
+                optionalInt(warningsSummary, "filesWithWarnings"),
+                stringList(node.path("reviewReasons")),
+                stringList(node.path("unavailableMetrics"))
+        );
+    }
+
+    private Integer arraySize(JsonNode node) {
+        return node != null && node.isArray() ? node.size() : null;
+    }
+
+    private Integer optionalInt(JsonNode node, String fieldName) {
+        JsonNode value = node.path(fieldName);
+        return value.isNumber() && !isSensitiveField(fieldName) ? value.intValue() : null;
+    }
+
+    private Double optionalDouble(JsonNode node, String fieldName) {
+        JsonNode value = node.path(fieldName);
+        return value.isNumber() && !isSensitiveField(fieldName) ? value.doubleValue() : null;
     }
 
     private void collectSafeObjectSummaries(JsonNode node,

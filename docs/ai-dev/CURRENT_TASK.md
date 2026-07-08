@@ -1,5 +1,17 @@
 # Current Task
 
+当前任务：Document Parser 解析质量报告 / Quality Console parser 诊断增强（DONE）；下一片：Document Parser fixture corpus v3 / 真实链路质量回归（READY）
+
+## 2026-07-08 补充：Document Parser 解析质量报告 / Quality Console parser 诊断增强
+
+- 目标：把 Document Parser smoke 从“几个 gate 数字可见”推进到“可诊断解析质量报告”，让 `/quality` 能直接判断 PDF / HTML / DOCX 覆盖、解析成功率、source locator 覆盖、RAG retrieve / citation 覆盖和错误边界是否可信。
+- 已完成 smoke artifact 增强：`scripts/smoke/document-parser-real-chain-smoke.ps1` 的 `run` artifact 新增脱敏 `parserQualityReport`，仅由现有安全 `files`、`boundary` 和 gate 数值派生，包含 `fileTypeCoverage`、`parseStatusSummary`、`sourceLocatorSummary`、`ragChainSummary`、`boundarySummary`、`warningsSummary`、`reviewReasons` 和 `unavailableMetrics`。
+- 已完成后端白名单解析：`QualityRunDiagnostics` 新增 `parserQuality` 安全摘要；`QualityArtifactServiceImpl` 只读取数值、布尔值和安全短 bucket，不透传 raw artifact，也不返回 prompt、answer、文档全文、evidence context、异常堆栈、secret、连接串或云地址。
+- 已完成前端展示：`/quality` 的“文档解析质量摘要”优先展示 parser quality report，增加格式覆盖、解析成功率、检索与引用覆盖、错误边界四张诊断卡；缺失指标显示“暂无统计”，不会把缺样本误显示为 0。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS（39 tests，1 skipped）；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面和 `390px` 移动端均无 console error、无横向溢出。
+- 边界：本片不改 parser / RAG 主链路，不新增数据库表，不启动真实云链路 run，不创建业务数据，不提交 artifact 原文，不 push。真实 parser report 可见性将在下一片通过 `document-parser-real-chain-smoke.ps1 -Mode run` 和 `/quality?autoload=1` 验证。
+- 下一片建议：进入 Document Parser fixture corpus v3 / 真实链路质量回归，补更复杂但仍非 OCR 的 PDF / HTML / DOCX fixture，并跑一次真实上传、parse、chunk、retrieve、QA citation 和 Quality Console 可见性闭环。
+
 当前任务：Document Parser Quality Console parser 指标展示增强（DONE）；下一片：Document Parser 解析质量报告 / fixture corpus v3（READY）
 
 ## 2026-07-06 补充：Document Parser Quality Console parser 指标展示增强

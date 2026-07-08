@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-08 当前补充
+
+- Document Parser 解析质量报告 / Quality Console parser 诊断增强已完成。`scripts/smoke/document-parser-real-chain-smoke.ps1` 的 `run` artifact 新增脱敏 `parserQualityReport`，从现有安全摘要派生文件类型覆盖、解析成功率、source locator 覆盖、RAG retrieve / citation 覆盖、错误边界通过率、warning 统计可用性和 review reasons；不保存文档全文、prompt、answer、evidence context、异常堆栈、secret、连接串或云地址。
+- Agent Quality Console 后端 `QualityRunDiagnostics` 已新增 `parserQuality` 安全摘要，`QualityArtifactServiceImpl` 只按白名单读取 parser report 中的数值、布尔值和安全短 bucket；未知字段和敏感字段不会透传到 API。
+- `/quality` 的“文档解析质量摘要”已从普通 gate 数字升级为诊断卡展示：格式覆盖、解析成功率、检索与引用覆盖、错误边界；缺失 token / parser 指标继续显示“暂无统计”，不会把缺样本当作 0。
+- 已验证 `mvn "-Dtest=*Quality*" test` PASS（39 tests，1 skipped）、`document-parser-real-chain-smoke.ps1 -Mode plan` PASS、`-Mode dry-run` PASS、`npm run lint` PASS、`npm run build` PASS、Playwright `/quality?routeSmoke=2` 桌面和 `390px` 移动端无 console error、无横向溢出。本片没有启动真实 run、没有创建业务数据、没有提交 artifact 原文、没有 push。
+- 当前边界：parser 主链路仍保持 MVP 范围，不做 OCR、扫描件识别、外部网页抓取、旧 `.doc`、复杂版面还原或 PDF 坐标级 citation；下一片应通过真实 `document-parser-real-chain-smoke.ps1 -Mode run` 验证 parser report 在 `/quality?autoload=1` 的可见性，并继续扩 fixture corpus v3。
+
 ## 2026-06-29 当前补充
 
 - 2026-07-06 Agent Quality Console 已接入 Document Parser 指标展示。`/quality` 的 Artifact 分区新增“文档解析质量摘要”，基于已有 `parserRealChain` / `parserBoundary` gate 展示解析成功文件、切片总数、检索 / 引用、来源定位、解析失败数、运行耗时、负向边界通过数和不支持格式拒绝；前端标签层补充 parser gate / metrics 中文展示。本片只使用 Quality API 既有脱敏数值 / 布尔字段，不读取 raw artifact，不展示文档全文、prompt、answer、evidence context、异常堆栈或任何凭据。已验证 `npm run lint` PASS、`npm run build` PASS，Playwright mock Quality API 桌面和 `390px` 移动端 PASS，端口已清理释放。

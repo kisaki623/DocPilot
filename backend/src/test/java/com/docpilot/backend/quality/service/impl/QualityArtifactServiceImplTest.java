@@ -280,7 +280,54 @@ class QualityArtifactServiceImplTest {
                       "answer": "ANSWER_SHOULD_NOT_LEAK",
                       "content": "DOCUMENT_TEXT_SHOULD_NOT_LEAK"
                     }
-                  ]
+                  ],
+                  "parserQualityReport": {
+                    "schemaVersion": 1,
+                    "qualityStatus": "PASS",
+                    "fileTypeCoverage": {
+                      "expectedTypes": ["PDF", "HTML", "DOCX"],
+                      "coveredTypes": ["PDF", "HTML", "DOCX"],
+                      "missingTypes": [],
+                      "allCovered": true
+                    },
+                    "parseStatusSummary": {
+                      "fileCount": 3,
+                      "parsedFileCount": 3,
+                      "parserFailureCount": 0,
+                      "parsePassRate": 1.0
+                    },
+                    "sourceLocatorSummary": {
+                      "sourceLocatorCount": 3,
+                      "fileCount": 3,
+                      "sourceLocatorCoverageRate": 1.0,
+                      "missingLocatorTypes": []
+                    },
+                    "ragChainSummary": {
+                      "chunkCountKnown": 3,
+                      "chunkCount": 3,
+                      "retrieveHitCount": 3,
+                      "citationCount": 3,
+                      "retrieveCoverageRate": 1.0,
+                      "citationCoverageRate": 1.0
+                    },
+                    "boundarySummary": {
+                      "negativeCaseCount": 4,
+                      "negativeCasePassCount": 4,
+                      "negativeCaseFailCount": 0,
+                      "boundaryPassRate": 1.0,
+                      "unsupportedUploadRejected": true
+                    },
+                    "warningsSummary": {
+                      "warningCountKnown": 1,
+                      "totalWarningCount": 0,
+                      "filesWithWarnings": 0
+                    },
+                    "reviewReasons": [],
+                    "unavailableMetrics": ["warningCount"],
+                    "prompt": "PROMPT_IN_REPORT_SHOULD_NOT_LEAK",
+                    "answer": "ANSWER_IN_REPORT_SHOULD_NOT_LEAK",
+                    "content": "CONTENT_IN_REPORT_SHOULD_NOT_LEAK"
+                  }
                 }
                 """, StandardCharsets.UTF_8);
 
@@ -303,12 +350,22 @@ class QualityArtifactServiceImplTest {
                 .containsEntry("retrieveHit", true)
                 .containsEntry("citationPresent", true)
                 .containsEntry("sourceLocatorPresent", true);
+        assertThat(detail.diagnostics().parserQuality().allFileTypesCovered()).isTrue();
+        assertThat(detail.diagnostics().parserQuality().fileCount()).isEqualTo(3);
+        assertThat(detail.diagnostics().parserQuality().parsedFileCount()).isEqualTo(3);
+        assertThat(detail.diagnostics().parserQuality().parsePassRate()).isEqualTo(1.0);
+        assertThat(detail.diagnostics().parserQuality().sourceLocatorCoverageRate()).isEqualTo(1.0);
+        assertThat(detail.diagnostics().parserQuality().boundaryPassRate()).isEqualTo(1.0);
+        assertThat(detail.diagnostics().parserQuality().unavailableMetrics()).containsExactly("warningCount");
 
         String serialized = objectMapper.writeValueAsString(detail);
         assertThat(serialized)
                 .doesNotContain("PROMPT_SHOULD_NOT_LEAK")
                 .doesNotContain("ANSWER_SHOULD_NOT_LEAK")
-                .doesNotContain("DOCUMENT_TEXT_SHOULD_NOT_LEAK");
+                .doesNotContain("DOCUMENT_TEXT_SHOULD_NOT_LEAK")
+                .doesNotContain("PROMPT_IN_REPORT_SHOULD_NOT_LEAK")
+                .doesNotContain("ANSWER_IN_REPORT_SHOULD_NOT_LEAK")
+                .doesNotContain("CONTENT_IN_REPORT_SHOULD_NOT_LEAK");
     }
 
     @Test

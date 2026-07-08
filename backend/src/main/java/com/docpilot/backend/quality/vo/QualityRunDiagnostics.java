@@ -1,22 +1,27 @@
 package com.docpilot.backend.quality.vo;
 
+import java.util.List;
+
 public record QualityRunDiagnostics(
         DocumentCoverageSummary documentCoverage,
         ToolQualitySummary toolQuality,
-        MemoryQualitySummary memoryQuality
+        MemoryQualitySummary memoryQuality,
+        ParserQualitySummary parserQuality
 ) {
 
     public QualityRunDiagnostics {
         documentCoverage = documentCoverage == null ? DocumentCoverageSummary.empty() : documentCoverage;
         toolQuality = toolQuality == null ? ToolQualitySummary.empty() : toolQuality;
         memoryQuality = memoryQuality == null ? MemoryQualitySummary.empty() : memoryQuality;
+        parserQuality = parserQuality == null ? ParserQualitySummary.empty() : parserQuality;
     }
 
     public static QualityRunDiagnostics empty() {
         return new QualityRunDiagnostics(
                 DocumentCoverageSummary.empty(),
                 ToolQualitySummary.empty(),
-                MemoryQualitySummary.empty()
+                MemoryQualitySummary.empty(),
+                ParserQualitySummary.empty()
         );
     }
 
@@ -53,6 +58,53 @@ public record QualityRunDiagnostics(
 
         public static MemoryQualitySummary empty() {
             return new MemoryQualitySummary(null, null, null, null);
+        }
+    }
+
+    public record ParserQualitySummary(
+            Integer expectedFileTypeCount,
+            Integer coveredFileTypeCount,
+            Integer missingFileTypeCount,
+            Boolean allFileTypesCovered,
+            Integer fileCount,
+            Integer parsedFileCount,
+            Integer parserFailureCount,
+            Double parsePassRate,
+            Integer sourceLocatorCount,
+            Double sourceLocatorCoverageRate,
+            Integer chunkCountKnown,
+            Integer chunkCount,
+            Integer retrieveHitCount,
+            Integer citationCount,
+            Double retrieveCoverageRate,
+            Double citationCoverageRate,
+            Integer negativeCaseCount,
+            Integer negativeCasePassCount,
+            Integer negativeCaseFailCount,
+            Double boundaryPassRate,
+            Boolean unsupportedUploadRejected,
+            Integer warningCountKnown,
+            Integer totalWarningCount,
+            Integer filesWithWarnings,
+            List<String> reviewReasons,
+            List<String> unavailableMetrics
+    ) {
+
+        public ParserQualitySummary {
+            reviewReasons = reviewReasons == null ? List.of() : List.copyOf(reviewReasons);
+            unavailableMetrics = unavailableMetrics == null ? List.of() : List.copyOf(unavailableMetrics);
+        }
+
+        public static ParserQualitySummary empty() {
+            return new ParserQualitySummary(
+                    null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null,
+                    null, null, null, null,
+                    List.of(), List.of()
+            );
         }
     }
 }
