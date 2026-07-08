@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-08 单文档 document_search_tool 最小闭环
+
+- 新增 `DocumentSearchTool`，复用 `RagDocumentRetrievalService`，提供 retrieval-only Agent 工具；ToolSpec、ToolCall callable subset、参数校验和输入映射已同步接入。
+- 工具输出使用安全 DTO：`SearchHit` / `SearchCitation` 只返回 rank、score、source locator、chunk 元数据、contentHash 和限长 quote/snippet，不透传完整 chunk content、文档全文、prompt 或 answer 原文。
+- 已补测试：`DocumentSearchToolTest`、`ToolCallServiceImplTest`、`DefaultToolSpecProviderTest`、`ToolArgumentValidatorTest`、`ToolSpecRegistryTest`、`ToolDefinitionProviderTest`、`OpenAiToolSchemaAdapterTest` 覆盖工具注册、schema、ToolCall 调用、参数归一化、scope rejection 和安全预览。
+- 验证：`mvn "-Dtest=DocumentSearchToolTest,ToolCallServiceImplTest,DefaultToolSpecProviderTest,ToolArgumentValidatorTest,OpenAiToolSchemaAdapterTest" test` PASS（24 tests）；`mvn "-Dtest=*Tool*,*ToolCall*,RagDocumentRetrievalServiceImplTest" test` PASS（123 tests）。
+- 边界：本片不改 Agent 旧关键词路由，不做 KB search tool，不改 RAG 主链路，不新增数据库表，不启动真实链路，不提交 artifact 原文。
+
 ## 2026-07-08 Agent Document Search Tool 路线沉淀
 
 - 复核 Agent Tool 现状：项目已有 `rag_qa_tool`，但它是 answer-generating QA 工具；ToolCall API 当前只开放 `document_status_tool` 与 `rag_qa_tool`，没有 retrieval-only 的 `document_search_tool`。

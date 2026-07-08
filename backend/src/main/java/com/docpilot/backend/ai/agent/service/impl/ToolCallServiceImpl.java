@@ -4,6 +4,7 @@ import com.docpilot.backend.ai.agent.dto.ToolCallRequest;
 import com.docpilot.backend.ai.agent.service.ToolCallService;
 import com.docpilot.backend.ai.agent.tool.AgentTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.spec.ToolArgumentValidator;
@@ -26,6 +27,7 @@ public class ToolCallServiceImpl implements ToolCallService {
 
     private static final Set<String> CALLABLE_TOOLS = Set.of(
             "document_status_tool",
+            DocumentSearchTool.TOOL_NAME,
             DocumentRagQaTool.TOOL_NAME
     );
 
@@ -108,6 +110,16 @@ public class ToolCallServiceImpl implements ToolCallService {
                         durationMs,
                         ragResult.citations(),
                         ragResult.retrievalHits()
+                );
+            }
+            if (result instanceof DocumentSearchTool.SearchResult searchResult) {
+                return ToolCallResult.success(
+                        toolName,
+                        searchResult,
+                        searchResult.outputSummary(),
+                        durationMs,
+                        searchResult.citations(),
+                        searchResult.hits()
                 );
             }
             return ToolCallResult.success(toolName, result, "", durationMs, List.of(), List.of());

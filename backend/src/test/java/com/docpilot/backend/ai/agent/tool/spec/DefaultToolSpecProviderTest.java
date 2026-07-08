@@ -2,6 +2,7 @@ package com.docpilot.backend.ai.agent.tool.spec;
 
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -24,6 +25,7 @@ class DefaultToolSpecProviderTest {
         assertTrue(specs.containsKey("document_status_tool"));
         assertTrue(specs.containsKey("document_summary_tool"));
         assertTrue(specs.containsKey("document_qa_tool"));
+        assertTrue(specs.containsKey(DocumentSearchTool.TOOL_NAME));
         assertTrue(specs.containsKey(DocumentRagQaTool.TOOL_NAME));
         assertTrue(specs.containsKey(DocumentRagTool.TOOL_NAME));
     }
@@ -42,6 +44,23 @@ class DefaultToolSpecProviderTest {
         assertTrue(spec.requiredFields().contains("userId"));
         assertTrue(spec.requiredFields().contains("documentId"));
         assertTrue(spec.requiredFields().contains("question"));
+        assertTrue(spec.safeForLlmSelection());
+    }
+
+    @Test
+    void documentSearchSpecShouldUseRetrievalOnlyBoundary() {
+        ToolSpec spec = provider.getToolSpecs().stream()
+                .filter(item -> DocumentSearchTool.TOOL_NAME.equals(item.name()))
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(spec.description().contains("Retrieves evidence chunks"));
+        assertTrue(spec.description().contains("without generating an answer"));
+        assertEquals(ToolRiskLevel.MEDIUM, spec.riskLevel());
+        assertTrue(spec.requiredFields().contains("userId"));
+        assertTrue(spec.requiredFields().contains("documentId"));
+        assertTrue(spec.requiredFields().contains("query"));
+        assertTrue(spec.resultSchema().properties().containsKey("hitCount"));
         assertTrue(spec.safeForLlmSelection());
     }
 

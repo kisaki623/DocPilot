@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.agent.tool.spec;
 
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import org.springframework.stereotype.Component;
@@ -58,6 +59,9 @@ public class ToolArgumentValidator {
         normalizeOptionalString(arguments, "sessionId");
         if (DocumentRagQaTool.TOOL_NAME.equals(spec.name())) {
             normalizeRequiredString(arguments, "question");
+        }
+        if (DocumentSearchTool.TOOL_NAME.equals(spec.name())) {
+            normalizeRequiredString(arguments, "query");
         }
         normalizeOptionalString(arguments, "task");
         normalizeOptionalString(arguments, "summary");

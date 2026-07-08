@@ -2,6 +2,7 @@ package com.docpilot.backend.ai.agent.tool.spec;
 
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -18,6 +19,7 @@ public class DefaultToolSpecProvider implements ToolSpecProvider {
                 documentStatusTool(),
                 documentSummaryTool(),
                 documentQaTool(),
+                documentSearchTool(),
                 ragQaTool(),
                 legacyRagTool()
         );
@@ -87,6 +89,32 @@ public class DefaultToolSpecProvider implements ToolSpecProvider {
                 )),
                 ToolRiskLevel.MEDIUM,
                 "document_qa_tool",
+                true
+        );
+    }
+
+    private ToolSpec documentSearchTool() {
+        return new ToolSpec(
+                DocumentSearchTool.TOOL_NAME,
+                "Document search",
+                "Retrieves evidence chunks from one document with the T005 RAG retrieval workflow backed by EmbeddingProvider, VectorStoreClient and RagScopeGuard; returns safe source locators and bounded evidence previews without generating an answer.",
+                ToolParameterSchema.object(linkedMap(
+                        "userId", "Long",
+                        "documentId", "Long",
+                        "query", "String",
+                        "topK", "int|null",
+                        "indexVersion", "int|null"
+                )),
+                Set.of("userId", "documentId", "query"),
+                ToolResultSchema.object(linkedMap(
+                        "noEvidence", "boolean",
+                        "hitCount", "int",
+                        "citationCount", "int",
+                        "hits", "List",
+                        "citations", "List"
+                )),
+                ToolRiskLevel.MEDIUM,
+                DocumentSearchTool.TOOL_NAME,
                 true
         );
     }

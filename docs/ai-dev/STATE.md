@@ -2,6 +2,7 @@
 
 ## 2026-07-08 当前补充
 
+- 单文档 `document_search_tool` 已完成最小闭环。ToolCall API 现在除 `document_status_tool` 和 `rag_qa_tool` 外，也可调用 `document_search_tool`；该工具复用现有单文档 RAG retrieval 和 scope guard，只返回脱敏、限长的 retrieval hits / citations 摘要，不生成 answer，不返回完整 chunk content 或文档全文。当前仍未改 Agent 旧路由，后续再做 KB search tool 与 search intent routing。
 - Agent 工具当前进入 Document Search Tool 求职级增强。现状是 `rag_qa_tool` 已能通过现有 RAG QA 链路返回 answer、retrieval hits 和 citations，但项目还缺少一等 retrieval-only `document_search_tool`，导致 Agent 在“先搜证据 / 展示检索命中 / 诊断漏召回”场景只能绕到 QA 工具。下一片以单文档 search tool 为最小闭环，复用 `RagDocumentRetrievalService` 与既有 scope guard，不返回完整 chunk content、文档全文、prompt 或 answer 原文。
 - Document Parser 真实链路质量回归与 Quality Console 可见性收口已完成。最新真实 marker `docpilot-parser-real-chain-20260708212742-0f9baa` 为 PASS，覆盖 tunnel、受控 backend、frontend、临时用户、PDF / HTML / DOCX 上传与异步解析、chunk、RAG QA retrieval、citation、source locator、parser boundary 和 artifact redaction；三类文件均 `parseStatus=SUCCESS`、`chunkCount=1`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`，负向边界 `4/4` PASS。
 - `document-parser-real-chain-smoke.ps1` 已收口受控服务策略：默认不再静默复用已有 backend / frontend，只有显式传 `-ReuseRunningServices` 才复用；runner 自己启动 backend 时使用子进程环境设置 `AI_MODE=mock` 和 `APP_QUALITY_CONSOLE_ENABLED=true`，避免真实 provider 超时或未开启 Quality Console 造成误判，不写入配置文件。

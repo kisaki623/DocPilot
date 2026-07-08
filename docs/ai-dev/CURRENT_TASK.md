@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Agent Document Search Tool 求职级增强（READY）；下一片：单文档 `document_search_tool` 最小闭环（READY）
+当前任务：Agent Document Search Tool 单文档最小闭环（DONE）；下一片：KnowledgeBase Search Tool / Agent search intent 路由（READY）
+
+## 2026-07-08 补充：单文档 `document_search_tool` 最小闭环
+
+- 目标：新增 retrieval-only Agent 工具，让 ToolCall API 能显式执行单文档检索，而不是把“搜索证据”强行绕到 `rag_qa_tool` 的生成式 QA。
+- 已完成后端：新增 `DocumentSearchTool`，输入 `userId`、`documentId`、`query`、`topK`、`indexVersion`，复用 `RagDocumentRetrievalService`；`DefaultToolSpecProvider` 将 `document_search_tool` 作为 LLM selectable spec 暴露；`ToolCallServiceImpl` 将它加入 callable subset；`ToolInputMapper` / `ToolArgumentValidator` 支持 `query` 参数归一化和 `topK` 上限。
+- 安全边界：工具返回自定义 `SearchHit` / `SearchCitation`，只包含 rank、score、sourceName、chunkId、chunkIndex、pageNumber、sectionPath、sourceLocator、blockType、contentHash 和限长 quote/snippet；不返回完整 chunk content、文档全文、prompt、answer 原文、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=DocumentSearchToolTest,ToolCallServiceImplTest,DefaultToolSpecProviderTest,ToolArgumentValidatorTest,OpenAiToolSchemaAdapterTest" test` PASS（24 tests）；`mvn "-Dtest=*Tool*,*ToolCall*,RagDocumentRetrievalServiceImplTest" test` PASS（123 tests）。
+- 边界：本片不改 `DocumentToolSelector` 旧关键词路由，不改 `rag_qa_tool` QA 行为，不新增数据库表，不做真实 provider 大规模评测，不提交 artifact 原文，不 push。
+- 下一片建议：新增 `knowledge_base_search_tool` 复用 `KnowledgeBaseRagRetrievalService`，并规划 Agent search intent 路由，让“查找证据 / 搜索文档 / 展示来源”优先走 search tool，“请回答 / 总结 / 解释”继续走 QA tool。
 
 ## 2026-07-08 补充：Agent Document Search Tool 求职级增强路线
 

@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.agent.tool.spec;
 
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
@@ -22,6 +23,13 @@ public class ToolInputMapper {
                     requireLong(arguments, "documentId"),
                     requireString(arguments, "question"),
                     optionalString(arguments, "sessionId"),
+                    optionalInteger(arguments, "topK"),
+                    optionalInteger(arguments, "indexVersion")
+            );
+            case DocumentSearchTool.TOOL_NAME -> new DocumentSearchTool.SearchInput(
+                    requireLong(arguments, "userId"),
+                    requireLong(arguments, "documentId"),
+                    requireString(arguments, "query"),
                     optionalInteger(arguments, "topK"),
                     optionalInteger(arguments, "indexVersion")
             );

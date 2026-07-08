@@ -5,6 +5,7 @@ import com.docpilot.backend.ai.agent.service.impl.ToolCallServiceImpl;
 import com.docpilot.backend.ai.agent.tool.AgentTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.spec.DefaultToolSpecProvider;
@@ -33,6 +34,7 @@ class ToolCallServiceImplTest {
                 stubTool("document_status_tool", input -> input),
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
+                stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagTool.TOOL_NAME, input -> input)
         ));
@@ -40,10 +42,10 @@ class ToolCallServiceImplTest {
         var tools = service.listTools();
 
         assertThat(tools).extracting("name")
-                .contains("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentRagQaTool.TOOL_NAME)
+                .contains("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME)
                 .doesNotContain(DocumentRagTool.TOOL_NAME);
         assertThat(tools.stream().filter(item -> item.isCallableByToolCallApi()).map(item -> item.getName()))
-                .containsExactlyInAnyOrder("document_status_tool", DocumentRagQaTool.TOOL_NAME);
+                .containsExactlyInAnyOrder("document_status_tool", DocumentSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME);
     }
 
     @Test
@@ -56,6 +58,7 @@ class ToolCallServiceImplTest {
                 }),
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
+                stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> input)
         ));
         ToolCallRequest request = request("document_status_tool", Map.of("documentId", "101"));
@@ -78,6 +81,7 @@ class ToolCallServiceImplTest {
                 stubTool("document_status_tool", input -> input),
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
+                stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> {
                     capturedInput.set((DocumentRagQaTool.RagQaInput) input);
                     return new DocumentRagQaTool.RagQaResult(
@@ -116,11 +120,84 @@ class ToolCallServiceImplTest {
     }
 
     @Test
+    void shouldCallDocumentSearchToolWithSafeEvidence() {
+        AtomicReference<DocumentSearchTool.SearchInput> capturedInput = new AtomicReference<>();
+        var hit = new DocumentSearchTool.SearchHit(
+                1,
+                0.88d,
+                "Doc",
+                300L,
+                0,
+                2,
+                "Ops",
+                "page=2#block=1",
+                "PARAGRAPH",
+                "quote",
+                "snippet",
+                "hash"
+        );
+        var citation = new DocumentSearchTool.SearchCitation(
+                1,
+                101L,
+                "Doc",
+                2,
+                300L,
+                0,
+                2,
+                "Ops",
+                "page=2#block=1",
+                "PARAGRAPH",
+                "quote",
+                "snippet",
+                "hash",
+                0.88d
+        );
+        ToolCallServiceImpl service = serviceWithTools(List.of(
+                stubTool("document_status_tool", input -> input),
+                stubTool("document_summary_tool", input -> input),
+                stubTool("document_qa_tool", input -> input),
+                stubTool(DocumentSearchTool.TOOL_NAME, input -> {
+                    capturedInput.set((DocumentSearchTool.SearchInput) input);
+                    return new DocumentSearchTool.SearchResult(
+                            7L,
+                            101L,
+                            "cache?",
+                            10,
+                            2,
+                            false,
+                            1,
+                            1,
+                            List.of(hit),
+                            List.of(citation),
+                            "topK=10, hitCount=1, citationCount=1"
+                    );
+                }),
+                stubTool(DocumentRagQaTool.TOOL_NAME, input -> input)
+        ));
+        ToolCallRequest request = request(DocumentSearchTool.TOOL_NAME, Map.of(
+                "documentId", 101L,
+                "query", " cache? ",
+                "topK", 99,
+                "indexVersion", 2
+        ));
+
+        ToolCallResult result = service.call(7L, request);
+
+        assertEquals(ToolCallStatus.SUCCESS, result.status());
+        assertThat(capturedInput.get().topK()).isEqualTo(10);
+        assertThat(capturedInput.get().query()).isEqualTo("cache?");
+        assertThat(result.citations()).isEqualTo(List.of(citation));
+        assertThat(result.retrievalHits()).isEqualTo(List.of(hit));
+        assertThat(result.outputSummary()).contains("hitCount=1");
+    }
+
+    @Test
     void shouldReturnFailedResultWhenRagToolRejectsScope() {
         ToolCallServiceImpl service = serviceWithTools(List.of(
                 stubTool("document_status_tool", input -> input),
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
+                stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> {
                     throw new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN);
                 })
@@ -143,12 +220,14 @@ class ToolCallServiceImplTest {
                 stubTool("document_status_tool", input -> input),
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
+                stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> input)
         ));
 
         assertThrows(BusinessException.class, () -> service.call(7L, request("missing_tool", Map.of())));
         assertThrows(BusinessException.class, () -> service.call(7L, request("document_summary_tool", Map.of("task", "summary"))));
         assertThrows(BusinessException.class, () -> service.call(7L, request(DocumentRagQaTool.TOOL_NAME, Map.of("documentId", 101L))));
+        assertThrows(BusinessException.class, () -> service.call(7L, request(DocumentSearchTool.TOOL_NAME, Map.of("documentId", 101L))));
         assertThrows(BusinessException.class, () -> service.call(7L, request(DocumentRagQaTool.TOOL_NAME, Map.of(
                 "documentId", 101L,
                 "question", "cache?",

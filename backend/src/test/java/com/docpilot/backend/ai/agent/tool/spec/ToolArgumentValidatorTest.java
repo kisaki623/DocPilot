@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.agent.tool.spec;
 
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,34 @@ class ToolArgumentValidatorTest {
     }
 
     @Test
+    void shouldNormalizeSearchArguments() {
+        Map<String, Object> result = validator.validate(7L, searchSpec(), Map.of(
+                "documentId", "101",
+                "query", "  cache?  ",
+                "topK", 30,
+                "indexVersion", "2"
+        ));
+
+        assertThat(result)
+                .containsEntry("userId", 7L)
+                .containsEntry("documentId", 101L)
+                .containsEntry("query", "cache?")
+                .containsEntry("topK", ToolArgumentValidator.MAX_TOP_K)
+                .containsEntry("indexVersion", 2);
+    }
+
+    @Test
+    void shouldRejectBlankSearchQuery() {
+        BusinessException ex = assertThrows(BusinessException.class, () -> validator.validate(7L, searchSpec(), Map.of(
+                "documentId", 101L,
+                "query", " "
+        )));
+
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+        assertThat(ex.getMessage()).contains("query");
+    }
+
+    @Test
     void shouldRejectWrongTypes() {
         BusinessException ex = assertThrows(BusinessException.class, () -> validator.validate(7L, ragSpec(), Map.of(
                 "documentId", "not-a-number",
@@ -107,6 +136,26 @@ class ToolArgumentValidatorTest {
                 ToolResultSchema.object(Map.of("answer", "String")),
                 ToolRiskLevel.MEDIUM,
                 DocumentRagQaTool.TOOL_NAME,
+                true
+        );
+    }
+
+    private ToolSpec searchSpec() {
+        return new ToolSpec(
+                DocumentSearchTool.TOOL_NAME,
+                "Document search",
+                "Document search",
+                ToolParameterSchema.object(Map.of(
+                        "userId", "Long",
+                        "documentId", "Long",
+                        "query", "String",
+                        "topK", "int|null",
+                        "indexVersion", "int|null"
+                )),
+                Set.of("userId", "documentId", "query"),
+                ToolResultSchema.object(Map.of("hits", "List")),
+                ToolRiskLevel.MEDIUM,
+                DocumentSearchTool.TOOL_NAME,
                 true
         );
     }
