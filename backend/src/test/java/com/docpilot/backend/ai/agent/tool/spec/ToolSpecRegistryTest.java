@@ -4,6 +4,7 @@ import com.docpilot.backend.ai.agent.tool.AgentTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
+import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import org.junit.jupiter.api.Test;
 
@@ -24,8 +25,9 @@ class ToolSpecRegistryTest {
 
         List<ToolSpec> selectable = registry.listLlmSelectable();
 
-        assertEquals(5, selectable.size());
+        assertEquals(6, selectable.size());
         assertTrue(selectable.stream().anyMatch(spec -> DocumentSearchTool.TOOL_NAME.equals(spec.name())));
+        assertTrue(selectable.stream().anyMatch(spec -> KnowledgeBaseSearchTool.TOOL_NAME.equals(spec.name())));
         assertTrue(selectable.stream().anyMatch(spec -> DocumentRagQaTool.TOOL_NAME.equals(spec.name())));
         assertFalse(selectable.stream().anyMatch(spec -> DocumentRagTool.TOOL_NAME.equals(spec.name())));
         assertFalse(registry.isLlmSelectable(DocumentRagTool.TOOL_NAME));
@@ -63,6 +65,7 @@ class ToolSpecRegistryTest {
                 new StubTool("document_summary_tool"),
                 new StubTool("document_qa_tool"),
                 new StubTool(DocumentSearchTool.TOOL_NAME),
+                new StubTool(KnowledgeBaseSearchTool.TOOL_NAME),
                 new StubTool(DocumentRagQaTool.TOOL_NAME),
                 new StubTool(DocumentRagTool.TOOL_NAME)
         ));

@@ -6,6 +6,7 @@ import com.docpilot.backend.ai.agent.tool.AgentTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
+import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.spec.ToolArgumentValidator;
 import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
@@ -28,6 +29,7 @@ public class ToolCallServiceImpl implements ToolCallService {
     private static final Set<String> CALLABLE_TOOLS = Set.of(
             "document_status_tool",
             DocumentSearchTool.TOOL_NAME,
+            KnowledgeBaseSearchTool.TOOL_NAME,
             DocumentRagQaTool.TOOL_NAME
     );
 
@@ -113,6 +115,16 @@ public class ToolCallServiceImpl implements ToolCallService {
                 );
             }
             if (result instanceof DocumentSearchTool.SearchResult searchResult) {
+                return ToolCallResult.success(
+                        toolName,
+                        searchResult,
+                        searchResult.outputSummary(),
+                        durationMs,
+                        searchResult.citations(),
+                        searchResult.hits()
+                );
+            }
+            if (result instanceof KnowledgeBaseSearchTool.SearchResult searchResult) {
                 return ToolCallResult.success(
                         toolName,
                         searchResult,

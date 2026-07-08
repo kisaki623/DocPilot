@@ -17,6 +17,7 @@ class ToolDefinitionProviderTest {
             new StubTool("document_summary_tool"),
             new StubTool("document_qa_tool"),
             new StubTool(DocumentSearchTool.TOOL_NAME),
+            new StubTool(KnowledgeBaseSearchTool.TOOL_NAME),
             new StubTool(DocumentRagQaTool.TOOL_NAME)
     )));
 
@@ -24,11 +25,12 @@ class ToolDefinitionProviderTest {
     void shouldReturnDefinitionsForCurrentTools() {
         List<ToolDefinition> definitions = provider.getAllDefinitions();
 
-        assertEquals(5, definitions.size());
+        assertEquals(6, definitions.size());
         assertTrue(definitions.stream().anyMatch(definition -> "document_status_tool".equals(definition.toolName())));
         assertTrue(definitions.stream().anyMatch(definition -> "document_summary_tool".equals(definition.toolName())));
         assertTrue(definitions.stream().anyMatch(definition -> "document_qa_tool".equals(definition.toolName())));
         assertTrue(definitions.stream().anyMatch(definition -> DocumentSearchTool.TOOL_NAME.equals(definition.toolName())));
+        assertTrue(definitions.stream().anyMatch(definition -> KnowledgeBaseSearchTool.TOOL_NAME.equals(definition.toolName())));
         assertTrue(definitions.stream().anyMatch(definition -> DocumentRagQaTool.TOOL_NAME.equals(definition.toolName())));
     }
 
@@ -67,6 +69,7 @@ class ToolDefinitionProviderTest {
                 new StubTool("document_summary_tool"),
                 new StubTool("document_qa_tool"),
                 new StubTool(DocumentSearchTool.TOOL_NAME),
+                new StubTool(KnowledgeBaseSearchTool.TOOL_NAME),
                 new StubTool(DocumentRagQaTool.TOOL_NAME),
                 new StubTool(DocumentRagTool.TOOL_NAME)
         )));

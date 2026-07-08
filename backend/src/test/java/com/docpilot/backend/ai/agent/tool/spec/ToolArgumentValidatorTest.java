@@ -2,6 +2,7 @@ package com.docpilot.backend.ai.agent.tool.spec;
 
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
+import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
@@ -111,6 +112,49 @@ class ToolArgumentValidatorTest {
     }
 
     @Test
+    void shouldNormalizeKnowledgeBaseSearchArguments() {
+        Map<String, Object> result = validator.validate(7L, knowledgeBaseSearchSpec(), Map.of(
+                "knowledgeBaseId", "10",
+                "query", "  cache?  ",
+                "topK", 30,
+                "indexVersion", "2",
+                "multiQueryEnabled", "true",
+                "maxQueryVariants", "3"
+        ));
+
+        assertThat(result)
+                .containsEntry("userId", 7L)
+                .containsEntry("knowledgeBaseId", 10L)
+                .containsEntry("query", "cache?")
+                .containsEntry("topK", ToolArgumentValidator.MAX_TOP_K)
+                .containsEntry("indexVersion", 2)
+                .containsEntry("multiQueryEnabled", true)
+                .containsEntry("maxQueryVariants", 3);
+    }
+
+    @Test
+    void shouldRejectInvalidMaxQueryVariants() {
+        BusinessException ex = assertThrows(BusinessException.class, () -> validator.validate(7L, knowledgeBaseSearchSpec(), Map.of(
+                "knowledgeBaseId", 10L,
+                "query", "cache?",
+                "maxQueryVariants", 6
+        )));
+
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+    }
+
+    @Test
+    void shouldRejectInvalidBooleanArgument() {
+        BusinessException ex = assertThrows(BusinessException.class, () -> validator.validate(7L, knowledgeBaseSearchSpec(), Map.of(
+                "knowledgeBaseId", 10L,
+                "query", "cache?",
+                "multiQueryEnabled", "maybe"
+        )));
+
+        assertEquals(ErrorCode.BAD_REQUEST, ex.getErrorCode());
+    }
+
+    @Test
     void shouldRejectWrongTypes() {
         BusinessException ex = assertThrows(BusinessException.class, () -> validator.validate(7L, ragSpec(), Map.of(
                 "documentId", "not-a-number",
@@ -156,6 +200,28 @@ class ToolArgumentValidatorTest {
                 ToolResultSchema.object(Map.of("hits", "List")),
                 ToolRiskLevel.MEDIUM,
                 DocumentSearchTool.TOOL_NAME,
+                true
+        );
+    }
+
+    private ToolSpec knowledgeBaseSearchSpec() {
+        return new ToolSpec(
+                KnowledgeBaseSearchTool.TOOL_NAME,
+                "KnowledgeBase search",
+                "KnowledgeBase search",
+                ToolParameterSchema.object(Map.of(
+                        "userId", "Long",
+                        "knowledgeBaseId", "Long",
+                        "query", "String",
+                        "topK", "int|null",
+                        "indexVersion", "int|null",
+                        "multiQueryEnabled", "boolean|null",
+                        "maxQueryVariants", "int|null"
+                )),
+                Set.of("userId", "knowledgeBaseId", "query"),
+                ToolResultSchema.object(Map.of("hits", "List")),
+                ToolRiskLevel.MEDIUM,
+                KnowledgeBaseSearchTool.TOOL_NAME,
                 true
         );
     }

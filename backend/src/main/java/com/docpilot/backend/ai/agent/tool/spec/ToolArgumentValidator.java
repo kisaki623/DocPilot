@@ -2,6 +2,7 @@ package com.docpilot.backend.ai.agent.tool.spec;
 
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
+import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import org.springframework.stereotype.Component;
@@ -40,6 +41,12 @@ public class ToolArgumentValidator {
             arguments.put("documentId", documentId);
         }
 
+        Long knowledgeBaseId = optionalLong(arguments, "knowledgeBaseId");
+        if (knowledgeBaseId != null) {
+            requirePositive(knowledgeBaseId, "knowledgeBaseId");
+            arguments.put("knowledgeBaseId", knowledgeBaseId);
+        }
+
         Integer topK = optionalInteger(arguments, "topK");
         if (topK != null) {
             if (topK <= 0) {
@@ -56,11 +63,22 @@ public class ToolArgumentValidator {
             arguments.put("indexVersion", indexVersion);
         }
 
+        Integer maxQueryVariants = optionalInteger(arguments, "maxQueryVariants");
+        if (maxQueryVariants != null) {
+            if (maxQueryVariants < 1 || maxQueryVariants > 5) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "maxQueryVariants must be between 1 and 5");
+            }
+            arguments.put("maxQueryVariants", maxQueryVariants);
+        }
+
+        normalizeOptionalBoolean(arguments, "multiQueryEnabled");
+
         normalizeOptionalString(arguments, "sessionId");
         if (DocumentRagQaTool.TOOL_NAME.equals(spec.name())) {
             normalizeRequiredString(arguments, "question");
         }
-        if (DocumentSearchTool.TOOL_NAME.equals(spec.name())) {
+        if (DocumentSearchTool.TOOL_NAME.equals(spec.name())
+                || KnowledgeBaseSearchTool.TOOL_NAME.equals(spec.name())) {
             normalizeRequiredString(arguments, "query");
         }
         normalizeOptionalString(arguments, "task");
@@ -92,6 +110,25 @@ public class ToolArgumentValidator {
         }
         String value = optionalString(arguments, fieldName);
         arguments.put(fieldName, value == null ? "" : value.trim());
+    }
+
+    private void normalizeOptionalBoolean(Map<String, Object> arguments, String fieldName) {
+        if (!arguments.containsKey(fieldName) || arguments.get(fieldName) == null) {
+            return;
+        }
+        Object value = arguments.get(fieldName);
+        if (value instanceof Boolean booleanValue) {
+            arguments.put(fieldName, booleanValue);
+            return;
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            String normalized = text.trim().toLowerCase(java.util.Locale.ROOT);
+            if ("true".equals(normalized) || "false".equals(normalized)) {
+                arguments.put(fieldName, Boolean.parseBoolean(normalized));
+                return;
+            }
+        }
+        throw new BusinessException(ErrorCode.BAD_REQUEST, fieldName + " must be a boolean");
     }
 
     private Long optionalLong(Map<String, Object> arguments, String fieldName) {

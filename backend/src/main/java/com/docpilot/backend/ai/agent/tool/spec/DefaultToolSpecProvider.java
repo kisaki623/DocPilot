@@ -3,6 +3,7 @@ package com.docpilot.backend.ai.agent.tool.spec;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
+import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -20,6 +21,7 @@ public class DefaultToolSpecProvider implements ToolSpecProvider {
                 documentSummaryTool(),
                 documentQaTool(),
                 documentSearchTool(),
+                knowledgeBaseSearchTool(),
                 ragQaTool(),
                 legacyRagTool()
         );
@@ -115,6 +117,38 @@ public class DefaultToolSpecProvider implements ToolSpecProvider {
                 )),
                 ToolRiskLevel.MEDIUM,
                 DocumentSearchTool.TOOL_NAME,
+                true
+        );
+    }
+
+    private ToolSpec knowledgeBaseSearchTool() {
+        return new ToolSpec(
+                KnowledgeBaseSearchTool.TOOL_NAME,
+                "Knowledge base search",
+                "Retrieves evidence chunks across a KnowledgeBase with the multi-document RAG retrieval workflow; returns safe document hit counts, retrieval mode and bounded evidence previews without generating an answer.",
+                ToolParameterSchema.object(linkedMap(
+                        "userId", "Long",
+                        "knowledgeBaseId", "Long",
+                        "query", "String",
+                        "topK", "int|null",
+                        "indexVersion", "int|null",
+                        "multiQueryEnabled", "boolean|null",
+                        "maxQueryVariants", "int|null"
+                )),
+                Set.of("userId", "knowledgeBaseId", "query"),
+                ToolResultSchema.object(linkedMap(
+                        "noEvidence", "boolean",
+                        "documentHitCounts", "Map",
+                        "hitCount", "int",
+                        "citationCount", "int",
+                        "retrievalMode", "String",
+                        "rerankApplied", "boolean",
+                        "multiQueryApplied", "boolean",
+                        "hits", "List",
+                        "citations", "List"
+                )),
+                ToolRiskLevel.MEDIUM,
+                KnowledgeBaseSearchTool.TOOL_NAME,
                 true
         );
     }

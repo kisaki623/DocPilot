@@ -2,6 +2,7 @@
 
 ## 2026-07-08 当前补充
 
+- KnowledgeBase `knowledge_base_search_tool` 已完成最小闭环。ToolCall API 现在可调用多文档 retrieval-only 工具，复用 `KnowledgeBaseRagRetrievalService`，返回脱敏 `documentHitCounts`、retrieval mode、rerank / multi-query 摘要和限长 evidence previews；不生成 answer，不返回完整 chunk content、文档全文或 prompt。当前 Agent 旧关键词路由仍未切到 search intent，后续需要单独做路由与评测门禁。
 - 单文档 `document_search_tool` 已完成最小闭环。ToolCall API 现在除 `document_status_tool` 和 `rag_qa_tool` 外，也可调用 `document_search_tool`；该工具复用现有单文档 RAG retrieval 和 scope guard，只返回脱敏、限长的 retrieval hits / citations 摘要，不生成 answer，不返回完整 chunk content 或文档全文。当前仍未改 Agent 旧路由，后续再做 KB search tool 与 search intent routing。
 - Agent 工具当前进入 Document Search Tool 求职级增强。现状是 `rag_qa_tool` 已能通过现有 RAG QA 链路返回 answer、retrieval hits 和 citations，但项目还缺少一等 retrieval-only `document_search_tool`，导致 Agent 在“先搜证据 / 展示检索命中 / 诊断漏召回”场景只能绕到 QA 工具。下一片以单文档 search tool 为最小闭环，复用 `RagDocumentRetrievalService` 与既有 scope guard，不返回完整 chunk content、文档全文、prompt 或 answer 原文。
 - Document Parser 真实链路质量回归与 Quality Console 可见性收口已完成。最新真实 marker `docpilot-parser-real-chain-20260708212742-0f9baa` 为 PASS，覆盖 tunnel、受控 backend、frontend、临时用户、PDF / HTML / DOCX 上传与异步解析、chunk、RAG QA retrieval、citation、source locator、parser boundary 和 artifact redaction；三类文件均 `parseStatus=SUCCESS`、`chunkCount=1`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`，负向边界 `4/4` PASS。

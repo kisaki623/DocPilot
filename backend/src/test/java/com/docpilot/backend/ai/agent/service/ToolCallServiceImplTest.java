@@ -7,6 +7,7 @@ import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
+import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.spec.DefaultToolSpecProvider;
 import com.docpilot.backend.ai.agent.tool.spec.ToolArgumentValidator;
@@ -35,6 +36,7 @@ class ToolCallServiceImplTest {
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
                 stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
+                stubTool(KnowledgeBaseSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagTool.TOOL_NAME, input -> input)
         ));
@@ -42,10 +44,10 @@ class ToolCallServiceImplTest {
         var tools = service.listTools();
 
         assertThat(tools).extracting("name")
-                .contains("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME)
+                .contains("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentSearchTool.TOOL_NAME, KnowledgeBaseSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME)
                 .doesNotContain(DocumentRagTool.TOOL_NAME);
         assertThat(tools.stream().filter(item -> item.isCallableByToolCallApi()).map(item -> item.getName()))
-                .containsExactlyInAnyOrder("document_status_tool", DocumentSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME);
+                .containsExactlyInAnyOrder("document_status_tool", DocumentSearchTool.TOOL_NAME, KnowledgeBaseSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME);
     }
 
     @Test
@@ -59,6 +61,7 @@ class ToolCallServiceImplTest {
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
                 stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
+                stubTool(KnowledgeBaseSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> input)
         ));
         ToolCallRequest request = request("document_status_tool", Map.of("documentId", "101"));
@@ -82,6 +85,7 @@ class ToolCallServiceImplTest {
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
                 stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
+                stubTool(KnowledgeBaseSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> {
                     capturedInput.set((DocumentRagQaTool.RagQaInput) input);
                     return new DocumentRagQaTool.RagQaResult(
@@ -172,6 +176,7 @@ class ToolCallServiceImplTest {
                             "topK=10, hitCount=1, citationCount=1"
                     );
                 }),
+                stubTool(KnowledgeBaseSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> input)
         ));
         ToolCallRequest request = request(DocumentSearchTool.TOOL_NAME, Map.of(
@@ -192,12 +197,99 @@ class ToolCallServiceImplTest {
     }
 
     @Test
+    void shouldCallKnowledgeBaseSearchToolWithSafeEvidence() {
+        AtomicReference<KnowledgeBaseSearchTool.SearchInput> capturedInput = new AtomicReference<>();
+        var hit = new KnowledgeBaseSearchTool.SearchHit(
+                1,
+                0.88d,
+                101L,
+                "Doc",
+                300L,
+                0,
+                "quote",
+                "snippet",
+                "hash",
+                0.8d,
+                0.2d,
+                0.9d,
+                null
+        );
+        var citation = new KnowledgeBaseSearchTool.SearchCitation(
+                1,
+                10L,
+                101L,
+                "Doc",
+                2,
+                300L,
+                0,
+                "quote",
+                "snippet",
+                "hash",
+                0.88d,
+                0.8d,
+                0.2d,
+                0.9d,
+                null
+        );
+        ToolCallServiceImpl service = serviceWithTools(List.of(
+                stubTool("document_status_tool", input -> input),
+                stubTool("document_summary_tool", input -> input),
+                stubTool("document_qa_tool", input -> input),
+                stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
+                stubTool(KnowledgeBaseSearchTool.TOOL_NAME, input -> {
+                    capturedInput.set((KnowledgeBaseSearchTool.SearchInput) input);
+                    return new KnowledgeBaseSearchTool.SearchResult(
+                            7L,
+                            10L,
+                            "cache?",
+                            10,
+                            2,
+                            List.of(101L),
+                            Map.of(101L, 1),
+                            false,
+                            1,
+                            1,
+                            "hybrid",
+                            true,
+                            "mock-rerank",
+                            true,
+                            3,
+                            2,
+                            List.of(hit),
+                            List.of(citation),
+                            "topK=10, hitCount=1, citationCount=1"
+                    );
+                }),
+                stubTool(DocumentRagQaTool.TOOL_NAME, input -> input)
+        ));
+        ToolCallRequest request = request(KnowledgeBaseSearchTool.TOOL_NAME, Map.of(
+                "knowledgeBaseId", 10L,
+                "query", " cache? ",
+                "topK", 99,
+                "indexVersion", 2,
+                "multiQueryEnabled", "true",
+                "maxQueryVariants", 3
+        ));
+
+        ToolCallResult result = service.call(7L, request);
+
+        assertEquals(ToolCallStatus.SUCCESS, result.status());
+        assertThat(capturedInput.get().topK()).isEqualTo(10);
+        assertThat(capturedInput.get().query()).isEqualTo("cache?");
+        assertThat(capturedInput.get().multiQueryEnabled()).isTrue();
+        assertThat(result.citations()).isEqualTo(List.of(citation));
+        assertThat(result.retrievalHits()).isEqualTo(List.of(hit));
+        assertThat(result.outputSummary()).contains("hitCount=1");
+    }
+
+    @Test
     void shouldReturnFailedResultWhenRagToolRejectsScope() {
         ToolCallServiceImpl service = serviceWithTools(List.of(
                 stubTool("document_status_tool", input -> input),
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
                 stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
+                stubTool(KnowledgeBaseSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> {
                     throw new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN);
                 })
@@ -221,6 +313,7 @@ class ToolCallServiceImplTest {
                 stubTool("document_summary_tool", input -> input),
                 stubTool("document_qa_tool", input -> input),
                 stubTool(DocumentSearchTool.TOOL_NAME, input -> input),
+                stubTool(KnowledgeBaseSearchTool.TOOL_NAME, input -> input),
                 stubTool(DocumentRagQaTool.TOOL_NAME, input -> input)
         ));
 
@@ -228,6 +321,7 @@ class ToolCallServiceImplTest {
         assertThrows(BusinessException.class, () -> service.call(7L, request("document_summary_tool", Map.of("task", "summary"))));
         assertThrows(BusinessException.class, () -> service.call(7L, request(DocumentRagQaTool.TOOL_NAME, Map.of("documentId", 101L))));
         assertThrows(BusinessException.class, () -> service.call(7L, request(DocumentSearchTool.TOOL_NAME, Map.of("documentId", 101L))));
+        assertThrows(BusinessException.class, () -> service.call(7L, request(KnowledgeBaseSearchTool.TOOL_NAME, Map.of("knowledgeBaseId", 10L))));
         assertThrows(BusinessException.class, () -> service.call(7L, request(DocumentRagQaTool.TOOL_NAME, Map.of(
                 "documentId", 101L,
                 "question", "cache?",

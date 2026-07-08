@@ -3,6 +3,7 @@ package com.docpilot.backend.ai.agent.tool.openai;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
+import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.ai.agent.tool.spec.DefaultToolSpecProvider;
 import org.junit.jupiter.api.Test;
 
@@ -17,7 +18,7 @@ class OpenAiToolSchemaAdapterTest {
         var tools = adapter.toTools(new DefaultToolSpecProvider().getToolSpecs());
 
         assertThat(tools).extracting(tool -> tool.function().name())
-                .contains("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME)
+                .contains("document_status_tool", "document_summary_tool", "document_qa_tool", DocumentSearchTool.TOOL_NAME, KnowledgeBaseSearchTool.TOOL_NAME, DocumentRagQaTool.TOOL_NAME)
                 .doesNotContain(DocumentRagTool.TOOL_NAME);
         OpenAiToolDefinition ragTool = tools.stream()
                 .filter(tool -> DocumentRagQaTool.TOOL_NAME.equals(tool.function().name()))
@@ -27,6 +28,21 @@ class OpenAiToolSchemaAdapterTest {
         assertThat(ragTool.function().description()).contains("RagScopeGuard");
         assertThat(ragTool.function().parameters().type()).isEqualTo("object");
         assertThat(ragTool.function().parameters().required()).contains("userId", "documentId", "question");
+    }
+
+    @Test
+    void shouldConvertKnowledgeBaseSearchToolSchema() {
+        var tool = adapter.toTools(new DefaultToolSpecProvider().getToolSpecs()).stream()
+                .filter(item -> KnowledgeBaseSearchTool.TOOL_NAME.equals(item.function().name()))
+                .findFirst()
+                .orElseThrow();
+        var properties = tool.function().parameters().properties();
+
+        assertThat(tool.function().description()).contains("without generating an answer");
+        assertThat(tool.function().parameters().required()).contains("userId", "knowledgeBaseId", "query");
+        assertThat(properties.get("knowledgeBaseId").type()).isEqualTo("integer");
+        assertThat(properties.get("query").type()).isEqualTo("string");
+        assertThat(properties.get("multiQueryEnabled").type()).isEqualTo("boolean");
     }
 
     @Test

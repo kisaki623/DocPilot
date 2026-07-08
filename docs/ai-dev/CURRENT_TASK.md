@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Agent Document Search Tool 单文档最小闭环（DONE）；下一片：KnowledgeBase Search Tool / Agent search intent 路由（READY）
+当前任务：Agent Search Tool 单文档与 KnowledgeBase 最小闭环（DONE）；下一片：Agent search intent 路由与评测门禁（READY）
+
+## 2026-07-08 补充：KnowledgeBase `knowledge_base_search_tool` 最小闭环
+
+- 目标：新增 retrieval-only KB 多文档检索工具，让 Agent 可以显式搜索 KnowledgeBase evidence，并输出多文档命中分布和检索模式诊断，而不是只能依赖生成式 KB QA。
+- 已完成后端：新增 `KnowledgeBaseSearchTool`，输入 `userId`、`knowledgeBaseId`、`query`、`topK`、`indexVersion`、`multiQueryEnabled`、`maxQueryVariants`，复用 `KnowledgeBaseRagRetrievalService`；ToolSpec、ToolCall callable subset、参数校验和输入映射已同步接入。
+- 安全边界：工具返回自定义 `SearchHit` / `SearchCitation`，只包含 documentId、documentTitle、chunkId、chunkIndex、score、vector / keyword / fused / rerank 分数、contentHash、限长 quote/snippet、`documentHitCounts`、`retrievalMode`、rerank / multi-query 数值摘要；不返回完整 chunk content、文档全文、prompt、answer 原文、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=KnowledgeBaseSearchToolTest,DocumentSearchToolTest,ToolCallServiceImplTest,DefaultToolSpecProviderTest,ToolArgumentValidatorTest,ToolSpecRegistryTest,ToolDefinitionProviderTest,OpenAiToolSchemaAdapterTest" test` PASS（41 tests）；`mvn "-Dtest=*Tool*,*ToolCall*,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS（157 tests）；布尔参数边界收紧后 `mvn "-Dtest=KnowledgeBaseSearchToolTest,ToolCallServiceImplTest,ToolArgumentValidatorTest" test` PASS（21 tests）。
+- 边界：本片不改 Agent 旧关键词路由，不改 KB RAG 主链路，不新增数据库表，不启动真实链路，不提交 artifact 原文，不 push。
+- 下一片建议：进入 Agent search intent 路由，让“搜索 / 查找 / 证据 / 来源 / 命中”类意图优先选择 `document_search_tool` 或 `knowledge_base_search_tool`，并补 search eval gate 区分 retrieval-only 与 QA intent。
 
 ## 2026-07-08 补充：单文档 `document_search_tool` 最小闭环
 

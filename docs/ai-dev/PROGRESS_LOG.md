@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-08 KnowledgeBase search tool 最小闭环
+
+- 新增 `KnowledgeBaseSearchTool`，复用 `KnowledgeBaseRagRetrievalService`，提供 retrieval-only 多文档 KB 检索工具；ToolSpec、ToolCall callable subset、参数校验和输入映射已同步接入。
+- 工具输出使用安全 DTO：`SearchHit` / `SearchCitation` 只返回 document / chunk 元数据、score、vector / keyword / fused / rerank 分数、contentHash 和限长 quote/snippet，并返回 `documentHitCounts`、`retrievalMode`、rerank / multi-query 摘要，不透传完整 chunk content、文档全文、prompt 或 answer 原文。
+- 参数边界：`knowledgeBaseId` 会归一化为正整数；`topK` 继续使用上限；`maxQueryVariants` 限制为 `1..5`；`multiQueryEnabled` 字符串只接受 `true/false`，避免静默把非法值当作 false。
+- 已补测试：`KnowledgeBaseSearchToolTest`、`ToolCallServiceImplTest`、`DefaultToolSpecProviderTest`、`ToolArgumentValidatorTest`、`ToolSpecRegistryTest`、`ToolDefinitionProviderTest`、`OpenAiToolSchemaAdapterTest` 覆盖工具注册、schema、ToolCall 调用、参数归一化、scope rejection、KB 命中分布和安全预览。
+- 验证：targeted 41 tests PASS；Agent Tool + KB RAG broader 157 tests PASS；布尔边界收紧后 targeted 21 tests PASS。
+- 边界：本片不改 Agent 旧关键词路由，不改 KB RAG 主链路，不新增数据库表，不启动真实链路，不提交 artifact 原文。
+
 ## 2026-07-08 单文档 document_search_tool 最小闭环
 
 - 新增 `DocumentSearchTool`，复用 `RagDocumentRetrievalService`，提供 retrieval-only Agent 工具；ToolSpec、ToolCall callable subset、参数校验和输入映射已同步接入。

@@ -3,6 +3,7 @@ package com.docpilot.backend.ai.agent.tool.spec;
 import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
+import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import org.springframework.stereotype.Component;
@@ -33,6 +34,15 @@ public class ToolInputMapper {
                     optionalInteger(arguments, "topK"),
                     optionalInteger(arguments, "indexVersion")
             );
+            case KnowledgeBaseSearchTool.TOOL_NAME -> new KnowledgeBaseSearchTool.SearchInput(
+                    requireLong(arguments, "userId"),
+                    requireLong(arguments, "knowledgeBaseId"),
+                    requireString(arguments, "query"),
+                    optionalInteger(arguments, "topK"),
+                    optionalInteger(arguments, "indexVersion"),
+                    optionalBoolean(arguments, "multiQueryEnabled"),
+                    optionalInteger(arguments, "maxQueryVariants")
+            );
             default -> throw new BusinessException(ErrorCode.BAD_REQUEST, "Unsupported tool call: " + toolName);
         };
     }
@@ -60,6 +70,23 @@ public class ToolInputMapper {
             return number.intValue();
         }
         throw new BusinessException(ErrorCode.BAD_REQUEST, fieldName + " must be an integer");
+    }
+
+    private Boolean optionalBoolean(Map<String, Object> arguments, String fieldName) {
+        Object value = arguments.get(fieldName);
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            String normalized = text.trim().toLowerCase(java.util.Locale.ROOT);
+            if ("true".equals(normalized) || "false".equals(normalized)) {
+                return Boolean.parseBoolean(normalized);
+            }
+        }
+        throw new BusinessException(ErrorCode.BAD_REQUEST, fieldName + " must be a boolean");
     }
 
     private String requireString(Map<String, Object> arguments, String fieldName) {
