@@ -92,6 +92,13 @@ export interface QualityParserQualitySummary {
   directRetrieveHitCount?: number | null;
   qaRetrievalHitCount?: number | null;
   citationCount?: number | null;
+  directRetrieveOkCount?: number | null;
+  qaRetrieveOkCount?: number | null;
+  directRetrieveNoEvidenceCount?: number | null;
+  qaRetrieveNoEvidenceCount?: number | null;
+  directRetrieveMaxAttempts?: number | null;
+  qaRetrieveMaxAttempts?: number | null;
+  environmentUnstable?: boolean | null;
   retrieveCoverageRate?: number | null;
   citationCoverageRate?: number | null;
   negativeCaseCount?: number | null;

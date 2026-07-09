@@ -322,6 +322,13 @@ class QualityArtifactServiceImplTest {
                       "directRetrieveHitCount": 1,
                       "qaRetrievalHitCount": 3,
                       "citationCount": 3,
+                      "directRetrieveOkCount": 3,
+                      "qaRetrieveOkCount": 3,
+                      "directRetrieveNoEvidenceCount": 0,
+                      "qaRetrieveNoEvidenceCount": 0,
+                      "directRetrieveMaxAttempts": 2,
+                      "qaRetrieveMaxAttempts": 1,
+                      "environmentUnstable": false,
                       "retrieveCoverageRate": 1.0,
                       "citationCoverageRate": 1.0
                     },
@@ -374,6 +381,13 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.diagnostics().parserQuality().sourceLocatorCoverageRate()).isEqualTo(1.0);
         assertThat(detail.diagnostics().parserQuality().directRetrieveHitCount()).isEqualTo(1);
         assertThat(detail.diagnostics().parserQuality().qaRetrievalHitCount()).isEqualTo(3);
+        assertThat(detail.diagnostics().parserQuality().directRetrieveOkCount()).isEqualTo(3);
+        assertThat(detail.diagnostics().parserQuality().qaRetrieveOkCount()).isEqualTo(3);
+        assertThat(detail.diagnostics().parserQuality().directRetrieveNoEvidenceCount()).isZero();
+        assertThat(detail.diagnostics().parserQuality().qaRetrieveNoEvidenceCount()).isZero();
+        assertThat(detail.diagnostics().parserQuality().directRetrieveMaxAttempts()).isEqualTo(2);
+        assertThat(detail.diagnostics().parserQuality().qaRetrieveMaxAttempts()).isEqualTo(1);
+        assertThat(detail.diagnostics().parserQuality().environmentUnstable()).isFalse();
         assertThat(detail.diagnostics().parserQuality().boundaryPassRate()).isEqualTo(1.0);
         assertThat(detail.diagnostics().parserQuality().unavailableMetrics()).containsExactly("warningCount");
 

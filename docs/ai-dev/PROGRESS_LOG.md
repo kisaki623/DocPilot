@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 Document Parser 质量报告可读性
+
+- `document-parser-real-chain-smoke.ps1` 的 `parserQualityReport.ragChainSummary` 新增 direct retrieve / QA retrieve 成功计数、no-evidence 计数、最大重试次数和 `environmentUnstable`，继续只保存脱敏数值和布尔摘要。
+- `QualityArtifactServiceImpl`、`QualityRunDiagnostics.ParserQualitySummary` 和对应单测已同步白名单字段；未知敏感字段仍不会透传到 Quality API。
+- `/quality` 文档解析质量摘要新增“直接检索接口”“问答检索接口”“运行环境稳定”小卡，并补充“直接 / 问答一致性”和“环境稳定性”诊断，方便判断是 parser/RAG 质量问题还是 tunnel / backend runtime 问题。
+- 验证：parser smoke `plan` / `dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,QualityArtifactServiceImplTest,*Quality*" test` PASS（46 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；浏览器 `/quality?routeSmoke=2` 桌面和 `390px` 移动端 console error 为 `0`，移动端无横向溢出。
+- 边界：本片没有新跑真实上传业务数据，不改 parser / RAG 业务 service，不新增数据库表，不提交 artifact 原文；真实链路能力仍以最新 parser marker `docpilot-parser-real-chain-20260709233230-a08906` 为准。
+
 ## 2026-07-09 Document Parser direct retrieve / QA retrieve 差异收口
 
 - `document-parser-real-chain-smoke.ps1` 新增 `directRetrieveDiagnostic` / `qaRetrieveDiagnostic` 脱敏诊断摘要，只记录 HTTP / 业务状态、attempts、hit / citation count、`noEvidence`、provider 和 collection 是否存在，不保存 query、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。

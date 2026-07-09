@@ -931,6 +931,40 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   $directRetrieveHitCount = @($results | Where-Object { $_.directRetrieveHit }).Count
   $qaRetrievalHitCount = @($results | Where-Object { $_.qaRetrievalHit }).Count
   $citationCount = @($results | Where-Object { $_.citationPresent }).Count
+  $directRetrieveOkCount = 0
+  $qaRetrieveOkCount = 0
+  $directRetrieveNoEvidenceCount = 0
+  $qaRetrieveNoEvidenceCount = 0
+  $directRetrieveMaxAttempts = $null
+  $qaRetrieveMaxAttempts = $null
+  foreach ($result in @($results)) {
+    $directDiagnostic = $result.directRetrieveDiagnostic
+    if ($directDiagnostic) {
+      if ([bool]$directDiagnostic.ok) {
+        $directRetrieveOkCount += 1
+      }
+      if ($null -ne $directDiagnostic.noEvidence -and [bool]$directDiagnostic.noEvidence) {
+        $directRetrieveNoEvidenceCount += 1
+      }
+      if ($null -ne $directDiagnostic.attempts) {
+        $attempts = [int]$directDiagnostic.attempts
+        $directRetrieveMaxAttempts = if ($null -eq $directRetrieveMaxAttempts) { $attempts } else { [Math]::Max($directRetrieveMaxAttempts, $attempts) }
+      }
+    }
+    $qaDiagnostic = $result.qaRetrieveDiagnostic
+    if ($qaDiagnostic) {
+      if ([bool]$qaDiagnostic.ok) {
+        $qaRetrieveOkCount += 1
+      }
+      if ($null -ne $qaDiagnostic.noEvidence -and [bool]$qaDiagnostic.noEvidence) {
+        $qaRetrieveNoEvidenceCount += 1
+      }
+      if ($null -ne $qaDiagnostic.attempts) {
+        $attempts = [int]$qaDiagnostic.attempts
+        $qaRetrieveMaxAttempts = if ($null -eq $qaRetrieveMaxAttempts) { $attempts } else { [Math]::Max($qaRetrieveMaxAttempts, $attempts) }
+      }
+    }
+  }
   $chunkCountKnown = @($results | Where-Object { $null -ne $_.chunkCount }).Count
   $chunkCount = $null
   if ($chunkCountKnown -gt 0) {
@@ -1023,6 +1057,13 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
       directRetrieveHitCount = $directRetrieveHitCount
       qaRetrievalHitCount = $qaRetrievalHitCount
       citationCount = $citationCount
+      directRetrieveOkCount = $directRetrieveOkCount
+      qaRetrieveOkCount = $qaRetrieveOkCount
+      directRetrieveNoEvidenceCount = $directRetrieveNoEvidenceCount
+      qaRetrieveNoEvidenceCount = $qaRetrieveNoEvidenceCount
+      directRetrieveMaxAttempts = $directRetrieveMaxAttempts
+      qaRetrieveMaxAttempts = $qaRetrieveMaxAttempts
+      environmentUnstable = [bool]$script:EnvironmentUnstable
       retrieveCoverageRate = Get-SafeRate $retrieveHitCount $fileCount
       citationCoverageRate = Get-SafeRate $citationCount $fileCount
     }

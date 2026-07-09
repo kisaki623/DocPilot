@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：direct retrieve / QA retrieve 同轮差异诊断与修复（DONE）；下一片：Document Parser 质量报告可读性与长期回归 fixture 增强（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 质量报告可读性与长期回归 fixture 增强（DONE）；下一片：Document Parser 长期回归 fixture 多样性增强（READY）
+
+## 2026-07-09 补充：Document Parser 质量报告可读性增强
+
+- 目标：把上一片新增的 direct retrieve / QA retrieve 脱敏诊断摘要接入 Agent Quality Console，让 parser smoke 不只输出 PASS / REVIEW，还能解释 direct endpoint、QA 内部检索、no-evidence 和运行环境稳定性的差异。
+- 已完成 runner 摘要增强：`parserQualityReport.ragChainSummary` 新增 `directRetrieveOkCount`、`qaRetrieveOkCount`、`directRetrieveNoEvidenceCount`、`qaRetrieveNoEvidenceCount`、`directRetrieveMaxAttempts`、`qaRetrieveMaxAttempts` 和 `environmentUnstable`。这些字段只保存计数、布尔值和重试次数，不保存 query、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。
+- 已完成 Quality API 白名单解析：`QualityArtifactServiceImpl` 和 `QualityRunDiagnostics.ParserQualitySummary` 允许上述安全字段进入 detail，单测覆盖未知敏感字段过滤和新增诊断字段解析。
+- 已完成前端可读性增强：`/quality` 的文档解析质量摘要新增“直接检索接口”“问答检索接口”“运行环境稳定”三张小卡，并在诊断网格中新增“直接 / 问答一致性”和“环境稳定性”，用于区分 parser/RAG 真实质量问题与本地 tunnel / backend runtime 断链。
+- 已验证：脚本 `plan` / `dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,QualityArtifactServiceImplTest,*Quality*" test` PASS（46 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；浏览器 `/quality?routeSmoke=2` 桌面 console error `0`，`390px` 移动端 console error `0` 且无横向溢出。
+- 边界：本片不改 parser / RAG 业务 service，不新增数据库表，不提交 artifact 原文，不做 OCR、旧 `.doc`、外部网页抓取或复杂版面理解；本片没有新跑真实上传业务数据，真实链路能力仍以最新 marker `docpilot-parser-real-chain-20260709233230-a08906` 为准。
 
 ## 2026-07-09 补充：Document Parser direct retrieve / QA retrieve 同轮差异诊断与修复
 

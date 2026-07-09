@@ -3313,6 +3313,10 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
   const qaRetrievalHitCount = parserQuality?.qaRetrievalHitCount ?? gateMetric(realChain, "qaRetrievalHitCount");
   const citationCount = parserQuality?.citationCount ?? gateMetric(realChain, "citationCount");
   const sourceLocatorCount = parserQuality?.sourceLocatorCount ?? gateMetric(realChain, "sourceLocatorCount");
+  const directRetrieveOkCount = parserQuality?.directRetrieveOkCount ?? null;
+  const qaRetrieveOkCount = parserQuality?.qaRetrieveOkCount ?? null;
+  const directRetrieveMaxAttempts = parserQuality?.directRetrieveMaxAttempts ?? null;
+  const qaRetrieveMaxAttempts = parserQuality?.qaRetrieveMaxAttempts ?? null;
   const parserDiagnostics = buildParserDiagnostics(parserQuality, realChain, boundary);
 
   return (
@@ -3382,6 +3386,24 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
 
       <DiagnosticGrid items={parserDiagnostics} />
 
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <SmallFact
+          label="直接检索接口"
+          value={formatMetricPair(directRetrieveOkCount, fileCount)}
+          helper={`最大重试 ${formatNullableStat(directRetrieveMaxAttempts)} 次`}
+        />
+        <SmallFact
+          label="问答检索接口"
+          value={formatMetricPair(qaRetrieveOkCount, fileCount)}
+          helper={`最大重试 ${formatNullableStat(qaRetrieveMaxAttempts)} 次`}
+        />
+        <SmallFact
+          label="运行环境稳定"
+          value={parserQuality?.environmentUnstable === true ? "否" : parserQuality?.environmentUnstable === false ? "是" : "暂无统计"}
+          helper="运行中会复查本地 MySQL / Qdrant tunnel 端口"
+        />
+      </div>
+
       <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <p className="text-xs font-semibold uppercase text-slate-500">
           待关注原因
@@ -3423,6 +3445,8 @@ function hasParserQualitySummary(summary: QualityParserQualitySummary | null): b
     summary.directRetrieveHitCount,
     summary.qaRetrievalHitCount,
     summary.citationCount,
+    summary.directRetrieveOkCount,
+    summary.qaRetrieveOkCount,
     summary.negativeCaseCount,
   ].some((value) => typeof value === "number");
 }
@@ -3435,6 +3459,8 @@ function buildParserDiagnostics(
   const fileCount = summary?.fileCount ?? gateMetric(realChain, "fileCount");
   const parsedFileCount = summary?.parsedFileCount ?? gateMetric(realChain, "parsedFileCount");
   const retrieveHitCount = summary?.retrieveHitCount ?? gateMetric(realChain, "retrieveHitCount");
+  const directRetrieveHitCount = summary?.directRetrieveHitCount ?? gateMetric(realChain, "directRetrieveHitCount");
+  const qaRetrievalHitCount = summary?.qaRetrievalHitCount ?? gateMetric(realChain, "qaRetrievalHitCount");
   const citationCount = summary?.citationCount ?? gateMetric(realChain, "citationCount");
   const negativeCaseCount = summary?.negativeCaseCount ?? gateMetric(boundary, "negativeCaseCount");
   const negativeCasePassCount = summary?.negativeCasePassCount ?? gateMetric(boundary, "negativeCasePassCount");
@@ -3468,6 +3494,25 @@ function buildParserDiagnostics(
       )),
       priority: "Chunk / embedding / vector index / citation",
       action: "检索或引用缺失时先看 chunkCount、source locator 和 RAG retrieve gate。"
+    },
+    {
+      label: "直接 / 问答一致性",
+      value: `直接 ${formatMetricPair(directRetrieveHitCount, fileCount)} / 问答 ${formatMetricPair(qaRetrievalHitCount, fileCount)}`,
+      helper: "直接检索和 QA 内部检索应同时覆盖 PDF / HTML / DOCX。",
+      tone: rateTone(minKnownRate(
+        deriveRate(directRetrieveHitCount, fileCount),
+        deriveRate(qaRetrievalHitCount, fileCount)
+      )),
+      priority: "RAG retrieve endpoint / QA retrieval path",
+      action: "直接少于问答时查 /api/rag/retrieve 入参、响应解析和索引可见性；二者都低时查 embedding / Qdrant。"
+    },
+    {
+      label: "环境稳定性",
+      value: summary?.environmentUnstable === true ? "运行中断链" : summary?.environmentUnstable === false ? "稳定" : "暂无统计",
+      helper: "用于区分 tunnel / JDBC / Qdrant 断链与 parser 真实质量失败。",
+      tone: summary?.environmentUnstable === true ? "danger" : summary?.environmentUnstable === false ? "success" : "neutral",
+      priority: "Local tunnel / backend runtime",
+      action: "环境断链时先重启本地 tunnel 和 backend，再复跑 smoke，不能直接归因到 parser。"
     },
     {
       label: "错误边界",
@@ -3559,6 +3604,7 @@ function formatParserReviewReason(value: string): string {
     missing_source_locator: "来源定位缺失",
     retrieval_or_citation_missing: "检索或引用缺失",
     direct_retrieve_missing: "直接检索未命中",
+    environment_unstable: "运行环境不稳定",
     parser_boundary_failed: "错误边界未通过",
     unsupported_upload_not_rejected: "不支持格式未被拒绝"
   };
@@ -4021,13 +4067,16 @@ function TraceIdBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SmallFact({ label, value }: { label: string; value: string }) {
+function SmallFact({ label, value, helper }: { label: string; value: string; helper?: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <p className="text-xs text-slate-500">{label}</p>
       <p className="mt-1 break-words text-sm font-semibold text-slate-900">
         {value}
       </p>
+      {helper ? (
+        <p className="mt-1 break-words text-xs text-slate-500">{helper}</p>
+      ) : null}
     </div>
   );
 }
