@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console C2 轻量趋势诊断
+
+- `/quality` 趋势区的反复失败用例现在会关联 Eval Catalog，展示 case type、能力层、risk gate、失败次数、复查次数、最近运行 marker 和首条修复建议。
+- 反复失败 case 有 `latestRunMarker` 且有 `latestTraceId` / `latestAgentRunId` 时可直接“查看 Trace”；缺失时显示“暂无链路引用”。
+- 最近运行点卡片新增 case 通过率、失败 / 复查数、token、耗时、失败类型和复查类型，避免趋势区只显示 marker 和状态。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` console error 为 `0`，`390px` 移动端无横向溢出。前端预览进程和临时日志已清理，`3007` 无 LISTEN。
+- 边界：本片不改后端 API，不新增数据库表，不引入趋势图，不读取 raw artifact，不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
 ## 2026-07-09 Agent Quality Console B2 Eval Catalog 可读性
 
 - `/quality` Eval Catalog 顶部新增用例总数、待处理用例、Trace 覆盖和高风险用例摘要，帮助快速判断评测资产健康度。

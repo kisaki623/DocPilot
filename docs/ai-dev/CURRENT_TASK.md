@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：B2 Eval Case 风险与回归策略可读性增强（DONE）；下一片：C2 最近 N 次 repeated failure / regression 轻量趋势增强（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：C2 最近 N 次 repeated failure / regression 轻量趋势增强（DONE）；下一片：A3 Trace Timeline 信息密度与步骤诊断增强（READY）
+
+## 2026-07-09 补充：C2 最近 N 次 repeated failure / regression 轻量趋势增强
+
+- 目标：让 `/quality` 的趋势区不只显示 TopN bucket，还能看出哪些 eval case 反复失败、对应风险是什么、修复建议是什么、最近运行点有哪些异常信号。
+- 已完成前端：`TrendPanel` 现在接入 Eval Catalog，反复失败 case 会展示 case type、能力层、risk gate、失败次数、复查次数、最近运行 marker 和首条修复建议。
+- 已完成定位入口：反复失败 case 如果在 catalog 中有 `latestRunMarker` 与 `latestTraceId` / `latestAgentRunId`，可直接“查看 Trace”；缺失时显示“暂无链路引用”。
+- 已完成最近运行点增强：最近运行点卡片展示 case 通过率、失败 / 复查数、token、耗时、失败类型和复查类型，不再只展示 marker 和状态。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放，临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不引入趋势图、不读取 raw artifact、不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
 
 ## 2026-07-09 补充：B2 Eval Case 风险与回归策略可读性增强
 

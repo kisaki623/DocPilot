@@ -16,6 +16,7 @@ import {
   type QualityRunSummary,
   type QualityTokenUsageSummary,
   type QualityTraceReference,
+  type QualityTrendPoint,
   type QualityTrendSummary,
 } from "@/lib/quality-api";
 import {
@@ -2186,13 +2187,23 @@ function formatCatalogTerm(value?: string): string {
   return labels[value] || value;
 }
 
-function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
+function TrendPanel({
+  trend,
+  evalCatalog,
+}: {
+  trend: QualityTrendSummary | null;
+  evalCatalog: QualityEvalCaseCatalogItem[];
+}) {
   const runCount = trend?.runCount || 0;
   const passCount = countTrendStatuses(trend?.statusCounts, "pass");
   const reviewCount = countTrendStatuses(trend?.statusCounts, "review");
   const failCount = countTrendStatuses(trend?.statusCounts, "failed");
   const failureBuckets = topBucketDiagnosticsFromCounts(trend?.failureBucketCounts);
   const reviewBuckets = topBucketDiagnosticsFromCounts(trend?.reviewBucketCounts);
+  const catalogByCaseId = useMemo(
+    () => new Map(evalCatalog.map((item) => [item.caseId, item])),
+    [evalCatalog]
+  );
   return (
     <div className="dp-card min-w-0">
       <div className="flex items-start justify-between gap-3">
@@ -2240,21 +2251,11 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
                 <p className="dp-meta">暂无反复失败或需复查的用例。</p>
               ) : (
                 trend.repeatedCases.slice(0, 5).map((item) => (
-                  <div
+                  <RepeatedCaseTrendCard
                     key={item.caseId}
-                    className="rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-600"
-                  >
-                    <p className="break-words font-semibold text-slate-900">
-                      {item.caseId}
-                    </p>
-                    <p className="mt-1 break-words">
-                      失败 {item.failedCount} / 复查 {item.reviewCount} / 最近{" "}
-                      {formatStatus(item.latestStatus || "-")}
-                    </p>
-                    <p className="mt-1 break-words text-slate-500">
-                      {item.latestRunMarker || "-"}
-                    </p>
-                  </div>
+                    item={item}
+                    catalogItem={catalogByCaseId.get(item.caseId) || null}
+                  />
                 ))
               )}
             </div>
@@ -2265,28 +2266,104 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
             </p>
             <div className="mt-2 grid gap-2">
               {trend.points.slice(0, 5).map((point) => (
-                <div
-                  key={point.marker}
-                  className="rounded-lg border border-slate-200 bg-white p-2"
-                >
-                  <div className="flex min-w-0 items-start justify-between gap-2">
-                    <p className="min-w-0 break-words text-xs font-semibold text-slate-900">
-                      {point.marker}
-                    </p>
-                    <span className={statusBadge(point.status)}>
-                      {formatStatus(point.status)}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    通过率 {formatRate(point.casePassRate ?? null)} / 失败{" "}
-                    {point.failedGateCount} / 复查 {point.reviewGateCount}
-                  </p>
-                </div>
+                <TrendPointCard key={point.marker} point={point} />
               ))}
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function RepeatedCaseTrendCard({
+  item,
+  catalogItem,
+}: {
+  item: {
+    caseId: string;
+    failedCount: number;
+    reviewCount: number;
+    latestStatus: string;
+    latestRunMarker: string;
+  };
+  catalogItem: QualityEvalCaseCatalogItem | null;
+}) {
+  const traceHref = catalogItem ? buildCatalogTraceHref(catalogItem) : "";
+  const action = catalogItem?.remediationHints?.[0]
+    ? formatCatalogTerm(catalogItem.remediationHints[0])
+    : "先查看失败桶、关联门禁和最近运行。";
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-600">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="break-words font-semibold text-slate-900">{item.caseId}</p>
+          <p className="mt-1 break-words text-slate-500">
+            {formatCaseType(catalogItem?.caseType || "agent_quality")} /{" "}
+            {formatCatalogTerm(catalogItem?.caseLayer || "")}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <span className={statusBadge(item.latestStatus)}>
+            {formatStatus(item.latestStatus || "REVIEW")}
+          </span>
+          {catalogItem?.riskGate ? (
+            <span className="dp-badge dp-badge-danger">
+              {formatStatus(catalogItem.riskGate)}
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <SmallMetric label="失败次数" value={`${item.failedCount}`} />
+        <SmallMetric label="复查次数" value={`${item.reviewCount}`} />
+        <SmallMetric label="最近运行" value={item.latestRunMarker || "-"} />
+      </div>
+      <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="min-w-0 break-words text-slate-600">建议：{action}</p>
+        {traceHref ? (
+          <Link
+            href={traceHref}
+            className="shrink-0 rounded border border-blue-200 bg-blue-50 px-2 py-1 font-semibold text-blue-700 hover:border-blue-300"
+          >
+            查看 Trace
+          </Link>
+        ) : (
+          <span className="shrink-0 rounded border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-500">
+            暂无链路引用
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TrendPointCard({ point }: { point: QualityTrendPoint }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <p className="min-w-0 break-words text-xs font-semibold text-slate-900">
+          {point.marker}
+        </p>
+        <span className={statusBadge(point.status)}>{formatStatus(point.status)}</span>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <SmallMetric label="通过率" value={formatRate(point.casePassRate ?? null)} />
+        <SmallMetric
+          label="失败 / 复查"
+          value={`${point.failedGateCount} / ${point.reviewGateCount}`}
+        />
+        <SmallMetric label="token" value={formatNullableStat(point.totalTokens)} />
+        <SmallMetric label="耗时" value={formatNullableStat(point.durationMs ?? point.latencyMs)} />
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <p className="break-words text-xs text-red-700">
+          失败类型：{summarizeBuckets(point.failureBuckets)}
+        </p>
+        <p className="break-words text-xs text-amber-700">
+          复查类型：{summarizeBuckets(point.reviewBuckets)}
+        </p>
+      </div>
     </div>
   );
 }
@@ -2758,7 +2835,7 @@ function RunDetailContent({
           <ParserArtifactPanel detail={detail} />
           <ArtifactSummaryPanel summary={summary} />
           <EvalCatalogPanel items={evalCatalog} />
-          <TrendPanel trend={trend} />
+          <TrendPanel trend={trend} evalCatalog={evalCatalog} />
         </>
       ) : null}
     </div>
