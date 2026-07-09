@@ -123,21 +123,21 @@
    - `$env:GOOGLE_GEMINI_BASE_URL = [Environment]::GetEnvironmentVariable('GOOGLE_GEMINI_BASE_URL','User')`
    - `$env:GEMINI_API_KEY = [Environment]::GetEnvironmentVariable('GEMINI_API_KEY','User')`
    - 禁止输出、复制或写入这些变量的真实值。
-4. 可用性探测使用短 prompt 和显式模型，只确认 READY 类返回：
-   - `gemini.cmd -m gemini-2.5-pro --prompt "Reply exactly: READY"`
+4. 可用性探测使用短 prompt 和显式模型，只确认 READY 类返回；默认先用轻量模型探测，外层工具超时建议设置为 `180000ms`：
    - `gemini.cmd -m gemini-2.5-flash --prompt "Reply exactly: READY"`
-5. 长 prompt、源码和大上下文通过 stdin 传入 Gemini，不塞进命令行参数，避免 PowerShell 命令行长度限制。
-6. 推荐协作模式：
+5. 正式前端方案 / UI 可读性 / 单文件建议优先使用 `gemini-3.1-pro-preview`；如果该模型不可用、超时或返回工具流异常，再降级到 `gemini-2.5-flash` 或由 Codex 直接完成。
+6. 长 prompt、源码和大上下文通过 stdin 传入 Gemini，不塞进命令行参数，避免 PowerShell 命令行长度限制；正式协作请求同样建议外层超时 `180000ms`，避免 45 秒级超时误判为 Gemini 不可用。
+7. 推荐协作模式：
    - Gemini 输出设计方向、patch 建议或单文件完整方案。
    - Codex 审查是否破坏现有 API、路由、类型、安全边界和展示口径。
    - 通过审查后由 Codex 使用 `apply_patch` 落地。
-7. `--approval-mode auto_edit` 只允许在明确文件范围内尝试；如果出现 503、`INVALID_ARGUMENT`、malformed tool call、空响应或工具流异常，立即降级为“Gemini 提建议，Codex 集成”。
-8. 安全边界：
+8. `--approval-mode auto_edit` 只允许在明确文件范围内尝试；如果出现 503、`INVALID_ARGUMENT`、malformed tool call、空响应或工具流异常，立即降级为“Gemini 提建议，Codex 集成”。
+9. 安全边界：
    - 不把 `.env`、密钥、云 IP、连接串、远程命令、数据库凭据传给 Gemini。
    - 不让 Gemini 执行 `git commit` / `git push`。
    - 不让 Gemini 操作远程服务器、云服务器 Docker 中间件或数据库迁移。
    - 不让 Gemini 修改与当前任务无关的文件。
-9. 验证归属固定为 Codex：最终 lint、build、Playwright、乱码扫描、进程清理和 ai-dev 文档回写都由 Codex 执行；Gemini 输出不能直接写成已验证结果。
+10. 验证归属固定为 Codex：最终 lint、build、Playwright、乱码扫描、进程清理和 ai-dev 文档回写都由 Codex 执行；Gemini 输出不能直接写成已验证结果。
 
 ## 7. 验证与收尾约束
 
