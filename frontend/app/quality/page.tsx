@@ -1755,16 +1755,24 @@ function EvalCatalogPanel({ items }: { items: QualityEvalCaseCatalogItem[] }) {
   );
   const filteredItems = useMemo(
     () =>
-      items.filter((item) => {
-        const status = item.latestStatus || "NOT_RUN";
-        return (
-          (riskFilter === "ALL" || item.riskLevel === riskFilter) &&
-          (ownerFilter === "ALL" || item.owner === ownerFilter) &&
-          (statusFilter === "ALL" || status === statusFilter)
-        );
-      }),
+      items
+        .filter((item) => {
+          const status = item.latestStatus || "NOT_RUN";
+          return (
+            (riskFilter === "ALL" || item.riskLevel === riskFilter) &&
+            (ownerFilter === "ALL" || item.owner === ownerFilter) &&
+            (statusFilter === "ALL" || status === statusFilter)
+          );
+        })
+        .sort(compareEvalCatalogItems),
     [items, ownerFilter, riskFilter, statusFilter]
   );
+  const blockedCount = items.filter((item) =>
+    isFailedStatus(item.latestStatus) || isReviewStatus(item.latestStatus)
+  ).length;
+  const traceLinkedCount = items.filter((item) =>
+    Boolean(item.latestTraceId || item.latestAgentRunId)
+  ).length;
 
   return (
     <div className="dp-card min-w-0">
@@ -1778,12 +1786,23 @@ function EvalCatalogPanel({ items }: { items: QualityEvalCaseCatalogItem[] }) {
         <span className="dp-badge dp-badge-neutral">P0</span>
       </div>
 
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SmallFact label="用例总数" value={`${items.length}`} />
+        <SmallFact label="待处理用例" value={`${blockedCount}`} />
+        <SmallFact label="Trace 覆盖" value={formatMetricPair(traceLinkedCount, items.length)} />
+        <SmallFact
+          label="高风险用例"
+          value={`${items.filter((item) => isHighRiskCatalogItem(item)).length}`}
+        />
+      </div>
+
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
         <CatalogFilterSelect
           label="风险"
           value={riskFilter}
           options={riskOptions}
           onChange={setRiskFilter}
+          formatOption={formatRiskLevel}
         />
         <CatalogFilterSelect
           label="负责人"
@@ -1851,11 +1870,62 @@ function uniqueCatalogValues(values: string[]): string[] {
   ).sort((left, right) => left.localeCompare(right));
 }
 
+function compareEvalCatalogItems(
+  left: QualityEvalCaseCatalogItem,
+  right: QualityEvalCaseCatalogItem
+): number {
+  const leftPriority = catalogStatusPriority(left.latestStatus) + catalogRiskPriority(left);
+  const rightPriority = catalogStatusPriority(right.latestStatus) + catalogRiskPriority(right);
+  if (leftPriority !== rightPriority) {
+    return rightPriority - leftPriority;
+  }
+  return left.caseId.localeCompare(right.caseId);
+}
+
+function catalogStatusPriority(status?: string): number {
+  if (isFailedStatus(status)) {
+    return 100;
+  }
+  if (isReviewStatus(status)) {
+    return 80;
+  }
+  if (!status || status === "NOT_RUN") {
+    return 40;
+  }
+  return 0;
+}
+
+function catalogRiskPriority(item: QualityEvalCaseCatalogItem): number {
+  if (item.riskGate === "FAILED_SECURITY_GATE") {
+    return 30;
+  }
+  if (item.riskGate === "FAILED_CORE_FLOW") {
+    return 20;
+  }
+  if (item.riskGate === "BLOCKED") {
+    return 15;
+  }
+  if (item.riskGate === "REVIEW") {
+    return 10;
+  }
+  return isHighRiskCatalogItem(item) ? 5 : 0;
+}
+
+function isHighRiskCatalogItem(item: QualityEvalCaseCatalogItem): boolean {
+  return (
+    item.riskLevel === "P0" ||
+    item.riskGate === "FAILED_CORE_FLOW" ||
+    item.riskGate === "FAILED_SECURITY_GATE"
+  );
+}
+
 function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
   const bucketText = summarizeBuckets([
     ...item.latestFailureBuckets,
     ...item.latestReviewBuckets,
   ]);
+  const traceHref = buildCatalogTraceHref(item);
+  const status = item.latestStatus || "NOT_RUN";
   return (
     <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex min-w-0 items-start justify-between gap-2">
@@ -1870,62 +1940,250 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
             v{item.caseVersion || 0} / {item.owner || "-"} /{" "}
             {item.lastUpdated || "-"}
           </p>
-          <p className="mt-1 break-words text-xs text-slate-500">
-            来源问题: {summarizeTextList(item.sourceIssueIds || [])}
-          </p>
-          <p className="mt-1 break-words text-xs text-slate-500">
-            最近验证: {item.lastVerifiedMarker || "-"}
-          </p>
         </div>
-        <span className={statusBadge(item.latestStatus)}>
-          {formatStatus(item.latestStatus || "NOT_RUN")}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          <span className={statusBadge(status)}>{formatStatus(status)}</span>
+          {traceHref ? (
+            <Link
+              href={traceHref}
+              className="rounded border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 hover:border-blue-300"
+            >
+              查看 Trace
+            </Link>
+          ) : (
+            <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">
+              暂无链路引用
+            </span>
+          )}
+        </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {item.riskLevel ? (
-          <span className="dp-badge dp-badge-warning">{item.riskLevel}</span>
+          <span className="dp-badge dp-badge-warning">{formatRiskLevel(item.riskLevel)}</span>
         ) : null}
         {item.caseLayer ? (
-          <span className="dp-badge dp-badge-info">{item.caseLayer}</span>
+          <span className="dp-badge dp-badge-info" title={item.caseLayer}>
+            {formatCatalogTerm(item.caseLayer)}
+          </span>
         ) : null}
         {item.riskGate ? (
-          <span className="dp-badge dp-badge-danger">{item.riskGate}</span>
+          <span className="dp-badge dp-badge-danger" title={item.riskGate}>
+            {formatStatus(item.riskGate)}
+          </span>
         ) : null}
         {item.tags.slice(0, 4).map((tag) => (
           <span key={`${item.caseId}-${tag}`} className="dp-badge dp-badge-neutral">
-            {tag}
+            {formatCatalogTerm(tag)}
           </span>
         ))}
       </div>
-      <p className="mt-3 break-words text-xs text-slate-600">
-        预期证据: {summarizeTextList(item.expectedEvidence)}
-      </p>
-      <p className="mt-1 break-words text-xs text-slate-600">
-        预期工具: {summarizeTextList(item.expectedTools)}
-      </p>
-      <p className="mt-1 break-words text-xs text-slate-600">
-        评分规则: {summarizeTextList(item.scoringRules)}
-      </p>
-      <p className="mt-1 break-words text-xs text-slate-600">
-        评分摘要: {summarizeTextList(item.scoringSummary || [])}
-      </p>
-      <p className="mt-1 break-words text-xs text-slate-600">
-        回归策略: {summarizeTextList(item.regressionPolicy || [])}
-      </p>
-      <p className="mt-1 break-words text-xs text-slate-600">
-        失败历史: {summarizeTextList(item.failureHistoryMarkers || [])}
-      </p>
-      <p className="mt-1 break-words text-xs text-slate-600">
-        修复提示: {summarizeTextList(item.remediationHints || [])}
-      </p>
-      <p className="mt-2 break-words text-xs text-slate-500">
-        最近运行: {item.latestRunMarker || "-"}
-      </p>
-      <p className="mt-1 break-words text-xs text-amber-700">
-        失败/复查类型: {bucketText}
-      </p>
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <CatalogInfoBox
+          title="风险分层"
+          value={`${formatCatalogTerm(item.caseLayer)} / ${formatStatus(item.riskGate || "REVIEW")}`}
+          helper={`来源问题：${formatCatalogList(item.sourceIssueIds)}`}
+        />
+        <CatalogInfoBox
+          title="评分门禁"
+          value={formatCatalogList(item.scoringSummary || item.scoringRules)}
+          helper={`预期工具：${formatCatalogList(item.expectedTools)}`}
+        />
+        <CatalogInfoBox
+          title="回归策略"
+          value={formatCatalogList(item.regressionPolicy)}
+          helper={`最近验证：${item.lastVerifiedMarker || "暂无记录"}`}
+        />
+        <CatalogInfoBox
+          title="历史与定位"
+          value={formatFailureHistorySummary(item.failureHistoryMarkers)}
+          helper={`最近运行：${item.latestRunMarker || "暂无记录"}；失败/复查：${bucketText}`}
+        />
+      </div>
+      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <summary className="cursor-pointer text-xs font-semibold text-slate-700">
+          查看修复建议和期望证据
+        </summary>
+        <div className="mt-3 grid gap-2 text-xs text-slate-600 md:grid-cols-2">
+          <p className="break-words">
+            修复建议：{formatCatalogList(item.remediationHints)}
+          </p>
+          <p className="break-words">
+            预期证据：{formatCatalogList(item.expectedEvidence)}
+          </p>
+          <p className="break-words">
+            评分规则：{formatCatalogList(item.scoringRules)}
+          </p>
+          <p className="break-words">
+            最近定位：traceId {item.latestTraceId || "-"} / agentRunId {item.latestAgentRunId || "-"}
+          </p>
+        </div>
+      </details>
     </div>
   );
+}
+
+function CatalogInfoBox({
+  title,
+  value,
+  helper,
+}: {
+  title: string;
+  value: string;
+  helper: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-lg border border-slate-100 bg-slate-50 p-3">
+      <p className="text-xs font-semibold text-slate-500">{title}</p>
+      <p className="mt-2 break-words text-sm font-semibold text-slate-900">
+        {value || "-"}
+      </p>
+      <p className="mt-2 break-words text-xs text-slate-500">{helper || "-"}</p>
+    </div>
+  );
+}
+
+function buildCatalogTraceHref(item: QualityEvalCaseCatalogItem): string {
+  if (!item.latestRunMarker || (!item.latestTraceId && !item.latestAgentRunId)) {
+    return "";
+  }
+  const params = new URLSearchParams();
+  params.set("marker", item.latestRunMarker);
+  params.set("caseId", item.caseId);
+  if (item.latestTraceId) {
+    params.set("traceId", item.latestTraceId);
+  }
+  if (item.latestAgentRunId) {
+    params.set("agentRunId", item.latestAgentRunId);
+  }
+  return `/quality/trace?${params.toString()}`;
+}
+
+function formatRiskLevel(value?: string): string {
+  if (!value) {
+    return "-";
+  }
+  const labels: Record<string, string> = {
+    P0: "P0 高风险",
+    P1: "P1 重要",
+    P2: "P2 常规",
+    P3: "P3 观察",
+  };
+  return labels[value] || value;
+}
+
+function formatCatalogList(values?: string[]): string {
+  if (!values || values.length === 0) {
+    return "-";
+  }
+  return values.slice(0, 4).map(formatCatalogTerm).join(" / ");
+}
+
+function formatFailureHistorySummary(values?: string[]): string {
+  if (!values || values.length === 0) {
+    return "暂无历史";
+  }
+  const passCount = values.filter((value) => value.includes("status=PASS")).length;
+  const reviewCount = values.filter((value) => value.includes("status=REVIEW")).length;
+  const failedCount = values.filter((value) => value.includes("status=FAILED")).length;
+  return `${values.length} 条记录，通过 ${passCount}，复查 ${reviewCount}，失败 ${failedCount}`;
+}
+
+function formatCatalogTerm(value?: string): string {
+  if (!value) {
+    return "-";
+  }
+  const labels: Record<string, string> = {
+    agent_rag_trace: "Agent RAG 链路",
+    memory_context_trace: "记忆上下文链路",
+    rag_no_evidence: "RAG 无证据边界",
+    rag_short_document: "短文档 RAG",
+    kb_multi_document: "知识库多文档",
+    citation_precision: "引用精度",
+    quality_console_health: "质量控制台健康",
+    agent_search_routing: "Agent 检索路由",
+    kb_agent_grounded_answer: "知识库 Agent 回答",
+    document_parser_real_chain: "文档解析真实链路",
+    memory_provider_contract: "记忆 Provider 契约",
+    evidence_required: "必须有证据",
+    tool_required: "必须触发工具",
+    trace_required: "必须有链路",
+    memory_split_required: "记忆来源需分层",
+    rag_split_required: "RAG 来源需分层",
+    no_evidence_required: "必须正确拒答",
+    unsupported_citation_forbidden: "禁止无支撑引用",
+    single_doc_evidence_required: "单文档证据必需",
+    citation_required: "必须有引用",
+    multi_doc_coverage_required: "必须覆盖多文档",
+    document_hit_counts_required: "必须有文档命中分布",
+    target_coverage_required: "目标证据必须覆盖",
+    distractor_forbidden: "禁止干扰引用",
+    citation_selector_required: "必须经过引用选择",
+    backend_health_required: "后端健康必需",
+    console_api_required: "Console API 必需",
+    autoload_required: "自动加载必需",
+    search_decision_required: "必须选择检索路由",
+    document_search_tool_required: "必须调用文档检索工具",
+    answer_generation_forbidden: "禁止生成式回答",
+    rag_decision_required: "必须选择 RAG 回答路由",
+    rag_qa_tool_required: "必须调用 RAG QA 工具",
+    search_overrouting_forbidden: "禁止过度走检索",
+    kb_search_route_required: "必须通过 KB 检索路由",
+    kb_answer_route_required: "必须通过 KB 回答路由",
+    permission_negative_required: "必须覆盖权限负向",
+    pdf_html_docx_required: "必须覆盖 PDF / HTML / DOCX",
+    chunk_required: "必须生成切片",
+    qa_retrieval_required: "必须通过问答检索",
+    source_locator_required: "必须保留来源定位",
+    provider_backed_sample_required: "必须有 Provider 小样本",
+    unsafe_suggestion_forbidden: "禁止不安全记忆建议",
+    raw_provider_output_forbidden: "禁止原始 Provider 输出",
+    quality_tests: "Quality 后端测试",
+    agent_quality_eval_smoke: "Agent Eval 冒烟",
+    memory_quality_smoke: "Memory 质量冒烟",
+    real_user_qa_audit: "真实用户问答审计",
+    cloud_quality_smoke: "云端质量冒烟",
+    natural_corpus_audit: "自然语料审计",
+    document_parser_real_chain_smoke: "文档解析真实链路冒烟",
+    memory_provider_smoke: "Memory Provider 冒烟",
+    memory_quality_tests: "Memory 质量测试",
+    check_rag_tool_trace: "检查 RAG 工具链路",
+    verify_evidence_count: "确认 evidence 数量",
+    verify_citation_present: "确认 citation 存在",
+    check_memory_rag_split: "检查 Memory / RAG 分层",
+    verify_memory_not_polluted: "确认记忆未被污染",
+    verify_trace_sections: "确认 Trace 分区",
+    check_no_evidence_threshold: "检查无证据阈值",
+    verify_no_unsupported_citation: "确认无支撑引用为 0",
+    verify_refusal_path: "确认拒答路径",
+    check_short_document_chunk: "检查短文档切片",
+    check_single_document_retrieve: "检查单文档检索",
+    verify_quote_citation: "确认精确引用",
+    check_kb_document_coverage: "检查知识库文档覆盖",
+    check_summary_intent_backfill: "检查总结意图补召回",
+    verify_trace_document_hit_counts: "确认 Trace 文档命中分布",
+    check_citation_selector_score: "检查引用选择分数",
+    preserve_target_coverage: "保持目标证据覆盖",
+    verify_distractor_bucket_empty: "确认干扰桶为空",
+    check_spring_constructor_injection: "检查 Spring 构造注入",
+    verify_backend_health: "确认后端健康",
+    verify_quality_console_autoload: "确认 Console 自动加载",
+    check_document_tool_selector: "检查工具选择器",
+    verify_retrieval_only_keywords: "确认检索意图关键词",
+    verify_search_tool_output_redaction: "确认检索输出脱敏",
+    check_answer_intent_keywords: "检查回答意图关键词",
+    verify_rag_tool_for_answer_tasks: "确认回答任务走 RAG 工具",
+    verify_chinese_explain_intent: "确认中文说明类意图",
+    check_knowledge_base_agent_service: "检查 KnowledgeBaseAgentService",
+    verify_kb_rag_qa_step: "确认 KB RAG QA 步骤",
+    verify_kb_agent_trace_attributes: "确认 KB Agent 链路属性",
+    check_parser_registry: "检查 Parser Registry",
+    verify_chunk_source_locator: "确认切片来源定位",
+    verify_parser_quality_report: "确认解析质量报告",
+    check_memory_provider_parser: "检查 Memory Provider 解析",
+    verify_memory_safety_validator: "确认记忆安全校验",
+    verify_raw_provider_output_not_stored: "确认原始 Provider 输出未保存",
+  };
+  return labels[value] || value;
 }
 
 function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {

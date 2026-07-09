@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console B2 Eval Catalog 可读性
+
+- `/quality` Eval Catalog 顶部新增用例总数、待处理用例、Trace 覆盖和高风险用例摘要，帮助快速判断评测资产健康度。
+- Eval case 列表按失败 / 复查 / 未运行 / 高风险优先排序，不再把待处理 case 淹没在普通 PASS 项里。
+- 每个 case 拆成“风险分层”“评分门禁”“回归策略”“历史与定位”“修复建议和期望证据”几个区域；常见 `caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy`、`remediationHints` 已转为中文短语展示。
+- 有 `latestRunMarker` 且存在 `latestTraceId` / `latestAgentRunId` 的 case 显示“查看 Trace”；缺失时显示“暂无链路引用”，用于暴露 eval 到 trace 的覆盖缺口。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` console error 为 `0`，`390px` 移动端无横向溢出。前端预览进程和临时日志已清理，`3007` 无 LISTEN。
+- 边界：本片不改后端 API，不新增数据库表，不改 eval runner 评分逻辑，不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
 ## 2026-07-09 Agent Quality Console A2 Trace / Failure 联动
 
 - `/quality` 的“待处理”失败分桶卡片已增强为可行动排查入口：展示模块标签、失败 / 复查次数、关联门禁数、关联评测数、关联链路数、说明和建议动作。

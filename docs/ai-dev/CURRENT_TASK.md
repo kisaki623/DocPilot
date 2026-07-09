@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：A2 Trace / Failure drill-down 入口联动增强（DONE）；下一片：B2 Eval Case 风险与回归策略可读性增强（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：B2 Eval Case 风险与回归策略可读性增强（DONE）；下一片：C2 最近 N 次 repeated failure / regression 轻量趋势增强（READY）
+
+## 2026-07-09 补充：B2 Eval Case 风险与回归策略可读性增强
+
+- 目标：让 `/quality` 的 Eval Catalog 从 raw JSON 字段展示升级为“长期质量资产视图”，开发者能看懂每个 case 属于什么风险层、验什么、怎么回归、失败后怎么修。
+- 已完成前端：Eval Catalog 顶部新增用例总数、待处理用例、Trace 覆盖和高风险用例四个摘要；列表按失败 / 复查 / 未运行 / 高风险优先排序。
+- 已完成行级重构：每个 case 拆为“风险分层”“评分门禁”“回归策略”“历史与定位”“修复建议和期望证据”几个区域；`caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy`、`remediationHints` 等常见 key 显示为中文短语，raw key 保留在工程字段和 title 中便于对照。
+- 已完成 Trace 入口：有 `latestRunMarker` 且有 `latestTraceId` / `latestAgentRunId` 的 case 显示“查看 Trace”；缺失时显示“暂无链路引用”，避免误导。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放，临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不改 eval runner 评分逻辑、不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
 
 ## 2026-07-09 补充：A2 Trace / Failure drill-down 入口联动增强
 
