@@ -19,6 +19,7 @@ const BUCKET_LABELS: Record<string, string> = {
   TOOL_FAILURE: "工具调用失败",
   AGENT_ROUTING_MISMATCH: "Agent 路由不匹配",
   KB_AGENT_ROUTING_MISMATCH: "KB Agent 路由不匹配",
+  KB_AGENT_ANSWER_ROUTING_MISMATCH: "KB Agent 回答路由不匹配",
   KB_AGENT_UNSUPPORTED_INTENT: "KB Agent P0 意图边界异常",
   KB_AGENT_SCOPE_FAILURE: "KB Agent 权限失败透传异常",
   PERMISSION_REGRESSION: "权限隔离回归",
@@ -33,7 +34,9 @@ const METRIC_LABELS: Record<string, string> = {
   answerFaithfulnessPassCount: "回答忠实通过数",
   citationPhraseSupportPassCount: "引用短语支撑数",
   retrieveHits: "检索命中数",
+  citations: "引用数",
   qaCitations: "回答引用数",
+  answerCitations: "Agent 回答引用数",
   distractorCitationCount: "干扰引用数",
   evidenceCount: "证据数",
   memoryCount: "记忆数",
@@ -44,6 +47,7 @@ const METRIC_LABELS: Record<string, string> = {
   estimatedCost: "估算成本",
   latencyMs: "延迟 ms",
   durationMs: "耗时 ms",
+  answerDurationMs: "Agent 回答耗时 ms",
   retryCount: "重试次数",
   modelCallCount: "模型调用数",
   toolCallCount: "工具调用数",
@@ -63,6 +67,7 @@ const METRIC_LABELS: Record<string, string> = {
   negativeCasePassCount: "负向通过数",
   negativeCaseFailCount: "负向失败数",
   expectedDecisionMatched: "路由决策匹配",
+  checkCount: "检查项数",
   queryVariantCount: "查询变体数",
   queryDedupeCount: "查询去重数",
 };
@@ -85,6 +90,10 @@ const FLAG_LABELS: Record<string, string> = {
   citationPresent: "引用已生成",
   unsupportedUploadRejected: "不支持格式已拒绝",
   kbSearchDecisionPass: "KB 检索路由通过",
+  answerDecisionPass: "KB 回答路由通过",
+  answerSuccess: "KB 回答执行成功",
+  answerCoversBothDocuments: "KB 回答覆盖两份文档",
+  answerNoEvidenceHandled: "KB 无证据回答已处理",
   unsupportedIntentPass: "不支持意图处理通过",
   scopeFailurePropagated: "权限失败已透传",
   unsupportedIntentRejected: "不支持意图已拒绝",
@@ -126,7 +135,7 @@ const GATE_LABELS: Record<string, string> = {
   mysqlQdrantConsistency: "MySQL / Qdrant 一致性",
   singleDocumentRag: "单文档 RAG",
   knowledgeBaseRag: "知识库 RAG",
-  knowledgeBaseAgent: "知识库 Agent 检索",
+  knowledgeBaseAgent: "知识库 Agent",
   shortDocumentRag: "短文档 RAG",
   naturalCorpus: "自然语料",
   multiQueryRag: "多查询检索",
@@ -187,6 +196,23 @@ export function labelBucket(bucket?: string | null): string {
     return exact;
   }
   const lower = compactKey(raw);
+  if (lower.includes("kbanswerdecision") || lower.includes("knowledgebaseanswerdecision")) {
+    return BUCKET_LABELS.KB_AGENT_ANSWER_ROUTING_MISMATCH;
+  }
+  if (
+    lower.includes("kbsearchdecision") ||
+    lower.includes("knowledgebasesearchdecision") ||
+    lower.includes("kbagentroute") ||
+    lower.includes("kbrouting")
+  ) {
+    return BUCKET_LABELS.KB_AGENT_ROUTING_MISMATCH;
+  }
+  if (lower.includes("kbunsupportedintent") || lower.includes("unsupportedintent")) {
+    return BUCKET_LABELS.KB_AGENT_UNSUPPORTED_INTENT;
+  }
+  if (lower.includes("kbscopefailure") || lower.includes("scopefailurenotpropagated")) {
+    return BUCKET_LABELS.KB_AGENT_SCOPE_FAILURE;
+  }
   if (lower.includes("distractor")) {
     return BUCKET_LABELS.DISTRACTOR_CITATION;
   }
@@ -211,20 +237,6 @@ export function labelBucket(bucket?: string | null): string {
   }
   if (lower.includes("memory")) {
     return BUCKET_LABELS.MEMORY_CONFLICT;
-  }
-  if (
-    lower.includes("kbsearchdecision") ||
-    lower.includes("knowledgebasesearchdecision") ||
-    lower.includes("kbagentroute") ||
-    lower.includes("kbrouting")
-  ) {
-    return BUCKET_LABELS.KB_AGENT_ROUTING_MISMATCH;
-  }
-  if (lower.includes("kbunsupportedintent") || lower.includes("unsupportedintent")) {
-    return BUCKET_LABELS.KB_AGENT_UNSUPPORTED_INTENT;
-  }
-  if (lower.includes("kbscopefailure") || lower.includes("scopefailurenotpropagated")) {
-    return BUCKET_LABELS.KB_AGENT_SCOPE_FAILURE;
   }
   if (
     lower.includes("expecteddecision") ||

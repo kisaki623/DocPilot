@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：KB Agent grounded answer 真实 cloud smoke（DONE）；下一片：Agent Quality Console KB answer 诊断可见性增强（READY）
+当前任务：Agent Quality Console KB answer 诊断可见性增强（DONE）；下一片：KB Agent answer route 前端真实可见性回归（READY）
+
+## 2026-07-09 补充：Agent Quality Console KB answer 诊断可见性增强
+
+- 目标：让 `/quality` 对 KB Agent grounded answer 的安全摘要更容易阅读，不再只显示 raw key 或把 KB answer route 问题归到泛化 Agent / Citation 类。
+- 已完成前端标签：`knowledgeBaseAgent` 显示为“知识库 Agent”；新增 `answerCitations`、`answerDurationMs`、`answerDecisionPass`、`answerSuccess`、`answerCoversBothDocuments`、`answerNoEvidenceHandled` 等中文标签。
+- 已完成失败桶：`kbAnswerDecisionMismatch` 归类为“KB Agent 回答路由不匹配”，并给出检查 `KnowledgeBaseAgentService` grounded answer 分支、`KnowledgeBaseRagQaService` 调用和 KB answer route smoke case 的建议动作；KB Agent 专属桶判断提前，避免被泛化成“引用不支撑”或“其他”。
+- 已完成摘要：RAG 摘要的“回答引用数”会计入 `answerCitations`；新增“无证据已处理”事实，用于展示 `answerNoEvidenceHandled` / `noEvidenceCorrect` 这类安全布尔摘要。
+- 验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面和 `390px` 移动端 console error 均为 `0`，移动端 snapshot 未见横向溢出；本轮前端预览进程已清理，`3007` 端口已释放。
+- 边界：本片不改后端 API，不读取 raw artifact，不展示 prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串；Gemini CLI 可用但正式审阅请求超时，已按协作规则降级为 Codex 直接集成和验证。
 
 ## 2026-07-09 补充：KB Agent grounded answer 真实 cloud smoke
 

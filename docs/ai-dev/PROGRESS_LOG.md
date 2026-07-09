@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console KB answer 诊断可见性
+
+- `/quality` 标签层补齐 KB Agent answer route 安全摘要：`knowledgeBaseAgent` 显示为“知识库 Agent”，`answerCitations`、`answerDurationMs`、`answerDecisionPass`、`answerSuccess`、`answerCoversBothDocuments`、`answerNoEvidenceHandled` 等字段显示为中文。
+- `kbAnswerDecisionMismatch` 现在归类为“KB Agent 回答路由不匹配”，失败桶说明和建议动作指向 `KnowledgeBaseAgentService` grounded answer 分支、`KnowledgeBaseRagQaService` 调用和 KB answer route smoke case；KB Agent 专属桶判断提前，减少误归类到 Citation / Other。
+- RAG 摘要的“回答引用数”会计入 `answerCitations`，并新增“无证据已处理”事实，方便从控制台判断 grounded answer 和 no-evidence 边界。
+- Gemini CLI 可用性检查通过，但正式审阅请求超时；本片按协作规则降级为 Codex 直接集成、审查和验证。
+- 验证：`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 桌面和 `390px` 移动端 console error 均为 `0`，移动端 snapshot 未见横向溢出；前端预览进程已清理，`3007` 端口已释放。
+- 边界：本片不改后端 API，不读取 raw artifact，不展示 prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+
 ## 2026-07-09 KB Agent grounded answer 真实 cloud smoke
 
 - 执行 `cloud-quality-smoke.ps1 -Mode run -SkipFrontend -EnableKnowledgeBaseAgentGate`，marker 为 `docpilot-cloud-quality-20260709164330-452624`。

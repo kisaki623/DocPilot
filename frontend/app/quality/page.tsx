@@ -200,6 +200,23 @@ function normalizeTriageBucket(value?: string): string {
   if (!lower) {
     return "OTHER";
   }
+  if (lower.includes("kbanswerdecision") || lower.includes("knowledgebaseanswerdecision")) {
+    return "KB_AGENT_ANSWER_ROUTING_MISMATCH";
+  }
+  if (
+    lower.includes("kbsearchdecision") ||
+    lower.includes("knowledgebasesearchdecision") ||
+    lower.includes("kbagentroute") ||
+    lower.includes("kbrouting")
+  ) {
+    return "KB_AGENT_ROUTING_MISMATCH";
+  }
+  if (lower.includes("kbunsupportedintent") || lower.includes("unsupportedintent")) {
+    return "KB_AGENT_UNSUPPORTED_INTENT";
+  }
+  if (lower.includes("kbscopefailure") || lower.includes("scopefailurenotpropagated")) {
+    return "KB_AGENT_SCOPE_FAILURE";
+  }
   if (lower.includes("distractor")) {
     return "DISTRACTOR_CITATION";
   }
@@ -230,20 +247,6 @@ function normalizeTriageBucket(value?: string): string {
   }
   if (lower.includes("memory")) {
     return "MEMORY_CONFLICT";
-  }
-  if (
-    lower.includes("kbsearchdecision") ||
-    lower.includes("knowledgebasesearchdecision") ||
-    lower.includes("kbagentroute") ||
-    lower.includes("kbrouting")
-  ) {
-    return "KB_AGENT_ROUTING_MISMATCH";
-  }
-  if (lower.includes("kbunsupportedintent") || lower.includes("unsupportedintent")) {
-    return "KB_AGENT_UNSUPPORTED_INTENT";
-  }
-  if (lower.includes("kbscopefailure") || lower.includes("scopefailurenotpropagated")) {
-    return "KB_AGENT_SCOPE_FAILURE";
   }
   if (
     lower.includes("expecteddecision") ||
@@ -543,8 +546,10 @@ function bucketAction(bucket: string): string {
       return "检查 DocumentToolSelector、LLM selector prompt 和 search / answer 意图评测用例。";
     case "KB_AGENT_ROUTING_MISMATCH":
       return "检查 KnowledgeBaseAgentService、DocumentToolSelector 和 KB search route smoke case。";
+    case "KB_AGENT_ANSWER_ROUTING_MISMATCH":
+      return "检查 KnowledgeBaseAgentService 的 grounded answer 分支、KnowledgeBaseRagQaService 调用和 KB answer route smoke case。";
     case "KB_AGENT_UNSUPPORTED_INTENT":
-      return "确认 KB Agent P0 仍只支持检索证据，不应把回答或总结意图误执行为 search。";
+      return "确认未知或超出边界的 Agent 意图没有被误执行为检索或回答。";
     case "KB_AGENT_SCOPE_FAILURE":
       return "复查 KnowledgeBase scope guard、ToolCall 失败透传和权限负向用例。";
     case "TOOL_FAILURE":
@@ -577,8 +582,10 @@ function bucketDescription(bucket: string): string {
       return "Agent 工具选择或意图路由与预期不一致，可能导致检索请求被当成问答，或问答请求被降级成只检索。";
     case "KB_AGENT_ROUTING_MISMATCH":
       return "知识库 Agent 检索意图没有按预期走 knowledge_base_search_tool，会影响多文档 evidence search。";
+    case "KB_AGENT_ANSWER_ROUTING_MISMATCH":
+      return "知识库 Agent 回答意图没有按预期走 knowledge_base_rag_qa，会影响 grounded answer 和 citation 质量。";
     case "KB_AGENT_UNSUPPORTED_INTENT":
-      return "KB Agent P0 的能力边界发生漂移，回答或总结类任务可能被错误执行或错误标记。";
+      return "KB Agent 能力边界发生漂移，未知或超出边界的任务可能被错误执行或错误标记。";
     case "KB_AGENT_SCOPE_FAILURE":
       return "KB 权限失败没有被稳定透传，可能掩盖用户隔离或 scope guard 回归。";
     case "TOOL_FAILURE":
@@ -605,6 +612,7 @@ function bucketModule(bucket: string): BucketDiagnostic["module"] {
       return "Citation";
     case "AGENT_ROUTING_MISMATCH":
     case "KB_AGENT_ROUTING_MISMATCH":
+    case "KB_AGENT_ANSWER_ROUTING_MISMATCH":
     case "KB_AGENT_UNSUPPORTED_INTENT":
       return "Agent";
     case "KB_AGENT_SCOPE_FAILURE":
@@ -630,6 +638,7 @@ function bucketTone(bucket: string): DiagnosticTone {
   }
   if (
     category === "KB_AGENT_ROUTING_MISMATCH" ||
+    category === "KB_AGENT_ANSWER_ROUTING_MISMATCH" ||
     category === "KB_AGENT_UNSUPPORTED_INTENT" ||
     category === "KB_AGENT_SCOPE_FAILURE"
   ) {
@@ -2699,8 +2708,9 @@ function DomainSummaryPanel({
           description: "关注检索命中、证据、引用和回答依据性。",
           facts: [
             ["检索命中数", sumMetric(detail, ["retrieveHits"])],
-            ["回答引用数", sumMetric(detail, ["qaCitations"])],
+            ["回答引用数", sumMetric(detail, ["qaCitations", "answerCitations", "citationCount"])],
             ["证据数", sumMetric(detail, ["evidenceCount"])],
+            ["无证据已处理", countTrueFlags(detail, ["answerNoEvidenceHandled", "noEvidenceCorrect"])],
             ["干扰引用数", sumMetric(detail, ["distractorCitationCount"])],
           ],
           buckets: ["RAG_RETRIEVAL_MISS", "CITATION_UNSUPPORTED", "DISTRACTOR_CITATION", "NO_EVIDENCE_FALSE_POSITIVE"],
