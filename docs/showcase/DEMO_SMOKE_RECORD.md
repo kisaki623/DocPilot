@@ -1,8 +1,30 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-07-08
+> Last updated: 2026-07-09
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
+
+## 2026-07-09 KB Agent Real-link Runtime Smoke
+
+状态：KB Agent gate PASS；本次整体 run 为 REVIEW（有意跳过前端路由）
+
+Runner:
+
+- `scripts/smoke/cloud-quality-smoke.ps1 -Mode run -SkipFrontend -EnableKnowledgeBaseAgentGate`
+
+Marker:
+
+- `docpilot-cloud-quality-20260709153428-d25e54`
+
+已验证：
+
+- tunnel、backend health、临时用户 A/B、两文档上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、answer grounding、no-evidence、Conversation Trace、权限隔离、cleanup 和 artifact redaction 均通过。
+- 新增 `knowledgeBaseAgent` gate PASS：真实调用 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。
+- retrieval-only 任务返回 `decision=search_tool`，selected tool 为 `knowledge_base_search_tool`。
+- KB Agent retrieve hits / citations 均为 `6`，documentHitCounts 覆盖两份主文档 `{782:3,783:3}`。
+- KB Agent P0 answer / summary intent 被安全拒绝，未误执行 search；用户 B 访问用户 A KB 被拒绝。
+
+边界：本轮使用 `-SkipFrontend` 聚焦 KB Agent API 链路，因此 `frontendRoutes` 记为 REVIEW，整体 run 不是完整前端体验回归。artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，只保存计数、决策、工具名和布尔摘要，不提交原始 task、answer、文档全文、prompt、evidence context、凭据、连接串、云地址或 token。本次不代表 KB answer agent 已完成；当前 KB Agent P0 仍只支持 retrieval-only evidence search。
 
 ## 2026-07-08 Document Parser Real Chain Smoke
 

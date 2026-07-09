@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 KB Agent real-link runtime smoke gate
+
+- `scripts/smoke/cloud-quality-smoke.ps1` 新增默认关闭参数 `-EnableKnowledgeBaseAgentGate`，复用主 cloud smoke 的临时用户、两文档 KnowledgeBase 和用户 B 权限负向上下文。
+- 新 gate 会真实调用 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`：检索意图必须返回 `decision=search_tool`、执行 `knowledge_base_search_tool`、retrieve hits / citations 覆盖 Alpha / Beta 两份文档；answer / summary intent 必须被 KB Agent P0 拒绝；用户 B 调用用户 A KB 必须失败。
+- artifact 只写入 success、decision、selectedTools、hit / citation count、documentHitCounts、retrieval mode、rerank / multi-query 布尔和 durationMs，不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 已验证：`cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest,KnowledgeBaseAgentServiceImplTest,KnowledgeBaseAgentControllerTest" test` PASS（11 tests）。
+- 真实 run：`cloud-quality-smoke.ps1 -Mode run -SkipFrontend -EnableKnowledgeBaseAgentGate` 完成，marker `docpilot-cloud-quality-20260709153428-d25e54`；`knowledgeBaseAgent` gate PASS，`decision=search_tool`，selected tool 为 `knowledge_base_search_tool`，retrieve hits / citations 均为 `6`，documentHitCounts 覆盖 `{782:3,783:3}`，unsupported intent 和用户 B 权限负向均通过。整体 run 为 REVIEW 仅因为本轮跳过 frontend route smoke。
+
 ## 2026-07-09 Agent search smoke artifact Quality Console 可见性
 
 - `QualityArtifactServiceImpl` artifact root 白名单新增 `backend/target/agent-search-route` 与 `backend/target/agent-kb-search-route`，让单文档 Agent search route smoke 和 KB Agent search route smoke 的 ignored 脱敏 artifact 能进入 `/api/quality/runs` / `/quality`。

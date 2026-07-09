@@ -21,6 +21,7 @@ param(
   [switch]$EnableRealQaSemanticGate,
   [switch]$EnableRealProviderFaithfulnessGate,
   [switch]$EnableNaturalCorpusGate,
+  [switch]$EnableKnowledgeBaseAgentGate,
   [switch]$EnableFrontendInteractionGate
 )
 
@@ -1238,7 +1239,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "shortDocumentRag", "naturalCorpus(optional)", "frontendInteraction(optional)", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "knowledgeBaseAgent(optional)", "shortDocumentRag", "naturalCorpus(optional)", "frontendInteraction(optional)", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -1432,6 +1433,65 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
   }
   $answerGroundingChecks += Test-AnswerGrounding "knowledgeBaseRag" ([string]$kbQa.data.answer) @("ALPHA-CLOUD-GATE", "BETA-CONTEXT-GATE") @("real-marketing-export-forbidden-marker")
   Set-Gate "knowledgeBaseRag" "PASS" $kbChecks
+
+  $knowledgeBaseAgentChecks = $null
+  if ($EnableKnowledgeBaseAgentGate) {
+    $kbAgentQuestion = "Search evidence chunks and list sources for ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE in $smokeMarker."
+    $kbAgent = Invoke-JsonApi "POST" "/api/ai/agent/knowledge-bases/$($kb.data.id)/run" ([ordered]@{
+        task = $kbAgentQuestion
+        topK = 6
+        indexVersion = $IndexVersion
+      }) $tokenA
+    $kbAgentUnsupported = Invoke-JsonApi "POST" "/api/ai/agent/knowledge-bases/$($kb.data.id)/run" ([ordered]@{
+        task = "Summarize and answer both documents for this temporary knowledge base."
+        topK = 3
+        indexVersion = $IndexVersion
+      }) $tokenA
+    $kbAgentForeign = Invoke-JsonApi "POST" "/api/ai/agent/knowledge-bases/$($kb.data.id)/run" ([ordered]@{
+        task = "Search evidence chunks for a foreign knowledge base."
+        topK = 3
+        indexVersion = $IndexVersion
+      }) $tokenB -AllowFailure
+
+    $kbAgentHitCounts = $kbAgent.data.documentHitCounts
+    $kbAgentToolNames = @($kbAgent.data.steps | ForEach-Object { [string]$_.toolName })
+    $kbAgentRetrieveHits = @($kbAgent.data.retrievalHits).Count
+    $kbAgentCitations = @($kbAgent.data.citations).Count
+    $kbAgentCoversAlpha = (Get-CountValue $kbAgentHitCounts ([string]$docA.data.id)) -ge 1
+    $kbAgentCoversBeta = (Get-CountValue $kbAgentHitCounts ([string]$docB.data.id)) -ge 1
+    $kbAgentUsedSearchTool = $kbAgentToolNames -contains "knowledge_base_search_tool"
+    $kbAgentUnsupportedRejected = (-not [bool]$kbAgentUnsupported.data.success) -and @($kbAgentUnsupported.data.steps).Count -eq 0
+    $kbAgentForeignRejected = -not [bool]$kbAgentForeign.ok
+    $knowledgeBaseAgentChecks = @([ordered]@{
+      success = [bool]$kbAgent.data.success
+      decision = [string]$kbAgent.data.decision
+      selectedTools = $kbAgentToolNames
+      retrieveHits = $kbAgentRetrieveHits
+      citations = $kbAgentCitations
+      documentHitCounts = $kbAgentHitCounts
+      coversBothDocuments = ($kbAgentCoversAlpha -and $kbAgentCoversBeta)
+      unsupportedIntentRejected = $kbAgentUnsupportedRejected
+      foreignKnowledgeBaseRejected = $kbAgentForeignRejected
+      retrievalMode = [string]$kbAgent.data.retrievalMode
+      rerankApplied = [bool]$kbAgent.data.rerankApplied
+      multiQueryApplied = [bool]$kbAgent.data.multiQueryApplied
+      queryVariantCount = [int]$kbAgent.data.queryVariantCount
+      durationMs = [long]$kbAgent.data.totalDurationMs
+    })
+    if (-not [bool]$kbAgent.data.success -or [string]$kbAgent.data.decision -ne "search_tool" -or -not $kbAgentUsedSearchTool -or $kbAgentRetrieveHits -lt 2 -or $kbAgentCitations -lt 2 -or -not $kbAgentCoversAlpha -or -not $kbAgentCoversBeta) {
+      Set-Gate "knowledgeBaseAgent" "FAILED_CORE_FLOW" $knowledgeBaseAgentChecks "knowledge base agent search route did not return expected evidence"
+      Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseAgent" "knowledge base agent search route did not return expected evidence"
+    }
+    if (-not $kbAgentUnsupportedRejected) {
+      Set-Gate "knowledgeBaseAgent" "FAILED_CORE_FLOW" $knowledgeBaseAgentChecks "knowledge base agent P0 unsupported intent boundary regressed"
+      Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseAgent" "knowledge base agent P0 unsupported intent boundary regressed"
+    }
+    if (-not $kbAgentForeignRejected) {
+      Set-Gate "knowledgeBaseAgent" "FAILED_SECURITY_GATE" $knowledgeBaseAgentChecks "knowledge base agent permission isolation regressed"
+      Stop-WithStatus "FAILED_SECURITY_GATE" "knowledgeBaseAgent" "knowledge base agent permission isolation regressed"
+    }
+    Set-Gate "knowledgeBaseAgent" "PASS" $knowledgeBaseAgentChecks
+  }
 
   $zhShortSentence = -join ([char[]](0x4E2D, 0x6587, 0x77ED, 0x53E5))
   $shortAlphaText = @"
@@ -2480,6 +2540,8 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
       realQaSemanticGate = $realQaSemanticGateChecks
       realProviderFaithfulnessGateEnabled = [bool]$EnableRealProviderFaithfulnessGate
       realProviderFaithfulnessGate = $realProviderFaithfulnessChecks
+      knowledgeBaseAgentGateEnabled = [bool]$EnableKnowledgeBaseAgentGate
+      knowledgeBaseAgentGate = $knowledgeBaseAgentChecks
       frontendInteractionGateEnabled = [bool]$EnableFrontendInteractionGate
       frontendInteractionGate = $frontendInteractionChecks
       conversationId = [long]$conversation.data.conversationId

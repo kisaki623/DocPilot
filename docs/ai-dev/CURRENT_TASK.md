@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Agent search smoke artifact Quality Console 可见性（DONE）；下一片：KB Agent real-link runtime smoke（READY）
+当前任务：KB Agent real-link runtime smoke gate（DONE）；下一片：KB Agent Quality Console 真实可见性 / KB Agent answer route 规划（二选一 READY）
+
+## 2026-07-09 补充：KB Agent real-link runtime smoke gate
+
+- 目标：把 KB Agent P0 从离线路由 smoke 推进到真实 API 链路门禁，复用 cloud quality smoke 已创建的临时用户、两文档 KnowledgeBase 和权限负向上下文。
+- 已完成脚本：`scripts/smoke/cloud-quality-smoke.ps1` 新增默认关闭参数 `-EnableKnowledgeBaseAgentGate`。开启后会调用 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`，验证 retrieval-only 任务 `decision=search_tool`、step 使用 `knowledge_base_search_tool`、retrieve hits / citations 覆盖两份文档、answer / summary intent 被 P0 安全拒绝，以及用户 B 访问用户 A KB 被拒绝。
+- 脱敏边界：artifact 只保存 success、decision、selectedTools、hit / citation count、documentHitCounts、retrieval mode、rerank / multi-query 布尔和耗时等摘要，不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 已补安全测试：`RagRealQaEvalSmokeScriptSafetyTest` 检查 cloud smoke delegate 中包含 `EnableKnowledgeBaseAgentGate`、`knowledgeBaseAgentGateEnabled` 和 `knowledgeBaseAgentGate`，并继续约束不出现 raw prompt / answer / evidence context / token 输出。
+- 已验证：`cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS（当时 tunnel 端口未监听，但 dry-run 自身 PASS）；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest,KnowledgeBaseAgentServiceImplTest,KnowledgeBaseAgentControllerTest" test` PASS（11 tests）；真实 `cloud-quality-smoke.ps1 -Mode run -SkipFrontend -EnableKnowledgeBaseAgentGate` 完成，marker `docpilot-cloud-quality-20260709153428-d25e54`。
+- 真实结果：`knowledgeBaseAgent` gate 为 PASS，`decision=search_tool`，selected tool 为 `knowledge_base_search_tool`，retrieve hits / citations 均为 `6`，documentHitCounts 覆盖两份主文档 `{782:3,783:3}`，unsupported intent rejected=true，foreign KB rejected=true。整体 run 为 `REVIEW` 仅因为本轮有意 `-SkipFrontend`，不代表 KB Agent gate 失败。
 
 ## 2026-07-09 补充：Agent search smoke artifact Quality Console 可见性
 
