@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console A3 Trace Timeline 诊断
+
+- `/quality/trace` 链路瀑布图新增步骤摘要：失败步骤、复查步骤、工具 / RAG 步骤、模型 / 引用步骤和主要失败 / 复查类型。
+- 每个 Trace step 会根据 `stepType`、状态和脱敏 bucket 展示“排查建议”，覆盖工具调用、RAG 检索、模型调用、引用校验、Agent step、eval case、权限、记忆和 parser 等常见方向。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality/trace?routeSmoke=1` console error 为 `0`，`390px` 移动端无横向溢出。前端预览进程和临时日志已清理，`3007` 无 LISTEN。
+- 边界：本片不改后端 API，不新增数据库表，不读取 raw artifact，不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
 ## 2026-07-09 Agent Quality Console C2 轻量趋势诊断
 
 - `/quality` 趋势区的反复失败用例现在会关联 Eval Catalog，展示 case type、能力层、risk gate、失败次数、复查次数、最近运行 marker 和首条修复建议。

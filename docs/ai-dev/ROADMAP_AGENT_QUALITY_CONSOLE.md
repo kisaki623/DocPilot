@@ -51,7 +51,7 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 目标：Run Detail 中能读懂一次 Agent 请求的脱敏链路，而不是只看到 gate 名称和若干计数。
 
-2026-07-09 追加状态：A1 / A2 已完成。A1 已把 `knowledgeBaseAgent` gate 转成可打开的 `knowledge-base-agent-runtime` trace reference，并在 `/quality/trace` 链路瀑布图展示 KB Agent search / grounded answer 的脱敏属性。A2 已把 Run Detail 的失败分桶与 Gate / Eval / Trace 数量、建议动作和 Trace 入口联动起来；失败或 REVIEW eval case 如果没有 traceId / agentRunId，会明确显示“暂无链路引用”，用于暴露 trace 覆盖缺口。
+2026-07-09 追加状态：A1 / A2 / A3 已完成。A1 已把 `knowledgeBaseAgent` gate 转成可打开的 `knowledge-base-agent-runtime` trace reference，并在 `/quality/trace` 链路瀑布图展示 KB Agent search / grounded answer 的脱敏属性。A2 已把 Run Detail 的失败分桶与 Gate / Eval / Trace 数量、建议动作和 Trace 入口联动起来；失败或 REVIEW eval case 如果没有 traceId / agentRunId，会明确显示“暂无链路引用”，用于暴露 trace 覆盖缺口。A3 已在 `/quality/trace` 增加步骤摘要和每步排查建议，能快速看出失败 / 复查步骤分布、工具 / RAG / 模型 / 引用步骤数量和主要诊断方向。
 
 最小实现：
 

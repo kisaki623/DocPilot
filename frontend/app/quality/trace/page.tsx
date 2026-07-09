@@ -347,18 +347,56 @@ function TraceWaterfallCard({
           当前脱敏结果没有可展示的步骤摘要；后续运行会继续沉淀。
         </p>
       ) : (
-        <div className="mt-5 space-y-3">
-          {steps.map((step, index) => (
-            <TraceStepRow
-              key={`${step.stepType}-${index}`}
-              step={step}
-              index={index}
-            />
-          ))}
-        </div>
+        <>
+          <TraceStepSummary steps={steps} />
+          <div className="mt-5 space-y-3">
+            {steps.map((step, index) => (
+              <TraceStepRow
+                key={`${step.stepType}-${index}`}
+                step={step}
+                index={index}
+              />
+            ))}
+          </div>
+        </>
       )}
     </section>
   );
+}
+
+function TraceStepSummary({ steps }: { steps: QualityTraceStepDetail[] }) {
+  const failedSteps = steps.filter((step) => isFailedStatus(step.status)).length;
+  const reviewSteps = steps.filter((step) => isReviewStatus(step.status)).length;
+  const toolSteps = countStepsByType(steps, ["tool_call"]);
+  const ragSteps = countStepsByType(steps, ["rag_retrieve"]);
+  const modelSteps = countStepsByType(steps, ["model_call"]);
+  const citationSteps = countStepsByType(steps, ["citation"]);
+  const bucketSummary = summarizeBuckets(steps.flatMap((step) => step.buckets || []));
+  return (
+    <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <SmallFact label="失败步骤" value={`${failedSteps}`} />
+        <SmallFact label="复查步骤" value={`${reviewSteps}`} />
+        <SmallFact label="工具 / RAG" value={`${toolSteps} / ${ragSteps}`} />
+        <SmallFact label="模型 / 引用" value={`${modelSteps} / ${citationSteps}`} />
+      </div>
+      <p className="mt-3 break-words text-xs text-slate-600">
+        主要失败/复查类型：{bucketSummary}
+      </p>
+    </div>
+  );
+}
+
+function countStepsByType(steps: QualityTraceStepDetail[], types: string[]): number {
+  return steps.filter((step) => types.includes(step.stepType || "")).length;
+}
+
+function isFailedStatus(status?: string): boolean {
+  return Boolean(status?.startsWith("FAILED") || status === "FAIL");
+}
+
+function isReviewStatus(status?: string): boolean {
+  return status === "REVIEW" || status === "BLOCKED";
 }
 
 function TraceStepRow({
@@ -368,6 +406,7 @@ function TraceStepRow({
   step: QualityTraceStepDetail;
   index: number;
 }) {
+  const suggestion = traceStepSuggestion(step);
   return (
     <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-[44px_1fr]">
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-sm font-semibold text-white">
@@ -393,9 +432,48 @@ function TraceStepRow({
           <SmallFact label="布尔门禁" value={compactFlags(step.flags)} />
           <SmallFact label="失败/复查类型" value={summarizeBuckets(step.buckets)} />
         </div>
+        {suggestion ? (
+          <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 p-2">
+            <p className="break-words text-xs text-blue-800">
+              排查建议：{suggestion}
+            </p>
+          </div>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function traceStepSuggestion(step: QualityTraceStepDetail): string {
+  const bucketText = (step.buckets || []).join(" ").toLowerCase();
+  if (bucketText.includes("permission") || bucketText.includes("scope")) {
+    return "优先检查权限隔离、scope guard 和跨用户负向用例。";
+  }
+  if (bucketText.includes("citation") || step.stepType === "citation") {
+    return "优先检查 citation selector、grounding gate 和引用支撑计数。";
+  }
+  if (bucketText.includes("memory")) {
+    return "优先检查 ACTIVE memory、记忆去重和上下文来源分层。";
+  }
+  if (bucketText.includes("parser")) {
+    return "优先检查 parser registry、source locator 和解析状态流转。";
+  }
+  switch (step.stepType) {
+    case "tool_call":
+      return "优先检查工具选择、参数校验、超时和 fallback。";
+    case "rag_retrieve":
+      return "优先检查 chunk 质量、embedding、query rewrite、rerank 和检索阈值。";
+    case "model_call":
+      return "优先检查 token 用量、模型调用状态和成本摘要。";
+    case "agent_step":
+      return "优先检查 selector decision、selected tool 和 Agent step 状态。";
+    case "eval_case":
+      return "优先检查评测用例的 scoring rule、failure bucket 和 trace 关联。";
+    default:
+      return isFailedStatus(step.status) || isReviewStatus(step.status)
+        ? "先查看该步骤的失败/复查类型，再回到关联门禁和评测用例。"
+        : "";
+  }
 }
 
 function RelatedGateCard({ gate }: { gate: QualityGateSummary | null }) {

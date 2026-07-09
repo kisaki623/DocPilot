@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：C2 最近 N 次 repeated failure / regression 轻量趋势增强（DONE）；下一片：A3 Trace Timeline 信息密度与步骤诊断增强（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：A3 Trace Timeline 信息密度与步骤诊断增强（DONE）；下一片：B3 Eval Catalog 覆盖缺口与用例分层审计（READY）
+
+## 2026-07-09 补充：A3 Trace Timeline 信息密度与步骤诊断增强
+
+- 目标：让 `/quality/trace` 的链路瀑布图不只是步骤列表，而是能快速判断一次 Agent 请求的失败 / 复查步骤分布、工具 / RAG / 模型 / 引用步骤数量和主要排查方向。
+- 已完成前端：`TraceWaterfallCard` 新增链路步骤摘要，展示失败步骤、复查步骤、工具 / RAG 步骤、模型 / 引用步骤和主要失败 / 复查类型。
+- 已完成步骤诊断：每个 Trace step 根据 `stepType`、`status` 和脱敏 bucket 生成“排查建议”，例如工具调用检查参数 / 超时 / fallback，RAG 检索检查 chunk / embedding / query rewrite / rerank / 阈值，citation 检查 grounding 与引用支撑。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality/trace?routeSmoke=1`，console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放，临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不读取 raw artifact、不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
 
 ## 2026-07-09 补充：C2 最近 N 次 repeated failure / regression 轻量趋势增强
 
