@@ -6,6 +6,11 @@ import com.docpilot.backend.ai.agent.service.impl.KnowledgeBaseAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentToolSelector;
 import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaAnswer;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaQuery;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalHit;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
+import com.docpilot.backend.ai.service.KnowledgeBaseRagQaService;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
@@ -33,12 +38,12 @@ class KnowledgeBaseAgentServiceImplTest {
     @Mock
     private ToolCallService toolCallService;
 
+    @Mock
+    private KnowledgeBaseRagQaService knowledgeBaseRagQaService;
+
     @Test
     void shouldRunKnowledgeBaseSearchToolForRetrievalOnlyIntent() {
-        KnowledgeBaseAgentServiceImpl service = new KnowledgeBaseAgentServiceImpl(
-                toolCallService,
-                new DocumentToolSelector()
-        );
+        KnowledgeBaseAgentServiceImpl service = service();
         KnowledgeBaseAgentRequest request = request("retrieve topK evidence chunks and show source list");
         request.setTopK(4);
         request.setIndexVersion(2);
@@ -74,6 +79,7 @@ class KnowledgeBaseAgentServiceImplTest {
 
         ArgumentCaptor<ToolCallRequest> captor = ArgumentCaptor.forClass(ToolCallRequest.class);
         verify(toolCallService).call(eq(7L), captor.capture());
+        verify(knowledgeBaseRagQaService, never()).answer(any());
         ToolCallRequest toolRequest = captor.getValue();
         assertThat(toolRequest.getToolName()).isEqualTo(KnowledgeBaseSearchTool.TOOL_NAME);
         assertThat(toolRequest.getArguments())
@@ -87,10 +93,7 @@ class KnowledgeBaseAgentServiceImplTest {
 
     @Test
     void shouldReturnNoEvidenceSummary() {
-        KnowledgeBaseAgentServiceImpl service = new KnowledgeBaseAgentServiceImpl(
-                toolCallService,
-                new DocumentToolSelector()
-        );
+        KnowledgeBaseAgentServiceImpl service = service();
         KnowledgeBaseAgentRequest request = request("retrieve evidence chunks");
         KnowledgeBaseSearchTool.SearchResult searchResult = new KnowledgeBaseSearchTool.SearchResult(
                 7L,
@@ -131,28 +134,92 @@ class KnowledgeBaseAgentServiceImplTest {
     }
 
     @Test
-    void shouldNotCallToolForAnswerIntentInP0() {
-        KnowledgeBaseAgentServiceImpl service = new KnowledgeBaseAgentServiceImpl(
-                toolCallService,
-                new DocumentToolSelector()
-        );
+    void shouldRunKnowledgeBaseRagQaForAnswerIntent() {
+        KnowledgeBaseAgentServiceImpl service = service();
         KnowledgeBaseAgentRequest request = request("answer with evidence");
+        request.setTopK(5);
+        request.setIndexVersion(3);
+        request.setSessionId("session-a");
+        request.setMultiQueryEnabled(true);
+        request.setMaxQueryVariants(4);
+        when(knowledgeBaseRagQaService.answer(any(KnowledgeBaseRagQaQuery.class))).thenReturn(qaAnswer(false));
+
+        var response = service.run(7L, 99L, request);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getDecision()).isEqualTo("rag_tool");
+        assertThat(response.getFinalAnswer()).isEqualTo("Safe grounded answer");
+        assertThat(response.isNoEvidence()).isFalse();
+        assertThat(response.isFallbackUsed()).isFalse();
+        assertThat(response.getAnswerProvider()).isEqualTo("mock");
+        assertThat(response.getAnswerModel()).isEqualTo("mock-kb");
+        assertThat(response.getModelCallCount()).isEqualTo(1);
+        assertThat(response.getCitations()).hasSize(1);
+        assertThat(response.getRetrievalHits()).hasSize(1);
+        assertThat(response.getDocumentHitCounts()).containsEntry(201L, 1);
+        assertThat(response.getSteps()).hasSize(1);
+        assertThat(response.getSteps().get(0).getToolName()).isEqualTo("knowledge_base_rag_qa");
+        assertThat(response.getSteps().get(0).getInputSummary())
+                .contains("sessionIdPresent=true")
+                .doesNotContain("answer with evidence")
+                .doesNotContain("Safe grounded answer")
+                .doesNotContain(RAW_DOCUMENT_MARKER);
+        assertThat(response.getSteps().get(0).getOutputSummary())
+                .contains("citationCount=1")
+                .contains("modelCallCount=1")
+                .doesNotContain("Safe grounded answer")
+                .doesNotContain(RAW_DOCUMENT_MARKER);
+        verify(toolCallService, never()).call(any(), any());
+
+        ArgumentCaptor<KnowledgeBaseRagQaQuery> captor = ArgumentCaptor.forClass(KnowledgeBaseRagQaQuery.class);
+        verify(knowledgeBaseRagQaService).answer(captor.capture());
+        KnowledgeBaseRagQaQuery query = captor.getValue();
+        assertThat(query.userId()).isEqualTo(7L);
+        assertThat(query.knowledgeBaseId()).isEqualTo(99L);
+        assertThat(query.question()).isEqualTo("answer with evidence");
+        assertThat(query.topK()).isEqualTo(5);
+        assertThat(query.indexVersion()).isEqualTo(3);
+        assertThat(query.sessionId()).isEqualTo("session-a");
+        assertThat(query.multiQueryEnabled()).isTrue();
+        assertThat(query.maxQueryVariants()).isEqualTo(4);
+    }
+
+    @Test
+    void shouldRunKnowledgeBaseRagQaForSummaryIntent() {
+        KnowledgeBaseAgentServiceImpl service = service();
+        KnowledgeBaseAgentRequest request = request("summarize the knowledge base");
+        when(knowledgeBaseRagQaService.answer(any(KnowledgeBaseRagQaQuery.class))).thenReturn(qaAnswer(false));
+
+        var response = service.run(7L, 99L, request);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getDecision()).isEqualTo("summary_tool");
+        assertThat(response.getSteps()).hasSize(1);
+        assertThat(response.getSteps().get(0).getToolName()).isEqualTo("knowledge_base_rag_qa");
+        verify(toolCallService, never()).call(any(), any());
+        verify(knowledgeBaseRagQaService).answer(any(KnowledgeBaseRagQaQuery.class));
+    }
+
+    @Test
+    void shouldReturnNoEvidenceFromKnowledgeBaseRagQa() {
+        KnowledgeBaseAgentServiceImpl service = service();
+        KnowledgeBaseAgentRequest request = request("answer with evidence");
+        when(knowledgeBaseRagQaService.answer(any(KnowledgeBaseRagQaQuery.class))).thenReturn(qaAnswer(true));
 
         var response = service.run(7L, 99L, request);
 
         assertThat(response.isSuccess()).isFalse();
         assertThat(response.getDecision()).isEqualTo("rag_tool");
-        assertThat(response.getFinalAnswer()).contains("P0 目前仅支持检索证据");
-        assertThat(response.getSteps()).isEmpty();
-        verify(toolCallService, never()).call(any(), any());
+        assertThat(response.isNoEvidence()).isTrue();
+        assertThat(response.getCitations()).isEmpty();
+        assertThat(response.getRetrievalHits()).isEmpty();
+        assertThat(response.getSteps()).hasSize(1);
+        assertThat(response.getSteps().get(0).getStatus()).isEqualTo("review");
     }
 
     @Test
     void shouldRethrowKnowledgeBaseScopeFailure() {
-        KnowledgeBaseAgentServiceImpl service = new KnowledgeBaseAgentServiceImpl(
-                toolCallService,
-                new DocumentToolSelector()
-        );
+        KnowledgeBaseAgentServiceImpl service = service();
         KnowledgeBaseAgentRequest request = request("retrieve evidence chunks");
         when(toolCallService.call(eq(7L), any(ToolCallRequest.class))).thenReturn(ToolCallResult.failed(
                 KnowledgeBaseSearchTool.TOOL_NAME,
@@ -168,10 +235,7 @@ class KnowledgeBaseAgentServiceImplTest {
 
     @Test
     void shouldRejectBlankTaskAndInvalidKnowledgeBaseId() {
-        KnowledgeBaseAgentServiceImpl service = new KnowledgeBaseAgentServiceImpl(
-                toolCallService,
-                new DocumentToolSelector()
-        );
+        KnowledgeBaseAgentServiceImpl service = service();
 
         assertThatThrownBy(() -> service.run(7L, 0L, request("retrieve evidence")))
                 .isInstanceOf(BusinessException.class)
@@ -181,6 +245,27 @@ class KnowledgeBaseAgentServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.BAD_REQUEST);
+    }
+
+    @Test
+    void shouldRethrowKnowledgeBaseScopeFailureFromRagQa() {
+        KnowledgeBaseAgentServiceImpl service = service();
+        KnowledgeBaseAgentRequest request = request("answer with evidence");
+        when(knowledgeBaseRagQaService.answer(any(KnowledgeBaseRagQaQuery.class)))
+                .thenThrow(new BusinessException(ErrorCode.KNOWLEDGE_BASE_FORBIDDEN));
+
+        assertThatThrownBy(() -> service.run(7L, 99L, request))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.KNOWLEDGE_BASE_FORBIDDEN);
+    }
+
+    private KnowledgeBaseAgentServiceImpl service() {
+        return new KnowledgeBaseAgentServiceImpl(
+                toolCallService,
+                new DocumentToolSelector(),
+                knowledgeBaseRagQaService
+        );
     }
 
     private KnowledgeBaseAgentRequest request(String task) {
@@ -242,6 +327,91 @@ class KnowledgeBaseAgentServiceImplTest {
                 List.of(hit),
                 List.of(citation),
                 "topK=4, indexVersion=2, documentCount=2, hitCount=1, citationCount=1, noEvidence=false"
+        );
+    }
+
+    private KnowledgeBaseRagQaAnswer qaAnswer(boolean noEvidence) {
+        KnowledgeBaseRagRetrievalResult retrieval = noEvidence
+                ? new KnowledgeBaseRagRetrievalResult(
+                7L,
+                99L,
+                "",
+                4,
+                2,
+                List.of(201L, 202L),
+                List.of(),
+                List.of(),
+                true,
+                "mock",
+                "collection",
+                "embedding",
+                Map.of(201L, 0, 202L, 0),
+                "hybrid",
+                true,
+                "rerank-model",
+                true,
+                3,
+                8
+        )
+                : new KnowledgeBaseRagRetrievalResult(
+                7L,
+                99L,
+                "",
+                4,
+                2,
+                List.of(201L, 202L),
+                List.of(ragHit()),
+                List.of(ragHit().toCitation()),
+                false,
+                "mock",
+                "collection",
+                "embedding",
+                Map.of(201L, 1, 202L, 0),
+                "hybrid",
+                true,
+                "rerank-model",
+                true,
+                3,
+                8
+        );
+        return new KnowledgeBaseRagQaAnswer(
+                7L,
+                99L,
+                "",
+                noEvidence ? "未在当前知识库索引中检索到足够证据。" : "Safe grounded answer",
+                "session-a",
+                retrieval,
+                noEvidence,
+                false,
+                "",
+                "mock",
+                "mock-kb",
+                noEvidence ? 0 : 1
+        );
+    }
+
+    private KnowledgeBaseRagRetrievalHit ragHit() {
+        return new KnowledgeBaseRagRetrievalHit(
+                1,
+                99L,
+                "vector-1",
+                0.91d,
+                7L,
+                201L,
+                "Doc A",
+                2,
+                301L,
+                0,
+                "Safe quote",
+                "hash",
+                0,
+                10,
+                2,
+                "embedding",
+                0.91d,
+                0.42d,
+                0.88d,
+                0.93d
         );
     }
 }

@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：KB Agent Quality Console 真实前端可见性回归（DONE）；下一片：KB Agent answer route 选择（等待用户选择）
+当前任务：KB Agent grounded answer route P0 后端闭环（DONE）；下一片：KB Agent answer route smoke gate 扩展（READY）
+
+## 2026-07-09 补充：KB Agent grounded answer route P0 后端闭环
+
+- 目标：按 A 方案把 KB Agent 从 retrieval-only P0 扩展到 grounded answer P0，复用现有 `KnowledgeBaseRagQaService`，让 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run` 同时支持检索证据和基于 KB evidence 回答。
+- 已完成后端：`search_tool` 仍调用 `knowledge_base_search_tool`；`rag_tool` / `qa_tool` / `summary_tool` 现在调用 `KnowledgeBaseRagQaService.answer(...)`，并返回 `finalAnswer`、`citations`、`retrievalHits`、`documentHitCounts`、retrieval mode、multi-query / rerank 摘要、`noEvidence`、fallback 和模型调用计数。
+- 请求字段：`KnowledgeBaseAgentRequest` 新增可选 `sessionId`，并继续透传 `topK`、`indexVersion`、`multiQueryEnabled`、`maxQueryVariants` 到 KB RAG QA。
+- Trace / step 边界：answer 分支新增安全 step 名称 `knowledge_base_rag_qa`；step input / output summary 只展示 KB id、参数、是否有 session、hit / citation / document count、noEvidence、fallback 和 modelCallCount，不保存 prompt、answer 原文、文档全文或 evidence context。
+- 已同步离线 smoke 契约：`AgentKnowledgeBaseSearchRouteSmokeTest` 中 answer intent 从旧的 unsupported P0 改为 `rag_tool -> knowledge_base_rag_qa`，artifact 仍只保存 decision、step 名称、布尔值和计数摘要。
+- 已验证：`mvn "-Dtest=KnowledgeBaseAgentServiceImplTest,KnowledgeBaseAgentControllerTest,AgentKnowledgeBaseSearchRouteSmokeTest,AgentKnowledgeBaseSearchRouteSmokeScriptSafetyTest" test` PASS（13 tests，1 skipped）；`mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest" test` PASS（248 tests，3 skipped）。
+- 边界：本片只完成后端离线闭环，不启动真实 backend / tunnel，不创建业务数据，不提交 artifact 原文，不新增数据库表，不做复杂 planner，也不把 KB Agent 写成多 Agent 编排系统。
+- 下一片：扩展 `cloud-quality-smoke.ps1 -EnableKnowledgeBaseAgentGate`，新增 KB Agent answer / no-evidence / redaction gate，并跑真实 cloud smoke。
 
 ## 2026-07-09 补充：KB Agent Quality Console 真实前端可见性回归
 

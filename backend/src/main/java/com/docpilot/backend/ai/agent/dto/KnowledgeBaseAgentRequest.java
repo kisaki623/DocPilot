@@ -5,6 +5,7 @@ public class KnowledgeBaseAgentRequest {
     private String task;
     private Integer topK;
     private Integer indexVersion;
+    private String sessionId;
     private Boolean multiQueryEnabled;
     private Integer maxQueryVariants;
 
@@ -30,6 +31,14 @@ public class KnowledgeBaseAgentRequest {
 
     public void setIndexVersion(Integer indexVersion) {
         this.indexVersion = indexVersion;
+    }
+
+    public String getSessionId() {
+        return sessionId;
+    }
+
+    public void setSessionId(String sessionId) {
+        this.sessionId = sessionId;
     }
 
     public Boolean getMultiQueryEnabled() {

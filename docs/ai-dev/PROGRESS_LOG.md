@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 KB Agent grounded answer route P0
+
+- `KnowledgeBaseAgentServiceImpl` 新增 answer 分支：`rag_tool` / `qa_tool` / `summary_tool` 复用 `KnowledgeBaseRagQaService.answer(...)`，`search_tool` 仍保持 retrieval-only `knowledge_base_search_tool`。
+- `KnowledgeBaseAgentRequest` 新增 `sessionId`；response 新增 `noEvidence`、fallback、answer provider / model 和 `modelCallCount` 等安全元数据。
+- answer step 使用 `knowledge_base_rag_qa`，step summary 只记录参数和 hit / citation / noEvidence / modelCallCount 计数，不写入 prompt、answer 原文、文档全文或 evidence context。
+- `KnowledgeBaseAgentServiceImplTest` 覆盖 answer intent、summary intent、no-evidence、权限错误透传和 step 脱敏；`AgentKnowledgeBaseSearchRouteSmokeTest` 的 answer case 已从旧 unsupported 语义切换为 grounded answer route。
+- 验证：KB Agent targeted 13 tests PASS（1 skipped）；Agent / Tool / KB RAG broader 248 tests PASS（3 skipped）。
+- 边界：本片未跑真实 backend / tunnel，不创建业务数据，不新增数据库表；下一片进入 cloud quality smoke gate 扩展和真实链路验证。
+
 ## 2026-07-09 KB Agent Quality Console 真实前端可见性回归
 
 - 本地启动 tunnel、backend 和 frontend 后，使用临时登录用户访问内部 `/quality` 页面；本轮只做可见性验证，没有上传文档、创建 KB / Conversation、修改数据库结构或提交 artifact 原文。

@@ -7,6 +7,11 @@ import com.docpilot.backend.ai.agent.service.impl.KnowledgeBaseAgentServiceImpl;
 import com.docpilot.backend.ai.agent.tool.DocumentToolSelector;
 import com.docpilot.backend.ai.agent.tool.KnowledgeBaseSearchTool;
 import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaAnswer;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagQaQuery;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalHit;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
+import com.docpilot.backend.ai.service.KnowledgeBaseRagQaService;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,23 +53,23 @@ class AgentKnowledgeBaseSearchRouteSmokeTest {
         List<String> failureBuckets = new ArrayList<>();
 
         RouteCaseResult searchCase = runSearchRouteCase();
-        RouteCaseResult unsupportedCase = runUnsupportedAnswerCase();
+        RouteCaseResult answerCase = runAnswerRouteCase();
         RouteCaseResult scopeCase = runScopeFailureCase();
         caseResults.add(searchCase.toArtifactMap());
-        caseResults.add(unsupportedCase.toArtifactMap());
+        caseResults.add(answerCase.toArtifactMap());
         caseResults.add(scopeCase.toArtifactMap());
 
         boolean searchDecisionPass = searchCase.passed();
-        boolean unsupportedIntentPass = unsupportedCase.passed();
+        boolean answerDecisionPass = answerCase.passed();
         boolean scopeFailurePass = scopeCase.passed();
         boolean redactionPass = searchCase.redactionPass()
-                && unsupportedCase.redactionPass()
+                && answerCase.redactionPass()
                 && scopeCase.redactionPass();
         if (!searchDecisionPass) {
             failureBuckets.add("kbSearchDecisionMismatch");
         }
-        if (!unsupportedIntentPass) {
-            failureBuckets.add("kbUnsupportedIntentMismatch");
+        if (!answerDecisionPass) {
+            failureBuckets.add("kbAnswerDecisionMismatch");
         }
         if (!scopeFailurePass) {
             failureBuckets.add("kbScopeFailureNotPropagated");
@@ -82,10 +87,11 @@ class AgentKnowledgeBaseSearchRouteSmokeTest {
                 "passed", failureBuckets.isEmpty(),
                 "caseCount", caseResults.size(),
                 "searchDecisionPass", searchDecisionPass,
-                "unsupportedIntentPass", unsupportedIntentPass,
+                "answerDecisionPass", answerDecisionPass,
                 "scopeFailurePass", scopeFailurePass,
                 "redactionPass", redactionPass,
                 "searchToolName", KnowledgeBaseSearchTool.TOOL_NAME,
+                "answerStepName", "knowledge_base_rag_qa",
                 "failureBuckets", failureBuckets
         ));
         artifact.put("caseResults", caseResults);
@@ -103,9 +109,11 @@ class AgentKnowledgeBaseSearchRouteSmokeTest {
 
     private RouteCaseResult runSearchRouteCase() {
         ToolCallService toolCallService = mock(ToolCallService.class);
+        KnowledgeBaseRagQaService qaService = mock(KnowledgeBaseRagQaService.class);
         KnowledgeBaseAgentServiceImpl service = new KnowledgeBaseAgentServiceImpl(
                 toolCallService,
-                new DocumentToolSelector()
+                new DocumentToolSelector(),
+                qaService
         );
         KnowledgeBaseAgentRequest request = request("retrieve topK evidence chunks and show similarity score");
         request.setTopK(4);
@@ -130,6 +138,7 @@ class AgentKnowledgeBaseSearchRouteSmokeTest {
                 doesNotLeakRawMarker(step.getInputSummary())
                         && doesNotLeakRawMarker(step.getOutputSummary())
                         && doesNotLeakRawMarker(step.getErrorMessage()));
+        verify(qaService, never()).answer(any());
         return new RouteCaseResult(
                 "agent-kb-search-route",
                 "search_tool",
@@ -142,26 +151,33 @@ class AgentKnowledgeBaseSearchRouteSmokeTest {
         );
     }
 
-    private RouteCaseResult runUnsupportedAnswerCase() {
+    private RouteCaseResult runAnswerRouteCase() {
         ToolCallService toolCallService = mock(ToolCallService.class);
+        KnowledgeBaseRagQaService qaService = mock(KnowledgeBaseRagQaService.class);
         KnowledgeBaseAgentServiceImpl service = new KnowledgeBaseAgentServiceImpl(
                 toolCallService,
-                new DocumentToolSelector()
+                new DocumentToolSelector(),
+                qaService
         );
         KnowledgeBaseAgentRequest request = request("answer with evidence from the knowledge base");
+        when(qaService.answer(any(KnowledgeBaseRagQaQuery.class))).thenReturn(qaAnswer());
 
         var response = service.run(USER_ID, KNOWLEDGE_BASE_ID, request);
-        boolean decisionPass = !response.isSuccess()
+        boolean decisionPass = response.isSuccess()
                 && "rag_tool".equals(response.getDecision())
-                && response.getFinalAnswer().contains("P0 目前仅支持检索证据")
-                && response.getSteps().isEmpty();
-        boolean redactionPass = doesNotLeakRawMarker(response.getFinalAnswer());
+                && response.getCitations().size() == 1
+                && response.getSteps().stream().anyMatch(step -> "knowledge_base_rag_qa".equals(step.getToolName()));
+        boolean redactionPass = response.getSteps().stream().allMatch(step ->
+                doesNotLeakRawMarker(step.getInputSummary())
+                        && doesNotLeakRawMarker(step.getOutputSummary())
+                        && doesNotLeakRawMarker(step.getErrorMessage()));
         verify(toolCallService, never()).call(any(), any());
+        verify(qaService).answer(any(KnowledgeBaseRagQaQuery.class));
         return new RouteCaseResult(
-                "agent-kb-answer-intent-unsupported",
-                "unsupported_p0",
+                "agent-kb-answer-route",
+                "rag_tool",
                 response.getDecision(),
-                "",
+                "knowledge_base_rag_qa",
                 decisionPass,
                 redactionPass,
                 response.getSteps().size(),
@@ -171,9 +187,11 @@ class AgentKnowledgeBaseSearchRouteSmokeTest {
 
     private RouteCaseResult runScopeFailureCase() {
         ToolCallService toolCallService = mock(ToolCallService.class);
+        KnowledgeBaseRagQaService qaService = mock(KnowledgeBaseRagQaService.class);
         KnowledgeBaseAgentServiceImpl service = new KnowledgeBaseAgentServiceImpl(
                 toolCallService,
-                new DocumentToolSelector()
+                new DocumentToolSelector(),
+                qaService
         );
         KnowledgeBaseAgentRequest request = request("retrieve evidence chunks");
         when(toolCallService.call(eq(USER_ID), any(ToolCallRequest.class))).thenReturn(ToolCallResult.failed(
@@ -261,6 +279,66 @@ class AgentKnowledgeBaseSearchRouteSmokeTest {
                 List.of(hit),
                 List.of(citation),
                 "topK=4, indexVersion=2, documentCount=2, hitCount=1, citationCount=1, noEvidence=false"
+        );
+    }
+
+    private KnowledgeBaseRagQaAnswer qaAnswer() {
+        KnowledgeBaseRagRetrievalHit hit = new KnowledgeBaseRagRetrievalHit(
+                1,
+                KNOWLEDGE_BASE_ID,
+                "vector-1",
+                0.91d,
+                USER_ID,
+                201L,
+                "Doc A",
+                2,
+                301L,
+                0,
+                "Safe quote",
+                "hash",
+                0,
+                10,
+                2,
+                "embedding",
+                0.91d,
+                0.42d,
+                0.88d,
+                0.93d
+        );
+        KnowledgeBaseRagRetrievalResult retrieval = new KnowledgeBaseRagRetrievalResult(
+                USER_ID,
+                KNOWLEDGE_BASE_ID,
+                "",
+                4,
+                2,
+                List.of(201L, 202L),
+                List.of(hit),
+                List.of(hit.toCitation()),
+                false,
+                "mock",
+                "collection",
+                "embedding",
+                Map.of(201L, 1, 202L, 0),
+                "hybrid",
+                true,
+                "rerank-model",
+                true,
+                3,
+                8
+        );
+        return new KnowledgeBaseRagQaAnswer(
+                USER_ID,
+                KNOWLEDGE_BASE_ID,
+                "",
+                "Safe grounded answer",
+                "",
+                retrieval,
+                false,
+                false,
+                "",
+                "mock",
+                "mock-kb",
+                1
         );
     }
 

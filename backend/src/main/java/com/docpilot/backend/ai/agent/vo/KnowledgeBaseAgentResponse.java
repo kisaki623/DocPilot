@@ -19,6 +19,12 @@ public class KnowledgeBaseAgentResponse {
     private String routingReason;
     private List<String> matchedKeywords = new ArrayList<>();
     private String finalAnswer;
+    private boolean noEvidence;
+    private boolean fallbackUsed;
+    private String fallbackReason;
+    private String answerProvider;
+    private String answerModel;
+    private int modelCallCount;
     private Map<Long, Integer> documentHitCounts = Map.of();
     private String retrievalMode;
     private boolean rerankApplied;
@@ -115,6 +121,54 @@ public class KnowledgeBaseAgentResponse {
 
     public void setFinalAnswer(String finalAnswer) {
         this.finalAnswer = finalAnswer;
+    }
+
+    public boolean isNoEvidence() {
+        return noEvidence;
+    }
+
+    public void setNoEvidence(boolean noEvidence) {
+        this.noEvidence = noEvidence;
+    }
+
+    public boolean isFallbackUsed() {
+        return fallbackUsed;
+    }
+
+    public void setFallbackUsed(boolean fallbackUsed) {
+        this.fallbackUsed = fallbackUsed;
+    }
+
+    public String getFallbackReason() {
+        return fallbackReason;
+    }
+
+    public void setFallbackReason(String fallbackReason) {
+        this.fallbackReason = fallbackReason;
+    }
+
+    public String getAnswerProvider() {
+        return answerProvider;
+    }
+
+    public void setAnswerProvider(String answerProvider) {
+        this.answerProvider = answerProvider;
+    }
+
+    public String getAnswerModel() {
+        return answerModel;
+    }
+
+    public void setAnswerModel(String answerModel) {
+        this.answerModel = answerModel;
+    }
+
+    public int getModelCallCount() {
+        return modelCallCount;
+    }
+
+    public void setModelCallCount(int modelCallCount) {
+        this.modelCallCount = Math.max(0, modelCallCount);
     }
 
     public Map<Long, Integer> getDocumentHitCounts() {
