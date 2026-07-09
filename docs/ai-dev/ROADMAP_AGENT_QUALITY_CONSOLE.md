@@ -43,6 +43,69 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 - 每个切片都必须有对应后端单测、前端 lint/build 或浏览器 smoke；真实用户体验结论必须用真实链路 smoke / audit 收口。
 - 每个切片完成后回写 `CURRENT_TASK.md`、`STATE.md`、`PROGRESS_LOG.md`，并做精确 commit，不 push。
 
+## 2.2 2026-07-09 ABC 求职级增强循环
+
+本轮在既有 Trace / Eval / Trend 基础上重新收口三条可连续推进的求职级路线，优先服务“真实排查能力”，不继续堆 raw artifact 字段。
+
+### A：Agent Tool / Trace drill-down
+
+目标：Run Detail 中能读懂一次 Agent 请求的脱敏链路，而不是只看到 gate 名称和若干计数。
+
+最小实现：
+
+- 从现有 quality artifact、gate metrics、eval case result 和 trace reference 中聚合安全链路摘要。
+- 展示 selector decision、selected tool、tool status、RAG hit / citation count、documentHitCounts、noEvidence、permission negative 和 failure bucket。
+- KB Agent search route 和 grounded answer route 必须能区分：`search_tool -> knowledge_base_search_tool` 与 `rag_tool -> knowledge_base_rag_qa`。
+
+验收标准：
+
+- `/quality` Run Detail 或 Trace 入口能定位 KB Agent search / answer 两类 step。
+- citation 数、两文档覆盖、no-evidence 和跨用户拒绝能以安全摘要展示。
+- 不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址。
+- `mvn "-Dtest=*Quality*" test` PASS；前端改动需 `npm run lint`、`npm run build` 和 Playwright `/quality` 桌面 / 移动端无 console error、无横向溢出。
+
+### B：Eval Case 资产化
+
+目标：让 eval case 成为长期质量资产，能说明“验什么、为什么验、失败后怎么修、如何回归”。
+
+最小实现：
+
+- 在现有 JSON catalog 和 Quality API 白名单基础上补充能力层、风险等级、评分摘要、失败桶、最近验证 marker、修复建议和回归策略。
+- Eval result 与 traceId / agentRunId / marker 关联；无法关联时明确显示“暂无链路引用”。
+- REVIEW 和 FAILED 分开展示：REVIEW 是质量风险，FAILED 是核心失败或安全门禁失败。
+
+验收标准：
+
+- 至少覆盖 Agent search、KB Agent answer、RAG no-evidence、citation grounding、Memory governance、Parser real-chain 这些已有资产。
+- 每个失败 / REVIEW case 有 failure bucket、模块标签和建议动作。
+- 失败 case 优先能跳到 Trace；无法跳转时不显示空白或误导链接。
+- artifact 和 API 不保存或返回 question 原文、prompt、answer 原文、文档全文、evidence context 或真实用户输入。
+- `mvn "-Dtest=*Quality*,*Eval*" test` PASS；相关 smoke 的 `plan / dry-run` PASS。
+
+### C：Quality Console 趋势分析
+
+目标：让 Console 能回答“最近质量是在变好、变差，还是同一类问题反复出现”。
+
+最小实现：
+
+- 基于最近 N 个 ignored 脱敏 artifact 聚合，不新增数据库表。
+- 聚合 totalRuns、pass/review/fail 数量、case pass rate、top failure / review bucket、avg / p95 latency、token usage、estimated cost 和 cost per successful run。
+- token / cost / latency 字段缺失显示“暂无统计”，只有明确数值为 0 时才展示 0。
+
+验收标准：
+
+- 所有比率展示分子 / 分母，例如 `17 / 20`。
+- failure / review bucket 带模块标签：`RAG`、`Citation`、`Tool`、`Memory`、`Parser`、`Security`、`Env`、`Unknown`。
+- 每个 TopN bucket 有简短说明和建议动作。
+- 坏 JSON、缺 artifact、不同 schema 只能降级为 REVIEW 或空状态，不能让页面崩溃。
+- `mvn "-Dtest=*Quality*" test` PASS；前端 lint/build 和 Playwright `/quality` 桌面 / 移动端检查 PASS。
+
+统一不做：
+
+- 不做企业级 APM、告警系统、多租户后台、复杂 BI 报表或复杂 planner。
+- 不新增数据库表，除非 artifact 聚合已无法满足跨机器长期历史和权限审计，并由用户单独确认。
+- 不读取 raw artifact 原文，不展示敏感原文，不提交 artifact、日志、截图或临时数据。
+
 ## 3. 分阶段路线
 
 ### Phase 0：路线图沉淀

@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：KB Agent answer route 前端真实可见性回归（DONE）；下一片：Agent Tool / Trace drill-down 质量增强（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：Slice 0 任务落档与验收标准（IN_PROGRESS）；下一片：A1 Agent Tool / Trace drill-down 安全摘要增强（READY）
+
+## 2026-07-09 补充：Agent Quality Console ABC 求职级增强循环
+
+- 总目标：把 Agent Quality Console 从“能展示 run / gate / artifact 摘要”推进到“能辅助排查 Agent / RAG / Eval 质量问题的内部质量控制台”，围绕 A/B/C 三条线连续迭代。
+- A 方向：Agent Tool / Trace drill-down。Run Detail 和 Trace 入口需要能看懂一次 Agent 请求的脱敏链路：selector decision、selected tool、ToolCall、RAG retrieve、citation、no-evidence、权限负向和 failure bucket；不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+- B 方向：Eval Case 资产化。Eval 不只做 smoke 聚合，还要能说明 case 属于哪个能力层、风险等级、评分规则、失败桶、最近验证 marker 和修复建议；REVIEW 表示质量风险，FAILED 表示核心失败，二者不能混淆。
+- C 方向：Quality Console 趋势分析。基于最近 N 个 ignored 脱敏 artifact 聚合 pass/review/fail、failure bucket、case pass rate、token/cost 和 latency 趋势；字段缺失显示“暂无统计”，不能把缺样本误显示为 0。
+- 高质量验收：每片都必须保持 artifact-only 和字段白名单；后端至少跑 `mvn "-Dtest=*Quality*" test` 或更精确 targeted test；前端改动必须跑 `npm run lint`、`npm run build` 和 `/quality` Playwright 桌面 / 移动端检查；真实用户体验质量结论必须有真实 smoke / audit 证据。
+- 自驱边界：不新增数据库表，不做企业级 APM / 告警 / 多租户质量后台，不扩成复杂 planner，不提交 artifact 原文，不 push；如需要 schema 变更、远程 Docker 启停、删除数据、大规模真实 provider 调用或无法脱敏证据，必须停止确认。
+- Slice 0 验收：本任务、`ROADMAP_AGENT_QUALITY_CONSOLE.md`、`STATE.md` 和 `PROGRESS_LOG.md` 已同步 ABC 路线；中文乱码扫描和 `git diff --check` 通过后提交 `docs: plan quality console abc upgrade`。
 
 ## 2026-07-09 补充：KB Agent answer route 前端真实可见性回归
 

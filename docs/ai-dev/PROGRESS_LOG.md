@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console ABC 求职级增强循环启动
+
+- 当前任务已切换为 Agent Quality Console ABC 求职级增强循环：A 是 Agent Tool / Trace drill-down，B 是 Eval Case 资产化，C 是 Quality Console 趋势分析。
+- `CURRENT_TASK.md` 已记录当前片、下一片和统一边界；`ROADMAP_AGENT_QUALITY_CONSOLE.md` 已补充三条路线的目标、最小实现、验收标准和明确不做事项。
+- 统一验收口径：继续 artifact-only 和字段白名单；不新增数据库表；不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址；前端质量结论必须通过 lint/build 和浏览器检查。
+- 下一片进入 A1：基于现有 quality artifact / gate / eval / trace reference，增强 KB Agent search / grounded answer 的脱敏链路摘要和 Console 可读性。
+
 ## 2026-07-09 KB Agent answer route 前端真实可见性回归
 
 - `knowledgeBaseAgent` 被标记为关键诊断 gate：在“已通过门禁”折叠组展开后，即使 gate 状态为 PASS，也展示它的安全 signals；其他 PASS gate 仍保持压缩。
