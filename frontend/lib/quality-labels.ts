@@ -63,10 +63,14 @@ const METRIC_LABELS: Record<string, string> = {
   negativeCasePassCount: "负向通过数",
   negativeCaseFailCount: "负向失败数",
   expectedDecisionMatched: "路由决策匹配",
+  queryVariantCount: "查询变体数",
+  queryDedupeCount: "查询去重数",
 };
 
 const FLAG_LABELS: Record<string, string> = {
+  success: "执行成功",
   targetCitationCovered: "目标引用已覆盖",
+  coversBothDocuments: "覆盖两份文档",
   noEvidenceCorrect: "无证据判断正确",
   expectedEvidenceSupported: "预期证据已支撑",
   traceRagTriggered: "链路中 RAG 已触发",
@@ -83,6 +87,10 @@ const FLAG_LABELS: Record<string, string> = {
   kbSearchDecisionPass: "KB 检索路由通过",
   unsupportedIntentPass: "不支持意图处理通过",
   scopeFailurePropagated: "权限失败已透传",
+  unsupportedIntentRejected: "不支持意图已拒绝",
+  foreignKnowledgeBaseRejected: "跨用户知识库已拒绝",
+  rerankApplied: "Rerank 已应用",
+  multiQueryApplied: "多查询已应用",
 };
 
 const CASE_TYPE_LABELS: Record<string, string> = {
@@ -118,6 +126,7 @@ const GATE_LABELS: Record<string, string> = {
   mysqlQdrantConsistency: "MySQL / Qdrant 一致性",
   singleDocumentRag: "单文档 RAG",
   knowledgeBaseRag: "知识库 RAG",
+  knowledgeBaseAgent: "知识库 Agent 检索",
   shortDocumentRag: "短文档 RAG",
   naturalCorpus: "自然语料",
   multiQueryRag: "多查询检索",

@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-09 KB Agent Quality Console gate 诊断可读性
+
+- `QualityArtifactServiceImpl` 安全 flag 白名单新增 `success`、`covers...` 和 `...Rejected` 布尔摘要，便于把 `knowledgeBaseAgent` gate 的关键检查提升为 Console 信号。
+- `QualityArtifactServiceImplTest` 新增 cloud quality artifact fixture，覆盖 `knowledgeBaseAgent` gate 的 `retrieveHits`、`citations`、`coversBothDocuments`、`unsupportedIntentRejected`、`foreignKnowledgeBaseRejected` 解析，以及 prompt / answer 诱饵字段不泄露。
+- `frontend/lib/quality-labels.ts` 新增 `knowledgeBaseAgent` gate、`coversBothDocuments`、`unsupportedIntentRejected`、`foreignKnowledgeBaseRejected`、`rerankApplied`、`multiQueryApplied`、`queryVariantCount` 等中文标签。
+- 边界：本片只增强 Quality Console 可读摘要，不改 KB Agent 业务链路，不展示 raw artifact。
+
 ## 2026-07-09 KB Agent real-link runtime smoke gate
 
 - `scripts/smoke/cloud-quality-smoke.ps1` 新增默认关闭参数 `-EnableKnowledgeBaseAgentGate`，复用主 cloud smoke 的临时用户、两文档 KnowledgeBase 和用户 B 权限负向上下文。

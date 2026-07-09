@@ -2,6 +2,7 @@
 
 ## 2026-07-09 当前补充
 
+- KB Agent Quality Console gate 诊断可读性已收口。`QualityArtifactServiceImpl` 现在会把 `knowledgeBaseAgent` gate 中的 `success`、`coversBothDocuments`、`unsupportedIntentRejected`、`foreignKnowledgeBaseRejected` 等安全布尔摘要提升为 flags；`/quality` 标签层新增“知识库 Agent 检索”“覆盖两份文档”“不支持意图已拒绝”“跨用户知识库已拒绝”等中文展示。仍不展示 raw task、prompt、answer、文档全文或 evidence context。
 - KB Agent real-link runtime smoke gate 已完成真实验证。`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableKnowledgeBaseAgentGate`，开启后复用主 cloud smoke 的临时两文档 KB，验证 KB Agent retrieval-only API 真实调用 `knowledge_base_search_tool`、命中两份文档、P0 unsupported answer intent 被拒绝、用户 B 访问用户 A KB 被拒绝。真实 marker `docpilot-cloud-quality-20260709153428-d25e54` 中 `knowledgeBaseAgent` gate 为 PASS：`decision=search_tool`，selected tool 为 `knowledge_base_search_tool`，retrieve hits / citations 均为 `6`，documentHitCounts 覆盖两份主文档 `{782:3,783:3}`，unsupported intent rejected=true，foreign KB rejected=true。
 - 本次真实 run 整体状态为 `REVIEW`，原因是本轮刻意使用 `-SkipFrontend` 聚焦 KB Agent API，因此 `frontendRoutes` 被标记为 REVIEW；这不代表 KB Agent gate 失败。artifact 只保存计数、决策、工具名和布尔摘要，不保存原始 task、prompt、answer、文档全文或 evidence context。
 - Agent search smoke artifact 已接入 Quality Console 聚合。`QualityArtifactServiceImpl` artifact root 白名单新增 `backend/target/agent-search-route` 与 `backend/target/agent-kb-search-route`，因此单文档 Agent search route smoke 和 KB Agent search route smoke 的 ignored 脱敏 artifact 都能被 `/api/quality/runs` / `/quality` 发现；单测覆盖两个 root 的解析以及 prompt、answer、documentText、secret 等诱饵字段不泄露。

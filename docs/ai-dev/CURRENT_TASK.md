@@ -1,6 +1,13 @@
 # Current Task
 
-当前任务：KB Agent real-link runtime smoke gate（DONE）；下一片：KB Agent Quality Console 真实可见性 / KB Agent answer route 规划（二选一 READY）
+当前任务：KB Agent Quality Console gate 诊断可读性（DONE）；下一片：KB Agent answer route 规划 / 真实前端可见性回归（二选一 READY）
+
+## 2026-07-09 补充：KB Agent Quality Console gate 诊断可读性
+
+- 目标：让 `knowledgeBaseAgent` 真实 cloud smoke gate 进入 `/quality` 后不显示 raw key，而是能读懂“知识库 Agent 检索”及关键通过条件。
+- 已完成后端：`QualityArtifactServiceImpl` 安全 flag 白名单允许 `success`、`covers...` 和 `...Rejected` 这类布尔摘要；单测覆盖 `knowledgeBaseAgent` gate 的 `retrieveHits`、`citations`、`coversBothDocuments`、`unsupportedIntentRejected`、`foreignKnowledgeBaseRejected` 可被解析，同时 prompt / answer 诱饵字段不泄露。
+- 已完成前端：`quality-labels.ts` 新增 `knowledgeBaseAgent` gate 中文名，以及 `coversBothDocuments`、`unsupportedIntentRejected`、`foreignKnowledgeBaseRejected`、`rerankApplied`、`multiQueryApplied`、`queryVariantCount` 等中文标签。
+- 边界：本片只增强 Quality Console 白名单摘要和中文展示，不扩大 raw artifact 展示，不改 KB Agent 业务行为，不新增数据库表，不提交 artifact 原文。
 
 ## 2026-07-09 补充：KB Agent real-link runtime smoke gate
 

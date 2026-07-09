@@ -623,6 +623,53 @@ class QualityArtifactServiceImplTest {
         assertThat(kbDetail.toString()).doesNotContain("DOCUMENT_TEXT_SHOULD_NOT_LEAK", "SECRET_SHOULD_NOT_LEAK");
     }
 
+    @Test
+    void shouldPromoteKnowledgeBaseAgentGateSafeFlags() throws Exception {
+        Path artifact = artifactPath("tmp-e2e/docpilot-cloud-quality-smoke",
+                "docpilot-cloud-quality-kb-agent", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "smokeMarker": "docpilot-cloud-quality-kb-agent",
+                  "status": "PASS",
+                  "gates": {
+                    "knowledgeBaseAgent": {
+                      "status": "PASS",
+                      "checks": [
+                        {
+                          "success": true,
+                          "decision": "search_tool",
+                          "selectedTools": ["knowledge_base_search_tool"],
+                          "retrieveHits": 6,
+                          "citations": 6,
+                          "coversBothDocuments": true,
+                          "unsupportedIntentRejected": true,
+                          "foreignKnowledgeBaseRejected": true,
+                          "prompt": "PROMPT_SHOULD_NOT_LEAK",
+                          "answer": "ANSWER_SHOULD_NOT_LEAK"
+                        }
+                      ]
+                    }
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-cloud-quality-kb-agent").orElseThrow();
+
+        assertThat(detail.summary().source()).isEqualTo("tmp-e2e/docpilot-cloud-quality-smoke");
+        assertThat(detail.gates()).hasSize(1);
+        assertThat(detail.gates().get(0).name()).isEqualTo("knowledgeBaseAgent");
+        assertThat(detail.gates().get(0).metrics())
+                .containsEntry("retrieveHits", 6)
+                .containsEntry("citations", 6);
+        assertThat(detail.gates().get(0).flags())
+                .containsEntry("coversBothDocuments", true)
+                .containsEntry("unsupportedIntentRejected", true)
+                .containsEntry("foreignKnowledgeBaseRejected", true);
+        assertThat(detail.toString()).doesNotContain("PROMPT_SHOULD_NOT_LEAK", "ANSWER_SHOULD_NOT_LEAK");
+    }
+
     private Path artifactPath(String root, String marker, String fileName) throws Exception {
         Path dir = repoRoot.resolve(root).resolve(marker);
         Files.createDirectories(dir);

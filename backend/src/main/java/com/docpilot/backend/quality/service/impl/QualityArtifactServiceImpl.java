@@ -1163,6 +1163,9 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 || normalized.endsWith("correct")
                 || normalized.endsWith("supported")
                 || normalized.endsWith("required")
+                || normalized.endsWith("rejected")
+                || normalized.startsWith("covers")
+                || normalized.equals("success")
                 || normalized.equals("noevidence")
                 || normalized.equals("ragtriggered")
                 || normalized.equals("ragrequired");
