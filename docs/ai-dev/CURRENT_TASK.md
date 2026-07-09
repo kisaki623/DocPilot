@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：C1 Quality Console 趋势指标可信度增强（DONE）；下一片：A2 Trace / Failure drill-down 入口联动增强（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：A2 Trace / Failure drill-down 入口联动增强（DONE）；下一片：B2 Eval Case 风险与回归策略可读性增强（READY）
+
+## 2026-07-09 补充：A2 Trace / Failure drill-down 入口联动增强
+
+- 目标：让 `/quality` 的“待处理”区不只是失败桶列表，而是能直接指导开发者从失败类型跳到相关 Trace、Gate 和 Eval 结果。
+- 已完成前端：失败分桶卡片现在展示模块标签、失败 / 复查次数、关联门禁数、关联评测数、关联链路数、简短说明和建议动作；有 trace reference 的 bucket 可直接“查看 Trace”，没有链路引用时明确显示“暂无链路引用”。
+- 已完成 Trace 可读性增强：Run Detail 的链路定位行展示步骤数和主要排查方向；`/quality/trace` 的 Trace reference 卡片新增“步骤数”，和链路瀑布图保持一致。
+- 已完成 Eval 关联提示：失败或需复查的 eval case 如果有 `traceId` / `agentRunId`，继续显示“查看 Trace”；如果没有，则明确显示“暂无链路引用”，用于暴露评测结果和 Trace 覆盖之间的缺口。
+- 已补 `PARSER_FAILURE` 到 Run Detail 失败类型筛选，避免 Document Parser 真实链路问题被折到“其他”。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 与 `/quality/trace?routeSmoke=1`，console error 均为 `0`，`390px` 移动端均无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放；临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不读取 raw artifact、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
 
 ## 2026-07-09 补充：C1 Quality Console 趋势指标可信度增强
 

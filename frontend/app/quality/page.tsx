@@ -76,6 +76,7 @@ const TRIAGE_BUCKET_CATEGORIES = [
   "KB_AGENT_ROUTING_MISMATCH",
   "KB_AGENT_UNSUPPORTED_INTENT",
   "KB_AGENT_SCOPE_FAILURE",
+  "PARSER_FAILURE",
   "PERMISSION_REGRESSION",
   "FRONTEND_UX",
   "ENV_BLOCKED",
@@ -94,6 +95,10 @@ interface TriageBucketSummary {
   count: number;
   failedCount: number;
   reviewCount: number;
+  gateCount: number;
+  evalCaseCount: number;
+  traceCount: number;
+  traceReferences: QualityTraceReference[];
   examples: string[];
 }
 
@@ -2446,6 +2451,7 @@ function RunDetailContent({
             gateNames={gateNames}
             caseTypes={caseTypes}
             bucketSummaries={bucketSummaries}
+            runMarker={summary.marker}
             resultCounts={{
               gates: filteredGates.length,
               evalCases: filteredEvalCases.length,
@@ -3242,7 +3248,9 @@ function buildBucketSummaries(
     buckets: string[],
     status: string,
     label: string,
-    bucketType: "failed" | "review"
+    bucketType: "failed" | "review",
+    sourceType: "summary" | "gate" | "eval" | "trace",
+    reference?: QualityTraceReference
   ) {
     buckets.forEach((bucket) => {
       const category = normalizeTriageBucket(bucket);
@@ -3252,6 +3260,10 @@ function buildBucketSummaries(
           count: 0,
           failedCount: 0,
           reviewCount: 0,
+          gateCount: 0,
+          evalCaseCount: 0,
+          traceCount: 0,
+          traceReferences: [],
           examples: [],
         };
       current.count += 1;
@@ -3260,6 +3272,22 @@ function buildBucketSummaries(
       } else {
         current.reviewCount += 1;
       }
+      if (sourceType === "gate") {
+        current.gateCount += 1;
+      }
+      if (sourceType === "eval") {
+        current.evalCaseCount += 1;
+      }
+      if (sourceType === "trace" && reference) {
+        current.traceCount += 1;
+        const traceKey = `${reference.caseId}-${reference.traceId}-${reference.agentRunId}`;
+        const hasReference = current.traceReferences.some(
+          (item) => `${item.caseId}-${item.traceId}-${item.agentRunId}` === traceKey
+        );
+        if (!hasReference) {
+          current.traceReferences.push(reference);
+        }
+      }
       if (bucket && current.examples.length < 3) {
         current.examples.push(`${label}: ${labelBucket(bucket)}`);
       }
@@ -3267,19 +3295,33 @@ function buildBucketSummaries(
     });
   }
 
-  addBuckets(detail.summary.failureBuckets, detail.summary.status, "summary", "failed");
-  addBuckets(detail.summary.reviewBuckets, detail.summary.status, "summary", "review");
+  addBuckets(detail.summary.failureBuckets, detail.summary.status, "summary", "failed", "summary");
+  addBuckets(detail.summary.reviewBuckets, detail.summary.status, "summary", "review", "summary");
   detail.gates.forEach((gate) => {
-    addBuckets(gate.failureBuckets, getGateStatus(gate), gate.name, "failed");
-    addBuckets(gate.reviewBuckets, getGateStatus(gate), gate.name, "review");
+    addBuckets(gate.failureBuckets, getGateStatus(gate), gate.name, "failed", "gate");
+    addBuckets(gate.reviewBuckets, getGateStatus(gate), gate.name, "review", "gate");
   });
   detail.evalCases.forEach((item) => {
-    addBuckets(item.failureBuckets, item.status, item.caseId, "failed");
-    addBuckets(item.reviewBuckets, item.status, item.caseId, "review");
+    addBuckets(item.failureBuckets, item.status, item.caseId, "failed", "eval");
+    addBuckets(item.reviewBuckets, item.status, item.caseId, "review", "eval");
   });
   traceReferences.forEach((reference) => {
-    addBuckets(reference.failureBuckets, reference.status, reference.caseId, "failed");
-    addBuckets(reference.reviewBuckets, reference.status, reference.caseId, "review");
+    addBuckets(
+      reference.failureBuckets,
+      reference.status,
+      reference.caseId,
+      "failed",
+      "trace",
+      reference
+    );
+    addBuckets(
+      reference.reviewBuckets,
+      reference.status,
+      reference.caseId,
+      "review",
+      "trace",
+      reference
+    );
   });
 
   return TRIAGE_BUCKET_CATEGORIES
@@ -3292,6 +3334,7 @@ function FailureTriagePanel({
   gateNames,
   caseTypes,
   bucketSummaries,
+  runMarker,
   resultCounts,
   onChange,
 }: {
@@ -3299,6 +3342,7 @@ function FailureTriagePanel({
   gateNames: string[];
   caseTypes: string[];
   bucketSummaries: TriageBucketSummary[];
+  runMarker: string;
   resultCounts: { gates: number; evalCases: number; traces: number };
   onChange: (filters: TriageFilters) => void;
 }) {
@@ -3360,32 +3404,79 @@ function FailureTriagePanel({
         {bucketSummaries.length === 0 ? (
           <p className="dp-meta">暂无失败项或需复查项。</p>
         ) : (
-          bucketSummaries.map((item) => (
-            <button
-              key={item.category}
-              type="button"
-              title={item.category}
-              onClick={() => updateFilter("bucketCategory", item.category)}
-              className={`min-w-0 rounded-lg border p-3 text-left transition ${
-                filters.bucketCategory === item.category
-                  ? "border-blue-300 bg-blue-50"
-                  : "border-slate-200 bg-white hover:border-blue-200"
-              }`}
-            >
-              <div className="flex min-w-0 items-start justify-between gap-2">
-                <p className="break-words text-xs font-semibold text-slate-900">
-                  {labelBucket(item.category)}
-                </p>
-                <span className="dp-badge dp-badge-neutral">{item.count}</span>
+          bucketSummaries.map((item) => {
+            const traceReference = item.traceReferences[0];
+            const traceHref = traceReference ? buildTraceHref(runMarker, traceReference) : "";
+            return (
+              <div
+                key={item.category}
+                title={item.category}
+                className={`min-w-0 rounded-lg border p-3 text-left transition ${
+                  filters.bucketCategory === item.category
+                    ? "border-blue-300 bg-blue-50"
+                    : "border-slate-200 bg-white hover:border-blue-200"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => updateFilter("bucketCategory", item.category)}
+                  className="block w-full min-w-0 text-left"
+                >
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <p className="break-words text-xs font-semibold text-slate-900">
+                      {labelBucket(item.category)}
+                    </p>
+                    <span className="dp-badge dp-badge-neutral">{item.count}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    <span className="dp-badge dp-badge-info">
+                      {bucketModule(item.category)}
+                    </span>
+                    <span className="dp-badge dp-badge-danger">
+                      失败 {item.failedCount}
+                    </span>
+                    <span className="dp-badge dp-badge-warning">
+                      复查 {item.reviewCount}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1 text-[11px] font-semibold text-slate-600">
+                    <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+                      门禁 {item.gateCount}
+                    </span>
+                    <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+                      评测 {item.evalCaseCount}
+                    </span>
+                    <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+                      链路 {item.traceCount}
+                    </span>
+                  </div>
+                  <p className="mt-2 break-words text-xs text-slate-600">
+                    {bucketDescription(item.category)}
+                  </p>
+                  <p className="mt-2 break-words text-xs text-slate-500">
+                    示例：{summarizeBuckets(item.examples)}
+                  </p>
+                </button>
+                <div className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 text-xs sm:flex-row sm:items-center sm:justify-between">
+                  <p className="min-w-0 break-words text-slate-600">
+                    建议：{bucketAction(item.category)}
+                  </p>
+                  {traceHref ? (
+                    <Link
+                      href={traceHref}
+                      className="shrink-0 rounded border border-blue-200 bg-blue-50 px-2 py-1 font-semibold text-blue-700 hover:border-blue-300"
+                    >
+                      查看 Trace
+                    </Link>
+                  ) : (
+                    <span className="shrink-0 rounded border border-slate-200 bg-slate-50 px-2 py-1 font-semibold text-slate-500">
+                      暂无链路引用
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="mt-2 text-xs text-slate-600">
-                失败 {item.failedCount} / 复查 {item.reviewCount}
-              </p>
-              <p className="mt-2 break-words text-xs text-slate-500">
-                {summarizeBuckets(item.examples)}
-              </p>
-            </button>
-          ))
+            );
+          })
         )}
       </div>
     </section>
@@ -3469,6 +3560,10 @@ function TraceReferenceRow({
 }) {
   const status = reference.status || "REVIEW";
   const traceHref = buildTraceHref(runMarker, reference);
+  const stepCount = reference.steps?.length || 0;
+  const primaryBucket = normalizeTriageBucket(
+    reference.failureBuckets[0] || reference.reviewBuckets[0]
+  );
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -3487,6 +3582,7 @@ function TraceReferenceRow({
           >
             打开
           </Link>
+          <span className="dp-badge dp-badge-info">{stepCount} 步</span>
           <span className={statusBadge(status)}>{formatStatus(status)}</span>
         </div>
       </div>
@@ -3503,6 +3599,16 @@ function TraceReferenceRow({
           复查: {summarizeBuckets(reference.reviewBuckets)}
         </p>
       </div>
+      {primaryBucket !== "OTHER" ? (
+        <div className="mt-3 rounded-md border border-slate-100 bg-slate-50 p-2">
+          <p className="break-words text-xs text-slate-600">
+            排查方向：{bucketDescription(primaryBucket)}
+          </p>
+          <p className="mt-1 break-words text-xs text-slate-500">
+            建议：{bucketAction(primaryBucket)}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -3634,6 +3740,8 @@ function EvalCaseRow({
   const traceHref = buildEvalCaseTraceHref(runMarker, item);
   const shouldShowTraceLink =
     Boolean(traceHref) && (isFailedStatus(item.status) || isReviewStatus(item.status));
+  const shouldShowMissingTrace =
+    !traceHref && (isFailedStatus(item.status) || isReviewStatus(item.status));
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -3653,6 +3761,11 @@ function EvalCaseRow({
             >
               查看 Trace
             </Link>
+          ) : null}
+          {shouldShowMissingTrace ? (
+            <span className="rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-500">
+              暂无链路引用
+            </span>
           ) : null}
           <span className={statusBadge(item.status)}>{formatStatus(item.status)}</span>
         </div>

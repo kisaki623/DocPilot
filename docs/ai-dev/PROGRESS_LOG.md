@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console A2 Trace / Failure 联动
+
+- `/quality` 的“待处理”失败分桶卡片已增强为可行动排查入口：展示模块标签、失败 / 复查次数、关联门禁数、关联评测数、关联链路数、说明和建议动作。
+- 有 trace reference 的失败桶可直接“查看 Trace”；没有链路引用时明确显示“暂无链路引用”，避免用户误以为页面漏了跳转。
+- Run Detail 的链路定位行新增步骤数和主要排查方向；`/quality/trace` 的 Trace reference 卡片新增“步骤数”，与链路瀑布图保持一致。
+- Eval case 行对失败 / 复查用例补充“暂无链路引用”提示，用于暴露 eval result 到 trace 的覆盖缺口。
+- `PARSER_FAILURE` 已加入 Run Detail 失败类型筛选，Document Parser 真实链路问题不再长期落入“其他”。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 和 `/quality/trace?routeSmoke=1` console error 为 `0`，`390px` 移动端无横向溢出。前端预览进程和临时日志已清理，`3007` 无 LISTEN。
+- 边界：本片不改后端 API，不新增数据库表，不读取 raw artifact，不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
 ## 2026-07-09 Agent Quality Console C1 趋势指标可信度
 
 - `/quality` 趋势面板修正状态比例语义：通过 / 复查 / 失败运行均显示 `x / totalRuns`，平均 case 通过率继续作为趋势均值展示。

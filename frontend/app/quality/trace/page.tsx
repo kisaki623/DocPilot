@@ -305,10 +305,11 @@ function TraceReferenceCard({ reference }: { reference: QualityTraceReference })
         </div>
         <span className={statusBadge(status)}>{formatStatus(status)}</span>
       </div>
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
+      <div className="mt-3 grid gap-3 md:grid-cols-4">
         <SmallFact label="traceId" value={reference.traceId || "-"} />
         <SmallFact label="agentRunId" value={reference.agentRunId || "-"} />
         <SmallFact label="conversationId" value={reference.conversationId || "-"} />
+        <SmallFact label="步骤数" value={`${reference.steps?.length || 0}`} />
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <SmallFact
