@@ -972,6 +972,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             return QualityRunDiagnostics.ParserQualitySummary.empty();
         }
         JsonNode fileTypeCoverage = node.path("fileTypeCoverage");
+        JsonNode fixtureStructureCoverage = node.path("fixtureStructureCoverage");
         JsonNode parseStatusSummary = node.path("parseStatusSummary");
         JsonNode sourceLocatorSummary = node.path("sourceLocatorSummary");
         JsonNode ragChainSummary = node.path("ragChainSummary");
@@ -982,6 +983,10 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 arraySize(fileTypeCoverage.path("coveredTypes")),
                 arraySize(fileTypeCoverage.path("missingTypes")),
                 optionalBoolean(fileTypeCoverage, "allCovered").orElse(null),
+                arraySize(fixtureStructureCoverage.path("expectedSignals")),
+                arraySize(fixtureStructureCoverage.path("coveredSignals")),
+                arraySize(fixtureStructureCoverage.path("missingSignals")),
+                optionalBoolean(fixtureStructureCoverage, "allCovered").orElse(null),
                 optionalInt(parseStatusSummary, "fileCount"),
                 optionalInt(parseStatusSummary, "parsedFileCount"),
                 optionalInt(parseStatusSummary, "parserFailureCount"),

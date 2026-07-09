@@ -80,6 +80,10 @@ export interface QualityParserQualitySummary {
   coveredFileTypeCount?: number | null;
   missingFileTypeCount?: number | null;
   allFileTypesCovered?: boolean | null;
+  expectedStructureSignalCount?: number | null;
+  coveredStructureSignalCount?: number | null;
+  missingStructureSignalCount?: number | null;
+  allStructureSignalsCovered?: boolean | null;
   fileCount?: number | null;
   parsedFileCount?: number | null;
   parserFailureCount?: number | null;

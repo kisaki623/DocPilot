@@ -66,6 +66,10 @@ public record QualityRunDiagnostics(
             Integer coveredFileTypeCount,
             Integer missingFileTypeCount,
             Boolean allFileTypesCovered,
+            Integer expectedStructureSignalCount,
+            Integer coveredStructureSignalCount,
+            Integer missingStructureSignalCount,
+            Boolean allStructureSignalsCovered,
             Integer fileCount,
             Integer parsedFileCount,
             Integer parserFailureCount,
@@ -106,6 +110,7 @@ public record QualityRunDiagnostics(
 
         public static ParserQualitySummary empty() {
             return new ParserQualitySummary(
+                    null, null, null, null,
                     null, null, null, null,
                     null, null, null, null,
                     null, null,

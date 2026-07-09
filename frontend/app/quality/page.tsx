@@ -3317,6 +3317,8 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
   const qaRetrieveOkCount = parserQuality?.qaRetrieveOkCount ?? null;
   const directRetrieveMaxAttempts = parserQuality?.directRetrieveMaxAttempts ?? null;
   const qaRetrieveMaxAttempts = parserQuality?.qaRetrieveMaxAttempts ?? null;
+  const expectedStructureSignalCount = parserQuality?.expectedStructureSignalCount ?? null;
+  const coveredStructureSignalCount = parserQuality?.coveredStructureSignalCount ?? null;
   const parserDiagnostics = buildParserDiagnostics(parserQuality, realChain, boundary);
 
   return (
@@ -3365,7 +3367,7 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
         />
       </div>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <SmallFact
           label="解析失败数"
           value={formatNullableStat(parserFailureCount)}
@@ -3381,6 +3383,10 @@ function ParserArtifactPanel({ detail }: { detail: QualityRunDetail }) {
         <SmallFact
           label="不支持格式拒绝"
           value={formatQualityBoolean(gateFlag(boundary, "unsupportedUploadRejected"))}
+        />
+        <SmallFact
+          label="结构覆盖"
+          value={formatMetricPair(coveredStructureSignalCount, expectedStructureSignalCount)}
         />
       </div>
 
@@ -3447,6 +3453,7 @@ function hasParserQualitySummary(summary: QualityParserQualitySummary | null): b
     summary.citationCount,
     summary.directRetrieveOkCount,
     summary.qaRetrieveOkCount,
+    summary.coveredStructureSignalCount,
     summary.negativeCaseCount,
   ].some((value) => typeof value === "number");
 }
@@ -3467,6 +3474,9 @@ function buildParserDiagnostics(
   const coveredFileTypeCount = summary?.coveredFileTypeCount ?? null;
   const expectedFileTypeCount = summary?.expectedFileTypeCount ?? null;
   const missingFileTypeCount = summary?.missingFileTypeCount ?? null;
+  const coveredStructureSignalCount = summary?.coveredStructureSignalCount ?? null;
+  const expectedStructureSignalCount = summary?.expectedStructureSignalCount ?? null;
+  const missingStructureSignalCount = summary?.missingStructureSignalCount ?? null;
   return [
     {
       label: "格式覆盖",
@@ -3475,6 +3485,14 @@ function buildParserDiagnostics(
       tone: missingFileTypeCount === 0 ? "success" : missingFileTypeCount === null ? "neutral" : "danger",
       priority: "上传 fixture / parser registry / allowlist",
       action: "缺类型时先看 smoke fixture 是否生成，再看上传白名单和 parser 选择。"
+    },
+    {
+      label: "结构 fixture 覆盖",
+      value: formatMetricPair(coveredStructureSignalCount, expectedStructureSignalCount),
+      helper: "覆盖 PDF 页码、HTML 标题 / 表格 / 列表 / 链接、DOCX 标题 / 表格 / 列表等脱敏结构信号。",
+      tone: missingStructureSignalCount === 0 ? "success" : missingStructureSignalCount === null ? "neutral" : "danger",
+      priority: "Parser fixture corpus / smoke structure signals",
+      action: "缺结构信号时先跑 parser fixture corpus 单测，再看 smoke fixture 是否和长期回归口径一致。"
     },
     {
       label: "解析成功率",
@@ -3604,6 +3622,7 @@ function formatParserReviewReason(value: string): string {
     missing_source_locator: "来源定位缺失",
     retrieval_or_citation_missing: "检索或引用缺失",
     direct_retrieve_missing: "直接检索未命中",
+    fixture_structure_missing: "fixture 结构覆盖缺失",
     environment_unstable: "运行环境不稳定",
     parser_boundary_failed: "错误边界未通过",
     unsupported_upload_not_rejected: "不支持格式未被拒绝"

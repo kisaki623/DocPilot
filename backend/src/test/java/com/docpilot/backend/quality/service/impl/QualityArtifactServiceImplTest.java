@@ -303,6 +303,12 @@ class QualityArtifactServiceImplTest {
                       "missingTypes": [],
                       "allCovered": true
                     },
+                    "fixtureStructureCoverage": {
+                      "expectedSignals": ["pdf_text", "pdf_page_locator", "html_heading", "html_table", "html_link", "html_list", "docx_heading", "docx_table", "docx_list"],
+                      "coveredSignals": ["pdf_text", "pdf_page_locator", "html_heading", "html_table", "html_link", "html_list", "docx_heading", "docx_table", "docx_list"],
+                      "missingSignals": [],
+                      "allCovered": true
+                    },
                     "parseStatusSummary": {
                       "fileCount": 3,
                       "parsedFileCount": 3,
@@ -375,6 +381,10 @@ class QualityArtifactServiceImplTest {
                 .containsEntry("citationPresent", true)
                 .containsEntry("sourceLocatorPresent", true);
         assertThat(detail.diagnostics().parserQuality().allFileTypesCovered()).isTrue();
+        assertThat(detail.diagnostics().parserQuality().expectedStructureSignalCount()).isEqualTo(9);
+        assertThat(detail.diagnostics().parserQuality().coveredStructureSignalCount()).isEqualTo(9);
+        assertThat(detail.diagnostics().parserQuality().missingStructureSignalCount()).isZero();
+        assertThat(detail.diagnostics().parserQuality().allStructureSignalsCovered()).isTrue();
         assertThat(detail.diagnostics().parserQuality().fileCount()).isEqualTo(3);
         assertThat(detail.diagnostics().parserQuality().parsedFileCount()).isEqualTo(3);
         assertThat(detail.diagnostics().parserQuality().parsePassRate()).isEqualTo(1.0);

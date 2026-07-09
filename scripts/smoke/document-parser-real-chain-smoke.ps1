@@ -521,6 +521,7 @@ function Write-DocxFixture([string]$path, [string]$marker) {
     <w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>DOCX Parser Smoke Title $marker</w:t></w:r></w:p>
     <w:p><w:r><w:t>DOCX paragraph one says the docx parser keeps paragraph evidence for retrieval.</w:t></w:r></w:p>
     <w:p><w:r><w:t>DOCX paragraph two carries docx-table-marker for grounded citation checks.</w:t></w:r></w:p>
+    <w:p><w:pPr><w:pStyle w:val="ListParagraph"/></w:pPr><w:r><w:t>DOCX list marker keeps list evidence.</w:t></w:r></w:p>
     <w:tbl>
       <w:tr><w:tc><w:p><w:r><w:t>Field</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Value</w:t></w:r></w:p></w:tc></w:tr>
       <w:tr><w:tc><w:p><w:r><w:t>Parser</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>DOCX Table Evidence $marker</w:t></w:r></w:p></w:tc></w:tr>
@@ -558,6 +559,7 @@ function New-Fixtures([string]$dir, [string]$marker) {
   <h2>HTML Evidence Section</h2>
   <p>HTML paragraph one contains html-alpha-marker for retrieval.</p>
   <p>HTML paragraph two keeps local link text <a href="/docs">DocPilot local docs</a>.</p>
+  <ul><li>HTML list marker keeps checklist evidence.</li></ul>
   <table><tr><td>Parser</td><td>HTML Table Evidence $marker</td></tr></table>
 </body>
 </html>
@@ -565,10 +567,32 @@ function New-Fixtures([string]$dir, [string]$marker) {
   $docx = Join-Path $dir "${marker}-docx.docx"
   Write-DocxFixture $docx $marker
   return @(
-    [ordered]@{ fileType = "PDF"; path = $pdf; contentType = "application/pdf"; parserName = "pdfbox"; query = "pdf-alpha-marker"; expectedLocator = "PDF Parser Smoke Title" },
-    [ordered]@{ fileType = "HTML"; path = $html; contentType = "text/html"; parserName = "jsoup-html"; query = "html-alpha-marker"; expectedLocator = "HTML Evidence Section" },
-    [ordered]@{ fileType = "DOCX"; path = $docx; contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; parserName = "poi-docx"; query = "docx-table-marker"; expectedLocator = "DOCX Parser Smoke Title" }
+    [ordered]@{ fileType = "PDF"; path = $pdf; contentType = "application/pdf"; parserName = "pdfbox"; query = "pdf-alpha-marker"; expectedLocator = "PDF Parser Smoke Title"; expectedStructures = @("pdf_text", "pdf_page_locator") },
+    [ordered]@{ fileType = "HTML"; path = $html; contentType = "text/html"; parserName = "jsoup-html"; query = "html-alpha-marker"; expectedLocator = "HTML Evidence Section"; expectedStructures = @("html_heading", "html_table", "html_link", "html_list") },
+    [ordered]@{ fileType = "DOCX"; path = $docx; contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; parserName = "poi-docx"; query = "docx-table-marker"; expectedLocator = "DOCX Parser Smoke Title"; expectedStructures = @("docx_heading", "docx_table", "docx_list") }
   )
+}
+
+function Get-FixtureStructureSignals($case, [string]$parseStatus, [string]$parsedText, [bool]$sourceLocatorPresent) {
+  if ($parseStatus -ne "SUCCESS") {
+    return @()
+  }
+  $signals = @()
+  $text = if ($null -eq $parsedText) { "" } else { [string]$parsedText }
+  if ($case.fileType -eq "PDF") {
+    if ($text.Contains("PDF Parser Smoke Title")) { $signals += "pdf_text" }
+    if ($sourceLocatorPresent) { $signals += "pdf_page_locator" }
+  } elseif ($case.fileType -eq "HTML") {
+    if ($text.Contains("# HTML Parser Smoke Title") -and $text.Contains("## HTML Evidence Section")) { $signals += "html_heading" }
+    if ($text.Contains("HTML Table Evidence")) { $signals += "html_table" }
+    if ($text.Contains("DocPilot local docs")) { $signals += "html_link" }
+    if ($text.Contains("HTML list marker")) { $signals += "html_list" }
+  } elseif ($case.fileType -eq "DOCX") {
+    if ($text.Contains("# DOCX Parser Smoke Title")) { $signals += "docx_heading" }
+    if ($text.Contains("DOCX Table Evidence")) { $signals += "docx_table" }
+    if ($text.Contains("DOCX list marker")) { $signals += "docx_list" }
+  }
+  return @($signals | Select-Object -Unique)
 }
 
 function Test-ArtifactSafe($artifact) {
@@ -616,7 +640,9 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
   $directRetrieveDiagnostic = $null
   $qaRetrieveDiagnostic = $null
   $failureReason = $null
+  $parsedText = ""
   if ($parseStatus -eq "SUCCESS") {
+    $parsedText = if ($detail.content) { [string]$detail.content } else { "" }
     $script:CurrentParserStage = "chunk_wait"
     $chunkCount = Wait-ChunkCount $envValues $userId ([long]$document.data.id)
     $question = "请根据文档回答 $($case.query)"
@@ -702,6 +728,7 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
   } else {
     $failureReason = "parse failed"
   }
+  $structureSignals = Get-FixtureStructureSignals $case $parseStatus $parsedText $sourceLocatorPresent
   $script:CurrentParserStage = ""
   $caseResult = [ordered]@{
     fileType = $case.fileType
@@ -717,6 +744,8 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     qaRetrievalHit = $qaRetrievalHit
     citationPresent = $citationPresent
     sourceLocatorPresent = $sourceLocatorPresent
+    expectedStructures = @($case.expectedStructures)
+    structureSignals = $structureSignals
     directRetrieveDiagnostic = $directRetrieveDiagnostic
     qaRetrieveDiagnostic = $qaRetrieveDiagnostic
     failureReason = $failureReason
@@ -922,6 +951,9 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   $expectedTypes = @("PDF", "HTML", "DOCX")
   $coveredTypes = @($results | ForEach-Object { [string]$_.fileType } | Where-Object { $_ } | Select-Object -Unique)
   $missingTypes = @($expectedTypes | Where-Object { $coveredTypes -notcontains $_ })
+  $expectedStructureSignals = @($results | ForEach-Object { @($_.expectedStructures) } | Where-Object { $_ } | Select-Object -Unique)
+  $coveredStructureSignals = @($results | ForEach-Object { @($_.structureSignals) } | Where-Object { $_ } | Select-Object -Unique)
+  $missingStructureSignals = @($expectedStructureSignals | Where-Object { $coveredStructureSignals -notcontains $_ })
   $fileCount = @($results).Count
   $parsedFileCount = @($results | Where-Object { $_.parseStatus -eq "SUCCESS" }).Count
   $parserFailureCount = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" }).Count
@@ -1002,6 +1034,9 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   if ($parserFailureCount -gt 0) {
     $reviewReasons += "parse_status_failed"
   }
+  if ($missingStructureSignals.Count -gt 0) {
+    $reviewReasons += "fixture_structure_missing"
+  }
   if ($fileCount -gt 0 -and $sourceLocatorCount -lt $fileCount) {
     $reviewReasons += "missing_source_locator"
   }
@@ -1037,6 +1072,12 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
       coveredTypes = $coveredTypes
       missingTypes = $missingTypes
       allCovered = ($missingTypes.Count -eq 0)
+    }
+    fixtureStructureCoverage = [ordered]@{
+      expectedSignals = $expectedStructureSignals
+      coveredSignals = $coveredStructureSignals
+      missingSignals = $missingStructureSignals
+      allCovered = ($missingStructureSignals.Count -eq 0)
     }
     parseStatusSummary = [ordered]@{
       fileCount = $fileCount
@@ -1089,7 +1130,7 @@ if ($Mode -eq "plan") {
     mode = "plan"
     willCreateBusinessData = $false
     runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
-    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
+    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "expectedStructures", "structureSignals", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -1101,7 +1142,7 @@ if ($Mode -eq "dry-run") {
     willCreateBusinessData = $false
     checks = @("script parameters parsed", "fixture recipes available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
     supportedTypes = @("PDF", "HTML", "DOCX")
-    parserQualityReport = @("fileTypeCoverage", "parseStatusSummary", "sourceLocatorSummary", "ragChainSummary", "boundarySummary", "warningsSummary", "reviewReasons")
+    parserQualityReport = @("fileTypeCoverage", "fixtureStructureCoverage", "parseStatusSummary", "sourceLocatorSummary", "ragChainSummary", "boundarySummary", "warningsSummary", "reviewReasons")
   } | ConvertTo-Json -Depth 10
   exit 0
 }

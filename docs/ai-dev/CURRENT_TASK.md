@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 长期回归 fixture 多样性增强（DONE）；下一片：Document Parser fixture corpus 与真实 smoke 覆盖口径对齐（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser fixture corpus 与真实 smoke 覆盖口径对齐（DONE）；下一片：Document Parser 真实链路 run 复验结构覆盖 artifact（READY）
+
+## 2026-07-09 补充：Document Parser fixture corpus 与真实 smoke 覆盖口径对齐
+
+- 目标：让真实 `document-parser-real-chain-smoke.ps1` 的 artifact 质量报告能表达与长期 parser fixture corpus 一致的结构覆盖口径，而不是只记录 PDF / HTML / DOCX 三类文件是否跑通。
+- 已完成 smoke artifact 增强：每个 parser case 新增 `expectedStructures` 和 `structureSignals` 枚举摘要；`parserQualityReport` 新增 `fixtureStructureCoverage`，包含预期结构信号数、覆盖结构信号数、缺失结构信号数和 `allCovered`。字段只保存安全枚举和计数，不保存解析文本、query、answer 原文、prompt、evidence context、token、secret、连接串或云地址。
+- 已完成 fixture recipe 对齐：真实 smoke 的 HTML fixture 新增列表结构，DOCX fixture 新增列表段落；结构信号覆盖 PDF 文本 / 页码来源、HTML 标题 / 表格 / 链接 / 列表、DOCX 标题 / 表格 / 列表。
+- 已完成 Quality API / 前端接入：`QualityArtifactServiceImpl` 白名单解析结构覆盖计数，`/quality` 文档解析质量摘要显示“结构覆盖”，诊断网格新增“结构 fixture 覆盖”，`fixture_structure_missing` 显示为中文待关注原因。
+- 已验证：`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserFixtureCorpusTest,QualityArtifactServiceImplTest,*Quality*" test` PASS（50 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；浏览器 `/quality?routeSmoke=2` 移动端 `390px` console error `0` 且无横向溢出。
+- 边界：本片未执行会创建业务数据的 `run`，没有新增数据库表，不改业务 parser / RAG service，不提交 artifact 原文，不做 OCR、旧 `.doc`、外部网页抓取或复杂版面理解。下一片建议跑一次真实 `run` 复验新的结构覆盖 artifact。
 
 ## 2026-07-09 补充：Document Parser 长期回归 fixture 多样性增强
 

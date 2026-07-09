@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 Document Parser 结构覆盖 smoke 摘要
+
+- `document-parser-real-chain-smoke.ps1` 已把长期 fixture corpus 的结构口径接入真实 smoke 摘要：每个 case 输出 `expectedStructures` / `structureSignals` 安全枚举，`parserQualityReport.fixtureStructureCoverage` 汇总覆盖计数和缺失计数。
+- 真实 smoke fixture recipe 同步补齐 HTML 列表结构和 DOCX 列表段落；结构信号覆盖 PDF 文本 / 页码来源、HTML 标题 / 表格 / 链接 / 列表、DOCX 标题 / 表格 / 列表。
+- Quality API 仅白名单解析结构覆盖计数；`/quality` 文档解析质量摘要新增“结构覆盖”，诊断网格新增“结构 fixture 覆盖”，缺口原因 `fixture_structure_missing` 已转中文。
+- 验证：脚本 `plan` / `dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserFixtureCorpusTest,QualityArtifactServiceImplTest,*Quality*" test` PASS（50 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；浏览器 `/quality?routeSmoke=2` 在 `390px` 下 console error 为 `0` 且无横向溢出。
+- 边界：本片没有新跑真实 `run`，不提交 artifact 原文，不保存解析文本、query、answer 原文、prompt、evidence context、token、secret、连接串或云地址。
+
 ## 2026-07-09 Document Parser fixture corpus
 
 - 新增 `DocumentParserFixtureCorpusTest`，作为 PDF / HTML / DOCX parser 的长期回归 fixture corpus，不提交二进制 fixture 文件，不访问外部网络。
