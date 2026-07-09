@@ -1,5 +1,12 @@
 # DocPilot 当前状态
 
+## 2026-07-09 当前补充
+
+- Agent search route smoke runner 已完成。新增 `scripts/smoke/agent-search-route-smoke.ps1`，支持 `plan / dry-run / run`，用于离线验证 retrieval-only Agent 任务走 `search_tool` / `document_search_tool`，grounded answer 任务继续走 `rag_tool` / `rag_qa_tool`。`run` 只执行默认跳过、显式环境变量启用的 JUnit smoke，不启动 backend / frontend / tunnel，不创建业务数据。
+- 新增 `AgentSearchRouteSmokeTest` 和 `AgentSearchRouteSmokeScriptSafetyTest`。smoke artifact 只保存 marker、状态、caseId、expected / actual decision、selected tool、布尔结果、stepCount 和 failure buckets，不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。最新离线 smoke marker `docpilot-agent-search-route-20260709101258-021654` 为 PASS，artifact redaction scan PASS。
+- 已验证：`agent-search-route-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS；`mvn "-Dtest=AgentSearchRouteSmokeTest,AgentSearchRouteSmokeScriptSafetyTest,DocumentAgentServiceImplTest" test` PASS（17 tests，1 skipped）；Agent / selector / eval targeted 63 tests PASS（1 skipped）。本片没有新增数据库表、没有改 Agent API、没有接 KB Agent 路由、没有提交 artifact 原文、没有 push。
+- 当前 Agent search 工具链状态：单文档 `document_search_tool`、多文档 `knowledge_base_search_tool`、单文档 Agent search intent 路由、Agent Quality Eval 路由门禁、Quality Console search diagnostics 和离线 search route smoke 均已完成。仍未做 KB Agent 路由，因为当前 `DocumentAgentRequest` 是单文档语义，下一片需要先设计 KnowledgeBase Agent request / context。
+
 ## 2026-07-08 当前补充
 
 - Agent Quality Console search diagnostics 已完成。`/quality` 现在能把 Agent search route eval 的 `agent_search` 显示为“Agent 检索路由”，把 `expectedDecisionMatched` 显示为“路由决策匹配：是 / 否”，并把 `expectedDecisionMismatch` / selector / routing / search-overrouting / answer-overrouting 归类为“Agent 路由不匹配”，模块标签为 `Agent`，建议动作指向 `DocumentToolSelector`、LLM selector prompt 和 search / answer 意图评测用例。该片只改前端安全标签和分桶映射，不改后端 API，不读取 raw artifact。已验证前端 lint/build PASS，`/quality?routeSmoke=2` 桌面与 `390px` 移动端 console error 为 0 且无横向溢出。

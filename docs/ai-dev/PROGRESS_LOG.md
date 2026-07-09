@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 Agent search route smoke runner
+
+- 新增 `scripts/smoke/agent-search-route-smoke.ps1`，支持 `plan / dry-run / run`，用于离线验证单文档 Agent search route：retrieval-only 任务走 `search_tool` / `document_search_tool`，grounded answer 任务走 `rag_tool` / `rag_qa_tool`。
+- 新增 `AgentSearchRouteSmokeTest`，显式环境变量启用时写入 ignored 脱敏 artifact；新增 `AgentSearchRouteSmokeScriptSafetyTest`，约束脚本不读 `.env`、不输出 Authorization / Bearer / API key、不递归删除文件。
+- artifact 只保存 marker、状态、caseId、expected / actual decision、selected tool、布尔结果、stepCount 和 failure buckets；不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 验证：`agent-search-route-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-search-route-20260709101258-021654`；artifact redaction scan PASS；`mvn "-Dtest=AgentSearchRouteSmokeTest,AgentSearchRouteSmokeScriptSafetyTest,DocumentAgentServiceImplTest" test` PASS（17 tests，1 skipped）；Agent / selector / eval targeted 63 tests PASS（1 skipped）。
+- 边界：本片不启动 backend / frontend / tunnel，不创建业务数据，不改 Agent API，不新增数据库表，不接 KB Agent 路由，不提交 artifact 原文，不 push。
+
 ## 2026-07-09 Agent Quality Console search diagnostics
 
 - `/quality` 前端标签层新增 Agent search route 诊断映射：`agent_search` 显示为“Agent 检索路由”，`expectedDecisionMatched` 显示为“路由决策匹配”，数值 1 / 0 显示为“是 / 否”。

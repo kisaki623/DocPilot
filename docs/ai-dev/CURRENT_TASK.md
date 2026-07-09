@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console search diagnostics（DONE）；下一片：Agent search real-link smoke / KB Agent route design（READY）
+当前任务：Agent search route smoke runner（DONE）；下一片：KB Agent route design / Agent search real-link runtime smoke（READY）
+
+## 2026-07-09 补充：Agent search route smoke runner
+
+- 目标：把单文档 Agent 的 retrieval-only search 路由从普通单测进一步沉淀为可复跑 smoke runner，验证“检索 / topK / 相似度 / 来源列表”类任务走 `search_tool` / `document_search_tool`，而 grounded answer 任务继续走 `rag_tool` / `rag_qa_tool`。
+- 已完成脚本：新增 `scripts/smoke/agent-search-route-smoke.ps1`，支持 `plan / dry-run / run`。`plan` 只输出验证计划；`dry-run` 只检查 runner test、Maven 和 artifact root；`run` 只执行离线 JUnit smoke，不启动 backend / frontend / tunnel，不创建业务数据。
+- 已完成测试：新增 `AgentSearchRouteSmokeTest`，显式启用环境变量时写入 ignored 脱敏 artifact；新增 `AgentSearchRouteSmokeScriptSafetyTest`，约束脚本不读 `.env`、不输出 Authorization / Bearer / API key、不递归删除文件。
+- 脱敏边界：artifact 只保存 marker、状态、caseId、expected / actual decision、selected tool、布尔结果、stepCount 和 failure buckets；不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 已验证：`agent-search-route-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-search-route-20260709101258-021654`；artifact redaction scan PASS；`mvn "-Dtest=AgentSearchRouteSmokeTest,AgentSearchRouteSmokeScriptSafetyTest,DocumentAgentServiceImplTest" test` PASS（17 tests，1 skipped）；Agent / selector / eval targeted 63 tests PASS（1 skipped）。
+- 边界：本片仍是离线 route contract smoke，不等于浏览器或真实 cloud runtime smoke；不改 Agent API，不新增数据库表，不接 KB Agent 路由，不提交 artifact 原文，不 push。
+- 下一片建议：先做 KB Agent route design，明确 KnowledgeBase Agent request / context 语义，再决定是否新增 `/api/ai/agent/kb/run` 或独立 KB Agent service；如果先补真实链路，则应启动本地 backend / tunnel，用临时文档验证 `/api/ai/agent/run` search intent 的 ToolCall step 和 task persistence。
 
 ## 2026-07-09 补充：Agent Quality Console search diagnostics
 
