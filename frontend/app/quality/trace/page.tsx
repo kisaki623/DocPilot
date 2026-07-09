@@ -18,6 +18,7 @@ import {
   formatGate,
   formatMetricList,
   formatStatus,
+  labelTraceAttribute,
   labelTraceStep,
 } from "@/lib/quality-labels";
 
@@ -52,6 +53,17 @@ function compactMetrics(metrics?: Record<string, number>): string {
 
 function compactFlags(flags?: Record<string, boolean>): string {
   return formatFlagList(flags, 8);
+}
+
+function compactAttributes(attributes?: Record<string, string>): string {
+  const entries = Object.entries(attributes || {}).filter(([, value]) => Boolean(value));
+  if (entries.length === 0) {
+    return "暂无";
+  }
+  return entries
+    .slice(0, 6)
+    .map(([key, value]) => `${labelTraceAttribute(key)}=${value}`)
+    .join("；");
 }
 
 function readTraceQuery(): TraceQuery {
@@ -374,7 +386,8 @@ function TraceStepRow({
             {formatStatus(step.status || "REVIEW")}
           </span>
         </div>
-        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+        <div className="mt-3 grid gap-3 lg:grid-cols-4">
+          <SmallFact label="链路属性" value={compactAttributes(step.attributes)} />
           <SmallFact label="数值指标" value={compactMetrics(step.metrics)} />
           <SmallFact label="布尔门禁" value={compactFlags(step.flags)} />
           <SmallFact label="失败/复查类型" value={summarizeBuckets(step.buckets)} />

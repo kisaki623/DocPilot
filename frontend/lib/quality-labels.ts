@@ -124,6 +124,14 @@ const TRACE_STEP_LABELS: Record<string, string> = {
   failure_bucket: "失败桶",
 };
 
+const TRACE_ATTRIBUTE_LABELS: Record<string, string> = {
+  decision: "路由决策",
+  selectedTools: "检索工具",
+  answerDecision: "回答决策",
+  answerSelectedTools: "回答工具",
+  retrievalMode: "检索模式",
+};
+
 const GATE_LABELS: Record<string, string> = {
   tunnel: "Tunnel 连通性",
   backendHealth: "后端健康检查",
@@ -382,4 +390,12 @@ export function formatGate(gateName?: string | null): string {
 export function labelTraceStep(stepType?: string | null): string {
   const raw = normalize(stepType);
   return TRACE_STEP_LABELS[raw] || raw || "链路步骤";
+}
+
+export function labelTraceAttribute(attributeName?: string | null): string {
+  const raw = normalize(attributeName);
+  if (!raw) {
+    return "-";
+  }
+  return TRACE_ATTRIBUTE_LABELS[raw] || raw;
 }

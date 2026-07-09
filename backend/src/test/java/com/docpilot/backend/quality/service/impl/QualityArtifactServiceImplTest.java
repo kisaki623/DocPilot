@@ -642,6 +642,9 @@ class QualityArtifactServiceImplTest {
                           "retrieveHits": 6,
                           "citations": 6,
                           "coversBothDocuments": true,
+                          "answerSuccess": true,
+                          "answerDecision": "rag_tool",
+                          "answerSelectedTools": ["knowledge_base_rag_qa"],
                           "answerCitations": 6,
                           "answerCoversBothDocuments": true,
                           "answerNoEvidenceHandled": true,
@@ -671,6 +674,19 @@ class QualityArtifactServiceImplTest {
                 .containsEntry("answerCoversBothDocuments", true)
                 .containsEntry("answerNoEvidenceHandled", true)
                 .containsEntry("foreignKnowledgeBaseRejected", true);
+        assertThat(detail.traceReferences()).hasSize(1);
+        assertThat(detail.traceReferences().get(0).caseId()).isEqualTo("knowledge-base-agent-runtime");
+        assertThat(detail.traceReferences().get(0).gateName()).isEqualTo("knowledgeBaseAgent");
+        assertThat(detail.traceReferences().get(0).steps())
+                .extracting(step -> step.stepType())
+                .contains("agent_step", "tool_call", "rag_retrieve", "citation");
+        assertThat(detail.traceReferences().get(0).steps())
+                .anySatisfy(step -> assertThat(step.attributes())
+                        .containsEntry("decision", "search_tool")
+                        .containsEntry("selectedTools", "knowledge_base_search_tool"))
+                .anySatisfy(step -> assertThat(step.attributes())
+                        .containsEntry("answerDecision", "rag_tool")
+                        .containsEntry("answerSelectedTools", "knowledge_base_rag_qa"));
         assertThat(detail.toString()).doesNotContain("PROMPT_SHOULD_NOT_LEAK", "ANSWER_SHOULD_NOT_LEAK");
     }
 

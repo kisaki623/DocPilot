@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：Slice 0 任务落档与验收标准（IN_PROGRESS）；下一片：A1 Agent Tool / Trace drill-down 安全摘要增强（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：A1 Agent Tool / Trace drill-down 安全摘要增强（DONE）；下一片：B1 Eval Case 资产化安全摘要增强（READY）
+
+## 2026-07-09 补充：A1 Agent Tool / Trace drill-down 安全摘要增强
+
+- 目标：让 KB Agent search / grounded answer 的 cloud quality artifact 不只停留在 `knowledgeBaseAgent` gate 数值里，而是能生成可打开的 Trace reference 和脱敏链路步骤。
+- 已完成后端：`QualityTraceStepDetail` 新增安全 `attributes` 字段，只允许短枚举 / 工具名等脱敏属性；`QualityArtifactServiceImpl` 会从 `knowledgeBaseAgent` gate 的 `decision`、`selectedTools`、`answerDecision`、`answerSelectedTools`、retrieve / citation 计数和安全布尔值生成 `knowledge-base-agent-runtime` trace reference。
+- 已完成前端：`/quality/trace` 的链路瀑布图新增“链路属性”列，中文展示路由决策、检索工具、回答决策和回答工具；工具枚举值保留原值，便于工程排查。
+- 脱敏边界：仍不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址；属性值也会过滤 URL、凭据、prompt / evidence context 类敏感片段。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面 console error 为 `0`，`/quality/trace` 空状态移动端无横向溢出且当前页无新增 console error。一次带不存在 marker 的 trace URL 因未启动 backend 返回 500，仅用于确认不可用 marker 行为，不作为业务失败。
+- 清理：本轮启动的前端预览已停止，`3007` 无 LISTEN，仅剩短暂 TimeWait；临时 `frontend/.next-quality-a1` 已清理。
 
 ## 2026-07-09 补充：Agent Quality Console ABC 求职级增强循环
 

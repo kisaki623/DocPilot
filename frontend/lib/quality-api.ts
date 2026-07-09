@@ -37,6 +37,7 @@ export interface QualityTraceStepDetail {
   label: string;
   metrics: Record<string, number>;
   flags: Record<string, boolean>;
+  attributes: Record<string, string>;
   buckets: string[];
 }
 

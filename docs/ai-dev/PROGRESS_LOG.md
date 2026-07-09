@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console A1 Trace drill-down
+
+- `QualityTraceStepDetail` 新增安全 `attributes` 字段，保留短枚举 / 工具名属性，继续过滤 URL、凭据、prompt、文档文本和 evidence context 类敏感片段。
+- `QualityArtifactServiceImpl` 会从 `knowledgeBaseAgent` gate 生成 `knowledge-base-agent-runtime` trace reference，并沉淀 KB Agent search / grounded answer 的路由决策、工具名、检索命中、引用数、两文档覆盖、无证据处理和权限负向摘要。
+- `/quality/trace` 链路瀑布图新增“链路属性”列，中文展示路由决策、检索工具、回答决策和回答工具，方便从 Console 直接判断 `search_tool -> knowledge_base_search_tool` 与 `rag_tool -> knowledge_base_rag_qa`。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 桌面无 console error，`/quality/trace` 空状态移动端无横向溢出。前端预览进程已清理，`3007` 无 LISTEN。
+- 边界：本片不改 Agent / RAG 业务链路，不新增数据库表，不读取业务库，不提交 artifact 原文，不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
 ## 2026-07-09 Agent Quality Console ABC 求职级增强循环启动
 
 - 当前任务已切换为 Agent Quality Console ABC 求职级增强循环：A 是 Agent Tool / Trace drill-down，B 是 Eval Case 资产化，C 是 Quality Console 趋势分析。

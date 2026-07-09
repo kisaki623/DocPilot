@@ -306,7 +306,10 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         );
         List<ExtractedEvalCase> extractedEvalCases = extractEvalCaseNodes(root);
         List<QualityEvalCaseResultDetail> evalCases = toEvalCaseDetails(extractedEvalCases);
-        List<QualityTraceReference> traceReferences = toTraceReferences(extractedEvalCases);
+        List<QualityTraceReference> traceReferences = mergeTraceReferences(
+                toTraceReferences(extractedEvalCases),
+                toGateTraceReferences(root, gates)
+        );
         return new QualityRunDetail(summary, gates, evalCases, traceReferences,
                 buildDiagnostics(root, gates, evalCases, traceReferences));
     }
@@ -503,6 +506,118 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 .toList();
     }
 
+    private List<QualityTraceReference> toGateTraceReferences(JsonNode root, List<QualityGateSummary> gates) {
+        List<QualityTraceReference> references = new ArrayList<>();
+        knowledgeBaseAgentGateNode(root).ifPresent(node -> {
+            QualityGateSummary gate = gates.stream()
+                    .filter(item -> "knowledgeBaseAgent".equals(item.name()))
+                    .findFirst()
+                    .orElseGet(() -> toGateSummary("knowledgeBaseAgent", node));
+            JsonNode check = firstObject(node.path("checks")).orElse(node);
+            String status = gate.status() == null || gate.status().isBlank() ? "REVIEW" : gate.status();
+            references.add(new QualityTraceReference(
+                    "knowledge-base-agent-runtime",
+                    "agent_kb_runtime",
+                    status,
+                    "knowledgeBaseAgent",
+                    firstScalarText(check, "traceId").orElse(""),
+                    firstScalarText(check, "agentRunId").orElse(""),
+                    firstScalarText(check, "conversationId").orElse(""),
+                    gate.failureBuckets(),
+                    gate.reviewBuckets(),
+                    buildKnowledgeBaseAgentTraceSteps(check, gate, status)
+            ));
+        });
+        return references;
+    }
+
+    private Optional<JsonNode> knowledgeBaseAgentGateNode(JsonNode root) {
+        JsonNode nested = root.path("gates").path("knowledgeBaseAgent");
+        if (nested.isObject()) {
+            return Optional.of(nested);
+        }
+        JsonNode topLevel = root.path("knowledgeBaseAgent");
+        if (topLevel.isObject()) {
+            return Optional.of(topLevel);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<JsonNode> firstObject(JsonNode node) {
+        if (!node.isArray()) {
+            return Optional.empty();
+        }
+        for (JsonNode item : node) {
+            if (item.isObject()) {
+                return Optional.of(item);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private List<QualityTraceReference> mergeTraceReferences(List<QualityTraceReference> first,
+                                                             List<QualityTraceReference> second) {
+        List<QualityTraceReference> merged = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        addTraceReferences(merged, seen, first);
+        addTraceReferences(merged, seen, second);
+        return merged.stream()
+                .sorted(Comparator.comparingInt(this::traceReferencePriority))
+                .toList();
+    }
+
+    private void addTraceReferences(List<QualityTraceReference> merged,
+                                    Set<String> seen,
+                                    List<QualityTraceReference> references) {
+        if (references == null) {
+            return;
+        }
+        for (QualityTraceReference reference : references) {
+            String key = reference.caseId() + "|" + reference.traceId() + "|" + reference.agentRunId()
+                    + "|" + reference.gateName();
+            if (seen.add(key)) {
+                merged.add(reference);
+            }
+        }
+    }
+
+    private List<QualityTraceStepDetail> buildKnowledgeBaseAgentTraceSteps(JsonNode check,
+                                                                           QualityGateSummary gate,
+                                                                           String status) {
+        Map<String, Number> metrics = safeMetrics(check);
+        Map<String, Boolean> flags = safeFlags(check);
+        List<String> buckets = mergeLists(gate.failureBuckets(), gate.reviewBuckets());
+        List<QualityTraceStepDetail> steps = new ArrayList<>();
+        steps.add(traceStep("agent_step", status, "KB Agent route decision",
+                metricsByName(metrics, "durationMs", "answerDurationMs"),
+                flagsByName(flags, "success", "answerSuccess"),
+                safeAttributes(check, "decision", "answerDecision")));
+        steps.add(traceStep("tool_call", status, "KB Agent search tool",
+                Map.of(),
+                Map.of(),
+                safeAttributes(check, "decision", "selectedTools")));
+        steps.add(traceStep("rag_retrieve", status, "KB Agent search retrieval",
+                metricsByName(metrics, "retrieveHits", "queryVariantCount"),
+                flagsByName(flags, "coversBothDocuments", "rerankApplied", "multiQueryApplied"),
+                Map.of()));
+        steps.add(traceStep("tool_call", status, "KB Agent answer tool",
+                metricsByName(metrics, "answerDurationMs"),
+                flagsByName(flags, "answerSuccess"),
+                safeAttributes(check, "answerDecision", "answerSelectedTools")));
+        steps.add(traceStep("citation", status, "KB Agent citation",
+                metricsByName(metrics, "citations", "answerCitations"),
+                flagsByName(flags, "coversBothDocuments", "answerCoversBothDocuments", "answerNoEvidenceHandled",
+                        "foreignKnowledgeBaseRejected"),
+                Map.of()));
+        if (!buckets.isEmpty()) {
+            steps.add(traceStep("failure_bucket", status, "Failure bucket",
+                    Map.of(),
+                    Map.of(),
+                    buckets));
+        }
+        return steps;
+    }
+
     private List<QualityTraceStepDetail> buildTraceSteps(JsonNode item,
                                                          String status,
                                                          Map<String, Number> metrics,
@@ -575,7 +690,26 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                                              Map<String, Number> metrics,
                                              Map<String, Boolean> flags,
                                              List<String> buckets) {
-        return new QualityTraceStepDetail(stepType, status, label, metrics, flags, buckets);
+        return traceStep(stepType, status, label, metrics, flags, Map.of(), buckets);
+    }
+
+    private QualityTraceStepDetail traceStep(String stepType,
+                                             String status,
+                                             String label,
+                                             Map<String, Number> metrics,
+                                             Map<String, Boolean> flags,
+                                             Map<String, String> attributes) {
+        return traceStep(stepType, status, label, metrics, flags, attributes, List.of());
+    }
+
+    private QualityTraceStepDetail traceStep(String stepType,
+                                             String status,
+                                             String label,
+                                             Map<String, Number> metrics,
+                                             Map<String, Boolean> flags,
+                                             Map<String, String> attributes,
+                                             List<String> buckets) {
+        return new QualityTraceStepDetail(stepType, status, label, metrics, flags, attributes, buckets);
     }
 
     private Map<String, Number> metricsByName(Map<String, Number> metrics, String... names) {
@@ -604,6 +738,52 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             }
         });
         return selected;
+    }
+
+    private Map<String, String> safeAttributes(JsonNode node, String... fieldNames) {
+        Map<String, String> attributes = new LinkedHashMap<>();
+        for (String fieldName : fieldNames) {
+            if (isSensitiveField(fieldName)) {
+                continue;
+            }
+            JsonNode value = node.path(fieldName);
+            if (value.isTextual() && isSafeAttributeValue(value.asText())) {
+                attributes.put(fieldName, value.asText());
+            } else if (value.isNumber() || value.isBoolean()) {
+                attributes.put(fieldName, value.asText());
+            } else if (value.isArray()) {
+                List<String> values = new ArrayList<>();
+                for (JsonNode item : value) {
+                    if (item.isTextual() && isSafeAttributeValue(item.asText())) {
+                        values.add(item.asText());
+                    }
+                }
+                if (!values.isEmpty()) {
+                    attributes.put(fieldName, String.join(", ", values));
+                }
+            }
+        }
+        return attributes;
+    }
+
+    private boolean isSafeAttributeValue(String value) {
+        if (value == null || value.isBlank() || value.length() > 160) {
+            return false;
+        }
+        String lower = value.toLowerCase(Locale.ROOT);
+        return !lower.contains("bearer ")
+                && !lower.contains("sk-")
+                && !lower.contains("jdbc:")
+                && !lower.contains("http://")
+                && !lower.contains("https://")
+                && !lower.contains("password")
+                && !lower.contains("secret")
+                && !lower.contains("api key")
+                && !lower.contains("api_key")
+                && !lower.contains("apikey")
+                && !lower.contains("prompt")
+                && !lower.contains("document text")
+                && !lower.contains("evidence context");
     }
 
     private Map<String, Boolean> flagsByName(Map<String, Boolean> flags, String... names) {
