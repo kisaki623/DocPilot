@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console B1 Eval Case 资产化
+
+- `agent-quality-eval-cases.json` 新增 3 个默认 case：`kb-agent-grounded-answer-route`、`document-parser-real-chain`、`memory-provider-small-sample`。
+- 新增 case 覆盖最新真实质量资产：KB Agent search / grounded answer、PDF / HTML / DOCX parser 真实链路、Memory provider 小样本抽取契约；均补齐 caseLayer、riskGate、scoringSummary、regressionPolicy、failureHistoryMarkers、lastVerifiedMarker 和 remediationHints。
+- `/quality` 标签层新增 `kb_agent`、`parser`、`memory` 中文展示，Eval Catalog 不再把这些 case type 直接显示成 raw tag。
+- 修复宽 Eval 测试暴露的旧契约：`RealShadowProviderEvaluationTest` 的 fake real-shadow parser / tool definitions 补入 `document_search_tool`，与当前 Agent search route 能力对齐。
+- 验证：`mvn "-Dtest=*Quality*,*Eval*" test` PASS（82 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 桌面 console error 为 `0`，`390px` 移动端未见横向溢出。前端预览进程已清理，`3007` 无 LISTEN。
+- 边界：本片不改 eval runner 评分逻辑，不新增数据库表，不读取业务库，不提交 artifact 原文，不展示 question、expectedBehavior、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
 ## 2026-07-09 Agent Quality Console A1 Trace drill-down
 
 - `QualityTraceStepDetail` 新增安全 `attributes` 字段，保留短枚举 / 工具名属性，继续过滤 URL、凭据、prompt、文档文本和 evidence context 类敏感片段。

@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：A1 Agent Tool / Trace drill-down 安全摘要增强（DONE）；下一片：B1 Eval Case 资产化安全摘要增强（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：B1 Eval Case 资产化安全摘要增强（DONE）；下一片：C1 Quality Console 趋势指标可信度增强（READY）
+
+## 2026-07-09 补充：B1 Eval Case 资产化安全摘要增强
+
+- 目标：让 Eval Catalog 覆盖最新真实质量资产，不只停留在早期 7 个 case。
+- 已完成 catalog 扩容：`agent-quality-eval-cases.json` 新增 `kb-agent-grounded-answer-route`、`document-parser-real-chain`、`memory-provider-small-sample` 三个 case，分别覆盖 KB Agent search / grounded answer、PDF / HTML / DOCX parser 真实链路、Memory provider 小样本抽取契约。
+- 每个新增 case 都补齐 `caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy`、`failureHistoryMarkers`、`lastVerifiedMarker` 和 `remediationHints`，方便 Console 解释“验什么、为什么验、失败后怎么排查、如何回归”。
+- 已同步前端标签：`kb_agent` 显示为“知识库 Agent”，`parser` 显示为“文档解析”，`memory` 显示为“记忆质量”，减少 Eval Catalog raw tag。
+- 顺手修复：`RealShadowProviderEvaluationTest` 的 fake real-shadow allowed tools 和 tool definitions 补入 `document_search_tool`，避免当前 search route eval case 被旧测试契约误判为未知工具。
+- 验证：`mvn "-Dtest=*Quality*,*Eval*" test` PASS（82 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面 console error 为 `0`，`390px` 移动端主内容宽度在视口内。
+- 边界：本片不改变 eval runner 评分逻辑，不新增数据库表，不读业务库，不提交 artifact 原文，不展示 question、expectedBehavior、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
 
 ## 2026-07-09 补充：A1 Agent Tool / Trace drill-down 安全摘要增强
 

@@ -30,7 +30,10 @@ class AgentQualityEvalRunnerTest {
                         "citation-distractor-pruning",
                         "quality-console-startup-health",
                         "agent-document-search-route",
-                        "agent-rag-answer-route"
+                        "agent-rag-answer-route",
+                        "kb-agent-grounded-answer-route",
+                        "document-parser-real-chain",
+                        "memory-provider-small-sample"
                 );
         assertThat(result.metrics().casePassRate()).isEqualTo(1.0D);
         assertThat(result.metrics().traceLinkedCaseCount()).isGreaterThanOrEqualTo(result.metrics().caseCount() - 1);
@@ -63,6 +66,9 @@ class AgentQualityEvalRunnerTest {
                 .doesNotContain("backend startup health")
                 .doesNotContain("RAG retrieve topK chunks and show similarity score")
                 .doesNotContain("retrieve evidence and answer what")
+                .doesNotContain("knowledge base agent request")
+                .doesNotContain("PDF, HTML and DOCX")
+                .doesNotContain("real-provider memory extraction")
                 .doesNotContain("SYSTEM_PROMPT")
                 .doesNotContain("RAW_ANSWER")
                 .doesNotContain("DOCUMENT_FULL_TEXT");

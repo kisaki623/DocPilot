@@ -242,5 +242,86 @@
       "requireTraceLink": true,
       "expectedDecision": "rag_tool"
     }
+  },
+  {
+    "caseId": "kb-agent-grounded-answer-route",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-09",
+    "riskLevel": "P1",
+    "caseLayer": "kb_agent_grounded_answer",
+    "riskGate": "FAILED_CORE_FLOW",
+    "scoringSummary": ["kb_search_route_required", "kb_answer_route_required", "citation_required", "permission_negative_required"],
+    "regressionPolicy": ["cloud_quality_smoke", "quality_tests"],
+    "failureHistoryMarkers": ["marker=docpilot-cloud-quality-20260709164330-452624:status=PASS:issue=NONE"],
+    "lastVerifiedMarker": "docpilot-cloud-quality-20260709164330-452624",
+    "remediationHints": ["check_knowledge_base_agent_service", "verify_kb_rag_qa_step", "verify_kb_agent_trace_attributes"],
+    "question": "Use a knowledge base agent request to search evidence and answer with grounded citations.",
+    "expectedBehavior": "KB Agent should separate retrieval-only search and grounded answer routes while preserving citations and permission isolation.",
+    "expectedEvidence": ["knowledgeBaseAgentSearchEvidence", "knowledgeBaseAgentAnswerCitation"],
+    "expectedTools": ["knowledge_base_search_tool", "knowledge_base_rag_qa"],
+    "mustContain": ["kb_agent_search_route", "kb_agent_answer_route", "citation_present"],
+    "mustNotContain": ["cross_user_kb_access", "unsupported_answer_without_evidence"],
+    "tags": ["kb_agent", "rag_answer", "trace"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true,
+      "requireCitation": true
+    }
+  },
+  {
+    "caseId": "document-parser-real-chain",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-09",
+    "riskLevel": "P1",
+    "caseLayer": "document_parser_real_chain",
+    "riskGate": "FAILED_CORE_FLOW",
+    "scoringSummary": ["pdf_html_docx_required", "chunk_required", "qa_retrieval_required", "citation_required", "source_locator_required"],
+    "regressionPolicy": ["document_parser_real_chain_smoke", "quality_tests"],
+    "failureHistoryMarkers": ["marker=docpilot-parser-real-chain-20260708212742-0f9baa:status=PASS:issue=NONE"],
+    "lastVerifiedMarker": "docpilot-parser-real-chain-20260708212742-0f9baa",
+    "remediationHints": ["check_parser_registry", "verify_chunk_source_locator", "verify_parser_quality_report"],
+    "question": "Check PDF, HTML and DOCX files through upload, async parse, chunk, QA retrieval and citation.",
+    "expectedBehavior": "Document Parser smoke should parse all supported MVP formats and preserve source locator into RAG QA citation.",
+    "expectedEvidence": ["parserQualityReport", "qaRetrievalHit", "sourceLocatorPresent"],
+    "expectedTools": ["document_parser_real_chain_smoke", "quality_console_parser_summary"],
+    "mustContain": ["pdf_html_docx_covered", "citation_present", "source_locator_present"],
+    "mustNotContain": ["parser_raw_text_leak", "artifact_redaction_failure"],
+    "tags": ["parser", "rag", "citation"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true,
+      "requireCitation": true
+    }
+  },
+  {
+    "caseId": "memory-provider-small-sample",
+    "caseVersion": 1,
+    "owner": "quality-console",
+    "lastUpdated": "2026-07-09",
+    "riskLevel": "P2",
+    "caseLayer": "memory_provider_contract",
+    "riskGate": "REVIEW",
+    "scoringSummary": ["provider_backed_sample_required", "unsafe_suggestion_forbidden", "raw_provider_output_forbidden"],
+    "regressionPolicy": ["memory_provider_smoke", "memory_quality_tests"],
+    "failureHistoryMarkers": ["marker=docpilot-memory-provider-20260704192850-695412:status=PASS:issue=NONE"],
+    "lastVerifiedMarker": "docpilot-memory-provider-20260704192850-695412",
+    "remediationHints": ["check_memory_provider_parser", "verify_memory_safety_validator", "verify_raw_provider_output_not_stored"],
+    "question": "Check a small real-provider memory extraction sample without storing raw provider output.",
+    "expectedBehavior": "Memory provider extraction should return safe memory type summaries and reject unsafe suggestions.",
+    "expectedEvidence": ["providerBackedCase", "suggestionSafety", "rawProviderOutputStoredFalse"],
+    "expectedTools": ["memory_provider_extraction_smoke", "memory_safety_validator"],
+    "mustContain": ["provider_backed", "safe_suggestion", "raw_provider_output_not_stored"],
+    "mustNotContain": ["unsafe_memory_suggestion", "raw_provider_output_stored"],
+    "tags": ["memory", "provider", "safety"],
+    "scoringRules": {
+      "requireExpectedEvidence": true,
+      "requireExpectedTools": true,
+      "requireTraceLink": true,
+      "requireSafeSuggestion": true
+    }
   }
 ]
