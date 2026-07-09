@@ -642,7 +642,9 @@ class QualityArtifactServiceImplTest {
                           "retrieveHits": 6,
                           "citations": 6,
                           "coversBothDocuments": true,
-                          "unsupportedIntentRejected": true,
+                          "answerCitations": 6,
+                          "answerCoversBothDocuments": true,
+                          "answerNoEvidenceHandled": true,
                           "foreignKnowledgeBaseRejected": true,
                           "prompt": "PROMPT_SHOULD_NOT_LEAK",
                           "answer": "ANSWER_SHOULD_NOT_LEAK"
@@ -662,10 +664,12 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.gates().get(0).name()).isEqualTo("knowledgeBaseAgent");
         assertThat(detail.gates().get(0).metrics())
                 .containsEntry("retrieveHits", 6)
-                .containsEntry("citations", 6);
+                .containsEntry("citations", 6)
+                .containsEntry("answerCitations", 6);
         assertThat(detail.gates().get(0).flags())
                 .containsEntry("coversBothDocuments", true)
-                .containsEntry("unsupportedIntentRejected", true)
+                .containsEntry("answerCoversBothDocuments", true)
+                .containsEntry("answerNoEvidenceHandled", true)
                 .containsEntry("foreignKnowledgeBaseRejected", true);
         assertThat(detail.toString()).doesNotContain("PROMPT_SHOULD_NOT_LEAK", "ANSWER_SHOULD_NOT_LEAK");
     }

@@ -1442,8 +1442,13 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
         topK = 6
         indexVersion = $IndexVersion
       }) $tokenA
-    $kbAgentUnsupported = Invoke-JsonApi "POST" "/api/ai/agent/knowledge-bases/$($kb.data.id)/run" ([ordered]@{
-        task = "Summarize and answer both documents for this temporary knowledge base."
+    $kbAgentAnswer = Invoke-JsonApi "POST" "/api/ai/agent/knowledge-bases/$($kb.data.id)/run" ([ordered]@{
+        task = "Answer with evidence for ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE. Cite both documents."
+        topK = 6
+        indexVersion = $IndexVersion
+      }) $tokenA
+    $kbAgentNoEvidence = Invoke-JsonApi "POST" "/api/ai/agent/knowledge-bases/$($kb.data.id)/run" ([ordered]@{
+        task = "Answer with evidence for NEVER-EXISTING-KB-AGENT-NO-EVIDENCE-7F3C."
         topK = 3
         indexVersion = $IndexVersion
       }) $tokenA
@@ -1460,7 +1465,14 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     $kbAgentCoversAlpha = (Get-CountValue $kbAgentHitCounts ([string]$docA.data.id)) -ge 1
     $kbAgentCoversBeta = (Get-CountValue $kbAgentHitCounts ([string]$docB.data.id)) -ge 1
     $kbAgentUsedSearchTool = $kbAgentToolNames -contains "knowledge_base_search_tool"
-    $kbAgentUnsupportedRejected = (-not [bool]$kbAgentUnsupported.data.success) -and @($kbAgentUnsupported.data.steps).Count -eq 0
+    $kbAgentAnswerHitCounts = $kbAgentAnswer.data.documentHitCounts
+    $kbAgentAnswerToolNames = @($kbAgentAnswer.data.steps | ForEach-Object { [string]$_.toolName })
+    $kbAgentAnswerCitations = @($kbAgentAnswer.data.citations).Count
+    $kbAgentAnswerCoversAlpha = (Get-CountValue $kbAgentAnswerHitCounts ([string]$docA.data.id)) -ge 1
+    $kbAgentAnswerCoversBeta = (Get-CountValue $kbAgentAnswerHitCounts ([string]$docB.data.id)) -ge 1
+    $kbAgentAnswerUsedQa = $kbAgentAnswerToolNames -contains "knowledge_base_rag_qa"
+    $kbAgentAnswerGrounded = [bool]$kbAgentAnswer.data.success -and [string]$kbAgentAnswer.data.decision -eq "rag_tool" -and $kbAgentAnswerUsedQa -and $kbAgentAnswerCitations -ge 2 -and $kbAgentAnswerCoversAlpha -and $kbAgentAnswerCoversBeta
+    $kbAgentNoEvidenceHandled = (-not [bool]$kbAgentNoEvidence.data.success) -and [bool]$kbAgentNoEvidence.data.noEvidence -and @($kbAgentNoEvidence.data.citations).Count -eq 0
     $kbAgentForeignRejected = -not [bool]$kbAgentForeign.ok
     $knowledgeBaseAgentChecks = @([ordered]@{
       success = [bool]$kbAgent.data.success
@@ -1470,21 +1482,32 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
       citations = $kbAgentCitations
       documentHitCounts = $kbAgentHitCounts
       coversBothDocuments = ($kbAgentCoversAlpha -and $kbAgentCoversBeta)
-      unsupportedIntentRejected = $kbAgentUnsupportedRejected
+      answerSuccess = [bool]$kbAgentAnswer.data.success
+      answerDecision = [string]$kbAgentAnswer.data.decision
+      answerSelectedTools = $kbAgentAnswerToolNames
+      answerCitations = $kbAgentAnswerCitations
+      answerDocumentHitCounts = $kbAgentAnswerHitCounts
+      answerCoversBothDocuments = ($kbAgentAnswerCoversAlpha -and $kbAgentAnswerCoversBeta)
+      answerNoEvidenceHandled = $kbAgentNoEvidenceHandled
       foreignKnowledgeBaseRejected = $kbAgentForeignRejected
       retrievalMode = [string]$kbAgent.data.retrievalMode
       rerankApplied = [bool]$kbAgent.data.rerankApplied
       multiQueryApplied = [bool]$kbAgent.data.multiQueryApplied
       queryVariantCount = [int]$kbAgent.data.queryVariantCount
       durationMs = [long]$kbAgent.data.totalDurationMs
+      answerDurationMs = [long]$kbAgentAnswer.data.totalDurationMs
     })
     if (-not [bool]$kbAgent.data.success -or [string]$kbAgent.data.decision -ne "search_tool" -or -not $kbAgentUsedSearchTool -or $kbAgentRetrieveHits -lt 2 -or $kbAgentCitations -lt 2 -or -not $kbAgentCoversAlpha -or -not $kbAgentCoversBeta) {
       Set-Gate "knowledgeBaseAgent" "FAILED_CORE_FLOW" $knowledgeBaseAgentChecks "knowledge base agent search route did not return expected evidence"
       Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseAgent" "knowledge base agent search route did not return expected evidence"
     }
-    if (-not $kbAgentUnsupportedRejected) {
-      Set-Gate "knowledgeBaseAgent" "FAILED_CORE_FLOW" $knowledgeBaseAgentChecks "knowledge base agent P0 unsupported intent boundary regressed"
-      Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseAgent" "knowledge base agent P0 unsupported intent boundary regressed"
+    if (-not $kbAgentAnswerGrounded) {
+      Set-Gate "knowledgeBaseAgent" "FAILED_CORE_FLOW" $knowledgeBaseAgentChecks "knowledge base agent answer route did not return grounded citations"
+      Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseAgent" "knowledge base agent answer route did not return grounded citations"
+    }
+    if (-not $kbAgentNoEvidenceHandled) {
+      Set-Gate "knowledgeBaseAgent" "FAILED_CORE_FLOW" $knowledgeBaseAgentChecks "knowledge base agent no-evidence answer boundary regressed"
+      Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseAgent" "knowledge base agent no-evidence answer boundary regressed"
     }
     if (-not $kbAgentForeignRejected) {
       Set-Gate "knowledgeBaseAgent" "FAILED_SECURITY_GATE" $knowledgeBaseAgentChecks "knowledge base agent permission isolation regressed"

@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：KB Agent grounded answer route P0 后端闭环（DONE）；下一片：KB Agent answer route smoke gate 扩展（READY）
+当前任务：KB Agent answer route smoke gate 扩展（DONE）；下一片：KB Agent grounded answer 真实 cloud smoke（READY）
+
+## 2026-07-09 补充：KB Agent answer route smoke gate 扩展
+
+- 目标：把 KB Agent grounded answer P0 从后端单测推进到可复跑 smoke gate，确保后续真实 cloud quality smoke 能同时覆盖 search route、answer route、no-evidence 和权限负向。
+- 已更新 `cloud-quality-smoke.ps1`：`-EnableKnowledgeBaseAgentGate` 现在会额外调用 KB Agent answer intent，要求 `decision=rag_tool`、step 包含 `knowledge_base_rag_qa`、citation 覆盖 Alpha / Beta 两份文档；同时新增 no-evidence answer 边界，要求 `noEvidence=true` 且 citation 为 0。
+- 已更新离线 route smoke：`agent-kb-search-route-smoke.ps1` 的 plan 文案改为 answer intent 路由到 `knowledge_base_rag_qa`；`AgentKnowledgeBaseSearchRouteSmokeTest` 的 artifact 字段改为 `answerDecisionPass`，不再使用旧 `unsupportedIntentPass`。
+- Quality parser 边界：`QualityArtifactServiceImpl` 安全布尔 flag 白名单新增 `handled` 后缀，并允许 `answerCoversBothDocuments` 这类布尔摘要；测试覆盖 `answerCitations`、`answerCoversBothDocuments`、`answerNoEvidenceHandled` 可解析，同时 prompt / answer 诱饵字段不泄露。
+- 已验证：`cloud-quality-smoke.ps1 -Mode plan -EnableKnowledgeBaseAgentGate` PASS；`-Mode dry-run -EnableKnowledgeBaseAgentGate` PASS；`agent-kb-search-route-smoke.ps1 -Mode plan / dry-run / run` PASS，离线 marker `docpilot-agent-kb-search-route-20260709164129-9a8972`；artifact redaction scan PASS；`mvn "-Dtest=AgentKnowledgeBaseSearchRouteSmokeTest,AgentKnowledgeBaseSearchRouteSmokeScriptSafetyTest,RagRealQaEvalSmokeScriptSafetyTest,QualityArtifactServiceImplTest" test` PASS（22 tests，1 skipped）；`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）。
+- 边界：本片仍未启动真实 backend / frontend，不创建业务数据，不提交 artifact 原文；真实 KB Agent answer route 质量要等下一片 cloud smoke run 验证。
 
 ## 2026-07-09 补充：KB Agent grounded answer route P0 后端闭环
 

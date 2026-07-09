@@ -21,7 +21,7 @@ function Show-AgentKbSearchRoutePlan {
     runnerTest = "AgentKnowledgeBaseSearchRouteSmokeTest"
     checks = @(
       "retrieval-only KB task is routed to knowledge_base_search_tool",
-      "answer intent is rejected by KB Agent P0 without tool execution",
+      "answer intent is routed to knowledge_base_rag_qa with citation summary",
       "KnowledgeBase scope failure is propagated as a security failure",
       "KB search output redaction keeps raw task, answer, document body and evidence context out of artifact"
     )

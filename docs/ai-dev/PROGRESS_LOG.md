@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 KB Agent answer route smoke gate
+
+- `cloud-quality-smoke.ps1 -EnableKnowledgeBaseAgentGate` 扩展为同时验证 KB Agent search route、grounded answer route、no-evidence answer 边界和跨用户 KB 权限负向。
+- answer route gate 要求 `decision=rag_tool`、step 包含 `knowledge_base_rag_qa`、citation 数量至少 2，且 documentHitCounts 覆盖 Alpha / Beta 两份主文档；no-evidence gate 要求 `noEvidence=true` 且 citation 为 0。
+- 离线 `agent-kb-search-route-smoke.ps1` plan 文案和 runner artifact 已从旧 unsupported P0 语义切换到 `answerDecisionPass`；run marker `docpilot-agent-kb-search-route-20260709164129-9a8972` PASS，artifact redaction scan PASS。
+- `QualityArtifactServiceImpl` 安全 flag 白名单新增 `handled` 和 `*covers*` 布尔摘要，`QualityArtifactServiceImplTest` 覆盖 `answerCitations`、`answerCoversBothDocuments`、`answerNoEvidenceHandled` 解析以及 prompt / answer 诱饵字段不泄露。
+- 验证：cloud quality plan / dry-run PASS；agent KB route plan / dry-run / run PASS；targeted smoke / Quality parser 22 tests PASS（1 skipped）；`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）。
+- 边界：本片没有启动真实 backend / frontend，没有创建业务数据；下一片进入真实 cloud smoke run。
+
 ## 2026-07-09 KB Agent grounded answer route P0
 
 - `KnowledgeBaseAgentServiceImpl` 新增 answer 分支：`rag_tool` / `qa_tool` / `summary_tool` 复用 `KnowledgeBaseRagQaService.answer(...)`，`search_tool` 仍保持 retrieval-only `knowledge_base_search_tool`。
