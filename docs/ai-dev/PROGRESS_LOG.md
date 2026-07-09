@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 KB Agent retrieval-only route MVP
+
+- 新增独立 KB Agent P0 后端入口：`KnowledgeBaseAgentRequest`、`KnowledgeBaseAgentResponse`、`KnowledgeBaseAgentService` / `KnowledgeBaseAgentServiceImpl` 和 `KnowledgeBaseAgentController`，API 为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。
+- P0 只支持 retrieval-only search intent：命中 `search_tool` 时调用 ToolCall API 的 `knowledge_base_search_tool`；answer / summary / grounded QA intent 不误调用 search，而是返回“P0 仅支持检索证据”的安全提示。
+- 输出只包含安全检索摘要、`documentHitCounts`、retrieval mode、rerank / multi-query 数值、限长 hits / citations 和 step 摘要；不生成 answer，不持久化 KB Agent task，不返回 prompt、answer 原文、文档全文、evidence context、凭据、云地址或连接串。KB 权限类失败会透传为 `BusinessException`，不被工具 fallback 掩盖。
+- 验证：KB Agent targeted 27 tests PASS；Agent / Tool / KB RAG broader 241 tests PASS（2 skipped）。
+- 边界：本片不新增数据库表，不改 KB RAG QA 主链路，不做 KB answer agent，不启动真实 backend / tunnel，不创建业务数据。下一片建议补 KB Agent search route smoke runner。
+
 ## 2026-07-09 KB Agent route design
 
 - 复核 `knowledge_base_search_tool`、ToolCall callable subset、`ToolInputMapper`、ToolSpec 和现有 `KnowledgeBaseRagController` 后，确认底层 KB search 工具已经可用，缺口在 Agent 层 request / context 语义。

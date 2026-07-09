@@ -2,6 +2,8 @@
 
 ## 2026-07-09 当前补充
 
+- KB Agent retrieval-only route MVP 已完成。新增独立 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`，由 `KnowledgeBaseAgentServiceImpl` 在 P0 中只处理 retrieval-only `search_tool` 意图并调用 `knowledge_base_search_tool`；回答、总结或 grounded QA 意图不会误走 search，而是返回 P0 仅支持检索证据的安全提示。该入口返回 `documentHitCounts`、retrieval mode、rerank / multi-query 数值、限长 hits / citations 和 step 摘要，不生成 answer，不持久化 KB Agent task。
+- KB Agent P0 已验证 targeted 27 tests PASS，Agent / Tool / KB RAG broader 241 tests PASS（2 skipped）。当前仍未做真实 backend / tunnel runtime smoke，也未做 KB answer agent；下一片建议补 `agent-kb-search-route-smoke.ps1`，再做小样本真实链路验证。
 - KB Agent route design 已完成。结论是不能把 `knowledge_base_search_tool` 硬塞进当前单文档 `DocumentAgentRequest`；P0 应新增独立 `KnowledgeBaseAgentRequest` / `KnowledgeBaseAgentService` / `KnowledgeBaseAgentController`，建议 API 为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。P0 只做 retrieval-only KB search route，调用 ToolCall API 的 `knowledge_base_search_tool`，返回安全检索摘要、`documentHitCounts`、retrieval mode、multi-query / rerank 数值和限长 citation preview，不生成 answer。
 - KB Agent route P0 边界：不新增数据库表，不改 `KnowledgeBaseRagQaService` 主链路，不复用单文档 request 承载 KB，不做复杂 planner，不保存 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、云地址或连接串。下一片可直接进入后端 P0 service/controller + 单测。
 - Agent search route smoke runner 已完成。新增 `scripts/smoke/agent-search-route-smoke.ps1`，支持 `plan / dry-run / run`，用于离线验证 retrieval-only Agent 任务走 `search_tool` / `document_search_tool`，grounded answer 任务继续走 `rag_tool` / `rag_qa_tool`。`run` 只执行默认跳过、显式环境变量启用的 JUnit smoke，不启动 backend / frontend / tunnel，不创建业务数据。

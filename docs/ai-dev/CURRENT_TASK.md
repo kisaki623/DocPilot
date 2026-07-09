@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：KB Agent route design（DONE）；下一片：KB Agent retrieval-only route MVP（READY）
+当前任务：KB Agent retrieval-only route MVP（DONE）；下一片：KB Agent search route smoke / real-link runtime smoke（READY）
+
+## 2026-07-09 补充：KB Agent retrieval-only route MVP
+
+- 目标：把 `knowledge_base_search_tool` 接入一个独立 KB Agent P0 入口，让 Agent 层能对 KnowledgeBase 做 retrieval-only evidence search，而不是继续只支持单文档 `DocumentAgentRequest`。
+- 已完成后端：新增 `KnowledgeBaseAgentRequest`、`KnowledgeBaseAgentResponse`、`KnowledgeBaseAgentService` / `KnowledgeBaseAgentServiceImpl` 和 `KnowledgeBaseAgentController`；API 为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。
+- 执行语义：P0 复用 `DocumentToolSelector` 判断 intent；只有 `search_tool` 会调用 ToolCall API 的 `knowledge_base_search_tool`。`rag_tool` / `qa_tool` / `summary_tool` 等回答或总结意图不会误调用 KB search，而是返回“P0 仅支持检索证据”的安全提示。
+- 输出边界：response 返回 `documentHitCounts`、retrieval mode、rerank / multi-query 数值、限长 hits / citations 和 step 摘要；不生成 answer，不保存或返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、云地址或连接串。KB 权限 / 不存在类失败从 ToolCallResult 重新抛出，不被工具不可用 fallback 掩盖。
+- 已验证：`mvn "-Dtest=KnowledgeBaseAgentServiceImplTest,KnowledgeBaseAgentControllerTest,KnowledgeBaseSearchToolTest,ToolCallServiceImplTest,ToolArgumentValidatorTest" test` PASS（27 tests）；`mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest" test` PASS（241 tests，2 skipped）。
+- 边界：本片不新增数据库表，不持久化 KB Agent task，不改 `KnowledgeBaseRagQaService` 主链路，不做 KB answer agent，不启动真实 backend / tunnel，不创建业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：新增 `agent-kb-search-route-smoke.ps1`，离线验证 KB Agent route 的 search / unsupported intent / 权限透传 / 脱敏 artifact；之后再跑真实 backend + tunnel 小样本 runtime smoke。
 
 ## 2026-07-09 补充：KB Agent route design
 
