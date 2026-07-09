@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 Document Parser fixture corpus
+
+- 新增 `DocumentParserFixtureCorpusTest`，作为 PDF / HTML / DOCX parser 的长期回归 fixture corpus，不提交二进制 fixture 文件，不访问外部网络。
+- PDF fixture 覆盖多页文本型 PDF、空页 warning、page-level block、`pageNumber` 和 `sourceLocator=page:n`。
+- HTML fixture 覆盖本地 HTML 噪声剔除、标题层级、正文内联链接文本、表格、列表和独立链接 block。
+- DOCX fixture 覆盖 Heading1 / Heading2、段落、列表、表格、`sectionPath` 和 `docx:table:*` source locator。
+- 验证：`mvn "-Dtest=DocumentParserTest,DocumentParserFixtureCorpusTest,ParseTaskConsumeEntryServiceImplTest" test` PASS（24 tests）。
+- 边界：本片只增强测试资产，不改生产 parser、不新增依赖，不做 OCR、扫描件识别、旧 `.doc`、外部网页抓取或复杂版面理解。
+
 ## 2026-07-09 Document Parser 质量报告可读性
 
 - `document-parser-real-chain-smoke.ps1` 的 `parserQualityReport.ragChainSummary` 新增 direct retrieve / QA retrieve 成功计数、no-evidence 计数、最大重试次数和 `environmentUnstable`，继续只保存脱敏数值和布尔摘要。

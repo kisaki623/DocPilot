@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 质量报告可读性与长期回归 fixture 增强（DONE）；下一片：Document Parser 长期回归 fixture 多样性增强（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 长期回归 fixture 多样性增强（DONE）；下一片：Document Parser fixture corpus 与真实 smoke 覆盖口径对齐（READY）
+
+## 2026-07-09 补充：Document Parser 长期回归 fixture 多样性增强
+
+- 目标：把 PDF / HTML / DOCX parser 的测试从“单个 demo case 可解析”增强为“长期结构化 fixture corpus 可回归”，避免后续 parser 改动破坏页码、标题层级、表格、列表、链接和噪声剔除等 RAG citation 关键元数据。
+- 已新增测试：`DocumentParserFixtureCorpusTest`，使用内存生成的脱敏 PDF / HTML / DOCX fixture，不落真实用户文件、不访问外部网络、不引入新依赖。
+- PDF 覆盖：三页文本型 PDF、第二页空页 warning、page-level block、`pageNumber` 和 `sourceLocator=page:n`。
+- HTML 覆盖：本地 HTML 的 `script/style/header/nav/footer` 噪声剔除，保留 `h1/h2` 标题层级、正文内联链接文本、表格行、列表项和独立链接 block。
+- DOCX 覆盖：`Heading1/Heading2` 标题继承、普通段落、列表段落、表格文本、`sectionPath` 和 `docx:table:*` source locator。
+- Registry 覆盖：确认 `txt/pdf/html/docx` 四类 parser selection 仍稳定。
+- 已验证：`mvn "-Dtest=DocumentParserTest,DocumentParserFixtureCorpusTest,ParseTaskConsumeEntryServiceImplTest" test` PASS（24 tests，0 skipped）。
+- 边界：本片只补长期回归单测，不改 parser 生产实现，不新增依赖，不提交 fixture 二进制文件，不做 OCR、扫描件识别、旧 `.doc`、外部网页抓取或复杂版面理解。
 
 ## 2026-07-09 补充：Document Parser 质量报告可读性增强
 
