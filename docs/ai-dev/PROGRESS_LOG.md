@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 KB Agent Quality Console 真实前端可见性回归
+
+- 本地启动 tunnel、backend 和 frontend 后，使用临时登录用户访问内部 `/quality` 页面；本轮只做可见性验证，没有上传文档、创建 KB / Conversation、修改数据库结构或提交 artifact 原文。
+- Quality API detail 验证 `docpilot-cloud-quality-20260709153428-d25e54` 中 `knowledgeBaseAgent` gate 为 PASS，安全摘要包含 `retrieveHits=6`、`citations=6`、`coversBothDocuments=true`、`unsupportedIntentRejected=true`、`foreignKnowledgeBaseRejected=true`。
+- Playwright 打开 `/quality?autoload=1`：桌面端可见最新 marker；切到“门禁”并展开已通过门禁后，可见“知识库 Agent 检索 / 通过”；`390px` 移动端同样可见 marker 和 gate。两种视口 console error 均为 0，未发现横向溢出。
+- 页面脱敏检查未命中 Authorization 凭据、API key、secret、password、连接串、evidence context、system prompt、answer raw、document full text 等敏感模式。
+- 观察到的边界：PASS 门禁默认压缩，前端列表只展示 gate 名称和状态；深层 `retrieveHits / citations / flags` 当前通过 Quality API detail 可读，后续如需更强可读性，可单独增强 PASS gate 展开内容。
+
 ## 2026-07-09 KB Agent Quality Console gate 诊断可读性
 
 - `QualityArtifactServiceImpl` 安全 flag 白名单新增 `success`、`covers...` 和 `...Rejected` 布尔摘要，便于把 `knowledgeBaseAgent` gate 的关键检查提升为 Console 信号。

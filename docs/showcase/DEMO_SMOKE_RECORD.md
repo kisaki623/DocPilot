@@ -23,8 +23,9 @@ Marker:
 - retrieval-only 任务返回 `decision=search_tool`，selected tool 为 `knowledge_base_search_tool`。
 - KB Agent retrieve hits / citations 均为 `6`，documentHitCounts 覆盖两份主文档 `{782:3,783:3}`。
 - KB Agent P0 answer / summary intent 被安全拒绝，未误执行 search；用户 B 访问用户 A KB 被拒绝。
+- Agent Quality Console 可见性回归已补验：浏览器打开 `/quality?autoload=1` 可见该 marker；门禁页展开已通过门禁后可见“知识库 Agent 检索 / 通过”。桌面和 `390px` 移动端 console error 均为 `0`，未发现横向溢出；页面脱敏检查未命中 token、API key、secret、连接串、prompt、answer 原文、文档全文或 evidence context。
 
-边界：本轮使用 `-SkipFrontend` 聚焦 KB Agent API 链路，因此 `frontendRoutes` 记为 REVIEW，整体 run 不是完整前端体验回归。artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，只保存计数、决策、工具名和布尔摘要，不提交原始 task、answer、文档全文、prompt、evidence context、凭据、连接串、云地址或 token。本次不代表 KB answer agent 已完成；当前 KB Agent P0 仍只支持 retrieval-only evidence search。
+边界：本轮原始 smoke 使用 `-SkipFrontend` 聚焦 KB Agent API 链路，因此 `frontendRoutes` 记为 REVIEW，整体 run 不是完整前端体验回归；后续补验的是 Quality Console 对该 run 的可见性，不等于重跑完整业务前端路径。artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，只保存计数、决策、工具名和布尔摘要，不提交原始 task、answer、文档全文、prompt、evidence context、凭据、连接串、云地址或 token。本次不代表 KB answer agent 已完成；当前 KB Agent P0 仍只支持 retrieval-only evidence search。
 
 ## 2026-07-08 Document Parser Real Chain Smoke
 

@@ -1,6 +1,19 @@
 # Current Task
 
-当前任务：KB Agent Quality Console gate 诊断可读性（DONE）；下一片：KB Agent answer route 规划 / 真实前端可见性回归（二选一 READY）
+当前任务：KB Agent Quality Console 真实前端可见性回归（DONE）；下一片：KB Agent answer route 选择（等待用户选择）
+
+## 2026-07-09 补充：KB Agent Quality Console 真实前端可见性回归
+
+- 目标：先完成“一”，验证 `knowledgeBaseAgent` gate 不只存在于 artifact / API 中，也能在真实本地 `/quality` 页面被用户看到；“二”再进入 KB Agent answer route 的产品选择和实现。
+- 已验证后端 API：本地 tunnel、backend、frontend 启动后，`GET /api/quality/runs/docpilot-cloud-quality-20260709153428-d25e54` 可读取 `knowledgeBaseAgent` gate，状态为 PASS；安全指标摘要包含 `retrieveHits=6`、`citations=6`、`coversBothDocuments=true`、`unsupportedIntentRejected=true`、`foreignKnowledgeBaseRejected=true`。
+- 已验证前端：浏览器打开 `/quality?autoload=1` 后可见最新 marker `docpilot-cloud-quality-20260709153428-d25e54`；切到“门禁”并展开已通过门禁后，可见“知识库 Agent 检索 / 通过”。桌面和 `390px` 移动端 console error 均为 0，未发现横向溢出。
+- 脱敏检查：页面文本未命中 Authorization 凭据、API key、secret、password、连接串、evidence context、system prompt、answer raw、document full text 等敏感模式；本轮没有提交 artifact 原文。
+- 当前限制：PASS 门禁在 UI 中默认压缩，只展示名称和状态；`retrieveHits / citations / coversBothDocuments / unsupportedIntentRejected / foreignKnowledgeBaseRejected` 这些深层指标已在 Quality API detail 中可见，但前端 PASS 折叠列表暂未展开显示这些细项。该点不是阻塞，但可作为后续 Console 可读性增强。
+- Phase 2 候选：
+  - A. 推荐：KB Agent grounded answer route P0。新增明确的 KB answer intent 入口或复用 KB Agent request 中的 answer mode，调用现有 `KnowledgeBaseRagQaService`，返回 answer + citations + trace summary，并保持 search / answer 意图边界。
+  - B. 保守：只把 KB Agent P0 保持为 retrieval-only，把 answer route 继续交给现有 KnowledgeBase RAG QA；补充 UI / 文档说明和 Quality Console 指标，避免 Agent 能力过度扩张。
+  - C. 中间路线：先做 KB Agent answer route 规划和离线契约测试，不启动真实 provider；确认接口、脱敏和 trace 口径后再进入真实链路 smoke。
+  - 验收建议：无论选择哪条，都必须覆盖 search intent 不误答、answer intent 有 citation、no-evidence 能拒答、跨用户 KB 拒绝、artifact 不保存 prompt / answer 原文 / 文档全文 / evidence context / token / 连接串。
 
 ## 2026-07-09 补充：KB Agent Quality Console gate 诊断可读性
 
