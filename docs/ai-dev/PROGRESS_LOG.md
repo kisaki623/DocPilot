@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 KB Agent answer route 前端真实可见性回归
+
+- `knowledgeBaseAgent` 被标记为关键诊断 gate：在“已通过门禁”折叠组展开后，即使 gate 状态为 PASS，也展示它的安全 signals；其他 PASS gate 仍保持压缩。
+- 真实 Quality API 验证最新 marker `docpilot-cloud-quality-20260709164330-452624`：`knowledgeBaseAgent` gate 为 PASS，`answerCitations=6`、`answerCoversBothDocuments=true`、`answerNoEvidenceHandled=true`、`foreignKnowledgeBaseRejected=true`。
+- 浏览器 `/quality?autoload=1` 使用一次性临时用户登录后，切到“门禁”并展开“已通过门禁”，可见最新 marker、`知识库 Agent`、`Agent 回答引用数`、`KB 回答覆盖两份文档` 和 `KB 无证据回答已处理`。
+- 脱敏与布局：页面未出现 prompt 原文、answer 原文、文档全文或 evidence context 字样；桌面 console error 为 `0`，`390px` 移动端 console error 为 `0`，移动端 `scrollWidth=clientWidth`。
+- 清理：backend、frontend 和浏览器进程已清理，`3000/3001/3002/3007/3100/8081` 端口均释放；本轮临时 token / log 文件已删除。
+- 边界：本片不改后端 API，不读取 raw artifact，不提交 artifact 原文，不删除业务数据，不改 schema，不 push。
+
 ## 2026-07-09 Agent Quality Console KB answer 诊断可见性
 
 - `/quality` 标签层补齐 KB Agent answer route 安全摘要：`knowledgeBaseAgent` 显示为“知识库 Agent”，`answerCitations`、`answerDurationMs`、`answerDecisionPass`、`answerSuccess`、`answerCoversBothDocuments`、`answerNoEvidenceHandled` 等字段显示为中文。

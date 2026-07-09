@@ -304,6 +304,10 @@ function getGateStatus(gate: QualityGateSummary): string {
   return gate.status || (gate.passed === false ? "FAILED" : "PASS");
 }
 
+function shouldCompactPassedGate(gate: QualityGateSummary): boolean {
+  return gate.name !== "knowledgeBaseAgent";
+}
+
 function statusMatches(status: string | undefined, filter: string): boolean {
   if (filter === "ALL") {
     return true;
@@ -2582,7 +2586,9 @@ function GateStatusGroups({ gates }: { gates: QualityGateSummary[] }) {
           {pass.length === 0 ? (
             <p className="dp-meta">暂无通过门禁。</p>
           ) : (
-            pass.map((gate) => <GateRow key={gate.name} gate={gate} compact />)
+            pass.map((gate) => (
+              <GateRow key={gate.name} gate={gate} compact={shouldCompactPassedGate(gate)} />
+            ))
           )}
         </div>
       </details>
@@ -3481,7 +3487,7 @@ function GateRow({
   compact?: boolean;
 }) {
   const status = gate.status || (gate.passed === false ? "FAILED" : "PASS");
-  const signals = signalEntries(gate.metrics, gate.flags);
+  const signals = signalEntries(gate.metrics, gate.flags, gate.name === "knowledgeBaseAgent" ? 16 : 8);
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">

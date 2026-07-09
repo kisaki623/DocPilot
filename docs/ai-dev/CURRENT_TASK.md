@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console KB answer 诊断可见性增强（DONE）；下一片：KB Agent answer route 前端真实可见性回归（READY）
+当前任务：KB Agent answer route 前端真实可见性回归（DONE）；下一片：Agent Tool / Trace drill-down 质量增强（READY）
+
+## 2026-07-09 补充：KB Agent answer route 前端真实可见性回归
+
+- 目标：验证 KB Agent answer route 的安全摘要不只存在于 Quality API，也能在真实 `/quality?autoload=1` 页面中被看到。
+- 已完成前端小修复：`knowledgeBaseAgent` 属于关键诊断 gate，即使状态为 PASS，在“已通过门禁”折叠组展开后也展示安全 signals；其他 PASS gate 继续保持压缩，避免页面变成长列表。
+- 真实 API 验证：本地 tunnel 已可用，backend 以 local profile 和 Quality Console 开关启动后，`/api/quality/runs/docpilot-cloud-quality-20260709164330-452624` 可读到 `knowledgeBaseAgent` gate：PASS，`answerCitations=6`、`answerCoversBothDocuments=true`、`answerNoEvidenceHandled=true`、`foreignKnowledgeBaseRejected=true`。
+- 真实浏览器验证：启动 frontend 后打开 `/quality?autoload=1`，浏览器内创建一次性临时用户并登录；切到“门禁”并展开“已通过门禁”后，可见最新 marker、`知识库 Agent`、`Agent 回答引用数`、`KB 回答覆盖两份文档` 和 `KB 无证据回答已处理`。
+- 脱敏与布局：页面未出现 prompt 原文、answer 原文、文档全文或 evidence context 字样；桌面 console error 为 `0`，`390px` 移动端 console error 为 `0`，`scrollWidth=clientWidth`，未见横向溢出。
+- 清理：本轮启动的 backend、frontend 和浏览器进程已清理，`3000/3001/3002/3007/3100/8081` 端口均已释放；本地临时 token / log 文件已删除。
+- 边界：本片不改后端 API，不读取 raw artifact，不提交 artifact 原文，不删除业务数据，不改 schema，不 push。下一步可进入 Agent Tool / Trace drill-down，把 KB Agent search / answer step 与 failure bucket 在 Trace 视图里连接得更清楚。
 
 ## 2026-07-09 补充：Agent Quality Console KB answer 诊断可见性增强
 
