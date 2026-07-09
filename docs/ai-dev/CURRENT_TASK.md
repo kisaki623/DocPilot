@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（REVIEW）；当前片：B3 Eval Catalog 覆盖缺口与用例分层审计（DONE）；下一片：真实登录态 Quality Console 回归审计（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（DONE）；当前片：真实登录态 Quality Console 回归审计（DONE）；下一片：待用户选择新的求职级增强方向（READY）
+
+## 2026-07-09 补充：真实登录态 Quality Console 回归审计
+
+- 目标：验证 A2 / B2 / C2 / A3 / B3 的前端增强不只在 route smoke 可用，也能在真实登录态 `/quality?autoload=1` 和 `/quality/trace` 中读取后端 Quality API 数据并正常展示。
+- 已执行：复用本地已有 MySQL / Qdrant tunnel；本地启动 backend（local profile，Quality Console enabled，mock AI）和 frontend（`3007`）；通过浏览器注册临时用户并写入登录态；打开 `/quality?autoload=1` 和一个真实 Trace 链接。
+- API 结果：`/api/quality/runs?limit=20`、`/api/quality/eval-cases`、`/api/quality/trends?limit=20` 均返回成功；可见 `20` 条 run、`12` 个 eval case、`20` 个趋势点，最新 marker 为 `docpilot-cloud-quality-20260709164330-452624`，状态为 `REVIEW`。
+- 页面结果：真实登录态下可见运行详情、待处理、链路、评测、文档解析质量摘要、评测用例库、能力层覆盖、覆盖缺口、质量趋势、反复失败用例和最近运行点；Trace 页面可见链路瀑布图、失败步骤、复查步骤、工具 / RAG、模型 / 引用、排查建议、关联门禁和关联评测用例。
+- 脱敏与布局：页面 DOM 未命中 Authorization 凭据、API key、secret、password、连接串、system prompt、answer raw、document full text 或 evidence context；桌面 console error 为 `0`，`390px` 移动端 `/quality` 和 `/quality/trace` 均无横向溢出。
+- 清理：本轮启动的 backend / frontend 已停止，`3000/3001/3002/3007/3100/8081` 端口已释放，临时启动日志已删除；已有 tunnel 未由本轮创建，未主动停止。
+- 边界：本轮只创建临时登录用户，不上传文档、不创建 KB / Conversation、不删除业务数据、不改数据库结构、不操作远程 Docker、不提交 artifact 原文、不 push。
 
 ## 2026-07-09 补充：B3 Eval Catalog 覆盖缺口与用例分层审计
 

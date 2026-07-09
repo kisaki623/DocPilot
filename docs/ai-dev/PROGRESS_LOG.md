@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console 真实登录态回归
+
+- 复用本地已有 MySQL / Qdrant tunnel，启动 backend（local profile，Quality Console enabled，mock AI）和 frontend `3007`，通过浏览器注册临时用户并打开 `/quality?autoload=1`。
+- Quality API 登录态回归通过：runs / eval-cases / trends 均成功；可见 `20` 条 run、`12` 个 eval case、`20` 个趋势点，最新 marker `docpilot-cloud-quality-20260709164330-452624` 状态为 `REVIEW`。
+- 页面真实可见性通过：`/quality` 可见运行详情、待处理、链路、评测、文档解析质量摘要、评测用例库、能力层覆盖、覆盖缺口、质量趋势、反复失败用例和最近运行点；`/quality/trace` 可见链路瀑布图、步骤摘要、排查建议、关联门禁和关联评测用例。
+- 脱敏与布局：页面 DOM 未命中 Authorization 凭据、API key、secret、password、连接串、system prompt、answer raw、document full text 或 evidence context；桌面 console error 为 `0`，`390px` 移动端 `/quality` 与 `/quality/trace` 均无横向溢出。
+- 清理：本轮启动的 backend / frontend 已停止，`3000/3001/3002/3007/3100/8081` 端口已释放，临时启动日志已删除；已有 tunnel 未由本轮创建，未主动停止。
+- 边界：本轮只创建临时登录用户，不上传文档、不创建 KB / Conversation、不删除业务数据、不改 schema、不操作远程 Docker、不提交 artifact 原文、不 push。
+
 ## 2026-07-09 Agent Quality Console B3 Eval 覆盖缺口
 
 - `/quality` Eval Catalog 新增必需能力层清单：Agent RAG Trace、Memory Context Trace、RAG no-evidence、Citation Precision、Agent Search Routing、KB Agent Grounded Answer、Document Parser Real Chain 和 Memory Provider Contract。

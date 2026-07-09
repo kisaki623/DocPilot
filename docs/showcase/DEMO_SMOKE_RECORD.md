@@ -4,6 +4,29 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-09 Agent Quality Console Real Login Regression
+
+状态：PASS
+
+验证方式：
+
+- 复用本地已有 MySQL / Qdrant tunnel。
+- 本地启动 backend（local profile，Quality Console enabled，mock AI）和 frontend `3007`。
+- 浏览器注册临时用户并打开 `/quality?autoload=1`。
+- 从真实登录态页面打开一个 `/quality/trace` 链接。
+
+已验证：
+
+- Quality API 登录态可用：runs / eval-cases / trends 均返回成功。
+- Console 可见 `20` 条 run、`12` 个 eval case、`20` 个趋势点。
+- 最新 marker 为 `docpilot-cloud-quality-20260709164330-452624`，状态为 `REVIEW`；该 REVIEW 来自前序 KB Agent smoke 有意跳过 frontend route，不是本轮 Console 页面失败。
+- `/quality` 可见运行详情、待处理、链路、评测、文档解析质量摘要、评测用例库、能力层覆盖、覆盖缺口、质量趋势、反复失败用例和最近运行点。
+- `/quality/trace` 可见链路瀑布图、步骤摘要、排查建议、关联门禁和关联评测用例。
+- 桌面 console error 为 `0`；`390px` 移动端 `/quality` 和 `/quality/trace` 均无横向溢出。
+- 页面 DOM 未命中 Authorization 凭据、API key、secret、password、连接串、system prompt、answer raw、document full text 或 evidence context。
+
+边界：本轮只创建临时登录用户，不上传文档、不创建 KnowledgeBase / Conversation、不删除业务数据、不改数据库结构、不操作远程 Docker、不提交 artifact 原文、不 push。该结果证明 Agent Quality Console ABC 增强在真实登录态下可读取和展示脱敏质量摘要，不等于企业级 APM、长期数据库化质量平台或线上 SLA。
+
 ## 2026-07-09 KB Agent Real-link Runtime Smoke
 
 状态：KB Agent grounded answer gate PASS；本次整体 run 为 REVIEW（有意跳过前端路由）
