@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：A3 Trace Timeline 信息密度与步骤诊断增强（DONE）；下一片：B3 Eval Catalog 覆盖缺口与用例分层审计（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（REVIEW）；当前片：B3 Eval Catalog 覆盖缺口与用例分层审计（DONE）；下一片：真实登录态 Quality Console 回归审计（READY）
+
+## 2026-07-09 补充：B3 Eval Catalog 覆盖缺口与用例分层审计
+
+- 目标：让 `/quality` 的 Eval Catalog 能判断当前用例库是否覆盖关键能力层，而不是只展示已有 case。
+- 已完成前端：新增必需能力层清单，覆盖 Agent RAG Trace、Memory Context Trace、RAG no-evidence、Citation Precision、Agent Search Routing、KB Agent Grounded Answer、Document Parser Real Chain 和 Memory Provider Contract。
+- 已完成覆盖摘要：Eval Catalog 顶部新增“能力层覆盖”分子 / 分母；下方新增“覆盖缺口”区域，缺层时显示中文能力层名称，全部覆盖时显示“核心能力层已覆盖”。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放，临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不改 eval runner 评分逻辑、不读取 raw artifact、不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
 
 ## 2026-07-09 补充：A3 Trace Timeline 信息密度与步骤诊断增强
 

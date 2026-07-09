@@ -83,6 +83,16 @@ const TRIAGE_BUCKET_CATEGORIES = [
   "ENV_BLOCKED",
   "OTHER",
 ];
+const REQUIRED_EVAL_CASE_LAYERS = [
+  "agent_rag_trace",
+  "memory_context_trace",
+  "rag_no_evidence",
+  "citation_precision",
+  "agent_search_routing",
+  "kb_agent_grounded_answer",
+  "document_parser_real_chain",
+  "memory_provider_contract",
+];
 
 interface TriageFilters {
   status: string;
@@ -1774,6 +1784,9 @@ function EvalCatalogPanel({ items }: { items: QualityEvalCaseCatalogItem[] }) {
   const traceLinkedCount = items.filter((item) =>
     Boolean(item.latestTraceId || item.latestAgentRunId)
   ).length;
+  const coveredLayers = new Set(items.map((item) => item.caseLayer).filter(Boolean));
+  const missingLayers = REQUIRED_EVAL_CASE_LAYERS.filter((layer) => !coveredLayers.has(layer));
+  const requiredCoveredLayerCount = REQUIRED_EVAL_CASE_LAYERS.length - missingLayers.length;
 
   return (
     <div className="dp-card min-w-0">
@@ -1792,9 +1805,28 @@ function EvalCatalogPanel({ items }: { items: QualityEvalCaseCatalogItem[] }) {
         <SmallFact label="待处理用例" value={`${blockedCount}`} />
         <SmallFact label="Trace 覆盖" value={formatMetricPair(traceLinkedCount, items.length)} />
         <SmallFact
-          label="高风险用例"
-          value={`${items.filter((item) => isHighRiskCatalogItem(item)).length}`}
+          label="能力层覆盖"
+          value={formatMetricPair(requiredCoveredLayerCount, REQUIRED_EVAL_CASE_LAYERS.length)}
         />
+      </div>
+
+      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-500">覆盖缺口</p>
+            <p className="mt-1 break-words text-sm font-semibold text-slate-900">
+              {missingLayers.length === 0
+                ? "核心能力层已覆盖"
+                : missingLayers.map(formatCatalogTerm).join(" / ")}
+            </p>
+          </div>
+          <span className="dp-badge dp-badge-warning">
+            高风险 {items.filter((item) => isHighRiskCatalogItem(item)).length}
+          </span>
+        </div>
+        <p className="mt-2 break-words text-xs text-slate-500">
+          覆盖层只基于脱敏 catalog metadata，不读取 question、answer 或文档原文。
+        </p>
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
