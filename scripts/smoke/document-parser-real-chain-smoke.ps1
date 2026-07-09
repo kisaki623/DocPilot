@@ -590,13 +590,13 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     $script:CurrentParserStage = "retrieve"
     $retrieve = $null
     $hits = @()
-    for ($attempt = 1; $attempt -le 6; $attempt++) {
-      $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $document.data.id; query = $case.query; topK = 5; indexVersion = $IndexVersion }) $token -AllowFailure
+    for ($attempt = 1; $attempt -le 15; $attempt++) {
+      $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $document.data.id; query = $question; topK = 5; indexVersion = $IndexVersion }) $token -AllowFailure
       $hits = if ($retrieve.ok) { @($retrieve.data.hits) } else { @() }
       if ($hits.Count -gt 0) {
         break
       }
-      Start-Sleep -Seconds 2
+      Start-Sleep -Seconds 3
     }
     $directRetrieveHit = $retrieve.ok -and $hits.Count -gt 0
     $retrieveHit = $directRetrieveHit
@@ -615,6 +615,18 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
       }
     } else {
       $failureReason = "retrieve_api_failed"
+    }
+    if (-not $directRetrieveHit -and $qaRetrievalHit) {
+      $script:CurrentParserStage = "retrieve_confirm"
+      for ($attempt = 1; $attempt -le 10; $attempt++) {
+        $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $document.data.id; query = $question; topK = 5; indexVersion = $IndexVersion }) $token -AllowFailure
+        $hits = if ($retrieve.ok) { @($retrieve.data.hits) } else { @() }
+        if ($hits.Count -gt 0) {
+          $directRetrieveHit = $true
+          break
+        }
+        Start-Sleep -Seconds 3
+      }
     }
     $script:CurrentParserStage = "source_locator"
     $locatorItems = @()
@@ -837,6 +849,9 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   if ($fileCount -gt 0 -and ($retrieveHitCount -lt $fileCount -or $citationCount -lt $fileCount)) {
     $reviewReasons += "retrieval_or_citation_missing"
   }
+  if ($fileCount -gt 0 -and $directRetrieveHitCount -lt $fileCount) {
+    $reviewReasons += "direct_retrieve_missing"
+  }
   if ($null -ne $negativeCaseFailCount -and [int]$negativeCaseFailCount -gt 0) {
     $reviewReasons += "parser_boundary_failed"
   }
@@ -904,7 +919,7 @@ if ($Mode -eq "plan") {
   [ordered]@{
     mode = "plan"
     willCreateBusinessData = $false
-    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "validate retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
+    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
     artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
@@ -983,6 +998,9 @@ try {
   } elseif ($locatorReview.Count -gt 0) {
     $parserStatus = "REVIEW"
     $parserChecks = @("one or more parser fixtures has incomplete source locator")
+  } elseif (@($results | Where-Object { -not $_.directRetrieveHit }).Count -gt 0) {
+    $parserStatus = "REVIEW"
+    $parserChecks = @("parser QA retrieval and citation passed, but direct retrieve endpoint did not return hits for every fixture")
   } else {
     $parserStatus = "PASS"
     $parserChecks = @("PDF/HTML/DOCX upload parse retrieve citation passed")

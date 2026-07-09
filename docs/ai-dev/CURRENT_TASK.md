@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（DONE）；当前片：真实登录态 Quality Console 回归审计（DONE）；下一片：待用户选择新的求职级增强方向（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：direct retrieve 缺口质量门禁显性化（DONE）；下一片：定位 direct retrieve 与 QA retrieve 同轮差异（READY）
+
+## 2026-07-09 补充：Document Parser direct retrieve 质量门禁显性化
+
+- 目标：接续 Document Parser MVP，把 `directRetrieveHitCount=0` 这类真实链路风险从“展示记录里的备注”升级为可见质量门禁，避免 parser smoke 只因 QA citation 通过就掩盖 direct retrieve endpoint 缺口。
+- 已完成脚本修正：`document-parser-real-chain-smoke.ps1` 的 direct retrieve 现在使用与 QA 相同的用户式问题，并在 QA retrieval 已通过但 direct retrieve 仍未命中时做二次确认；artifact 仍只保存计数、布尔值和失败码，不保存 query 原文、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。
+- 已完成质量口径修正：如果 PDF / HTML / DOCX 的 parse、chunk、QA retrieval、citation 和 source locator 都通过，但 direct retrieve endpoint 没有覆盖全部 fixture，则 `parserRealChain` gate 标为 `REVIEW`，`parserQualityReport.reviewReasons` 记录 `direct_retrieve_missing`。
+- 已完成前端可读性补充：`/quality` 对 `direct_retrieve_missing` 显示为“直接检索未命中”，避免展示 raw key。
+- 真实验证：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 最新 marker `docpilot-parser-real-chain-20260709223724-ceb637` 为 `REVIEW`；tunnel、backend、frontend root、auth、PDF / HTML / DOCX parse、chunk、QA retrieval、citation、source locator、parser boundary 和 artifact redaction 均通过；`directRetrieveHitCount=0/3`，`qaRetrievalHitCount=3/3`，`citationCount=3/3`。
+- 补充定位证据：对同批临时文档重启本地 backend 后，手动调用 `/api/rag/retrieve` 可得到 `directHits=1/1/1`，QA 仍为 `1/1/1`，说明 endpoint 和已写入 Qdrant 的索引最终可用；下一片要定位“同一 smoke 进程内 direct retrieve 为 0，但重启后 direct retrieve 可命中”的差异。
+- 已验证：`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserTest,ParseTaskConsumeEntryServiceImplTest,RagDocumentRetrievalServiceImplTest,*Quality*" test` PASS（74 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；脚本 `plan` / `dry-run` PASS。
+- 边界：本片没有修改业务 RAG / Parser service，没有新增数据库表，没有删除业务数据，没有提交 artifact 原文，没有 push。下一片优先做只读/小步代码级定位，不做 OCR、旧 `.doc`、外部网页抓取或复杂版面理解。
 
 ## 2026-07-09 补充：真实登录态 Quality Console 回归审计
 

@@ -51,6 +51,29 @@ Marker:
 
 边界：本轮原始 smoke 使用 `-SkipFrontend` 聚焦 KB Agent API 链路，因此 `frontendRoutes` 记为 REVIEW，整体 run 不是完整前端体验回归。artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，只保存计数、决策、工具名和布尔摘要，不提交原始 task、answer、文档全文、prompt、evidence context、凭据、连接串、云地址或 token。本次证明的是 KB Agent P0 grounded answer 小样本真实链路可用，不代表复杂 planner、多 Agent 编排或大规模 answer faithfulness benchmark。
 
+## 2026-07-09 Document Parser Direct Retrieve Gate
+
+状态：REVIEW（主 parser -> QA citation 链路通过，direct retrieve 质量缺口被显性化）
+
+Runner:
+
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- `docpilot-parser-real-chain-20260709223724-ceb637`
+
+已验证：
+
+- tunnel、backend health、frontend root route、临时用户注册、PDF / HTML / DOCX fixture 上传、异步解析、chunk、QA retrieval、QA citation、source locator、parser boundary 和 artifact redaction 均通过。
+- 三类文件均为 `parseStatus=SUCCESS`、`chunkCount=1`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- parser boundary 负向检查通过：不支持格式上传拒绝、空白 TXT、损坏 PDF 和损坏 DOCX 均返回预期脱敏失败码。
+- 新质量口径：`parserRealChain` 不再把 direct retrieve 缺口藏在 PASS 中；当 `directRetrieveHitCount < fileCount` 时标记为 `REVIEW`，并在 `parserQualityReport.reviewReasons` 中记录 `direct_retrieve_missing`。
+- 本次结果：`directRetrieveHitCount=0/3`、`qaRetrievalHitCount=3/3`、`citationCount=3/3`、`sourceLocatorCount=3/3`。
+- 补充定位：重启本地 backend 后，同批文档手动调用 `/api/rag/retrieve` 可命中 `1/1/1`，说明索引最终可用；仍需下一片定位同一 smoke 进程内 direct retrieve 与 QA retrieve 的差异。
+
+边界：本次 REVIEW 是质量诊断结果，不是 PDF / HTML / DOCX 解析主链路失败。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交原始文件、文档全文、回答文本、prompt、evidence context、token、凭据、连接串或云地址。本次不代表 OCR、扫描件识别、复杂版面理解、外部网页抓取、旧 `.doc` 支持或大规模解析 benchmark。
+
 ## 2026-07-08 Document Parser Real Chain Smoke
 
 状态：PASS

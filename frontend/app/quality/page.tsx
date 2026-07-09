@@ -3558,6 +3558,7 @@ function formatParserReviewReason(value: string): string {
     parse_status_failed: "存在解析失败",
     missing_source_locator: "来源定位缺失",
     retrieval_or_citation_missing: "检索或引用缺失",
+    direct_retrieve_missing: "直接检索未命中",
     parser_boundary_failed: "错误边界未通过",
     unsupported_upload_not_rejected: "不支持格式未被拒绝"
   };

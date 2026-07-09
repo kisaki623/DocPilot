@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 Document Parser direct retrieve 质量门禁
+
+- `document-parser-real-chain-smoke.ps1` 已调整 direct retrieve 检查：使用与 QA 相同的用户式问题，并在 QA retrieval 通过后做 direct endpoint 二次确认；artifact 仍只保存脱敏计数、布尔值和失败码。
+- 质量口径已收紧：PDF / HTML / DOCX 的 parse、chunk、QA retrieval、citation 和 source locator 通过但 direct retrieve 未覆盖全部 fixture 时，`parserRealChain` 标为 `REVIEW`，`reviewReasons` 记录 `direct_retrieve_missing`；`/quality` 显示为“直接检索未命中”。
+- 最新真实 run：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker `docpilot-parser-real-chain-20260709223724-ceb637`，整体 `REVIEW`；`directRetrieveHitCount=0/3`、`qaRetrievalHitCount=3/3`、`citationCount=3/3`、source locator `3/3`，parser boundary 和 artifact redaction PASS。
+- 补充定位：重启本地 backend 后，同批文档手动调用 `/api/rag/retrieve` 可得到 direct hits `1/1/1`；下一片继续定位同一 smoke 进程内 direct retrieve 与 QA retrieve 的差异。
+- 验证：后端 parser / retrieval / quality targeted 74 tests PASS（1 skipped）；`npm run lint` PASS；`npm run build` PASS；脚本 `plan` / `dry-run` PASS。
+
 ## 2026-07-09 Agent Quality Console 真实登录态回归
 
 - 复用本地已有 MySQL / Qdrant tunnel，启动 backend（local profile，Quality Console enabled，mock AI）和 frontend `3007`，通过浏览器注册临时用户并打开 `/quality?autoload=1`。
