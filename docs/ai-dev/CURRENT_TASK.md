@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：KB Agent search route smoke runner（DONE）；下一片：KB Agent real-link runtime smoke / Quality Console KB Agent diagnostics（READY）
+当前任务：Agent search smoke artifact Quality Console 可见性（DONE）；下一片：KB Agent real-link runtime smoke（READY）
+
+## 2026-07-09 补充：Agent search smoke artifact Quality Console 可见性
+
+- 目标：让 Agent Quality Console 不只展示 `agent-quality-eval`，也能聚合单文档 Agent search route smoke 与 KB Agent search route smoke 的 ignored 脱敏 artifact，并把 KB Agent 路由失败显示成可行动中文诊断。
+- 已完成后端：`QualityArtifactServiceImpl` artifact root 白名单新增 `backend/target/agent-search-route` 与 `backend/target/agent-kb-search-route`；单测覆盖两个 root 的 summary / eval case 解析，以及 prompt、answer、documentText、secret 等诱饵字段不泄露。
+- 已完成前端：`/quality` 新增 `agent_search_route`、`agent_kb_search_route` 中文 case type；新增 `KB Agent 路由不匹配`、`KB Agent P0 意图边界异常`、`KB Agent 权限失败透传异常` 三类失败桶映射，分别给出模块标签、说明和建议动作；工具调用摘要会关联这些 Agent route bucket。
+- 边界：本片只改 Quality Console artifact 聚合和展示映射，不改 Agent / RAG 业务链路，不读取 raw artifact，不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、云地址或连接串，不提交 artifact 原文，不 push。
+- 下一片建议：启动本地 tunnel + backend，用临时用户 / 临时 KnowledgeBase 验证 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run` 的真实 API 链路，并把 runtime 结果继续沉淀为脱敏 smoke artifact。
 
 ## 2026-07-09 补充：KB Agent search route smoke runner
 

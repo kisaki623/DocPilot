@@ -553,6 +553,76 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.gates()).extracting(gate -> gate.name()).containsExactly("agentQualityEval");
     }
 
+    @Test
+    void shouldScanAgentSearchRouteArtifactRoots() throws Exception {
+        Path documentArtifact = artifactPath("backend/target/agent-search-route",
+                "docpilot-agent-search-route-test", "artifact.json");
+        Files.writeString(documentArtifact, """
+                {
+                  "smokeMarker": "docpilot-agent-search-route-test",
+                  "status": "PASS",
+                  "passed": true,
+                  "caseCount": 2,
+                  "searchDecisionPass": true,
+                  "ragDecisionPass": true,
+                  "caseResults": [
+                    {
+                      "caseId": "agent-document-search-route",
+                      "caseType": "agent_search_route",
+                      "status": "PASS",
+                      "passed": true,
+                      "searchDecisionPass": true,
+                      "prompt": "PROMPT_SHOULD_NOT_LEAK",
+                      "answer": "ANSWER_SHOULD_NOT_LEAK"
+                    }
+                  ]
+                }
+                """, StandardCharsets.UTF_8);
+        Path kbArtifact = artifactPath("backend/target/agent-kb-search-route",
+                "docpilot-agent-kb-search-route-test", "artifact.json");
+        Files.writeString(kbArtifact, """
+                {
+                  "smokeMarker": "docpilot-agent-kb-search-route-test",
+                  "status": "REVIEW",
+                  "passed": false,
+                  "caseCount": 3,
+                  "kbSearchDecisionPass": false,
+                  "unsupportedIntentPass": true,
+                  "scopeFailurePropagated": true,
+                  "failureBuckets": ["kbSearchDecisionMismatch"],
+                  "caseResults": [
+                    {
+                      "caseId": "agent-kb-search-route",
+                      "caseType": "agent_kb_search_route",
+                      "status": "REVIEW",
+                      "passed": false,
+                      "expectedDecisionMatched": 0,
+                      "failureBuckets": ["kbSearchDecisionMismatch"],
+                      "documentText": "DOCUMENT_TEXT_SHOULD_NOT_LEAK",
+                      "secret": "SECRET_SHOULD_NOT_LEAK"
+                    }
+                  ]
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail documentDetail = service.getRunDetail("docpilot-agent-search-route-test").orElseThrow();
+        assertThat(documentDetail.summary().source()).isEqualTo("backend/target/agent-search-route");
+        assertThat(documentDetail.evalCases()).extracting(QualityEvalCaseResultDetail::caseType)
+                .containsExactly("agent_search_route");
+        assertThat(documentDetail.evalCases().get(0).flags()).containsEntry("searchDecisionPass", true);
+        assertThat(documentDetail.toString()).doesNotContain("PROMPT_SHOULD_NOT_LEAK", "ANSWER_SHOULD_NOT_LEAK");
+
+        QualityRunDetail kbDetail = service.getRunDetail("docpilot-agent-kb-search-route-test").orElseThrow();
+        assertThat(kbDetail.summary().source()).isEqualTo("backend/target/agent-kb-search-route");
+        assertThat(kbDetail.summary().failureBuckets()).containsExactly("kbSearchDecisionMismatch");
+        assertThat(kbDetail.evalCases()).extracting(QualityEvalCaseResultDetail::caseType)
+                .containsExactly("agent_kb_search_route");
+        assertThat(kbDetail.evalCases().get(0).failureBuckets()).containsExactly("kbSearchDecisionMismatch");
+        assertThat(kbDetail.toString()).doesNotContain("DOCUMENT_TEXT_SHOULD_NOT_LEAK", "SECRET_SHOULD_NOT_LEAK");
+    }
+
     private Path artifactPath(String root, String marker, String fileName) throws Exception {
         Path dir = repoRoot.resolve(root).resolve(marker);
         Files.createDirectories(dir);

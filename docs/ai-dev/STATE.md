@@ -2,6 +2,8 @@
 
 ## 2026-07-09 当前补充
 
+- Agent search smoke artifact 已接入 Quality Console 聚合。`QualityArtifactServiceImpl` artifact root 白名单新增 `backend/target/agent-search-route` 与 `backend/target/agent-kb-search-route`，因此单文档 Agent search route smoke 和 KB Agent search route smoke 的 ignored 脱敏 artifact 都能被 `/api/quality/runs` / `/quality` 发现；单测覆盖两个 root 的解析以及 prompt、answer、documentText、secret 等诱饵字段不泄露。
+- `/quality` 已补 KB Agent route 诊断映射。`agent_search_route` / `agent_kb_search_route` 会显示为中文 case type；`kbSearchDecisionMismatch`、`kbUnsupportedIntentMismatch`、`kbScopeFailureNotPropagated` 分别归到 KB Agent 路由、P0 意图边界和权限失败透传类诊断，带模块标签、说明和建议动作。当前仍未做 KB Agent 真实 backend / tunnel runtime smoke。
 - KB Agent search route smoke runner 已完成。新增 `scripts/smoke/agent-kb-search-route-smoke.ps1`，支持 `plan / dry-run / run`，用于离线验证 KB Agent P0：retrieval-only 任务执行 `knowledge_base_search_tool`，answer intent 被 P0 安全拒绝且不调用工具，`KNOWLEDGE_BASE_FORBIDDEN` 会透传为安全失败。最新离线 marker `docpilot-agent-kb-search-route-20260709152049-d529d6` 为 PASS，artifact redaction scan PASS。
 - 新增 `AgentKnowledgeBaseSearchRouteSmokeTest` 和 `AgentKnowledgeBaseSearchRouteSmokeScriptSafetyTest`。artifact 只保存 marker、状态、caseId、expected / actual decision、selected tool、布尔结果、stepCount 和 failure buckets，不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。当前仍未做 KB Agent 真实 backend / tunnel runtime smoke。
 - KB Agent retrieval-only route MVP 已完成。新增独立 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`，由 `KnowledgeBaseAgentServiceImpl` 在 P0 中只处理 retrieval-only `search_tool` 意图并调用 `knowledge_base_search_tool`；回答、总结或 grounded QA 意图不会误走 search，而是返回 P0 仅支持检索证据的安全提示。该入口返回 `documentHitCounts`、retrieval mode、rerank / multi-query 数值、限长 hits / citations 和 step 摘要，不生成 answer，不持久化 KB Agent task。

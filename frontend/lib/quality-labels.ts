@@ -18,6 +18,9 @@ const BUCKET_LABELS: Record<string, string> = {
   MEMORY_CONFLICT: "记忆冲突",
   TOOL_FAILURE: "工具调用失败",
   AGENT_ROUTING_MISMATCH: "Agent 路由不匹配",
+  KB_AGENT_ROUTING_MISMATCH: "KB Agent 路由不匹配",
+  KB_AGENT_UNSUPPORTED_INTENT: "KB Agent P0 意图边界异常",
+  KB_AGENT_SCOPE_FAILURE: "KB Agent 权限失败透传异常",
   PERMISSION_REGRESSION: "权限隔离回归",
   FRONTEND_UX: "前端体验问题",
   ENV_BLOCKED: "环境/依赖阻塞",
@@ -77,11 +80,16 @@ const FLAG_LABELS: Record<string, string> = {
   retrieveHit: "检索已命中",
   citationPresent: "引用已生成",
   unsupportedUploadRejected: "不支持格式已拒绝",
+  kbSearchDecisionPass: "KB 检索路由通过",
+  unsupportedIntentPass: "不支持意图处理通过",
+  scopeFailurePropagated: "权限失败已透传",
 };
 
 const CASE_TYPE_LABELS: Record<string, string> = {
   agent_quality: "Agent 质量",
   agent_search: "Agent 检索路由",
+  agent_search_route: "单文档 Agent 检索路由",
+  agent_kb_search_route: "知识库 Agent 检索路由",
   rag_quality: "RAG 质量",
   memory_quality: "记忆质量",
   route_smoke: "路由冒烟",
@@ -194,6 +202,20 @@ export function labelBucket(bucket?: string | null): string {
   }
   if (lower.includes("memory")) {
     return BUCKET_LABELS.MEMORY_CONFLICT;
+  }
+  if (
+    lower.includes("kbsearchdecision") ||
+    lower.includes("knowledgebasesearchdecision") ||
+    lower.includes("kbagentroute") ||
+    lower.includes("kbrouting")
+  ) {
+    return BUCKET_LABELS.KB_AGENT_ROUTING_MISMATCH;
+  }
+  if (lower.includes("kbunsupportedintent") || lower.includes("unsupportedintent")) {
+    return BUCKET_LABELS.KB_AGENT_UNSUPPORTED_INTENT;
+  }
+  if (lower.includes("kbscopefailure") || lower.includes("scopefailurenotpropagated")) {
+    return BUCKET_LABELS.KB_AGENT_SCOPE_FAILURE;
   }
   if (
     lower.includes("expecteddecision") ||

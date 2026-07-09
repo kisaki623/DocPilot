@@ -73,6 +73,9 @@ const TRIAGE_BUCKET_CATEGORIES = [
   "MEMORY_CONFLICT",
   "TOOL_FAILURE",
   "AGENT_ROUTING_MISMATCH",
+  "KB_AGENT_ROUTING_MISMATCH",
+  "KB_AGENT_UNSUPPORTED_INTENT",
+  "KB_AGENT_SCOPE_FAILURE",
   "PERMISSION_REGRESSION",
   "FRONTEND_UX",
   "ENV_BLOCKED",
@@ -227,6 +230,20 @@ function normalizeTriageBucket(value?: string): string {
   }
   if (lower.includes("memory")) {
     return "MEMORY_CONFLICT";
+  }
+  if (
+    lower.includes("kbsearchdecision") ||
+    lower.includes("knowledgebasesearchdecision") ||
+    lower.includes("kbagentroute") ||
+    lower.includes("kbrouting")
+  ) {
+    return "KB_AGENT_ROUTING_MISMATCH";
+  }
+  if (lower.includes("kbunsupportedintent") || lower.includes("unsupportedintent")) {
+    return "KB_AGENT_UNSUPPORTED_INTENT";
+  }
+  if (lower.includes("kbscopefailure") || lower.includes("scopefailurenotpropagated")) {
+    return "KB_AGENT_SCOPE_FAILURE";
   }
   if (
     lower.includes("expecteddecision") ||
@@ -524,6 +541,12 @@ function bucketAction(bucket: string): string {
       return "检查长期记忆去重、冲突治理和 RAG evidence 分层。";
     case "AGENT_ROUTING_MISMATCH":
       return "检查 DocumentToolSelector、LLM selector prompt 和 search / answer 意图评测用例。";
+    case "KB_AGENT_ROUTING_MISMATCH":
+      return "检查 KnowledgeBaseAgentService、DocumentToolSelector 和 KB search route smoke case。";
+    case "KB_AGENT_UNSUPPORTED_INTENT":
+      return "确认 KB Agent P0 仍只支持检索证据，不应把回答或总结意图误执行为 search。";
+    case "KB_AGENT_SCOPE_FAILURE":
+      return "复查 KnowledgeBase scope guard、ToolCall 失败透传和权限负向用例。";
     case "TOOL_FAILURE":
       return "检查工具参数校验、超时、重试和 fallback 路径。";
     case "PERMISSION_REGRESSION":
@@ -552,6 +575,12 @@ function bucketDescription(bucket: string): string {
       return "长期记忆命中、去重、冲突或治理链路需要复查。";
     case "AGENT_ROUTING_MISMATCH":
       return "Agent 工具选择或意图路由与预期不一致，可能导致检索请求被当成问答，或问答请求被降级成只检索。";
+    case "KB_AGENT_ROUTING_MISMATCH":
+      return "知识库 Agent 检索意图没有按预期走 knowledge_base_search_tool，会影响多文档 evidence search。";
+    case "KB_AGENT_UNSUPPORTED_INTENT":
+      return "KB Agent P0 的能力边界发生漂移，回答或总结类任务可能被错误执行或错误标记。";
+    case "KB_AGENT_SCOPE_FAILURE":
+      return "KB 权限失败没有被稳定透传，可能掩盖用户隔离或 scope guard 回归。";
     case "TOOL_FAILURE":
       return "工具选择、参数、超时、重试或 fallback 存在风险。";
     case "PERMISSION_REGRESSION":
@@ -575,7 +604,11 @@ function bucketModule(bucket: string): BucketDiagnostic["module"] {
     case "DISTRACTOR_CITATION":
       return "Citation";
     case "AGENT_ROUTING_MISMATCH":
+    case "KB_AGENT_ROUTING_MISMATCH":
+    case "KB_AGENT_UNSUPPORTED_INTENT":
       return "Agent";
+    case "KB_AGENT_SCOPE_FAILURE":
+      return "Security";
     case "TOOL_FAILURE":
       return "Tool";
     case "MEMORY_CONFLICT":
@@ -593,6 +626,13 @@ function bucketModule(bucket: string): BucketDiagnostic["module"] {
 function bucketTone(bucket: string): DiagnosticTone {
   const category = normalizeTriageBucket(bucket);
   if (category === "PERMISSION_REGRESSION") {
+    return "danger";
+  }
+  if (
+    category === "KB_AGENT_ROUTING_MISMATCH" ||
+    category === "KB_AGENT_UNSUPPORTED_INTENT" ||
+    category === "KB_AGENT_SCOPE_FAILURE"
+  ) {
     return "danger";
   }
   if (category === "ENV_BLOCKED" || category === "FRONTEND_UX") {
@@ -2686,7 +2726,14 @@ function DomainSummaryPanel({
               ["重试次数", sumMetric(detail, ["retryCount"])],
               ["耗时 ms", sumMetric(detail, ["durationMs"])],
             ],
-            buckets: ["TOOL_FAILURE", "ENV_BLOCKED"],
+            buckets: [
+              "TOOL_FAILURE",
+              "AGENT_ROUTING_MISMATCH",
+              "KB_AGENT_ROUTING_MISMATCH",
+              "KB_AGENT_UNSUPPORTED_INTENT",
+              "KB_AGENT_SCOPE_FAILURE",
+              "ENV_BLOCKED",
+            ],
           };
   const relatedBuckets = relatedBucketLabels(detail, config.buckets);
 

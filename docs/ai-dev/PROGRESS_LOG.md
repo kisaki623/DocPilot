@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-09 Agent search smoke artifact Quality Console 可见性
+
+- `QualityArtifactServiceImpl` artifact root 白名单新增 `backend/target/agent-search-route` 与 `backend/target/agent-kb-search-route`，让单文档 Agent search route smoke 和 KB Agent search route smoke 的 ignored 脱敏 artifact 能进入 `/api/quality/runs` / `/quality`。
+- `QualityArtifactServiceImplTest` 新增覆盖：两个 search route root 可解析为 run detail；caseResults 能作为 eval case 展示；prompt、answer、documentText、secret 等诱饵字段不会出现在返回对象中。
+- `/quality` 前端新增 `agent_search_route`、`agent_kb_search_route` 中文 case type；失败桶新增 KB Agent 路由不匹配、KB Agent P0 意图边界异常、KB Agent 权限失败透传异常，并提供模块标签、说明和建议动作。
+- `docs/ai-dev/CONSTRAINTS.md` 已同步 Quality Console artifact root 边界；本片不改 Agent / RAG 业务链路，不读取 raw artifact，不提交 artifact 原文。
+
 ## 2026-07-09 KB Agent search route smoke runner
 
 - 新增 `scripts/smoke/agent-kb-search-route-smoke.ps1`，支持 `plan / dry-run / run`，用于离线验证 KB Agent P0 route contract。
