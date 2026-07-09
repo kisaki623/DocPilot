@@ -2,6 +2,8 @@
 
 ## 2026-07-09 当前补充
 
+- KB Agent route design 已完成。结论是不能把 `knowledge_base_search_tool` 硬塞进当前单文档 `DocumentAgentRequest`；P0 应新增独立 `KnowledgeBaseAgentRequest` / `KnowledgeBaseAgentService` / `KnowledgeBaseAgentController`，建议 API 为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。P0 只做 retrieval-only KB search route，调用 ToolCall API 的 `knowledge_base_search_tool`，返回安全检索摘要、`documentHitCounts`、retrieval mode、multi-query / rerank 数值和限长 citation preview，不生成 answer。
+- KB Agent route P0 边界：不新增数据库表，不改 `KnowledgeBaseRagQaService` 主链路，不复用单文档 request 承载 KB，不做复杂 planner，不保存 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、云地址或连接串。下一片可直接进入后端 P0 service/controller + 单测。
 - Agent search route smoke runner 已完成。新增 `scripts/smoke/agent-search-route-smoke.ps1`，支持 `plan / dry-run / run`，用于离线验证 retrieval-only Agent 任务走 `search_tool` / `document_search_tool`，grounded answer 任务继续走 `rag_tool` / `rag_qa_tool`。`run` 只执行默认跳过、显式环境变量启用的 JUnit smoke，不启动 backend / frontend / tunnel，不创建业务数据。
 - 新增 `AgentSearchRouteSmokeTest` 和 `AgentSearchRouteSmokeScriptSafetyTest`。smoke artifact 只保存 marker、状态、caseId、expected / actual decision、selected tool、布尔结果、stepCount 和 failure buckets，不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。最新离线 smoke marker `docpilot-agent-search-route-20260709101258-021654` 为 PASS，artifact redaction scan PASS。
 - 已验证：`agent-search-route-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS；`mvn "-Dtest=AgentSearchRouteSmokeTest,AgentSearchRouteSmokeScriptSafetyTest,DocumentAgentServiceImplTest" test` PASS（17 tests，1 skipped）；Agent / selector / eval targeted 63 tests PASS（1 skipped）。本片没有新增数据库表、没有改 Agent API、没有接 KB Agent 路由、没有提交 artifact 原文、没有 push。

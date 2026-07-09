@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Agent search route smoke runner（DONE）；下一片：KB Agent route design / Agent search real-link runtime smoke（READY）
+当前任务：KB Agent route design（DONE）；下一片：KB Agent retrieval-only route MVP（READY）
+
+## 2026-07-09 补充：KB Agent route design
+
+- 目标：为 `knowledge_base_search_tool` 接入 Agent 层先明确 request / context 语义，避免把多文档 KnowledgeBase 检索硬塞进当前单文档 `DocumentAgentRequest`。
+- 现状判断：`knowledge_base_search_tool` 已在 ToolSpec、ToolCall callable subset、参数校验和 `ToolInputMapper` 中可用；`KnowledgeBaseRagController` 已提供 `/api/knowledge-bases/{knowledgeBaseId}/rag/retrieve` 与 `/qa/rag`；当前缺口是 Agent 层没有 `knowledgeBaseId` request，也没有 KB Agent task / step 响应语义。
+- P0 推荐实现：新增独立 `KnowledgeBaseAgentRequest` / `KnowledgeBaseAgentService` / `KnowledgeBaseAgentController`，API 建议为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。P0 只支持 retrieval-only search intent，调用 ToolCall API 的 `knowledge_base_search_tool`，返回 KB search 摘要、`documentHitCounts`、retrieval mode、multi-query / rerank 数值、限长 quote/snippet 和 Agent step，不生成 answer。
+- P0 不改内容：不复用或扩展 `DocumentAgentRequest` 承载 KB；不新增数据库表；不改 `KnowledgeBaseRagQaService` 主链路；不把 KB search route 写成复杂 planner；不保存 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、云地址或连接串。
+- 验收标准：KB Agent search request 有明确 `knowledgeBaseId`、`task/query`、`topK`、`indexVersion`、`multiQueryEnabled`、`maxQueryVariants`；权限隔离由既有 KB scope guard 透传；retrieval-only 任务执行 `knowledge_base_search_tool`；输出包含安全 `documentHitCounts` 和 citation previews；no-evidence 返回清晰 search summary；测试覆盖成功、no-evidence、权限拒绝、脱敏和参数边界。
+- P1 后续：如果 P0 稳定，再考虑 KB grounded answer agent route，显式区分 `kb_search_tool` 与 `kb_rag_answer_tool`；若要进入 Conversation / Trace，需要单独设计 trace reference，不在 P0 混入。
+- 下一片实现建议：先做后端 P0 service/controller + 单测，不启动真实链路；通过后再补 `agent-kb-search-route-smoke.ps1` 和 Quality Console 诊断入口。
 
 ## 2026-07-09 补充：Agent search route smoke runner
 

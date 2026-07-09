@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-09 KB Agent route design
+
+- 复核 `knowledge_base_search_tool`、ToolCall callable subset、`ToolInputMapper`、ToolSpec 和现有 `KnowledgeBaseRagController` 后，确认底层 KB search 工具已经可用，缺口在 Agent 层 request / context 语义。
+- 设计结论：不扩展当前单文档 `DocumentAgentRequest` 承载 KB。P0 新增独立 `KnowledgeBaseAgentRequest` / `KnowledgeBaseAgentService` / `KnowledgeBaseAgentController`，API 建议为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。
+- P0 只做 retrieval-only KB search route：调用 `knowledge_base_search_tool`，返回安全 search summary、`documentHitCounts`、retrieval mode、multi-query / rerank 数值和限长 citation preview，不生成 answer。
+- 验收标准已写入 `CURRENT_TASK.md`：覆盖成功、no-evidence、权限拒绝、脱敏和参数边界；不新增数据库表、不改 KB RAG QA 主链路、不做复杂 planner、不保存 prompt / answer / 文档全文 / evidence context / 凭据。
+
 ## 2026-07-09 Agent search route smoke runner
 
 - 新增 `scripts/smoke/agent-search-route-smoke.ps1`，支持 `plan / dry-run / run`，用于离线验证单文档 Agent search route：retrieval-only 任务走 `search_tool` / `document_search_tool`，grounded answer 任务走 `rag_tool` / `rag_qa_tool`。
