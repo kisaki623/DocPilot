@@ -86,6 +86,8 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 目标：让 Console 能回答“最近质量是在变好、变差，还是同一类问题反复出现”。
 
+2026-07-09 追加状态：C1 已完成。趋势面板已把通过 / 复查 / 失败运行展示为 `x / totalRuns`，token / cost 缺样本显示“暂无统计 / 暂无样本”，失败 / 复查 TopN 改为带模块标签、说明和建议动作的卡片；Parser 失败桶独立归类，artifact JSON 解析坏文件仍归到 Env。本阶段仍不改后端 API、不新增数据库表、不展示 raw artifact 或敏感原文。
+
 最小实现：
 
 - 基于最近 N 个 ignored 脱敏 artifact 聚合，不新增数据库表。

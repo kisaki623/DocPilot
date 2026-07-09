@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：B1 Eval Case 资产化安全摘要增强（DONE）；下一片：C1 Quality Console 趋势指标可信度增强（READY）
+当前任务：Agent Quality Console ABC 求职级增强循环（IN_PROGRESS）；当前片：C1 Quality Console 趋势指标可信度增强（DONE）；下一片：A2 Trace / Failure drill-down 入口联动增强（READY）
+
+## 2026-07-09 补充：C1 Quality Console 趋势指标可信度增强
+
+- 目标：让 `/quality` 的趋势区不再只堆状态和 bucket 字符串，而是能解释“最近运行通过 / 复查 / 失败各是多少、哪些失败桶需要优先处理、缺样本字段是否可靠”。
+- 已完成前端趋势语义修正：`通过运行`、`复查运行`、`失败运行` 均按 `x / totalRuns` 展示，分母明确来自 `trend.runCount`；平均 case 通过率继续作为趋势均值展示，缺样本显示“暂无样本”。
+- 已完成 token / cost 缺失态修正：`totalTokens` 缺失显示“暂无统计”，只有明确数值 `0` 时显示 `0`；成本缺失显示“暂无样本”，明确 `0` 时显示 `0`。
+- 已完成失败 / 复查 TopN 卡片化：每个 bucket 显示中文类型名称、次数、模块标签、简短说明和建议动作；REVIEW 与 FAILED 分开展示，不混为一类。
+- 已新增 Parser 失败桶归类：parser / parse status / source locator / unsupported upload 相关问题归到 `Parser`，artifact JSON 解析坏文件仍归到 `Env`，避免把文档解析质量问题长期落入“其他”。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面和 `390px` 移动端 console error 均为 `0`，移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放。
+- 边界：本片不改后端 API、不新增数据库表、不引入趋势图、不读取 raw artifact、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
 
 ## 2026-07-09 补充：B1 Eval Case 资产化安全摘要增强
 

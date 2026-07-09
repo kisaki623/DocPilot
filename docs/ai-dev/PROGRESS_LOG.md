@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 Agent Quality Console C1 趋势指标可信度
+
+- `/quality` 趋势面板修正状态比例语义：通过 / 复查 / 失败运行均显示 `x / totalRuns`，平均 case 通过率继续作为趋势均值展示。
+- token / cost 缺样本不再误显示为 0：`totalTokens` 缺失为“暂无统计”，`estimatedCost` 缺失为“暂无样本”，明确 `0` 才展示 `0`。
+- 失败类型 TopN 与复查类型 TopN 改为卡片展示，包含模块标签、次数、说明和建议动作；Parser 相关失败桶独立归类为 `Parser`，artifact parse 坏文件仍归到 `Env`。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright `/quality?routeSmoke=2` 桌面和 `390px` 移动端 console error 为 `0`，无横向溢出。前端预览进程已清理，`3007` 无 LISTEN。
+- 边界：本片不改后端 API，不新增数据库表，不展示 raw artifact、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
 ## 2026-07-09 Agent Quality Console B1 Eval Case 资产化
 
 - `agent-quality-eval-cases.json` 新增 3 个默认 case：`kb-agent-grounded-answer-route`、`document-parser-real-chain`、`memory-provider-small-sample`。

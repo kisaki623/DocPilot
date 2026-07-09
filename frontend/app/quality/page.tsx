@@ -138,7 +138,7 @@ interface BucketDiagnostic {
   bucket: string;
   label: string;
   count: number;
-  module: "RAG" | "Citation" | "Agent" | "Tool" | "Memory" | "Security" | "Env" | "Unknown";
+  module: "RAG" | "Citation" | "Agent" | "Tool" | "Memory" | "Parser" | "Security" | "Env" | "Unknown";
   description: string;
   action: string;
   tone: DiagnosticTone;
@@ -292,10 +292,18 @@ function normalizeTriageBucket(value?: string): string {
     lower.includes("minio") ||
     lower.includes("rocketmq") ||
     lower.includes("env") ||
-    lower.includes("parsefailed") ||
     lower.includes("artifactparsefailed")
   ) {
     return "ENV_BLOCKED";
+  }
+  if (
+    lower.includes("parser") ||
+    lower.includes("parsefailed") ||
+    lower.includes("parsestatus") ||
+    lower.includes("sourcelocator") ||
+    lower.includes("unsupportedupload")
+  ) {
+    return "PARSER_FAILURE";
   }
   return "OTHER";
 }
@@ -452,6 +460,9 @@ function formatCost(value: number | null): string {
   if (value === null || Number.isNaN(value)) {
     return "暂无样本";
   }
+  if (value === 0) {
+    return "0";
+  }
   return value < 1 ? value.toFixed(4) : formatNumber(value);
 }
 
@@ -546,6 +557,8 @@ function bucketAction(bucket: string): string {
       return "检查 no-evidence threshold、near-miss case 和 support gate。";
     case "MEMORY_CONFLICT":
       return "检查长期记忆去重、冲突治理和 RAG evidence 分层。";
+    case "PARSER_FAILURE":
+      return "检查 parser registry、解析状态流转、source locator 和上传格式边界。";
     case "AGENT_ROUTING_MISMATCH":
       return "检查 DocumentToolSelector、LLM selector prompt 和 search / answer 意图评测用例。";
     case "KB_AGENT_ROUTING_MISMATCH":
@@ -582,6 +595,8 @@ function bucketDescription(bucket: string): string {
       return "无证据判断边界异常，可能误答或误拒答。";
     case "MEMORY_CONFLICT":
       return "长期记忆命中、去重、冲突或治理链路需要复查。";
+    case "PARSER_FAILURE":
+      return "文档解析链路、source locator 或格式边界存在风险，会影响后续 chunk、索引和 citation。";
     case "AGENT_ROUTING_MISMATCH":
       return "Agent 工具选择或意图路由与预期不一致，可能导致检索请求被当成问答，或问答请求被降级成只检索。";
     case "KB_AGENT_ROUTING_MISMATCH":
@@ -625,6 +640,8 @@ function bucketModule(bucket: string): BucketDiagnostic["module"] {
       return "Tool";
     case "MEMORY_CONFLICT":
       return "Memory";
+    case "PARSER_FAILURE":
+      return "Parser";
     case "PERMISSION_REGRESSION":
       return "Security";
     case "FRONTEND_UX":
@@ -648,7 +665,7 @@ function bucketTone(bucket: string): DiagnosticTone {
   ) {
     return "danger";
   }
-  if (category === "ENV_BLOCKED" || category === "FRONTEND_UX") {
+  if (category === "ENV_BLOCKED" || category === "FRONTEND_UX" || category === "PARSER_FAILURE") {
     return "warning";
   }
   if (category === "OTHER") {
@@ -662,6 +679,32 @@ function topBucketDiagnostics(values: string[], limit = 5): BucketDiagnostic[] {
   values.forEach((bucket) => {
     const normalized = normalizeTriageBucket(bucket);
     counts.set(normalized, (counts.get(normalized) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, limit)
+    .map(([bucket, count]) => ({
+      bucket,
+      label: labelBucket(bucket),
+      count,
+      module: bucketModule(bucket),
+      description: bucketDescription(bucket),
+      action: bucketAction(bucket),
+      tone: bucketTone(bucket),
+    }));
+}
+
+function topBucketDiagnosticsFromCounts(
+  values: Record<string, number> | null | undefined,
+  limit = 5
+): BucketDiagnostic[] {
+  const counts = new Map<string, number>();
+  Object.entries(values || {}).forEach(([bucket, count]) => {
+    if (typeof count !== "number" || Number.isNaN(count) || count <= 0) {
+      return;
+    }
+    const normalized = normalizeTriageBucket(bucket);
+    counts.set(normalized, (counts.get(normalized) || 0) + count);
   });
   return Array.from(counts.entries())
     .sort((left, right) => right[1] - left[1])
@@ -1881,9 +1924,12 @@ function EvalCatalogRow({ item }: { item: QualityEvalCaseCatalogItem }) {
 }
 
 function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
-  const statusText = summarizeCountMap(trend?.statusCounts);
-  const failureText = summarizeCountMap(trend?.failureBucketCounts, labelBucket);
-  const reviewText = summarizeCountMap(trend?.reviewBucketCounts, labelBucket);
+  const runCount = trend?.runCount || 0;
+  const passCount = countTrendStatuses(trend?.statusCounts, "pass");
+  const reviewCount = countTrendStatuses(trend?.statusCounts, "review");
+  const failCount = countTrendStatuses(trend?.statusCounts, "failed");
+  const failureBuckets = topBucketDiagnosticsFromCounts(trend?.failureBucketCounts);
+  const reviewBuckets = topBucketDiagnosticsFromCounts(trend?.reviewBucketCounts);
   return (
     <div className="dp-card min-w-0">
       <div className="flex items-start justify-between gap-3">
@@ -1901,14 +1947,27 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
       ) : (
         <div className="mt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-2">
-            <SmallMetric label="平均通过率" value={formatPercent(trend.averageCasePassRate)} />
+            <SmallMetric label="通过运行" value={formatRatioCount(passCount, runCount)} />
+            <SmallMetric label="复查运行" value={formatRatioCount(reviewCount, runCount)} />
+            <SmallMetric label="失败运行" value={formatRatioCount(failCount, runCount)} />
+            <SmallMetric label="平均 case 通过率" value={formatRate(trend.averageCasePassRate ?? null)} />
             <SmallMetric label="总 token 数" value={formatNullableStat(trend.totalTokens)} />
             <SmallMetric label="估算成本" value={formatCost(trend.estimatedCost ?? null)} />
             <SmallMetric label="平均延迟" value={formatNullableStat(trend.averageLatencyMs)} />
+            <SmallMetric label="平均耗时" value={formatNullableStat(trend.averageDurationMs)} />
           </div>
-          <TrendTextRow label="状态分布" value={statusText} />
-          <TrendTextRow label="失败类型" value={failureText} tone="danger" />
-          <TrendTextRow label="复查类型" value={reviewText} tone="warning" />
+          <TrendBucketCards
+            title="失败类型 TopN"
+            emptyText="暂无失败类型。"
+            items={failureBuckets}
+            tone="danger"
+          />
+          <TrendBucketCards
+            title="复查类型 TopN"
+            emptyText="暂无复查类型。"
+            items={reviewBuckets}
+            tone="warning"
+          />
           <div>
             <p className="text-xs font-semibold uppercase text-slate-400">
               反复失败用例
@@ -1956,7 +2015,7 @@ function TrendPanel({ trend }: { trend: QualityTrendSummary | null }) {
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    通过率 {formatPercent(point.casePassRate)} / 失败{" "}
+                    通过率 {formatRate(point.casePassRate ?? null)} / 失败{" "}
                     {point.failedGateCount} / 复查 {point.reviewGateCount}
                   </p>
                 </div>
@@ -1980,49 +2039,88 @@ function SmallMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TrendTextRow({
-  label,
-  value,
+function TrendBucketCards({
+  title,
+  emptyText,
+  items,
   tone,
 }: {
-  label: string;
-  value: string;
-  tone?: "warning" | "danger";
+  title: string;
+  emptyText: string;
+  items: BucketDiagnostic[];
+  tone: "warning" | "danger";
 }) {
-  const toneClass =
-    tone === "danger"
-      ? "text-red-700"
-      : tone === "warning"
-        ? "text-amber-700"
-        : "text-slate-600";
+  const headingClass = tone === "danger" ? "text-red-700" : "text-amber-700";
   return (
-    <p className={`break-words text-xs ${toneClass}`}>
-      <span className="font-semibold uppercase text-slate-400">{label}: </span>
-      {value}
-    </p>
+    <div>
+      <p className={`text-xs font-semibold uppercase ${headingClass}`}>
+        {title}
+      </p>
+      {items.length === 0 ? (
+        <p className="mt-2 dp-meta">{emptyText}</p>
+      ) : (
+        <div className="mt-2 grid gap-2">
+          {items.map((item) => (
+            <div
+              key={`${title}-${item.bucket}`}
+              className="min-w-0 rounded-lg border border-slate-200 bg-white p-3"
+            >
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="break-words text-sm font-semibold text-slate-900">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 break-words text-xs text-slate-500">
+                    {item.description}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <span className="dp-badge dp-badge-neutral">{item.module}</span>
+                  <span className={statusBadge(tone === "danger" ? "FAILED" : "REVIEW")}>
+                    {formatNumber(item.count)} 次
+                  </span>
+                </div>
+              </div>
+              <p className="mt-2 break-words text-xs text-slate-600">
+                建议动作: {item.action}
+              </p>
+              {item.bucket === "OTHER" ? (
+                <p className="mt-1 break-words text-xs text-slate-500">
+                  该类型需要补充 bucket 映射规则，避免长期落入“其他”。
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
-function summarizeCountMap(
-  values?: Record<string, number>,
-  labeler: (key: string) => string = (key) => formatStatus(key)
-): string {
-  const entries = Object.entries(values || {});
-  if (entries.length === 0) {
-    return "-";
-  }
-  return entries
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 4)
-    .map(([key, value]) => `${labeler(key)}: ${value}`)
-    .join(" / ");
+function countTrendStatuses(
+  values: Record<string, number> | null | undefined,
+  group: "pass" | "review" | "failed"
+): number {
+  return Object.entries(values || {}).reduce((sum, [status, count]) => {
+    if (typeof count !== "number" || Number.isNaN(count)) {
+      return sum;
+    }
+    const normalized = status.toUpperCase();
+    if (group === "pass" && (normalized === "PASS" || normalized === "SUCCESS")) {
+      return sum + count;
+    }
+    if (group === "review" && (normalized === "REVIEW" || normalized === "BLOCKED")) {
+      return sum + count;
+    }
+    if (group === "failed" && (normalized === "FAIL" || normalized.startsWith("FAILED"))) {
+      return sum + count;
+    }
+    return sum;
+  }, 0);
 }
 
-function formatPercent(value?: number | null): string {
-  if (typeof value !== "number" || Number.isNaN(value)) {
-    return "-";
-  }
-  return `${(value * 100).toFixed(1)}%`;
+function formatRatioCount(numerator: number, denominator: number): string {
+  return denominator > 0 ? `${formatNumber(numerator)} / ${formatNumber(denominator)}` : "暂无样本";
 }
 
 function RunDetailPanel({
