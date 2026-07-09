@@ -6,7 +6,7 @@
 
 ## 2026-07-09 KB Agent Real-link Runtime Smoke
 
-状态：KB Agent gate PASS；本次整体 run 为 REVIEW（有意跳过前端路由）
+状态：KB Agent grounded answer gate PASS；本次整体 run 为 REVIEW（有意跳过前端路由）
 
 Runner:
 
@@ -14,18 +14,19 @@ Runner:
 
 Marker:
 
-- `docpilot-cloud-quality-20260709153428-d25e54`
+- `docpilot-cloud-quality-20260709164330-452624`
 
 已验证：
 
 - tunnel、backend health、临时用户 A/B、两文档上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、answer grounding、no-evidence、Conversation Trace、权限隔离、cleanup 和 artifact redaction 均通过。
 - 新增 `knowledgeBaseAgent` gate PASS：真实调用 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。
 - retrieval-only 任务返回 `decision=search_tool`，selected tool 为 `knowledge_base_search_tool`。
-- KB Agent retrieve hits / citations 均为 `6`，documentHitCounts 覆盖两份主文档 `{782:3,783:3}`。
-- KB Agent P0 answer / summary intent 被安全拒绝，未误执行 search；用户 B 访问用户 A KB 被拒绝。
-- Agent Quality Console 可见性回归已补验：浏览器打开 `/quality?autoload=1` 可见该 marker；门禁页展开已通过门禁后可见“知识库 Agent 检索 / 通过”。桌面和 `390px` 移动端 console error 均为 `0`，未发现横向溢出；页面脱敏检查未命中 token、API key、secret、连接串、prompt、answer 原文、文档全文或 evidence context。
+- KB Agent retrieve hits / citations 均为 `6`，documentHitCounts 覆盖两份主文档。
+- grounded answer 任务返回 `decision=rag_tool`，执行 `knowledge_base_rag_qa`，answer citations 为 `6`，并覆盖两份主文档。
+- no-evidence answer 边界通过：无证据问题不生成 citation；用户 B 访问用户 A KB 被拒绝。
+- Agent Quality Console 可见性已有上一轮补验：浏览器打开 `/quality?autoload=1` 可见 KB Agent gate；门禁页展开已通过门禁后可见“知识库 Agent 检索 / 通过”。当前最新 answer route 深层指标已在 Quality API detail 中可见，前端 PASS gate 逐项展示仍可作为后续可读性增强。
 
-边界：本轮原始 smoke 使用 `-SkipFrontend` 聚焦 KB Agent API 链路，因此 `frontendRoutes` 记为 REVIEW，整体 run 不是完整前端体验回归；后续补验的是 Quality Console 对该 run 的可见性，不等于重跑完整业务前端路径。artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，只保存计数、决策、工具名和布尔摘要，不提交原始 task、answer、文档全文、prompt、evidence context、凭据、连接串、云地址或 token。本次不代表 KB answer agent 已完成；当前 KB Agent P0 仍只支持 retrieval-only evidence search。
+边界：本轮原始 smoke 使用 `-SkipFrontend` 聚焦 KB Agent API 链路，因此 `frontendRoutes` 记为 REVIEW，整体 run 不是完整前端体验回归。artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，只保存计数、决策、工具名和布尔摘要，不提交原始 task、answer、文档全文、prompt、evidence context、凭据、连接串、云地址或 token。本次证明的是 KB Agent P0 grounded answer 小样本真实链路可用，不代表复杂 planner、多 Agent 编排或大规模 answer faithfulness benchmark。
 
 ## 2026-07-08 Document Parser Real Chain Smoke
 

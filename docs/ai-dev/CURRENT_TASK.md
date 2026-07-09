@@ -1,6 +1,17 @@
 # Current Task
 
-当前任务：KB Agent answer route smoke gate 扩展（DONE）；下一片：KB Agent grounded answer 真实 cloud smoke（READY）
+当前任务：KB Agent grounded answer 真实 cloud smoke（DONE）；下一片：Agent Quality Console KB answer 诊断可见性增强（READY）
+
+## 2026-07-09 补充：KB Agent grounded answer 真实 cloud smoke
+
+- 目标：把 KB Agent grounded answer route 从离线单测 / route smoke 推进到真实 cloud quality smoke，验证它在完整上传、parse、index、KnowledgeBase RAG、权限隔离和 artifact 脱敏链路中可用。
+- 已执行：`scripts/smoke/cloud-quality-smoke.ps1 -Mode run -SkipFrontend -EnableKnowledgeBaseAgentGate`，marker 为 `docpilot-cloud-quality-20260709164330-452624`。
+- 真实结果：`knowledgeBaseAgent` gate 为 PASS。search route 返回 `decision=search_tool`，selected tool 为 `knowledge_base_search_tool`，retrieve hits / citations 均为 `6`，并覆盖 Alpha / Beta 两份主文档。
+- Grounded answer route：answer intent 返回 `decision=rag_tool`，step 使用 `knowledge_base_rag_qa`，answer citations 为 `6`，并覆盖两份主文档；no-evidence answer 边界通过，跨用户访问用户 A 的 KB 被拒绝。
+- 同轮核心 gate：tunnel、backend health、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、answer grounding、no-evidence、Conversation Trace、权限隔离、cleanup 和 artifact redaction 均为 PASS。
+- 整体 run 为 REVIEW，仅因为本轮有意使用 `-SkipFrontend`，`frontendRoutes` 被标记为 REVIEW；这不是 KB Agent gate 失败，也不是完整前端体验回归。
+- 脱敏边界：artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，只保存计数、决策、工具名和布尔摘要；不提交原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 本片结束后建议：进入 Agent Quality Console KB answer 诊断可见性增强，让 `/quality` 能更清楚展示 search route / answer route / no-evidence / 权限负向这些安全摘要，而不是只看 gate 名称和 PASS 状态。
 
 ## 2026-07-09 补充：KB Agent answer route smoke gate 扩展
 
