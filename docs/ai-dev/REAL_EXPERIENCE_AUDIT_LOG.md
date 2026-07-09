@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-09 | `docpilot-parser-real-chain-20260709233230-a08906` | PASS（direct retrieve / QA retrieve 差异修复验证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260709233230-a08906/artifact.json` | 修复 parser smoke runner 的 direct / QA 诊断计数和环境断链归因后，真实链路 PASS；PDF / HTML / DOCX 均 parse、chunk、direct retrieve、QA retrieval、citation、source locator 通过，parserBoundary `4/4` PASS。 |
 | 2026-07-08 | `docpilot-parser-real-chain-20260708212742-0f9baa` | PASS（Document Parser runner 修复验证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260708212742-0f9baa/artifact.json` | 修复 parser smoke runner 静默复用不受控 backend / frontend 后，真实链路 PASS；PDF / HTML / DOCX 均 parse、chunk、QA retrieval、citation、source locator 通过，parserBoundary `4/4` PASS，Quality Console 可见最新 run 和 parser 诊断。 |
 | 2026-07-08 | `docpilot-parser-real-chain-20260708212024-9bd2ea` | FAILED_CORE_FLOW（已修复验证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260708212024-9bd2ea/artifact.json` | parser smoke 复用了手动启动的 backend，该 backend 不在 runner 受控配置内，导致三类文档 QA 阶段均 `qa_api_failed`；已记录为 `REA-20260708-P3-009` 并通过受控启动 PASS run 验证。 |
 | 2026-07-05 | `docpilot-real-user-qa-20260705210119-7b8092` | PASS（Trace / Eval / Trend 回归） | `backend/target/audit/docpilot-real-user-qa-20260705210119-7b8092/artifact.json` | 真实用户 QA 审计通过；核心 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离、frontendInteraction 和 artifact 脱敏均 PASS；Console API detail 返回 `traceReferenceCount=2`，浏览器 `/quality?autoload=1` 和 `/quality/trace` 桌面 / `390px` 移动端无 console error、无横向溢出。 |
@@ -70,6 +71,45 @@
 | `REA-20260705-P1-007` | VERIFIED（已验证） | P1 | 功能 bug | Agent Quality Console / Backend Startup | `docpilot-real-user-qa-20260705164732-f54da1` | Eval Catalog service 构造器注入缺失导致 backend health BLOCKED |
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
+| `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-09 Document Parser direct / QA 诊断修复验证
+
+验证 marker：`docpilot-parser-real-chain-20260709233230-a08906`
+
+状态：PASS
+
+已验证：
+
+- 真实 parser smoke 通过：tunnel、backend、frontend root route、auth、PDF / HTML / DOCX 上传、异步解析、chunk、direct retrieve、QA retrieval、citation、source locator、parserBoundary 和 artifact redaction 均 PASS。
+- parser 结果：三类文档均 `parseStatus=SUCCESS`、`chunkCount=1`、`directRetrieveHit=true`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- 诊断结果：direct retrieve 与 QA retrieval 均记录脱敏摘要，三类文档 `hitCount=1`、`citationCount=1`、`noEvidence=false`；诊断不保存 query、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。
+- 运行环境归因：如果运行中本地 MySQL / Qdrant tunnel 端口不可达，runner 会写入 `environmentStability=BLOCKED`，避免把环境断链误判为 parser 核心失败。
+
+本轮发现并处理：
+
+- `REA-20260709-P3-010`：中途 run `docpilot-parser-real-chain-20260709230208-fc2876` 暴露两类工程问题。其一，PowerShell 对 `$null` 和函数返回数组的计数语义导致 direct / QA `hitCount` 可能显示为 `1` 或 `null`，误导排查；其二，运行中本地 MySQL / JDBC 连接不可用时，runner 会把后续 API 失败归到 `FAILED_CORE_FLOW`，容易误判为 parser 业务失败。runner 已新增 `Get-SafeItemCount`、`directRetrieveDiagnostic` / `qaRetrieveDiagnostic` 和 `environmentStability` 归因。
+
+边界：
+
+- 本轮创建临时 smoke 用户和临时文档；artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/`。
+- 未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+### `REA-20260709-P3-010` parser smoke direct / QA 诊断计数和环境断链归因不够准确
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Smoke Runner / Document Parser
+- 发现于：`docpilot-parser-real-chain-20260709230208-fc2876`
+- 修复验证：`docpilot-parser-real-chain-20260709233230-a08906`
+- 复现步骤：运行 `document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，在 direct retrieve / QA retrieve 阶段观察 artifact 中的诊断计数和运行状态。
+- 实际结果：当 API 响应缺失 hits 或返回失败时，PowerShell 计数可能显示 `hitCount=1` 或 `hitCount=null`；运行中 MySQL / JDBC 断链时，后续上传 / 检索失败容易被整体归为 `FAILED_CORE_FLOW`。
+- 预期结果：runner 应稳定区分 0 / 1 / 多条命中；环境断链应写为 `BLOCKED`，而不是污染 Document Parser 业务质量结论。
+- 可能原因：PowerShell `@($null).Count` 和函数数组返回展开语义不直观；旧 runner 只在启动前检查 tunnel，没有在中途 API 失败时复查运行环境。
+- 建议修复位置：`scripts/smoke/document-parser-real-chain-smoke.ps1`、`DocumentParserRealChainSmokeScriptSafetyTest.java`。
+- 修复提交：本轮提交。
+- 验证记录：脚本 `plan` / `dry-run` PASS；后端 parser / retrieval / quality targeted 74 tests PASS（1 skipped）；真实 run `docpilot-parser-real-chain-20260709233230-a08906` PASS，三类文档 direct / QA / citation / source locator 均通过，parserBoundary `4/4` PASS。
 
 ## 2026-07-08 Document Parser runner 修复验证
 

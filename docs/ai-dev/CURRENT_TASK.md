@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：direct retrieve 缺口质量门禁显性化（DONE）；下一片：定位 direct retrieve 与 QA retrieve 同轮差异（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：direct retrieve / QA retrieve 同轮差异诊断与修复（DONE）；下一片：Document Parser 质量报告可读性与长期回归 fixture 增强（READY）
+
+## 2026-07-09 补充：Document Parser direct retrieve / QA retrieve 同轮差异诊断与修复
+
+- 目标：接续上一片 `direct_retrieve_missing` REVIEW，定位同一 smoke 进程内 direct retrieve、QA retrieval 和 citation 计数不一致的问题，并避免环境断链或脚本计数误差污染 parser 质量结论。
+- 已完成脚本修复：`document-parser-real-chain-smoke.ps1` 新增 `directRetrieveDiagnostic` / `qaRetrieveDiagnostic` 脱敏诊断摘要，只记录 `ok`、`httpStatus`、业务 `code`、attempts、hit / citation count、`noEvidence`、provider 和 collection 是否存在；不保存 query 原文、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。
+- 已修复诊断误计数：PowerShell 中 `@($null).Count` 和函数返回数组展开会导致缺失 hits 被误读为 `1` 或 `null`；脚本新增 `Get-SafeItemCount`，统一处理 0 / 1 / 多条命中。
+- 已增强环境归因：direct retrieve / QA / runtime error 失败时会复查本地 MySQL / Qdrant tunnel 端口；若运行时环境断链，则写入 `environmentStability=BLOCKED`，并把 parser gate 标为 `BLOCKED`，避免把 tunnel / JDBC 断链误判成 parser 核心失败。
+- 真实验证：先跑出一次环境不稳定证据 `docpilot-parser-real-chain-20260709230208-fc2876`，本地日志显示运行中 MySQL 连接不可用，不能作为 parser 质量失败结论；随后修复脚本计数和归因后，真实 run `docpilot-parser-real-chain-20260709233230-a08906` PASS：PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、direct retrieve hit `1`、QA retrieval hit `1`、citation `1`、source locator present。
+- 已验证：脚本 `plan` / `dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserTest,ParseTaskConsumeEntryServiceImplTest,RagDocumentRetrievalServiceImplTest,*Quality*" test` PASS（74 tests，1 skipped）；真实 `document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS；清理脚本确认 `3000/3001/3002/3007/3100/8081` 端口释放。
+- 边界：本片只修 smoke runner 诊断与归因，不改业务 RAG / Parser service，不新增数据库表，不删除业务数据，不提交 artifact 原文，不 push。下一片建议增强 Document Parser 质量报告和 fixture 长期回归能力，而不是扩大到 OCR、旧 `.doc`、外部网页抓取或复杂版面理解。
 
 ## 2026-07-09 补充：Document Parser direct retrieve 质量门禁显性化
 

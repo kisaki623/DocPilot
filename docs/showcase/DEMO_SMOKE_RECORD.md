@@ -4,6 +4,28 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-09 Document Parser Real Chain Direct Retrieve Regression
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- `docpilot-parser-real-chain-20260709233230-a08906`
+
+已验证：
+
+- tunnel、backend health、frontend root route、临时用户注册、PDF / HTML / DOCX fixture 上传、异步解析、chunk、direct retrieve、QA retrieval、QA citation、source locator、parser boundary 和 artifact redaction 均通过。
+- 三类文件均为 `parseStatus=SUCCESS`、`chunkCount=1`、`directRetrieveHit=true`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- direct retrieve 与 QA retrieval 诊断摘要均显示 `code=0`、`hitCount=1`、`citationCount=1`、`noEvidence=false`、provider 为 Qdrant 摘要且 collection 存在；诊断字段只保存计数和状态，不保存 query、answer 原文、文档全文、prompt 或 evidence context。
+- parser boundary 负向检查通过：不支持格式上传拒绝、空白 TXT、损坏 PDF 和损坏 DOCX 均返回预期脱敏失败码，`negativeCasePassCount=4/4`。
+- 本轮同时修正 runner 质量归因：运行中 MySQL / Qdrant tunnel 断链会标为 `environmentStability=BLOCKED`，避免把环境问题误判为 parser 核心链路失败。
+
+边界：这是小规模真实链路 parser smoke，证明 PDF / HTML / DOCX 文本型文件能走通上传、异步解析、chunk、Qdrant 检索和 QA citation；不代表 OCR、扫描件识别、复杂版面理解、旧 `.doc` 支持、外部网页抓取或大规模解析 benchmark。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-09 Agent Quality Console Real Login Regression
 
 状态：PASS

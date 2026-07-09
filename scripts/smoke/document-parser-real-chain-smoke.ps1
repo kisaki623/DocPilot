@@ -21,6 +21,8 @@ $script:OverallStatus = "PASS"
 $script:Gates = [ordered]@{}
 $script:ArtifactPath = $null
 $script:CurrentParserStage = ""
+$script:DirectRetrieveFollowUps = @()
+$script:EnvironmentUnstable = $false
 
 $StatusRank = @{
   PASS = 0
@@ -79,6 +81,34 @@ function Test-TcpPort([int]$port) {
   } finally {
     $client.Close()
   }
+}
+
+function To-SafeArray($value) {
+  if ($null -eq $value) {
+    return @()
+  }
+  return @($value)
+}
+
+function Get-SafeItemCount($value) {
+  if ($null -eq $value) {
+    return 0
+  }
+  return @($value).Count
+}
+
+function Confirm-EnvironmentStability([string]$stage) {
+  $mysqlReachable = Test-TcpPort $MySqlLocalPort
+  $qdrantReachable = Test-TcpPort $QdrantLocalPort
+  if (-not $mysqlReachable -or -not $qdrantReachable) {
+    $script:EnvironmentUnstable = $true
+    Set-GateWithMetrics "environmentStability" "BLOCKED" @("local tunnel port became unreachable during ${stage}") @{
+      mysqlTunnelReachable = if ($mysqlReachable) { 1 } else { 0 }
+      qdrantTunnelReachable = if ($qdrantReachable) { 1 } else { 0 }
+    } @{}
+    return $false
+  }
+  return $true
 }
 
 function Read-EnvFile([string]$path) {
@@ -582,6 +612,9 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
   $qaRetrievalHit = $false
   $citationPresent = $false
   $sourceLocatorPresent = $false
+  $directRetrieveAttempts = 0
+  $directRetrieveDiagnostic = $null
+  $qaRetrieveDiagnostic = $null
   $failureReason = $null
   if ($parseStatus -eq "SUCCESS") {
     $script:CurrentParserStage = "chunk_wait"
@@ -591,26 +624,34 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     $retrieve = $null
     $hits = @()
     for ($attempt = 1; $attempt -le 15; $attempt++) {
+      $directRetrieveAttempts = $attempt
       $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $document.data.id; query = $question; topK = 5; indexVersion = $IndexVersion }) $token -AllowFailure
-      $hits = if ($retrieve.ok) { @($retrieve.data.hits) } else { @() }
-      if ($hits.Count -gt 0) {
+      $hits = if ($retrieve.ok) { To-SafeArray $retrieve.data.hits } else { @() }
+      if (-not $retrieve.ok) {
+        [void](Confirm-EnvironmentStability "direct retrieve")
+      }
+      if ((Get-SafeItemCount $hits) -gt 0) {
         break
       }
       Start-Sleep -Seconds 3
     }
-    $directRetrieveHit = $retrieve.ok -and $hits.Count -gt 0
+    $directRetrieveHit = ([bool]$retrieve.ok) -and ((Get-SafeItemCount $hits) -gt 0)
+    $directRetrieveDiagnostic = New-RagCallDiagnostic $retrieve $retrieve.data $hits $directRetrieveAttempts "initial_wait"
     $retrieveHit = $directRetrieveHit
     $citations = @()
-    if ($retrieve.ok) {
+    if ($retrieve.ok -or -not $script:EnvironmentUnstable) {
       $script:CurrentParserStage = "qa"
       $qa = Invoke-JsonApi "POST" "/api/documents/$($document.data.id)/qa/rag" ([ordered]@{ question = $question; topK = 5; indexVersion = $IndexVersion; sessionId = "parser-smoke" }) $token -AllowFailure
       if ($qa.ok) {
-        $qaHits = @($qa.data.retrieval.hits)
-        $qaRetrievalHit = $qaHits.Count -gt 0
+        $qaHits = To-SafeArray $qa.data.retrieval.hits
+        $qaRetrievalHit = (Get-SafeItemCount $qaHits) -gt 0
         $retrieveHit = $retrieveHit -or $qaRetrievalHit
-        $citations = @($qa.data.citations)
-        $citationPresent = $citations.Count -gt 0
+        $citations = To-SafeArray $qa.data.citations
+        $citationPresent = (Get-SafeItemCount $citations) -gt 0
+        $qaRetrieveDiagnostic = New-RagCallDiagnostic $qa $qa.data.retrieval $qaHits 1 "qa_retrieval"
       } else {
+        [void](Confirm-EnvironmentStability "qa retrieval")
+        $qaRetrieveDiagnostic = New-RagCallDiagnostic $qa $null @() 1 "qa_retrieval"
         $failureReason = "qa_api_failed"
       }
     } else {
@@ -618,20 +659,27 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     }
     if (-not $directRetrieveHit -and $qaRetrievalHit) {
       $script:CurrentParserStage = "retrieve_confirm"
+      $confirmAttempts = 0
       for ($attempt = 1; $attempt -le 10; $attempt++) {
+        $confirmAttempts = $attempt
         $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $document.data.id; query = $question; topK = 5; indexVersion = $IndexVersion }) $token -AllowFailure
-        $hits = if ($retrieve.ok) { @($retrieve.data.hits) } else { @() }
-        if ($hits.Count -gt 0) {
+        $hits = if ($retrieve.ok) { To-SafeArray $retrieve.data.hits } else { @() }
+        if (-not $retrieve.ok) {
+          [void](Confirm-EnvironmentStability "direct retrieve confirm")
+        }
+        if ((Get-SafeItemCount $hits) -gt 0) {
           $directRetrieveHit = $true
           break
         }
         Start-Sleep -Seconds 3
       }
+      $directRetrieveAttempts += $confirmAttempts
+      $directRetrieveDiagnostic = New-RagCallDiagnostic $retrieve $retrieve.data $hits $directRetrieveAttempts "post_qa_confirm"
     }
     $script:CurrentParserStage = "source_locator"
     $locatorItems = @()
-    $locatorItems += @($hits)
-    $locatorItems += @($citations)
+    $locatorItems += To-SafeArray $hits
+    $locatorItems += To-SafeArray $citations
     $sourceLocatorPresent = @($locatorItems | Where-Object {
         (-not [string]::IsNullOrWhiteSpace([string]$_.sourceName)) -and (
           -not [string]::IsNullOrWhiteSpace([string]$_.sourceLocator) -or
@@ -655,7 +703,7 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     $failureReason = "parse failed"
   }
   $script:CurrentParserStage = ""
-  return [ordered]@{
+  $caseResult = [ordered]@{
     fileType = $case.fileType
     parserName = $case.parserName
     parseStatus = $parseStatus
@@ -669,8 +717,43 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     qaRetrievalHit = $qaRetrievalHit
     citationPresent = $citationPresent
     sourceLocatorPresent = $sourceLocatorPresent
+    directRetrieveDiagnostic = $directRetrieveDiagnostic
+    qaRetrieveDiagnostic = $qaRetrieveDiagnostic
     failureReason = $failureReason
     durationMs = [int]((Get-Date) - $caseStart).TotalMilliseconds
+  }
+  if ($parseStatus -eq "SUCCESS" -and -not $directRetrieveHit) {
+    $script:DirectRetrieveFollowUps += [pscustomobject]@{
+      documentId = [long]$document.data.id
+      question = $question
+      result = $caseResult
+    }
+  }
+  return $caseResult
+}
+
+function Confirm-DirectRetrieveFollowUps([string]$token) {
+  foreach ($followUp in @($script:DirectRetrieveFollowUps)) {
+    if ($followUp.result.directRetrieveHit) {
+      continue
+    }
+    $existingDiagnostic = $followUp.result["directRetrieveDiagnostic"]
+    $attemptsBefore = if ($existingDiagnostic -and $null -ne $existingDiagnostic.attempts) { [int]$existingDiagnostic.attempts } else { 0 }
+    $followUpAttempts = 0
+    $retrieve = $null
+    $hits = @()
+    for ($attempt = 1; $attempt -le 20; $attempt++) {
+      $followUpAttempts = $attempt
+      $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $followUp.documentId; query = $followUp.question; topK = 5; indexVersion = $IndexVersion }) $token -AllowFailure
+      $hits = if ($retrieve.ok) { @($retrieve.data.hits) } else { @() }
+      if ((Get-SafeItemCount $hits) -gt 0) {
+        $followUp.result["directRetrieveHit"] = $true
+        $followUp.result["retrieveHit"] = $true
+        break
+      }
+      Start-Sleep -Seconds 3
+    }
+    $followUp.result["directRetrieveDiagnostic"] = New-RagCallDiagnostic $retrieve $retrieve.data $hits ($attemptsBefore + $followUpAttempts) "delayed_follow_up"
   }
 }
 
@@ -793,6 +876,48 @@ function Get-SafeRate($numerator, $denominator) {
   return [Math]::Round(([double]$numerator / [double]$denominator), 4)
 }
 
+function New-RagCallDiagnostic($response, $payload, [array]$hits, [int]$attempts, [string]$stage) {
+  $ok = $false
+  $httpStatus = $null
+  $code = $null
+  if ($null -ne $response) {
+    $ok = [bool]$response.ok
+    $httpStatus = $response.httpStatus
+    $code = $response.code
+  }
+  $noEvidence = $null
+  $provider = $null
+  $collectionPresent = $false
+  $citations = @()
+  if ($null -ne $payload) {
+    if ($null -ne $payload.noEvidence) {
+      $noEvidence = [bool]$payload.noEvidence
+    }
+    if ($null -ne $payload.provider) {
+      $candidateProvider = [string]$payload.provider
+      if ($candidateProvider -match '^[A-Za-z0-9_.-]{1,64}$') {
+        $provider = $candidateProvider
+      }
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$payload.collection)) {
+      $collectionPresent = $true
+    }
+    $citations = To-SafeArray $payload.citations
+  }
+  return [ordered]@{
+    stage = $stage
+    ok = $ok
+    httpStatus = $httpStatus
+    code = $code
+    attempts = $attempts
+    hitCount = Get-SafeItemCount $hits
+    citationCount = Get-SafeItemCount $citations
+    noEvidence = $noEvidence
+    provider = $provider
+    collectionPresent = $collectionPresent
+  }
+}
+
 function New-ParserQualityReport([array]$results, $boundary, [string]$qualityStatus) {
   $expectedTypes = @("PDF", "HTML", "DOCX")
   $coveredTypes = @($results | ForEach-Object { [string]$_.fileType } | Where-Object { $_ } | Select-Object -Unique)
@@ -858,6 +983,9 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   if ($null -ne $unsupportedUploadRejected -and -not [bool]$unsupportedUploadRejected) {
     $reviewReasons += "unsupported_upload_not_rejected"
   }
+  if ($script:EnvironmentUnstable) {
+    $reviewReasons += "environment_unstable"
+  }
 
   $unavailableMetrics = @()
   if ($chunkCountKnown -lt $fileCount) {
@@ -920,7 +1048,7 @@ if ($Mode -eq "plan") {
     mode = "plan"
     willCreateBusinessData = $false
     runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
-    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
+    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -969,6 +1097,7 @@ try {
       $results += Invoke-ParserCase $fixture $envValues $userId $token
     } catch {
       $safeStage = if ([string]::IsNullOrWhiteSpace($script:CurrentParserStage)) { "unknown" } else { $script:CurrentParserStage }
+      [void](Confirm-EnvironmentStability "parser case ${safeStage}")
       $results += [ordered]@{
         fileType = $fixture.fileType
         parserName = $fixture.parserName
@@ -983,6 +1112,8 @@ try {
         qaRetrievalHit = $false
         citationPresent = $false
         sourceLocatorPresent = $false
+        directRetrieveDiagnostic = $null
+        qaRetrieveDiagnostic = $null
         failureReason = "runtime_error_$safeStage"
         durationMs = 0
       }
@@ -990,9 +1121,14 @@ try {
     }
   }
 
+  Confirm-DirectRetrieveFollowUps $token
+
   $failedCore = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" -or -not $_.retrieveHit -or -not $_.citationPresent })
   $locatorReview = @($results | Where-Object { -not $_.sourceLocatorPresent })
-  if ($failedCore.Count -gt 0) {
+  if ($script:EnvironmentUnstable -and $failedCore.Count -gt 0) {
+    $parserStatus = "BLOCKED"
+    $parserChecks = @("local runtime environment became unstable before parser chain could be judged")
+  } elseif ($failedCore.Count -gt 0) {
     $parserStatus = "FAILED_CORE_FLOW"
     $parserChecks = @("one or more parser fixtures did not reach retrieve/citation")
   } elseif ($locatorReview.Count -gt 0) {

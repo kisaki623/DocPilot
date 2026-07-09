@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 Document Parser direct retrieve / QA retrieve 差异收口
+
+- `document-parser-real-chain-smoke.ps1` 新增 `directRetrieveDiagnostic` / `qaRetrieveDiagnostic` 脱敏诊断摘要，只记录 HTTP / 业务状态、attempts、hit / citation count、`noEvidence`、provider 和 collection 是否存在，不保存 query、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。
+- 修复 smoke runner 的 PowerShell 计数误差：`@($null).Count` 和函数返回数组展开会把缺失 hits 误计为 `1` 或 `null`；新增 `Get-SafeItemCount` 后，direct / QA 计数恢复可信。
+- 增强环境归因：direct / QA / runtime error 失败时复查本地 MySQL / Qdrant tunnel 端口；运行中环境断链会标为 `environmentStability=BLOCKED`，避免误判为 parser 核心链路失败。
+- 真实验证：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 最新 marker `docpilot-parser-real-chain-20260709233230-a08906` PASS；PDF / HTML / DOCX 均 parse、chunk、direct retrieve、QA retrieval、citation 和 source locator 通过，parserBoundary `4/4` PASS，artifact redaction PASS。
+- 验证：脚本 `plan` / `dry-run` PASS；后端 parser / retrieval / quality targeted 74 tests PASS（1 skipped）；清理脚本确认 `3000/3001/3002/3007/3100/8081` 端口释放。
+
 ## 2026-07-09 Document Parser direct retrieve 质量门禁
 
 - `document-parser-real-chain-smoke.ps1` 已调整 direct retrieve 检查：使用与 QA 相同的用户式问题，并在 QA retrieval 通过后做 direct endpoint 二次确认；artifact 仍只保存脱敏计数、布尔值和失败码。

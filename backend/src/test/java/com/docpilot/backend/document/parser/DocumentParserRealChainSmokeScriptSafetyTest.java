@@ -38,6 +38,8 @@ class DocumentParserRealChainSmokeScriptSafetyTest {
                 .contains("DOCX")
                 .contains("directRetrieveHit")
                 .contains("qaRetrievalHit")
+                .contains("directRetrieveDiagnostic")
+                .contains("qaRetrieveDiagnostic")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer ")
                 .doesNotContain("api" + "Key =");
@@ -82,11 +84,20 @@ class DocumentParserRealChainSmokeScriptSafetyTest {
                 .contains("$question = \"请根据文档回答 $($case.query)\"")
                 .contains("query = $question")
                 .contains("$attempt -le 15")
+                .contains("DirectRetrieveFollowUps")
+                .contains("Confirm-DirectRetrieveFollowUps $token")
+                .contains("New-RagCallDiagnostic")
+                .contains("To-SafeArray")
+                .contains("Get-SafeItemCount")
+                .contains("Confirm-EnvironmentStability")
+                .contains("environment_unstable")
+                .contains("collectionPresent")
                 .contains("forbiddenArtifactFields")
                 .contains("prompt")
                 .contains("answer")
                 .contains("evidence context")
                 .doesNotContain("query = $case.query; topK = 5")
+                .doesNotContain("directRetrieveQuestion")
                 .doesNotContain("Remove-Item -Recurse");
     }
 
