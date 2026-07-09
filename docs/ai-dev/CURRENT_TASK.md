@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：KB Agent retrieval-only route MVP（DONE）；下一片：KB Agent search route smoke / real-link runtime smoke（READY）
+当前任务：KB Agent search route smoke runner（DONE）；下一片：KB Agent real-link runtime smoke / Quality Console KB Agent diagnostics（READY）
+
+## 2026-07-09 补充：KB Agent search route smoke runner
+
+- 目标：把 KB Agent P0 的 retrieval-only 路由、unsupported answer intent、权限失败透传和 artifact 脱敏边界沉淀为可复跑 smoke runner。
+- 已完成脚本：新增 `scripts/smoke/agent-kb-search-route-smoke.ps1`，支持 `plan / dry-run / run`。`plan` 只输出验证计划；`dry-run` 检查 runner test、Maven 和 artifact root；`run` 只执行离线 JUnit smoke，不启动 backend / frontend / tunnel，不创建业务数据。
+- 已完成测试：新增 `AgentKnowledgeBaseSearchRouteSmokeTest`，显式环境变量启用时写入 ignored 脱敏 artifact；新增 `AgentKnowledgeBaseSearchRouteSmokeScriptSafetyTest`，约束脚本不读 `.env`、不输出 Authorization / Bearer / API key、不递归删除文件。
+- 覆盖 case：retrieval-only KB task 执行 `knowledge_base_search_tool`；answer intent 被 KB Agent P0 安全拒绝且不调用工具；`KNOWLEDGE_BASE_FORBIDDEN` 从工具结果透传为安全失败；artifact 不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 已验证：`agent-kb-search-route-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-kb-search-route-20260709152049-d529d6`；artifact redaction scan PASS；KB Agent smoke targeted 10 tests PASS（1 skipped）；KB Agent / Tool / eval targeted 34 tests PASS（1 skipped）。
+- 边界：本片仍是离线 route contract smoke，不等于真实 backend / tunnel runtime smoke；不改 Agent API，不新增数据库表，不做 KB answer agent，不提交 artifact 原文，不 push。
+- 下一片建议：启动本地 tunnel + backend，以临时用户 / 临时 KB 验证 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run` 的真实 API 链路；通过后再把 KB Agent smoke artifact 加入 Quality Console 聚合或展示标签。
 
 ## 2026-07-09 补充：KB Agent retrieval-only route MVP
 

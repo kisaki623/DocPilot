@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-09 KB Agent search route smoke runner
+
+- 新增 `scripts/smoke/agent-kb-search-route-smoke.ps1`，支持 `plan / dry-run / run`，用于离线验证 KB Agent P0 route contract。
+- 新增 `AgentKnowledgeBaseSearchRouteSmokeTest`：覆盖 retrieval-only KB task 执行 `knowledge_base_search_tool`、answer intent 被 P0 安全拒绝且不调用工具、`KNOWLEDGE_BASE_FORBIDDEN` 权限失败透传、artifact 脱敏。新增 `AgentKnowledgeBaseSearchRouteSmokeScriptSafetyTest` 约束脚本不读 `.env`、不输出 Authorization / Bearer / API key、不递归删除文件。
+- run 结果：`agent-kb-search-route-smoke.ps1 -Mode run` PASS，marker `docpilot-agent-kb-search-route-20260709152049-d529d6`；artifact redaction scan PASS。
+- 验证：`plan` PASS；`dry-run` PASS；KB Agent smoke targeted 10 tests PASS（1 skipped）；KB Agent / Tool / eval targeted 34 tests PASS（1 skipped）。
+- 边界：本片不启动 backend / frontend / tunnel，不创建业务数据，不改 Agent API，不新增数据库表，不做 KB answer agent，不提交 artifact 原文。下一片建议做真实 API runtime smoke 或 Quality Console 聚合展示。
+
 ## 2026-07-09 KB Agent retrieval-only route MVP
 
 - 新增独立 KB Agent P0 后端入口：`KnowledgeBaseAgentRequest`、`KnowledgeBaseAgentResponse`、`KnowledgeBaseAgentService` / `KnowledgeBaseAgentServiceImpl` 和 `KnowledgeBaseAgentController`，API 为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。
