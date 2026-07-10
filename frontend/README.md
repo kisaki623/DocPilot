@@ -84,7 +84,12 @@ token 约定：
 ```bash
 npm run lint
 npm run build
+npm run test:e2e
 ```
+
+`test:e2e` 使用 production `next start` 和 Chromium 检查未登录公开路由的渲染、页面异常与 console error；它不登录、不启动 backend / tunnel，也不验证云端业务链路。执行前需先完成 `npm run build`。
+
+新机器首次执行前运行 `npx playwright install chromium`；GitHub Actions 会自行安装 Chromium。
 
 ## 6. 联调提示
 

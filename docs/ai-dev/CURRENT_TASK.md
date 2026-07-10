@@ -1,6 +1,14 @@
 # Current Task
 
-当前任务：自驱质量基础迭代（IN_PROGRESS）；当前片：离线 CI 基线（REVIEW，待首个 GitHub Actions run）；上一片：默认 Maven 测试去外部依赖化（DONE）；下一片：离线 Playwright E2E 路由 smoke（READY）
+当前任务：自驱质量基础迭代（IN_PROGRESS）；当前片：离线 Playwright E2E 路由 smoke（REVIEW，待首个 GitHub Actions run）；上一片：离线 CI 基线（REVIEW，待首个 GitHub Actions run）；下一片：前端生产依赖风险评估（READY）
+
+## 2026-07-10 补充：离线 Playwright E2E 路由 smoke
+
+- 目标：给前端主导航提供可在 CI 运行的真实浏览器回归入口，覆盖未登录路由渲染与浏览器错误，而不混入 backend、tunnel、云中间件或临时业务数据。
+- 实现：新增 `frontend/playwright.config.ts`、`frontend/e2e/public-routes.spec.ts` 与 `npm run test:e2e`；production `next start` 使用本地 `3100` 端口，覆盖 `/`、`/login`、`/dashboard`、`/upload`、`/documents`、`/knowledge-bases`、`/conversations`、`/agent`、`/agent/tools`，逐页断言 HTTP 非错误、标题、`main` 可见、无 page / console error。
+- CI：前端 job 在 build 后安装 Chromium 并执行 `npm run test:e2e`；不使用密钥、不启动 backend / tunnel、不访问云端。
+- 已验证：Gemini CLI `gemini-3.5-flash` 已给出最小 production route smoke 建议；本地 `npm run lint`、`npm run build`、`npm run test:e2e` PASS，9/9 routes PASS，测试后 `3100` 端口已释放。
+- 边界：未覆盖登录态、上传、SSE、权限隔离、RAG / Agent 业务交互或云链路；GitHub-hosted runner 的首次真实执行仍待后续 push / PR。
 
 ## 2026-07-10 补充：Gemini CLI 本地恢复约束（DONE）
 

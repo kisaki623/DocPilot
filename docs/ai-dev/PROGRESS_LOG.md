@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-10 离线 Playwright E2E 路由 smoke
+
+- Gemini CLI `gemini-3.5-flash` 可用并提供最小 production route smoke 建议；Codex 审查后新增 Playwright 配置、公开路由 spec 与 `npm run test:e2e`，不传递或读取敏感配置。
+- E2E 使用 production `next start` 和 Chromium，验证 9 个未登录主导航路由的 HTTP、标题、主体可见性、page error 与 console error；CI 前端 job 在 build 后安装 Chromium 并执行该门禁。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；`npm run test:e2e` PASS（9/9 routes）；测试端口 `3100` 与 Playwright report / test results 均已清理或忽略。
+- 边界：不登录、不启动 backend / tunnel、不访问云端，不覆盖 RAG / Agent / SSE / 权限等业务交互；首次 GitHub Actions runner 结果仍待 future push / PR。
+
 ## 2026-07-10 Gemini CLI 本地恢复约束
 
 - 已在 `docs/ai-dev/CONSTRAINTS.md` 固化 Gemini CLI 不可用、连接失败或超时后的单次本地恢复步骤：于单独终端在 `G:\code\Projects\gemini\AIStudioToAPI` 执行 `npm start`，服务就绪后仍以 `gemini-3.5-flash` 重试一次。

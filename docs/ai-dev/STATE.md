@@ -2,6 +2,7 @@
 
 ## 2026-07-09 当前补充
 
+- 离线 Playwright E2E 路由 smoke 已接入但待首个 GitHub Actions run：前端以 production `next start` 启动临时 `3100` 端口，Chromium 覆盖 9 个未登录主导航路由的 HTTP、标题、`main` 可见性、page error 与 console error；本地 `npm run lint`、`npm run build`、`npm run test:e2e` 均 PASS，9/9 routes PASS，端口已清理。该门禁不登录、不调用 backend、不启动 tunnel、不访问云端；它只证明公开页面静态/未登录可渲染，不替代认证、上传、SSE、RAG、Agent 或云 runtime smoke。
 - Gemini CLI 协作恢复边界已固化到 `docs/ai-dev/CONSTRAINTS.md`：CLI 明确不可用、连接失败或超时后，可在单独本地终端启动用户指定的 AIStudioToAPI `npm start`，待其报告就绪后仍以 `gemini-3.5-flash` 重试一次；该路径不读取或输出其配置 / 凭据，不保证恢复成功，失败后继续由 Codex 负责，不放宽远程、数据库或 Git 安全限制。本轮只更新规则，未启动该服务，未验证恢复效果。
 - 离线 CI 基线已实现但待首个 GitHub Actions run 验证：`.github/workflows/ci.yml` 分离 Java 17 后端全量单测与 Node 20 前端 `npm ci` / lint / build，workflow 不传递 `.env`、不启动 tunnel、不访问云 MySQL / Qdrant。为适配 Ubuntu runner，脚本安全测试统一经 test-only `PowerShellTestSupport` 选择 Windows `powershell` 或非 Windows `pwsh`；离线 Agent demo suite 内层脚本启动也已改为 OS-aware，避免外层 `pwsh` 后再次硬编码 `powershell`。本地全量后端 891 tests PASS、前端 install/lint/build PASS。没有 push/PR 触发的远程 runner 证据前，CI 不能写成 VERIFIED；真实云 RAG 仍以本机 tunnel + smoke runner 为准。
 - 本轮 `npm audit --omit=dev` 发现生产依赖范围内 2 项可修复风险：直接 `next` 为 critical、传递 `postcss` 为 moderate，已登记 `REA-20260710-P1-011` 为 OPEN。该发现不代表已遭利用；后续需单独评估依赖升级与前端回归，禁止直接执行无审查的自动修复。
