@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-10 SSE RAG 失败语义（REVIEW）
+
+- 流式 RAG 现在区分检索降级、首 token 前生成失败和部分回答中断；检索降级以非致命 `fallback` 事件继续返回已有降级答案。
+- 前端仅在未收到 chunk 的 generation / transport 失败时回退一次非流式请求；已有内容或 scope 错误不会重放，部分内容保留并提示用户重试。
+- 后端事件测试 14 项、前端 lint/build 均通过；尚缺真实浏览器失败注入验证，状态为 REVIEW。
+
 ## 2026-07-10 RAG 回答模型可靠性（VERIFIED）
 
 - 单文档 RAG 与 KnowledgeBase RAG 已统一接入现有 `AiRetryExecutor`，且重试仅包围 `AiAnswerService.answer(...)`；不会重复检索、构造 prompt、精炼 citation 或写入单文档历史。

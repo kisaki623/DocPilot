@@ -25,6 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -207,6 +208,55 @@ class RagQaServiceImplTest {
     }
 
     @Test
+    void shouldEmitRetrievalFallbackWithoutTerminalError() {
+        when(retrievalService.retrieve(any())).thenThrow(new IllegalStateException("vector unavailable"));
+        RecordingRagQaService service = new RecordingRagQaService(
+                retrievalService, aiAnswerService, documentQaHistoryMapper, new RagQaProperties()
+        );
+
+        service.streamAnswer(new RagQaQuery(7L, 101L, "How cache works?", 3, 1, "s1"));
+
+        assertThat(service.events).containsExactly("meta", "fallback", "chunk", "done");
+        verify(aiAnswerService, never()).streamAnswer(any(), any(), any());
+    }
+
+    @Test
+    void shouldEmitGenerationErrorBeforeAnyChunkWithoutRetrievalFallback() {
+        when(retrievalService.retrieve(any())).thenReturn(resultWithEvidence());
+        doAnswer(invocation -> {
+            throw new IllegalStateException("model unavailable");
+        }).when(aiAnswerService).streamAnswer(any(), any(), any());
+        RecordingRagQaService service = new RecordingRagQaService(
+                retrievalService, aiAnswerService, documentQaHistoryMapper, new RagQaProperties()
+        );
+
+        service.streamAnswer(new RagQaQuery(7L, 101L, "How cache works?", 3, 1, "s1"));
+
+        assertThat(service.events).containsExactly("meta", "retrieval", "citation", "error");
+        assertThat(service.errorStages).containsExactly("generation");
+        verify(documentQaHistoryMapper, never()).insert(any(DocumentQaHistory.class));
+    }
+
+    @Test
+    void shouldEmitPartialGenerationErrorAfterChunkWithoutSavingHistory() {
+        when(retrievalService.retrieve(any())).thenReturn(resultWithEvidence());
+        doAnswer(invocation -> {
+            Consumer<String> consumer = invocation.getArgument(2);
+            consumer.accept("partial answer");
+            throw new IllegalStateException("model stream interrupted");
+        }).when(aiAnswerService).streamAnswer(any(), any(), any());
+        RecordingRagQaService service = new RecordingRagQaService(
+                retrievalService, aiAnswerService, documentQaHistoryMapper, new RagQaProperties()
+        );
+
+        service.streamAnswer(new RagQaQuery(7L, 101L, "How cache works?", 3, 1, "s1"));
+
+        assertThat(service.events).containsExactly("meta", "retrieval", "citation", "chunk", "error");
+        assertThat(service.errorStages).containsExactly("generation_partial");
+        verify(documentQaHistoryMapper, never()).insert(any(DocumentQaHistory.class));
+    }
+
+    @Test
     void shouldEmitScopeErrorSseWithoutFallbackOrAiStream() {
         when(retrievalService.retrieve(any())).thenThrow(new BusinessException(ErrorCode.DOCUMENT_FORBIDDEN));
         RecordingRagQaService service = new RecordingRagQaService(
@@ -288,6 +338,7 @@ class RagQaServiceImplTest {
     private static final class RecordingRagQaService extends RagQaServiceImpl {
 
         private final List<String> events = new ArrayList<>();
+        private final List<String> errorStages = new ArrayList<>();
 
         private RecordingRagQaService(RagDocumentRetrievalService retrievalService,
                                       AiAnswerService aiAnswerService,
@@ -306,6 +357,9 @@ class RagQaServiceImplTest {
             events.add(eventName);
             if ("citation".equals(eventName)) {
                 assertThat(data).isInstanceOf(RagEvidenceCitation.class);
+            }
+            if ("error".equals(eventName) && data instanceof Map<?, ?> payload) {
+                errorStages.add(String.valueOf(payload.get("stage")));
             }
         }
     }

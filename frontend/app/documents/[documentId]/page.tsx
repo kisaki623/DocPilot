@@ -17,6 +17,7 @@ import {
 import {
   askDocumentRagQuestion,
   askDocumentRagQuestionStream,
+  RagStreamRequestError,
   retrieveDocumentRag,
   type RagCitationItem,
   type RagRetrievalData,
@@ -533,6 +534,9 @@ export default function DocumentDetailPage() {
             onCitation: (payload) => {
               setRagCitations((current) => [...current, payload]);
             },
+            onFallback: (payload) => {
+              applyRagStreamPayload(payload);
+            },
             onChunk: (chunk) => {
               if (!chunk) {
                 return;
@@ -552,8 +556,8 @@ export default function DocumentDetailPage() {
               setStreamingQa(false);
               setSessionHint("当前检索会话已续用，后续提问会自动携带上下文。");
             },
-            onError: (message) => {
-              setQaErrorMessage(normalizeRagError(message || "检索增强问答失败"));
+            onError: (streamError) => {
+              setQaErrorMessage(normalizeRagError(streamError.message || "检索增强问答失败"));
               setStreamingQa(false);
             }
           },
@@ -619,7 +623,12 @@ export default function DocumentDetailPage() {
         return;
       }
       const streamErrorMessage = error instanceof Error ? error.message : "流式问答失败";
-      if (useStreamingQa) {
+      const streamStage = error instanceof RagStreamRequestError ? error.stage : "unknown";
+      const canFallbackToNonStream = useStreamingQa
+        && streamedChunkCount === 0
+        && streamStage !== "scope"
+        && streamStage !== "generation_partial";
+      if (canFallbackToNonStream) {
         setStreamingQa(false);
         try {
           if (qaMode === "rag") {
@@ -635,14 +644,14 @@ export default function DocumentDetailPage() {
           return;
         } catch (fallbackError) {
           const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "普通问答也失败";
-          if (streamedChunkCount > 0) {
-            setQaErrorMessage(`实时输出中断：${streamErrorMessage}；切换普通问答后仍未完成：${fallbackMessage}。已保留当前已生成内容。`);
-          } else {
-            setQaErrorMessage(`实时输出中断：${streamErrorMessage}；切换普通问答后仍未完成：${fallbackMessage}`);
-          }
+          setQaErrorMessage(`实时输出中断：${streamErrorMessage}；切换普通问答后仍未完成：${fallbackMessage}`);
         }
       } else {
-        setQaErrorMessage(streamErrorMessage);
+        if (streamedChunkCount > 0 || streamStage === "generation_partial") {
+          setQaErrorMessage("实时输出中断，已保留当前已生成内容。请重试获取完整回答。");
+        } else {
+          setQaErrorMessage(streamErrorMessage);
+        }
       }
     } finally {
       setAsking(false);

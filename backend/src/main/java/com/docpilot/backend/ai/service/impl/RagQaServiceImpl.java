@@ -24,6 +24,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 @Service
@@ -145,6 +146,8 @@ public class RagQaServiceImpl implements RagQaService {
     private void doStreamAnswer(RagQaQuery query, SseEmitter emitter) {
         ResolvedQaQuery resolved = null;
         StringBuilder answerBuffer = new StringBuilder();
+        AtomicBoolean answerStarted = new AtomicBoolean(false);
+        String streamStage = "scope";
         try {
             resolved = validateAndResolve(query);
             send(emitter, "meta", Map.of(
@@ -153,6 +156,7 @@ public class RagQaServiceImpl implements RagQaService {
                     "topK", resolved.topK() == null ? ragQaProperties.getTopK() : Math.min(resolved.topK(), RagDocumentRetrievalServiceImpl.MAX_TOP_K),
                     "indexVersion", resolved.indexVersion() == null ? RagDocumentRetrievalServiceImpl.DEFAULT_INDEX_VERSION : resolved.indexVersion()
             ));
+            streamStage = "retrieval";
             RagRetrievalResult retrieval = retrieve(resolved);
             send(emitter, "retrieval", retrievalSummary(retrieval));
             retrieval.citations().forEach(citation -> send(emitter, "citation", citation));
@@ -164,6 +168,7 @@ public class RagQaServiceImpl implements RagQaService {
                 emitter.complete();
                 return;
             }
+            streamStage = "generation";
             RagPrompt prompt = promptBuilder.build(
                     resolved.question(),
                     retrieval.hits(),
@@ -174,6 +179,7 @@ public class RagQaServiceImpl implements RagQaService {
                 if (chunk == null || chunk.isEmpty()) {
                     return;
                 }
+                answerStarted.set(true);
                 answerBuffer.append(chunk);
                 send(emitter, "chunk", chunk);
             };
@@ -187,10 +193,14 @@ public class RagQaServiceImpl implements RagQaService {
                 emitter.completeWithError(ex);
                 return;
             }
-            if (resolved != null && ragQaProperties.isFallbackEnabled()) {
+            if (resolved != null && "retrieval".equals(streamStage) && ragQaProperties.isFallbackEnabled()) {
                 answerBuffer.setLength(0);
                 answerBuffer.append(RETRIEVAL_UNAVAILABLE_ANSWER);
-                send(emitter, "error", Map.of("message", "RAG 检索暂不可用", "stage", "retrieval"));
+                send(emitter, "fallback", Map.of(
+                        "noEvidence", true,
+                        "fallbackUsed", true,
+                        "fallbackReason", "retrieval_unavailable"
+                ));
                 send(emitter, "chunk", RETRIEVAL_UNAVAILABLE_ANSWER);
                 saveHistory(answer(resolved, answerBuffer.toString(), null, true, true, "retrieval_unavailable"));
                 send(emitter, "done", Map.of(
@@ -202,7 +212,8 @@ public class RagQaServiceImpl implements RagQaService {
                 emitter.complete();
                 return;
             }
-            send(emitter, "error", Map.of("message", "RAG QA failed", "stage", "unknown"));
+            String failureStage = answerStarted.get() ? "generation_partial" : streamStage;
+            send(emitter, "error", Map.of("message", "RAG QA failed", "stage", failureStage));
             emitter.completeWithError(ex);
         }
     }

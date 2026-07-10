@@ -84,13 +84,29 @@ export interface RagStreamPayload {
   citations?: RagCitationItem[];
 }
 
+export interface RagStreamError {
+  message: string;
+  stage: string;
+}
+
+export class RagStreamRequestError extends Error {
+  readonly stage: string;
+
+  constructor(error: RagStreamError) {
+    super(error.message);
+    this.name = "RagStreamRequestError";
+    this.stage = error.stage;
+  }
+}
+
 export interface RagStreamCallbacks {
   onMeta?: (payload: RagStreamPayload) => void;
   onRetrieval?: (payload: RagRetrievalData) => void;
   onCitation?: (payload: RagCitationItem) => void;
+  onFallback?: (payload: RagStreamPayload) => void;
   onChunk?: (chunk: string) => void;
   onDone?: (payload?: RagStreamPayload) => void;
-  onError?: (message: string) => void;
+  onError?: (error: RagStreamError) => void;
 }
 
 function resolveRagStreamEndpoint(documentId: number): string {
@@ -160,20 +176,20 @@ function parseStreamPayload(data: string): RagStreamPayload | undefined {
   }
 }
 
-function parseStreamError(data: string): string {
+function parseStreamError(data: string): RagStreamError {
   const text = (data || "").trim();
   if (!text) {
-    return "RAG streaming request failed";
+    return { message: "RAG streaming request failed", stage: "unknown" };
   }
   try {
-    const parsed = JSON.parse(text) as { message?: string };
+    const parsed = JSON.parse(text) as { message?: string; stage?: string };
     if (parsed?.message) {
-      return parsed.message;
+      return { message: parsed.message, stage: parsed.stage || "unknown" };
     }
   } catch {
     // fallback to raw text
   }
-  return text;
+  return { message: text, stage: "unknown" };
 }
 
 export function retrieveDocumentRag(
@@ -251,12 +267,14 @@ export async function askDocumentRagQuestionStream(
         callbacks.onRetrieval?.((parseStreamPayload(item.data) || {}) as RagRetrievalData);
       } else if (item.event === "citation") {
         callbacks.onCitation?.((parseStreamPayload(item.data) || {}) as RagCitationItem);
+      } else if (item.event === "fallback") {
+        callbacks.onFallback?.(parseStreamPayload(item.data) || {});
       } else if (item.event === "done") {
         callbacks.onDone?.(parseStreamPayload(item.data));
       } else if (item.event === "error") {
-        const message = parseStreamError(item.data);
-        callbacks.onError?.(message);
-        throw new Error(message);
+        const streamError = parseStreamError(item.data);
+        callbacks.onError?.(streamError);
+        throw new RagStreamRequestError(streamError);
       }
     }
   }
@@ -275,12 +293,14 @@ export async function askDocumentRagQuestionStream(
         callbacks.onRetrieval?.((parseStreamPayload(item.data) || {}) as RagRetrievalData);
       } else if (item.event === "citation") {
         callbacks.onCitation?.((parseStreamPayload(item.data) || {}) as RagCitationItem);
+      } else if (item.event === "fallback") {
+        callbacks.onFallback?.(parseStreamPayload(item.data) || {});
       } else if (item.event === "done") {
         callbacks.onDone?.(parseStreamPayload(item.data));
       } else if (item.event === "error") {
-        const message = parseStreamError(item.data);
-        callbacks.onError?.(message);
-        throw new Error(message);
+        const streamError = parseStreamError(item.data);
+        callbacks.onError?.(streamError);
+        throw new RagStreamRequestError(streamError);
       }
     }
   }

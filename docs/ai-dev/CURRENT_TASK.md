@@ -1,6 +1,13 @@
 # Current Task
 
-当前任务：优先级 1 真实 RAG 主链路可靠性（已恢复并验证）；上一片：单文档 / KnowledgeBase RAG 统一受限重试、读取窗口调优与脱敏诊断（VERIFIED）；下一片：SSE 流式 RAG 失败语义与体验审计；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：优先级 2 RAG 可靠性（IN_PROGRESS）；当前片：SSE 流式 RAG 失败语义（REVIEW，待真实浏览器失败注入验证）；上一片：单文档 / KnowledgeBase RAG 读取窗口调优（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：SSE 流式 RAG 失败语义（REVIEW）
+
+- 已完成：后端区分 `retrieval`、首 token 前 `generation` 和已输出内容后的 `generation_partial`；检索降级改为非致命 `fallback` 事件，前端继续消费降级 chunk / done。
+- 已完成：前端只在首个 chunk 前的 generation / transport 失败回退一次非流式请求；scope 错误不回退；已有内容时保留部分回答并提示用户重试，避免重放、覆盖内容或重复模型调用。
+- 已验证：`RagQaServiceImplTest` 14 项 PASS，覆盖 retrieval fallback、首 token 前 generation error、partial generation error 和 stage；前端 `npm run lint` / `npm run build` PASS。Gemini CLI `gemini-3.5-flash` 提供状态机建议，独立审查发现并推动修复 retrieval fallback 的终止事件 blocker。
+- 待验证：尚未在真实浏览器注入“首 token 前失败 / 已输出后断流”进行交互级验证，故本片为 REVIEW，不将其写为真实体验 DONE。
 
 ## 2026-07-10 补充：单文档 / KnowledgeBase RAG 回答模型可靠性（VERIFIED）
 
