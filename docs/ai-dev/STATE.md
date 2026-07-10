@@ -1,5 +1,10 @@
 # DocPilot 当前状态
 
+## 2026-07-10 Memory provider extraction case diversity v2（VERIFIED）
+
+- 测试侧真实 provider contract 已从 4 扩至固定 6 个脱敏 case，新增中文长期 `PREFERENCE + PROJECT_STATE` 抽取与一次性指令零 suggestion 抑制；最终真实 marker `docpilot-memory-provider-20260710204432-4540df` PASS，6 calls、`casePassRate=1.0000`、`rawProviderOutputStored=false`。
+- wrapper 现不读取 `.env`、不落盘 Maven 原始日志，固定 ignored artifact root 并限制 marker 路径；非法 JSON / 畸形 suggestion 不会被误判为安全空列表，预算与 artifact 结果均固定为 six-case suite。运行时 Memory API 仍为规则式抽取，不新增数据库或 LLM runtime 注入；这仍是小样本输出语义 contract，不代表长期记忆质量成熟。详见 `REA-20260710-P3-016`、`REA-20260710-P1-017`。
+
 ## 2026-07-10 fresh-clone demo schema bootstrap（REVIEW）
 
 - `deploy/mysql/init/` 已补齐为供 `docker-compose.demo.yml` 空数据卷首次初始化使用的完整 demo schema：17 张应用持久表覆盖文档 / Outbox、Agent、RAG、KnowledgeBase、Conversation、Trace 与 Memory。

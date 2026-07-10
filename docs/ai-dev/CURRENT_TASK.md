@@ -1,6 +1,13 @@
 # Current Task
 
-当前任务：fresh-clone schema 可用性（REVIEW）；当前片：完整 demo bootstrap 已补齐并通过离线契约，隔离 MySQL runtime 验收因本机 Docker Engine 未运行而 BLOCKED；上一片：SSE 流式 RAG 失败语义（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：Memory provider extraction case diversity v2（VERIFIED）；当前片：6-case 脱敏真实 provider contract 已通过安全复验与独立复审；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：Memory provider extraction case diversity v2（VERIFIED）
+
+- 已完成：测试侧真实 provider 抽取合同从固定 4 case 扩至固定 6 case；新增中文长期 `PREFERENCE + PROJECT_STATE` 与“一次性指令不得沉淀为长期记忆”的零 suggestion 负例。运行时 `/api/user-memories/suggestions/extract` 仍只使用规则式抽取，未接入 LLM、未改数据库。
+- 已修复：脚本此前允许 `MaxModelCalls` 小于固定 suite 实际调用数，预算口径可能失真；现在仅接受与 6-case suite 一致的值，plan / dry-run 公开该预算匹配门禁。
+- 安全复验：plan、dry-run 与定向 Maven 9 项 PASS（真实 smoke 默认 skipped 1）；最终真实 marker `docpilot-memory-provider-20260710204432-4540df` PASS，`modelCallCount=6`、`casePassRate=1.0000`、`rawProviderOutputStored=false`。首个 v2 run 暴露正例错误使用 forbidden marker，已修正并在受限 6-call 复验中通过，关联 `REA-20260710-P3-016`；随后独立审查发现 artifact 日志、格式 fail-open、预算约束和路径逃逸缺口，已安全收紧并经复审验证，关联 `REA-20260710-P1-017`。
+- 边界：这是测试侧的小样本 provider 输出语义 contract，不是运行时 LLM memory extraction、JSON 格式合规 benchmark 或大规模长期记忆质量结论；artifact 不存会话、候选记忆、prompt、原始输出、token 或凭据。
 
 ## 2026-07-10 补充：fresh-clone demo schema bootstrap（REVIEW）
 

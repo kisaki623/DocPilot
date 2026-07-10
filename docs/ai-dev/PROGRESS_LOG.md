@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-10 Memory provider extraction case diversity v2
+
+- 将测试侧 `MemoryProviderExtractionRealProviderSmokeTest` 从 4 个固定真实 provider case 扩到 6 个：保留回答风格 / 目标、技术上下文、RAG evidence 隔离、敏感内容拒绝，新增中文长期偏好 / 项目状态抽取和一次性指令抑制。
+- 修复 smoke budget 口径：脚本不再接受低于实际固定 suite 的 `MaxModelCalls`；plan / dry-run 新增 `modelCallBudgetMatchesFixedSuite`，run 仅允许 `6`。
+- 安全收紧：独立审查发现原 wrapper 可能落盘 Maven 原始日志、空 suggestion 负例会对非法 JSON / 畸形条目 fail-open、预算未与实际调用数闭环且 marker 可路径逃逸；现已改为固定 ignored artifact root、无 Maven 日志、枚举化失败摘要、逐项 JSON schema 校验、固定 six-case artifact 后验与安全 marker pattern。
+- 验证：plan / dry-run PASS；非法 prefix 运行在建目录前返回 `BLOCKED/smoke_prefix_invalid`；`mvn "-Dtest=MemoryProviderExtractionEvalRunnerTest,MemoryProviderExtractionRealProviderSmokeTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（9 tests，真实 smoke 默认 skipped 1）。初次真实 run 的中文正例因错误复用了 forbidden marker 而失败，实际类型已经命中；修正 fixture 后的最终安全复验 marker `docpilot-memory-provider-20260710204432-4540df` PASS，`casePassRate=1.0000`、`rawProviderOutputStored=false`。
+- 边界：本片未把 LLM 接入运行时 Memory API，未启动 backend / frontend / tunnel、未改数据库、未提交 artifact 或日志、未输出 `.env` / token / API key / 云地址 / 连接串，未 push。
+
 ## 2026-07-10 fresh-clone demo schema bootstrap
 
 - 代码审计发现 `docker-compose.demo.yml` 只挂载 `deploy/mysql/init/`，而原目录仅初始化 9/17 张持久表；RAG chunk、KnowledgeBase、Conversation / Trace / Memory 缺失，且 `tb_document.status` 未在空 volume 建表，导致 fresh clone 无法完整走上传、RAG、知识库或会话主链路。

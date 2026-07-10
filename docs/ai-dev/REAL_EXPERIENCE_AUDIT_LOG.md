@@ -64,6 +64,8 @@
 | `REA-20260710-P2-013` | VERIFIED（已验证） | P2 | 真实链路稳定性问题 | RAG Indexing | `docpilot-cloud-quality-20260710194619-390475` | 切换百炼后遗留 embedding 模型标识导致索引失败 |
 | `REA-20260710-P1-011` | OPEN | P1 | 安全依赖风险 | Frontend dependency supply chain | `npm-audit-frontend-20260710` | 前端生产依赖存在可修复的 critical / moderate 漏洞 |
 | `REA-20260710-P2-015` | BLOCKED | P2 | 环境 / fresh-clone 可用性风险 | Local demo MySQL bootstrap | `schema-bootstrap-audit-20260710` | demo 初始化快照已修复，但隔离 MySQL runtime 验收受 Docker Engine 未运行阻塞 |
+| `REA-20260710-P3-016` | VERIFIED（已验证） | P3 | 质量门禁 fixture bug | Memory provider extraction eval | `docpilot-memory-provider-20260710203107-29967e` | 中文长期信息正例被错误 forbidden marker 判为泄露 |
+| `REA-20260710-P1-017` | VERIFIED（已验证） | P1 | artifact 安全边界 | Memory provider extraction smoke | `memory-provider-v2-security-review-20260710` | 原 wrapper 可落盘 Maven 原始日志，且空建议负例存在格式 fail-open |
 | `REA-20260703-P1-001` | VERIFIED（已验证） | P1 | 功能 bug | RAG | `docpilot-real-audit-20260703195519-5118e8` | 短 txt parse 成功但单文档 RAG 无 evidence |
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
 | `REA-20260703-P2-001` | VERIFIED（已验证） | P2 | 体验问题 | Citation UI | `docpilot-real-audit-20260703195519-5118e8` | quote-level citation API 已有，但 UI 仍需 quote-first 展示 |
@@ -79,6 +81,51 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-10 真实主链路验收失败
+
+### `REA-20260710-P1-017` Memory provider smoke 的 artifact 日志与空建议格式门禁存在安全缺口
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P1
+- 类型：artifact 安全边界
+- 模块：Memory provider extraction smoke
+- 发现来源：`memory-provider-v2-security-review-20260710`
+
+发现：
+
+- 原 wrapper 会将 Maven 全量 stdout / stderr 保存为 `maven.log`，失败时可能包含未受信 provider 错误体；同时 artifact root 可被调用参数改写。
+- 原 provider runner 将非法或非结构化 JSON 解析为空列表，零 suggestion 的安全负例可能被误判为通过；预算参数也未与 Java suite 和最终 artifact 调用数硬绑定。
+
+修复：
+
+- wrapper 现只使用外层已注入的进程环境，不读取 `.env`；固定 artifact root 为 ignored 的 `backend/target/memory-provider`，删除 Maven 原始日志落盘，失败仅生成枚举化安全摘要。
+- provider 调用异常转为不含异常体的 `provider_call_failed`；非法 JSON / 缺失 `suggestions` 数组会产生 `invalid_provider_response_format`，不再可作为空 suggestion 成功。
+- six-case suite、Java 结果和 wrapper artifact 后校验统一为固定 `6`；dry-run 只有所有安全检查通过才返回 PASS。
+
+验证：
+
+- 安全收紧后 plan / dry-run、9 项定向离线测试（真实 smoke 默认 skipped 1）及固定 6-call 最终 marker `docpilot-memory-provider-20260710204432-4540df` 均通过；复审确认 Maven 原始日志、artifact root、非法 JSON / 畸形 suggestion、预算和 marker 路径缺口均已闭环。
+
+### `REA-20260710-P3-016` Memory provider 中文正例被错误 forbidden marker 误判
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：质量门禁 fixture bug
+- 模块：Memory provider extraction eval
+- 发现 marker：`docpilot-memory-provider-20260710203107-29967e`
+
+复现步骤：
+
+1. 执行固定 6-call 的 `memory-provider-extraction-smoke.ps1 -Mode run -MaxModelCalls 6`。
+2. 检查中文长期偏好 / 项目状态正例的脱敏类型摘要与 failure reason。
+
+实际结果：
+
+- 真实 provider 已返回预期 `PREFERENCE` 与 `PROJECT_STATE` 类型，但 fixture 将应当允许抽取的输入短语同时列入 forbidden marker，导致 `forbidden_marker_leaked` 误失败；首次结果为 5/6 PASS。
+
+修复与验证：
+
+- 将该正例的 forbidden marker 改回仅用于泄露检测的私有占位 marker，保留 artifact 文本不包含输入内容的断言。
+- 复验 marker `docpilot-memory-provider-20260710203218-d0df0a` PASS：6 calls、`casePassRate=1.0000`、`rawProviderOutputStored=false`。artifact 仅保存 case 分类、类型、计数、布尔值和 failure reason，不保存会话、候选记忆或原始 provider 输出。
 
 ### `REA-20260710-P2-015` fresh-clone demo MySQL 初始化运行验收受本机 Docker Engine 阻塞
 

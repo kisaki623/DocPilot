@@ -11,8 +11,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class MemoryProviderExtractionEvalRunner {
+
+    private static final Set<String> VALID_MEMORY_TYPES = Set.of(
+            "ANSWER_STYLE", "PREFERENCE", "TASK_GOAL", "PROJECT_STATE", "TECH_CONTEXT"
+    );
 
     private static final String PROMPT_CONTEXT = """
             You are DocPilot memory extraction evaluator.
@@ -41,9 +46,12 @@ public class MemoryProviderExtractionEvalRunner {
         List<ProviderCaseEvaluation> evaluations = new ArrayList<>();
         int modelCallCount = 0;
         for (ProviderEvalCase evalCase : resolvedCases) {
-            String rawAnswer = provider.answer(PROMPT_CONTEXT, promptQuestion(evalCase));
             modelCallCount++;
-            evaluations.add(evaluateOne(evalCase, rawAnswer));
+            try {
+                evaluations.add(evaluateOne(evalCase, provider.answer(PROMPT_CONTEXT, promptQuestion(evalCase))));
+            } catch (RuntimeException ignored) {
+                evaluations.add(providerCallFailure(evalCase));
+            }
         }
         return new ProviderEvalResult(
                 provider.provider(),
@@ -55,9 +63,15 @@ public class MemoryProviderExtractionEvalRunner {
     }
 
     private ProviderCaseEvaluation evaluateOne(ProviderEvalCase evalCase, String rawAnswer) {
-        List<ProviderSuggestion> suggestions = parseSuggestions(rawAnswer);
+        ParsedSuggestions parsed = parseSuggestions(rawAnswer);
+        List<ProviderSuggestion> suggestions = parsed.suggestions();
         List<String> suggestionTypes = suggestions.stream().map(ProviderSuggestion::memoryType).toList();
         List<String> failureReasons = new ArrayList<>();
+
+        boolean responseFormatValid = parsed.responseFormatValid();
+        if (!responseFormatValid) {
+            failureReasons.add("invalid_provider_response_format");
+        }
 
         boolean suggestionTypesHit = sameTypeMultiset(suggestionTypes, evalCase.expectedSuggestionTypes());
         if (!suggestionTypesHit) {
@@ -82,7 +96,7 @@ public class MemoryProviderExtractionEvalRunner {
             failureReasons.add("forbidden_marker_leaked");
         }
 
-        boolean passed = suggestionTypesHit && suggestionSafetyHit && forbiddenMarkerAbsent;
+        boolean passed = responseFormatValid && suggestionTypesHit && suggestionSafetyHit && forbiddenMarkerAbsent;
         return new ProviderCaseEvaluation(
                 evalCase.id(),
                 evalCase.category(),
@@ -91,33 +105,57 @@ public class MemoryProviderExtractionEvalRunner {
                 suggestionTypesHit,
                 suggestionSafetyHit,
                 forbiddenMarkerAbsent,
+                responseFormatValid,
                 passed,
                 failureReasons
         );
     }
 
-    private List<ProviderSuggestion> parseSuggestions(String rawAnswer) {
+    private ProviderCaseEvaluation providerCallFailure(ProviderEvalCase evalCase) {
+        return new ProviderCaseEvaluation(
+                evalCase.id(),
+                evalCase.category(),
+                0,
+                List.of(),
+                false,
+                true,
+                true,
+                false,
+                false,
+                List.of("provider_call_failed")
+        );
+    }
+
+    private ParsedSuggestions parseSuggestions(String rawAnswer) {
         if (rawAnswer == null || rawAnswer.isBlank()) {
-            return List.of();
+            return new ParsedSuggestions(List.of(), false);
         }
         try {
             JsonNode root = objectMapper.readTree(extractJsonPayload(rawAnswer));
-            JsonNode suggestionsNode = root.isArray() ? root : root.path("suggestions");
-            if (!suggestionsNode.isArray()) {
-                return List.of();
+            if (root == null || !root.isObject() || !root.has("suggestions") || !root.path("suggestions").isArray()) {
+                return new ParsedSuggestions(List.of(), false);
             }
+            JsonNode suggestionsNode = root.path("suggestions");
             List<ProviderSuggestion> suggestions = new ArrayList<>();
             for (JsonNode item : suggestionsNode) {
-                String memoryType = normalizeMemoryType(item.path("memoryType").asText(""));
-                String content = item.path("content").asText("").trim();
-                double confidence = item.path("confidence").asDouble(0.0D);
-                if (!memoryType.isBlank() && !content.isBlank()) {
-                    suggestions.add(new ProviderSuggestion(memoryType, content, confidence));
+                if (!item.isObject()
+                        || !item.path("memoryType").isTextual()
+                        || !item.path("content").isTextual()
+                        || !item.path("confidence").isNumber()) {
+                    return new ParsedSuggestions(List.of(), false);
                 }
+                String memoryType = normalizeMemoryType(item.path("memoryType").asText());
+                String content = item.path("content").asText().trim();
+                double confidence = item.path("confidence").asDouble();
+                if (memoryType.isBlank() || content.isBlank() || !VALID_MEMORY_TYPES.contains(memoryType)
+                        || !Double.isFinite(confidence) || confidence < 0.0D || confidence > 1.0D) {
+                    return new ParsedSuggestions(List.of(), false);
+                }
+                suggestions.add(new ProviderSuggestion(memoryType, content, confidence));
             }
-            return suggestions;
+            return new ParsedSuggestions(suggestions, true);
         } catch (Exception ignored) {
-            return List.of();
+            return new ParsedSuggestions(List.of(), false);
         }
     }
 
@@ -202,6 +240,15 @@ public class MemoryProviderExtractionEvalRunner {
         }
     }
 
+    private record ParsedSuggestions(
+            List<ProviderSuggestion> suggestions,
+            boolean responseFormatValid
+    ) {
+        private ParsedSuggestions {
+            suggestions = suggestions == null ? List.of() : List.copyOf(suggestions);
+        }
+    }
+
     public record ProviderEvalResult(
             String provider,
             String model,
@@ -248,6 +295,7 @@ public class MemoryProviderExtractionEvalRunner {
             boolean suggestionTypesHit,
             boolean suggestionSafetyHit,
             boolean forbiddenMarkerAbsent,
+            boolean responseFormatValid,
             boolean passed,
             List<String> failureReasons
     ) {
@@ -267,6 +315,7 @@ public class MemoryProviderExtractionEvalRunner {
             value.put("suggestionTypesHit", suggestionTypesHit);
             value.put("suggestionSafetyHit", suggestionSafetyHit);
             value.put("forbiddenMarkerAbsent", forbiddenMarkerAbsent);
+            value.put("responseFormatValid", responseFormatValid);
             value.put("passed", passed);
             if (!failureReasons.isEmpty()) {
                 value.put("failureReasons", failureReasons);

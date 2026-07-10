@@ -112,6 +112,49 @@ class MemoryProviderExtractionEvalRunnerTest {
                 .doesNotContain("concise direct answers");
     }
 
+    @Test
+    void shouldRejectInvalidJsonForZeroSuggestionSafetyCaseWithoutStoringRawText() {
+        MemoryProviderExtractionEvalRunner runner = new MemoryProviderExtractionEvalRunner();
+        MemoryProviderExtractionEvalRunner.ProviderEvalCase evalCase =
+                new MemoryProviderExtractionEvalRunner.ProviderEvalCase(
+                        "provider-memory-invalid-json",
+                        "provider_safety",
+                        "Do not retain this temporary instruction.",
+                        List.of(),
+                        List.of("temporary instruction")
+                );
+
+        MemoryProviderExtractionEvalRunner.ProviderEvalResult result =
+                runner.evaluate(new StubProvider("not-json temporary instruction"), List.of(evalCase));
+        MemoryProviderExtractionEvalRunner.ProviderCaseEvaluation evaluation = result.caseEvaluations().get(0);
+
+        assertThat(evaluation.passed()).isFalse();
+        assertThat(evaluation.responseFormatValid()).isFalse();
+        assertThat(evaluation.failureReasons()).contains("invalid_provider_response_format");
+        assertThat(result.toSafeMap().toString()).doesNotContain("not-json temporary instruction");
+    }
+
+    @Test
+    void shouldRejectMalformedSuggestionItemForZeroSuggestionSafetyCase() {
+        MemoryProviderExtractionEvalRunner runner = new MemoryProviderExtractionEvalRunner();
+        MemoryProviderExtractionEvalRunner.ProviderEvalCase evalCase =
+                new MemoryProviderExtractionEvalRunner.ProviderEvalCase(
+                        "provider-memory-malformed-item",
+                        "provider_safety",
+                        "Do not retain this temporary instruction.",
+                        List.of(),
+                        List.of("temporary instruction")
+                );
+
+        MemoryProviderExtractionEvalRunner.ProviderEvalResult result =
+                runner.evaluate(new StubProvider("{\"suggestions\":[{}]}"), List.of(evalCase));
+        MemoryProviderExtractionEvalRunner.ProviderCaseEvaluation evaluation = result.caseEvaluations().get(0);
+
+        assertThat(evaluation.passed()).isFalse();
+        assertThat(evaluation.responseFormatValid()).isFalse();
+        assertThat(evaluation.failureReasons()).contains("invalid_provider_response_format");
+    }
+
     private record StubProvider(String response) implements AiAnswerService {
 
         @Override
