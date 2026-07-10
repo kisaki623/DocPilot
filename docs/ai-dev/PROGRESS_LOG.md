@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-10 Document Parser 多 chunk 真实 smoke v4
+
+- HTML smoke fixture 增加超过默认 `800/120` 策略的脱敏正文，并新增 `expectedMinChunks`、`multiChunkVerified`、`html_multi_chunk` 和 `multi_chunk_source_coverage_missing` 安全门禁。
+- 真实 marker `docpilot-parser-real-chain-20260710143019-38705a` PASS：HTML `chunkCount=5/expectedMinChunks=2`，direct / QA retrieval 各 5 hits / citations；三类文件累计 7 chunks，结构覆盖 `11/11`，parser boundary `4/4`、artifact redaction PASS。
+- 验证：脚本 plan / dry-run PASS；相关 parser/chunk/Quality 定向 39 tests PASS；runner 清理本轮 tunnel、backend、frontend。
+- 下一片：审计跨 block 文档中 citation / chunk metadata 的来源覆盖率，避免“至少一条 citation 有 locator”掩盖其他 chunk 元数据漂移。
+
 ## 2026-07-10 Document Parser 自然结构真实 smoke v3
 
 - `document-parser-real-chain-smoke.ps1` 的 HTML fixture 新增 `aside` 噪声，安全结构信号新增 `html_noise_excluded`；artifact 只保留信号枚举，不保存解析文本。

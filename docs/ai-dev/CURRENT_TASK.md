@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 自然结构真实 smoke v3（DONE）；下一片：Document Parser 多 block / 多 chunk 来源覆盖 smoke v4（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 多 block / 多 chunk 来源覆盖 smoke v4（DONE）；下一片：Document Parser 跨 block citation 来源覆盖审计 v5（READY）
+
+## 2026-07-10 补充：Document Parser 多 block / 多 chunk 来源覆盖 smoke v4
+
+- 已完成 smoke 增强：HTML fixture 增加超过默认 `800/120` chunk 策略的脱敏正文，HTML case 新增 `expectedMinChunks=2`、`multiChunkVerified` 和 `html_multi_chunk` 安全结构信号；artifact 只保存期望数、实际 chunk 数、布尔值和结构枚举。
+- 门禁语义：未达到最小 chunk 数会使 `parserRealChain` 标为 `REVIEW`，并记录 `multi_chunk_source_coverage_missing`，不会误归类为解析或 provider 核心失败。
+- 真实验证：执行 `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker `docpilot-parser-real-chain-20260710143019-38705a`，整体 PASS。
+- 结果：HTML `extractedChars=2389`、`chunkCount=5`、`expectedMinChunks=2`、`multiChunkVerified=true`，direct / QA retrieval 均 `hitCount=5`、`citationCount=5`；PDF / DOCX 各 `chunkCount=1`，三类文档 parse / retrieval / citation / source locator 均通过。总 `chunkCount=7`，`fixtureStructureCoverage.expectedSignals=11`、`coveredSignals=11`、`missingSignals=0`、`allCovered=true`；parser boundary `4/4`、artifact redaction PASS。
+- 已验证：脚本 plan / dry-run PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserFixtureCorpusTest,ChunkingServiceImplTest,QualityArtifactServiceImplTest" test` PASS（39 tests，0 skipped）。
+- 边界：本片仍是 marker 临时数据上的小样本真实链路；只验证多 chunk 生成与至少一条 citation 来源定位，不代表所有 chunk 都有跨 block 精确 locator，也不做 OCR、扫描件、旧 `.doc`、复杂版面、外部抓取或大规模 benchmark。下一片审计多 block 文档在 citation / chunk metadata 上的来源覆盖率。
 
 ## 2026-07-10 补充：Document Parser 自然结构真实 smoke v3
 

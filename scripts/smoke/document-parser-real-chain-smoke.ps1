@@ -545,6 +545,7 @@ function New-Fixtures([string]$dir, [string]$marker) {
     "Page 1"
   )
   $html = Join-Path $dir "${marker}-html.html"
+  $htmlMultiChunkBody = (("HTML multi chunk evidence preserves source locator metadata across chunk boundaries. " * 24).Trim())
   [System.IO.File]::WriteAllText($html, @"
 <!doctype html>
 <html>
@@ -560,6 +561,7 @@ function New-Fixtures([string]$dir, [string]$marker) {
   <h2>HTML Evidence Section</h2>
   <p>HTML paragraph one contains html-alpha-marker for retrieval.</p>
   <p>HTML paragraph two keeps local link text <a href="/docs">DocPilot local docs</a>.</p>
+  <p>$htmlMultiChunkBody</p>
   <ul><li>HTML list marker keeps checklist evidence.</li></ul>
   <table><tr><td>Parser</td><td>HTML Table Evidence $marker</td></tr></table>
 </body>
@@ -569,12 +571,12 @@ function New-Fixtures([string]$dir, [string]$marker) {
   Write-DocxFixture $docx $marker
   return @(
     [ordered]@{ fileType = "PDF"; path = $pdf; contentType = "application/pdf"; parserName = "pdfbox"; query = "pdf-alpha-marker"; expectedLocator = "PDF Parser Smoke Title"; expectedStructures = @("pdf_text", "pdf_page_locator") },
-    [ordered]@{ fileType = "HTML"; path = $html; contentType = "text/html"; parserName = "jsoup-html"; query = "html-alpha-marker"; expectedLocator = "HTML Evidence Section"; expectedStructures = @("html_heading", "html_table", "html_link", "html_list", "html_noise_excluded") },
+    [ordered]@{ fileType = "HTML"; path = $html; contentType = "text/html"; parserName = "jsoup-html"; query = "html-alpha-marker"; expectedLocator = "HTML Evidence Section"; expectedMinChunks = 2; expectedStructures = @("html_heading", "html_table", "html_link", "html_list", "html_noise_excluded", "html_multi_chunk") },
     [ordered]@{ fileType = "DOCX"; path = $docx; contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; parserName = "poi-docx"; query = "docx-table-marker"; expectedLocator = "DOCX Parser Smoke Title"; expectedStructures = @("docx_heading", "docx_table", "docx_list") }
   )
 }
 
-function Get-FixtureStructureSignals($case, [string]$parseStatus, [string]$parsedText, [bool]$sourceLocatorPresent) {
+function Get-FixtureStructureSignals($case, [string]$parseStatus, [string]$parsedText, [bool]$sourceLocatorPresent, $chunkCount) {
   if ($parseStatus -ne "SUCCESS") {
     return @()
   }
@@ -590,6 +592,9 @@ function Get-FixtureStructureSignals($case, [string]$parseStatus, [string]$parse
     if ($text.Contains("HTML list marker")) { $signals += "html_list" }
     if (-not $text.Contains("Navigation noise") -and -not $text.Contains("window.__noise") -and -not $text.Contains("Related sidebar noise")) {
       $signals += "html_noise_excluded"
+    }
+    if ($null -ne $case.expectedMinChunks -and $null -ne $chunkCount -and [int]$chunkCount -ge [int]$case.expectedMinChunks) {
+      $signals += "html_multi_chunk"
     }
   } elseif ($case.fileType -eq "DOCX") {
     if ($text.Contains("# DOCX Parser Smoke Title")) { $signals += "docx_heading" }
@@ -643,12 +648,17 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
   $directRetrieveAttempts = 0
   $directRetrieveDiagnostic = $null
   $qaRetrieveDiagnostic = $null
+  $expectedMinChunks = if ($null -eq $case.expectedMinChunks) { $null } else { [int]$case.expectedMinChunks }
+  $multiChunkVerified = $null
   $failureReason = $null
   $parsedText = ""
   if ($parseStatus -eq "SUCCESS") {
     $parsedText = if ($detail.content) { [string]$detail.content } else { "" }
     $script:CurrentParserStage = "chunk_wait"
     $chunkCount = Wait-ChunkCount $envValues $userId ([long]$document.data.id)
+    if ($null -ne $expectedMinChunks -and $null -ne $chunkCount) {
+      $multiChunkVerified = [int]$chunkCount -ge $expectedMinChunks
+    }
     $question = "请根据文档回答 $($case.query)"
     $script:CurrentParserStage = "retrieve"
     $retrieve = $null
@@ -728,11 +738,13 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
       $failureReason = "qa returned no citation"
     } elseif (-not $sourceLocatorPresent) {
       $failureReason = "citation source locator is incomplete"
+    } elseif ($multiChunkVerified -eq $false) {
+      $failureReason = "expected minimum chunk count was not reached"
     }
   } else {
     $failureReason = "parse failed"
   }
-  $structureSignals = Get-FixtureStructureSignals $case $parseStatus $parsedText $sourceLocatorPresent
+  $structureSignals = Get-FixtureStructureSignals $case $parseStatus $parsedText $sourceLocatorPresent $chunkCount
   $script:CurrentParserStage = ""
   $caseResult = [ordered]@{
     fileType = $case.fileType
@@ -743,6 +755,8 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     blockCount = $null
     warningCount = $null
     chunkCount = $chunkCount
+    expectedMinChunks = $expectedMinChunks
+    multiChunkVerified = $multiChunkVerified
     retrieveHit = $retrieveHit
     directRetrieveHit = $directRetrieveHit
     qaRetrievalHit = $qaRetrievalHit
@@ -1002,6 +1016,8 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
     }
   }
   $chunkCountKnown = @($results | Where-Object { $null -ne $_.chunkCount }).Count
+  $multiChunkExpected = @($results | Where-Object { $null -ne $_.expectedMinChunks }).Count
+  $multiChunkVerified = @($results | Where-Object { $_.multiChunkVerified -eq $true }).Count
   $chunkCount = $null
   if ($chunkCountKnown -gt 0) {
     $chunkCount = 0
@@ -1050,6 +1066,9 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   if ($fileCount -gt 0 -and $directRetrieveHitCount -lt $fileCount) {
     $reviewReasons += "direct_retrieve_missing"
   }
+  if ($multiChunkExpected -gt 0 -and $multiChunkVerified -lt $multiChunkExpected) {
+    $reviewReasons += "multi_chunk_source_coverage_missing"
+  }
   if ($null -ne $negativeCaseFailCount -and [int]$negativeCaseFailCount -gt 0) {
     $reviewReasons += "parser_boundary_failed"
   }
@@ -1082,6 +1101,11 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
       coveredSignals = $coveredStructureSignals
       missingSignals = $missingStructureSignals
       allCovered = ($missingStructureSignals.Count -eq 0)
+    }
+    multiChunkSummary = [ordered]@{
+      expectedFileCount = $multiChunkExpected
+      verifiedFileCount = $multiChunkVerified
+      allVerified = if ($multiChunkExpected -eq 0) { $null } else { $multiChunkVerified -eq $multiChunkExpected }
     }
     parseStatusSummary = [ordered]@{
       fileCount = $fileCount
@@ -1133,8 +1157,8 @@ if ($Mode -eq "plan") {
   [ordered]@{
     mode = "plan"
     willCreateBusinessData = $false
-    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures including local HTML noise-isolation fixture", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
-    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "expectedStructures", "structureSignals", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
+    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures including local HTML noise-isolation and multi-chunk fixture", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
+    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "expectedMinChunks", "multiChunkVerified", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "expectedStructures", "structureSignals", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -1144,7 +1168,7 @@ if ($Mode -eq "dry-run") {
   [ordered]@{
     mode = "dry-run"
     willCreateBusinessData = $false
-    checks = @("script parameters parsed", "fixture recipes including local HTML noise isolation available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
+    checks = @("script parameters parsed", "fixture recipes including local HTML noise isolation and multi-chunk coverage available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
     supportedTypes = @("PDF", "HTML", "DOCX")
     parserQualityReport = @("fileTypeCoverage", "fixtureStructureCoverage", "parseStatusSummary", "sourceLocatorSummary", "ragChainSummary", "boundarySummary", "warningsSummary", "reviewReasons")
   } | ConvertTo-Json -Depth 10
@@ -1211,6 +1235,7 @@ try {
 
   $failedCore = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" -or -not $_.retrieveHit -or -not $_.citationPresent })
   $locatorReview = @($results | Where-Object { -not $_.sourceLocatorPresent })
+  $multiChunkReview = @($results | Where-Object { $null -ne $_.expectedMinChunks -and $_.multiChunkVerified -ne $true })
   if ($script:EnvironmentUnstable -and $failedCore.Count -gt 0) {
     $parserStatus = "BLOCKED"
     $parserChecks = @("local runtime environment became unstable before parser chain could be judged")
@@ -1223,6 +1248,9 @@ try {
   } elseif (@($results | Where-Object { -not $_.directRetrieveHit }).Count -gt 0) {
     $parserStatus = "REVIEW"
     $parserChecks = @("parser QA retrieval and citation passed, but direct retrieve endpoint did not return hits for every fixture")
+  } elseif ($multiChunkReview.Count -gt 0) {
+    $parserStatus = "REVIEW"
+    $parserChecks = @("one or more parser fixtures did not reach the expected minimum chunk count")
   } else {
     $parserStatus = "PASS"
     $parserChecks = @("PDF/HTML/DOCX upload parse retrieve citation passed")

@@ -4,6 +4,26 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-10 Document Parser Multi-Chunk Real Chain
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- `docpilot-parser-real-chain-20260710143019-38705a`
+
+已验证：
+
+- HTML fixture 以脱敏长正文触发默认 `800/120` chunk 策略，实际 `chunkCount=5`、`expectedMinChunks=2`、`multiChunkVerified=true`。
+- HTML 的 Qdrant direct retrieve 与 QA retrieval 均返回 `5` 个 hits / citations；PDF / HTML / DOCX 三类文件累计 `7` 个 chunk，上传、异步解析、citation、source locator、parser boundary 和 artifact redaction 均通过。
+- `fixtureStructureCoverage.expectedSignals=11`、`coveredSignals=11`、`missingSignals=0`、`allCovered=true`；环境稳定，runner 已清理本轮 local tunnel、backend、frontend。
+
+边界：此证据证明 parser 真实链路不再只依赖单 chunk fixture，并且多 chunk HTML 仍可检索和引用；当前只验收至少一条 citation 来源定位，未主张所有跨 block chunk 都有精确 locator，也不代表 OCR、扫描件、旧 `.doc`、复杂版面、外部网页抓取或大规模解析 benchmark。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-10 Document Parser Natural HTML Noise Isolation
 
 状态：PASS
