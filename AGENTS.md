@@ -55,7 +55,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/start-cloud-tunnels.ps1
 
 真实链路验证优先走本地 SSH tunnel、后端、前端和 smoke runner。用户明确进入自驱迭代模式后，视为已授权代理在当前大目标内自行启动本地 tunnel、后端、前端，运行真实 smoke，创建带统一 marker 的临时 smoke 用户 / 文档 / KnowledgeBase / Conversation，并生成 ignored 脱敏 artifact；这些操作不再需要逐次等待用户确认。涉及云服务器 Docker / `hk-ops` 时，只读诊断（状态、日志、端口、网络、健康检查、非敏感计数）可在说明目的和命令类别后执行；启动、停止、重启、删除、迁移、改防火墙、改云资源、清空数据或修改数据库结构仍必须单独获得用户明确授权。不得为了方便绕过本地证据直接做远程破坏性操作。
 
-涉及前端开发或改善的工作请和 Gemini CLI 协作，Gemini CLI 负责创意、方案和代码建议，Codex 负责安全审查、代码落地、验证和文档回写；默认先用 `gemini-2.5-flash` 做短探测，正式协作优先用 `gemini-3.1-pro-preview`，外层超时建议 `180000ms`；Gemini CLI 不直接接触 `.env`、secrets、远程服务器操作、数据库迁移或不相关文件。详细规则见 `docs/ai-dev/CONSTRAINTS.md`。
+涉及前端开发或改善的工作请和 Gemini CLI 协作，Gemini CLI 负责创意、方案和代码建议，Codex 负责安全审查、代码落地、验证和文档回写；所有 Gemini CLI 调用必须显式使用 `gemini-3.5-flash`，包括短探测和正式协作，外层超时建议 `180000ms`。模型不可用、超时或返回异常时由 Codex 直接完成，不自动降级或改用其他模型；Gemini CLI 不直接接触 `.env`、secrets、远程服务器操作、数据库迁移或不相关文件。详细规则见 `docs/ai-dev/CONSTRAINTS.md`。
 
 实际运行前请根据 `backend/README.md`、`frontend/README.md`、`.run/` 配置和 `.env.example` /检查环境变量。不要提交真实 `.env`、密钥、密码、token、云服务地址或连接串。
 
@@ -104,7 +104,7 @@ curl http://localhost:8081/actuator/health
 10. 不要留下本地服务进程或端口占用；如启动了后端、前端或脚本服务，结束前要清理并说明端口状态。
 11. 如果发现工作区有未提交改动或未跟踪文件，必须先向用户汇报，不要直接执行 `git add` / `git commit` / `git push`。
 12. 每轮开始必须检查 `.env`、`.env.local`、`.env.*`、`application-*.yml`、`*.example` 中是否存在硬编码密钥、密码、token、真实云服务 IP；如有必须先告警，不能把敏感值复制到回复里。
-13. 使用 subagents、context7 MCP、playwright MCP 或远程 `hk-ops` 前，先遵守本文件和 `docs/ai-dev/CONSTRAINTS.md`；旧工具边界可按需参考 `docs/archive/CODEX_TOOLING.md`。自驱迭代模式下允许为真实链路验证执行本地 tunnel / smoke / 只读远程诊断；远程破坏性操作仍必须单独授权，禁止泄露凭据或执行未经授权的破坏性操作。
+13. 使用 subagents、context7 MCP、playwright MCP 或远程 `hk-ops` 前，先遵守本文件和 `docs/ai-dev/CONSTRAINTS.md`；旧工具边界可按需参考 `docs/archive/CODEX_TOOLING.md`。主 Agent 负责拆解、关键路径、跨任务决策和最终汇总，并须按子任务难度、时效和额度消耗显式选择模型能力与推理强度：阅读、搜索、扫描优先高效档与低/标准推理；常规实现、测试和文档整理优先平衡档与标准推理；架构决策、疑难根因、安全关键判断和最终审查才使用高能力档与高推理。子 Agent 不得无条件继承主 Agent 的高能力配置；用户明确指定模型或强度时优先遵从，平台无法显式选型时使用最接近的可用档位并由主 Agent 补足审查。自驱迭代模式下允许为真实链路验证执行本地 tunnel / smoke / 只读远程诊断；远程破坏性操作仍必须单独授权，禁止泄露凭据或执行未经授权的破坏性操作。
 
 ## 自驱迭代模式
 

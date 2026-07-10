@@ -123,9 +123,9 @@
    - `$env:GOOGLE_GEMINI_BASE_URL = [Environment]::GetEnvironmentVariable('GOOGLE_GEMINI_BASE_URL','User')`
    - `$env:GEMINI_API_KEY = [Environment]::GetEnvironmentVariable('GEMINI_API_KEY','User')`
    - 禁止输出、复制或写入这些变量的真实值。
-4. 可用性探测使用短 prompt 和显式模型，只确认 READY 类返回；默认先用轻量模型探测，外层工具超时建议设置为 `180000ms`：
-   - `gemini.cmd -m gemini-2.5-flash --prompt "Reply exactly: READY"`
-5. 正式前端方案 / UI 可读性 / 单文件建议优先使用 `gemini-3.1-pro-preview`；如果该模型不可用、超时或返回工具流异常，再降级到 `gemini-2.5-flash` 或由 Codex 直接完成。
+4. 可用性探测使用短 prompt 和显式模型，只确认 READY 类返回；所有 Gemini CLI 调用固定使用 `gemini-3.5-flash`，外层工具超时建议设置为 `180000ms`：
+   - `gemini.cmd -m gemini-3.5-flash --prompt "Reply exactly: READY"`
+5. 正式前端方案 / UI 可读性 / 单文件建议同样固定使用 `gemini-3.5-flash`，并且必须显式传入 `-m gemini-3.5-flash`；模型不可用、超时或返回工具流异常时，由 Codex 直接完成，不自动降级或改用其他模型。只有用户明确更新本规则后，才能使用不同模型。
 6. 长 prompt、源码和大上下文通过 stdin 传入 Gemini，不塞进命令行参数，避免 PowerShell 命令行长度限制；正式协作请求同样建议外层超时 `180000ms`，避免 45 秒级超时误判为 Gemini 不可用。
 7. 推荐协作模式：
    - Gemini 输出设计方向、patch 建议或单文件完整方案。
@@ -138,6 +138,18 @@
    - 不让 Gemini 操作远程服务器、云服务器 Docker 中间件或数据库迁移。
    - 不让 Gemini 修改与当前任务无关的文件。
 10. 验证归属固定为 Codex：最终 lint、build、Playwright、乱码扫描、进程清理和 ai-dev 文档回写都由 Codex 执行；Gemini 输出不能直接写成已验证结果。
+
+## 6.1 子 Agent 调度与模型分层
+
+1. 主 Agent 负责任务拆解、模型与推理档位选择、关键路径推进、跨任务决策、结果集成和最终汇总；子 Agent 只承担边界明确、可独立验证的子任务。
+2. 派发前必须在任务说明中写明目标、文件或系统范围、预期输出、所选能力档位和推理强度；选择依据为任务难度、时效和额度消耗，不按主 Agent 的配置默认继承。
+3. 默认分层如下：
+   - 阅读、搜索、代码地图、静态扫描和资料整理：使用高效档，推理强度为低或标准。
+   - 常规实现、定向测试、文档整理和局部回归：使用平衡档，推理强度为标准。
+   - 架构决策、重复失败后的根因分析、安全或生产边界判断、跨模块高风险修改审查和最终审查：使用高能力档，推理强度为高。
+4. 高能力档不得用于普通扫描、例行整理或可由平衡档闭环的常规实现；只有任务升级到第 3 条第三类，或用户明确要求时才升级。
+5. 用户明确指定模型或推理强度时优先遵从；平台无法显式选择模型时，使用最接近的可用能力档位，并在任务结果中说明回退与主 Agent 的补充审查。
+6. 模型分层不放宽现有安全边界：子 Agent 仍不得接触或输出 `.env`、凭据、云地址和连接串，仍不得执行未经授权的远程破坏性操作、数据库迁移、`git commit` 或 `git push`。
 
 ## 7. 验证与收尾约束
 
