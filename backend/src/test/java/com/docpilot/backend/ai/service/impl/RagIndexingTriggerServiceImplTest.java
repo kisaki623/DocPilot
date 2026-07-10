@@ -20,6 +20,9 @@ import com.docpilot.backend.ai.service.RagIndexingService;
 import com.docpilot.backend.ai.service.RagScopeGuard;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
+import com.docpilot.backend.document.parser.BlockType;
+import com.docpilot.backend.document.parser.DocumentBlock;
+import com.docpilot.backend.document.parser.ParseResult;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import org.junit.jupiter.api.Test;
@@ -28,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -192,6 +196,82 @@ class RagIndexingTriggerServiceImplTest {
         assertThat(result.hits()).anySatisfy(hit -> assertThat(hit.content()).contains("Redis cache"));
         assertThat(result.citations()).isNotEmpty();
         assertThat(result.citations().get(0).index()).isEqualTo(result.hits().get(0).citationIndex());
+    }
+
+    @Test
+    void shouldCarryParserBlockLocatorThroughIndexingToRetrievalCitation() {
+        DocumentMapper documentMapper = mock(DocumentMapper.class);
+        Document document = new Document();
+        document.setId(61L);
+        document.setUserId(7L);
+        when(documentMapper.selectById(61L)).thenReturn(document);
+        MockEmbeddingProvider embeddingProvider = new MockEmbeddingProvider(64, "mock-parser-contract");
+        InMemoryVectorStoreClient vectorStoreClient = new InMemoryVectorStoreClient();
+        RagIndexingServiceImpl indexingService = new RagIndexingServiceImpl(
+                new ChunkingServiceImpl(),
+                new InMemoryDocumentChunkService(),
+                embeddingProvider,
+                vectorStoreClient,
+                new RagEmbeddingProperties(),
+                new RagVectorStoreProperties()
+        );
+        RagIndexingTriggerServiceImpl triggerService = new RagIndexingTriggerServiceImpl(
+                indexingService,
+                new RagScopeGuard(documentMapper),
+                Runnable::run
+        );
+        RagDocumentRetrievalService retrievalService = new RagDocumentRetrievalServiceImpl(
+                documentMapper,
+                embeddingProvider,
+                vectorStoreClient,
+                new RagEmbeddingProperties(),
+                new RagQaProperties()
+        );
+        String parsedText = "# Parser Evidence\n\nPDF page citation marker.";
+        ParseResult parseResult = new ParseResult(
+                61L,
+                "parser-contract.pdf",
+                "application/pdf",
+                2048L,
+                parsedText,
+                List.of(new DocumentBlock(
+                        0,
+                        BlockType.PAGE,
+                        parsedText,
+                        2,
+                        "Parser Evidence",
+                        "Parser Evidence",
+                        0,
+                        parsedText.length(),
+                        "page:2"
+                )),
+                Map.of("format", "pdf"),
+                List.of(),
+                "pdfbox",
+                "1",
+                1L,
+                parsedText.length(),
+                2,
+                1
+        );
+
+        triggerService.triggerAfterParseSuccess(7L, 61L, parseResult);
+        RagRetrievalResult result = retrievalService.retrieve(new RagRetrievalQuery(
+                7L,
+                61L,
+                "Where is the PDF page citation marker?",
+                3,
+                1,
+                "mock-parser-contract"
+        ));
+
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.citations()).singleElement().satisfies(citation -> {
+            assertThat(citation.sectionPath()).isEqualTo("Parser Evidence");
+            assertThat(citation.pageNumber()).isEqualTo(2);
+            assertThat(citation.sourceLocator()).isEqualTo("page:2");
+            assertThat(citation.blockType()).isEqualTo("PAGE");
+        });
     }
 
     private static final class InMemoryDocumentChunkService implements DocumentChunkService {

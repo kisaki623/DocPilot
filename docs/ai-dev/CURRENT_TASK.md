@@ -1,6 +1,13 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 自然样本 fixture v2（DONE）；下一片：Document Parser chunk 来源定位端到端 contract 审计（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser chunk 来源定位端到端 contract 审计（DONE）；下一片：Document Parser 自然结构真实 smoke v3（READY）
+
+## 2026-07-10 补充：Document Parser chunk 来源定位端到端 contract 审计
+
+- 审计结论：现有生产链路已完整保留 `ParseResult.DocumentBlock` 的 `pageNumber`、`sectionPath`、`sourceLocator` 与 `blockType`：`RagIndexingTriggerServiceImpl` 转为 `RagSourceBlock`，`ChunkingServiceImpl` 写入 chunk structure metadata，`RagIndexingServiceImpl` 带入 vector payload，`RagDocumentRetrievalServiceImpl` 再组装为 citation。
+- 已补闭环测试：`RagIndexingTriggerServiceImplTest.shouldCarryParserBlockLocatorThroughIndexingToRetrievalCitation` 使用脱敏 PDF 式 `ParseResult`、受控同步 executor、mock embedding 和 in-memory vector store，断言 retrieval citation 返回 `sectionPath=Parser Evidence`、`pageNumber=2`、`sourceLocator=page:2` 与 `blockType=PAGE`。
+- 已验证：`mvn "-Dtest=RagIndexingTriggerServiceImplTest,RagIndexingServiceImplTest,ChunkingServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS（43 tests，0 skipped）。
+- 边界：该 contract 是离线内存回归，不替代 Qdrant runtime smoke；不新增 schema、不改检索阈值或 citation API、不展示文档全文、query、prompt、answer 原文、evidence context、token、secret、连接串或云地址。下一片把自然 HTML 噪声隔离纳入真实 parser smoke 的脱敏 gate，再运行一次小样本真实链路验证。
 
 ## 2026-07-10 补充：Document Parser 自然样本 fixture v2
 

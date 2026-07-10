@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-10 Document Parser chunk 来源定位 contract
+
+- 新增 `RagIndexingTriggerServiceImplTest` 闭环用例：脱敏 parser block 的页码、章节路径、来源定位和 block type 经 indexing trigger、chunk、in-memory vector retrieval 后仍进入 citation。
+- 验证：`mvn "-Dtest=RagIndexingTriggerServiceImplTest,RagIndexingServiceImplTest,ChunkingServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS（43 tests，0 skipped）。
+- 边界：离线 contract 不替代 Qdrant runtime 验证，不改 schema、检索阈值或 citation API；下一片把自然 HTML 噪声隔离纳入真实 parser smoke gate。
+
 ## 2026-07-10 Document Parser 自然样本 fixture v2
 
 - `HtmlDocumentParser` 的本地 HTML 噪声剔除新增 `aside`，避免相关推荐 / 推广辅助栏混入 RAG 文本；不执行脚本、不访问外部资源。
