@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-10 阿里云百炼 Qwen 运行配置（VERIFIED）
+
+- 当前本机真实回答使用百炼 `qwen-plus`，向量化使用百炼 OpenAI-compatible `text-embedding-v4`；回答最小请求、RAG 上下文请求和 1024 维 embedding 探测均成功。
+- 完整真实 cloud quality run `docpilot-cloud-quality-20260710195347-5fbdb7` PASS，现有 Qdrant collection 与新 embedding 维度兼容，核心 RAG、Agent、权限和浏览器交互均通过。
+- 旧 embedding 模型标识导致的索引失败已验证修复，详见 `REA-20260710-P2-013`。上述切换只在 ignored 本机 `.env` 生效，不代表仓库默认 provider 已改。
+
 ## 2026-07-10 SSE RAG 失败语义（REVIEW）
 
 - 流式 RAG 现在区分检索降级、首 token 前生成失败和部分回答中断；检索降级以非致命 `fallback` 事件继续返回已有降级答案。

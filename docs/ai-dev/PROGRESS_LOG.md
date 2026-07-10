@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-10 阿里云百炼 Qwen 切换验证
+
+- 切换回答模型后，发现遗留 embedding 模型标识在百炼 endpoint 返回 404，导致 parse 成功后的向量索引为 0；改为百炼官方 `text-embedding-v4` 后返回 1024 维向量。
+- 完整 cloud quality marker `docpilot-cloud-quality-20260710195347-5fbdb7` PASS：上传、解析、索引、Qdrant 一致性、单文档 / KnowledgeBase / 短文档 RAG、Conversation / Memory、Agent、权限和浏览器交互全部通过。
+- 边界：配置仅在 ignored 本机 `.env`，未提交 Key、网关或业务空间信息，未改数据库、远端 collection、示例或默认配置。
+
 ## 2026-07-10 SSE 流式 RAG 失败语义
 
 - 修复后端把模型生成失败误标为 retrieval fallback、以及前端在已有 chunk 后仍无条件重放非流式回答的问题；新增结构化 `stage` 和非致命 `fallback` 事件。

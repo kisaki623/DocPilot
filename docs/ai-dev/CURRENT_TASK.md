@@ -2,6 +2,13 @@
 
 当前任务：优先级 2 RAG 可靠性（IN_PROGRESS）；当前片：SSE 流式 RAG 失败语义（REVIEW，待真实浏览器失败注入验证）；上一片：单文档 / KnowledgeBase RAG 读取窗口调优（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
 
+## 2026-07-10 补充：阿里云百炼 Qwen 真实链路切换（VERIFIED）
+
+- 本机真实回答模型已切为百炼 `qwen-plus`，embedding 已切为百炼 OpenAI-compatible `text-embedding-v4`；遗留的旧 embedding 标识会返回 404，已登记并修复 `REA-20260710-P2-013`。
+- 探测结果：最小回答与脱敏 RAG 上下文调用均成功；embedding 返回 1024 维向量，与当前 Qdrant 运行配置兼容。
+- 真实验证：完整 cloud quality run `docpilot-cloud-quality-20260710195347-5fbdb7` PASS，覆盖上传解析、索引、单文档 / KnowledgeBase / 短文档 RAG、Conversation / Memory、Agent、权限与前端交互；runner cleanup 已完成。
+- 边界：仅调整 ignored 本机 `.env`，未提交 API Key、业务空间网关或其他连接信息，未改数据库、远端 collection、项目示例或默认 provider。
+
 ## 2026-07-10 补充：SSE 流式 RAG 失败语义（REVIEW）
 
 - 已完成：后端区分 `retrieval`、首 token 前 `generation` 和已输出内容后的 `generation_partial`；检索降级改为非致命 `fallback` 事件，前端继续消费降级 chunk / done。

@@ -60,6 +60,7 @@
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
 | `REA-20260710-P1-012` | VERIFIED（已验证） | P1 | 真实链路稳定性问题 | Single-document RAG QA | `docpilot-cloud-quality-20260710173219-d801d9` | 解析与索引通过后单文档 RAG 回答模型读取窗口不足 |
+| `REA-20260710-P2-013` | VERIFIED（已验证） | P2 | 真实链路稳定性问题 | RAG Indexing | `docpilot-cloud-quality-20260710194619-390475` | 切换百炼后遗留 embedding 模型标识导致索引失败 |
 | `REA-20260710-P1-011` | OPEN | P1 | 安全依赖风险 | Frontend dependency supply chain | `npm-audit-frontend-20260710` | 前端生产依赖存在可修复的 critical / moderate 漏洞 |
 | `REA-20260703-P1-001` | VERIFIED（已验证） | P1 | 功能 bug | RAG | `docpilot-real-audit-20260703195519-5118e8` | 短 txt parse 成功但单文档 RAG 无 evidence |
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
@@ -125,6 +126,31 @@
 修复提交：`cbf12d2`（RAG 受限重试、脱敏诊断与 smoke runner 业务码保留）。
 
 验证记录：`AiRetryExecutorTest`、`RagQaServiceImplTest`、`KnowledgeBaseRagQaServiceImplTest` 与 `CloudQualitySmokeScriptSafetyTest` 共 `29` 项通过；完整真实 smoke `docpilot-cloud-quality-20260710191822-ec80b6` PASS，覆盖 tunnel、上传解析、chunk、MySQL / Qdrant 一致性、单文档 / KnowledgeBase / 短文档 RAG、Conversation / Memory、Agent、权限、浏览器交互、cleanup 与 artifact redaction。artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，未提交原始 artifact、日志、临时文档或凭据。
+
+### `REA-20260710-P2-013` 切换百炼后遗留 embedding 模型标识导致索引失败
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P2
+- 类型：真实链路稳定性问题
+- 模块：RAG Indexing
+- 发现 marker：`docpilot-cloud-quality-20260710194619-390475`
+- 修复验证 marker：`docpilot-cloud-quality-20260710195347-5fbdb7`
+
+实际结果：
+
+- tunnel、backend health、认证和首份文档解析通过；解析日志显示 `parser=text`、`blockCount=4`。
+- 随后 `RagIndexingTriggerServiceImpl` 记录 `status=FAILED`、`chunks=4`、`vectors=0`；runner 在等待 indexed chunks 时超时并以 `FAILED_CORE_FLOW` 收口。
+- 本轮尚未进入任何模型回答请求，不能归因于百炼模型；cleanup 与 artifact redaction 均 PASS。
+- 最小 embedding 探测返回 HTTP 404，确认旧的 embedding 模型标识不被当前百炼 OpenAI-compatible endpoint 支持。
+- 将本机 ignored embedding 模型名切为百炼官方 `text-embedding-v4` 后，探测返回 1024 维向量；完整 cloud quality smoke 通过 parse、index、Qdrant consistency、RAG、Agent、权限与浏览器交互。
+
+预期结果：
+
+- parse 成功的临时文档应完成向量索引并产出 vectors，随后进入 RAG QA 门禁。
+
+后续：
+
+- 配置修复仅在 ignored 本机 `.env` 中生效，未提交 Key、网关、业务空间或其他敏感配置；未改数据库或远端 collection。
 
 ## 2026-07-10 前端生产依赖审计
 
