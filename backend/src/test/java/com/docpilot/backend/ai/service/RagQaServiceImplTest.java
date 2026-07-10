@@ -1,6 +1,8 @@
 package com.docpilot.backend.ai.service;
 
 import com.docpilot.backend.ai.entity.DocumentQaHistory;
+import com.docpilot.backend.ai.exception.AiNonRetryableException;
+import com.docpilot.backend.ai.exception.AiRetryableException;
 import com.docpilot.backend.ai.mapper.DocumentQaHistoryMapper;
 import com.docpilot.backend.ai.rag.RagEvidenceCitation;
 import com.docpilot.backend.ai.rag.RagQaAnswer;
@@ -10,6 +12,7 @@ import com.docpilot.backend.ai.rag.RagRetrievalHit;
 import com.docpilot.backend.ai.rag.RagRetrievalQuery;
 import com.docpilot.backend.ai.rag.RagRetrievalResult;
 import com.docpilot.backend.ai.service.impl.RagQaServiceImpl;
+import com.docpilot.backend.ai.service.impl.AiRetryExecutor;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
@@ -18,6 +21,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -117,6 +122,53 @@ class RagQaServiceImplTest {
     }
 
     @Test
+    void shouldReportHistoryPersistenceFailureAsAiCallFailureWithoutRetryingRetrieval() {
+        when(retrievalService.retrieve(any())).thenReturn(resultWithEvidence());
+        when(aiAnswerService.answer(any(), any())).thenReturn("Use Redis cache [1].");
+        when(documentQaHistoryMapper.insert(any(DocumentQaHistory.class)))
+                .thenThrow(new IllegalStateException("history store unavailable"));
+        RagQaServiceImpl service = service(new RagQaProperties());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.answer(new RagQaQuery(7L, 101L, "question", 3, 1, "")));
+
+        assertEquals(ErrorCode.AI_CALL_FAILED, ex.getErrorCode());
+        verify(aiAnswerService, times(1)).answer(any(), any());
+        verify(documentQaHistoryMapper, times(1)).insert(any(DocumentQaHistory.class));
+    }
+
+    @Test
+    void shouldRetryOnlyRetryableModelCallAndSaveHistoryOnceAfterSuccess() {
+        when(retrievalService.retrieve(any())).thenReturn(resultWithEvidence());
+        when(aiAnswerService.answer(any(), any()))
+                .thenThrow(new AiRetryableException("temporary model failure"))
+                .thenReturn("Use Redis cache [1].");
+        RagQaServiceImpl service = serviceWithRetry(new RagQaProperties());
+
+        RagQaAnswer answer = service.answer(new RagQaQuery(7L, 101L, "question", 3, 1, ""));
+
+        assertThat(answer.answer()).isEqualTo("Use Redis cache [1].");
+        verify(retrievalService, times(1)).retrieve(any());
+        verify(aiAnswerService, times(2)).answer(any(), any());
+        verify(documentQaHistoryMapper, times(1)).insert(any(DocumentQaHistory.class));
+    }
+
+    @Test
+    void shouldNotRetryNonRetryableModelFailure() {
+        when(retrievalService.retrieve(any())).thenReturn(resultWithEvidence());
+        when(aiAnswerService.answer(any(), any())).thenThrow(new AiNonRetryableException("invalid request"));
+        RagQaServiceImpl service = serviceWithRetry(new RagQaProperties());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.answer(new RagQaQuery(7L, 101L, "question", 3, 1, "")));
+
+        assertEquals(ErrorCode.AI_CALL_FAILED, ex.getErrorCode());
+        verify(retrievalService, times(1)).retrieve(any());
+        verify(aiAnswerService, times(1)).answer(any(), any());
+        verify(documentQaHistoryMapper, never()).insert(any(DocumentQaHistory.class));
+    }
+
+    @Test
     void shouldEmitRagSseEventsInOrder() {
         when(retrievalService.retrieve(any())).thenReturn(resultWithEvidence());
         doAnswer(invocation -> {
@@ -173,6 +225,16 @@ class RagQaServiceImplTest {
 
     private RagQaServiceImpl service(RagQaProperties properties) {
         return new RagQaServiceImpl(retrievalService, aiAnswerService, documentQaHistoryMapper, properties);
+    }
+
+    private RagQaServiceImpl serviceWithRetry(RagQaProperties properties) {
+        AiRetryExecutor retryExecutor = new AiRetryExecutor();
+        ReflectionTestUtils.setField(retryExecutor, "retryEnabled", true);
+        ReflectionTestUtils.setField(retryExecutor, "maxAttempts", 3);
+        ReflectionTestUtils.setField(retryExecutor, "initialBackoffMs", 1L);
+        ReflectionTestUtils.setField(retryExecutor, "backoffMultiplier", 2.0D);
+        ReflectionTestUtils.setField(retryExecutor, "maxBackoffMs", 10L);
+        return new RagQaServiceImpl(retrievalService, aiAnswerService, documentQaHistoryMapper, properties, retryExecutor);
     }
 
     private RagRetrievalResult resultWithEvidence() {

@@ -6,10 +6,14 @@ import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalHit;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalQuery;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalResult;
 import com.docpilot.backend.ai.rag.RagQaProperties;
+import com.docpilot.backend.ai.exception.AiNonRetryableException;
+import com.docpilot.backend.ai.exception.AiRetryableException;
+import com.docpilot.backend.ai.service.impl.AiRetryExecutor;
 import com.docpilot.backend.ai.service.impl.KnowledgeBaseRagQaServiceImpl;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -111,11 +116,12 @@ class KnowledgeBaseRagQaServiceImplTest {
     void shouldFallbackWithEvidenceWhenAnswerGenerationFails() {
         when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(retrieval(false));
         when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
-                .thenThrow(new IllegalStateException("model timeout"));
+                .thenThrow(new AiNonRetryableException("invalid request"));
         when(aiAnswerService.provider()).thenReturn("real");
         when(aiAnswerService.model()).thenReturn("real-model");
 
-        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+        KnowledgeBaseRagQaServiceImpl retryEnabledService = serviceWithRetry();
+        KnowledgeBaseRagQaAnswer answer = retryEnabledService.answer(new KnowledgeBaseRagQaQuery(
                 7L,
                 10L,
                 "summary?",
@@ -135,6 +141,45 @@ class KnowledgeBaseRagQaServiceImplTest {
         assertThat(answer.audit().grounded()).isFalse();
         assertThat(answer.audit().citationCount()).isEqualTo(1);
         assertThat(answer.audit().fallbackReason()).isEqualTo("answer_generation_failed");
+        verify(aiAnswerService, times(1)).answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString());
+    }
+
+    @Test
+    void shouldRetryRetryableModelFailureAndReportActualModelAttemptCount() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(retrieval(false));
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenThrow(new AiRetryableException("temporary failure"))
+                .thenReturn("Use Redis [1].");
+        KnowledgeBaseRagQaServiceImpl retryEnabledService = serviceWithRetry();
+
+        KnowledgeBaseRagQaAnswer answer = retryEnabledService.answer(new KnowledgeBaseRagQaQuery(
+                7L, 10L, "cache?", 3, 1, "s1"
+        ));
+
+        assertThat(answer.answer()).isEqualTo("Use Redis [1].");
+        assertThat(answer.fallbackUsed()).isFalse();
+        assertThat(answer.modelCallCount()).isEqualTo(2);
+        verify(retrievalService, times(1)).retrieve(org.mockito.Mockito.any());
+        verify(aiAnswerService, times(2)).answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString());
+    }
+
+    @Test
+    void shouldFallbackAfterRetryExhaustionAndReportAllModelAttempts() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(retrieval(false));
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenThrow(new AiRetryableException("temporary failure"));
+        KnowledgeBaseRagQaServiceImpl retryEnabledService = serviceWithRetry();
+
+        KnowledgeBaseRagQaAnswer answer = retryEnabledService.answer(new KnowledgeBaseRagQaQuery(
+                7L, 10L, "cache?", 3, 1, "s1"
+        ));
+
+        assertThat(answer.fallbackUsed()).isTrue();
+        assertThat(answer.fallbackReason()).isEqualTo("answer_generation_failed");
+        assertThat(answer.modelCallCount()).isEqualTo(3);
+        assertThat(answer.retrieval().citations()).hasSize(1);
+        verify(retrievalService, times(1)).retrieve(org.mockito.Mockito.any());
+        verify(aiAnswerService, times(3)).answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString());
     }
 
     @Test
@@ -298,6 +343,16 @@ class KnowledgeBaseRagQaServiceImplTest {
                 "mock-model",
                 Map.of(101L, hits.size())
         );
+    }
+
+    private KnowledgeBaseRagQaServiceImpl serviceWithRetry() {
+        AiRetryExecutor retryExecutor = new AiRetryExecutor();
+        ReflectionTestUtils.setField(retryExecutor, "retryEnabled", true);
+        ReflectionTestUtils.setField(retryExecutor, "maxAttempts", 3);
+        ReflectionTestUtils.setField(retryExecutor, "initialBackoffMs", 1L);
+        ReflectionTestUtils.setField(retryExecutor, "backoffMultiplier", 2.0D);
+        ReflectionTestUtils.setField(retryExecutor, "maxBackoffMs", 10L);
+        return new KnowledgeBaseRagQaServiceImpl(retrievalService, aiAnswerService, ragQaProperties, retryExecutor);
     }
 
     private KnowledgeBaseRagRetrievalResult numericDistractorRetrieval() {

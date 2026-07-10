@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-10 RAG 回答模型可靠性（REVIEW）
+
+- 单文档 RAG 与 KnowledgeBase RAG 已统一接入现有 `AiRetryExecutor`，且重试仅包围 `AiAnswerService.answer(...)`；不会重复检索、构造 prompt、精炼 citation 或写入单文档历史。
+- AI 重试、单文档 RAG 与 KnowledgeBase RAG 的失败日志已改为只记录安全维度和异常类型；KnowledgeBase 的 `modelCallCount` 现在反映真实模型尝试次数。
+- 本片不对 SSE 流式回答自动重放：部分 chunk 已发送时重试会造成重复输出，需作为独立体验切片处理。
+- 定向回归 `AiRetryExecutorTest`、`RagQaServiceImplTest`、`KnowledgeBaseRagQaServiceImplTest`、`CloudQualitySmokeScriptSafetyTest` 共 28 项 PASS。完整真实 cloud quality run 的上传解析、chunk、MySQL / Qdrant 一致性均 PASS，但回答供应商的可重试失败在 3 次受限尝试后仍未恢复，整体 `FAILED_CORE_FLOW`。
+- 因真实回答体验尚未通过，本能力为 REVIEW，不可表述为已完成的稳定 RAG 质量闭环；详见 `REA-20260710-P1-012`。未改数据库、云端服务、模型超时或重试配置，runner 已清理本地服务端口。
+
 ## 2026-07-09 当前补充
 
 - 离线 Playwright E2E 路由 smoke 已接入但待首个 GitHub Actions run：前端以 production `next start` 启动临时 `3100` 端口，Chromium 覆盖 9 个未登录主导航路由的 HTTP、标题、`main` 可见性、page error 与 console error；本地 `npm run lint`、`npm run build`、`npm run test:e2e` 均 PASS，9/9 routes PASS，端口已清理。该门禁不登录、不调用 backend、不启动 tunnel、不访问云端；它只证明公开页面静态/未登录可渲染，不替代认证、上传、SSE、RAG、Agent 或云 runtime smoke。

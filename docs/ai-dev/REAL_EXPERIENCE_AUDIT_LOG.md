@@ -59,6 +59,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260710-P1-012` | REVIEW | P1 | 真实链路稳定性问题 | Single-document RAG QA | `docpilot-cloud-quality-20260710173219-d801d9` | 解析与索引通过后单文档 RAG 回答模型调用失败 |
 | `REA-20260710-P1-011` | OPEN | P1 | 安全依赖风险 | Frontend dependency supply chain | `npm-audit-frontend-20260710` | 前端生产依赖存在可修复的 critical / moderate 漏洞 |
 | `REA-20260703-P1-001` | VERIFIED（已验证） | P1 | 功能 bug | RAG | `docpilot-real-audit-20260703195519-5118e8` | 短 txt parse 成功但单文档 RAG 无 evidence |
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
@@ -73,6 +74,54 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-10 真实主链路验收失败
+
+### `REA-20260710-P1-012` 解析与索引通过后单文档 RAG 回答模型调用失败
+
+- 状态：REVIEW（代码侧受限重试已接入；真实回答供应商本轮仍不可用）
+- 严重级别：P1
+- 类型：真实链路稳定性问题
+- 模块：Single-document RAG QA
+- 初始发现 marker：`docpilot-cloud-quality-20260710173219-d801d9`
+- 业务错误复现 marker：`docpilot-cloud-quality-20260710174029-f348f5`
+- 脱敏阶段诊断 marker：`docpilot-cloud-quality-20260710184854-87db56`
+- 重试耗尽 marker：`docpilot-cloud-quality-20260710185927-727915`
+
+复现步骤：
+
+1. 运行 `cloud-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007 -EnableFrontendInteractionGate -EnableKnowledgeBaseAgentGate`。
+2. 等待双用户认证、双文档上传、异步解析、chunk 索引和 MySQL / Qdrant 一致性通过。
+3. 进入首份文档的 RAG QA 请求阶段。
+
+实际结果：
+
+- tunnel、backend health、认证、上传解析索引、chunk 质量和 MySQL / Qdrant 一致性均为 PASS。
+- 首次 `status=0` 是 smoke runner 将 HTTP 200 的非零业务码错误错误降格后的诊断缺陷；修复 runner 后，同一请求稳定返回 HTTP 200、业务码 `1013`（`AI_CALL_FAILED`）。
+- 新增脱敏阶段日志后，真实 run 记录为 `stage=model_call`、`exceptionClass=AiRetryableException`；可排除本轮的 parse、index、MySQL / Qdrant 一致性与历史写入阶段。
+- 当前单文档 RAG 未复用已有的 `AiRetryExecutor`，而普通文档 QA 路径已具备受限重试能力；整体仍为 `FAILED_CORE_FLOW`。
+- runner 已执行 cleanup，未保留本地服务端口；原始 artifact、日志、临时文档和凭据均未提交。
+- 代码修复后最终真实 run 已记录单文档回答模型调用的第 `1/3`、`2/3` 次受限重试，第三次仍为 `AiRetryableException`；因此重试逻辑已生效，但完整 quality gate 仍未通过。
+
+预期结果：
+
+- 已完成 parse / index 且 MySQL 与 Qdrant 一致的文档，应稳定完成单文档 RAG QA；短暂可恢复的回答模型失败应遵循统一、受限的重试策略。
+
+可能原因：
+
+- 回答模型调用抛出了可重试异常；其具体供应商响应仅保留在本地 ignored 日志中，不写入台账。
+- 单文档 RAG 与普通文档 QA 的回答调用可靠性策略不一致，导致一次可恢复失败直接对用户暴露 `1013`。
+- 当前剩余阻塞是回答供应商的持续可重试失败；未记录或输出其原始错误摘要，无法在不扩大日志暴露面的前提下进一步归因到具体供应商状态。
+
+建议修复位置：
+
+- `scripts/smoke/cloud-quality-smoke.ps1`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/RagQaServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/RagQaServiceImplTest.java`
+
+修复提交：待定。
+
+验证记录：`AiRetryExecutorTest`、`RagQaServiceImplTest`、`KnowledgeBaseRagQaServiceImplTest` 与 `CloudQualitySmokeScriptSafetyTest` 共 `28` 项通过；最新真实 run artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/docpilot-cloud-quality-20260710185927-727915/`，整体仍为 `FAILED_CORE_FLOW`。修复后须在回答供应商恢复后重跑完整 cloud quality gate，未提交原始 artifact、日志、临时文档或凭据。
 
 ## 2026-07-10 前端生产依赖审计
 

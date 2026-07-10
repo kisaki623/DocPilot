@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,22 +45,39 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
     private final AiAnswerService aiAnswerService;
     private final RagQaProperties ragQaProperties;
     private final KnowledgeBaseRagPromptBuilder promptBuilder;
+    private final AiRetryExecutor aiRetryExecutor;
 
     @Autowired
     public KnowledgeBaseRagQaServiceImpl(KnowledgeBaseRagRetrievalService retrievalService,
                                          AiAnswerService aiAnswerService,
+                                         RagQaProperties ragQaProperties,
+                                         AiRetryExecutor aiRetryExecutor) {
+        this(retrievalService, aiAnswerService, ragQaProperties, new KnowledgeBaseRagPromptBuilder(), aiRetryExecutor);
+    }
+
+    public KnowledgeBaseRagQaServiceImpl(KnowledgeBaseRagRetrievalService retrievalService,
+                                         AiAnswerService aiAnswerService,
                                          RagQaProperties ragQaProperties) {
-        this(retrievalService, aiAnswerService, ragQaProperties, new KnowledgeBaseRagPromptBuilder());
+        this(retrievalService, aiAnswerService, ragQaProperties, new KnowledgeBaseRagPromptBuilder(), new AiRetryExecutor());
     }
 
     public KnowledgeBaseRagQaServiceImpl(KnowledgeBaseRagRetrievalService retrievalService,
                                          AiAnswerService aiAnswerService,
                                          RagQaProperties ragQaProperties,
                                          KnowledgeBaseRagPromptBuilder promptBuilder) {
+        this(retrievalService, aiAnswerService, ragQaProperties, promptBuilder, new AiRetryExecutor());
+    }
+
+    public KnowledgeBaseRagQaServiceImpl(KnowledgeBaseRagRetrievalService retrievalService,
+                                         AiAnswerService aiAnswerService,
+                                         RagQaProperties ragQaProperties,
+                                         KnowledgeBaseRagPromptBuilder promptBuilder,
+                                         AiRetryExecutor aiRetryExecutor) {
         this.retrievalService = retrievalService;
         this.aiAnswerService = aiAnswerService;
         this.ragQaProperties = ragQaProperties == null ? new RagQaProperties() : ragQaProperties;
         this.promptBuilder = promptBuilder == null ? new KnowledgeBaseRagPromptBuilder() : promptBuilder;
+        this.aiRetryExecutor = aiRetryExecutor == null ? new AiRetryExecutor() : aiRetryExecutor;
     }
 
     @Override
@@ -96,27 +114,35 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
         if (retrieval.noEvidence()) {
             return answer(resolved, NO_EVIDENCE_ANSWER, retrieval, true, true, "no_evidence", 0);
         }
+        AtomicInteger modelAttemptCount = new AtomicInteger();
         try {
             RagPrompt prompt = promptBuilder.build(
                     resolved.question(),
                     retrieval.hits(),
                     ragQaProperties.getMaxContextChars()
             );
-            String answerText = aiAnswerService.answer(prompt.evidenceContext(), prompt.userPrompt());
+            String answerText = aiRetryExecutor.execute(
+                    "knowledge_base.rag.qa.answer",
+                    () -> {
+                        modelAttemptCount.incrementAndGet();
+                        return aiAnswerService.answer(prompt.evidenceContext(), prompt.userPrompt());
+                    }
+            );
             return answer(resolved, answerText, withAnswerAwareCitations(retrieval, answerText, resolved.question()),
-                    false, false, "", 1);
+                    false, false, "", modelAttemptCount.get());
         } catch (RuntimeException ex) {
-            log.warn("Knowledge base RAG answer generation failed. userId={}, knowledgeBaseId={}, questionLength={}, hitCount={}, reason={}",
+            log.warn("Knowledge base RAG answer generation failed. userId={}, knowledgeBaseId={}, questionLength={}, hitCount={}, provider={}, exceptionClass={}",
                     resolved.userId(),
                     resolved.knowledgeBaseId(),
                     resolved.question().length(),
                     retrieval.hits().size(),
-                    ex.getMessage());
+                    aiAnswerService.provider(),
+                    ex.getClass().getSimpleName());
             if (!ragQaProperties.isFallbackEnabled()) {
                 throw new BusinessException(ErrorCode.AI_CALL_FAILED, "knowledge base RAG answer generation failed");
             }
             return answer(resolved, ANSWER_GENERATION_FAILED_ANSWER, retrieval, false, true,
-                    "answer_generation_failed", 1);
+                    "answer_generation_failed", modelAttemptCount.get());
         }
     }
 

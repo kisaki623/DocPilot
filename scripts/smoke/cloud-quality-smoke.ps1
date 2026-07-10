@@ -126,7 +126,17 @@ function ConvertTo-SafeApiFailure($errorRecord) {
   $statusCode = 0
   $code = $null
   $message = "request failed"
-  $response = $errorRecord.Exception.Response
+  $exception = $errorRecord.Exception
+  if ($exception -and $exception.Data -and $exception.Data.Contains("httpStatus")) {
+    return [ordered]@{
+      ok = $false
+      httpStatus = [int]$exception.Data["httpStatus"]
+      code = $exception.Data["code"]
+      message = [string]$exception.Data["message"]
+      data = $null
+    }
+  }
+  $response = $exception.Response
   if ($response) {
     try {
       $statusCode = [int]$response.StatusCode
@@ -157,6 +167,14 @@ function ConvertTo-SafeApiFailure($errorRecord) {
   }
 }
 
+function New-ApiBusinessFailure($response) {
+  $exception = [System.InvalidOperationException]::new("api returned non-zero business code")
+  $exception.Data["httpStatus"] = 200
+  $exception.Data["code"] = $response.code
+  $exception.Data["message"] = [string]$response.message
+  return $exception
+}
+
 function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$token = "", [switch]$AllowFailure) {
   $uri = $BackendBaseUrl.TrimEnd("/") + $path
   $headers = @{}
@@ -180,7 +198,7 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
     }
     $ok = ($response.code -eq 0)
     if ((-not $AllowFailure) -and (-not $ok)) {
-      throw "api returned non-zero code at $method $path"
+      throw (New-ApiBusinessFailure $response)
     }
     return [ordered]@{
       ok = $ok
@@ -212,7 +230,7 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
           }
           $ok = ($response.code -eq 0)
           if (-not $ok) {
-            throw "api returned non-zero code at $method $path"
+            throw (New-ApiBusinessFailure $response)
           }
           return [ordered]@{
             ok = $ok

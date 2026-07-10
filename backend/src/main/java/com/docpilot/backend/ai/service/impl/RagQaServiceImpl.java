@@ -15,6 +15,8 @@ import com.docpilot.backend.ai.service.RagQaService;
 import com.docpilot.backend.common.constant.CommonConstants;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -26,6 +28,8 @@ import java.util.function.Consumer;
 
 @Service
 public class RagQaServiceImpl implements RagQaService {
+
+    private static final Logger log = LoggerFactory.getLogger(RagQaServiceImpl.class);
 
     public static final String NO_EVIDENCE_ANSWER =
             "未在当前文档索引中检索到足够证据，无法基于文档回答该问题。请确认文档已完成 RAG 索引，或换一个更具体的问题。";
@@ -39,25 +43,36 @@ public class RagQaServiceImpl implements RagQaService {
     private final DocumentQaHistoryMapper documentQaHistoryMapper;
     private final RagQaProperties ragQaProperties;
     private final RagPromptBuilder promptBuilder;
+    private final AiRetryExecutor aiRetryExecutor;
 
     @Autowired
     public RagQaServiceImpl(RagDocumentRetrievalService retrievalService,
                             AiAnswerService aiAnswerService,
                             DocumentQaHistoryMapper documentQaHistoryMapper,
+                            RagQaProperties ragQaProperties,
+                            AiRetryExecutor aiRetryExecutor) {
+        this(retrievalService, aiAnswerService, documentQaHistoryMapper, ragQaProperties, new RagPromptBuilder(), aiRetryExecutor);
+    }
+
+    public RagQaServiceImpl(RagDocumentRetrievalService retrievalService,
+                            AiAnswerService aiAnswerService,
+                            DocumentQaHistoryMapper documentQaHistoryMapper,
                             RagQaProperties ragQaProperties) {
-        this(retrievalService, aiAnswerService, documentQaHistoryMapper, ragQaProperties, new RagPromptBuilder());
+        this(retrievalService, aiAnswerService, documentQaHistoryMapper, ragQaProperties, new RagPromptBuilder(), new AiRetryExecutor());
     }
 
     public RagQaServiceImpl(RagDocumentRetrievalService retrievalService,
                             AiAnswerService aiAnswerService,
                             DocumentQaHistoryMapper documentQaHistoryMapper,
                             RagQaProperties ragQaProperties,
-                            RagPromptBuilder promptBuilder) {
+                            RagPromptBuilder promptBuilder,
+                            AiRetryExecutor aiRetryExecutor) {
         this.retrievalService = retrievalService;
         this.aiAnswerService = aiAnswerService;
         this.documentQaHistoryMapper = documentQaHistoryMapper;
         this.ragQaProperties = ragQaProperties == null ? new RagQaProperties() : ragQaProperties;
         this.promptBuilder = promptBuilder == null ? new RagPromptBuilder() : promptBuilder;
+        this.aiRetryExecutor = aiRetryExecutor == null ? new AiRetryExecutor() : aiRetryExecutor;
     }
 
     @Override
@@ -82,6 +97,7 @@ public class RagQaServiceImpl implements RagQaService {
             saveHistory(answer);
             return answer;
         }
+        String generationStage = "prompt_build";
         try {
             RagPrompt prompt = promptBuilder.build(
                     resolved.question(),
@@ -89,11 +105,24 @@ public class RagQaServiceImpl implements RagQaService {
                     Map.of(),
                     ragQaProperties.getMaxContextChars()
             );
-            String answerText = aiAnswerService.answer(prompt.evidenceContext(), prompt.userPrompt());
+            generationStage = "model_call";
+            String answerText = aiRetryExecutor.execute(
+                    "rag.qa.answer",
+                    () -> aiAnswerService.answer(prompt.evidenceContext(), prompt.userPrompt())
+            );
             RagQaAnswer answer = answer(resolved, answerText, retrieval, false, false, "");
+            generationStage = "history_save";
             saveHistory(answer);
             return answer;
         } catch (RuntimeException ex) {
+            log.warn("Document RAG answer failed. userId={}, documentId={}, questionLength={}, hitCount={}, provider={}, stage={}, exceptionClass={}",
+                    resolved.userId(),
+                    resolved.documentId(),
+                    resolved.question().length(),
+                    retrieval.hits().size(),
+                    aiAnswerService.provider(),
+                    generationStage,
+                    ex.getClass().getSimpleName());
             throw new BusinessException(ErrorCode.AI_CALL_FAILED, "RAG answer generation failed");
         }
     }
