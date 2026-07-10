@@ -126,18 +126,22 @@
 4. 可用性探测使用短 prompt 和显式模型，只确认 READY 类返回；所有 Gemini CLI 调用固定使用 `gemini-3.5-flash`，外层工具超时建议设置为 `180000ms`：
    - `gemini.cmd -m gemini-3.5-flash --prompt "Reply exactly: READY"`
 5. 正式前端方案 / UI 可读性 / 单文件建议同样固定使用 `gemini-3.5-flash`，并且必须显式传入 `-m gemini-3.5-flash`；模型不可用、超时或返回工具流异常时，由 Codex 直接完成，不自动降级或改用其他模型。只有用户明确更新本规则后，才能使用不同模型。
-6. 长 prompt、源码和大上下文通过 stdin 传入 Gemini，不塞进命令行参数，避免 PowerShell 命令行长度限制；正式协作请求同样建议外层超时 `180000ms`，避免 45 秒级超时误判为 Gemini 不可用。
-7. 推荐协作模式：
+6. 当 Gemini CLI 明确不可用、连接失败或超时时，可启动本机 AIStudioToAPI 作为一次受控恢复尝试：
+   - 在**单独的本地终端**执行：`cd G:\code\Projects\gemini\AIStudioToAPI`，随后执行 `npm start`；不得读取、输出或修改该项目的 `.env`、密钥或服务配置。
+   - 仅在服务启动并报告就绪后，使用原有的 `gemini.cmd -m gemini-3.5-flash` 调用重试一次；仍失败时记录失败边界并由 Codex 直接完成，不能承诺恢复服务一定成功，也不得切换为其他模型。
+   - 此恢复路径不授权 Gemini 或本项目执行远程服务器操作、数据库迁移、Git 提交或 push；本轮未启动时不得把该服务写成已验证可用。
+7. 长 prompt、源码和大上下文通过 stdin 传入 Gemini，不塞进命令行参数，避免 PowerShell 命令行长度限制；正式协作请求同样建议外层超时 `180000ms`，避免 45 秒级超时误判为 Gemini 不可用。
+8. 推荐协作模式：
    - Gemini 输出设计方向、patch 建议或单文件完整方案。
    - Codex 审查是否破坏现有 API、路由、类型、安全边界和展示口径。
    - 通过审查后由 Codex 使用 `apply_patch` 落地。
-8. `--approval-mode auto_edit` 只允许在明确文件范围内尝试；如果出现 503、`INVALID_ARGUMENT`、malformed tool call、空响应或工具流异常，立即降级为“Gemini 提建议，Codex 集成”。
-9. 安全边界：
+9. `--approval-mode auto_edit` 只允许在明确文件范围内尝试；如果出现 503、`INVALID_ARGUMENT`、malformed tool call、空响应或工具流异常，立即降级为“Gemini 提建议，Codex 集成”。
+10. 安全边界：
    - 不把 `.env`、密钥、云 IP、连接串、远程命令、数据库凭据传给 Gemini。
    - 不让 Gemini 执行 `git commit` / `git push`。
    - 不让 Gemini 操作远程服务器、云服务器 Docker 中间件或数据库迁移。
    - 不让 Gemini 修改与当前任务无关的文件。
-10. 验证归属固定为 Codex：最终 lint、build、Playwright、乱码扫描、进程清理和 ai-dev 文档回写都由 Codex 执行；Gemini 输出不能直接写成已验证结果。
+11. 验证归属固定为 Codex：最终 lint、build、Playwright、乱码扫描、进程清理和 ai-dev 文档回写都由 Codex 执行；Gemini 输出不能直接写成已验证结果。
 
 ## 6.1 子 Agent 调度与安全边界
 

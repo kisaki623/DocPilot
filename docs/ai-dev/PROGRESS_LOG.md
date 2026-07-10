@@ -1,5 +1,10 @@
 # Progress Log
 
+## 2026-07-10 Gemini CLI 本地恢复约束
+
+- 已在 `docs/ai-dev/CONSTRAINTS.md` 固化 Gemini CLI 不可用、连接失败或超时后的单次本地恢复步骤：于单独终端在 `G:\code\Projects\gemini\AIStudioToAPI` 执行 `npm start`，服务就绪后仍以 `gemini-3.5-flash` 重试一次。
+- 边界：本轮未启动该服务，未读取其配置或凭据，故不把恢复效果写成已验证；重试失败仍由 Codex 接管，且不允许切换模型或执行远程、数据库、Git 高风险操作。
+
 ## 2026-07-10 离线 CI 基线与跨平台脚本测试
 
 - 新增 `.github/workflows/ci.yml`：Java 17 job 执行后端默认离线全量测试，Node 20 job 执行可复现前端安装、lint 与 build；workflow 不读取 `.env`、不启动 tunnel、不访问云中间件，也不执行会创建临时数据的 cloud smoke `run`。

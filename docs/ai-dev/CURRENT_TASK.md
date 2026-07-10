@@ -2,6 +2,12 @@
 
 当前任务：自驱质量基础迭代（IN_PROGRESS）；当前片：离线 CI 基线（REVIEW，待首个 GitHub Actions run）；上一片：默认 Maven 测试去外部依赖化（DONE）；下一片：离线 Playwright E2E 路由 smoke（READY）
 
+## 2026-07-10 补充：Gemini CLI 本地恢复约束（DONE）
+
+- 已将 Gemini CLI 不可用、连接失败或超时时的受控恢复步骤写入 `docs/ai-dev/CONSTRAINTS.md`：在单独本地终端启动 `G:\code\Projects\gemini\AIStudioToAPI` 的 `npm start`，确认服务就绪后按原 `gemini-3.5-flash` 调用重试一次。
+- 边界：本轮未启动 AIStudioToAPI，也未读取其 `.env`、密钥或服务配置；恢复重试仍失败时由 Codex 接管，不承诺服务启动一定恢复调用，也不切换模型或放宽远程、数据库、Git 操作限制。
+- 当前离线 CI 基线状态不受本规则变更影响，仍为 `REVIEW`，等待首个 GitHub Actions run。
+
 ## 2026-07-10 补充：离线 CI 基线
 
 - 目标：把当前默认离线回归固化为 GitHub Actions，避免把需要 tunnel、云 MySQL / Qdrant、临时业务数据或真实 provider 的 cloud smoke 误放入公共 CI。
