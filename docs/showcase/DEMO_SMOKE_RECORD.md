@@ -1,8 +1,31 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-07-09
+> Last updated: 2026-07-10
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
+
+## 2026-07-10 Document Parser Structure Coverage Real Chain
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- `docpilot-parser-real-chain-20260710001619-a1b510`
+
+已验证：
+
+- tunnel、backend health、frontend root route、临时用户注册、PDF / HTML / DOCX fixture 上传、异步解析、chunk、direct retrieve、QA retrieval、QA citation、source locator、parser boundary 和 artifact redaction 均通过。
+- 三类文件均为 `parseStatus=SUCCESS`、`chunkCount=1`、`directRetrieveHit=true`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- 新增结构覆盖 artifact 摘要：`fixtureStructureCoverage.expectedSignals=9`、`coveredSignals=9`、`missingSignals=0`、`allCovered=true`，覆盖 PDF 文本 / 页码来源、HTML 标题 / 表格 / 链接 / 列表、DOCX 标题 / 表格 / 列表。
+- direct / QA 诊断摘要：`directRetrieveOkCount=3`、`qaRetrieveOkCount=3`、最大重试次数均为 `1`，`environmentUnstable=false`。
+- parser boundary 负向检查通过：不支持格式上传拒绝、空白 TXT、损坏 PDF 和损坏 DOCX 均返回预期脱敏失败码，`negativeCasePassCount=4/4`。
+- 本轮启动的本地 tunnel、backend、frontend 已清理，`3000/3001/3002/3007/3100/8081` 未见 LISTEN。
+
+边界：这是小规模真实链路 parser smoke，证明文本型 PDF / HTML / DOCX 能走通上传、异步解析、结构信号摘要、chunk、Qdrant 检索和 QA citation；不代表 OCR、扫描件识别、复杂版面理解、旧 `.doc` 支持、外部网页抓取或大规模解析 benchmark。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token。
 
 ## 2026-07-09 Document Parser Real Chain Direct Retrieve Regression
 

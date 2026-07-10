@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-10 Document Parser 结构覆盖真实 run
+
+- 执行 `document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker `docpilot-parser-real-chain-20260710001619-a1b510`，整体 PASS。
+- PDF / HTML / DOCX 均完成上传、异步解析、chunk、direct retrieve、QA retrieval、QA citation 和 source locator 验证；parser boundary `4/4` PASS，artifact redaction PASS。
+- `fixtureStructureCoverage` 在真实 artifact 中为 `expectedSignals=9`、`coveredSignals=9`、`missingSignals=0`、`allCovered=true`。
+- direct / QA 诊断：`directRetrieveOkCount=3`、`qaRetrieveOkCount=3`、最大重试次数均为 `1`，`environmentUnstable=false`。
+- 清理：本轮启动的 tunnel / backend / frontend 已清理，`3000/3001/3002/3007/3100/8081` 未见 LISTEN。
+- 边界：本次只记录脱敏摘要，不提交 artifact 原文；结论仍是小样本文本型 PDF / HTML / DOCX 真实链路，不代表 OCR、扫描件、旧 `.doc`、复杂版面或大规模解析 benchmark。
+
 ## 2026-07-09 Document Parser 结构覆盖 smoke 摘要
 
 - `document-parser-real-chain-smoke.ps1` 已把长期 fixture corpus 的结构口径接入真实 smoke 摘要：每个 case 输出 `expectedStructures` / `structureSignals` 安全枚举，`parserQualityReport.fixtureStructureCoverage` 汇总覆盖计数和缺失计数。

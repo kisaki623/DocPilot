@@ -1,6 +1,16 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser fixture corpus 与真实 smoke 覆盖口径对齐（DONE）；下一片：Document Parser 真实链路 run 复验结构覆盖 artifact（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 真实链路 run 复验结构覆盖 artifact（DONE）；下一片：Document Parser 自然样本 fixture v2 扩容（READY）
+
+## 2026-07-10 补充：Document Parser 结构覆盖真实链路复验
+
+- 目标：对上一片新增的 `fixtureStructureCoverage` 做一次真实 cloud/local hybrid 链路复验，确认 PDF / HTML / DOCX 上传、异步解析、chunk、Qdrant retrieve、QA citation 和结构覆盖 artifact 在同轮 run 中全部成立。
+- 真实验证：执行 `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker 为 `docpilot-parser-real-chain-20260710001619-a1b510`，整体状态 PASS。
+- 结果：PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、direct retrieve hit `1`、QA retrieval hit `1`、citation `1`、source locator present；parser boundary `4/4` PASS，artifact redaction PASS。
+- 新结构覆盖结果：`fixtureStructureCoverage.expectedSignals=9`、`coveredSignals=9`、`missingSignals=0`、`allCovered=true`，覆盖 PDF 文本 / 页码来源、HTML 标题 / 表格 / 链接 / 列表、DOCX 标题 / 表格 / 列表。
+- 诊断结果：`directRetrieveOkCount=3`、`qaRetrieveOkCount=3`、direct / QA 最大重试次数均为 `1`，`environmentUnstable=false`。
+- 清理：本轮启动的本地 tunnel、backend、frontend 已由 smoke runner 清理，复查 `3000/3001/3002/3007/3100/8081` 未见 LISTEN。
+- 边界：本次 run 创建了临时 smoke 用户和临时文档，只提交脱敏摘要，不提交 ignored artifact 原文；仍不代表 OCR、扫描件识别、旧 `.doc`、复杂版面理解、外部网页抓取或大规模解析 benchmark。
 
 ## 2026-07-09 补充：Document Parser fixture corpus 与真实 smoke 覆盖口径对齐
 
