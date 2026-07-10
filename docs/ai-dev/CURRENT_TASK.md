@@ -1,6 +1,12 @@
 # Current Task
 
-当前任务：Memory provider extraction case diversity v2（VERIFIED）；当前片：6-case 脱敏真实 provider contract 已通过安全复验与独立复审；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：RAG SSE clean-EOF fail-closed（VERIFIED）；当前片：缺 `done` 的流响应会进入可恢复错误态；上一片：Memory provider extraction case diversity v2（VERIFIED）；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：RAG SSE clean-EOF fail-closed（VERIFIED）
+
+- 已完成：`askDocumentRagQuestionStream` 只有在收到命名 `event: done` 后才将 HTTP body EOF 视为成功；缺 done 的 clean EOF 会抛 `RagStreamRequestError(stage=transport_eof)`，不会再静默留下空白或不完整回答。
+- 已验证：production Next + Playwright 覆盖 meta 后 EOF（仅 1 次非流式回退）、chunk 后 EOF（保留部分回答且不重试）及正常 done（无回退）三条路径；定向 5/5、前端 lint/build 与完整 E2E 14/14 PASS，独立审查无 blocker。
+- 边界：当前是浏览器 route-mock 的 HTTP body clean-EOF 协议回归，不模拟 TCP reset、`reader.read()` reject、跨 read 的 done 或 done 后非法 error；后端当前正常 / no-evidence / retrieval fallback 成功分支均发送命名 done。
 
 ## 2026-07-10 补充：Memory provider extraction case diversity v2（VERIFIED）
 

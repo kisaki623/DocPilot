@@ -1,5 +1,10 @@
 # DocPilot 当前状态
 
+## 2026-07-10 RAG SSE clean-EOF fail-closed（VERIFIED）
+
+- RAG stream 仅在收到命名 `event: done` 后成功结束；HTTP body clean EOF 若缺 done，会以 `transport_eof` 进入既有页面恢复状态机，首 chunk 前回退一次非流式 RAG，已有 chunk 则保留部分内容并提示重试。
+- production Next + Playwright 已验证 EOF 前/后 chunk 和正常 done 三条路径，定向 5/5、完整 E2E 14/14、lint/build 均 PASS；独立审查确认与后端正常 done 协议一致。该覆盖不等价于 TCP reset、fetch reject 或跨 read 分帧断连。
+
 ## 2026-07-10 Memory provider extraction case diversity v2（VERIFIED）
 
 - 测试侧真实 provider contract 已从 4 扩至固定 6 个脱敏 case，新增中文长期 `PREFERENCE + PROJECT_STATE` 抽取与一次性指令零 suggestion 抑制；最终真实 marker `docpilot-memory-provider-20260710204432-4540df` PASS，6 calls、`casePassRate=1.0000`、`rawProviderOutputStored=false`。

@@ -66,6 +66,7 @@
 | `REA-20260710-P2-015` | BLOCKED | P2 | 环境 / fresh-clone 可用性风险 | Local demo MySQL bootstrap | `schema-bootstrap-audit-20260710` | demo 初始化快照已修复，但隔离 MySQL runtime 验收受 Docker Engine 未运行阻塞 |
 | `REA-20260710-P3-016` | VERIFIED（已验证） | P3 | 质量门禁 fixture bug | Memory provider extraction eval | `docpilot-memory-provider-20260710203107-29967e` | 中文长期信息正例被错误 forbidden marker 判为泄露 |
 | `REA-20260710-P1-017` | VERIFIED（已验证） | P1 | artifact 安全边界 | Memory provider extraction smoke | `memory-provider-v2-security-review-20260710` | 原 wrapper 可落盘 Maven 原始日志，且空建议负例存在格式 fail-open |
+| `REA-20260710-P2-018` | VERIFIED（已验证） | P2 | 流式体验可靠性 | RAG SSE client | `sse-eof-contract-audit-20260710` | 未收到 done 的 clean EOF 被静默当作成功 |
 | `REA-20260703-P1-001` | VERIFIED（已验证） | P1 | 功能 bug | RAG | `docpilot-real-audit-20260703195519-5118e8` | 短 txt parse 成功但单文档 RAG 无 evidence |
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
 | `REA-20260703-P2-001` | VERIFIED（已验证） | P2 | 体验问题 | Citation UI | `docpilot-real-audit-20260703195519-5118e8` | quote-level citation API 已有，但 UI 仍需 quote-first 展示 |
@@ -81,6 +82,27 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-10 真实主链路验收失败
+
+### `REA-20260710-P2-018` RAG SSE 未收到 done 的 clean EOF 被静默当作成功
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P2
+- 类型：流式体验可靠性
+- 模块：RAG SSE client
+- 发现来源：`sse-eof-contract-audit-20260710`
+
+实际结果：
+
+- 前端 stream reader 在 HTTP body 结束时未要求协议 `done`，因此代理或网关在 done 前 clean EOF 时，首 chunk 前可能空白结束，已有 chunk 也可能没有中断提示。
+
+修复与验证：
+
+- 仅 `event: done` 标记终止成功；缺 done 的 EOF 抛受控 `transport_eof`，复用页面既有“无内容回退 / 部分内容保留”状态机。
+- production Next + Playwright 定向 5/5 PASS：meta-only EOF 只发起 1 次非流式回退，chunk 后 EOF 保留部分答案且普通 RAG 为 0，正常 done 无回退；完整前端 E2E 14/14、lint/build 均通过，独立审查无 blocker。
+
+边界：
+
+- 验证的是 route mock 的 HTTP body clean EOF 协议，不包含 TCP reset、browser fetch reject、跨 read 分帧或 done 后非法 error。
 
 ### `REA-20260710-P1-017` Memory provider smoke 的 artifact 日志与空建议格式门禁存在安全缺口
 

@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-10 RAG SSE clean-EOF fail-closed
+
+- 修复：前端 RAG SSE reader 以前会把未收到 done 的 HTTP body EOF 静默当作成功，可能留下空白答案或无中断提示的部分回答；现在仅命名 `event: done` 可终止成功，其他 clean EOF 统一抛受控 `transport_eof`。
+- 浏览器验收：新增 meta-only EOF、chunk 后 EOF、正常 done 三个 production Next + Playwright case；前者仅发起 1 次非流式 fallback，后者保留已输出文本且普通 RAG 请求为 0，done 正常完成也不回退。定向 5/5 PASS，`npm run lint` / `npm run build` PASS，完整 `npm run test:e2e` PASS（14/14）。
+- 边界：route mock 仅模拟正常 HTTP body EOF 前缺 done，不模拟 TCP reset、`reader.read()` reject、跨 read 分帧或 done 后非法 error。Gemini CLI `gemini-3.5-flash` 提供前端状态机建议；独立 RAG 审查无 blocker。
+
 ## 2026-07-10 Memory provider extraction case diversity v2
 
 - 将测试侧 `MemoryProviderExtractionRealProviderSmokeTest` 从 4 个固定真实 provider case 扩到 6 个：保留回答风格 / 目标、技术上下文、RAG evidence 隔离、敏感内容拒绝，新增中文长期偏好 / 项目状态抽取和一次性指令抑制。

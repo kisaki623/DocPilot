@@ -245,6 +245,30 @@ export async function askDocumentRagQuestionStream(
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
+  let terminalDoneReceived = false;
+
+  const dispatchEvents = (eventText: string) => {
+    for (const item of parseEventStream(eventText)) {
+      if (item.event === "chunk") {
+        callbacks.onChunk?.(item.data);
+      } else if (item.event === "meta") {
+        callbacks.onMeta?.(parseStreamPayload(item.data) || {});
+      } else if (item.event === "retrieval") {
+        callbacks.onRetrieval?.((parseStreamPayload(item.data) || {}) as RagRetrievalData);
+      } else if (item.event === "citation") {
+        callbacks.onCitation?.((parseStreamPayload(item.data) || {}) as RagCitationItem);
+      } else if (item.event === "fallback") {
+        callbacks.onFallback?.(parseStreamPayload(item.data) || {});
+      } else if (item.event === "done") {
+        terminalDoneReceived = true;
+        callbacks.onDone?.(parseStreamPayload(item.data));
+      } else if (item.event === "error") {
+        const streamError = parseStreamError(item.data);
+        callbacks.onError?.(streamError);
+        throw new RagStreamRequestError(streamError);
+      }
+    }
+  };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -258,25 +282,7 @@ export async function askDocumentRagQuestionStream(
     }
     const completeChunk = buffer.slice(0, lastSeparator);
     buffer = buffer.slice(lastSeparator + 2);
-    for (const item of parseEventStream(completeChunk)) {
-      if (item.event === "chunk") {
-        callbacks.onChunk?.(item.data);
-      } else if (item.event === "meta") {
-        callbacks.onMeta?.(parseStreamPayload(item.data) || {});
-      } else if (item.event === "retrieval") {
-        callbacks.onRetrieval?.((parseStreamPayload(item.data) || {}) as RagRetrievalData);
-      } else if (item.event === "citation") {
-        callbacks.onCitation?.((parseStreamPayload(item.data) || {}) as RagCitationItem);
-      } else if (item.event === "fallback") {
-        callbacks.onFallback?.(parseStreamPayload(item.data) || {});
-      } else if (item.event === "done") {
-        callbacks.onDone?.(parseStreamPayload(item.data));
-      } else if (item.event === "error") {
-        const streamError = parseStreamError(item.data);
-        callbacks.onError?.(streamError);
-        throw new RagStreamRequestError(streamError);
-      }
-    }
+    dispatchEvents(completeChunk);
   }
 
   const remaining = decoder.decode();
@@ -284,24 +290,14 @@ export async function askDocumentRagQuestionStream(
     buffer += remaining;
   }
   if (buffer.trim()) {
-    for (const item of parseEventStream(buffer)) {
-      if (item.event === "chunk") {
-        callbacks.onChunk?.(item.data);
-      } else if (item.event === "meta") {
-        callbacks.onMeta?.(parseStreamPayload(item.data) || {});
-      } else if (item.event === "retrieval") {
-        callbacks.onRetrieval?.((parseStreamPayload(item.data) || {}) as RagRetrievalData);
-      } else if (item.event === "citation") {
-        callbacks.onCitation?.((parseStreamPayload(item.data) || {}) as RagCitationItem);
-      } else if (item.event === "fallback") {
-        callbacks.onFallback?.(parseStreamPayload(item.data) || {});
-      } else if (item.event === "done") {
-        callbacks.onDone?.(parseStreamPayload(item.data));
-      } else if (item.event === "error") {
-        const streamError = parseStreamError(item.data);
-        callbacks.onError?.(streamError);
-        throw new RagStreamRequestError(streamError);
-      }
-    }
+    dispatchEvents(buffer);
+  }
+  if (!terminalDoneReceived) {
+    const streamError = {
+      message: "实时输出连接在完成前中断",
+      stage: "transport_eof"
+    };
+    callbacks.onError?.(streamError);
+    throw new RagStreamRequestError(streamError);
   }
 }

@@ -131,3 +131,60 @@ test("keeps partial RAG SSE output without a non-stream retry", async ({ page })
   expect(fixture.pageErrors).toEqual([]);
   expect(fixture.consoleErrors).toEqual([]);
 });
+
+test("falls back once when RAG SSE reaches EOF before done and before the first chunk", async ({ page }) => {
+  const fixture = await prepareDocumentPage(
+    page,
+    `event: meta\ndata: {"documentId":${documentId},"sessionId":"stream-session"}\n\n`,
+  );
+
+  await page.locator("#qa-question-input").fill("fixture question");
+  await page.getByRole("button", { name: "发送问题" }).click();
+
+  await expect(page.getByText("FALLBACK-RAG-ANSWER-MARKER")).toBeVisible();
+  await expect(page.getByText(/已自动切换为非流式问答/)).toBeVisible();
+  expect(fixture.getStreamRequests()).toBe(1);
+  expect(fixture.getNonStreamRagRequests()).toBe(1);
+  expect(fixture.pageErrors).toEqual([]);
+  expect(fixture.consoleErrors).toEqual([]);
+});
+
+test("keeps partial RAG SSE output when EOF arrives before done", async ({ page }) => {
+  const fixture = await prepareDocumentPage(
+    page,
+    [
+      `event: meta\ndata: {"documentId":${documentId},"sessionId":"stream-session"}\n\n`,
+      "event: chunk\ndata: PARTIAL-EOF-RAG-ANSWER-MARKER\n\n",
+    ].join(""),
+  );
+
+  await page.locator("#qa-question-input").fill("fixture question");
+  await page.getByRole("button", { name: "发送问题" }).click();
+
+  await expect(page.getByText("PARTIAL-EOF-RAG-ANSWER-MARKER")).toBeVisible();
+  await expect(page.getByText("实时输出中断，已保留当前已生成内容。请重试获取完整回答。")).toBeVisible();
+  expect(fixture.getStreamRequests()).toBe(1);
+  expect(fixture.getNonStreamRagRequests()).toBe(0);
+  expect(fixture.pageErrors).toEqual([]);
+  expect(fixture.consoleErrors).toEqual([]);
+});
+
+test("accepts a normal RAG SSE done event without fallback", async ({ page }) => {
+  const fixture = await prepareDocumentPage(
+    page,
+    [
+      `event: meta\ndata: {"documentId":${documentId},"sessionId":"stream-session"}\n\n`,
+      "event: chunk\ndata: COMPLETE-RAG-ANSWER-MARKER\n\n",
+      "event: done\ndata: {\"sessionId\":\"stream-session\"}\n\n",
+    ].join(""),
+  );
+
+  await page.locator("#qa-question-input").fill("fixture question");
+  await page.getByRole("button", { name: "发送问题" }).click();
+
+  await expect(page.getByText("COMPLETE-RAG-ANSWER-MARKER")).toBeVisible();
+  expect(fixture.getStreamRequests()).toBe(1);
+  expect(fixture.getNonStreamRagRequests()).toBe(0);
+  expect(fixture.pageErrors).toEqual([]);
+  expect(fixture.consoleErrors).toEqual([]);
+});
