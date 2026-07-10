@@ -5,8 +5,8 @@
 - 修复单文档 RAG 未使用统一 AI retry、KnowledgeBase RAG 对暂态模型失败过早 fallback 的可靠性差异；两条路径只对模型调用应用现有上限 / 退避策略，检索、提示构造、citation 后处理和历史写入不重试。
 - 收紧日志：`AiRetryExecutor`、单文档 RAG、KnowledgeBase RAG 不再输出异常 message，只保留安全上下文和 `exceptionClass`；KnowledgeBase `modelCallCount` 记录实际尝试次数。
 - SSE 流式路径未接自动重试，避免部分 chunk 已发送后重放造成重复输出；该体验边界留作下一片独立评估。
-- 验证：28 项定向回归 PASS。完整真实 cloud quality run 中上传解析、chunk 质量、MySQL / Qdrant 一致性 PASS；单文档模型调用按 `1/3`、`2/3` 重试后仍为可重试失败，最终 `FAILED_CORE_FLOW`，关联 `REA-20260710-P1-012`。
-- 状态：REVIEW。代码侧修复已完成，但真实回答供应商尚未恢复，不能将用户体验或核心 cloud quality gate 写为 DONE；runner cleanup 后 `8081` / `3007` 无监听。
+- 验证：29 项定向回归 PASS。模型目录与最小调用均通过；同量级非流式 RAG 请求证明原 30 秒读取窗口不足。仅调优 ignored 本机读取窗口后，完整真实 cloud quality run `docpilot-cloud-quality-20260710191822-ec80b6` PASS，关联 `REA-20260710-P1-012`。
+- 状态：VERIFIED（当前本机 provider/model）。runner cleanup 后 `8081` / `3007` 无监听；未改项目默认超时或示例配置，其他 provider 仍需各自运行证据。
 
 ## 2026-07-10 离线 Playwright E2E 路由 smoke
 

@@ -1,16 +1,17 @@
 # Current Task
 
-当前任务：优先级 1 真实 RAG 主链路可靠性（REVIEW，真实回答供应商持续可重试失败）；当前片：单文档 / KnowledgeBase RAG 统一受限重试与脱敏诊断（REVIEW）；下一片：在回答供应商恢复后重跑完整 cloud quality gate；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：优先级 1 真实 RAG 主链路可靠性（已恢复并验证）；上一片：单文档 / KnowledgeBase RAG 统一受限重试、读取窗口调优与脱敏诊断（VERIFIED）；下一片：SSE 流式 RAG 失败语义与体验审计；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
 
-## 2026-07-10 补充：单文档 / KnowledgeBase RAG 回答模型可靠性
+## 2026-07-10 补充：单文档 / KnowledgeBase RAG 回答模型可靠性（VERIFIED）
 
 - 目标：消除单文档 RAG 不走统一 AI 重试、KnowledgeBase RAG 对暂态模型故障过早降级，以及异常摘要可能写入日志的主链路可靠性缺口。
 - 已完成：`RagQaServiceImpl` 与 `KnowledgeBaseRagQaServiceImpl` 仅围绕回答模型调用复用 `AiRetryExecutor`；检索、提示构造、citation 精炼和历史写入均不重试。KnowledgeBase 返回的 `modelCallCount` 改为真实尝试数。
 - 安全：通用重试、单文档 RAG 与 KnowledgeBase RAG 日志均只记录安全维度和 `exceptionClass`，不记录问题、evidence、prompt、模型原始响应、异常 message、token 或连接信息。
 - SSE 边界：本片只处理普通 RAG QA；流式路径不自动重试，避免在已发送部分 chunk 后重放模型调用导致重复输出，后续作为独立体验切片评估。
 - 已验证：`AiRetryExecutorTest`、`RagQaServiceImplTest`、`KnowledgeBaseRagQaServiceImplTest`、`CloudQualitySmokeScriptSafetyTest` 共 28 项通过；覆盖可重试后成功、不可重试失败、无重复检索 / 历史写入、KB fallback 和实际尝试次数。
-- 真实验证：最新完整 cloud quality run 的 parse、chunk、MySQL / Qdrant 一致性均 PASS；单文档回答模型已执行 3 次受限尝试后仍以 `AiRetryableException` 失败，整体 `FAILED_CORE_FLOW`。代码状态只能为 REVIEW，关联 `REA-20260710-P1-012`。
-- 边界：未改数据库、模型超时或重试配置，未增加无限重试；runner 已清理本地服务端口。须待回答供应商恢复后再重跑完整 quality gate，不能将真实体验标记为 DONE。
+- 根因验证：配置模型在当前账户可用列表中；同量级非流式 RAG 请求超过原本机 30 秒读取窗口后仍能正常完成，因此不是模型标识或检索问题。仅将 ignored 本机配置的读取窗口调为 60 秒，未提交、不改项目默认值或示例。
+- 真实验证：完整 cloud quality run `docpilot-cloud-quality-20260710191822-ec80b6` PASS，覆盖单文档 / KnowledgeBase / 短文档 RAG、Conversation / Memory、Agent、权限与浏览器交互；runner cleanup 后 `8081` / `3007` 无监听，关联 `REA-20260710-P1-012`。
+- 边界：该读取窗口是当前本机 provider/model 的运行调优，未改数据库、项目默认超时、示例配置或重试上限；其他 provider 的推荐值仍需单独证据。
 
 ## 2026-07-10 补充：离线 Playwright E2E 路由 smoke
 

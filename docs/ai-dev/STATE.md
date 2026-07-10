@@ -1,12 +1,12 @@
 # DocPilot 当前状态
 
-## 2026-07-10 RAG 回答模型可靠性（REVIEW）
+## 2026-07-10 RAG 回答模型可靠性（VERIFIED）
 
 - 单文档 RAG 与 KnowledgeBase RAG 已统一接入现有 `AiRetryExecutor`，且重试仅包围 `AiAnswerService.answer(...)`；不会重复检索、构造 prompt、精炼 citation 或写入单文档历史。
 - AI 重试、单文档 RAG 与 KnowledgeBase RAG 的失败日志已改为只记录安全维度和异常类型；KnowledgeBase 的 `modelCallCount` 现在反映真实模型尝试次数。
 - 本片不对 SSE 流式回答自动重放：部分 chunk 已发送时重试会造成重复输出，需作为独立体验切片处理。
-- 定向回归 `AiRetryExecutorTest`、`RagQaServiceImplTest`、`KnowledgeBaseRagQaServiceImplTest`、`CloudQualitySmokeScriptSafetyTest` 共 28 项 PASS。完整真实 cloud quality run 的上传解析、chunk、MySQL / Qdrant 一致性均 PASS，但回答供应商的可重试失败在 3 次受限尝试后仍未恢复，整体 `FAILED_CORE_FLOW`。
-- 因真实回答体验尚未通过，本能力为 REVIEW，不可表述为已完成的稳定 RAG 质量闭环；详见 `REA-20260710-P1-012`。未改数据库、云端服务、模型超时或重试配置，runner 已清理本地服务端口。
+- 定向回归共 29 项 PASS。根因确认是当前本机真实模型的非流式 RAG 响应可超过原 30 秒读取窗口，而不是模型标识、鉴权、解析、索引或 Qdrant 失败。
+- 仅调优 ignored 本机 `.env` 的读取窗口后，完整真实 cloud quality run `docpilot-cloud-quality-20260710191822-ec80b6` PASS，覆盖单文档 / KnowledgeBase / 短文档 RAG、Conversation / Memory、Agent、权限、浏览器交互、cleanup 与 artifact redaction；详见 `REA-20260710-P1-012`。未改数据库、云端服务、项目默认超时或重试上限。
 
 ## 2026-07-09 当前补充
 
