@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-10 Document Parser 自然样本 fixture v2
+
+- `HtmlDocumentParser` 的本地 HTML 噪声剔除新增 `aside`，避免相关推荐 / 推广辅助栏混入 RAG 文本；不执行脚本、不访问外部资源。
+- `DocumentParserFixtureCorpusTest` 新增自然 HTML 文章与多章节 DOCX fixture，覆盖三级标题、列表、表格行、`aside` 噪声、顶级章节切换和 `sectionPath` 重置。
+- 验证：`mvn "-Dtest=DocumentParserTest,DocumentParserFixtureCorpusTest,ParseTaskConsumeEntryServiceImplTest" test` PASS（26 tests，0 skipped）。
+- 边界：不新增依赖、schema 或二进制 fixture，不改上传 / 异步解析 / chunk / RAG 主链路；下一片审计 parser block 元数据到 chunk / citation 的端到端 contract。
+
 ## 2026-07-10 Document Parser 结构覆盖真实 run
 
 - 执行 `document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker `docpilot-parser-real-chain-20260710001619-a1b510`，整体 PASS。

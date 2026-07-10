@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 真实链路 run 复验结构覆盖 artifact（DONE）；下一片：Document Parser 自然样本 fixture v2 扩容（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 自然样本 fixture v2（DONE）；下一片：Document Parser chunk 来源定位端到端 contract 审计（READY）
+
+## 2026-07-10 补充：Document Parser 自然样本 fixture v2
+
+- 目标：把长期 parser 回归从基础结构 fixture 扩展到更接近业务文章和多章节制度文档的脱敏自然样本，验证噪声隔离、标题层级、表格 / 列表和 `sectionPath` 不会在后续 parser 改动中回退。
+- 已完成 HTML 噪声隔离：`HtmlDocumentParser` 现在将 `aside` 与既有 `script/style/nav/header/footer` 一同从本地上传 HTML 中剔除，避免相关推荐或推广辅助栏混入 RAG 文本；不执行脚本，不访问外部资源。
+- 已新增自然 HTML fixture：覆盖 `h1/h2/h3`、有序列表、两行表格和 `aside` 噪声；断言列表与表格行继承正确层级路径，且辅助栏文本不会进入 `fullText`。
+- 已新增自然 DOCX fixture：覆盖从 `Heading1 / Heading2` 的“Retention Policy / Review Window”切换到新的顶级“Escalation Policy”；断言第二个章节的段落和表格不会继承上一个章节的 `sectionPath`。
+- 已验证：`mvn "-Dtest=DocumentParserTest,DocumentParserFixtureCorpusTest,ParseTaskConsumeEntryServiceImplTest" test` PASS（26 tests，0 skipped）。
+- 边界：本片不新增依赖、数据库表或二进制 fixture，不改上传 / 异步解析 / chunk / RAG 主链路，不做 OCR、扫描件、旧 `.doc`、复杂版面理解或外部网页抓取。下一片只审计 `ParseResult` block 元数据进入 chunk / citation 的端到端 contract，再决定是否需要最小修复。
 
 ## 2026-07-10 补充：Document Parser 结构覆盖真实链路复验
 

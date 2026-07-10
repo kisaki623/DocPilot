@@ -44,7 +44,7 @@ public class HtmlDocumentParser implements DocumentParser {
         try {
             String html = fileContentReader.readText(input.storagePath());
             Document document = Jsoup.parse(html, "");
-            document.select("script,style,nav,footer,header,noscript,svg,canvas,iframe").remove();
+            document.select("script,style,nav,footer,header,aside,noscript,svg,canvas,iframe").remove();
 
             StringBuilder fullText = new StringBuilder();
             List<DocumentBlock> blocks = new ArrayList<>();

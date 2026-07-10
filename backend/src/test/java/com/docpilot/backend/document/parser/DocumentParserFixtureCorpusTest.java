@@ -111,6 +111,48 @@ class DocumentParserFixtureCorpusTest {
     }
 
     @Test
+    void shouldKeepNaturalHtmlArticleStructureWithoutAsideNoise() {
+        HtmlDocumentParser parser = new HtmlDocumentParser(fileContentReader);
+        when(fileContentReader.readText("service-recovery.html")).thenReturn("""
+                <!doctype html>
+                <html>
+                  <body>
+                    <article>
+                      <h1>Service Recovery Guide</h1>
+                      <p>Owners record the incident decision before closing the service ticket.</p>
+                      <h2>Incident Review</h2>
+                      <ol><li>Capture the customer impact.</li><li>Confirm the recovery owner.</li></ol>
+                      <h3>Evidence Fields</h3>
+                      <table>
+                        <tr><th>Field</th><th>Required value</th></tr>
+                        <tr><td>Trace ID</td><td>Attach to the review</td></tr>
+                      </table>
+                    </article>
+                    <aside><p>Related promotion noise must not enter the knowledge base.</p></aside>
+                  </body>
+                </html>
+                """);
+
+        ParseResult result = parser.parse(input("service-recovery.html", "html", "text/html", 4096L));
+
+        assertThat(result.fullText())
+                .contains("# Service Recovery Guide")
+                .contains("## Incident Review")
+                .contains("### Evidence Fields")
+                .contains("Capture the customer impact.")
+                .contains("Trace ID | Attach to the review")
+                .doesNotContain("Related promotion noise");
+        assertThat(result.blocks())
+                .filteredOn(block -> block.blockType() == BlockType.LIST)
+                .allMatch(block -> "Service Recovery Guide / Incident Review".equals(block.sectionPath()));
+        assertThat(result.blocks())
+                .filteredOn(block -> block.blockType() == BlockType.TABLE)
+                .hasSize(2)
+                .allMatch(block -> "Service Recovery Guide / Incident Review / Evidence Fields"
+                        .equals(block.sectionPath()));
+    }
+
+    @Test
     void shouldKeepDocxHeadingListAndTableStructureInRegressionCorpus() throws Exception {
         DocxDocumentParser parser = new DocxDocumentParser(fileContentReader);
         when(fileContentReader.openStream("fixture.docx"))
@@ -136,6 +178,32 @@ class DocumentParserFixtureCorpusTest {
                     assertThat(block.sectionPath()).isEqualTo("Customer Playbook / Renewal Workflow");
                     assertThat(block.sourceLocator()).startsWith("docx:table:");
                 });
+    }
+
+    @Test
+    void shouldResetDocxSectionPathWhenNaturalDocumentStartsAnotherTopLevelSection() throws Exception {
+        DocxDocumentParser parser = new DocxDocumentParser(fileContentReader);
+        when(fileContentReader.openStream("operations-policy.docx"))
+                .thenReturn(new ByteArrayInputStream(naturalDocxBytes()));
+
+        ParseResult result = parser.parse(input("operations-policy.docx", "docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 4096L));
+
+        assertThat(result.fullText())
+                .contains("# Retention Policy")
+                .contains("## Review Window")
+                .contains("# Escalation Policy")
+                .contains("Escalation owner marker")
+                .contains("Priority | Response");
+        assertThat(result.blocks())
+                .filteredOn(block -> block.blockType() == BlockType.TABLE)
+                .hasSize(2)
+                .extracting(DocumentBlock::sectionPath)
+                .containsExactly("Retention Policy / Review Window", "Escalation Policy");
+        assertThat(result.blocks())
+                .filteredOn(block -> "Escalation owner marker".equals(block.text()))
+                .singleElement()
+                .satisfies(block -> assertThat(block.sectionPath()).isEqualTo("Escalation Policy"));
     }
 
     @Test
@@ -205,6 +273,35 @@ class DocumentParserFixtureCorpusTest {
             table.getRow(0).getCell(1).setText("Evidence");
             table.getRow(1).getCell(0).setText("Review");
             table.getRow(1).getCell(1).setText("Citation required");
+            document.write(output);
+            return output.toByteArray();
+        }
+    }
+
+    private byte[] naturalDocxBytes() throws IOException {
+        try (XWPFDocument document = new XWPFDocument();
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            XWPFParagraph heading = document.createParagraph();
+            heading.setStyle("Heading1");
+            heading.createRun().setText("Retention Policy");
+            XWPFParagraph nestedHeading = document.createParagraph();
+            nestedHeading.setStyle("Heading2");
+            nestedHeading.createRun().setText("Review Window");
+            XWPFTable retentionTable = document.createTable(2, 2);
+            retentionTable.getRow(0).getCell(0).setText("Record");
+            retentionTable.getRow(0).getCell(1).setText("Review day");
+            retentionTable.getRow(1).getCell(0).setText("Incident");
+            retentionTable.getRow(1).getCell(1).setText("30");
+            XWPFParagraph nextHeading = document.createParagraph();
+            nextHeading.setStyle("Heading1");
+            nextHeading.createRun().setText("Escalation Policy");
+            XWPFParagraph owner = document.createParagraph();
+            owner.createRun().setText("Escalation owner marker");
+            XWPFTable escalationTable = document.createTable(2, 2);
+            escalationTable.getRow(0).getCell(0).setText("Priority");
+            escalationTable.getRow(0).getCell(1).setText("Response");
+            escalationTable.getRow(1).getCell(0).setText("P1");
+            escalationTable.getRow(1).getCell(1).setText("Immediate");
             document.write(output);
             return output.toByteArray();
         }
