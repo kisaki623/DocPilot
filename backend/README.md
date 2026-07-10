@@ -139,6 +139,8 @@ HK Cloud 配置默认读取：
 3. 启动 frontend
 4. 访问 `/login`
 
+`deploy/mysql/init/` 仅在空的 demo MySQL volume 首次创建时执行，提供完整 demo schema；已有 volume 不会因为新增初始化 SQL 自动升级。云 MySQL 不走这条初始化路径。
+
 ## 7. 常见问题
 
 1. `Port 8081 was already in use`：先执行 `scripts/demo/preflight-backend-port.ps1`。

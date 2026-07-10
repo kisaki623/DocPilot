@@ -1,6 +1,13 @@
 # Current Task
 
-当前任务：fresh-clone schema 可用性（IN_PROGRESS）；当前片：schema bootstrap / 初始化证据审计（READY）；上一片：SSE 流式 RAG 失败语义（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：fresh-clone schema 可用性（REVIEW）；当前片：完整 demo bootstrap 已补齐并通过离线契约，隔离 MySQL runtime 验收因本机 Docker Engine 未运行而 BLOCKED；上一片：SSE 流式 RAG 失败语义（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：fresh-clone demo schema bootstrap（REVIEW）
+
+- 已完成：`deploy/mysql/init/` 现在是空 demo MySQL volume 的完整初始化快照：核心文档 / Outbox、Agent、RAG chunk、KnowledgeBase、Conversation、Context Trace 与 User Memory 共 17 张持久表。
+- 已修复：`tb_document` 补齐应用层依赖的 `status` / `idx_document_status`；`tb_qa_history` 对齐当前参考 schema 的 `TEXT` question、`LONGTEXT` answer 与时间索引。不会把 Spring SQL init 接入运行时，也不会对云 MySQL 或已有 volume 执行 DDL。
+- 已验证：新增 `DemoMysqlBootstrapSchemaTest`，与既有 schema reference tests 共 5 项 PASS；README 已说明 Docker entrypoint 只会在空 volume 首次执行初始化 SQL。
+- 阻塞：本机 Docker Desktop Linux engine 未运行，无法启动隔离的临时 MySQL 容器；发现本机已有 `3306` listener，未连接、未修改、未删除该未知实例或任何现有 Docker volume。关联 `REA-20260710-P2-015`。
 
 ## 2026-07-10 补充：Next dev 前端访问源兼容修复（VERIFIED）
 

@@ -142,6 +142,8 @@ docker compose -f docker-compose.demo.yml up -d
 docker compose -f docker-compose.demo.yml ps
 ```
 
+首次启动会在空的 `docpilot_mysql_data` volume 中执行 `deploy/mysql/init/` 的完整 demo schema 快照（核心文档、Outbox、Agent、RAG、KnowledgeBase、Conversation 与 Memory）。已有 MySQL volume 不会自动重新执行初始化 SQL；不要通过删除现有 volume 来升级业务数据。
+
 ### 2. 启动后端
 
 Windows PowerShell:

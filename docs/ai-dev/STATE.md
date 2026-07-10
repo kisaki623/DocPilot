@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-10 fresh-clone demo schema bootstrap（REVIEW）
+
+- `deploy/mysql/init/` 已补齐为供 `docker-compose.demo.yml` 空数据卷首次初始化使用的完整 demo schema：17 张应用持久表覆盖文档 / Outbox、Agent、RAG、KnowledgeBase、Conversation、Trace 与 Memory。
+- `tb_document.status` / `idx_document_status` 和 `tb_qa_history` 的 question、answer、时间索引已与当前应用参考 schema 对齐；新增离线 bootstrap contract test，相关 5 项 schema tests PASS。
+- 不引入 Flyway/Liquibase 或 Spring 启动 DDL，不影响云 MySQL；已有 demo volume 也不会因新增 init 文件自动升级。隔离 MySQL runtime 验收待 Docker Engine 可用后执行，详见 `REA-20260710-P2-015`。
+
 ## 2026-07-10 Next dev 访问源兼容（VERIFIED）
 
 - `next.config.js` 已在开发期显式允许 `127.0.0.1`，修复 cloud smoke / 本地联调以 loopback IP 访问 Next dev 时的 RSC `Failed to fetch` 控制台错误；该设置不影响 production rewrite、后端 API 权限或数据库。

@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-10 fresh-clone demo schema bootstrap
+
+- 代码审计发现 `docker-compose.demo.yml` 只挂载 `deploy/mysql/init/`，而原目录仅初始化 9/17 张持久表；RAG chunk、KnowledgeBase、Conversation / Trace / Memory 缺失，且 `tb_document.status` 未在空 volume 建表，导致 fresh clone 无法完整走上传、RAG、知识库或会话主链路。
+- 已修复：更新 `00_init_docpilot.sql` 的 document status / 索引与 QA history 快照，新增 `02_init_rag_conversation_tables.sql` 作为 RAG 和会话表初始化；新增 `DemoMysqlBootstrapSchemaTest` 防止完整表集合和关键约束回退，并同步 README 的空 volume 首次初始化边界。
+- 验证：`mvn "-Dtest=DemoMysqlBootstrapSchemaTest,DocumentChunkSchemaTest,KnowledgeBaseSchemaTest,ConversationContextSchemaTest" test` PASS（5 tests）。
+- 状态：REVIEW。计划中的 `docker run --rm` 隔离 MySQL runtime 验收未执行：Docker Desktop Linux engine 当前不可连接；本机已有未知 `3306` listener，未连接或改动。已记录 `REA-20260710-P2-015`，不以静态测试替代实际 MySQL entrypoint 验证。
+
 ## 2026-07-10 Next dev loopback 访问源兼容
 
 - 真实 smoke 发现：知识库问答及 citation 已成功，但以 `127.0.0.1:3007` 访问 Next dev 时，App Router RSC 请求输出 `Failed to fetch` console error；`localhost` 对照 run 无该错误。

@@ -63,6 +63,7 @@
 | `REA-20260710-P1-012` | VERIFIED（已验证） | P1 | 真实链路稳定性问题 | Single-document RAG QA | `docpilot-cloud-quality-20260710173219-d801d9` | 解析与索引通过后单文档 RAG 回答模型读取窗口不足 |
 | `REA-20260710-P2-013` | VERIFIED（已验证） | P2 | 真实链路稳定性问题 | RAG Indexing | `docpilot-cloud-quality-20260710194619-390475` | 切换百炼后遗留 embedding 模型标识导致索引失败 |
 | `REA-20260710-P1-011` | OPEN | P1 | 安全依赖风险 | Frontend dependency supply chain | `npm-audit-frontend-20260710` | 前端生产依赖存在可修复的 critical / moderate 漏洞 |
+| `REA-20260710-P2-015` | BLOCKED | P2 | 环境 / fresh-clone 可用性风险 | Local demo MySQL bootstrap | `schema-bootstrap-audit-20260710` | demo 初始化快照已修复，但隔离 MySQL runtime 验收受 Docker Engine 未运行阻塞 |
 | `REA-20260703-P1-001` | VERIFIED（已验证） | P1 | 功能 bug | RAG | `docpilot-real-audit-20260703195519-5118e8` | 短 txt parse 成功但单文档 RAG 无 evidence |
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
 | `REA-20260703-P2-001` | VERIFIED（已验证） | P2 | 体验问题 | Citation UI | `docpilot-real-audit-20260703195519-5118e8` | quote-level citation API 已有，但 UI 仍需 quote-first 展示 |
@@ -78,6 +79,33 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-10 真实主链路验收失败
+
+### `REA-20260710-P2-015` fresh-clone demo MySQL 初始化运行验收受本机 Docker Engine 阻塞
+
+- 状态：BLOCKED
+- 严重级别：P2
+- 类型：环境 / fresh-clone 可用性风险
+- 模块：Local demo MySQL bootstrap
+- 发现来源：`schema-bootstrap-audit-20260710`
+
+复现步骤：
+
+1. 按 `docker-compose.demo.yml` 审计 MySQL Docker entrypoint 挂载的 `deploy/mysql/init/`。
+2. 尝试以不映射端口、不复用 compose 容器名或 volume 的临时 MySQL 容器执行空卷初始化。
+
+实际结果：
+
+- 静态审计发现旧初始化目录只有 9/17 张应用持久表，且 `tb_document` 缺少应用层依赖的 `status` 字段。
+- 完整快照及离线 5 项 schema contract 已补齐并通过；但本机 Docker Desktop Linux engine 未运行，无法创建隔离临时容器进行 MySQL entrypoint 实测。
+- 本机存在未知 `3306` listener，未连接、未修改或删除该实例、现有 demo volume、云 MySQL 或业务数据。
+
+预期结果：
+
+- Docker Engine 可用时，应由空的临时 MySQL 容器执行 `00 -> 01 -> 02`，并查询 INFORMATION_SCHEMA 确认 17 张表、`tb_document.status` 和关键索引。
+
+后续验证：
+
+- 启动本机 Docker Engine 后，仅执行隔离 `docker run --rm` 验收；不使用既有 `docpilot_mysql_data`，不对云库或已有 volume 执行 DDL。
 
 ### `REA-20260710-P3-014` 知识库 RAG 交互成功但浏览器出现 Failed to fetch 控制台错误
 
