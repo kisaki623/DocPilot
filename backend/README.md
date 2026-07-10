@@ -37,7 +37,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/start-cloud-tunnels.ps1
 3. `application.yml` 默认读取 `.env`，`application-local.yml` 只保留 local profile 的端口、目录和中间件默认值覆盖。
 4. 云 MySQL / Qdrant 默认通过本地 tunnel 访问：`MYSQL_HOST=127.0.0.1`、`MYSQL_PORT=13306`、`RAG_QDRANT_ENDPOINT=http://127.0.0.1:6333`。
 5. 本地 compose 只作为可选 demo 路径，不是默认开发路径。
-6. `mvn test -DskipITs` 可能因 scheduled outbox job 打印 MySQL tunnel 连接失败日志；只要 Surefire 最终 `BUILD SUCCESS`，说明离线测试通过，但不能把它写成云 MySQL runtime smoke 通过。
+6. `mvn test -DskipITs` 默认使用 test profile，Maven Surefire 会覆盖 `.env` import，不要求启动 tunnel，也不应初始化 scheduled outbox / RocketMQ / Redisson 真实链路；若要证明云 MySQL / Qdrant runtime 可用，仍需按第 6 节启动 tunnel 后单独做 smoke。
 
 健康检查：
 
@@ -144,4 +144,4 @@ HK Cloud 配置默认读取：
 3. 云模式不可用：检查 `.env`、Redis 鉴权、RocketMQ NameServer 连通性。
 4. MySQL / Qdrant 不可达：先确认 `scripts/dev/start-cloud-tunnels.ps1` 已启动，且本地 `13306` / `6333` 端口正在监听；不要再用公网 `MYSQL_HOST=<CLOUD_HOST>` + `MYSQL_PORT=13306` 直连 MySQL。
 5. 香港云中间件不可达：检查 `<CLOUD_HOST>` 的 Redis / RocketMQ / MinIO 连通性；MySQL / Qdrant 优先检查 tunnel，必要时临时切到 `docker-compose.demo.yml`。
-6. 全量测试末尾出现 scheduled outbox job 的 MySQL 连接失败日志：先看 Surefire 结果。若最终 `BUILD SUCCESS`，记录为 tunnel 未连通边界；若要证明云链路可用，按第 6 节先启动 tunnel 再做 runtime smoke。
+6. 全量测试意外出现 `.env`、scheduled outbox、RocketMQ、Redisson、MySQL tunnel 或 Qdrant 连接日志：先确认是否回归了默认测试隔离。普通 `mvn test -DskipITs` 不应依赖真实中间件；若要证明云链路可用，按第 6 节先启动 tunnel 再做 runtime smoke。

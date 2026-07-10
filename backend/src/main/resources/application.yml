@@ -123,11 +123,13 @@ app:
     parse-topic: ${DOCPILOT_PARSE_TOPIC:docpilot-parse-topic}
     consumer-group: ${ROCKETMQ_CONSUMER_GROUP:docpilot-parse-consumer-group}
     outbox:
+      scan-enabled: ${ROCKETMQ_OUTBOX_SCAN_ENABLED:true}
       scan-fixed-delay-ms: ${ROCKETMQ_OUTBOX_SCAN_FIXED_DELAY_MS:15000}
       scan-batch-size: ${ROCKETMQ_OUTBOX_SCAN_BATCH_SIZE:20}
       retry-backoff-seconds: ${ROCKETMQ_OUTBOX_RETRY_BACKOFF_SECONDS:30}
       max-retry-count: ${ROCKETMQ_OUTBOX_MAX_RETRY_COUNT:20}
   redisson:
+    enabled: ${APP_REDISSON_ENABLED:true}
     lock-watchdog-timeout-ms: ${REDISSON_LOCK_WATCHDOG_TIMEOUT_MS:30000}
     parse-task-lock-fail-message: ${REDISSON_PARSE_TASK_LOCK_FAIL_MESSAGE:当前文档解析任务处理中，请稍后重试}
 

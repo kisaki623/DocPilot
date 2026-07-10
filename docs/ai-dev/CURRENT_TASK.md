@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 多 block / 多 chunk 来源覆盖 smoke v4（DONE）；下一片：Document Parser 跨 block citation 来源覆盖审计 v5（READY）
+当前任务：自驱质量基础迭代（IN_PROGRESS）；当前片：默认 Maven 测试去外部依赖化（DONE）；下一片：Fresh Clone Schema Bootstrap（READY）
+
+## 2026-07-10 补充：默认 Maven 测试去外部依赖化
+
+- 目标：修复默认 `mvn test -DskipITs` 继承本机 `.env`、初始化 scheduled outbox / RocketMQ / Redisson / 外部基础设施客户端，以及 Surefire fork 可能被强杀的测试边界问题。
+- 已完成：Maven Surefire 默认注入 `SPRING_CONFIG_IMPORT` / `spring.config.import` 到空的 test resource，并固定 `SPRING_PROFILES_ACTIVE=test` / `spring.profiles.active=test`，避免普通单测读取开发者本机 `.env`。
+- 已完成：`@EnableScheduling` 从 `DocPilotApplication` 移入受 `app.scheduling.enabled` 控制的 `SchedulingConfig`；`ParseTaskOutboxScanJob` 受 `app.rocketmq.outbox.scan-enabled` 控制，`RedissonConfig` 受 `app.redisson.enabled` 控制，生产默认仍启用，测试可显式关闭。
+- 已验证：`mvn clean "-Dtest=DocPilotApplicationTests" test` PASS；`mvn test -DskipITs` PASS（889 tests，0 failures，0 errors，5 skipped）。
+- 验证补充：本轮全量测试未新增 `Surefire is going to kill self fork JVM` 记录；最新 dumpstream 检索未命中 fork kill 文本。
+- 边界：本片未启动 tunnel / backend / frontend，未做云 MySQL / Qdrant runtime smoke，未读取或输出 `.env` 值，未操作远程 Docker，不改数据库结构。真实链路验证仍需显式 tunnel 和 smoke runner。
 
 ## 2026-07-10 补充：Document Parser 多 block / 多 chunk 来源覆盖 smoke v4
 

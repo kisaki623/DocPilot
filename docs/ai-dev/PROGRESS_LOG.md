@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-10 默认 Maven 测试去外部依赖化
+
+- 已完成：新增受 `app.scheduling.enabled` 控制的 `SchedulingConfig`，将 `@EnableScheduling` 从应用入口移出；`ParseTaskOutboxScanJob` 增加 `app.rocketmq.outbox.scan-enabled` 条件，`RedissonConfig` 增加 `app.redisson.enabled` 条件，相关开关生产默认仍为 `true`。
+- 已完成：`maven-surefire-plugin` 默认注入 test profile 和空的 `spring.config.import` target，避免普通 Maven 单测读取开发者本机 `.env`；`DocPilotApplicationTests` 显式关闭 scheduling / RocketMQ / Redisson 并 mock Redis 依赖。
+- 已验证：`mvn clean "-Dtest=DocPilotApplicationTests" test` PASS；`mvn test -DskipITs` PASS（889 tests，0 failures，0 errors，5 skipped）。
+- 已审计：`backend/target/surefire-reports` 中未检出新的 `Surefire is going to kill self fork JVM` / fork kill dumpstream 文本；本片未启动 tunnel / backend / frontend，未做云 MySQL / Qdrant runtime smoke。
+
 ## 2026-07-10 Document Parser 多 chunk 真实 smoke v4
 
 - HTML smoke fixture 增加超过默认 `800/120` 策略的脱敏正文，并新增 `expectedMinChunks`、`multiChunkVerified`、`html_multi_chunk` 和 `multi_chunk_source_coverage_missing` 安全门禁。
