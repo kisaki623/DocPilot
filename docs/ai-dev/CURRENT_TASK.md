@@ -1,6 +1,13 @@
 # Current Task
 
-当前任务：cloud smoke Next dev origin 对齐（VERIFIED）；当前片：真实 frontendInteraction 连续两轮通过；上一片：RAG SSE clean-EOF fail-closed（VERIFIED）；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：文档解析/索引可靠性与确定性 Agent 闭环；当前片：索引成功才收口 ParseTask SUCCESS（REVIEW，待真实链路验证）；下一片：消费 lease、受限 reindex 恢复与状态可观测性；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：索引成功才收口 ParseTask SUCCESS（REVIEW）
+
+- 已完成：解析消费者进入 `INDEXING` 后先持久化业务内容与摘要，再同步调用索引；只有返回与当前用户、文档、版本一致且 chunk/vector 完整的 `SUCCESS` 才把 Document 与 ParseTask 置为 `SUCCESS`。
+- 失败收口：索引返回失败、空结果、异常或结果错配均把任务和文档置为 `FAILED`，只写入 `RAG_INDEX_*` 安全错误分类，已解析内容保留；失败日志不再打印底层 provider / Qdrant 异常堆栈或异常文本。
+- 已验证：`ParseTaskConsumeEntryServiceImplTest`、`RagIndexingTriggerServiceImplTest`、`RagIndexingServiceImplTest` 共 33 项 PASS；覆盖索引成功、返回失败、抛异常、请求结果错配、内容保留与错误脱敏。
+- 边界：当前 MQ 消费在索引业务失败后仍 ACK，依赖下一片的受限 reindex / reconciliation 恢复，尚未实现 `PROCESSING` lease、Outbox 原子 claim、自动恢复扫描、状态查询 API、指标或真实链路验证；因此本片保持 `REVIEW`。
 
 ## 2026-07-10 补充：cloud smoke Next dev origin 对齐（VERIFIED）
 

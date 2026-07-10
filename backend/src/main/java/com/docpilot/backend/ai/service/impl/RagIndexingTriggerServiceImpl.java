@@ -66,6 +66,24 @@ public class RagIndexingTriggerServiceImpl implements RagIndexingTriggerService 
         );
     }
 
+    @Override
+    public RagIndexingResult indexAfterParse(Long userId, Long documentId, ParseResult parseResult) {
+        if (userId == null || documentId == null) {
+            throw new IllegalArgumentException("userId and documentId are required for RAG indexing");
+        }
+        if (ragScopeGuard != null) {
+            ragScopeGuard.requireOwnedDocument(userId, documentId);
+        }
+        return ragIndexingService.index(new RagIndexingRequest(
+                documentId,
+                userId,
+                parseResult == null ? "" : parseResult.fullText(),
+                DEFAULT_INDEX_VERSION,
+                "",
+                sourceBlocks(parseResult)
+        ));
+    }
+
     private void triggerAfterParseSuccess(Long userId,
                                           Long documentId,
                                           String parsedText,

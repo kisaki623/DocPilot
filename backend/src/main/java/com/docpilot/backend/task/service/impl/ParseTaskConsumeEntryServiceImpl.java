@@ -1,6 +1,7 @@
 package com.docpilot.backend.task.service.impl;
 
 import com.docpilot.backend.ai.service.RagIndexingTriggerService;
+import com.docpilot.backend.ai.rag.RagIndexingResult;
 import com.docpilot.backend.common.constant.CommonConstants;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
 import com.docpilot.backend.common.metrics.DocPilotMetrics;
@@ -182,10 +183,18 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             long indexingStart = System.nanoTime();
             transitionToStage(parseTask, document, ParseStatusConstants.INDEXING);
 
+            Document indexedDocument = new Document();
+            indexedDocument.setId(document.getId());
+            indexedDocument.setContent(parsedContent);
+            indexedDocument.setSummary(summary);
+            indexedDocument.setParseStatus(ParseStatusConstants.INDEXING);
+            documentMapper.updateById(indexedDocument);
+            evictDocumentDetailCache(document.getUserId(), document.getId());
+
+            indexRagBeforeParseSuccess(document.getUserId(), document.getId(), parseResult);
+
             Document successDocument = new Document();
             successDocument.setId(document.getId());
-            successDocument.setContent(parsedContent);
-            successDocument.setSummary(summary);
             successDocument.setParseStatus(ParseStatusConstants.SUCCESS);
             documentMapper.updateById(successDocument);
             evictDocumentDetailCache(document.getUserId(), document.getId());
@@ -198,7 +207,6 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             parseTaskMapper.updateById(successTask);
             parseTask.setStatus(ParseStatusConstants.SUCCESS);
             DocPilotMetrics.recordParseStageDuration(ParseStatusConstants.INDEXING, System.nanoTime() - indexingStart);
-            triggerRagIndexingSafely(document.getUserId(), document.getId(), parseResult);
 
             log.info("Parse task consume entry accepted. taskId={}, documentId={}, fileRecordId={}, parser={}, contentLength={}, summaryLength={}, blockCount={}, warningCount={}",
                     parseTask.getId(),
@@ -213,13 +221,12 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             if (ex instanceof IllegalStateException && ex.getMessage() != null && ex.getMessage().startsWith("illegal status transition")) {
                 return;
             }
-            String errorType = ex instanceof ParserException parserException
-                    ? "PARSER_" + parserException.getErrorCode().name()
-                    : "PARSE_EXCEPTION";
+            String errorType = resolveErrorType(ex);
+            String safeErrorMessage = resolveSafeErrorMessage(ex);
             DocPilotMetrics.recordDocumentParserResult("unknown", "failed", 0, 0, 0, 0, 0);
             log.error("[PARSE_PROCESS_EXCEPTION] taskId={}, documentId={}, fileRecordId={}, errorType={}",
-                    parseTask.getId(), document.getId(), fileRecord.getId(), errorType, ex);
-            markFailed(parseTask, document.getUserId(), document.getId(), errorType, ex.getMessage());
+                    parseTask.getId(), document.getId(), fileRecord.getId(), errorType);
+            markFailed(parseTask, document.getUserId(), document.getId(), errorType, safeErrorMessage);
         }
     }
 
@@ -237,16 +244,62 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
         return parserRegistry.parse(input);
     }
 
-    private void triggerRagIndexingSafely(Long userId, Long documentId, ParseResult parseResult) {
+    private void indexRagBeforeParseSuccess(Long userId, Long documentId, ParseResult parseResult) {
         if (ragIndexingTriggerService == null) {
-            return;
+            throw new RagIndexingFailedException("RAG_INDEX_TRIGGER_UNAVAILABLE", "indexing trigger is unavailable");
         }
         try {
-            ragIndexingTriggerService.triggerAfterParseSuccess(userId, documentId, parseResult);
+            RagIndexingResult result = ragIndexingTriggerService.indexAfterParse(userId, documentId, parseResult);
+            if (result == null) {
+                throw new RagIndexingFailedException("RAG_INDEX_NO_RESULT", "indexing returned no result");
+            }
+            if (!result.success()) {
+                throw new RagIndexingFailedException(
+                        "RAG_INDEX_" + result.status().name(),
+                        "indexing completed with status " + result.status().name()
+                );
+            }
+            if (!documentId.equals(result.documentId())
+                    || !userId.equals(result.userId())
+                    || !Integer.valueOf(1).equals(result.indexVersion())) {
+                throw new RagIndexingFailedException(
+                        "RAG_INDEX_RESULT_MISMATCH",
+                        "indexing result did not match the requested document"
+                );
+            }
+            if (parseResult != null && !parseResult.fullText().isBlank()
+                    && (result.chunkCount() <= 0 || result.vectorCount() != result.chunkCount())) {
+                throw new RagIndexingFailedException(
+                        "RAG_INDEX_INCOMPLETE_RESULT",
+                        "indexing result did not contain a complete chunk/vector set"
+                );
+            }
         } catch (RuntimeException ex) {
-            log.warn("RAG indexing trigger returned an exception after parse success. userId={}, documentId={}, errorType={}",
-                    userId, documentId, ex.getClass().getSimpleName());
+            if (ex instanceof RagIndexingFailedException) {
+                throw ex;
+            }
+            throw new RagIndexingFailedException(
+                    "RAG_INDEX_EXCEPTION",
+                    "indexing threw " + ex.getClass().getSimpleName()
+            );
         }
+    }
+
+    private String resolveErrorType(Exception ex) {
+        if (ex instanceof ParserException parserException) {
+            return "PARSER_" + parserException.getErrorCode().name();
+        }
+        if (ex instanceof RagIndexingFailedException indexingFailure) {
+            return indexingFailure.errorType();
+        }
+        return "PARSE_EXCEPTION";
+    }
+
+    private String resolveSafeErrorMessage(Exception ex) {
+        if (ex instanceof RagIndexingFailedException indexingFailure) {
+            return indexingFailure.getMessage();
+        }
+        return ex.getMessage();
     }
 
     private String resolveMessageKey(ParseTaskMessage message) {
@@ -380,5 +433,19 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
     private String buildErrorMsg(String errorType, String stage, String errorMessage) {
         String resolvedStage = (stage == null || stage.isBlank()) ? "UNKNOWN" : stage;
         return errorType + " [stage=" + resolvedStage + "]: " + limitError(errorMessage);
+    }
+
+    private static final class RagIndexingFailedException extends RuntimeException {
+
+        private final String errorType;
+
+        private RagIndexingFailedException(String errorType, String message) {
+            super(message);
+            this.errorType = errorType;
+        }
+
+        private String errorType() {
+            return errorType;
+        }
     }
 }

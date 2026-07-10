@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-10 索引成功状态收口
+
+- 解析消费者改为在 `INDEXING` 阶段同步等待 RAG 索引结果；Document / ParseTask 仅在索引成功、结果身份一致且 chunk/vector 完整后才写入 `SUCCESS`。
+- 索引失败、空结果、异常和结果错配均安全收口为 `RAG_INDEX_*` 失败，保留已解析内容；错误日志不再附带底层异常，避免 provider / Qdrant 错误文本泄露。
+- 验证：`ParseTaskConsumeEntryServiceImplTest`、`RagIndexingTriggerServiceImplTest`、`RagIndexingServiceImplTest` 共 33 项 PASS。下一片处理消费 lease、幂等恢复、状态查询与观测；当前未跑真实 cloud smoke，状态为 REVIEW。
+
 ## 2026-07-10 cloud smoke Next dev origin 对齐
 
 - 真实 marker `docpilot-cloud-quality-20260710205934-95dd05` 暴露：业务路径已经通过，但 KnowledgeBase 阶段首次 Next dev 编译 / RSC 刷新产生一条 `fetchServerResponse` 的 `Failed to fetch` console error，导致 frontendInteraction FAILED_CORE_FLOW。

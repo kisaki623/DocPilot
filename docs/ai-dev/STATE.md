@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-10 解析/索引成功状态收口（REVIEW）
+
+- ParseTask 消费主链路现在把 RAG 索引纳入成功条件：进入 `INDEXING` 后先保存解析内容和摘要，等待同步索引结果，只有当前 user/document/indexVersion 一致、chunk/vector 完整的 `SUCCESS` 才把 Document 与 ParseTask 标记 `SUCCESS`。
+- 索引失败、空结果、异常或结果错配统一收口到 `FAILED`，使用 `RAG_INDEX_*` 安全错误分类并保留已解析内容；失败日志只记录 task/document/file id 与错误码，不输出底层 provider、Qdrant 或原始异常内容。
+- 定向后端回归 33 项 PASS。该片尚未实现 consumer/outbox lease、自动 reindex、状态投影 API、Prometheus 指标或真实 cloud run，故状态为 `REVIEW`，不能写成完整失败恢复已完成。
+
 ## 2026-07-10 cloud smoke Next dev origin 对齐（VERIFIED）
 
 - `cloud-quality-smoke.ps1` 启动 Next dev 时现显式绑定 `FrontendBaseUrl` 的 loopback host，避免监听/访问 origin 不一致在初次 dev compile 与 RSC 刷新窗口触发 `fetchServerResponse` console error。
