@@ -1,5 +1,7 @@
 package com.docpilot.backend.memory.eval;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -15,7 +17,7 @@ class MemoryQualitySmokeScriptSafetyTest {
     @Test
     void shouldPrintPlanWithoutReadingEnvOrCreatingData() throws Exception {
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
@@ -83,7 +85,7 @@ class MemoryQualitySmokeScriptSafetyTest {
     @Test
     void shouldKeepMemoryProviderWrapperGatedAndSanitized() throws Exception {
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",

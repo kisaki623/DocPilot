@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：自驱质量基础迭代（IN_PROGRESS）；当前片：默认 Maven 测试去外部依赖化（DONE）；下一片：Fresh Clone Schema Bootstrap（READY）
+当前任务：自驱质量基础迭代（IN_PROGRESS）；当前片：离线 CI 基线（REVIEW，待首个 GitHub Actions run）；上一片：默认 Maven 测试去外部依赖化（DONE）；下一片：离线 Playwright E2E 路由 smoke（READY）
+
+## 2026-07-10 补充：离线 CI 基线
+
+- 目标：把当前默认离线回归固化为 GitHub Actions，避免把需要 tunnel、云 MySQL / Qdrant、临时业务数据或真实 provider 的 cloud smoke 误放入公共 CI。
+- 已完成：新增 `.github/workflows/ci.yml`，分别以 Java 17 运行 `mvn test -DskipITs`，以 Node 20 运行 `npm ci`、`npm run lint`、`npm run build`；workflow 仅 `push` / `pull_request` 和 `contents: read`，没有 env / secret、tunnel、Docker 或 cloud smoke 调用。
+- 已修复：独立审查发现 Ubuntu runner 会被脚本安全测试的硬编码 `powershell` 阻塞；新增 `PowerShellTestSupport`，Windows 继续使用 `powershell`，非 Windows 使用 `pwsh`，并替换 14 个测试文件的 20 处执行入口。复审继续发现离线 Agent demo suite 的内层 launcher 仍硬编码 `powershell`，已同步改为同一 OS-aware 选择并增加静态防回归断言。
+- 已验证：受影响的 offline Agent suite / artifact / OS helper 定向 5 tests PASS；本地 CI 等价后端全量 `mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（891 tests，0 failures，0 errors，5 skipped）；`npm ci`、`npm run lint`、`npm run build` PASS；workflow 静态 contract 与 `cloud-quality-smoke.ps1 -Mode dry-run` PASS。
+- 状态边界：当前仅完成本地等价验证，尚未由 GitHub runner 真实触发，故保持 `REVIEW`；dry-run 中 `13306` / `6333` 未监听是未启动 tunnel 的预期环境状态，不代表云链路已通过。
+- 安全记录：生产依赖审计发现可修复的 `next` critical 和 `postcss` moderate 风险，已登记 `REA-20260710-P1-011`；本片不自动升级依赖。
 
 ## 2026-07-10 补充：默认 Maven 测试去外部依赖化
 

@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-10 离线 CI 基线与跨平台脚本测试
+
+- 新增 `.github/workflows/ci.yml`：Java 17 job 执行后端默认离线全量测试，Node 20 job 执行可复现前端安装、lint 与 build；workflow 不读取 `.env`、不启动 tunnel、不访问云中间件，也不执行会创建临时数据的 cloud smoke `run`。
+- 独立审查发现 Ubuntu runner 与硬编码 `powershell` 的脚本安全测试不兼容；新增 test-only `PowerShellTestSupport` 并替换 14 个测试文件的 20 处入口，Windows 使用 `powershell`、Linux/macOS 使用 `pwsh`。复审发现离线 Agent demo suite 的内层 launcher 仍可能回退到 Windows-only 命令，已改为相同 OS-aware 选择，并在 script safety test 中加入静态防回归断言。
+- 已验证：受影响的 offline Agent suite / artifact / helper 定向 5 tests PASS；`mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（891 tests，0 failures，0 errors，5 skipped）；`npm ci`、`npm run lint`、`npm run build` PASS；`cloud-quality-smoke.ps1 -Mode dry-run` PASS；workflow 静态安全 contract PASS。
+- 边界：尚未 push / PR，未取得 GitHub-hosted Ubuntu runner 的真实结果，因此 CI 状态保持 REVIEW；cloud dry-run 的 tunnel 端口未监听为预期，不代表云链路验证。
+- 本轮生产依赖审计发现 `next` critical 与传递 `postcss` moderate 风险，已登记 `REA-20260710-P1-011`；未执行自动依赖升级。下一片应补离线 Playwright E2E 路由 smoke，之后再做单独的依赖升级评估。
+
 ## 2026-07-10 默认 Maven 测试去外部依赖化
 
 - 已完成：新增受 `app.scheduling.enabled` 控制的 `SchedulingConfig`，将 `@EnableScheduling` 从应用入口移出；`ParseTaskOutboxScanJob` 增加 `app.rocketmq.outbox.scan-enabled` 条件，`RedissonConfig` 增加 `app.redisson.enabled` 条件，相关开关生产默认仍为 `true`。

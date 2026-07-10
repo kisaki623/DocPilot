@@ -1,5 +1,7 @@
 package com.docpilot.backend.ai.rag;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -65,7 +67,7 @@ class QdrantPreflightScriptSafetyTest {
     @Test
     void shouldDefaultToDryRunAndRedactEnvironmentValues() throws Exception {
         ProcessBuilder builder = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",

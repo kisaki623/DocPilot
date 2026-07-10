@@ -1,5 +1,7 @@
 package com.docpilot.backend.ai.agent;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -24,6 +26,9 @@ class OfflineAgentRagDemoSuiteScriptSafetyTest {
                 .contains("run-rag-evaluation-artifact.ps1")
                 .contains("run-rag-qa-trace-smoke.ps1")
                 .contains("show-rag-eval-trend.ps1")
+                .contains("function Get-PowerShellExecutable")
+                .contains("$env:OS -eq \"Windows_NT\"")
+                .contains("& $powerShellExecutable @commandArguments")
                 .contains("offline-agent-rag-demo-suite")
                 .contains("embeddingProvider")
                 .contains("fake")
@@ -39,7 +44,8 @@ class OfflineAgentRagDemoSuiteScriptSafetyTest {
                 .doesNotContain("apiKey")
                 .doesNotContain("providerResponse")
                 .doesNotContain("documentText")
-                .doesNotContain("prompt =");
+                .doesNotContain("prompt =")
+                .doesNotContain("& powershell @commandArguments");
     }
 
     @Test
@@ -48,7 +54,7 @@ class OfflineAgentRagDemoSuiteScriptSafetyTest {
         Files.deleteIfExists(outputPath);
 
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",

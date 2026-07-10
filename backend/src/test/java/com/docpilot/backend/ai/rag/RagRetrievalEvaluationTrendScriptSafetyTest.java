@@ -1,5 +1,7 @@
 package com.docpilot.backend.ai.rag;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -15,7 +17,7 @@ class RagRetrievalEvaluationTrendScriptSafetyTest {
     @Test
     void shouldPrintSanitizedTrendSummaryFromOfflineHistory() throws Exception {
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
@@ -95,7 +97,7 @@ class RagRetrievalEvaluationTrendScriptSafetyTest {
                 """, StandardCharsets.UTF_8);
 
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",

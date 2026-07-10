@@ -26,6 +26,8 @@ MySQL / Qdrant 已收口为远程本机监听。凡是需要访问云 MySQL 或�
 
 普通离线单测、`mvn -DskipTests compile`、前端 `lint/build` 和未登录态页面 smoke 不要求启动 tunnel。
 
+仓库 CI 只运行 `mvn test -DskipITs`、`npm run lint` 与 `npm run build`，用于守护离线回归；它不读取 `.env`、不启动 tunnel、不访问云 MySQL / Qdrant，也不能替代后续本机 `cloud-quality-smoke.ps1` 的真实链路验证。
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/dev/start-cloud-tunnels.ps1
 ```

@@ -1,5 +1,7 @@
 package com.docpilot.backend.document.parser;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -15,7 +17,7 @@ class DocumentParserRealChainSmokeScriptSafetyTest {
     @Test
     void shouldPrintPlanWithoutReadingEnvOrCreatingData() throws Exception {
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
@@ -53,7 +55,7 @@ class DocumentParserRealChainSmokeScriptSafetyTest {
     @Test
     void shouldDryRunWithoutReadingEnvOrCreatingData() throws Exception {
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",

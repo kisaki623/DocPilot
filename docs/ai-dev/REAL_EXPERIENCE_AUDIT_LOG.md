@@ -59,6 +59,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260710-P1-011` | OPEN | P1 | 安全依赖风险 | Frontend dependency supply chain | `npm-audit-frontend-20260710` | 前端生产依赖存在可修复的 critical / moderate 漏洞 |
 | `REA-20260703-P1-001` | VERIFIED（已验证） | P1 | 功能 bug | RAG | `docpilot-real-audit-20260703195519-5118e8` | 短 txt parse 成功但单文档 RAG 无 evidence |
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
 | `REA-20260703-P2-001` | VERIFIED（已验证） | P2 | 体验问题 | Citation UI | `docpilot-real-audit-20260703195519-5118e8` | quote-level citation API 已有，但 UI 仍需 quote-first 展示 |
@@ -72,6 +73,44 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-10 前端生产依赖审计
+
+### `REA-20260710-P1-011` 前端生产依赖存在可修复的 critical / moderate 漏洞
+
+- 状态：OPEN
+- 严重级别：P1
+- 类型：安全依赖风险
+- 模块：Frontend dependency supply chain
+- 发现 marker：`npm-audit-frontend-20260710`
+
+复现步骤：
+
+1. 在 `frontend/` 执行 `npm ci`。
+2. 执行 `npm audit --json --omit=dev`，只读取生产依赖审计摘要。
+
+实际结果：
+
+- 审计报告生产依赖范围内有 `2` 项漏洞：直接依赖 `next` 为 critical，传递依赖 `postcss` 为 moderate。
+- 两项均显示有可用修复；本轮没有执行 `npm audit fix`、没有修改 lockfile，也没有启动应用或访问云端。
+
+预期结果：
+
+- 发布前的前端生产依赖不应保留已知且可修复的 critical 风险；升级后需保持 lint、build 和关键页面静态回归可用。
+
+可能原因：
+
+- 当前锁定的 Next.js 版本及其传递依赖已落入后续披露的安全公告范围。
+
+建议修复位置：
+
+- `frontend/package.json`
+- `frontend/package-lock.json`
+- `.github/workflows/ci.yml`（后续可增加只报告、不自动修复的依赖审计门禁）
+
+修复提交：待定。
+
+验证记录：`npm ci`、`npm run lint`、`npm run build` 已通过；漏洞修复本身尚未实施，不能标记为 VERIFIED。
 
 ## 2026-07-09 Document Parser direct / QA 诊断修复验证
 
