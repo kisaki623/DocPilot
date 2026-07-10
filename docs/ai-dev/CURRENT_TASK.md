@@ -81,7 +81,7 @@
 - 已修复：独立审查发现 Ubuntu runner 会被脚本安全测试的硬编码 `powershell` 阻塞；新增 `PowerShellTestSupport`，Windows 继续使用 `powershell`，非 Windows 使用 `pwsh`，并替换 14 个测试文件的 20 处执行入口。复审继续发现离线 Agent demo suite 的内层 launcher 仍硬编码 `powershell`，已同步改为同一 OS-aware 选择并增加静态防回归断言。
 - 已验证：受影响的 offline Agent suite / artifact / OS helper 定向 5 tests PASS；本地 CI 等价后端全量 `mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（891 tests，0 failures，0 errors，5 skipped）；`npm ci`、`npm run lint`、`npm run build` PASS；workflow 静态 contract 与 `cloud-quality-smoke.ps1 -Mode dry-run` PASS。
 - 状态边界：当前仅完成本地等价验证，尚未由 GitHub runner 真实触发，故保持 `REVIEW`；dry-run 中 `13306` / `6333` 未监听是未启动 tunnel 的预期环境状态，不代表云链路已通过。
-- 安全记录：生产依赖审计发现可修复的 `next` critical 和 `postcss` moderate 风险，已登记 `REA-20260710-P1-011`；本片不自动升级依赖。
+- 安全记录：用户工作区中的 Next 14.2.35 升级已通过 lint/build/E2E 14/14 与真实 cloud smoke 回归；`npm audit --omit=dev` 仍有 Next high 与 PostCSS moderate，完全修复要求破坏性 Next 16 升级，`REA-20260710-P1-011` 保持 OPEN，未自动执行。
 
 ## 2026-07-10 补充：默认 Maven 测试去外部依赖化
 

@@ -73,7 +73,7 @@
 - 独立审查发现 Ubuntu runner 与硬编码 `powershell` 的脚本安全测试不兼容；新增 test-only `PowerShellTestSupport` 并替换 14 个测试文件的 20 处入口，Windows 使用 `powershell`、Linux/macOS 使用 `pwsh`。复审发现离线 Agent demo suite 的内层 launcher 仍可能回退到 Windows-only 命令，已改为相同 OS-aware 选择，并在 script safety test 中加入静态防回归断言。
 - 已验证：受影响的 offline Agent suite / artifact / helper 定向 5 tests PASS；`mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（891 tests，0 failures，0 errors，5 skipped）；`npm ci`、`npm run lint`、`npm run build` PASS；`cloud-quality-smoke.ps1 -Mode dry-run` PASS；workflow 静态安全 contract PASS。
 - 边界：尚未 push / PR，未取得 GitHub-hosted Ubuntu runner 的真实结果，因此 CI 状态保持 REVIEW；cloud dry-run 的 tunnel 端口未监听为预期，不代表云链路验证。
-- 本轮生产依赖审计发现 `next` critical 与传递 `postcss` moderate 风险，已登记 `REA-20260710-P1-011`；未执行自动依赖升级。下一片应补离线 Playwright E2E 路由 smoke，之后再做单独的依赖升级评估。
+- 当前用户工作区中的 Next 14.2.35 升级已通过 `npm run lint`、`npm run build`、`npm run test:e2e`（14/14）及真实 cloud smoke；生产 audit 仍报告 Next high 与 PostCSS moderate。完全修复要求破坏性 Next 16 升级，`REA-20260710-P1-011` 保持 OPEN，未执行自动修复或暂存用户文件。
 
 ## 2026-07-10 默认 Maven 测试去外部依赖化
 

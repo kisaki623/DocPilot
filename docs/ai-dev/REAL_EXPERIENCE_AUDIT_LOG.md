@@ -62,7 +62,7 @@
 | `REA-20260710-P3-014` | VERIFIED（已验证） | P3 | 真实前端体验问题 | KnowledgeBase RAG UI | `docpilot-cloud-quality-20260710195739-fdb3fa` | 知识库 RAG 交互成功但浏览器出现 Failed to fetch 控制台错误 |
 | `REA-20260710-P1-012` | VERIFIED（已验证） | P1 | 真实链路稳定性问题 | Single-document RAG QA | `docpilot-cloud-quality-20260710173219-d801d9` | 解析与索引通过后单文档 RAG 回答模型读取窗口不足 |
 | `REA-20260710-P2-013` | VERIFIED（已验证） | P2 | 真实链路稳定性问题 | RAG Indexing | `docpilot-cloud-quality-20260710194619-390475` | 切换百炼后遗留 embedding 模型标识导致索引失败 |
-| `REA-20260710-P1-011` | OPEN | P1 | 安全依赖风险 | Frontend dependency supply chain | `npm-audit-frontend-20260710` | 前端生产依赖存在可修复的 critical / moderate 漏洞 |
+| `REA-20260710-P1-011` | OPEN | P1 | 安全依赖风险 | Frontend dependency supply chain | `npm-audit-frontend-20260710` | Next 升级后仍存在 high / moderate 生产依赖漏洞，完全修复要求破坏性 major 升级 |
 | `REA-20260710-P2-015` | BLOCKED | P2 | 环境 / fresh-clone 可用性风险 | Local demo MySQL bootstrap | `schema-bootstrap-audit-20260710` | demo 初始化快照已修复，但隔离 MySQL runtime 验收受 Docker Engine 未运行阻塞 |
 | `REA-20260710-P3-016` | VERIFIED（已验证） | P3 | 质量门禁 fixture bug | Memory provider extraction eval | `docpilot-memory-provider-20260710203107-29967e` | 中文长期信息正例被错误 forbidden marker 判为泄露 |
 | `REA-20260710-P1-017` | VERIFIED（已验证） | P1 | artifact 安全边界 | Memory provider extraction smoke | `memory-provider-v2-security-review-20260710` | 原 wrapper 可落盘 Maven 原始日志，且空建议负例存在格式 fail-open |
@@ -310,7 +310,7 @@
 
 ## 2026-07-10 前端生产依赖审计
 
-### `REA-20260710-P1-011` 前端生产依赖存在可修复的 critical / moderate 漏洞
+### `REA-20260710-P1-011` 前端生产依赖升级后仍存在 high / moderate 漏洞
 
 - 状态：OPEN
 - 严重级别：P1
@@ -325,12 +325,13 @@
 
 实际结果：
 
-- 审计报告生产依赖范围内有 `2` 项漏洞：直接依赖 `next` 为 critical，传递依赖 `postcss` 为 moderate。
-- 两项均显示有可用修复；本轮没有执行 `npm audit fix`、没有修改 lockfile，也没有启动应用或访问云端。
+- 初始审计报告生产依赖范围内有直接 `next` critical 与传递 `postcss` moderate；用户工作区已将 Next 升至 14.2.35。
+- 复验 `npm audit --omit=dev` 仍报告 Next high 与 PostCSS moderate；audit 建议的完全修复会升级到 Next 16，属于破坏性 major 变更。
+- 当前升级已通过 lint、build、Playwright E2E 14/14 与真实 cloud smoke；未自动执行 `npm audit fix --force`、未暂存或提交用户的 lockfile / package 改动。
 
 预期结果：
 
-- 发布前的前端生产依赖不应保留已知且可修复的 critical 风险；升级后需保持 lint、build 和关键页面静态回归可用。
+- 发布前应评估并处理剩余生产依赖风险；若选择 major 升级，需重新完成 lint、build、E2E、真实 cloud smoke 与 API / RSC 兼容性回归。
 
 可能原因：
 
