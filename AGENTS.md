@@ -1,4 +1,4 @@
-﻿﻿﻿# AGENTS.md
+﻿﻿﻿﻿# AGENTS.md
 
 本文件是 DocPilot 仓库给后续 Codex / API agent / Claude Code 等协作代理读取的项目规则。每轮开始先读本文件和 `docs/README.md`，再按文档地图读取 `docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/showcase/DEMO_SMOKE_RECORD.md`、`docs/ai-dev/ROADMAP_RAG.md`、`docs/ai-dev/DECISIONS.md`、`docs/ai-dev/CONSTRAINTS.md`、`docs/ai-dev/PROGRESS_LOG.md`，并检查 `git status` 与 `git diff`；涉及真实体验审计、用户视角 bug 或修复回归时，同时读取 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。旧的 `TODO_NEXT.md`、`CODEX_HANDOFF.md`、`CHANGELOG_CODING.md` 已归档到 `docs/archive/`，只在追溯历史时读取，不作为当前任务源。
 
@@ -104,7 +104,43 @@ curl http://localhost:8081/actuator/health
 10. 不要留下本地服务进程或端口占用；如启动了后端、前端或脚本服务，结束前要清理并说明端口状态。
 11. 如果发现工作区有未提交改动或未跟踪文件，必须先向用户汇报，不要直接执行 `git add` / `git commit` / `git push`。
 12. 每轮开始必须检查 `.env`、`.env.local`、`.env.*`、`application-*.yml`、`*.example` 中是否存在硬编码密钥、密码、token、真实云服务 IP；如有必须先告警，不能把敏感值复制到回复里。
-13. 使用 subagents、context7 MCP、playwright MCP 或远程 `hk-ops` 前，先遵守本文件和 `docs/ai-dev/CONSTRAINTS.md`；旧工具边界可按需参考 `docs/archive/CODEX_TOOLING.md`。主 Agent 负责拆解、关键路径、跨任务决策和最终汇总，并须按子任务难度、时效和额度消耗显式选择模型能力与推理强度：阅读、搜索、扫描优先高效档与低/标准推理；常规实现、测试和文档整理优先平衡档与标准推理；架构决策、疑难根因、安全关键判断和最终审查才使用高能力档与高推理。子 Agent 不得无条件继承主 Agent 的高能力配置；用户明确指定模型或强度时优先遵从，平台无法显式选型时使用最接近的可用档位并由主 Agent 补足审查。自驱迭代模式下允许为真实链路验证执行本地 tunnel / smoke / 只读远程诊断；远程破坏性操作仍必须单独授权，禁止泄露凭据或执行未经授权的破坏性操作。
+13. 使用 subagents、context7 MCP、playwright MCP 或远程 `hk-ops` 前，先遵守本文件和 `docs/ai-dev/CONSTRAINTS.md`；旧工具边界可按需参考 `docs/archive/CODEX_TOOLING.md`。子 Agent 的角色、模型和权限以 `.codex/config.toml` 与 `.codex/agents/*.toml` 为准，何时委派与如何汇总以本文件的“多模型子 Agent 自动调度规则”为准。自驱迭代模式下允许为真实链路验证执行本地 tunnel / smoke / 只读远程诊断；远程破坏性操作仍必须单独授权，禁止泄露凭据或执行未经授权的破坏性操作。
+
+## 多模型子 Agent 自动调度规则
+
+主线程默认使用 Terra High，负责理解用户目标、拆解任务、推进关键路径、综合子 Agent 结果和日常开发。主线程始终保留架构取舍、写入协调和最终结论的责任。
+
+### 1. 无需委派的任务
+
+以下任务由主线程直接完成，不创建子 Agent：单文件、低风险的小修改；明确位置的简单 Bug；简单配置调整；代码解释；以及不涉及业务逻辑的少量文档修改。
+
+### 2. 代码探索与证据收集
+
+出现以下任一情况时，优先委派只读 `repo_explorer`：需要搜索大量文件；需要追踪跨模块调用链；不确定功能入口或真实实现位置；需要分析日志、测试失败或配置来源；任务涉及三个及以上模块；或主线程尚未获得足够代码证据。`repo_explorer` 只返回证据和调用关系，不修改文件、不提前编写修复方案。
+
+### 3. 架构与复杂问题
+
+涉及系统架构或模块边界、Spring 事务、并发/锁/竞态/幂等、Outbox/RocketMQ/消息可靠性、MySQL/Redis/MinIO/Qdrant 一致性、数据库结构或迁移、权限隔离和安全、RAG/Chunk/Retrieval/Citation、Memory/Agent/Tool Calling、Eval/质量门禁/观测指标，或需求存在多种可行方案时，修改代码前必须委派只读 `architect`。主线程必须等待方案返回后再决定实现方式；主线程连续两次未解决同一问题时，同样必须委派 `architect`。
+
+### 4. 功能实现
+
+方案明确且需要跨多个文件或模块实现时，可以委派 `implementer`。修改范围小、预计只涉及一到两个文件，或创建子 Agent 的开销大于任务本身时，主线程直接实现。`implementer` 只可在主线程确认没有其他写 Agent 后开始写入。
+
+### 5. 机械任务
+
+文档同步、格式整理、批量改名、注释更新、明确规则下的重复修改和不涉及业务判断的模板转换优先委派 `mechanical`。`mechanical` 发现业务逻辑、歧义或范围外需求时必须停止并返回主线程。
+
+### 6. 独立审查
+
+事务或消息一致性、并发/锁/幂等、权限和安全、数据库结构、RAG/Memory/Agent/Eval、重要跨模块功能，或用户明确要求高质量、生产级或最终审查的变更，在实现与测试通过后必须委派只读 `reviewer`。主线程必须等待审查完成，再决定是否修复或结束任务。
+
+### 7. 并发和写入安全
+
+只读 Agent 可以并行运行；同一时刻最多允许一个具有 `workspace-write` 权限的 Agent 修改工作区；不允许 `implementer` 和 `mechanical` 同时写入，也不允许多个 Agent 编辑同一文件。子 Agent 返回后由主线程统一综合结论；任何已派发 Agent 未完成时，不得提前宣称任务完成。
+
+### 8. 成本控制
+
+简单任务不创建子 Agent。代码探索优先 Terra Low；普通实现优先 Terra High；机械任务优先 Luna Low；只有复杂设计和重要审查才使用 Sol High。不得无条件把所有任务委派给 Sol；用户明确指定模型或推理强度时优先遵从。
 
 ## 自驱迭代模式
 
