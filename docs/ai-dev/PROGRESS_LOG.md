@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-10 cloud smoke Next dev origin 对齐
+
+- 真实 marker `docpilot-cloud-quality-20260710205934-95dd05` 暴露：业务路径已经通过，但 KnowledgeBase 阶段首次 Next dev 编译 / RSC 刷新产生一条 `fetchServerResponse` 的 `Failed to fetch` console error，导致 frontendInteraction FAILED_CORE_FLOW。
+- 修复 smoke runner 以 `FrontendBaseUrl` 的 loopback host 显式启动 `next dev -H <host> -p <port>`，同时限制为 localhost / 127.0.0.1 / ::1；URL 的 http/https、显式有效端口与 loopback 校验均前置到首次可达性探测前，避免把外部 host 注入启动命令或绕过 allowlist。不忽略 console error、不改 Next config 或用户的依赖升级改动。
+- 验证：`CloudQualitySmokeScriptSafetyTest` PASS（2 tests）；完整真实 cloud quality 三次 PASS，marker `docpilot-cloud-quality-20260710210913-5ea91b`、`docpilot-cloud-quality-20260710211110-0b226b`、`docpilot-cloud-quality-20260710211530-6de04e`，三轮 `frontendInteraction.consoleErrorCount=0`，所有核心 gate、cleanup 和 artifact redaction 均通过。
+
 ## 2026-07-10 RAG SSE clean-EOF fail-closed
 
 - 修复：前端 RAG SSE reader 以前会把未收到 done 的 HTTP body EOF 静默当作成功，可能留下空白答案或无中断提示的部分回答；现在仅命名 `event: done` 可终止成功，其他 clean EOF 统一抛受控 `transport_eof`。

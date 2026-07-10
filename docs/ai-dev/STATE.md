@@ -1,5 +1,10 @@
 # DocPilot 当前状态
 
+## 2026-07-10 cloud smoke Next dev origin 对齐（VERIFIED）
+
+- `cloud-quality-smoke.ps1` 启动 Next dev 时现显式绑定 `FrontendBaseUrl` 的 loopback host，避免监听/访问 origin 不一致在初次 dev compile 与 RSC 刷新窗口触发 `fetchServerResponse` console error。
+- 静态安全测试 2 项与三次完整真实 smoke 均通过：`docpilot-cloud-quality-20260710210913-5ea91b`、`docpilot-cloud-quality-20260710211110-0b226b`、`docpilot-cloud-quality-20260710211530-6de04e` 的 KnowledgeBase citation、console error=0、核心 RAG / Agent / Trace / 权限、cleanup 和 artifact redaction 全部 PASS。未改 Next 配置、依赖锁、业务 API、模型或数据库。
+
 ## 2026-07-10 RAG SSE clean-EOF fail-closed（VERIFIED）
 
 - RAG stream 仅在收到命名 `event: done` 后成功结束；HTTP body clean EOF 若缺 done，会以 `transport_eof` 进入既有页面恢复状态机，首 chunk 前回退一次非流式 RAG，已有 chunk 则保留部分内容并提示重试。

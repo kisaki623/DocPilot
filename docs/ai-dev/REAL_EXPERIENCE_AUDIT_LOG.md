@@ -67,6 +67,7 @@
 | `REA-20260710-P3-016` | VERIFIED（已验证） | P3 | 质量门禁 fixture bug | Memory provider extraction eval | `docpilot-memory-provider-20260710203107-29967e` | 中文长期信息正例被错误 forbidden marker 判为泄露 |
 | `REA-20260710-P1-017` | VERIFIED（已验证） | P1 | artifact 安全边界 | Memory provider extraction smoke | `memory-provider-v2-security-review-20260710` | 原 wrapper 可落盘 Maven 原始日志，且空建议负例存在格式 fail-open |
 | `REA-20260710-P2-018` | VERIFIED（已验证） | P2 | 流式体验可靠性 | RAG SSE client | `sse-eof-contract-audit-20260710` | 未收到 done 的 clean EOF 被静默当作成功 |
+| `REA-20260710-P3-019` | VERIFIED（已验证） | P3 | 真实前端体验 / smoke 稳定性 | Next dev RSC / cloud quality runner | `docpilot-cloud-quality-20260710205934-95dd05` | Next dev 监听与浏览器访问 origin 不一致导致 RSC console error |
 | `REA-20260703-P1-001` | VERIFIED（已验证） | P1 | 功能 bug | RAG | `docpilot-real-audit-20260703195519-5118e8` | 短 txt parse 成功但单文档 RAG 无 evidence |
 | `REA-20260703-P1-002` | VERIFIED（已验证） | P1 | 功能 bug | KnowledgeBase RAG / Trace | `docpilot-real-audit-20260703195519-5118e8` | 短文档 KB 双文档问题退化成单文档命中 |
 | `REA-20260703-P2-001` | VERIFIED（已验证） | P2 | 体验问题 | Citation UI | `docpilot-real-audit-20260703195519-5118e8` | quote-level citation API 已有，但 UI 仍需 quote-first 展示 |
@@ -82,6 +83,27 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-10 真实主链路验收失败
+
+### `REA-20260710-P3-019` Next dev 监听与浏览器访问 origin 不一致导致 RSC console error
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：真实前端体验 / smoke 稳定性
+- 模块：Next dev RSC / cloud quality runner
+- 发现 marker：`docpilot-cloud-quality-20260710205934-95dd05`
+
+实际结果：
+
+- 上传、索引、单文档 / KnowledgeBase RAG、Agent、Trace、Memory、权限与 citation UI 均通过，但 KnowledgeBase 初次 dev compile / RSC 刷新期间出现 `fetchServerResponse` 的 `Failed to fetch` console error，frontendInteraction 因此失败。
+
+修复与验证：
+
+- runner 从 `FrontendBaseUrl` 解析并仅接受 http/https 的显式有效 loopback host / port，启动 Next dev 时显式传递 `-H <host> -p <port>`，并在首次可达性探测前拒绝外部 URL，使监听与 Playwright 访问 origin 对齐。
+- 静态安全测试 PASS；完整真实 marker `docpilot-cloud-quality-20260710210913-5ea91b`、`docpilot-cloud-quality-20260710211110-0b226b`、`docpilot-cloud-quality-20260710211530-6de04e` 连续 PASS，KnowledgeBase citation 可见且三轮 console error 均为 0。
+
+边界：
+
+- 此修复针对 cloud smoke 的 Next dev 启动一致性，不改业务 API、Next config、依赖版本或生产运行行为。
 
 ### `REA-20260710-P2-018` RAG SSE 未收到 done 的 clean EOF 被静默当作成功
 

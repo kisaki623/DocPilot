@@ -1,6 +1,12 @@
 # Current Task
 
-当前任务：RAG SSE clean-EOF fail-closed（VERIFIED）；当前片：缺 `done` 的流响应会进入可恢复错误态；上一片：Memory provider extraction case diversity v2（VERIFIED）；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：cloud smoke Next dev origin 对齐（VERIFIED）；当前片：真实 frontendInteraction 连续两轮通过；上一片：RAG SSE clean-EOF fail-closed（VERIFIED）；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：cloud smoke Next dev origin 对齐（VERIFIED）
+
+- 发现：真实 cloud quality run `docpilot-cloud-quality-20260710205934-95dd05` 的所有 RAG、Agent、Trace、权限与浏览器业务断言均通过，但 KnowledgeBase 初次 dev compile / RSC 刷新期间出现 1 条 `fetchServerResponse` 的 `Failed to fetch` console error。
+- 修复：runner 启动 Next dev 时从 `FrontendBaseUrl` 解析 loopback host，并显式使用 `-H <host> -p <port>`；拒绝非 loopback host。未改 Next 配置、用户未提交的依赖升级、业务 API、模型、数据库或云 Docker。
+- 已验证：`CloudQualitySmokeScriptSafetyTest` 2 项 PASS；完整真实 smoke `docpilot-cloud-quality-20260710210913-5ea91b`、`docpilot-cloud-quality-20260710211110-0b226b` 与前置 URL 安全校验后的 `docpilot-cloud-quality-20260710211530-6de04e` 均 PASS，KnowledgeBase 双 citation 可见、`consoleErrorCount=0`、cleanup / artifact redaction PASS。关联 `REA-20260710-P3-019`。
 
 ## 2026-07-10 补充：RAG SSE clean-EOF fail-closed（VERIFIED）
 

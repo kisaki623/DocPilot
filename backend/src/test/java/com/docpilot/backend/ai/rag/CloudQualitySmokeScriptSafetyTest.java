@@ -22,6 +22,20 @@ class CloudQualitySmokeScriptSafetyTest {
                 .doesNotContain("throw \"api returned non-zero code");
     }
 
+    @Test
+    void shouldBindStartedNextDevServerToTheRequestedLoopbackOrigin() throws Exception {
+        String script = Files.readString(scriptPath(), StandardCharsets.UTF_8);
+
+        assertThat(script)
+                .contains("$frontendUri = [Uri]$FrontendBaseUrl")
+                .contains("frontend dev host must be a loopback address")
+                .contains("frontend base URL must use http or https with an explicit valid port")
+                .contains("npm.cmd run dev -- -H $frontendHost -p $port")
+                .doesNotContain("$host = $frontendUri.Host");
+        assertThat(script.indexOf("frontend dev host must be a loopback address"))
+                .isLessThan(script.indexOf("if (Wait-FrontendRoute 3)"));
+    }
+
     private static Path scriptPath() {
         return Path.of("..", "scripts", "smoke", "cloud-quality-smoke.ps1");
     }

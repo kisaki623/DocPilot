@@ -352,6 +352,15 @@ function Start-FrontendIfNeeded() {
     Set-Gate "frontendRoutes" "REVIEW" @("frontend route smoke skipped")
     return
   }
+  $frontendUri = [Uri]$FrontendBaseUrl
+  $port = $frontendUri.Port
+  $frontendHost = $frontendUri.Host
+  if ($frontendUri.Scheme -notin @("http", "https") -or $frontendUri.IsDefaultPort -or $port -lt 1 -or $port -gt 65535) {
+    Stop-WithStatus "BLOCKED" "frontendRoutes" "frontend base URL must use http or https with an explicit valid port"
+  }
+  if ($frontendHost -notin @("localhost", "127.0.0.1", "::1")) {
+    Stop-WithStatus "BLOCKED" "frontendRoutes" "frontend dev host must be a loopback address"
+  }
   if (Wait-FrontendRoute 3) {
     return
   }
@@ -360,8 +369,7 @@ function Start-FrontendIfNeeded() {
   }
 
   $frontendDir = Join-Path (Get-Location) "frontend"
-  $port = ([Uri]$FrontendBaseUrl).Port
-  $command = "Set-Location -LiteralPath '$frontendDir'; npm.cmd run dev -- -p $port"
+  $command = "Set-Location -LiteralPath '$frontendDir'; npm.cmd run dev -- -H $frontendHost -p $port"
   $startArgs = @{
     FilePath = "powershell.exe"
     ArgumentList = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", $command)
