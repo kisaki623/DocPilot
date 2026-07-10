@@ -14,13 +14,14 @@ Runner:
 
 Marker:
 
-- `docpilot-cloud-quality-20260710191822-ec80b6`
+- `docpilot-cloud-quality-20260710200547-6dec4e`
 
 已验证：
 
 - tunnel、backend health、认证、双文档上传 / 异步解析、chunk 质量和 MySQL / Qdrant 一致性均通过。
 - 单文档、KnowledgeBase 与短文档 RAG 均返回 grounded evidence / citation；Conversation / Memory、KnowledgeBase Agent、权限隔离、浏览器 quote-first 与前端 console error 门禁均通过。
 - 先前的真实模型失败已定位为当前本机 provider/model 的非流式读取窗口不足；RAG 服务已具备受限重试与脱敏诊断，当前本机运行调优后本次完整 gate 通过。
+- Next dev 的 loopback 访问源兼容已验证：保持既有 `127.0.0.1:3007` smoke 命令，KnowledgeBase RAG 双 citation 可见且浏览器 console error 为 `0`。
 - artifact redaction 与 cleanup PASS；本轮启动的 local tunnel、backend、frontend 已清理。
 
 边界：这是当前本机 provider/model 与临时脱敏 smoke 数据上的真实闭环证据，不代表所有模型供应商、持续高并发或线上 SLA。读取窗口调优仅在 ignored 本机 `.env` 中生效，未改项目默认值、示例配置、数据库或云端服务；artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，不提交原文、prompt、答案、凭据、连接串或云地址。

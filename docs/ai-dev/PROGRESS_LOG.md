@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-10 Next dev loopback 访问源兼容
+
+- 真实 smoke 发现：知识库问答及 citation 已成功，但以 `127.0.0.1:3007` 访问 Next dev 时，App Router RSC 请求输出 `Failed to fetch` console error；`localhost` 对照 run 无该错误。
+- 修复：`frontend/next.config.js` 增加开发期 `allowedDevOrigins: ["127.0.0.1"]`，保留既有 smoke 和本地联调命令，不改业务 API / 数据库 / 模型或生产 rewrite。
+- 验证：`npm run lint`、`npm run build` PASS；原 `127.0.0.1:3007` 条件下完整 cloud quality run `docpilot-cloud-quality-20260710200547-6dec4e` PASS，所有核心 RAG、Agent、权限和前端交互 gate 通过，console error 为 0，runner cleanup 完成。
+
 ## 2026-07-10 阿里云百炼 Qwen 切换验证
 
 - 切换回答模型后，发现遗留 embedding 模型标识在百炼 endpoint 返回 404，导致 parse 成功后的向量索引为 0；改为百炼官方 `text-embedding-v4` 后返回 1024 维向量。

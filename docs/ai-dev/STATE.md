@@ -1,5 +1,10 @@
 # DocPilot 当前状态
 
+## 2026-07-10 Next dev 访问源兼容（VERIFIED）
+
+- `next.config.js` 已在开发期显式允许 `127.0.0.1`，修复 cloud smoke / 本地联调以 loopback IP 访问 Next dev 时的 RSC `Failed to fetch` 控制台错误；该设置不影响 production rewrite、后端 API 权限或数据库。
+- `npm run lint`、`npm run build` PASS；完整真实 cloud quality marker `docpilot-cloud-quality-20260710200547-6dec4e` PASS，KnowledgeBase 双 citation 可见且前端 `consoleErrorCount=0`，详见 `REA-20260710-P3-014`。
+
 ## 2026-07-10 阿里云百炼 Qwen 运行配置（VERIFIED）
 
 - 当前本机真实回答使用百炼 `qwen-plus`，向量化使用百炼 OpenAI-compatible `text-embedding-v4`；回答最小请求、RAG 上下文请求和 1024 维 embedding 探测均成功。

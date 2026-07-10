@@ -59,6 +59,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260710-P3-014` | VERIFIED（已验证） | P3 | 真实前端体验问题 | KnowledgeBase RAG UI | `docpilot-cloud-quality-20260710195739-fdb3fa` | 知识库 RAG 交互成功但浏览器出现 Failed to fetch 控制台错误 |
 | `REA-20260710-P1-012` | VERIFIED（已验证） | P1 | 真实链路稳定性问题 | Single-document RAG QA | `docpilot-cloud-quality-20260710173219-d801d9` | 解析与索引通过后单文档 RAG 回答模型读取窗口不足 |
 | `REA-20260710-P2-013` | VERIFIED（已验证） | P2 | 真实链路稳定性问题 | RAG Indexing | `docpilot-cloud-quality-20260710194619-390475` | 切换百炼后遗留 embedding 模型标识导致索引失败 |
 | `REA-20260710-P1-011` | OPEN | P1 | 安全依赖风险 | Frontend dependency supply chain | `npm-audit-frontend-20260710` | 前端生产依赖存在可修复的 critical / moderate 漏洞 |
@@ -77,6 +78,42 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-10 真实主链路验收失败
+
+### `REA-20260710-P3-014` 知识库 RAG 交互成功但浏览器出现 Failed to fetch 控制台错误
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：真实前端体验问题
+- 模块：KnowledgeBase RAG UI
+- 发现 marker：`docpilot-cloud-quality-20260710195739-fdb3fa`
+
+复现步骤：
+
+1. 运行 `cloud-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007 -EnableFrontendInteractionGate -EnableKnowledgeBaseAgentGate`。
+2. 完成临时用户、双文档上传解析和 KnowledgeBase 创建。
+3. 在浏览器中完成 KnowledgeBase RAG 回答与 citation 展示检查。
+
+实际结果：
+
+- 单文档 / KnowledgeBase RAG、短文档、grounding、no-evidence、Conversation Trace、Agent 和权限隔离均通过；KnowledgeBase 双文档 citation 已在页面可见。
+- `frontendInteraction` 捕获 1 个 blocking console error：knowledgeBase 阶段的 `TypeError`，脱敏 message shape 为 `Failed to fetch`。
+- 因浏览器 console error gate 失败，整体标记为 `FAILED_CORE_FLOW`；runner cleanup 和 artifact redaction 均通过。
+
+预期结果：
+
+- KnowledgeBase RAG 交互完成后不应出现未处理的浏览器 fetch 错误；后台刷新或组件卸载触发的请求应被取消、忽略或以可理解 UI 状态处理。
+
+可能原因：
+
+- 错误栈形状来自 Next App Router 的 RSC 路由请求，而非 KnowledgeBase QA API；在 Next dev 下以 `127.0.0.1` 访问时，前端日志记录了 `/_next` 开发跨源警告。
+
+建议修复位置：
+
+- `frontend/next.config.js`
+
+修复内容：`next.config.js` 增加 `allowedDevOrigins: ["127.0.0.1"]`，使现有 smoke / 本地联调访问源被 Next dev 显式允许；不改 KnowledgeBase API、模型、数据库或 runner 业务逻辑。
+
+验证记录：`npm run lint`、`npm run build` PASS；在同一 `127.0.0.1:3007` 访问条件下，完整 cloud quality smoke `docpilot-cloud-quality-20260710200547-6dec4e` PASS，KnowledgeBase 双 citation 可见且 `consoleErrorCount=0`。失败 artifact `docpilot-cloud-quality-20260710195739-fdb3fa` 与验证 artifact 均位于 ignored `tmp-e2e/`，未提交原始 artifact、日志、临时文档或凭据。
 
 ### `REA-20260710-P1-012` 解析与索引通过后单文档 RAG 回答模型读取窗口不足
 

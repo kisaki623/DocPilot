@@ -1,6 +1,12 @@
 # Current Task
 
-当前任务：优先级 2 RAG 可靠性（IN_PROGRESS）；当前片：SSE 流式 RAG 失败语义（REVIEW，待真实浏览器失败注入验证）；上一片：单文档 / KnowledgeBase RAG 读取窗口调优（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：优先级 2 RAG 可靠性（IN_PROGRESS）；当前片：SSE 流式 RAG 失败语义（REVIEW，待真实浏览器失败注入验证）；上一片：Next dev 前端访问源兼容修复（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：Next dev 前端访问源兼容修复（VERIFIED）
+
+- 发现：真实 cloud quality run 使用既有 `127.0.0.1:3007` 访问时，KnowledgeBase RAG 的 citation 已渲染，但 Next App Router RSC 请求产生 `Failed to fetch` console error；用 `localhost:3007` 的同链路对照 run 全绿。
+- 修复：`frontend/next.config.js` 增加 `allowedDevOrigins: ["127.0.0.1"]`，使开发服务显式允许 smoke 与本地联调使用的 loopback 访问源；不改 KnowledgeBase API、数据库、模型、鉴权或生产 rewrite。
+- 已验证：`npm run lint`、`npm run build` PASS；原失败条件下的完整 cloud quality marker `docpilot-cloud-quality-20260710200547-6dec4e` PASS，KnowledgeBase 双 citation 可见、`consoleErrorCount=0`、cleanup 与 artifact redaction PASS，关联 `REA-20260710-P3-014`。
 
 ## 2026-07-10 补充：阿里云百炼 Qwen 真实链路切换（VERIFIED）
 
