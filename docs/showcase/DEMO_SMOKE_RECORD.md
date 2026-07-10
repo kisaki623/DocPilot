@@ -4,6 +4,27 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-10 Document Parser Natural HTML Noise Isolation
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- `docpilot-parser-real-chain-20260710142418-09566e`
+
+已验证：
+
+- tunnel、backend health、frontend root route、临时用户注册、PDF / HTML / DOCX 上传、异步解析、chunk、Qdrant direct retrieve、QA retrieval、citation、source locator、parser boundary 和 artifact redaction 均通过。
+- HTML fixture 额外包含本地 `aside` 辅助栏、`nav` 和脚本噪声；artifact 只记录 `html_noise_excluded=true` 对应的安全结构信号，不保存解析文本或噪声原文。
+- `fixtureStructureCoverage.expectedSignals=10`、`coveredSignals=10`、`missingSignals=0`、`allCovered=true`；三类文件均 `chunkCount=1`、direct / QA retrieval hit、citation 与 source locator 为真。
+- parser boundary 负向检查 `4/4` 通过，`environmentUnstable=false`；本轮启动的 local tunnel、backend、frontend 已清理。
+
+边界：这是文本型 PDF / HTML / DOCX 的单 chunk 小样本真实链路证据，证明本地 HTML 噪声隔离能进入上传、解析、索引和 RAG quality gate；不代表 OCR、扫描件、旧 `.doc`、复杂版面理解、外部网页抓取或大规模解析 benchmark。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token。
+
 ## 2026-07-10 Document Parser Structure Coverage Real Chain
 
 状态：PASS

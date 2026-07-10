@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-10 Document Parser 自然结构真实 smoke v3
+
+- `document-parser-real-chain-smoke.ps1` 的 HTML fixture 新增 `aside` 噪声，安全结构信号新增 `html_noise_excluded`；artifact 只保留信号枚举，不保存解析文本。
+- 真实 run marker `docpilot-parser-real-chain-20260710142418-09566e` PASS：三类文件 parse / chunk / direct retrieve / QA retrieval / citation / source locator 全部通过；结构覆盖 `10/10`、parser boundary `4/4`、artifact redaction PASS，运行环境稳定。
+- 验证：脚本 plan / dry-run PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserFixtureCorpusTest" test` PASS（9 tests）。本轮 tunnel / backend / frontend 已由 runner 清理。
+- 下一片：增加多 block / 多 chunk 来源覆盖门禁，避免单 chunk fixture 掩盖跨块 metadata 漂移。
+
 ## 2026-07-10 Document Parser chunk 来源定位 contract
 
 - 新增 `RagIndexingTriggerServiceImplTest` 闭环用例：脱敏 parser block 的页码、章节路径、来源定位和 block type 经 indexing trigger、chunk、in-memory vector retrieval 后仍进入 citation。

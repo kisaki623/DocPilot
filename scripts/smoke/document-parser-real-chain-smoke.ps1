@@ -555,6 +555,7 @@ function New-Fixtures([string]$dir, [string]$marker) {
 </head>
 <body>
   <nav>Navigation noise must not appear in extracted text.</nav>
+  <aside>Related sidebar noise must not appear in extracted text.</aside>
   <h1>HTML Parser Smoke Title $marker</h1>
   <h2>HTML Evidence Section</h2>
   <p>HTML paragraph one contains html-alpha-marker for retrieval.</p>
@@ -568,7 +569,7 @@ function New-Fixtures([string]$dir, [string]$marker) {
   Write-DocxFixture $docx $marker
   return @(
     [ordered]@{ fileType = "PDF"; path = $pdf; contentType = "application/pdf"; parserName = "pdfbox"; query = "pdf-alpha-marker"; expectedLocator = "PDF Parser Smoke Title"; expectedStructures = @("pdf_text", "pdf_page_locator") },
-    [ordered]@{ fileType = "HTML"; path = $html; contentType = "text/html"; parserName = "jsoup-html"; query = "html-alpha-marker"; expectedLocator = "HTML Evidence Section"; expectedStructures = @("html_heading", "html_table", "html_link", "html_list") },
+    [ordered]@{ fileType = "HTML"; path = $html; contentType = "text/html"; parserName = "jsoup-html"; query = "html-alpha-marker"; expectedLocator = "HTML Evidence Section"; expectedStructures = @("html_heading", "html_table", "html_link", "html_list", "html_noise_excluded") },
     [ordered]@{ fileType = "DOCX"; path = $docx; contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; parserName = "poi-docx"; query = "docx-table-marker"; expectedLocator = "DOCX Parser Smoke Title"; expectedStructures = @("docx_heading", "docx_table", "docx_list") }
   )
 }
@@ -587,6 +588,9 @@ function Get-FixtureStructureSignals($case, [string]$parseStatus, [string]$parse
     if ($text.Contains("HTML Table Evidence")) { $signals += "html_table" }
     if ($text.Contains("DocPilot local docs")) { $signals += "html_link" }
     if ($text.Contains("HTML list marker")) { $signals += "html_list" }
+    if (-not $text.Contains("Navigation noise") -and -not $text.Contains("window.__noise") -and -not $text.Contains("Related sidebar noise")) {
+      $signals += "html_noise_excluded"
+    }
   } elseif ($case.fileType -eq "DOCX") {
     if ($text.Contains("# DOCX Parser Smoke Title")) { $signals += "docx_heading" }
     if ($text.Contains("DOCX Table Evidence")) { $signals += "docx_table" }
@@ -1129,7 +1133,7 @@ if ($Mode -eq "plan") {
   [ordered]@{
     mode = "plan"
     willCreateBusinessData = $false
-    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
+    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures including local HTML noise-isolation fixture", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
     artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "expectedStructures", "structureSignals", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
@@ -1140,7 +1144,7 @@ if ($Mode -eq "dry-run") {
   [ordered]@{
     mode = "dry-run"
     willCreateBusinessData = $false
-    checks = @("script parameters parsed", "fixture recipes available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
+    checks = @("script parameters parsed", "fixture recipes including local HTML noise isolation available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
     supportedTypes = @("PDF", "HTML", "DOCX")
     parserQualityReport = @("fileTypeCoverage", "fixtureStructureCoverage", "parseStatusSummary", "sourceLocatorSummary", "ragChainSummary", "boundarySummary", "warningsSummary", "reviewReasons")
   } | ConvertTo-Json -Depth 10

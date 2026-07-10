@@ -1,6 +1,15 @@
 # Current Task
 
-当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser chunk 来源定位端到端 contract 审计（DONE）；下一片：Document Parser 自然结构真实 smoke v3（READY）
+当前任务：Document Parser 真实链路质量增强循环（IN_PROGRESS）；当前片：Document Parser 自然结构真实 smoke v3（DONE）；下一片：Document Parser 多 block / 多 chunk 来源覆盖 smoke v4（READY）
+
+## 2026-07-10 补充：Document Parser 自然结构真实 smoke v3
+
+- 已完成 runner 增强：真实 HTML fixture 新增 `aside` 辅助栏噪声；`expectedStructures` / `structureSignals` 新增安全枚举 `html_noise_excluded`，只表示导航、脚本和辅助栏文本未进入解析结果，不把解析正文或噪声原文写入 artifact。
+- 真实验证：执行 `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker `docpilot-parser-real-chain-20260710142418-09566e`，整体 PASS。
+- 结果：PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、direct / QA retrieval hit、citation 和 source locator 均为真；`fixtureStructureCoverage.expectedSignals=10`、`coveredSignals=10`、`missingSignals=0`、`allCovered=true`，其中 HTML `html_noise_excluded` 通过；parser boundary `4/4` 和 artifact redaction 均 PASS，`environmentUnstable=false`。
+- 已验证：脚本 `plan` / `dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserFixtureCorpusTest" test` PASS（9 tests，0 skipped）。
+- 清理：runner 已清理本轮启动的 local tunnel、backend 和 frontend；后续复查端口不应保留 LISTEN。
+- 边界：本片只证明小样本文本型 PDF / HTML / DOCX 的自然 HTML 噪声隔离和完整真实链路，不做 OCR、扫描件、旧 `.doc`、外部抓取、复杂版面理解或大规模 benchmark。下一片优先增加多 block / 多 chunk 的来源覆盖门禁，避免单 chunk PASS 掩盖跨块 metadata 漂移。
 
 ## 2026-07-10 补充：Document Parser chunk 来源定位端到端 contract 审计
 
