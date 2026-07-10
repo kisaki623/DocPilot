@@ -1,6 +1,6 @@
 # Current Task
 
-当前任务：优先级 2 RAG 可靠性（IN_PROGRESS）；当前片：SSE 流式 RAG 失败语义（REVIEW，待真实浏览器失败注入验证）；上一片：Next dev 前端访问源兼容修复（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+当前任务：fresh-clone schema 可用性（IN_PROGRESS）；当前片：schema bootstrap / 初始化证据审计（READY）；上一片：SSE 流式 RAG 失败语义（VERIFIED）；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
 
 ## 2026-07-10 补充：Next dev 前端访问源兼容修复（VERIFIED）
 
@@ -15,12 +15,13 @@
 - 真实验证：完整 cloud quality run `docpilot-cloud-quality-20260710195347-5fbdb7` PASS，覆盖上传解析、索引、单文档 / KnowledgeBase / 短文档 RAG、Conversation / Memory、Agent、权限与前端交互；runner cleanup 已完成。
 - 边界：仅调整 ignored 本机 `.env`，未提交 API Key、业务空间网关或其他连接信息，未改数据库、远端 collection、项目示例或默认 provider。
 
-## 2026-07-10 补充：SSE 流式 RAG 失败语义（REVIEW）
+## 2026-07-10 补充：SSE 流式 RAG 失败语义（VERIFIED）
 
 - 已完成：后端区分 `retrieval`、首 token 前 `generation` 和已输出内容后的 `generation_partial`；检索降级改为非致命 `fallback` 事件，前端继续消费降级 chunk / done。
 - 已完成：前端只在首个 chunk 前的 generation / transport 失败回退一次非流式请求；scope 错误不回退；已有内容时保留部分回答并提示用户重试，避免重放、覆盖内容或重复模型调用。
 - 已验证：`RagQaServiceImplTest` 14 项 PASS，覆盖 retrieval fallback、首 token 前 generation error、partial generation error 和 stage；前端 `npm run lint` / `npm run build` PASS。Gemini CLI `gemini-3.5-flash` 提供状态机建议，独立审查发现并推动修复 retrieval fallback 的终止事件 blocker。
-- 待验证：尚未在真实浏览器注入“首 token 前失败 / 已输出后断流”进行交互级验证，故本片为 REVIEW，不将其写为真实体验 DONE。
+- 浏览器验收：新增 production Next + Playwright route-mock 真实页面测试。`generation` 在首 chunk 前失败时只发起 1 次普通 RAG 回退并显示回退答案；`generation_partial` 在已有 chunk 后保留部分回答、显示中断提示且普通 RAG 调用为 0。前端完整 `npm run test:e2e` 为 11/11 PASS。
+- 边界：该测试验证后端发出 SSE `error` 事件后的浏览器/UI 语义，不模拟 TCP 断流、跨 read 分帧或浏览器 fetch reject；这些属于后续独立 transport 失败契约。
 
 ## 2026-07-10 补充：单文档 / KnowledgeBase RAG 回答模型可靠性（VERIFIED）
 

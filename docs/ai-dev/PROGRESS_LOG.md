@@ -16,7 +16,9 @@
 
 - 修复后端把模型生成失败误标为 retrieval fallback、以及前端在已有 chunk 后仍无条件重放非流式回答的问题；新增结构化 `stage` 和非致命 `fallback` 事件。
 - 验证：`RagQaServiceImplTest` 14 项 PASS；前端 lint/build PASS。独立审查发现 retrieval fallback 被前端 error 终止的 blocker，已改为继续消费的 `fallback` 事件。
-- 状态：REVIEW，待真实浏览器故障注入验证“首 token 前仅回退一次”与“部分回答不重放”。
+- 新增 production Next + Playwright 路由注入测试：`generation` 在首 chunk 前失败时 stream=1、普通 RAG=1 且显示自动回退答案；`generation_partial` 在已有 chunk 后 stream=1、普通 RAG=0 且保留部分回答及中断提示。测试不 mock React/UI 内部实现，只 mock页面初始化、SSE 与 fallback API。
+- 验证：`npm run lint`、`npm run build` PASS；`npm run test:e2e` PASS（11/11）。独立审查无 blocker。
+- 状态：VERIFIED。边界是 SSE `error` event 的浏览器语义，不模拟 TCP 断流或跨 read 分帧。
 
 ## 2026-07-10 RAG 回答模型受限重试与脱敏诊断
 

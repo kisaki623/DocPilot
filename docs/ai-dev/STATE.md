@@ -11,11 +11,12 @@
 - 完整真实 cloud quality run `docpilot-cloud-quality-20260710195347-5fbdb7` PASS，现有 Qdrant collection 与新 embedding 维度兼容，核心 RAG、Agent、权限和浏览器交互均通过。
 - 旧 embedding 模型标识导致的索引失败已验证修复，详见 `REA-20260710-P2-013`。上述切换只在 ignored 本机 `.env` 生效，不代表仓库默认 provider 已改。
 
-## 2026-07-10 SSE RAG 失败语义（REVIEW）
+## 2026-07-10 SSE RAG 失败语义（VERIFIED）
 
 - 流式 RAG 现在区分检索降级、首 token 前生成失败和部分回答中断；检索降级以非致命 `fallback` 事件继续返回已有降级答案。
 - 前端仅在未收到 chunk 的 generation / transport 失败时回退一次非流式请求；已有内容或 scope 错误不会重放，部分内容保留并提示用户重试。
-- 后端事件测试 14 项、前端 lint/build 均通过；尚缺真实浏览器失败注入验证，状态为 REVIEW。
+- 后端事件测试 14 项、前端 lint/build 通过；production Next + Playwright route-mock 真实页面已验证首 chunk 前 `generation` 错误只回退一次、已有 chunk 的 `generation_partial` 保留部分答案且不回退。完整前端 E2E 11/11 PASS。
+- 边界：当前覆盖 SSE `error` event 的浏览器语义，不等价于底层 TCP 断流或跨读取分帧模拟。
 
 ## 2026-07-10 RAG 回答模型可靠性（VERIFIED）
 
