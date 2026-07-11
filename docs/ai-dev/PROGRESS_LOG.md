@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-11 求职级收口验收快照
+
+- 完成计划内 5 个小切片并分别提交：恢复记录、前端 Next 安全补丁、ParseTask 安全状态投影、citation locator 覆盖门禁、真实 parser / RAG smoke 证据刷新。
+- 验证：后端全量默认测试 PASS（909 tests，0 failures，5 skipped），前端 lint/build PASS；真实 parser chain marker `docpilot-parser-real-chain-20260711152944-1db28d` PASS，PDF / HTML / DOCX、Qdrant direct retrieve、QA retrieval、citation、source locator、parser boundary 和 artifact redaction 均通过。
+- 服务清理：smoke 启动的 local tunnel / backend / frontend 已清理，常用端口复查为空。剩余边界：Next major audit、ParseTask status 真实 API smoke、fresh-clone Docker runtime 和 GitHub Actions 首跑。
+
 ## 2026-07-11 多 block citation locator 覆盖门禁
 
 - 把 parser locator 闭环测试从单 block 扩展到三页多 block / 多 chunk，确保公开 retrieval hit 和 citation 都保留 page / source locator / block type / section path。

@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-11 求职级收口验收快照（VERIFIED / REVIEW）
+
+- 离线总验收通过：`mvn test -DskipITs` PASS（909 tests，0 failures，5 skipped），`npm run lint` PASS，`npm run build` PASS。
+- 真实 parser / RAG 链路已刷新验证：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-parser-real-chain-20260711152944-1db28d` PASS；PDF / HTML / DOCX 上传、异步解析、Qdrant direct retrieve、QA retrieval、citation、source locator、parser boundary 和 artifact redaction 均通过。
+- 本轮服务清理完成，`3000/3001/3002/3007/3100/8081` 端口复查为空。仍保持 REVIEW 的边界：Next 14 生产 audit 剩余 high / moderate 需 Next 16 major 取舍；ParseTask status API 已离线验证但未单独做真实登录态 API smoke；fresh-clone Docker MySQL runtime 和 GitHub Actions 首跑仍未在本轮证明。
+
 ## 2026-07-11 多 block citation locator 覆盖门禁（REVIEW）
 
 - `RagIndexingTriggerServiceImplTest` 的 parser locator 闭环从单 block 扩展为三页多 block / 多 chunk 场景，验证 parser block 的 `sectionPath`、`pageNumber`、`sourceLocator` 和 `blockType` 在 indexing、vector payload、retrieval hit 与 citation 中不丢失。

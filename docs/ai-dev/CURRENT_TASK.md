@@ -1,5 +1,11 @@
 # Current Task
 
+## 2026-07-11 补充：求职级收口验收快照（VERIFIED / REVIEW）
+
+- 已完成本轮连续迭代：reindex 半成品恢复记录、Next 14.2.35 非 major 安全补丁恢复、ParseTask 状态观测与安全恢复口径、多 block citation locator 离线门禁和真实 parser / RAG smoke 刷新。
+- 验证：`mvn test -DskipITs` PASS（909 tests，0 failures，5 skipped），`npm run lint` PASS，`npm run build` PASS；真实 marker `docpilot-parser-real-chain-20260711152944-1db28d` PASS，`chunkCount=7`、`directRetrieveHitCount=3/3`、`qaRetrievalHitCount=3/3`、`citationCount=3/3`、`sourceLocatorCount=3/3`、parser boundary `4/4`。
+- 边界：Next audit 剩余 high / moderate 需 Next 16 major 升级评估；ParseTask status API 已离线验证但未单独跑真实登录态 API smoke；fresh-clone Docker MySQL runtime 与 GitHub Actions 首跑仍保持 REVIEW / BLOCKED 边界。
+
 ## 2026-07-11 补充：多 block citation locator 覆盖门禁（REVIEW）
 
 - 已将 parser block locator 闭环测试升级为三页多 block / 多 chunk fixture，断言 retrieval hits 与 citations 都保留 `sectionPath`、`pageNumber`、`sourceLocator`、`blockType`，并覆盖 `page:1` / `page:2` / `page:3`。

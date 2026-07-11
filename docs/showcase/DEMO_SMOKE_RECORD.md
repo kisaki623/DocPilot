@@ -1,8 +1,30 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-07-10
+> Last updated: 2026-07-11
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
+
+## 2026-07-11 Document Parser Real Chain Refresh
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- `docpilot-parser-real-chain-20260711152944-1db28d`
+
+已验证：
+
+- tunnel、backend、frontend、临时用户、PDF / HTML / DOCX fixture、异步解析、Qdrant direct retrieve、QA retrieval、citation、source locator、parser boundary 和 artifact redaction 均通过。
+- 三类文件均 `parseStatus=SUCCESS`；累计 `chunkCount=7`，其中 HTML fixture 触发多 chunk，`expectedMinChunks=2`、`multiChunkVerified=true`。
+- `directRetrieveHitCount=3/3`、`qaRetrievalHitCount=3/3`、`citationCount=3/3`、`sourceLocatorCount=3/3`。
+- parser boundary 负向检查 `4/4` 通过；unsupported / empty / corrupted parser case 均返回预期脱敏失败码。
+- 本轮启动的 local tunnel、backend、frontend 已清理；`3007` / `8081` 等常用端口复查为空。
+
+边界：这是小规模真实链路 parser / RAG smoke，证明文本型 PDF、本地 HTML 和 DOCX 能走通上传、异步解析、chunk、Qdrant 检索、QA citation 与来源定位；不代表 OCR、扫描件识别、复杂版面还原、旧 `.doc` 支持、外部网页抓取、大规模解析 benchmark 或线上 SLA。artifact 位于 ignored 的 `backend/target/smoke/document-parser-real-chain/.../artifact.json`，不提交文档全文、回答文本、prompt、evidence context、凭据、连接串、云地址或 token。
 
 ## 2026-07-10 Cloud Quality RAG Main Flow Recovery
 
