@@ -107,6 +107,7 @@ public class KnowledgeBaseAgentServiceImpl implements KnowledgeBaseAgentService 
         response.setDocumentHitCounts(search.documentHitCounts());
         response.setRetrievalMode(search.retrievalMode());
         response.setRerankApplied(search.rerankApplied());
+        response.setRerankFailureReason(search.rerankFailureReason());
         response.setMultiQueryApplied(search.multiQueryApplied());
         response.setQueryVariantCount(search.queryVariantCount());
         response.setQueryDedupeCount(search.queryDedupeCount());
@@ -186,6 +187,7 @@ public class KnowledgeBaseAgentServiceImpl implements KnowledgeBaseAgentService 
         response.setDocumentHitCounts(retrieval.documentHitCounts());
         response.setRetrievalMode(retrieval.retrievalMode());
         response.setRerankApplied(Boolean.TRUE.equals(retrieval.rerankApplied()));
+        response.setRerankFailureReason(retrieval.rerankFailureReason());
         response.setMultiQueryApplied(Boolean.TRUE.equals(retrieval.multiQueryApplied()));
         response.setQueryVariantCount(retrieval.queryVariantCount());
         response.setQueryDedupeCount(retrieval.queryDedupeCount());
@@ -204,6 +206,11 @@ public class KnowledgeBaseAgentServiceImpl implements KnowledgeBaseAgentService 
                 hit.quoteText(),
                 hit.snippet(),
                 hit.contentHash(),
+                hit.sectionPath(),
+                hit.structureType(),
+                hit.pageNumber(),
+                hit.sourceLocator(),
+                hit.blockType(),
                 hit.vectorScore(),
                 hit.keywordScore(),
                 hit.fusedScore(),
@@ -223,6 +230,11 @@ public class KnowledgeBaseAgentServiceImpl implements KnowledgeBaseAgentService 
                 citation.quoteText(),
                 citation.snippet(),
                 citation.contentHash(),
+                citation.sectionPath(),
+                citation.structureType(),
+                citation.pageNumber(),
+                citation.sourceLocator(),
+                citation.blockType(),
                 citation.score(),
                 citation.vectorScore(),
                 citation.keywordScore(),

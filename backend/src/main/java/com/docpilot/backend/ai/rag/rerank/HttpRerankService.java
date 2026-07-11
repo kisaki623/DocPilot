@@ -38,7 +38,7 @@ public class HttpRerankService implements RerankService {
     @Override
     public RerankResult rerank(RerankRequest request) {
         if (!properties.isExternalProviderConfigured()) {
-            return fallbackToIdentityRerank(request);
+            return fallbackToIdentityRerank(request, "provider_not_configured");
         }
 
         String provider = properties.getProvider();
@@ -48,12 +48,12 @@ public class HttpRerankService implements RerankService {
             } else if (RerankProperties.PROVIDER_OPENAI_COMPATIBLE.equals(provider)) {
                 return rerankWithOpenAICompatible(request);
             } else {
-                return fallbackToIdentityRerank(request);
+                return fallbackToIdentityRerank(request, "unsupported_provider");
             }
         } catch (Exception e) {
             log.warn("RAG rerank failed, fallback to identity. provider={}, model={}, error={}",
                     provider, properties.getModel(), e.getClass().getSimpleName());
-            return fallbackToIdentityRerank(request);
+            return fallbackToIdentityRerank(request, classifyFailure(e));
         }
     }
 
@@ -67,13 +67,35 @@ public class HttpRerankService implements RerankService {
     /**
      * Fallback: return documents in original order with uniform scores.
      */
-    private RerankResult fallbackToIdentityRerank(RerankRequest request) {
+    private RerankResult fallbackToIdentityRerank(RerankRequest request, String fallbackReason) {
         List<RerankResult.RerankHit> hits = new ArrayList<>();
         int topK = Math.min(request.topK(), request.documents().size());
         for (int i = 0; i < topK; i++) {
             hits.add(new RerankResult.RerankHit(i, 1.0 - (i * 0.01))); // Slight decay
         }
-        return new RerankResult(hits, "identity");
+        return new RerankResult(hits, "identity", true, fallbackReason);
+    }
+
+    private String classifyFailure(Exception e) {
+        String className = e == null ? "" : e.getClass().getSimpleName().toLowerCase();
+        String message = e == null || e.getMessage() == null ? "" : e.getMessage().toLowerCase();
+        if (message.contains("404") || message.contains("notfound") || message.contains("not found")) {
+            return "provider_not_found";
+        }
+        if (className.contains("timeout") || message.contains("timeout") || message.contains("timed out")) {
+            return "provider_timeout";
+        }
+        if (message.contains("401") || message.contains("403") || message.contains("unauthorized")
+                || message.contains("forbidden")) {
+            return "provider_auth_failed";
+        }
+        if (message.contains("429") || message.contains("rate")) {
+            return "provider_rate_limited";
+        }
+        if (message.contains("status") || className.contains("servererror") || className.contains("clienterror")) {
+            return "provider_http_error";
+        }
+        return "provider_error";
     }
 
     /**

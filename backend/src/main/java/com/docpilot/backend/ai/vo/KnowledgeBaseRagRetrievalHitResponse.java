@@ -21,6 +21,11 @@ public class KnowledgeBaseRagRetrievalHitResponse {
     private Integer quoteEndOffset;
     private Integer tokenCount;
     private String embeddingModel;
+    private String sectionPath;
+    private String structureType;
+    private Integer pageNumber;
+    private String sourceLocator;
+    private String blockType;
     private Double vectorScore;
     private Double keywordScore;
     private Double fusedScore;
@@ -45,6 +50,11 @@ public class KnowledgeBaseRagRetrievalHitResponse {
         response.setQuoteEndOffset(hit.quoteEndOffset());
         response.setTokenCount(hit.tokenCount());
         response.setEmbeddingModel(hit.embeddingModel());
+        response.setSectionPath(hit.sectionPath());
+        response.setStructureType(hit.structureType());
+        response.setPageNumber(hit.pageNumber());
+        response.setSourceLocator(hit.sourceLocator());
+        response.setBlockType(hit.blockType());
         response.setVectorScore(hit.vectorScore());
         response.setKeywordScore(hit.keywordScore());
         response.setFusedScore(hit.fusedScore());
@@ -186,6 +196,46 @@ public class KnowledgeBaseRagRetrievalHitResponse {
 
     public void setEmbeddingModel(String embeddingModel) {
         this.embeddingModel = embeddingModel;
+    }
+
+    public String getSectionPath() {
+        return sectionPath;
+    }
+
+    public void setSectionPath(String sectionPath) {
+        this.sectionPath = sectionPath;
+    }
+
+    public String getStructureType() {
+        return structureType;
+    }
+
+    public void setStructureType(String structureType) {
+        this.structureType = structureType;
+    }
+
+    public Integer getPageNumber() {
+        return pageNumber;
+    }
+
+    public void setPageNumber(Integer pageNumber) {
+        this.pageNumber = pageNumber;
+    }
+
+    public String getSourceLocator() {
+        return sourceLocator;
+    }
+
+    public void setSourceLocator(String sourceLocator) {
+        this.sourceLocator = sourceLocator;
+    }
+
+    public String getBlockType() {
+        return blockType;
+    }
+
+    public void setBlockType(String blockType) {
+        this.blockType = blockType;
     }
 
     public Double getVectorScore() {

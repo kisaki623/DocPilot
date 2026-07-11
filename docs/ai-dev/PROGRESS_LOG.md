@@ -1,5 +1,10 @@
 # Progress Log
 
+## 2026-07-11 RAG 求职级三项收口
+
+- 补齐 KnowledgeBase citation locator 字段穿透，新增 rerank fallback 安全诊断 `rerankFailureReason`，新增 `docs/showcase/RAG_QUALITY_REPORT.md`。
+- 验证：定向 34 tests PASS；`mvn test -DskipITs` PASS（912 tests，0 failures，5 skipped）；`rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 rerank 对照 `docpilot-rerank-effect-hybrid-20260711194601-2623f5` / `docpilot-rerank-effect-rerank-20260711194743-d98021` 为 REVIEW，`rerankFailureReason=provider_not_found`、核心 RAG / no-evidence / 权限安全无回退。
+
 ## 2026-07-11 最大压力真实链路审计
 
 - 基础门禁：`mvn test -DskipITs` 初始与收尾均 PASS（收尾 911 tests，0 failures，5 skipped），`npm run lint` PASS，`npm run build` PASS；`npm audit --omit=dev` 仍为已知 Next high + PostCSS moderate，未执行 Next 16 major。

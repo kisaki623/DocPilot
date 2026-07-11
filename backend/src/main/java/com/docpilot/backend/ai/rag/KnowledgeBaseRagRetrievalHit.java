@@ -21,6 +21,11 @@ public record KnowledgeBaseRagRetrievalHit(
         Integer endOffset,
         Integer tokenCount,
         String embeddingModel,
+        String sectionPath,
+        String structureType,
+        Integer pageNumber,
+        String sourceLocator,
+        String blockType,
         Double vectorScore,
         Double keywordScore,
         Double fusedScore,
@@ -47,7 +52,32 @@ public record KnowledgeBaseRagRetrievalHit(
                                         String embeddingModel) {
         this(citationIndex, knowledgeBaseId, vectorId, score, userId, documentId, documentTitle,
                 indexVersion, chunkId, chunkIndex, content, contentHash, startOffset, endOffset,
-                tokenCount, embeddingModel, null, null, null, null);
+                tokenCount, embeddingModel, "", "", null, "", "", null, null, null, null);
+    }
+
+    public KnowledgeBaseRagRetrievalHit(int citationIndex,
+                                        Long knowledgeBaseId,
+                                        String vectorId,
+                                        double score,
+                                        Long userId,
+                                        Long documentId,
+                                        String documentTitle,
+                                        Integer indexVersion,
+                                        Long chunkId,
+                                        Integer chunkIndex,
+                                        String content,
+                                        String contentHash,
+                                        Integer startOffset,
+                                        Integer endOffset,
+                                        Integer tokenCount,
+                                        String embeddingModel,
+                                        Double vectorScore,
+                                        Double keywordScore,
+                                        Double fusedScore,
+                                        Double rerankScore) {
+        this(citationIndex, knowledgeBaseId, vectorId, score, userId, documentId, documentTitle,
+                indexVersion, chunkId, chunkIndex, content, contentHash, startOffset, endOffset,
+                tokenCount, embeddingModel, "", "", null, "", "", vectorScore, keywordScore, fusedScore, rerankScore);
     }
 
     public KnowledgeBaseRagRetrievalHit {
@@ -79,6 +109,10 @@ public record KnowledgeBaseRagRetrievalHit(
         content = content == null ? "" : content.trim();
         contentHash = contentHash == null ? "" : contentHash.trim();
         embeddingModel = embeddingModel == null ? "" : embeddingModel.trim();
+        sectionPath = sectionPath == null ? "" : sectionPath.trim();
+        structureType = structureType == null ? "" : structureType.trim();
+        sourceLocator = sourceLocator == null ? "" : sourceLocator.trim();
+        blockType = blockType == null ? "" : blockType.trim();
         vectorScore = finiteOrNull(vectorScore);
         keywordScore = finiteOrNull(keywordScore);
         fusedScore = finiteOrNull(fusedScore);
@@ -107,6 +141,11 @@ public record KnowledgeBaseRagRetrievalHit(
                 intValue(payload.get("endOffset")),
                 intValue(payload.get("tokenCount")),
                 stringValue(payload.get("embeddingModel")),
+                stringValue(payload.get("sectionPath")),
+                stringValue(payload.get("structureType")),
+                intValue(payload.get("pageNumber")),
+                stringValue(payload.get("sourceLocator")),
+                stringValue(payload.get("blockType")),
                 doubleValue(payload.get("vectorScore")),
                 doubleValue(payload.get("keywordScore")),
                 doubleValue(payload.get("fusedScore")),
@@ -131,6 +170,11 @@ public record KnowledgeBaseRagRetrievalHit(
                 quote.text(),
                 absoluteOffset(quote.startOffset()),
                 absoluteOffset(quote.endOffset()),
+                sectionPath,
+                structureType,
+                pageNumber,
+                sourceLocator,
+                blockType,
                 score,
                 vectorScore,
                 keywordScore,

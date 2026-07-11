@@ -15,6 +15,11 @@ public record KnowledgeBaseRagEvidenceCitation(
         String quoteText,
         Integer quoteStartOffset,
         Integer quoteEndOffset,
+        String sectionPath,
+        String structureType,
+        Integer pageNumber,
+        String sourceLocator,
+        String blockType,
         double score,
         Double vectorScore,
         Double keywordScore,
@@ -45,6 +50,10 @@ public record KnowledgeBaseRagEvidenceCitation(
         contentHash = contentHash == null ? "" : contentHash.trim();
         snippet = snippet == null ? "" : snippet.trim();
         quoteText = quoteText == null ? "" : quoteText.trim();
+        sectionPath = sectionPath == null ? "" : sectionPath.trim();
+        structureType = structureType == null ? "" : structureType.trim();
+        sourceLocator = sourceLocator == null ? "" : sourceLocator.trim();
+        blockType = blockType == null ? "" : blockType.trim();
         vectorScore = finiteOrNull(vectorScore);
         keywordScore = finiteOrNull(keywordScore);
         fusedScore = finiteOrNull(fusedScore);

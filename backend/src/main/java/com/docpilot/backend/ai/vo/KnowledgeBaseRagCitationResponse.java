@@ -18,6 +18,11 @@ public class KnowledgeBaseRagCitationResponse {
     private String quoteText;
     private Integer quoteStartOffset;
     private Integer quoteEndOffset;
+    private String sectionPath;
+    private String structureType;
+    private Integer pageNumber;
+    private String sourceLocator;
+    private String blockType;
     private Double score;
     private Double vectorScore;
     private Double keywordScore;
@@ -40,6 +45,11 @@ public class KnowledgeBaseRagCitationResponse {
         response.setQuoteText(citation.quoteText());
         response.setQuoteStartOffset(citation.quoteStartOffset());
         response.setQuoteEndOffset(citation.quoteEndOffset());
+        response.setSectionPath(citation.sectionPath());
+        response.setStructureType(citation.structureType());
+        response.setPageNumber(citation.pageNumber());
+        response.setSourceLocator(citation.sourceLocator());
+        response.setBlockType(citation.blockType());
         response.setScore(citation.score());
         response.setVectorScore(citation.vectorScore());
         response.setKeywordScore(citation.keywordScore());
@@ -158,6 +168,46 @@ public class KnowledgeBaseRagCitationResponse {
 
     public void setQuoteEndOffset(Integer quoteEndOffset) {
         this.quoteEndOffset = quoteEndOffset;
+    }
+
+    public String getSectionPath() {
+        return sectionPath;
+    }
+
+    public void setSectionPath(String sectionPath) {
+        this.sectionPath = sectionPath;
+    }
+
+    public String getStructureType() {
+        return structureType;
+    }
+
+    public void setStructureType(String structureType) {
+        this.structureType = structureType;
+    }
+
+    public Integer getPageNumber() {
+        return pageNumber;
+    }
+
+    public void setPageNumber(Integer pageNumber) {
+        this.pageNumber = pageNumber;
+    }
+
+    public String getSourceLocator() {
+        return sourceLocator;
+    }
+
+    public void setSourceLocator(String sourceLocator) {
+        this.sourceLocator = sourceLocator;
+    }
+
+    public String getBlockType() {
+        return blockType;
+    }
+
+    public void setBlockType(String blockType) {
+        this.blockType = blockType;
     }
 
     public Double getScore() {

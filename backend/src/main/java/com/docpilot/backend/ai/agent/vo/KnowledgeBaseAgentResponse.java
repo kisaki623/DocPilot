@@ -28,6 +28,7 @@ public class KnowledgeBaseAgentResponse {
     private Map<Long, Integer> documentHitCounts = Map.of();
     private String retrievalMode;
     private boolean rerankApplied;
+    private String rerankFailureReason;
     private boolean multiQueryApplied;
     private int queryVariantCount;
     private int queryDedupeCount;
@@ -193,6 +194,14 @@ public class KnowledgeBaseAgentResponse {
 
     public void setRerankApplied(boolean rerankApplied) {
         this.rerankApplied = rerankApplied;
+    }
+
+    public String getRerankFailureReason() {
+        return rerankFailureReason;
+    }
+
+    public void setRerankFailureReason(String rerankFailureReason) {
+        this.rerankFailureReason = rerankFailureReason;
     }
 
     public boolean isMultiQueryApplied() {

@@ -24,6 +24,8 @@ class HttpRerankServiceTest {
         RerankResult result = service.rerank(new RerankRequest("query", List.of("a", "b"), 2));
 
         assertThat(result.model()).isEqualTo("identity");
+        assertThat(result.fallbackUsed()).isTrue();
+        assertThat(result.fallbackReason()).isEqualTo("provider_not_configured");
         assertThat(result.hits()).extracting(RerankResult.RerankHit::index)
                 .containsExactly(0, 1);
     }
@@ -43,6 +45,8 @@ class HttpRerankServiceTest {
 
         server.verify();
         assertThat(result.model()).isEqualTo("identity");
+        assertThat(result.fallbackUsed()).isTrue();
+        assertThat(result.fallbackReason()).isEqualTo("provider_not_configured");
         assertThat(result.hits()).extracting(RerankResult.RerankHit::index)
                 .containsExactly(0, 1);
     }
@@ -74,6 +78,8 @@ class HttpRerankServiceTest {
 
         server.verify();
         assertThat(result.model()).isEqualTo("mock-reranker");
+        assertThat(result.fallbackUsed()).isFalse();
+        assertThat(result.fallbackReason()).isBlank();
         assertThat(result.hits()).extracting(RerankResult.RerankHit::index)
                 .containsExactly(1, 0);
         assertThat(result.hits()).extracting(RerankResult.RerankHit::relevanceScore)
@@ -98,6 +104,8 @@ class HttpRerankServiceTest {
 
         server.verify();
         assertThat(result.model()).isEqualTo("identity");
+        assertThat(result.fallbackUsed()).isTrue();
+        assertThat(result.fallbackReason()).isEqualTo("provider_http_error");
         assertThat(result.hits()).extracting(RerankResult.RerankHit::index)
                 .containsExactly(0, 1);
     }

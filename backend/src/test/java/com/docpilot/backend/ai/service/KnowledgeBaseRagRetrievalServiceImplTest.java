@@ -94,6 +94,14 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         assertThat(result.topK()).isEqualTo(10);
         assertThat(result.hits()).hasSize(2);
         assertThat(result.citations()).extracting("documentTitle").containsExactly("Redis Guide", "Qdrant Guide");
+        assertThat(result.hits().get(0).sectionPath()).isEqualTo("Parser Evidence / Redis");
+        assertThat(result.hits().get(0).pageNumber()).isEqualTo(2);
+        assertThat(result.hits().get(0).sourceLocator()).isEqualTo("page:2#block:1");
+        assertThat(result.hits().get(0).blockType()).isEqualTo("PAGE");
+        assertThat(result.citations().get(0).sectionPath()).isEqualTo("Parser Evidence / Redis");
+        assertThat(result.citations().get(0).pageNumber()).isEqualTo(2);
+        assertThat(result.citations().get(0).sourceLocator()).isEqualTo("page:2#block:1");
+        assertThat(result.citations().get(0).blockType()).isEqualTo("PAGE");
         assertThat(result.documentHitCounts()).containsEntry(101L, 1).containsEntry(102L, 1);
         assertThat(result.noEvidence()).isFalse();
     }
@@ -582,9 +590,43 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
 
         assertThat(result.rerankApplied()).isTrue();
         assertThat(result.rerankModel()).isEqualTo("mock-reranker");
+        assertThat(result.rerankFailureReason()).isBlank();
         assertThat(result.hits()).extracting(KnowledgeBaseRagRetrievalHit::documentId)
                 .containsExactly(102L, 101L);
         assertThat(result.hits().get(0).rerankScore()).isEqualTo(0.99D);
+    }
+
+    @Test
+    void shouldExposeSafeRerankFailureReasonWhenProviderFallsBackToIdentity() {
+        rerankProperties.setEnabled(true);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(
+                doc(101L, "Redis Guide"),
+                doc(102L, "Qdrant Guide")
+        ));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("v1", 7L, 101L, 1, "Redis stores cache", 0.95D),
+                hit("v2", 7L, 102L, 1, "Qdrant stores vectors", 0.90D)
+        ), "in_memory", ""));
+        when(rerankService.rerank(any(RerankRequest.class))).thenReturn(new RerankResult(List.of(
+                new RerankResult.RerankHit(0, 1.0D),
+                new RerankResult.RerankHit(1, 0.99D)
+        ), "identity", true, "provider_not_found"));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "vectors",
+                2,
+                1,
+                ""
+        ));
+
+        assertThat(result.rerankApplied()).isFalse();
+        assertThat(result.rerankModel()).isEqualTo("identity");
+        assertThat(result.rerankFailureReason()).isEqualTo("provider_not_found");
+        assertThat(result.hits()).extracting(KnowledgeBaseRagRetrievalHit::documentId)
+                .containsExactly(101L, 102L);
     }
 
     @Test
@@ -647,7 +689,12 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
                         "startOffset", 0,
                         "endOffset", content.length(),
                         "tokenCount", 4,
-                        "embeddingModel", "mock-model"
+                        "embeddingModel", "mock-model",
+                        "sectionPath", documentId == 101L ? "Parser Evidence / Redis" : "Parser Evidence / Qdrant",
+                        "structureType", "paragraph",
+                        "pageNumber", documentId == 101L ? 2 : 3,
+                        "sourceLocator", documentId == 101L ? "page:2#block:1" : "page:3#block:1",
+                        "blockType", "PAGE"
                 )
         );
     }

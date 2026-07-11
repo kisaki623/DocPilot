@@ -54,6 +54,7 @@ class RerankEffectSmokeScriptSafetyTest {
                 .contains("docpilot-rerank-effect")
                 .contains("-EnableRerankHardGate")
                 .contains("hardUpliftObserved")
+                .contains("rerankFailureReason")
                 .doesNotContain("Remove-Item -Recurse")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer")

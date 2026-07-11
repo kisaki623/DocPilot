@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-11 RAG 求职级三项收口（REVIEW）
+
+- 已补齐 KnowledgeBase RAG locator 字段穿透：`KnowledgeBaseRagRetrievalHit`、`KnowledgeBaseRagEvidenceCitation`、retrieve / QA response、`KnowledgeBaseSearchTool` 和 KB Agent answer/search 路径现在可携带 `sectionPath`、`structureType`、`pageNumber`、`sourceLocator`、`blockType`；旧字段与旧构造器保持兼容，不改数据库 schema。
+- 已增强 rerank 诊断：`RerankResult` 新增 `fallbackUsed` / `fallbackReason`，`KnowledgeBaseRagRetrievalResult` / response / cloud smoke / `rerank-effect-smoke.ps1` 暴露安全枚举 `rerankFailureReason`，可区分 provider 未配置、NotFound、超时、鉴权、限流、HTTP 错误和 identity fallback；不记录 API key、URL、query 原文、文档全文或请求正文。
+- 新增求职展示报告 `docs/showcase/RAG_QUALITY_REPORT.md`，汇总 RAG 组件成熟度、最新真实 marker、面试讲法和不能夸大的边界。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseSearchToolTest,KnowledgeBaseAgentServiceImplTest,HttpRerankServiceTest,RerankEffectSmokeScriptSafetyTest" test` PASS（34 tests）。
+- 完整验证：`mvn test -DskipITs` PASS（912 tests，0 failures，5 skipped）；`rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 `rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 返回 REVIEW，baseline marker `docpilot-rerank-effect-hybrid-20260711194601-2623f5`，candidate marker `docpilot-rerank-effect-rerank-20260711194743-d98021`，`rerankFailureReason=provider_not_found`、`rerankApplied=false`，核心 RAG / no-evidence / 权限安全无回退。
+- 状态：代码、离线门禁和真实对照诊断已完成；真实 rerank provider/model 仍不可用，不能宣称真实 rerank 效果已验证。
+
 ## 2026-07-11 补充：最大压力真实链路审计（VERIFIED / REVIEW）
 
 - 已按用户选择执行有界最大压力审计，不纳入 Next 16 major，不启动本机 Docker，不创建子 Agent；本机前后端 + 本地 tunnel + 服务器中间件链路真实运行。

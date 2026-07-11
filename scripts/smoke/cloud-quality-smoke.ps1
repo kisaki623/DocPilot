@@ -1448,6 +1448,7 @@ Beta detail repeat block ten. The final git status check confirms ignored runtim
     retrievalMode = $kbRetrieve.data.retrievalMode
     rerankApplied = [bool]$kbRetrieve.data.rerankApplied
     rerankModel = $kbRetrieve.data.rerankModel
+    rerankFailureReason = $kbRetrieve.data.rerankFailureReason
     retrieveScoreSummary = Get-ScoreSummary $kbRetrieve.data.hits
     citationScoreSummary = Get-ScoreSummary $kbQa.data.citations
     retrieveVectorScoreSummary = Get-FieldScoreSummary $kbRetrieve.data.hits "vectorScore"
@@ -2295,6 +2296,7 @@ HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha 
         retrievalMode = $hardRetrieve.data.retrievalMode
         rerankApplied = [bool]$hardRetrieve.data.rerankApplied
         rerankModel = $hardRetrieve.data.rerankModel
+        rerankFailureReason = $hardRetrieve.data.rerankFailureReason
         retrieveHits = $hardHits.Count
         qaCitations = $hardCitations.Count
         targetRetrieveCount = Get-DocumentHitCount $hardHits ([long]$hardTargetDoc.data.id)

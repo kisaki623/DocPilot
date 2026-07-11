@@ -7,13 +7,22 @@ import java.util.List;
  */
 public record RerankResult(
         List<RerankHit> hits,
-        String model
+        String model,
+        boolean fallbackUsed,
+        String fallbackReason
 ) {
+    public RerankResult(List<RerankHit> hits, String model) {
+        this(hits, model, false, "");
+    }
+
     public RerankResult {
         if (hits == null) {
             throw new IllegalArgumentException("hits must not be null");
         }
         hits = List.copyOf(hits);
+        model = model == null ? "" : model.trim();
+        fallbackUsed = fallbackUsed || "identity".equalsIgnoreCase(model);
+        fallbackReason = fallbackReason == null ? "" : fallbackReason.trim();
     }
 
     /**

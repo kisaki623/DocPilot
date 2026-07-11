@@ -64,6 +64,7 @@
 这些文件用于对外讲项目、写简历、准备面试。
 
 - `docs/showcase/PROJECT_INTERVIEW_BRIEF.md`：项目面试总述，适合面试前快速复习。
+- `docs/showcase/RAG_QUALITY_REPORT.md`：RAG 组件成熟度、真实 marker、面试讲法和边界说明，适合准备 RAG 方向面试时快速复盘。
 - `docs/showcase/RESUME_BULLETS.md`：简历 bullet 候选写法。
 - `docs/showcase/INTERVIEW_QA.md`：面试问答材料，偏长，按需读取。
 - `docs/showcase/DEMO_SMOKE_RECORD.md`：真实链路 smoke 证据，包含单文档 / 多文档 RAG、MinIO、RocketMQ + Outbox、真实模型和真实 embedding + Qdrant。

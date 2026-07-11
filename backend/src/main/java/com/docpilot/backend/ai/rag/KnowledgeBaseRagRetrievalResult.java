@@ -22,6 +22,7 @@ public record KnowledgeBaseRagRetrievalResult(
         String retrievalMode,
         Boolean rerankApplied,
         String rerankModel,
+        String rerankFailureReason,
         Boolean multiQueryApplied,
         int queryVariantCount,
         int queryDedupeCount
@@ -42,7 +43,7 @@ public record KnowledgeBaseRagRetrievalResult(
                                            Map<Long, Integer> documentHitCounts) {
         this(userId, knowledgeBaseId, query, topK, indexVersion, documentIds, hits, citations,
                 noEvidence, provider, collection, embeddingModel, documentHitCounts, "vector", false, "",
-                false, 1, 0);
+                "", false, 1, 0);
     }
 
     public KnowledgeBaseRagRetrievalResult(Long userId,
@@ -63,7 +64,31 @@ public record KnowledgeBaseRagRetrievalResult(
                                            String rerankModel) {
         this(userId, knowledgeBaseId, query, topK, indexVersion, documentIds, hits, citations,
                 noEvidence, provider, collection, embeddingModel, documentHitCounts, retrievalMode, rerankApplied,
-                rerankModel, false, 1, 0);
+                rerankModel, "", false, 1, 0);
+    }
+
+    public KnowledgeBaseRagRetrievalResult(Long userId,
+                                           Long knowledgeBaseId,
+                                           String query,
+                                           int topK,
+                                           int indexVersion,
+                                           List<Long> documentIds,
+                                           List<KnowledgeBaseRagRetrievalHit> hits,
+                                           List<KnowledgeBaseRagEvidenceCitation> citations,
+                                           boolean noEvidence,
+                                           String provider,
+                                           String collection,
+                                           String embeddingModel,
+                                           Map<Long, Integer> documentHitCounts,
+                                           String retrievalMode,
+                                           Boolean rerankApplied,
+                                           String rerankModel,
+                                           Boolean multiQueryApplied,
+                                           int queryVariantCount,
+                                           int queryDedupeCount) {
+        this(userId, knowledgeBaseId, query, topK, indexVersion, documentIds, hits, citations,
+                noEvidence, provider, collection, embeddingModel, documentHitCounts, retrievalMode, rerankApplied,
+                rerankModel, "", multiQueryApplied, queryVariantCount, queryDedupeCount);
     }
 
     public KnowledgeBaseRagRetrievalResult {
@@ -91,6 +116,7 @@ public record KnowledgeBaseRagRetrievalResult(
         retrievalMode = retrievalMode == null ? "vector" : retrievalMode.trim();
         rerankApplied = Boolean.TRUE.equals(rerankApplied);
         rerankModel = rerankModel == null ? "" : rerankModel.trim();
+        rerankFailureReason = rerankFailureReason == null ? "" : rerankFailureReason.trim();
         multiQueryApplied = Boolean.TRUE.equals(multiQueryApplied);
         queryVariantCount = Math.max(1, queryVariantCount);
         queryDedupeCount = Math.max(0, queryDedupeCount);

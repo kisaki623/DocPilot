@@ -193,6 +193,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 retrievalMode,
                 rerankOutcome.applied(),
                 rerankOutcome.model(),
+                rerankOutcome.failureReason(),
                 vectorOutcome.multiQueryApplied(),
                 vectorOutcome.queryVariantCount(),
                 vectorOutcome.queryDedupeCount()
@@ -726,7 +727,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
 
     private RerankOutcome rerankCandidates(ResolvedQuery resolved, List<VectorSearchHit> candidates) {
         if (candidates.isEmpty() || !rerankProperties.isEnabled()) {
-            return new RerankOutcome(candidates, false, "");
+            return new RerankOutcome(candidates, false, "", "");
         }
         try {
             RerankResult result = rerankService.rerank(new RerankRequest(
@@ -734,16 +735,16 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                     candidates.stream().map(VectorSearchHit::content).toList(),
                     candidates.size()
             ));
-            if (result.hits().isEmpty() || "identity".equalsIgnoreCase(result.model())) {
-                return new RerankOutcome(candidates, false, result.model());
+            if (result.hits().isEmpty() || result.fallbackUsed() || "identity".equalsIgnoreCase(result.model())) {
+                return new RerankOutcome(candidates, false, result.model(), result.fallbackReason());
             }
             List<VectorSearchHit> reranked = applyRerankResult(candidates, result);
             if (reranked.isEmpty()) {
-                return new RerankOutcome(candidates, false, result.model());
+                return new RerankOutcome(candidates, false, result.model(), "empty_rerank_result");
             }
-            return new RerankOutcome(reranked, true, result.model());
+            return new RerankOutcome(reranked, true, result.model(), "");
         } catch (RuntimeException ex) {
-            return new RerankOutcome(candidates, false, "fallback");
+            return new RerankOutcome(candidates, false, "fallback", "service_exception");
         }
     }
 
@@ -790,7 +791,7 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         for (int i = 0; i < topK; i++) {
             hits.add(new RerankResult.RerankHit(i, 1.0D - (i * 0.01D)));
         }
-        return new RerankResult(hits, "identity");
+        return new RerankResult(hits, "identity", true, "identity_service");
     }
 
     private void putIfNotNull(Map<String, Object> payload, String key, Object value) {
@@ -814,11 +815,13 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
     private record RerankOutcome(
             List<VectorSearchHit> hits,
             boolean applied,
-            String model
+            String model,
+            String failureReason
     ) {
         private RerankOutcome {
             hits = hits == null ? List.of() : List.copyOf(hits);
             model = model == null ? "" : model.trim();
+            failureReason = failureReason == null ? "" : failureReason.trim();
         }
     }
 

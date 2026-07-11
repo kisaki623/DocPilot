@@ -246,6 +246,13 @@ $coverageDelta = $rerankCoveredDocs - $baselineCoveredDocs
 $citationDelta = [int]$rerankKb.qaCitations - [int]$baselineKb.qaCitations
 $hitDelta = [int]$rerankKb.retrieveHits - [int]$baselineKb.retrieveHits
 $rerankApplied = [bool]$rerankKb.rerankApplied
+$rerankFailureReason = [string]$rerankKb.rerankFailureReason
+if ([string]::IsNullOrWhiteSpace($rerankFailureReason) -and $null -ne $rerankHard) {
+  $rerankFailureReason = [string]$rerankHard.rerankFailureReason
+}
+if (-not $rerankApplied -and [string]::IsNullOrWhiteSpace($rerankFailureReason)) {
+  $rerankFailureReason = "identity_fallback_or_not_applied"
+}
 $noEvidenceRegression = $baseline.gates.noEvidenceThreshold.status -ne "PASS" -or $rerank.gates.noEvidenceThreshold.status -ne "PASS"
 $securityRegression = $baseline.gates.permissionIsolation.status -ne "PASS" -or $rerank.gates.permissionIsolation.status -ne "PASS"
 $hardGateAvailable = $null -ne $baselineHard -and $null -ne $rerankHard
@@ -300,6 +307,7 @@ $summary = [PSCustomObject][ordered]@{
     retrievalMode = $rerankKb.retrievalMode
     rerankApplied = $rerankApplied
     rerankModel = $rerankKb.rerankModel
+    rerankFailureReason = $rerankFailureReason
     retrieveHits = [int]$rerankKb.retrieveHits
     qaCitations = [int]$rerankKb.qaCitations
     coveredDocumentCount = $rerankCoveredDocs
@@ -312,6 +320,7 @@ $summary = [PSCustomObject][ordered]@{
     hitDelta = $hitDelta
     citationDelta = $citationDelta
     rerankApplied = $rerankApplied
+    rerankFailureReason = $rerankFailureReason
     noEvidenceRegression = $noEvidenceRegression
     securityRegression = $securityRegression
     hardTargetRankImproved = $hardTargetRankImproved

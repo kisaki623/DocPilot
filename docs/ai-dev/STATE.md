@@ -1,5 +1,12 @@
 # DocPilot 当前状态
 
+## 2026-07-11 RAG 求职级三项收口（REVIEW）
+
+- KnowledgeBase citation locator 已从“单文档完整、KB 仅 chunk/quote/score”为主，升级为 KB retrieve hit、KB citation response、KB Agent search / answer 路径均可携带 `sectionPath`、`structureType`、`pageNumber`、`sourceLocator`、`blockType`；字段来源仍是现有 parser block -> chunk metadata -> Qdrant payload，不新增 schema。
+- Rerank 诊断已安全收口：HTTP rerank fallback 会返回 `provider_not_configured`、`provider_not_found`、`provider_timeout`、`provider_auth_failed`、`provider_rate_limited`、`provider_http_error`、`provider_error` 等枚举；cloud smoke 和 rerank effect artifact 会记录 `rerankFailureReason`，避免把 identity fallback 误写成真实 rerank 生效。
+- 新增 `docs/showcase/RAG_QUALITY_REPORT.md` 作为求职展示版 RAG 质量报告，明确当前达到求职级核心闭环，同时声明非商业 SaaS、非 OCR/复杂 PDF、非大规模 benchmark，且真实 rerank 仍需 provider/model 可用性复验。
+- 已验证：定向 34 tests PASS；`mvn test -DskipITs` PASS（912 tests，0 failures，5 skipped）；`rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 rerank 对照 marker `docpilot-rerank-effect-hybrid-20260711194601-2623f5` / `docpilot-rerank-effect-rerank-20260711194743-d98021` 为 REVIEW，`rerankFailureReason=provider_not_found`、`rerankApplied=false`，核心 RAG / no-evidence / 权限安全无回退。
+
 ## 2026-07-11 最大压力真实链路审计（VERIFIED / REVIEW）
 
 - 本轮按“有界最大”审计执行真实链路：`real-user-qa-experience-audit.ps1` 最终 marker `docpilot-real-user-qa-20260711170544-dff948` PASS；`rag-real-qa-eval-smoke.ps1` marker `docpilot-rag-real-qa-20260711171137-ed38a0` PASS；`memory-provider-extraction-smoke.ps1` marker `docpilot-memory-provider-20260711172435-14083e` PASS；`agent-quality-eval-smoke.ps1` marker `docpilot-agent-quality-eval-20260711171903-fae364` PASS；parser marker `docpilot-parser-real-chain-20260711171912-a8e65c` PASS。

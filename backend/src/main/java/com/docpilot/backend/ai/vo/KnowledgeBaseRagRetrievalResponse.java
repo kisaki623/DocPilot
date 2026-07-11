@@ -20,6 +20,7 @@ public class KnowledgeBaseRagRetrievalResponse {
     private String retrievalMode;
     private Boolean rerankApplied;
     private String rerankModel;
+    private String rerankFailureReason;
     private Boolean multiQueryApplied;
     private Integer queryVariantCount;
     private Integer queryDedupeCount;
@@ -41,6 +42,7 @@ public class KnowledgeBaseRagRetrievalResponse {
         response.setRetrievalMode(result.retrievalMode());
         response.setRerankApplied(result.rerankApplied());
         response.setRerankModel(result.rerankModel());
+        response.setRerankFailureReason(result.rerankFailureReason());
         response.setMultiQueryApplied(result.multiQueryApplied());
         response.setQueryVariantCount(result.queryVariantCount());
         response.setQueryDedupeCount(result.queryDedupeCount());
@@ -151,6 +153,14 @@ public class KnowledgeBaseRagRetrievalResponse {
 
     public void setRerankModel(String rerankModel) {
         this.rerankModel = rerankModel;
+    }
+
+    public String getRerankFailureReason() {
+        return rerankFailureReason;
+    }
+
+    public void setRerankFailureReason(String rerankFailureReason) {
+        this.rerankFailureReason = rerankFailureReason;
     }
 
     public Boolean getMultiQueryApplied() {

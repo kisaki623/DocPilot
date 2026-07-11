@@ -49,6 +49,11 @@ class KnowledgeBaseSearchToolTest {
                 120,
                 20,
                 "mock-embedding",
+                "Ops Runbook / Redis",
+                "paragraph",
+                4,
+                "page:4#block:2",
+                "PAGE",
                 0.92d,
                 0.40d,
                 0.88d,
@@ -102,7 +107,13 @@ class KnowledgeBaseSearchToolTest {
         assertThat(result.multiQueryApplied()).isTrue();
         assertThat(result.hits().get(0).snippet()).hasSizeLessThanOrEqualTo(183);
         assertThat(result.hits().get(0).snippet()).doesNotContain("internal handoff notes");
+        assertThat(result.hits().get(0).sectionPath()).isEqualTo("Ops Runbook / Redis");
+        assertThat(result.hits().get(0).pageNumber()).isEqualTo(4);
+        assertThat(result.hits().get(0).sourceLocator()).isEqualTo("page:4#block:2");
         assertThat(result.citations().get(0).documentTitle()).isEqualTo("Ops Alpha");
+        assertThat(result.citations().get(0).sectionPath()).isEqualTo("Ops Runbook / Redis");
+        assertThat(result.citations().get(0).pageNumber()).isEqualTo(4);
+        assertThat(result.citations().get(0).sourceLocator()).isEqualTo("page:4#block:2");
         assertThat(result.outputSummary())
                 .contains("documentCount=2")
                 .contains("hitCount=1")
