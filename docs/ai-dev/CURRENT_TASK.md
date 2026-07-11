@@ -1,5 +1,15 @@
 # Current Task
 
+## 2026-07-11 补充：最大压力真实链路审计（VERIFIED / REVIEW）
+
+- 已按用户选择执行有界最大压力审计，不纳入 Next 16 major，不启动本机 Docker，不创建子 Agent；本机前后端 + 本地 tunnel + 服务器中间件链路真实运行。
+- 首轮完整 `real-user-qa-experience-audit.ps1` marker `docpilot-real-user-qa-20260711164556-93f35f` 暴露 `frontendInteraction` 失败时诊断被包装层吞掉的问题；已在 `cloud-quality-smoke.ps1` 增加 `nodeOverallStatus`、`nodeSafeMessage` 和 `scriptExecution` failure bucket，避免后续只看到 false/0。
+- 复跑 marker `docpilot-real-user-qa-20260711165345-ecc162` 再次暴露 `finance-expense-invoice-compare:answerFactExpression` 波动；已把该真实比较题改为明确要求说明“谁审批报销”和“invoice archive 保留多久”，自然语料专项 `docpilot-rag-natural-corpus-20260711165958-f4935a` PASS，完整 audit `docpilot-real-user-qa-20260711170544-dff948` PASS。
+- 代表语料 / 真实模型质量：`rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-rag-real-qa-20260711171137-ed38a0` PASS，覆盖 representative corpus、multi-query、real QA hard / semantic、realProviderFaithfulness 和 frontendInteraction。
+- Memory / Agent / Parser：`memory-provider-extraction-smoke.ps1` 已修复 run 模式 `.env` 注入后直接 PASS，marker `docpilot-memory-provider-20260711172435-14083e`，6 calls、`casePassRate=1.0000`、`rawProviderOutputStored=false`；`agent-quality-eval-smoke.ps1` marker `docpilot-agent-quality-eval-20260711171903-fae364` PASS；parser marker `docpilot-parser-real-chain-20260711171912-a8e65c` PASS，`sourceLocatorCount=3/3`、parser boundary `4/4`。
+- Rerank REVIEW：`rerank-effect-smoke.ps1` marker `docpilot-rerank-effect-rerank-20260711171449-522a4c` 核心 RAG / no-evidence / security 无回退，但真实 rerank model 返回 `NotFound`，服务降级为 `identity`，`rerankApplied=false`；登记为后续 provider 配置 / 模型可用性问题，不把当前结果写成真实 rerank 实效已验证。
+- 验证：`npm run lint` PASS，`npm run build` PASS，`mvn test -DskipITs` PASS（911 tests，0 failures，5 skipped）；本机 Docker engine 只读检查为 `not_running_or_unreachable`，符合本轮“不用本机 Docker 做项目主链路”的边界。
+
 ## 2026-07-11 补充：真实用户全链路审计与修复（VERIFIED）
 
 - 已运行真实用户链路审计，首轮 marker `docpilot-real-user-qa-20260711155558-573a81` 暴露 `naturalCorpus` 中 `finance-expense-invoice-compare` 的 `answerFactExpression` 误杀：retrieve / citation / evidence support / distractor suppression 均通过，但回答事实表达只匹配英文短语导致失败，登记为 `REA-20260711-P2-020`。

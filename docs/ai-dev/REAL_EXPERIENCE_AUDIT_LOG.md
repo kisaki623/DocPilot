@@ -34,6 +34,10 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-11 | `docpilot-real-user-qa-20260711170544-dff948` | PASS（最大压力真实用户审计） | `backend/target/audit/docpilot-real-user-qa-20260711170544-dff948/artifact.json` | 有界最大压力复验 PASS：自然语料 25 case、Memory、权限隔离、frontendInteraction、multi-query、answer grounding、no-evidence、cleanup 和 artifact redaction 均通过；同轮修复 frontendInteraction 脱敏诊断与财务多文档 compare 题歧义。 |
+| 2026-07-11 | `docpilot-rag-real-qa-20260711171137-ed38a0` | PASS（代表语料 / 真实模型质量） | `backend/target/rag-real-qa/docpilot-rag-real-qa-20260711171137-ed38a0/artifact.json` | RAG Real QA Eval PASS：representative corpus、multi-query、real QA hard / semantic、realProviderFaithfulness 和 frontendInteraction 均通过，真实回答 provider 为 openai-compatible / qwen-plus。 |
+| 2026-07-11 | `docpilot-rerank-effect-rerank-20260711171449-522a4c` | REVIEW（rerank provider 未生效） | `backend/target/rag-quality/rerank-effect/latest-summary.json` | Rerank 对照核心 RAG / no-evidence / security 无回退，但 candidate 轮 `rerankApplied=false`、`rerankModel=identity`；后端日志显示配置的 rerank model 返回 `NotFound`，登记为 `REA-20260711-P2-025`。 |
+| 2026-07-11 | `docpilot-memory-provider-20260711172435-14083e` | PASS（Memory provider runner 修复验证） | `backend/target/memory-provider/docpilot-memory-provider-20260711172435-14083e/artifact.json` | 修复 memory provider smoke run 模式不加载 `.env` 的漂移后，直接命令 PASS；固定 6-call、`casePassRate=1.0000`、`rawProviderOutputStored=false`。 |
 | 2026-07-11 | `docpilot-real-user-qa-20260711160913-98a440` | PASS（真实用户全链路修复验证） | `backend/target/audit/docpilot-real-user-qa-20260711160913-98a440/artifact.json` | 修复 `finance-expense-invoice-compare` answerFactExpression 同义表达误杀后，完整真实用户 QA 审计 PASS；自然语料 25 case、Memory、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均通过。 |
 | 2026-07-11 | `docpilot-real-user-qa-20260711155558-573a81` | FAILED_CORE_FLOW（已修复验证） | `backend/target/audit/docpilot-real-user-qa-20260711155558-573a81/artifact.json` | 首轮真实用户 QA 审计仅 `naturalCorpus` 失败，失败 case 为 `finance-expense-invoice-compare:answerFactExpression`；retrieve / citation / evidence support / distractor suppression 均通过，已登记为 `REA-20260711-P2-020`。 |
 | 2026-07-11 | `parse-status-validation-smoke-20260711` | PASS（参数校验修复验证） | `backend/target/validation-smoke/` | 手动 ParseTask status smoke 首次使用超长 username 暴露注册校验错误被兜底为 500；修复全局校验异常处理后，超长 username 运行时返回 `code=400`，登记为 `REA-20260711-P3-021`。 |
@@ -62,6 +66,10 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260711-P3-022` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260711164556-93f35f` | frontendInteraction Node 异常被包装层吞成 false/0，缺少真实 safeMessage |
+| `REA-20260711-P2-023` | VERIFIED（已验证） | P2 | 质量门禁 fixture bug | Natural Corpus / Answer Faithfulness Gate | `docpilot-real-user-qa-20260711165345-ecc162` | 财务多文档 compare 题表述偏泛，真实模型答案表达和干扰 citation 存在波动 |
+| `REA-20260711-P3-024` | VERIFIED（已验证） | P3 | 工程流程问题 | Memory provider extraction smoke | `docpilot-memory-provider-20260711171644-030f7f` | Memory provider smoke run 模式未按文档加载 `.env`，直接运行误报 provider_config_missing |
+| `REA-20260711-P2-025` | OPEN | P2 | provider 配置 / 可用性问题 | RAG Rerank provider | `docpilot-rerank-effect-rerank-20260711171449-522a4c` | 真实 rerank model 返回 NotFound，candidate 降级 identity，无法证明 rerank 实效 |
 | `REA-20260711-P2-020` | VERIFIED（已验证） | P2 | 质量门禁 fixture bug | Natural Corpus / Answer Faithfulness Gate | `docpilot-real-user-qa-20260711155558-573a81` | 财务多文档对比 case 的 answerFactExpression 对中英文同义表达过窄 |
 | `REA-20260711-P3-021` | VERIFIED（已验证） | P3 | API 参数校验体验 | Auth register / GlobalExceptionHandler | `parse-status-validation-smoke-20260711` | 注册 username 校验失败被兜底为 500 |
 | `REA-20260710-P3-014` | VERIFIED（已验证） | P3 | 真实前端体验问题 | KnowledgeBase RAG UI | `docpilot-cloud-quality-20260710195739-fdb3fa` | 知识库 RAG 交互成功但浏览器出现 Failed to fetch 控制台错误 |
@@ -86,6 +94,120 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-11 最大压力真实链路审计
+
+### `REA-20260711-P3-022` frontendInteraction Node 异常被包装层吞成 false/0，缺少真实 safeMessage
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Smoke Runner / Frontend Interaction Gate
+- 发现 marker：`docpilot-real-user-qa-20260711164556-93f35f`
+
+复现步骤：
+
+1. 执行 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`。
+2. 查看 artifact 中 `frontendInteraction` gate。
+
+实际结果：
+
+- 业务 API 层 gate 大量通过，但 `frontendInteraction` 失败只记录 `documentRetrieveStatus=0`、多个 UI boolean 为 `false`。
+- Node Playwright 脚本若在 wait / click / response 阶段抛错，会输出 `safeMessage`，但 PowerShell 包装层未把该信息写入 checks，导致定位信息丢失。
+
+预期结果：
+
+- 前端交互 gate 失败时应保留脱敏 `nodeOverallStatus` 与 `nodeSafeMessage`，并用独立 failure bucket 区分“脚本执行异常”和“UI 真实断言失败”。
+
+修复与验证：
+
+- 修复位置：`scripts/smoke/cloud-quality-smoke.ps1`。
+- 测试：`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS。
+- 真实验证：`docpilot-rag-natural-corpus-20260711165958-f4935a` 与 `docpilot-real-user-qa-20260711170544-dff948` 的 `frontendInteraction` PASS，artifact 中包含 `nodeOverallStatus=PASS`、`nodeSafeMessage=""`。
+
+### `REA-20260711-P2-023` 财务多文档 compare 题表述偏泛，真实模型答案表达和干扰 citation 存在波动
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P2
+- 类型：质量门禁 fixture bug
+- 模块：Natural Corpus / Answer Faithfulness Gate
+- 发现 marker：`docpilot-real-user-qa-20260711165345-ecc162`
+
+复现步骤：
+
+1. 执行最大压力真实用户审计。
+2. 检查 `naturalCorpus` gate 的 `finance-expense-invoice-compare` case。
+
+实际结果：
+
+- 该 case 的目标文档 retrieve / citation coverage、expected evidence support、citation phrase support、no-evidence 判断均通过。
+- 但 `answerFactExpression=false`，且同轮出现 `distractorCitation` review；说明原问题只写“compare reimbursement approval rule with invoice archive retention rule”时，真实模型答案表达与检索选择存在波动。
+
+预期结果：
+
+- 该 case 仍应是多文档比较题，但问题应明确要求答案写出“谁审批报销”和“发票归档保留多久”，避免把题目歧义误当作 RAG 质量失败。
+
+修复与验证：
+
+- 修复位置：`scripts/smoke/cloud-quality-smoke.ps1`。
+- 修复方式：保留原 answer faithfulness 硬门禁，不放宽通过条件；仅将问题改为明确要求两个事实。
+- 验证：`docpilot-rag-natural-corpus-20260711165958-f4935a` PASS，`casePassRate=1`、`answerFaithfulnessPassCount=11/11`、`distractorCitationFreeCount=25/25`；完整审计 `docpilot-real-user-qa-20260711170544-dff948` PASS。
+
+### `REA-20260711-P3-024` Memory provider smoke run 模式未按文档加载 `.env`，直接运行误报 provider_config_missing
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Memory provider extraction smoke
+- 发现 marker：`docpilot-memory-provider-20260711171644-030f7f`
+
+复现步骤：
+
+1. 直接执行 `memory-provider-extraction-smoke.ps1 -Mode run`。
+2. 检查输出状态。
+
+实际结果：
+
+- `backend/.env` 中 `AI_REAL_PROVIDER`、`AI_REAL_BASE_URL`、`AI_REAL_API_KEY`、`AI_REAL_MODEL` 均存在且非占位，但脚本未加载 `.env`，因此返回 `BLOCKED/provider_config_missing`。
+
+预期结果：
+
+- 与历史文档口径一致，run 模式应能从 repo 内 `backend/.env` 安全注入缺失的 `AI_REAL_*` 到当前进程；plan / dry-run 仍不得读取 `.env`。
+
+修复与验证：
+
+- 修复位置：`scripts/smoke/memory-provider-extraction-smoke.ps1`。
+- 安全边界：只允许 repo 内 env file；只填充缺失的四个 `AI_REAL_*`；不输出任何值。
+- 测试：`mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest" test` PASS。
+- 真实验证：直接执行 `memory-provider-extraction-smoke.ps1 -Mode run` 后 marker `docpilot-memory-provider-20260711172435-14083e` PASS，`modelCallCount=6`、`casePassRate=1.0000`、`rawProviderOutputStored=false`。
+
+### `REA-20260711-P2-025` 真实 rerank model 返回 NotFound，candidate 降级 identity，无法证明 rerank 实效
+
+- 状态：OPEN
+- 严重级别：P2
+- 类型：provider 配置 / 可用性问题
+- 模块：RAG Rerank provider
+- 发现 marker：`docpilot-rerank-effect-rerank-20260711171449-522a4c`
+
+复现步骤：
+
+1. 执行 `rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`。
+2. 查看 `backend/target/rag-quality/rerank-effect/latest-summary.json` 和 rerank candidate 后端日志。
+
+实际结果：
+
+- baseline 与 candidate 的核心 RAG、no-evidence、安全隔离均无回退。
+- candidate 轮 `rerankApplied=false`、`rerankModel=identity`、rerank score count 为 `0`。
+- 后端日志显示配置的 rerank provider / model 调用返回 `NotFound`，服务按设计 fallback to identity。
+
+预期结果：
+
+- 若要把 rerank 写成真实 provider 实效验证，candidate 轮必须 `rerankApplied=true` 并产生 rerank score；否则只能写成“核心链路无回退，真实 rerank 未生效”。
+
+当前处理：
+
+- 本轮不修改真实 `.env`、不猜测替换 provider model、不扩大付费调用；问题保持 OPEN。
+- 后续建议：确认当前 provider 可用 rerank model 名称或权限后，重新运行 `rerank-effect-smoke.ps1`；通过前不得在 README / showcase 中宣称真实 rerank uplift 已验证。
 
 ## 2026-07-11 真实用户全链路审计
 

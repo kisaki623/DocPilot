@@ -4,6 +4,37 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-11 Max Stress Real Chain Audit
+
+状态：PASS / REVIEW
+
+Runner:
+
+- `scripts/smoke/real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+- `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+- `scripts/smoke/rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+- `scripts/smoke/memory-provider-extraction-smoke.ps1 -Mode run`
+- `scripts/smoke/agent-quality-eval-smoke.ps1 -Mode run`
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- 完整真实用户审计：`docpilot-real-user-qa-20260711170544-dff948`
+- 代表语料 / 真实 QA：`docpilot-rag-real-qa-20260711171137-ed38a0`
+- rerank 对照 baseline / candidate：`docpilot-rerank-effect-hybrid-20260711171329-bda3dc` / `docpilot-rerank-effect-rerank-20260711171449-522a4c`
+- Memory provider：`docpilot-memory-provider-20260711172435-14083e`
+- Agent quality eval：`docpilot-agent-quality-eval-20260711171903-fae364`
+- Parser real chain：`docpilot-parser-real-chain-20260711171912-a8e65c`
+
+已验证：
+
+- 真实用户全链路、自然语料 25 case、multi-query、answer grounding、no-evidence、Memory quality、Conversation Trace、权限隔离、frontendInteraction、artifact redaction 均 PASS。
+- RAG Real QA Eval 覆盖 representative corpus、real QA hard gate、semantic gate、real provider faithfulness；真实回答 provider 为 openai-compatible / qwen-plus，关键 scope 均有 model call。
+- Memory provider 小样本固定 6-call PASS，`casePassRate=1.0000`，`rawProviderOutputStored=false`；Agent Quality eval offline runner PASS。
+- Parser 真实链路中 PDF / HTML / DOCX 均 parse、retrieve、QA citation 和 source locator 通过，`sourceLocatorCount=3/3`，parser boundary `4/4`。
+
+边界：rerank 对照本轮为 REVIEW；核心 RAG、安全与 no-evidence 无回退，但当前本机 rerank model 返回 `NotFound`，candidate 降级为 `identity`，`rerankApplied=false`，不能宣称真实 rerank provider 实效已验证。Next 16 major 依赖升级未纳入本轮。artifact 位于 ignored 的 `backend/target/...`，不提交文档全文、模型原始输出、prompt、evidence context、token、连接串或云地址。
+
 ## 2026-07-11 Real User QA Full Chain Refresh
 
 状态：PASS

@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-11 最大压力真实链路审计
+
+- 基础门禁：`mvn test -DskipITs` 初始与收尾均 PASS（收尾 911 tests，0 failures，5 skipped），`npm run lint` PASS，`npm run build` PASS；`npm audit --omit=dev` 仍为已知 Next high + PostCSS moderate，未执行 Next 16 major。
+- 首轮 `docpilot-real-user-qa-20260711164556-93f35f` 暴露前端交互 gate 失败诊断不足：Node 脚本异常被包装层折叠成 `quoteFirstUi` / KB citation / permission false。已给 artifact 增加 `nodeOverallStatus`、`nodeSafeMessage` 和 `scriptExecution` failure bucket，并用 `RagRealQaEvalSmokeScriptSafetyTest` 覆盖。
+- 复跑 `docpilot-real-user-qa-20260711165345-ecc162` 暴露财务多文档 compare 题仍有真实模型表达波动，且出现一次干扰 citation review；已将问题改为更明确的真实比较问法，要求同时说明报销审批人和发票归档保留期。自然语料专项 `docpilot-rag-natural-corpus-20260711165958-f4935a` PASS，完整 audit `docpilot-real-user-qa-20260711170544-dff948` PASS。
+- 真实质量套件：`docpilot-rag-real-qa-20260711171137-ed38a0` PASS，覆盖 representative corpus、multi-query、real QA hard / semantic、real provider faithfulness 和前端交互；真实回答 provider 为 openai-compatible / qwen-plus。
+- Rerank 对照：`docpilot-rerank-effect-hybrid-20260711171329-bda3dc` 与 `docpilot-rerank-effect-rerank-20260711171449-522a4c` 完成，核心 RAG / no-evidence / security 无回退；但 rerank model `Qwen/Qwen3-Reranker-4B` 返回 `NotFound`，candidate 降级为 `identity`，`rerankApplied=false`，状态记为 REVIEW。
+- Memory / Agent / Parser：修复 `memory-provider-extraction-smoke.ps1` run 模式不加载 `.env` 的漂移，直接命令 marker `docpilot-memory-provider-20260711172435-14083e` PASS（6 calls、`casePassRate=1.0000`、不保存 raw provider output）；`docpilot-agent-quality-eval-20260711171903-fae364` PASS；`docpilot-parser-real-chain-20260711171912-a8e65c` PASS（source locator `3/3`，boundary `4/4`）。
+- 环境边界：本机 Docker engine 只读检查为不可达；项目主链路继续使用本地前后端 + tunnel + 服务器中间件。本轮未提交 artifact、日志、临时文档、token、连接串或云地址，未 push。
+
 ## 2026-07-11 补充：真实用户全链路审计与恢复验证
 
 - 执行真实用户链路审计：首轮 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 失败于 `naturalCorpus`，marker `docpilot-real-user-qa-20260711155558-573a81`，唯一失败为 `finance-expense-invoice-compare:answerFactExpression`。

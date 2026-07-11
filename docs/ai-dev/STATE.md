@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-11 最大压力真实链路审计（VERIFIED / REVIEW）
+
+- 本轮按“有界最大”审计执行真实链路：`real-user-qa-experience-audit.ps1` 最终 marker `docpilot-real-user-qa-20260711170544-dff948` PASS；`rag-real-qa-eval-smoke.ps1` marker `docpilot-rag-real-qa-20260711171137-ed38a0` PASS；`memory-provider-extraction-smoke.ps1` marker `docpilot-memory-provider-20260711172435-14083e` PASS；`agent-quality-eval-smoke.ps1` marker `docpilot-agent-quality-eval-20260711171903-fae364` PASS；parser marker `docpilot-parser-real-chain-20260711171912-a8e65c` PASS。
+- 已修复两个审计中暴露的工程问题：`frontendInteraction` 失败时现在保留脱敏 `nodeOverallStatus/nodeSafeMessage`，不再把脚本异常吞成一组 false/0；Memory provider smoke 现在在 run 模式从 repo 内 `backend/.env` 安全注入缺失的 `AI_REAL_*`，直接运行不再误报 `provider_config_missing`。
+- 自然语料财务多文档 compare case 已改成更明确的真实问题，要求答案说明“谁审批报销”和“发票归档保留多久”；复验 `docpilot-rag-natural-corpus-20260711165958-f4935a` 与完整 audit 均 PASS，`answerFaithfulnessPassCount=11/11`、`distractorCitationFreeCount=25/25`。
+- Rerank 对照 marker `docpilot-rerank-effect-hybrid-20260711171329-bda3dc` / `docpilot-rerank-effect-rerank-20260711171449-522a4c` 为 REVIEW：核心 RAG、no-evidence 和权限安全无回退，但当前 `.env` 中真实 rerank model 调用返回 `NotFound`，服务降级为 `identity`，`rerankApplied=false`，本轮不能宣称真实 rerank provider 已生效。
+- 基础门禁保持通过：`mvn test -DskipITs` PASS（911 tests，0 failures，5 skipped），`npm run lint` PASS，`npm run build` PASS；`npm audit --omit=dev` 仍是已知 Next high + PostCSS moderate，Next 16 major 不纳入本轮。
+
 ## 2026-07-11 真实用户全链路审计与恢复验证（VERIFIED）
 
 - 真实用户链路已重新跑通：首轮 `docpilot-real-user-qa-20260711155558-573a81` 暴露自然语料 `finance-expense-invoice-compare` 的 `answerFactExpression` 误杀；修复同义表达门禁后，`docpilot-rag-natural-corpus-20260711160322-1cbcbc` 与完整 `docpilot-real-user-qa-20260711160913-98a440` 均 PASS。

@@ -1,6 +1,7 @@
 param(
   [ValidateSet("plan", "dry-run", "run")]
   [string]$Mode = "plan",
+  [string]$EnvFile = "backend/.env",
   [string]$SmokePrefix = "docpilot-memory-provider"
 )
 
@@ -28,6 +29,43 @@ function Test-SafeArtifactRoot([string]$repoRoot, [string]$artifactRoot) {
 
 function Test-SafeSmokePrefix([string]$prefix) {
   return -not [string]::IsNullOrWhiteSpace($prefix) -and $prefix -match '^[A-Za-z0-9-]+$'
+}
+
+function Import-EnvFileIfPresent([string]$repoRoot, [string]$envFile, [string[]]$names) {
+  $candidate = if ([System.IO.Path]::IsPathRooted($envFile)) {
+    [System.IO.Path]::GetFullPath($envFile)
+  } else {
+    [System.IO.Path]::GetFullPath((Join-Path $repoRoot $envFile))
+  }
+  $repoFullPath = [System.IO.Path]::GetFullPath($repoRoot).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+  $repoPathPrefix = $repoFullPath + [System.IO.Path]::DirectorySeparatorChar
+  if (-not ($candidate.Equals($repoFullPath, [System.StringComparison]::OrdinalIgnoreCase) -or $candidate.StartsWith($repoPathPrefix, [System.StringComparison]::OrdinalIgnoreCase))) {
+    [PSCustomObject][ordered]@{ overallStatus = "BLOCKED"; failureCodes = @("env_file_outside_repo") } | ConvertTo-Json -Depth 4
+    exit 2
+  }
+  if (-not (Test-Path -LiteralPath $candidate)) {
+    return
+  }
+  $allowed = @{}
+  foreach ($name in $names) { $allowed[$name] = $true }
+  foreach ($line in [System.IO.File]::ReadAllLines($candidate, [System.Text.Encoding]::UTF8)) {
+    if ([string]::IsNullOrWhiteSpace($line) -or $line -match '^\s*#') {
+      continue
+    }
+    $idx = $line.IndexOf("=")
+    if ($idx -lt 1) {
+      continue
+    }
+    $name = $line.Substring(0, $idx).Trim()
+    if (-not $allowed.ContainsKey($name)) {
+      continue
+    }
+    if (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, "Process"))) {
+      continue
+    }
+    $value = $line.Substring($idx + 1).Trim()
+    [Environment]::SetEnvironmentVariable($name, $value, "Process")
+  }
 }
 
 function Show-MemoryProviderPlan {
@@ -82,6 +120,8 @@ function Invoke-Run {
     [PSCustomObject][ordered]@{ overallStatus = "BLOCKED"; failureCodes = @("smoke_prefix_invalid") } | ConvertTo-Json -Depth 4
     exit 2
   }
+  $providerEnvNames = @("AI_REAL_PROVIDER", "AI_REAL_BASE_URL", "AI_REAL_API_KEY", "AI_REAL_MODEL")
+  Import-EnvFileIfPresent $repoRoot $EnvFile $providerEnvNames
   $runSuffix = (Get-Date).ToString("yyyyMMddHHmmss") + "-" + ([Guid]::NewGuid().ToString("N").Substring(0, 6))
   $smokeMarker = "$SmokePrefix-$runSuffix"
   $artifactDir = Join-Path $resolvedArtifactRoot $smokeMarker
@@ -89,7 +129,7 @@ function Invoke-Run {
   $artifactPath = Join-Path $artifactDir "artifact.json"
 
   $missing = @()
-  foreach ($name in @("AI_REAL_PROVIDER", "AI_REAL_BASE_URL", "AI_REAL_API_KEY", "AI_REAL_MODEL")) {
+  foreach ($name in $providerEnvNames) {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name, "Process"))) { $missing += $name }
   }
   if ($missing.Count -gt 0) {
