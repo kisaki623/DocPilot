@@ -60,5 +60,47 @@ public interface ParseTaskOutboxMessageMapper extends BaseMapper<ParseTaskOutbox
     int markFailed(@Param("id") Long id,
                    @Param("nextRetryTime") LocalDateTime nextRetryTime,
                    @Param("lastError") String lastError);
+
+    @Select("""
+            SELECT id,
+                   message_key,
+                   task_id,
+                   document_id,
+                   file_record_id,
+                   status,
+                   retry_count,
+                   next_retry_time,
+                   last_error,
+                   sent_time,
+                   create_time,
+                   update_time
+              FROM tb_parse_task_outbox
+             WHERE task_id = #{taskId}
+             ORDER BY id DESC
+             LIMIT 1
+            """)
+    ParseTaskOutboxMessage selectLatestByTaskId(@Param("taskId") Long taskId);
+
+    @Select("""
+            SELECT id,
+                   message_key,
+                   task_id,
+                   document_id,
+                   file_record_id,
+                   status,
+                   retry_count,
+                   next_retry_time,
+                   last_error,
+                   sent_time,
+                   create_time,
+                   update_time
+              FROM tb_parse_task_outbox
+             WHERE status = 'FAILED'
+               AND retry_count >= #{maxRetryCount}
+             ORDER BY update_time ASC
+             LIMIT #{limit}
+            """)
+    List<ParseTaskOutboxMessage> selectExhaustedFailed(@Param("maxRetryCount") Integer maxRetryCount,
+                                                       @Param("limit") Integer limit);
 }
 

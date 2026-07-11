@@ -4,26 +4,30 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
-## 2026-07-12 Bailian Rerank Provider Refresh
+## 2026-07-12 ParseTask Recovery / Bailian Rerank Uplift Refresh
 
-状态：PASS / REVIEW
+状态：PASS
 
 Runner:
 
 - `scripts/smoke/rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
 
 Marker:
 
-- hybrid-only baseline：`docpilot-rerank-effect-hybrid-20260712003119-0b7ed3`
-- hybrid + rerank candidate：`docpilot-rerank-effect-rerank-20260712003244-46b2e3`
+- hybrid-only baseline：`docpilot-rerank-effect-hybrid-20260712015151-46c631`
+- hybrid + rerank candidate：`docpilot-rerank-effect-rerank-20260712015353-cc21a9`
+- parser real chain：`docpilot-parser-real-chain-20260712015555-91d1fd`
 
 已验证：
 
 - 阿里云百炼 `qwen3-rerank` 真实 provider 调用成功，candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`。
-- candidate 产生 rerank score，KB retrieve / QA citation 覆盖未下降；no-evidence 与权限隔离无回退。
-- 定向 rerank 测试 8 tests PASS；后端全量默认测试 `mvn test -DskipITs` PASS（914 tests，0 failures，5 skipped）。
+- hard rerank fixture 使用独立 target / support / distractor 三文档：baseline 中 distractor 排第 1、target 排第 2；启用 rerank 后 target 排第 1、support 排第 2、distractor 排第 3，`hardUpliftObserved=true`。
+- KB retrieve / QA citation 覆盖未下降，core RAG、no-evidence 与权限隔离无回退；artifact 只保存 id、rank、count、score summary 等脱敏摘要。
+- ParseTask / parser 真实链路回归通过：PDF / HTML / DOCX 均 parse、retrieve、QA citation 和 source locator 通过，`sourceLocatorCount=3/3`，parser boundary `4/4`。
+- 定向 ParseTask / rerank 测试 40 tests PASS；后端全量默认测试 `mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）。
 
-边界：本次 smoke 证明 provider 可调用且核心 RAG gate 无回退，但 hard fixture 未观察到 target / distractor 排序 uplift，overallStatus 仍为 `REVIEW`；不能把它写成真实 rerank relevance uplift 或大规模 ranking benchmark。artifact 位于 ignored 的 `backend/target/...`，不提交文档全文、模型原始输出、prompt、evidence context、token、连接串或云地址。
+边界：rerank 结论仍是“小样本 hard fixture uplift 证据”，不是大规模 ranking benchmark；ParseTask 恢复链路本轮验证了 fail-closed 策略、状态可观测和正常真实解析链路未回退，不代表已完成自动重放、复杂迁移或线上 SLA。artifact 位于 ignored 的 `backend/target/...`，不提交文档全文、模型原始输出、prompt、evidence context、token、连接串或云地址。
 
 ## 2026-07-11 Max Stress Real Chain Audit
 

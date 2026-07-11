@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 ParseTask 恢复链路与 rerank uplift
+- 实现 ParseTask fail-closed recovery：stale processing task / outbox retry exhausted task 会安全收口为 FAILED，文档状态和缓存同步更新；status API 现在暴露 stale、consume/outbox 状态与恢复动作，继续禁止 content-only reindex。
+- 消费幂等记录新增 PROCESSING 超时 takeover，未超时重复消息仍跳过；避免半成品长时间卡住，也避免并发重复消费。
+- rerank hard fixture 改为独立 target/support/distractor 三文档，真实百炼 `qwen3-rerank` 对照 PASS：baseline target rank 2 / distractor rank 1，rerank 后 target rank 1 / distractor rank 3，`hardUpliftObserved=true`。
+- 验证：ParseTask/rerank 定向 40 tests PASS；`rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 rerank effect marker `docpilot-rerank-effect-hybrid-20260712015151-46c631` / `docpilot-rerank-effect-rerank-20260712015353-cc21a9` PASS；parser real chain marker `docpilot-parser-real-chain-20260712015555-91d1fd` PASS；`mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）。
+
 ## 2026-07-12 rerank provider 配置纠正
 - 已按用户纠正把本机 `backend/.env` 的 rerank 非密钥项改为阿里云百炼：provider 为 `aliyun_bailian`，model 为 `qwen3-rerank`，base URL 使用百炼 `compatible-api/v1/reranks` endpoint；真实 API key 只保留在 ignored `.env`。
 - 已同步 `backend/.env*.example` 和 `backend/README.md`，并补齐 `HttpRerankService` 百炼 qwen3-rerank / gte-rerank-v2 响应结构兼容。

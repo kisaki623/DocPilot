@@ -96,7 +96,8 @@ class ParseTaskConsumeEntryServiceImplTest {
                 stringRedisTemplate,
                 ragIndexingTriggerService,
                 20L * 1024L * 1024L,
-                10_000L
+                10_000L,
+                300L
         );
     }
 
@@ -116,6 +117,55 @@ class ParseTaskConsumeEntryServiceImplTest {
         verify(parseTaskMapper).updateById(any(ParseTask.class));
         verify(documentMapper, never()).updateById(any(Document.class));
         verify(ragIndexingTriggerService, never()).indexAfterParse(any(), any(), any(ParseResult.class));
+    }
+
+    @Test
+    void shouldSkipDuplicateProcessingConsumeRecordBeforeLeaseExpires() {
+        ParseTaskConsumeEntryServiceImpl service = buildService();
+        ParseTaskMessage message = new ParseTaskMessage();
+        message.setMessageKey("parse-task:1:create:test");
+        message.setTaskId(1L);
+        message.setDocumentId(2L);
+        message.setFileRecordId(3L);
+
+        ParseTaskConsumeRecord consumeRecord = new ParseTaskConsumeRecord();
+        consumeRecord.setStatus("PROCESSING");
+        when(parseTaskConsumeRecordMapper.insertProcessing("parse-task:1:create:test", 1L)).thenReturn(0);
+        when(parseTaskConsumeRecordMapper.selectByMessageKey("parse-task:1:create:test")).thenReturn(consumeRecord);
+        when(parseTaskConsumeRecordMapper.takeoverStaleProcessing(anyString(), any())).thenReturn(0);
+
+        service.handle(message);
+
+        verify(parseTaskMapper, never()).selectById(1L);
+        verify(parseTaskConsumeRecordMapper, never()).markSuccess(anyString());
+        verify(parseTaskConsumeRecordMapper, never()).markFailed(anyString(), anyString());
+    }
+
+    @Test
+    void shouldTakeOverStaleProcessingConsumeRecord() {
+        ParseTaskConsumeEntryServiceImpl service = buildService();
+        ParseTaskMessage message = new ParseTaskMessage();
+        message.setMessageKey("parse-task:1:create:test");
+        message.setTaskId(1L);
+        message.setDocumentId(2L);
+        message.setFileRecordId(3L);
+
+        ParseTaskConsumeRecord consumeRecord = new ParseTaskConsumeRecord();
+        consumeRecord.setStatus("PROCESSING");
+        when(parseTaskConsumeRecordMapper.insertProcessing("parse-task:1:create:test", 1L)).thenReturn(0);
+        when(parseTaskConsumeRecordMapper.selectByMessageKey("parse-task:1:create:test")).thenReturn(consumeRecord);
+        when(parseTaskConsumeRecordMapper.takeoverStaleProcessing(anyString(), any())).thenReturn(1);
+
+        ParseTask terminalTask = new ParseTask();
+        terminalTask.setId(1L);
+        terminalTask.setStatus("SUCCESS");
+        when(parseTaskMapper.selectById(1L)).thenReturn(terminalTask);
+
+        service.handle(message);
+
+        verify(parseTaskConsumeRecordMapper).takeoverStaleProcessing(anyString(), any());
+        verify(parseTaskMapper).selectById(1L);
+        verify(parseTaskConsumeRecordMapper).markSuccess("parse-task:1:create:test");
     }
 
     @Test

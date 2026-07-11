@@ -9,6 +9,10 @@ import com.docpilot.backend.common.util.ValidationUtils;
 import com.docpilot.backend.document.constant.DocumentStatus;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
+import com.docpilot.backend.mq.entity.ParseTaskConsumeRecord;
+import com.docpilot.backend.mq.entity.ParseTaskOutboxMessage;
+import com.docpilot.backend.mq.mapper.ParseTaskConsumeRecordMapper;
+import com.docpilot.backend.mq.mapper.ParseTaskOutboxMessageMapper;
 import com.docpilot.backend.mq.service.ParseTaskOutboxRelayService;
 import com.docpilot.backend.task.entity.ParseTask;
 import com.docpilot.backend.task.mapper.ParseTaskMapper;
@@ -26,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -37,9 +42,12 @@ public class ParseTaskServiceImpl implements ParseTaskService {
     private static final String RECOVERY_WAIT_OR_REFRESH = "WAIT_OR_REFRESH";
     private static final String RECOVERY_REPARSE_AVAILABLE = "REPARSE_AVAILABLE";
     private static final String RECOVERY_RETRY_OR_REPARSE_REQUIRED = "RETRY_OR_REPARSE_REQUIRED";
+    private static final String RECOVERY_STALE_RECONCILIATION_PENDING = "STALE_RECONCILIATION_PENDING";
 
     private final ParseTaskMapper parseTaskMapper;
     private final DocumentMapper documentMapper;
+    private final ParseTaskConsumeRecordMapper consumeRecordMapper;
+    private final ParseTaskOutboxMessageMapper outboxMessageMapper;
     private final ParseTaskOutboxRelayService parseTaskOutboxRelayService;
     private final RedissonClient redissonClient;
     private final StringRedisTemplate stringRedisTemplate;
@@ -47,13 +55,20 @@ public class ParseTaskServiceImpl implements ParseTaskService {
     @Value("${app.redisson.parse-task-lock-fail-message:当前文档解析任务处理中，请稍后重试}")
     private String parseTaskLockFailMessage;
 
+    @Value("${app.parse-task.recovery.stale-timeout-minutes:30}")
+    private long recoveryStaleTimeoutMinutes;
+
     public ParseTaskServiceImpl(ParseTaskMapper parseTaskMapper,
                                 DocumentMapper documentMapper,
+                                ParseTaskConsumeRecordMapper consumeRecordMapper,
+                                ParseTaskOutboxMessageMapper outboxMessageMapper,
                                 ParseTaskOutboxRelayService parseTaskOutboxRelayService,
                                 RedissonClient redissonClient,
                                 StringRedisTemplate stringRedisTemplate) {
         this.parseTaskMapper = parseTaskMapper;
         this.documentMapper = documentMapper;
+        this.consumeRecordMapper = consumeRecordMapper;
+        this.outboxMessageMapper = outboxMessageMapper;
         this.parseTaskOutboxRelayService = parseTaskOutboxRelayService;
         this.redissonClient = redissonClient;
         this.stringRedisTemplate = stringRedisTemplate;
@@ -343,6 +358,10 @@ public class ParseTaskServiceImpl implements ParseTaskService {
         String status = parseTask.getStatus();
         String errorCode = extractErrorCode(parseTask.getErrorMsg());
         String failedStage = extractFailedStage(parseTask.getErrorMsg());
+        boolean stale = isStaleProcessing(parseTask);
+        String staleReason = resolveStaleReason(parseTask, stale);
+        ParseTaskConsumeRecord consumeRecord = consumeRecordMapper.selectLatestByTaskId(parseTask.getId());
+        ParseTaskOutboxMessage outboxMessage = outboxMessageMapper.selectLatestByTaskId(parseTask.getId());
 
         ParseTaskStatusResponse response = new ParseTaskStatusResponse();
         response.setTaskId(parseTask.getId());
@@ -360,10 +379,16 @@ public class ParseTaskServiceImpl implements ParseTaskService {
         response.setSafeReindexAllowed(false);
         response.setContentOnlyReindexAllowed(false);
         response.setParsedContentPresent(document.getContent() != null && !document.getContent().isBlank());
+        response.setStale(stale);
+        response.setStaleReason(staleReason);
+        response.setConsumeStatus(consumeRecord == null ? null : consumeRecord.getStatus());
+        response.setOutboxStatus(outboxMessage == null ? null : outboxMessage.getStatus());
+        response.setOutboxRetryCount(outboxMessage == null ? null : resolveRetryCount(outboxMessage.getRetryCount()));
+        response.setOutboxNextRetryTime(outboxMessage == null ? null : outboxMessage.getNextRetryTime());
         response.setErrorCode(errorCode);
         response.setFailedStage(failedStage);
-        response.setRecoveryAction(resolveRecoveryAction(status));
-        response.setRecoveryDescription(resolveRecoveryDescription(status, errorCode));
+        response.setRecoveryAction(resolveRecoveryAction(status, stale));
+        response.setRecoveryDescription(resolveRecoveryDescription(status, errorCode, staleReason));
         response.setRetryCount(resolveRetryCount(parseTask.getRetryCount()));
         response.setErrorMsg(parseTask.getErrorMsg());
         response.setStartTime(parseTask.getStartTime());
@@ -372,7 +397,10 @@ public class ParseTaskServiceImpl implements ParseTaskService {
         return response;
     }
 
-    private String resolveRecoveryAction(String status) {
+    private String resolveRecoveryAction(String status, boolean stale) {
+        if (stale) {
+            return RECOVERY_STALE_RECONCILIATION_PENDING;
+        }
         if (ParseStatusConstants.FAILED.equals(status)) {
             return RECOVERY_RETRY_OR_REPARSE_REQUIRED;
         }
@@ -385,7 +413,10 @@ public class ParseTaskServiceImpl implements ParseTaskService {
         return RECOVERY_NONE;
     }
 
-    private String resolveRecoveryDescription(String status, String errorCode) {
+    private String resolveRecoveryDescription(String status, String errorCode, String staleReason) {
+        if (staleReason != null && !staleReason.isBlank()) {
+            return "任务可能已长时间停留在处理中状态；系统恢复扫描会将其安全收口为 FAILED，之后请通过 retry/reparse 重新解析原文件，禁止仅基于 Document.content 重建结构化索引";
+        }
         if (ParseStatusConstants.FAILED.equals(status)) {
             if (errorCode != null && errorCode.startsWith("RAG_INDEX_")) {
                 return "索引阶段失败；请通过 retry/reparse 重新解析原文件并携带 parser block metadata 重建索引，禁止仅基于 Document.content 重建结构化索引";
@@ -399,6 +430,26 @@ public class ParseTaskServiceImpl implements ParseTaskService {
             return "任务仍在解析或索引链路中，请等待或刷新状态";
         }
         return "当前状态无需恢复动作";
+    }
+
+    private boolean isStaleProcessing(ParseTask parseTask) {
+        if (parseTask == null || (!ParseStatusConstants.isProcessingStage(parseTask.getStatus())
+                && !ParseStatusConstants.PENDING.equals(parseTask.getStatus()))) {
+            return false;
+        }
+        LocalDateTime updateTime = parseTask.getUpdateTime();
+        if (updateTime == null) {
+            return false;
+        }
+        long timeoutMinutes = Math.max(1L, recoveryStaleTimeoutMinutes);
+        return updateTime.isBefore(LocalDateTime.now().minusMinutes(timeoutMinutes));
+    }
+
+    private String resolveStaleReason(ParseTask parseTask, boolean stale) {
+        if (!stale || parseTask == null) {
+            return null;
+        }
+        return "parse_task_" + parseTask.getStatus().toLowerCase() + "_timeout";
     }
 
     private String extractErrorCode(String errorMsg) {

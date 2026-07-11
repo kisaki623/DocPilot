@@ -19,6 +19,12 @@ public class ParseTaskStatusResponse {
     private Boolean safeReindexAllowed;
     private Boolean contentOnlyReindexAllowed;
     private Boolean parsedContentPresent;
+    private Boolean stale;
+    private String staleReason;
+    private String consumeStatus;
+    private String outboxStatus;
+    private Integer outboxRetryCount;
+    private LocalDateTime outboxNextRetryTime;
     private String errorCode;
     private String failedStage;
     private String recoveryAction;
@@ -147,6 +153,54 @@ public class ParseTaskStatusResponse {
 
     public void setParsedContentPresent(Boolean parsedContentPresent) {
         this.parsedContentPresent = parsedContentPresent;
+    }
+
+    public Boolean getStale() {
+        return stale;
+    }
+
+    public void setStale(Boolean stale) {
+        this.stale = stale;
+    }
+
+    public String getStaleReason() {
+        return staleReason;
+    }
+
+    public void setStaleReason(String staleReason) {
+        this.staleReason = staleReason;
+    }
+
+    public String getConsumeStatus() {
+        return consumeStatus;
+    }
+
+    public void setConsumeStatus(String consumeStatus) {
+        this.consumeStatus = consumeStatus;
+    }
+
+    public String getOutboxStatus() {
+        return outboxStatus;
+    }
+
+    public void setOutboxStatus(String outboxStatus) {
+        this.outboxStatus = outboxStatus;
+    }
+
+    public Integer getOutboxRetryCount() {
+        return outboxRetryCount;
+    }
+
+    public void setOutboxRetryCount(Integer outboxRetryCount) {
+        this.outboxRetryCount = outboxRetryCount;
+    }
+
+    public LocalDateTime getOutboxNextRetryTime() {
+        return outboxNextRetryTime;
+    }
+
+    public void setOutboxNextRetryTime(LocalDateTime outboxNextRetryTime) {
+        this.outboxNextRetryTime = outboxNextRetryTime;
     }
 
     public String getErrorCode() {

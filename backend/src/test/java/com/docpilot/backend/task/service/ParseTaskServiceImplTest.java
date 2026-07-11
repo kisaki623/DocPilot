@@ -4,6 +4,10 @@ import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
+import com.docpilot.backend.mq.entity.ParseTaskConsumeRecord;
+import com.docpilot.backend.mq.entity.ParseTaskOutboxMessage;
+import com.docpilot.backend.mq.mapper.ParseTaskConsumeRecordMapper;
+import com.docpilot.backend.mq.mapper.ParseTaskOutboxMessageMapper;
 import com.docpilot.backend.mq.service.ParseTaskOutboxRelayService;
 import com.docpilot.backend.task.entity.ParseTask;
 import com.docpilot.backend.task.mapper.ParseTaskMapper;
@@ -20,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -43,6 +48,12 @@ class ParseTaskServiceImplTest {
 
     @Mock
     private DocumentMapper documentMapper;
+
+    @Mock
+    private ParseTaskConsumeRecordMapper consumeRecordMapper;
+
+    @Mock
+    private ParseTaskOutboxMessageMapper outboxMessageMapper;
 
     @Mock
     private ParseTaskOutboxRelayService parseTaskOutboxRelayService;
@@ -69,11 +80,14 @@ class ParseTaskServiceImplTest {
         ParseTaskServiceImpl service = new ParseTaskServiceImpl(
                 parseTaskMapper,
                 documentMapper,
+                consumeRecordMapper,
+                outboxMessageMapper,
                 parseTaskOutboxRelayService,
                 redissonClient,
                 stringRedisTemplate
         );
         ReflectionTestUtils.setField(service, "parseTaskLockFailMessage", "当前文档解析任务处理中，请稍后重试");
+        ReflectionTestUtils.setField(service, "recoveryStaleTimeoutMinutes", 30L);
         return service;
     }
 
@@ -295,6 +309,50 @@ class ParseTaskServiceImplTest {
         assertEquals(Boolean.FALSE, response.getSafeReindexAllowed());
         assertEquals(Boolean.FALSE, response.getContentOnlyReindexAllowed());
         assertEquals("REPARSE_AVAILABLE", response.getRecoveryAction());
+    }
+
+    @Test
+    void shouldExposeStaleProcessingDiagnosticsInStatus() {
+        ParseTaskServiceImpl parseTaskService = buildService();
+
+        Document document = new Document();
+        document.setId(20L);
+        document.setUserId(100L);
+        document.setFileRecordId(11L);
+        document.setParseStatus("INDEXING");
+        when(documentMapper.selectById(20L)).thenReturn(document);
+
+        ParseTask processingTask = new ParseTask();
+        processingTask.setId(30L);
+        processingTask.setUserId(100L);
+        processingTask.setDocumentId(20L);
+        processingTask.setFileRecordId(11L);
+        processingTask.setStatus("INDEXING");
+        processingTask.setUpdateTime(LocalDateTime.now().minusMinutes(45));
+        when(parseTaskMapper.selectLatestByUserAndDocumentId(100L, 20L)).thenReturn(processingTask);
+
+        ParseTaskConsumeRecord consumeRecord = new ParseTaskConsumeRecord();
+        consumeRecord.setStatus("PROCESSING");
+        when(consumeRecordMapper.selectLatestByTaskId(30L)).thenReturn(consumeRecord);
+
+        ParseTaskOutboxMessage outboxMessage = new ParseTaskOutboxMessage();
+        outboxMessage.setStatus("SENT");
+        outboxMessage.setRetryCount(2);
+        outboxMessage.setNextRetryTime(LocalDateTime.now().plusSeconds(30));
+        when(outboxMessageMapper.selectLatestByTaskId(30L)).thenReturn(outboxMessage);
+
+        ParseTaskStatusResponse response = parseTaskService.status(20L, 100L);
+
+        assertEquals("INDEXING", response.getStatus());
+        assertEquals(Boolean.TRUE, response.getProcessing());
+        assertEquals(Boolean.TRUE, response.getStale());
+        assertEquals("parse_task_indexing_timeout", response.getStaleReason());
+        assertEquals("PROCESSING", response.getConsumeStatus());
+        assertEquals("SENT", response.getOutboxStatus());
+        assertEquals(2, response.getOutboxRetryCount());
+        assertEquals("STALE_RECONCILIATION_PENDING", response.getRecoveryAction());
+        assertEquals(Boolean.FALSE, response.getSafeReindexAllowed());
+        assertEquals(Boolean.FALSE, response.getContentOnlyReindexAllowed());
     }
 
     @Test

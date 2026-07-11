@@ -36,6 +36,7 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
     private static final int SUMMARY_MAX_LENGTH = 200;
     private static final int ERROR_MSG_MAX_LENGTH = 512;
     private static final String CONSUME_STATUS_FAILED = "FAILED";
+    private static final String CONSUME_STATUS_PROCESSING = "PROCESSING";
 
     private final ParseTaskMapper parseTaskMapper;
     private final DocumentMapper documentMapper;
@@ -46,6 +47,7 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
     private final RagIndexingTriggerService ragIndexingTriggerService;
     private final long parserMaxFileSizeBytes;
     private final long parserTimeoutMillis;
+    private final long consumeProcessingTimeoutSeconds;
 
     public ParseTaskConsumeEntryServiceImpl(ParseTaskMapper parseTaskMapper,
                                             DocumentMapper documentMapper,
@@ -55,7 +57,8 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
                                             StringRedisTemplate stringRedisTemplate,
                                             RagIndexingTriggerService ragIndexingTriggerService,
                                             @Value("${app.document.parser.max-file-size-bytes:20971520}") long parserMaxFileSizeBytes,
-                                            @Value("${app.document.parser.timeout-ms:10000}") long parserTimeoutMillis) {
+                                            @Value("${app.document.parser.timeout-ms:10000}") long parserTimeoutMillis,
+                                            @Value("${app.parse-task.consume-processing-timeout-seconds:300}") long consumeProcessingTimeoutSeconds) {
         this.parseTaskMapper = parseTaskMapper;
         this.documentMapper = documentMapper;
         this.fileRecordMapper = fileRecordMapper;
@@ -65,6 +68,7 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
         this.ragIndexingTriggerService = ragIndexingTriggerService;
         this.parserMaxFileSizeBytes = parserMaxFileSizeBytes;
         this.parserTimeoutMillis = parserTimeoutMillis;
+        this.consumeProcessingTimeoutSeconds = Math.max(1L, consumeProcessingTimeoutSeconds);
     }
 
     @Override
@@ -325,6 +329,10 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
         }
         if (CONSUME_STATUS_FAILED.equals(consumeRecord.getStatus())) {
             return parseTaskConsumeRecordMapper.takeoverFailed(messageKey) > 0;
+        }
+        if (CONSUME_STATUS_PROCESSING.equals(consumeRecord.getStatus())) {
+            LocalDateTime staleBefore = LocalDateTime.now().minusSeconds(consumeProcessingTimeoutSeconds);
+            return parseTaskConsumeRecordMapper.takeoverStaleProcessing(messageKey, staleBefore) > 0;
         }
         return false;
     }

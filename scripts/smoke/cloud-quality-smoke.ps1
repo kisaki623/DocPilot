@@ -2262,29 +2262,55 @@ The representative gate stores only ids, counts, ranks, and score summaries in t
   }
 
   if ($EnableRerankHardGate) {
+    $hardTargetText = @"
+# Hard Rerank Target
+
+$smokeMarker
+The compliance export policy evidence marker HARD-RERANK-TARGET states that legal review is required before the compliance export checkpoint can proceed to audit trail retention proof.
+This is the direct policy evidence for the legal review requirement. It is concise and intentionally avoids repeated glossary stuffing.
+"@
+    $hardSupportText = @"
+# Hard Rerank Support
+
+$smokeMarker
+The audit trail policy evidence marker HARD-RERANK-SUPPORT states that retention proof is attached after legal review approves the compliance export checkpoint.
+This supporting note confirms the sequence after approval, but it is not the primary source for the required legal review.
+"@
     $hardDistractorText = @"
 # Hard Rerank Distractor
 
 $smokeMarker
-This distractor repeats upload parse chunk index retrieve answer citation context trace evidence terms many times.
-Upload parse chunk index retrieve answer citation context trace evidence terms are repeated again for keyword retrieval pressure.
-Upload parse chunk index retrieve answer citation context trace evidence terms appear a third time, but this note is marketing noise.
-HARD-RERANK-FORBIDDEN says this document must not be treated as the exact Alpha or Beta policy evidence.
+Compliance export checkpoint audit trail retention legal review proof policy requirement required before proceed proceeds proceeding evidence states exact direct explains answer citation retrieve index chunk parse upload.
+Compliance export checkpoint audit trail retention legal review proof policy requirement required before proceed proceeds proceeding evidence states exact direct explains answer citation retrieve index chunk parse upload.
+Compliance export checkpoint audit trail retention legal review proof policy requirement required before proceed proceeds proceeding evidence states exact direct explains answer citation retrieve index chunk parse upload.
+HARD-RERANK-FORBIDDEN says this glossary does not define the legal review requirement and must not be used as policy evidence.
 "@
+    $hardTargetPath = Join-Path $artifactDir "hard-target.txt"
+    $hardSupportPath = Join-Path $artifactDir "hard-support.txt"
     $hardDistractorPath = Join-Path $artifactDir "hard-distractor.txt"
+    [System.IO.File]::WriteAllText($hardTargetPath, $hardTargetText, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText($hardSupportPath, $hardSupportText, [System.Text.UTF8Encoding]::new($false))
     [System.IO.File]::WriteAllText($hardDistractorPath, $hardDistractorText, [System.Text.UTF8Encoding]::new($false))
 
+    $hardTargetFile = Upload-SmokeFile $hardTargetPath $tokenA
+    $hardSupportFile = Upload-SmokeFile $hardSupportPath $tokenA
     $hardDistractorFile = Upload-SmokeFile $hardDistractorPath $tokenA
-    $hardTargetDoc = $docA
-    $hardSupportDoc = $docB
+    $hardTargetDoc = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $hardTargetFile.id }) $tokenA
+    $hardSupportDoc = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $hardSupportFile.id }) $tokenA
     $hardDistractorDoc = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $hardDistractorFile.id }) $tokenA
+    Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $hardTargetDoc.data.id }) $tokenA | Out-Null
+    Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $hardSupportDoc.data.id }) $tokenA | Out-Null
     Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $hardDistractorDoc.data.id }) $tokenA | Out-Null
+    Wait-ParseSuccess ([long]$hardTargetDoc.data.id) $tokenA | Out-Null
+    Wait-ParseSuccess ([long]$hardSupportDoc.data.id) $tokenA | Out-Null
     Wait-ParseSuccess ([long]$hardDistractorDoc.data.id) $tokenA | Out-Null
+    Wait-IndexedChunks $envValues $userAId ([long]$hardTargetDoc.data.id) | Out-Null
+    Wait-IndexedChunks $envValues $userAId ([long]$hardSupportDoc.data.id) | Out-Null
     Wait-IndexedChunks $envValues $userAId ([long]$hardDistractorDoc.data.id) | Out-Null
 
     $hardKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Rerank Hard KB $smokeMarker"; description = "temporary rerank hard fixture" }) $tokenA
     Invoke-JsonApi "POST" "/api/knowledge-bases/$($hardKb.data.id)/documents" ([ordered]@{ documentIds = @($hardTargetDoc.data.id, $hardSupportDoc.data.id, $hardDistractorDoc.data.id) }) $tokenA | Out-Null
-    $hardQuestion = "Which evidence explains upload parse chunk indexing and conversation context trace behavior?"
+    $hardQuestion = "Which policy evidence states that legal review is required before the compliance export checkpoint proceeds to audit trail retention proof?"
     $hardRetrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($hardKb.data.id)/rag/retrieve" ([ordered]@{ query = $hardQuestion; topK = 6; indexVersion = $IndexVersion }) $tokenA
     $hardQa = Invoke-JsonApi "POST" "/api/knowledge-bases/$($hardKb.data.id)/qa/rag" ([ordered]@{ question = $hardQuestion; topK = 6; indexVersion = $IndexVersion }) $tokenA
     $hardHits = @($hardRetrieve.data.hits)

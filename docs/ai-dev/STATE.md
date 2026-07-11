@@ -1,5 +1,14 @@
 # DocPilot 当前状态
 
+## 2026-07-12 ParseTask 恢复链路与 rerank uplift 收口（VERIFIED）
+
+- ParseTask / reindex 恢复链路已从“只给失败状态文案”推进到 fail-closed 恢复：消费记录 `PROCESSING` 支持超时 takeover；恢复扫描会把长时间停留在 PENDING / UPLOADED / PARSING / SPLITTING / SUMMARIZING / INDEXING / PROCESSING 的任务、以及 outbox 重试耗尽但任务未终态的情况安全收口为 `FAILED`，并同步 document parse_status 与缓存失效。
+- ParseTask status 投影补齐 `stale`、`staleReason`、`consumeStatus`、`outboxStatus`、`outboxRetryCount`、`outboxNextRetryTime`，stale 任务返回 `STALE_RECONCILIATION_PENDING`；恢复说明继续明确禁止仅基于 `Document.content` 重建结构化索引，后续 retry/reparse 必须走原文件解析链路，以保留 page、block metadata、section path 和 citation locator。
+- 本轮没有新增 content-only reindex API，也没有自动清空 / 重建 Qdrant collection；策略是对半成品 fail-closed + 可观测 + 后续原文件重试，避免丢失 parser metadata。
+- 阿里云百炼 rerank 已从“provider 可用但 uplift 未证明”推进到小样本 hard fixture PASS：baseline marker `docpilot-rerank-effect-hybrid-20260712015151-46c631` 中 distractor rank 1、target rank 2；rerank marker `docpilot-rerank-effect-rerank-20260712015353-cc21a9` 中 `rerankApplied=true`、`rerankModel=qwen3-rerank`、target rank 1、distractor rank 3，`hardUpliftObserved=true`。
+- 验证：ParseTask / rerank 定向 40 tests PASS；`mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）；`rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 rerank effect PASS；parser real chain marker `docpilot-parser-real-chain-20260712015555-91d1fd` PASS，source locator `3/3`、parser boundary `4/4`。
+- 边界：ParseTask 恢复已完成 fail-closed / 观测 / 正常链路回归，不等于复杂自动重放或线上 SLA；rerank uplift 是小样本 hard fixture 证据，不是大规模或稳定 relevance benchmark。
+
 ## 2026-07-12 阿里云百炼 rerank provider 验证状态（VERIFIED / REVIEW）
 - 本机 ignored `backend/.env` 已按当前项目实际 provider 纠正为阿里云百炼 rerank：`APP_RAG_RETRIEVAL_HYBRID_ENABLED=true`、`APP_RAG_RERANK_ENABLED=true`、`APP_RAG_RERANK_PROVIDER=aliyun_bailian`、`APP_RAG_RERANK_MODEL=qwen3-rerank`；base URL 使用百炼 `compatible-api/v1/reranks` endpoint，真实 API key 只保留在本机 `.env`，未写入 tracked 文件。
 - 示例配置与 `backend/README.md` 已同步说明：百炼 chat / embedding 的 `compatible-mode/v1` 与 qwen3-rerank 的 `compatible-api/v1/reranks` 不同，不能沿用其他供应商的 `/v1/rerank` 口径。

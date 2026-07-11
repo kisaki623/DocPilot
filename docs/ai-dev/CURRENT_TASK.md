@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-12 ParseTask / reindex 恢复链路 + rerank relevance uplift（VERIFIED）
+
+- 已实现 ParseTask fail-closed 恢复链路：`ParseTaskRecoveryScanJob` 定时调用 `ParseTaskRecoveryService`，对长时间停留在处理中阶段的 parse task、以及 outbox 重试耗尽但 task 未终态的情况，统一标记 `FAILED`，同步文档解析状态和缓存失效；不新增 content-only reindex。
+- 消费幂等恢复已补齐 lease 语义：`tb_parse_task_consume_record` 的 `PROCESSING` 记录只有超过 `app.parse-task.consume-processing-timeout-seconds` 后才允许 takeover，未超时的重复消息继续跳过，避免并发重复解析。
+- ParseTask status 观测已增强：返回 `stale` / `staleReason`、consume/outbox 状态、outbox retry / next retry；stale processing 返回 `STALE_RECONCILIATION_PENDING`，恢复说明明确要求通过 retry/reparse 原文件链路恢复，禁止仅依赖 `Document.content` 重建索引，以免丢失 page、block metadata、section path 和 citation locator。
+- Rerank hard fixture 已升级为独立 target / support / distractor 三文档：真实百炼 `qwen3-rerank` 对照 marker `docpilot-rerank-effect-hybrid-20260712015151-46c631` / `docpilot-rerank-effect-rerank-20260712015353-cc21a9` PASS；baseline distractor rank 1、target rank 2，rerank 后 target rank 1、support rank 2、distractor rank 3，`hardUpliftObserved=true`。
+- 已验证：`mvn "-Dtest=ParseTaskServiceImplTest,ParseTaskConsumeEntryServiceImplTest,ParseTaskRecoveryServiceTest,RerankEffectSmokeScriptSafetyTest" test` PASS（40 tests）；`powershell ... rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 rerank effect PASS；`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260712015555-91d1fd`；`mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）。
+- 状态：本轮任务完成。剩余边界是“自动重放原文件 reparse 的产品入口 / 操作策略”和“代表语料级 rerank 多 case eval”，二者应作为后续独立切片，不在本轮继续扩展。
+
 ## 2026-07-12 阿里云百炼 rerank provider 验证（VERIFIED / REVIEW）
 - 已按用户纠正将本机 `backend/.env` 的 rerank 非密钥配置改为阿里云百炼：启用 hybrid retrieval 与 rerank，provider 使用 `aliyun_bailian`，base URL 使用百炼 `compatible-api/v1/reranks` endpoint，model 使用 `qwen3-rerank`；真实 API key 只保留在本机 ignored `.env`。
 - 已同步 tracked 示例配置 `backend/.env.example`、`backend/.env.demo.example`、`backend/.env.cloud.example` 与 `backend/README.md`，说明百炼 chat / embedding 的 `compatible-mode/v1` 与 qwen3-rerank 的 `compatible-api/v1/reranks` 不是同一个 endpoint。
