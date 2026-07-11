@@ -1,5 +1,11 @@
 # Current Task
 
+## 2026-07-11 补充：Frontend Next 安全补丁恢复（REVIEW）
+
+- 已将 tracked `frontend/package.json` / `package-lock.json` 的 `next` 与 `eslint-config-next` 从回滚后的 `14.2.5` 重新升至 `14.2.35`，并保留 Next 生成的 `next-env.d.ts` 当前链接更新。
+- 验证：`npm run lint` PASS，`npm run build` PASS；`npm audit --omit=dev` 已无 critical，仍有 Next high 与 PostCSS moderate，audit 建议完整修复为 Next 16 major。
+- 边界：本片只恢复非 major 安全补丁基线，不执行 Next 16 / React major 升级，不改业务代码；`REA-20260710-P1-011` 保持 OPEN，后续如要清零 audit 需单独做 major 升级评估。
+
 ## 2026-07-11 补充：reindex 半成品异常恢复（DONE）
 
 - 已按异常恢复结论回滚当前工作区中的 content-only reindex 半成品：不再暴露 `/api/task/parse/reindex`，不保留 `ParseTaskService.reindex`，不保留通过 `Document.content` 构造空 blocks `ParseResult` 后重建索引的测试与实现。

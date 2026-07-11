@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-11 Frontend Next 安全补丁恢复（REVIEW）
+
+- 前端依赖已重新从 `next` / `eslint-config-next` `14.2.5` 升至 `14.2.35`，修复本次异常恢复后 tracked package 回退导致的生产依赖 critical audit 风险；`next-env.d.ts` 同步为当前 Next 14.2.35 生成内容。
+- 已验证 `npm run lint` 与 `npm run build` PASS；`npm audit --omit=dev` 当前无 critical，但仍报告 1 项 Next high 与 1 项 PostCSS moderate，完整清零需要 Next 16 major 升级，仍作为单独取舍保留。
+- 本片不升级 React / Next major，不改前端业务路由、后端 API、模型、数据库或 smoke runner；`REA-20260710-P1-011` 继续保持 OPEN，状态从“critical 回退已修复”进入“major-upgrade 风险待取舍”。
+
 ## 2026-07-11 reindex 半成品异常恢复（DONE）
 
 - 已回滚上一轮新增的 `POST /api/task/parse/reindex`、`ParseTaskService.reindex` 和基于 `Document.content` 伪造 `ParseResult` 的手动重建索引实现；该实现会丢失 parser block 的 `pageNumber`、`sourceLocator`、`blockType` 和 parser-derived `sectionPath`，不符合当前结构化 citation 主线。

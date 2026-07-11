@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-11 Frontend Next 安全补丁恢复
+
+- 恢复本次异常回滚后丢失的前端非 major 安全补丁：`next` / `eslint-config-next` 重新固定为 `14.2.35`，`next-env.d.ts` 同步为当前 Next 生成内容。
+- 验证：`npm run lint` PASS，`npm run build` PASS；`npm audit --omit=dev` 从 critical + moderate 收敛为 high + moderate，剩余项需要 Next 16 major 升级，未自动执行。
+- 状态：REVIEW。已修复 tracked package 回退造成的 critical 风险，但 `REA-20260710-P1-011` 继续保持 OPEN，等待 Next major 升级取舍。
+
 ## 2026-07-11 reindex 半成品异常恢复
 
 - 只读审计确认新增 reindex 通过 `Document.content` 伪造空 blocks `ParseResult`，会丢失 parser block 来源 metadata，并且状态恢复缺少 lease / reconciliation / 可观测闭环。

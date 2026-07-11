@@ -327,6 +327,12 @@
 
 - 初始审计报告生产依赖范围内有直接 `next` critical 与传递 `postcss` moderate；用户工作区已将 Next 升至 14.2.35。
 - 复验 `npm audit --omit=dev` 仍报告 Next high 与 PostCSS moderate；audit 建议的完全修复会升级到 Next 16，属于破坏性 major 变更。
+
+2026-07-11 复验补充：
+
+- 异常恢复一度将 tracked `frontend/package.json` / `package-lock.json` 回退到 `next` / `eslint-config-next` `14.2.5`，导致 production audit 再次出现 critical。
+- 本轮已重新恢复到 `14.2.35`；`npm run lint` 与 `npm run build` PASS，`npm audit --omit=dev` 当前无 critical，仍剩 Next high 与 PostCSS moderate。
+- 该问题继续保持 OPEN：非 major critical 回退已修复，但完全清零仍需要 Next 16 major 升级评估。
 - 当前升级已通过 lint、build、Playwright E2E 14/14 与真实 cloud smoke；未自动执行 `npm audit fix --force`、未暂存或提交用户的 lockfile / package 改动。
 
 预期结果：
