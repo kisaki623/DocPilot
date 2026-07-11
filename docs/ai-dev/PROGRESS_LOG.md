@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-11 多 block citation locator 覆盖门禁
+
+- 把 parser locator 闭环测试从单 block 扩展到三页多 block / 多 chunk，确保公开 retrieval hit 和 citation 都保留 page / source locator / block type / section path。
+- 验证：RAG indexing / chunking / retrieval 定向测试 43 项 PASS。
+- 状态：REVIEW。离线门禁已增强，真实 parser chain smoke 仍待最后统一跑。
+
 ## 2026-07-11 ParseTask 状态观测与安全恢复口径
 
 - 新增 ParseTask status 投影接口，失败任务可看到 `RAG_INDEX_*` 错误码、`INDEXING` 失败阶段、retry/reparse 恢复建议和显式的 `contentOnlyReindexAllowed=false`。

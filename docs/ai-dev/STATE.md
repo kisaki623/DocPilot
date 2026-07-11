@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-11 多 block citation locator 覆盖门禁（REVIEW）
+
+- `RagIndexingTriggerServiceImplTest` 的 parser locator 闭环从单 block 扩展为三页多 block / 多 chunk 场景，验证 parser block 的 `sectionPath`、`pageNumber`、`sourceLocator` 和 `blockType` 在 indexing、vector payload、retrieval hit 与 citation 中不丢失。
+- 该测试覆盖 9 个 chunk 的脱敏 PDF 式 fixture，并要求 retrieval hits / citations 都保留 locator 字段，且 topK 中同时出现 `page:1`、`page:2`、`page:3`。
+- 定向 RAG 回归 43 项 PASS；本片是离线门禁增强，真实 document-parser chain smoke 待后续统一运行。
+
 ## 2026-07-11 ParseTask 状态观测与安全恢复口径（REVIEW）
 
 - 新增 `GET /api/task/parse/status?documentId=...` 状态投影，返回最新 ParseTask 阶段、Document parse 状态、失败错误码、失败阶段、retry/reparse 可用性和恢复建议；该接口只读，不触发 MQ、不重建索引、不修改 Document。

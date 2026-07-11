@@ -1,5 +1,11 @@
 # Current Task
 
+## 2026-07-11 补充：多 block citation locator 覆盖门禁（REVIEW）
+
+- 已将 parser block locator 闭环测试升级为三页多 block / 多 chunk fixture，断言 retrieval hits 与 citations 都保留 `sectionPath`、`pageNumber`、`sourceLocator`、`blockType`，并覆盖 `page:1` / `page:2` / `page:3`。
+- 验证：`mvn "-Dtest=RagIndexingTriggerServiceImplTest,RagIndexingServiceImplTest,ChunkingServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS（43 tests）。
+- 边界：本片只增强离线门禁，不改生产 parser / indexing / retrieval 逻辑；真实 `document-parser-real-chain-smoke.ps1` 待后续统一执行。
+
 ## 2026-07-11 补充：ParseTask 状态观测与安全恢复口径（REVIEW）
 
 - 已新增只读状态接口 `GET /api/task/parse/status?documentId=...`，用于展示最新任务阶段、Document parse 状态、错误码、失败阶段、retry/reparse 可用性与恢复建议。

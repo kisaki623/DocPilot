@@ -199,7 +199,7 @@ class RagIndexingTriggerServiceImplTest {
     }
 
     @Test
-    void shouldCarryParserBlockLocatorThroughIndexingToRetrievalCitation() {
+    void shouldCarryParserBlockLocatorThroughMultiBlockIndexingToRetrievalCitations() {
         DocumentMapper documentMapper = mock(DocumentMapper.class);
         Document document = new Document();
         document.setId(61L);
@@ -227,24 +227,57 @@ class RagIndexingTriggerServiceImplTest {
                 new RagEmbeddingProperties(),
                 new RagQaProperties()
         );
-        String parsedText = "# Parser Evidence\n\nPDF page citation marker.";
+        String pageOne = "# Parser Evidence Page One\n\nPDF page one citation marker alpha. " + "alpha detail ".repeat(80);
+        String pageTwo = "# Parser Evidence Page Two\n\nPDF page two citation marker beta. " + "beta detail ".repeat(80);
+        String pageThree = "# Parser Evidence Page Three\n\nPDF page three citation marker gamma. " + "gamma detail ".repeat(80);
+        String parsedText = pageOne + "\n\n" + pageTwo + "\n\n" + pageThree;
+        int pageOneStart = 0;
+        int pageOneEnd = pageOne.length();
+        int pageTwoStart = pageOneEnd + 2;
+        int pageTwoEnd = pageTwoStart + pageTwo.length();
+        int pageThreeStart = pageTwoEnd + 2;
+        int pageThreeEnd = pageThreeStart + pageThree.length();
         ParseResult parseResult = new ParseResult(
                 61L,
                 "parser-contract.pdf",
                 "application/pdf",
                 2048L,
                 parsedText,
-                List.of(new DocumentBlock(
-                        0,
-                        BlockType.PAGE,
-                        parsedText,
-                        2,
-                        "Parser Evidence",
-                        "Parser Evidence",
-                        0,
-                        parsedText.length(),
-                        "page:2"
-                )),
+                List.of(
+                        new DocumentBlock(
+                                0,
+                                BlockType.PAGE,
+                                pageOne,
+                                1,
+                                "Parser Evidence Page One",
+                                "Parser Evidence / Page One",
+                                pageOneStart,
+                                pageOneEnd,
+                                "page:1"
+                        ),
+                        new DocumentBlock(
+                                1,
+                                BlockType.PAGE,
+                                pageTwo,
+                                2,
+                                "Parser Evidence Page Two",
+                                "Parser Evidence / Page Two",
+                                pageTwoStart,
+                                pageTwoEnd,
+                                "page:2"
+                        ),
+                        new DocumentBlock(
+                                2,
+                                BlockType.PAGE,
+                                pageThree,
+                                3,
+                                "Parser Evidence Page Three",
+                                "Parser Evidence / Page Three",
+                                pageThreeStart,
+                                pageThreeEnd,
+                                "page:3"
+                        )
+                ),
                 Map.of("format", "pdf"),
                 List.of(),
                 "pdfbox",
@@ -259,17 +292,28 @@ class RagIndexingTriggerServiceImplTest {
         RagRetrievalResult result = retrievalService.retrieve(new RagRetrievalQuery(
                 7L,
                 61L,
-                "Where is the PDF page citation marker?",
-                3,
+                "Where are the PDF page citation marker alpha beta gamma details?",
+                10,
                 1,
                 "mock-parser-contract"
         ));
 
         assertThat(result.noEvidence()).isFalse();
-        assertThat(result.citations()).singleElement().satisfies(citation -> {
-            assertThat(citation.sectionPath()).isEqualTo("Parser Evidence");
-            assertThat(citation.pageNumber()).isEqualTo(2);
-            assertThat(citation.sourceLocator()).isEqualTo("page:2");
+        assertThat(result.hits()).hasSizeGreaterThanOrEqualTo(3);
+        assertThat(result.citations()).hasSameSizeAs(result.hits());
+        assertThat(result.hits())
+                .extracting(hit -> hit.sourceLocator())
+                .contains("page:1", "page:2", "page:3");
+        assertThat(result.hits()).allSatisfy(hit -> {
+            assertThat(hit.sectionPath()).startsWith("Parser Evidence / Page");
+            assertThat(hit.pageNumber()).isIn(1, 2, 3);
+            assertThat(hit.sourceLocator()).startsWith("page:");
+            assertThat(hit.blockType()).isEqualTo("PAGE");
+        });
+        assertThat(result.citations()).allSatisfy(citation -> {
+            assertThat(citation.sectionPath()).startsWith("Parser Evidence / Page");
+            assertThat(citation.pageNumber()).isIn(1, 2, 3);
+            assertThat(citation.sourceLocator()).startsWith("page:");
             assertThat(citation.blockType()).isEqualTo("PAGE");
         });
     }
