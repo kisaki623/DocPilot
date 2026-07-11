@@ -18,7 +18,7 @@ import java.util.Map;
 
 /**
  * HTTP-based rerank service supporting multiple providers.
- * Supports Cohere Rerank API and OpenAI-compatible rerank endpoints.
+ * Supports Cohere Rerank API, OpenAI-compatible rerank endpoints and Alibaba Cloud Model Studio rerank.
  */
 @Service
 public class HttpRerankService implements RerankService {
@@ -47,6 +47,8 @@ public class HttpRerankService implements RerankService {
                 return rerankWithCohere(request);
             } else if (RerankProperties.PROVIDER_OPENAI_COMPATIBLE.equals(provider)) {
                 return rerankWithOpenAICompatible(request);
+            } else if (RerankProperties.PROVIDER_ALIYUN_BAILIAN.equals(provider)) {
+                return rerankWithAliyunBailian(request);
             } else {
                 return fallbackToIdentityRerank(request, "unsupported_provider");
             }
@@ -146,12 +148,12 @@ public class HttpRerankService implements RerankService {
      * Rerank using OpenAI-compatible rerank endpoint.
      */
     private RerankResult rerankWithOpenAICompatible(RerankRequest request) throws Exception {
-        String url = properties.getBaseUrl() + "/rerank";
+        String url = resolveRerankUrl(properties.getBaseUrl());
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("query", request.query());
         body.put("documents", request.documents());
-        body.put("top_k", request.topK());
+        body.put("top_n", request.topK());
         if (!properties.getModel().isEmpty()) {
             body.put("model", properties.getModel());
         }
@@ -166,6 +168,39 @@ public class HttpRerankService implements RerankService {
         String response = restTemplate.postForObject(url, entity, String.class);
 
         return parseOpenAICompatibleResponse(response);
+    }
+
+    /**
+     * Rerank using Alibaba Cloud Model Studio / DashScope HTTP endpoint.
+     */
+    private RerankResult rerankWithAliyunBailian(RerankRequest request) throws Exception {
+        String url = resolveRerankUrl(properties.getBaseUrl());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", properties.getModel());
+        if ("qwen3-rerank".equals(properties.getModel())) {
+            body.put("query", request.query());
+            body.put("documents", request.documents());
+            body.put("top_n", request.topK());
+        } else {
+            body.put("input", Map.of(
+                    "query", request.query(),
+                    "documents", request.documents()
+            ));
+            body.put("parameters", Map.of(
+                    "return_documents", false,
+                    "top_n", request.topK()
+            ));
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setBearerAuth(properties.getApiKey());
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+        String response = restTemplate.postForObject(url, entity, String.class);
+
+        return parseAliyunBailianResponse(response);
     }
 
     private RerankResult parseOpenAICompatibleResponse(String response) throws Exception {
@@ -183,5 +218,35 @@ public class HttpRerankService implements RerankService {
         }
 
         return new RerankResult(hits, model);
+    }
+
+    private RerankResult parseAliyunBailianResponse(String response) throws Exception {
+        JsonNode root = objectMapper.readTree(response);
+        JsonNode results = root.get("results");
+        if (results == null && root.has("output")) {
+            results = root.get("output").get("results");
+        }
+        String model = root.has("model") ? root.get("model").asText() : properties.getModel();
+
+        List<RerankResult.RerankHit> hits = new ArrayList<>();
+        if (results != null && results.isArray()) {
+            for (JsonNode result : results) {
+                int index = result.get("index").asInt();
+                double score = result.get("relevance_score").asDouble();
+                hits.add(new RerankResult.RerankHit(index, score));
+            }
+        }
+
+        return new RerankResult(hits, model);
+    }
+
+    private String resolveRerankUrl(String baseUrl) {
+        String normalized = baseUrl == null ? "" : baseUrl.trim();
+        if (normalized.endsWith("/rerank")
+                || normalized.endsWith("/reranks")
+                || normalized.endsWith("/text-rerank/text-rerank")) {
+            return normalized;
+        }
+        return normalized + "/rerank";
     }
 }

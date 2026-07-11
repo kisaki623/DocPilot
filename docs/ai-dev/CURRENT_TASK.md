@@ -1,5 +1,12 @@
 # Current Task
 
+## 2026-07-12 阿里云百炼 rerank provider 验证（VERIFIED / REVIEW）
+- 已按用户纠正将本机 `backend/.env` 的 rerank 非密钥配置改为阿里云百炼：启用 hybrid retrieval 与 rerank，provider 使用 `aliyun_bailian`，base URL 使用百炼 `compatible-api/v1/reranks` endpoint，model 使用 `qwen3-rerank`；真实 API key 只保留在本机 ignored `.env`。
+- 已同步 tracked 示例配置 `backend/.env.example`、`backend/.env.demo.example`、`backend/.env.cloud.example` 与 `backend/README.md`，说明百炼 chat / embedding 的 `compatible-mode/v1` 与 qwen3-rerank 的 `compatible-api/v1/reranks` 不是同一个 endpoint。
+- 已补齐 `HttpRerankService` 的 `aliyun_bailian` provider 兼容：qwen3-rerank 使用顶层 `query/documents/top_n` 请求结构，响应从顶层 `results` 解析；gte-rerank-v2 兼容 `output.results`。
+- 已完成真实 provider smoke：baseline marker `docpilot-rerank-effect-hybrid-20260712003119-0b7ed3`，candidate marker `docpilot-rerank-effect-rerank-20260712003244-46b2e3`；candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG / no-evidence / 权限安全无回退。整体仍为 REVIEW，因为 hard fixture 未观察到排序 uplift，不能宣称大规模或稳定 relevance uplift。
+- 已验证：`mvn "-Dtest=HttpRerankServiceTest,RerankEffectSmokeScriptSafetyTest" test` PASS（8 tests）；`mvn test -DskipITs` PASS（914 tests，0 failures，5 skipped）。
+
 ## 2026-07-11 RAG 求职级三项收口（REVIEW）
 
 - 已补齐 KnowledgeBase RAG locator 字段穿透：`KnowledgeBaseRagRetrievalHit`、`KnowledgeBaseRagEvidenceCitation`、retrieve / QA response、`KnowledgeBaseSearchTool` 和 KB Agent answer/search 路径现在可携带 `sectionPath`、`structureType`、`pageNumber`、`sourceLocator`、`blockType`；旧字段与旧构造器保持兼容，不改数据库 schema。

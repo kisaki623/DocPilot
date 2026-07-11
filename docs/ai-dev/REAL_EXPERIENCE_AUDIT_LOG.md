@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-12 | `docpilot-rerank-effect-rerank-20260712003244-46b2e3` | PASS / REVIEW（百炼 rerank provider 已生效，uplift 未证明） | `backend/target/rag-quality/rerank-effect/latest-summary.json` | 用户填入百炼 API key 后复验：candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG / no-evidence / security 无回退；hard fixture 未观察到排序 uplift，因此效果提升仍保持 REVIEW。 |
 | 2026-07-11 | `docpilot-real-user-qa-20260711170544-dff948` | PASS（最大压力真实用户审计） | `backend/target/audit/docpilot-real-user-qa-20260711170544-dff948/artifact.json` | 有界最大压力复验 PASS：自然语料 25 case、Memory、权限隔离、frontendInteraction、multi-query、answer grounding、no-evidence、cleanup 和 artifact redaction 均通过；同轮修复 frontendInteraction 脱敏诊断与财务多文档 compare 题歧义。 |
 | 2026-07-11 | `docpilot-rag-real-qa-20260711171137-ed38a0` | PASS（代表语料 / 真实模型质量） | `backend/target/rag-real-qa/docpilot-rag-real-qa-20260711171137-ed38a0/artifact.json` | RAG Real QA Eval PASS：representative corpus、multi-query、real QA hard / semantic、realProviderFaithfulness 和 frontendInteraction 均通过，真实回答 provider 为 openai-compatible / qwen-plus。 |
 | 2026-07-11 | `docpilot-rerank-effect-rerank-20260711171449-522a4c` | REVIEW（rerank provider 未生效） | `backend/target/rag-quality/rerank-effect/latest-summary.json` | Rerank 对照核心 RAG / no-evidence / security 无回退，但 candidate 轮 `rerankApplied=false`、`rerankModel=identity`；后端日志显示配置的 rerank model 返回 `NotFound`，登记为 `REA-20260711-P2-025`。 |
@@ -69,7 +70,7 @@
 | `REA-20260711-P3-022` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260711164556-93f35f` | frontendInteraction Node 异常被包装层吞成 false/0，缺少真实 safeMessage |
 | `REA-20260711-P2-023` | VERIFIED（已验证） | P2 | 质量门禁 fixture bug | Natural Corpus / Answer Faithfulness Gate | `docpilot-real-user-qa-20260711165345-ecc162` | 财务多文档 compare 题表述偏泛，真实模型答案表达和干扰 citation 存在波动 |
 | `REA-20260711-P3-024` | VERIFIED（已验证） | P3 | 工程流程问题 | Memory provider extraction smoke | `docpilot-memory-provider-20260711171644-030f7f` | Memory provider smoke run 模式未按文档加载 `.env`，直接运行误报 provider_config_missing |
-| `REA-20260711-P2-025` | OPEN | P2 | provider 配置 / 可用性问题 | RAG Rerank provider | `docpilot-rerank-effect-rerank-20260711171449-522a4c` | 真实 rerank model 返回 NotFound，candidate 降级 identity，无法证明 rerank 实效 |
+| `REA-20260711-P2-025` | VERIFIED（已验证） | P2 | provider 配置 / 可用性问题 | RAG Rerank provider | `docpilot-rerank-effect-rerank-20260711171449-522a4c` | 旧 provider/model NotFound 已通过百炼 qwen3-rerank 修复；真实 provider 已生效，但 relevance uplift 仍需更强 eval |
 | `REA-20260711-P2-020` | VERIFIED（已验证） | P2 | 质量门禁 fixture bug | Natural Corpus / Answer Faithfulness Gate | `docpilot-real-user-qa-20260711155558-573a81` | 财务多文档对比 case 的 answerFactExpression 对中英文同义表达过窄 |
 | `REA-20260711-P3-021` | VERIFIED（已验证） | P3 | API 参数校验体验 | Auth register / GlobalExceptionHandler | `parse-status-validation-smoke-20260711` | 注册 username 校验失败被兜底为 500 |
 | `REA-20260710-P3-014` | VERIFIED（已验证） | P3 | 真实前端体验问题 | KnowledgeBase RAG UI | `docpilot-cloud-quality-20260710195739-fdb3fa` | 知识库 RAG 交互成功但浏览器出现 Failed to fetch 控制台错误 |
@@ -183,7 +184,7 @@
 
 ### `REA-20260711-P2-025` 真实 rerank model 返回 NotFound，candidate 降级 identity，无法证明 rerank 实效
 
-- 状态：OPEN
+- 状态：VERIFIED（已验证）
 - 严重级别：P2
 - 类型：provider 配置 / 可用性问题
 - 模块：RAG Rerank provider
@@ -204,10 +205,13 @@
 
 - 若要把 rerank 写成真实 provider 实效验证，candidate 轮必须 `rerankApplied=true` 并产生 rerank score；否则只能写成“核心链路无回退，真实 rerank 未生效”。
 
-当前处理：
+修复与验证：
 
-- 本轮不修改真实 `.env`、不猜测替换 provider model、不扩大付费调用；问题保持 OPEN。
-- 后续建议：确认当前 provider 可用 rerank model 名称或权限后，重新运行 `rerank-effect-smoke.ps1`；通过前不得在 README / showcase 中宣称真实 rerank uplift 已验证。
+- 修复位置：`HttpRerankService` / `RerankProperties` / 本机 ignored `.env` 和示例配置文档。
+- 修复方式：将真实 rerank provider 切到阿里云百炼 `aliyun_bailian` + `qwen3-rerank`，请求使用百炼 qwen3-rerank 的顶层 `query` / `documents` / `top_n` 结构，并兼容 gte-rerank-v2 的 `output.results` 响应结构。
+- 真实验证：`rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，baseline marker `docpilot-rerank-effect-hybrid-20260712003119-0b7ed3`，candidate marker `docpilot-rerank-effect-rerank-20260712003244-46b2e3`；candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，rerank score count `4`，核心 RAG / no-evidence / 权限安全无回退。
+- 回归验证：`mvn "-Dtest=HttpRerankServiceTest,RerankEffectSmokeScriptSafetyTest" test` PASS（8 tests）；`mvn test -DskipITs` PASS（914 tests，0 failures，5 skipped）。
+- 边界：本次解决的是 provider/model 可用性和 identity fallback 问题；hard fixture 未观察到排序 uplift，整体 effect smoke 仍为 REVIEW，不能在展示材料中宣称真实 rerank relevance uplift 已验证。
 
 ## 2026-07-11 真实用户全链路审计
 

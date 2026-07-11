@@ -63,6 +63,19 @@ curl http://localhost:8081/actuator/health
 
 - `backend/.env`
 
+Rerank provider 本地验证建议使用 `backend/.env` 私有配置，不写入真实密钥到示例文件。阿里云百炼的 chat / embedding OpenAI-compatible 地址通常是 `compatible-mode/v1`，但 `qwen3-rerank` 使用独立 rerank endpoint：
+
+```properties
+APP_RAG_RETRIEVAL_HYBRID_ENABLED=true
+APP_RAG_RERANK_ENABLED=true
+APP_RAG_RERANK_PROVIDER=aliyun_bailian
+APP_RAG_RERANK_BASE_URL=https://<YOUR_BAILIAN_WORKSPACE_ID>.cn-beijing.maas.aliyuncs.com/compatible-api/v1/reranks
+APP_RAG_RERANK_MODEL=qwen3-rerank
+APP_RAG_RERANK_API_KEY=__REPLACE_WITH_YOUR_BAILIAN_API_KEY__
+```
+
+填好 API key 后，可先跑 `scripts/smoke/rerank-effect-smoke.ps1 -Mode dry-run`，确认本地前置条件，再启动真实链路 smoke。
+
 ## 4. 认证与核心接口口径
 
 主认证入口（账号密码）：

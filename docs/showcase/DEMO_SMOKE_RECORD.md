@@ -1,8 +1,29 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-07-11
+> Last updated: 2026-07-12
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
+
+## 2026-07-12 Bailian Rerank Provider Refresh
+
+状态：PASS / REVIEW
+
+Runner:
+
+- `scripts/smoke/rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- hybrid-only baseline：`docpilot-rerank-effect-hybrid-20260712003119-0b7ed3`
+- hybrid + rerank candidate：`docpilot-rerank-effect-rerank-20260712003244-46b2e3`
+
+已验证：
+
+- 阿里云百炼 `qwen3-rerank` 真实 provider 调用成功，candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`。
+- candidate 产生 rerank score，KB retrieve / QA citation 覆盖未下降；no-evidence 与权限隔离无回退。
+- 定向 rerank 测试 8 tests PASS；后端全量默认测试 `mvn test -DskipITs` PASS（914 tests，0 failures，5 skipped）。
+
+边界：本次 smoke 证明 provider 可调用且核心 RAG gate 无回退，但 hard fixture 未观察到 target / distractor 排序 uplift，overallStatus 仍为 `REVIEW`；不能把它写成真实 rerank relevance uplift 或大规模 ranking benchmark。artifact 位于 ignored 的 `backend/target/...`，不提交文档全文、模型原始输出、prompt、evidence context、token、连接串或云地址。
 
 ## 2026-07-11 Max Stress Real Chain Audit
 

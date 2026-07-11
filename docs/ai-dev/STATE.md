@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-12 阿里云百炼 rerank provider 验证状态（VERIFIED / REVIEW）
+- 本机 ignored `backend/.env` 已按当前项目实际 provider 纠正为阿里云百炼 rerank：`APP_RAG_RETRIEVAL_HYBRID_ENABLED=true`、`APP_RAG_RERANK_ENABLED=true`、`APP_RAG_RERANK_PROVIDER=aliyun_bailian`、`APP_RAG_RERANK_MODEL=qwen3-rerank`；base URL 使用百炼 `compatible-api/v1/reranks` endpoint，真实 API key 只保留在本机 `.env`，未写入 tracked 文件。
+- 示例配置与 `backend/README.md` 已同步说明：百炼 chat / embedding 的 `compatible-mode/v1` 与 qwen3-rerank 的 `compatible-api/v1/reranks` 不同，不能沿用其他供应商的 `/v1/rerank` 口径。
+- 真实 rerank provider 可用性已验证：`rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` baseline marker `docpilot-rerank-effect-hybrid-20260712003119-0b7ed3`，candidate marker `docpilot-rerank-effect-rerank-20260712003244-46b2e3`；candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，rerank score count `4`，核心 RAG / no-evidence / 权限安全无回退。
+- 边界保持 REVIEW：本次 hard fixture 未观察到 target rank / distractor rank uplift，overallStatus 为 `REVIEW`；因此只能说“百炼 rerank provider 已真实调用且无核心回退”，不能说“真实 rerank relevance uplift 已验证”。
+
 ## 2026-07-11 RAG 求职级三项收口（REVIEW）
 
 - KnowledgeBase citation locator 已从“单文档完整、KB 仅 chunk/quote/score”为主，升级为 KB retrieve hit、KB citation response、KB Agent search / answer 路径均可携带 `sectionPath`、`structureType`、`pageNumber`、`sourceLocator`、`blockType`；字段来源仍是现有 parser block -> chunk metadata -> Qdrant payload，不新增 schema。

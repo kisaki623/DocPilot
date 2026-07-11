@@ -1,5 +1,10 @@
 # Progress Log
 
+## 2026-07-12 rerank provider 配置纠正
+- 已按用户纠正把本机 `backend/.env` 的 rerank 非密钥项改为阿里云百炼：provider 为 `aliyun_bailian`，model 为 `qwen3-rerank`，base URL 使用百炼 `compatible-api/v1/reranks` endpoint；真实 API key 只保留在 ignored `.env`。
+- 已同步 `backend/.env*.example` 和 `backend/README.md`，并补齐 `HttpRerankService` 百炼 qwen3-rerank / gte-rerank-v2 响应结构兼容。
+- 用户填入 API key 后已完成真实 rerank smoke：candidate marker `docpilot-rerank-effect-rerank-20260712003244-46b2e3` 显示 `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG / no-evidence / 权限安全无回退；hard fixture 未观察到 uplift，因此效果提升仍保持 REVIEW。定向 8 tests 与后端全量 914 tests 均 PASS。
+
 ## 2026-07-11 RAG 求职级三项收口
 
 - 补齐 KnowledgeBase citation locator 字段穿透，新增 rerank fallback 安全诊断 `rerankFailureReason`，新增 `docs/showcase/RAG_QUALITY_REPORT.md`。

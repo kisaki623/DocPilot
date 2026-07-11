@@ -10,9 +10,10 @@ public class RerankProperties {
     public static final String PROVIDER_DISABLED = "disabled";
     public static final String PROVIDER_COHERE = "cohere";
     public static final String PROVIDER_OPENAI_COMPATIBLE = "openai_compatible";
+    public static final String PROVIDER_ALIYUN_BAILIAN = "aliyun_bailian";
 
     private boolean enabled = false;
-    private String provider = PROVIDER_DISABLED; // disabled, cohere, openai_compatible
+    private String provider = PROVIDER_DISABLED; // disabled, cohere, openai_compatible, aliyun_bailian
     private String baseUrl = "";
     private String apiKey = "";
     private String model = "";
@@ -32,7 +33,16 @@ public class RerankProperties {
     }
 
     public void setProvider(String provider) {
-        this.provider = provider == null ? PROVIDER_DISABLED : provider.trim().toLowerCase();
+        if (provider == null) {
+            this.provider = PROVIDER_DISABLED;
+            return;
+        }
+        String normalized = provider.trim().toLowerCase().replace('-', '_');
+        if ("bailian".equals(normalized) || "dashscope".equals(normalized) || "aliyun".equals(normalized)) {
+            this.provider = PROVIDER_ALIYUN_BAILIAN;
+        } else {
+            this.provider = normalized;
+        }
     }
 
     public String getBaseUrl() {
@@ -89,6 +99,9 @@ public class RerankProperties {
             return !apiKey.isBlank() && !model.isBlank();
         }
         if (PROVIDER_OPENAI_COMPATIBLE.equals(provider)) {
+            return !baseUrl.isBlank() && !apiKey.isBlank() && !model.isBlank();
+        }
+        if (PROVIDER_ALIYUN_BAILIAN.equals(provider)) {
             return !baseUrl.isBlank() && !apiKey.isBlank() && !model.isBlank();
         }
         return false;
