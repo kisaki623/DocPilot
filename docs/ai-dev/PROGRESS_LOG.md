@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-11 ParseTask 状态观测与安全恢复口径
+
+- 新增 ParseTask status 投影接口，失败任务可看到 `RAG_INDEX_*` 错误码、`INDEXING` 失败阶段、retry/reparse 恢复建议和显式的 `contentOnlyReindexAllowed=false`。
+- 没有恢复上一轮被回滚的 content-only reindex；当前恢复策略仍是重新消费原文件，保证 parser block / source locator / section path 有机会进入索引。
+- 验证：ParseTask 定向测试 34 项 PASS，后端 compile PASS。状态：REVIEW，待真实 cloud parse / RAG smoke 验证。
+
 ## 2026-07-11 Frontend Next 安全补丁恢复
 
 - 恢复本次异常回滚后丢失的前端非 major 安全补丁：`next` / `eslint-config-next` 重新固定为 `14.2.35`，`next-env.d.ts` 同步为当前 Next 生成内容。

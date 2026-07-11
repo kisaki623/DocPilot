@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-11 ParseTask 状态观测与安全恢复口径（REVIEW）
+
+- 新增 `GET /api/task/parse/status?documentId=...` 状态投影，返回最新 ParseTask 阶段、Document parse 状态、失败错误码、失败阶段、retry/reparse 可用性和恢复建议；该接口只读，不触发 MQ、不重建索引、不修改 Document。
+- RAG 索引失败会被识别为 `RAG_INDEX_*` / `INDEXING` 阶段问题，恢复建议明确指向 `retry/reparse` 重新解析原文件并携带 parser block metadata 后再索引；响应显式返回 `safeReindexAllowed=false` 与 `contentOnlyReindexAllowed=false`，避免把 `Document.content` 当成结构化重建索引来源。
+- 定向测试 34 项 PASS，`mvn -q -DskipTests compile` PASS；尚未跑真实 cloud parse / RAG runtime smoke，因此状态为 `REVIEW`。
+
 ## 2026-07-11 Frontend Next 安全补丁恢复（REVIEW）
 
 - 前端依赖已重新从 `next` / `eslint-config-next` `14.2.5` 升至 `14.2.35`，修复本次异常恢复后 tracked package 回退导致的生产依赖 critical audit 风险；`next-env.d.ts` 同步为当前 Next 14.2.35 生成内容。

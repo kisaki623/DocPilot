@@ -1,5 +1,11 @@
 # Current Task
 
+## 2026-07-11 补充：ParseTask 状态观测与安全恢复口径（REVIEW）
+
+- 已新增只读状态接口 `GET /api/task/parse/status?documentId=...`，用于展示最新任务阶段、Document parse 状态、错误码、失败阶段、retry/reparse 可用性与恢复建议。
+- 关键边界：不新增 `/parse/reindex`，不通过 `Document.content` 重建结构化 chunk/vector；RAG 索引失败只建议重新解析原文件并走 parser block metadata 链路，响应固定暴露 `safeReindexAllowed=false` / `contentOnlyReindexAllowed=false`。
+- 验证：`mvn "-Dtest=ParseTaskServiceImplTest,ParseTaskConsumeEntryServiceImplTest,ParseStatusConstantsTest" test` PASS（34 tests），`mvn -q -DskipTests compile` PASS。未跑真实链路 smoke，保持 REVIEW。
+
 ## 2026-07-11 补充：Frontend Next 安全补丁恢复（REVIEW）
 
 - 已将 tracked `frontend/package.json` / `package-lock.json` 的 `next` 与 `eslint-config-next` 从回滚后的 `14.2.5` 重新升至 `14.2.35`，并保留 Next 生成的 `next-env.d.ts` 当前链接更新。
