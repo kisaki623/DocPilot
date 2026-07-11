@@ -4,6 +4,32 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-11 Real User QA Full Chain Refresh
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+- `scripts/smoke/rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- 首轮失败诊断：`docpilot-real-user-qa-20260711155558-573a81`
+- 自然语料修复验证：`docpilot-rag-natural-corpus-20260711160322-1cbcbc`
+- 完整真实用户审计：`docpilot-real-user-qa-20260711160913-98a440`
+- parser 专项：`docpilot-parser-real-chain-20260711161514-6c4786`
+
+已验证：
+
+- 完整真实用户审计覆盖 tunnel、backend health、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、短文档 RAG、自然语料、answer grounding、no-evidence、Conversation Trace、Memory quality、权限隔离、frontend routes / interaction、cleanup 和 artifact redaction。
+- 自然语料首轮暴露 `finance-expense-invoice-compare` 的 `answerFactExpression` 误杀；修复后 `casePassRate=1`、`answerFaithfulnessPassCount=11/11`、`citationPhraseSupportPassCount=22/22`、`distractorCitationFreeCount=25/25`。
+- ParseTask status 真实 API smoke 验证成功解析后仍返回 `safeReindexAllowed=false`、`contentOnlyReindexAllowed=false`，未暴露纯 `Document.content` 重建索引入口。
+- parser 专项中 PDF / HTML / DOCX 均 parse、direct retrieve、QA retrieval、citation 和 source locator 通过；parser boundary `4/4`。
+
+边界：本轮是真实 provider / Qdrant / MySQL / 前后端本地运行的小规模 smoke，不代表大规模 relevance benchmark、线上 SLA、OCR / 扫描件能力或商业 SaaS 完整验收。artifact 均位于 ignored 的 `backend/target/...` 或 `tmp-e2e/...`，不提交文档全文、回答文本、prompt、evidence context、token、连接串或云地址。
+
 ## 2026-07-11 Document Parser Real Chain Refresh
 
 状态：PASS

@@ -1,5 +1,15 @@
 # Progress Log
 
+## 2026-07-11 补充：真实用户全链路审计与恢复验证
+
+- 执行真实用户链路审计：首轮 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 失败于 `naturalCorpus`，marker `docpilot-real-user-qa-20260711155558-573a81`，唯一失败为 `finance-expense-invoice-compare:answerFactExpression`。
+- 代码证据：该 case 的 retrieve / QA citation / target document coverage / expected evidence support / citation phrase support / distractor suppression 均通过，仅回答事实表达匹配失败；修复 `scripts/smoke/cloud-quality-smoke.ps1` 中该 case 的中英文同义表达门禁，避免真实回答以中文“主管 / 团队负责人”或“7 年 / 七年”表达时误杀。
+- 复验：自然语料专项 marker `docpilot-rag-natural-corpus-20260711160322-1cbcbc` PASS，完整真实用户审计 marker `docpilot-real-user-qa-20260711160913-98a440` PASS；自然语料 `casePassRate=1`、`answerFaithfulnessPassCount=11/11`、`citationPhraseSupportPassCount=22/22`。
+- parser 专项：`document-parser-real-chain-smoke.ps1` marker `docpilot-parser-real-chain-20260711161514-6c4786` PASS，覆盖 PDF / HTML / DOCX、direct retrieve、QA retrieval、citation、source locator、parser boundary 和 artifact redaction。
+- ParseTask status：手动最小真实 API smoke 验证成功解析后 `/api/task/parse/status?documentId=...` 返回 `safeReindexAllowed=false`、`contentOnlyReindexAllowed=false`，没有 content-only reindex 恢复入口。
+- 额外修复：手动 status smoke 首次使用超长 username 暴露注册校验异常被兜底成 500；已在 `GlobalExceptionHandler` 增加 `BindException` / `ConstraintViolationException` 处理，超长 username 运行时复验返回 `code=400`。
+- 验证：`mvn -Dtest=GlobalExceptionHandlerWebMvcTest test` PASS；`mvn test -DskipITs` PASS（911 tests，0 failures，5 skipped）。本轮启动的 backend / frontend / tunnel 已清理，未提交 ignored artifact、日志、临时文档、token、连接串或云地址。
+
 ## 2026-07-11 求职级收口验收快照
 
 - 完成计划内 5 个小切片并分别提交：恢复记录、前端 Next 安全补丁、ParseTask 安全状态投影、citation locator 覆盖门禁、真实 parser / RAG smoke 证据刷新。

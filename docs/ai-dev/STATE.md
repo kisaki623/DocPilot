@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-11 真实用户全链路审计与恢复验证（VERIFIED）
+
+- 真实用户链路已重新跑通：首轮 `docpilot-real-user-qa-20260711155558-573a81` 暴露自然语料 `finance-expense-invoice-compare` 的 `answerFactExpression` 误杀；修复同义表达门禁后，`docpilot-rag-natural-corpus-20260711160322-1cbcbc` 与完整 `docpilot-real-user-qa-20260711160913-98a440` 均 PASS。
+- 本次完整 audit 覆盖 tunnel、backend health、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、短文档 RAG、自然语料 25 case、answer grounding、no-evidence、Conversation Trace、Memory quality、权限隔离、frontend routes / interaction、cleanup 和 artifact redaction。
+- parser 专项 marker `docpilot-parser-real-chain-20260711161514-6c4786` PASS：PDF / HTML / DOCX 三类文件解析成功，累计 `chunkCount=7`，direct retrieve / QA retrieval / citation / source locator 均 `3/3`，parser boundary `4/4`。
+- ParseTask status 真实登录态 API 已验证：成功解析文档返回 `SUCCESS` / terminal / parsed content present，且 `safeReindexAllowed=false`、`contentOnlyReindexAllowed=false`，未暴露纯 `Document.content` 重建索引入口。
+- 真实检查中发现并修复注册参数校验落入 500 的问题：全局异常处理器现将 `BindException` 与 `ConstraintViolationException` 归一为 `BAD_REQUEST`；运行时超长 username 复验返回 `code=400`。后端全量默认测试 `mvn test -DskipITs` PASS（911 tests，0 failures，5 skipped）。
+
 ## 2026-07-11 求职级收口验收快照（VERIFIED / REVIEW）
 
 - 离线总验收通过：`mvn test -DskipITs` PASS（909 tests，0 failures，5 skipped），`npm run lint` PASS，`npm run build` PASS。

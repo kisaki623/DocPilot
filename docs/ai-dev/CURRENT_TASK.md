@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-11 补充：真实用户全链路审计与修复（VERIFIED）
+
+- 已运行真实用户链路审计，首轮 marker `docpilot-real-user-qa-20260711155558-573a81` 暴露 `naturalCorpus` 中 `finance-expense-invoice-compare` 的 `answerFactExpression` 误杀：retrieve / citation / evidence support / distractor suppression 均通过，但回答事实表达只匹配英文短语导致失败，登记为 `REA-20260711-P2-020`。
+- 已修复自然语料 answer faithfulness fixture：财务发票对比 case 的“团队经理审批”和“7 年保留”门禁增加中英文同义表达，仍要求目标文档覆盖、citation phrase support 和无干扰 citation，不放宽 RAG 证据质量。
+- 复验：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260711160322-1cbcbc`；完整 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260711160913-98a440`。
+- parser 专项复验：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260711161514-6c4786`，PDF / HTML / DOCX、direct retrieve、QA retrieval、citation、source locator、parser boundary 和 redaction 均通过。
+- ParseTask status 真实 API smoke 已完成：临时文档解析成功后 `/api/task/parse/status?documentId=...` 返回 `status=SUCCESS`、`documentParseStatus=SUCCESS`、`terminal=true`、`parsedContentPresent=true`，且 `safeReindexAllowed=false`、`contentOnlyReindexAllowed=false`。
+- 真实检查中另发现注册 username 超长会被全局异常兜底为 500，已补 `BindException` / `ConstraintViolationException` 处理并登记为 `REA-20260711-P3-021`；运行时复验超长 username 返回 `code=400`，`mvn test -DskipITs` PASS（911 tests，0 failures，5 skipped）。
+
 ## 2026-07-11 补充：求职级收口验收快照（VERIFIED / REVIEW）
 
 - 已完成本轮连续迭代：reindex 半成品恢复记录、Next 14.2.35 非 major 安全补丁恢复、ParseTask 状态观测与安全恢复口径、多 block citation locator 离线门禁和真实 parser / RAG smoke 刷新。

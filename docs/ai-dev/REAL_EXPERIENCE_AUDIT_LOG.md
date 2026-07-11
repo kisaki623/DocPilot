@@ -34,6 +34,9 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-11 | `docpilot-real-user-qa-20260711160913-98a440` | PASS（真实用户全链路修复验证） | `backend/target/audit/docpilot-real-user-qa-20260711160913-98a440/artifact.json` | 修复 `finance-expense-invoice-compare` answerFactExpression 同义表达误杀后，完整真实用户 QA 审计 PASS；自然语料 25 case、Memory、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均通过。 |
+| 2026-07-11 | `docpilot-real-user-qa-20260711155558-573a81` | FAILED_CORE_FLOW（已修复验证） | `backend/target/audit/docpilot-real-user-qa-20260711155558-573a81/artifact.json` | 首轮真实用户 QA 审计仅 `naturalCorpus` 失败，失败 case 为 `finance-expense-invoice-compare:answerFactExpression`；retrieve / citation / evidence support / distractor suppression 均通过，已登记为 `REA-20260711-P2-020`。 |
+| 2026-07-11 | `parse-status-validation-smoke-20260711` | PASS（参数校验修复验证） | `backend/target/validation-smoke/` | 手动 ParseTask status smoke 首次使用超长 username 暴露注册校验错误被兜底为 500；修复全局校验异常处理后，超长 username 运行时返回 `code=400`，登记为 `REA-20260711-P3-021`。 |
 | 2026-07-09 | `docpilot-parser-real-chain-20260709233230-a08906` | PASS（direct retrieve / QA retrieve 差异修复验证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260709233230-a08906/artifact.json` | 修复 parser smoke runner 的 direct / QA 诊断计数和环境断链归因后，真实链路 PASS；PDF / HTML / DOCX 均 parse、chunk、direct retrieve、QA retrieval、citation、source locator 通过，parserBoundary `4/4` PASS。 |
 | 2026-07-08 | `docpilot-parser-real-chain-20260708212742-0f9baa` | PASS（Document Parser runner 修复验证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260708212742-0f9baa/artifact.json` | 修复 parser smoke runner 静默复用不受控 backend / frontend 后，真实链路 PASS；PDF / HTML / DOCX 均 parse、chunk、QA retrieval、citation、source locator 通过，parserBoundary `4/4` PASS，Quality Console 可见最新 run 和 parser 诊断。 |
 | 2026-07-08 | `docpilot-parser-real-chain-20260708212024-9bd2ea` | FAILED_CORE_FLOW（已修复验证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260708212024-9bd2ea/artifact.json` | parser smoke 复用了手动启动的 backend，该 backend 不在 runner 受控配置内，导致三类文档 QA 阶段均 `qa_api_failed`；已记录为 `REA-20260708-P3-009` 并通过受控启动 PASS run 验证。 |
@@ -59,6 +62,8 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260711-P2-020` | VERIFIED（已验证） | P2 | 质量门禁 fixture bug | Natural Corpus / Answer Faithfulness Gate | `docpilot-real-user-qa-20260711155558-573a81` | 财务多文档对比 case 的 answerFactExpression 对中英文同义表达过窄 |
+| `REA-20260711-P3-021` | VERIFIED（已验证） | P3 | API 参数校验体验 | Auth register / GlobalExceptionHandler | `parse-status-validation-smoke-20260711` | 注册 username 校验失败被兜底为 500 |
 | `REA-20260710-P3-014` | VERIFIED（已验证） | P3 | 真实前端体验问题 | KnowledgeBase RAG UI | `docpilot-cloud-quality-20260710195739-fdb3fa` | 知识库 RAG 交互成功但浏览器出现 Failed to fetch 控制台错误 |
 | `REA-20260710-P1-012` | VERIFIED（已验证） | P1 | 真实链路稳定性问题 | Single-document RAG QA | `docpilot-cloud-quality-20260710173219-d801d9` | 解析与索引通过后单文档 RAG 回答模型读取窗口不足 |
 | `REA-20260710-P2-013` | VERIFIED（已验证） | P2 | 真实链路稳定性问题 | RAG Indexing | `docpilot-cloud-quality-20260710194619-390475` | 切换百炼后遗留 embedding 模型标识导致索引失败 |
@@ -81,6 +86,71 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-11 真实用户全链路审计
+
+### `REA-20260711-P2-020` 财务多文档对比 case 的 answerFactExpression 对中英文同义表达过窄
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P2
+- 类型：质量门禁 fixture bug
+- 模块：Natural Corpus / Answer Faithfulness Gate
+- 发现 marker：`docpilot-real-user-qa-20260711155558-573a81`
+
+复现步骤：
+
+1. 执行 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`。
+2. 检查 `naturalCorpus` gate 的 `finance-expense-invoice-compare` case。
+
+实际结果：
+
+- 完整真实审计中 tunnel、backend health、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、短文档 RAG、Memory、权限隔离、frontendInteraction、cleanup 和 redaction 均通过。
+- 失败 case 的 retrieve hits、QA citations、目标文档检索覆盖、目标文档引用覆盖、expected evidence support、citation phrase support 和干扰文档抑制均通过；唯一 failure bucket 为 `answerFactExpression`。
+
+预期结果：
+
+- 当 evidence 与 citation 已覆盖“团队经理审批”和“发票归档 7 年”两个目标事实，且回答使用等价中英文表达时，answer faithfulness gate 不应因单一英文短语缺失误杀。
+
+可能原因：
+
+- `finance-expense-invoice-compare` 的 `answerAllPhrases` 只覆盖英文 `manager` 相关表达，`answerAnyPhrases` 只覆盖英文 `7 years` 相关表达；真实回答可能使用中文“主管 / 团队负责人 / 7 年 / 七年”等等价表达。
+
+修复与验证：
+
+- 修复位置：`scripts/smoke/cloud-quality-smoke.ps1`。
+- 修复内容：仅扩展该 case 的中英文同义表达组，不放宽目标文档覆盖、citation phrase support、干扰 citation 抑制或 no-evidence 门禁。
+- 验证：自然语料专项 `docpilot-rag-natural-corpus-20260711160322-1cbcbc` PASS，完整真实用户审计 `docpilot-real-user-qa-20260711160913-98a440` PASS；`casePassRate=1`、`answerFaithfulnessPassCount=11/11`、`citationPhraseSupportPassCount=22/22`。
+
+### `REA-20260711-P3-021` 注册 username 校验失败被兜底为 500
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：API 参数校验体验
+- 模块：Auth register / GlobalExceptionHandler
+- 发现来源：`parse-status-validation-smoke-20260711`
+
+复现步骤：
+
+1. 启动本地 tunnel 与 backend。
+2. 调用 `POST /api/auth/register`，传入超过 32 字符的 username。
+
+实际结果：
+
+- 后端 DTO 已声明 `username` 格式和长度校验，但校验异常未被全局处理器识别，落入兜底 `Exception`，API 返回 `code=500`。
+
+预期结果：
+
+- 参数校验失败应返回业务 `BAD_REQUEST`，并带出安全的字段校验 message，不能伪装成服务器内部错误。
+
+可能原因：
+
+- `GlobalExceptionHandler` 仅处理 `BusinessException` 和兜底 `Exception`，缺少 `BindException` / `ConstraintViolationException` 分支。
+
+修复与验证：
+
+- 修复位置：`backend/src/main/java/com/docpilot/backend/common/exception/GlobalExceptionHandler.java`。
+- 修复内容：新增绑定校验异常与约束校验异常处理，返回 `ErrorCode.BAD_REQUEST` 和第一条安全校验 message。
+- 验证：`GlobalExceptionHandlerWebMvcTest` 覆盖字段绑定错误和约束错误；运行时超长 username 注册返回 `code=400`；`mvn test -DskipITs` PASS（911 tests，0 failures，5 skipped）。
 
 ## 2026-07-10 真实主链路验收失败
 
