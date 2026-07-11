@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-11 reindex 半成品异常恢复
+
+- 只读审计确认新增 reindex 通过 `Document.content` 伪造空 blocks `ParseResult`，会丢失 parser block 来源 metadata，并且状态恢复缺少 lease / reconciliation / 可观测闭环。
+- 已按恢复计划精确回滚 reindex API / service / tests，以及本轮选择一并回滚的前端依赖升级、生成文件、archive BOM 和行尾噪声。
+- 状态：DONE。未实现新的 reindex 能力；下一次设计必须基于可恢复 parser block / source metadata，或在缺 metadata 时 fail-closed。
+
 ## 2026-07-10 索引成功状态收口
 
 - 解析消费者改为在 `INDEXING` 阶段同步等待 RAG 索引结果；Document / ParseTask 仅在索引成功、结果身份一致且 chunk/vector 完整后才写入 `SUCCESS`。

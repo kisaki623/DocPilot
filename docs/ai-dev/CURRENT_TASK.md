@@ -1,5 +1,11 @@
 # Current Task
 
+## 2026-07-11 补充：reindex 半成品异常恢复（DONE）
+
+- 已按异常恢复结论回滚当前工作区中的 content-only reindex 半成品：不再暴露 `/api/task/parse/reindex`，不保留 `ParseTaskService.reindex`，不保留通过 `Document.content` 构造空 blocks `ParseResult` 后重建索引的测试与实现。
+- 回滚原因：该路径虽然可重新写 chunk/vector，但没有 parser block 来源数据，会丢失页码、block type、source locator 与 parser-derived section path，导致 citation locator 质量倒退。
+- 同步清理：前端 Next 依赖升级、`next-env.d.ts`、archive BOM 和 benchmark 行尾噪声按本次恢复选择一并恢复。后续若需要 Next 安全升级或 reindex 恢复链路，分别作为独立切片重新评审。
+
 当前任务：文档解析/索引可靠性与确定性 Agent 闭环；当前片：索引成功才收口 ParseTask SUCCESS（REVIEW，待真实链路验证）；下一片：消费 lease、受限 reindex 恢复与状态可观测性；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
 
 ## 2026-07-10 补充：索引成功才收口 ParseTask SUCCESS（REVIEW）

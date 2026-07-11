@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-11 reindex 半成品异常恢复（DONE）
+
+- 已回滚上一轮新增的 `POST /api/task/parse/reindex`、`ParseTaskService.reindex` 和基于 `Document.content` 伪造 `ParseResult` 的手动重建索引实现；该实现会丢失 parser block 的 `pageNumber`、`sourceLocator`、`blockType` 和 parser-derived `sectionPath`，不符合当前结构化 citation 主线。
+- 当前保留的事实仍是：解析消费者在 `INDEXING` 阶段同步等待 RAG 索引结果，只有索引成功且 chunk/vector 完整后才将 Document 与 ParseTask 标记为 `SUCCESS`；索引失败时保留已解析内容并标记 `FAILED`。
+- 后续如重新设计 reindex，必须基于可恢复的 parser block / source metadata 或明确 fail-closed；不允许把纯 `Document.content` 重建写成结构化索引恢复能力。
+
 ## 2026-07-10 解析/索引成功状态收口（REVIEW）
 
 - ParseTask 消费主链路现在把 RAG 索引纳入成功条件：进入 `INDEXING` 后先保存解析内容和摘要，等待同步索引结果，只有当前 user/document/indexVersion 一致、chunk/vector 完整的 `SUCCESS` 才把 Document 与 ParseTask 标记 `SUCCESS`。
