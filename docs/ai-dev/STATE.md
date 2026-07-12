@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-12 四项任务收口：ParseTask、rerank、locator UI、Memory Governance（VERIFIED）
+
+- ParseTask / reindex 恢复链路已完成 fail-closed + 可观测闭环：stale processing / outbox exhausted 会安全收口为 `FAILED`，status API 与前端“解析与恢复”卡片展示 consume/outbox、retry/reparse 和“禁止 content-only reindex”的安全边界。
+- 阿里云百炼 `qwen3-rerank` 已通过 hard fixture 与代表语料真实链路验证：provider 真实调用成功，hard fixture 观察到 target rank `2 -> 1`、distractor 降权；代表 eval 12 case PASS、10/10 target coverage、2/2 no-evidence preserved。边界仍是小样本真实链路证据，不是大规模 relevance benchmark。
+- Citation locator / metadata 已在文档详情、KnowledgeBase、Conversation 和 Agent 页面可见：统一展示文档名、`sourceLocator` / 页码 / section path、chunk/version 和 block / structure metadata；真实 cloud quality marker `docpilot-cloud-quality-20260712154804-0540c6` PASS。
+- Memory Governance v1 边界已补测试并通过真实 smoke：相似 / 重复 / 冲突治理、跨用户 resolve 隔离、敏感手动创建 / merge / 系统抽取拦截、一次性指令抑制、assistant RAG evidence 不沉淀均有离线门禁；真实 marker `docpilot-memory-quality-20260712155609-7ba60d` 的 `memoryQuality` gate PASS。
+- 当前仍不能写成完整商业 SaaS、线上 SLA、大规模多租户、复杂 PDF/OCR、成熟长期记忆质量或大规模 rerank benchmark；可对外强调的是 RAG 核心闭环、结构化 citation、恢复观测、真实 provider smoke 与持续质量门禁。
+
 ## 2026-07-12 ParseTask 恢复链路与 rerank uplift 收口（VERIFIED）
 
 - ParseTask / reindex 恢复链路已从“只给失败状态文案”推进到 fail-closed 恢复：消费记录 `PROCESSING` 支持超时 takeover；恢复扫描会把长时间停留在 PENDING / UPLOADED / PARSING / SPLITTING / SUMMARIZING / INDEXING / PROCESSING 的任务、以及 outbox 重试耗尽但任务未终态的情况安全收口为 `FAILED`，并同步 document parse_status 与缓存失效。

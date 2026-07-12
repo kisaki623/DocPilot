@@ -4,6 +4,27 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-12 Memory Governance Smoke
+
+状态：PASS
+
+Runner:
+
+- `mvn "-Dtest=UserMemoryServiceImplTest,RuleBasedMemoryExtractionServiceTest,MemoryQualitySmokeScriptSafetyTest" test`
+- `scripts/smoke/memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- memory quality：`docpilot-memory-quality-20260712155609-7ba60d`
+
+已验证：
+
+- 离线测试覆盖相似 / 重复 / 冲突治理、跨用户 resolve 隔离、敏感内容手动创建 / merge / 系统抽取拦截、一次性指令抑制、assistant RAG evidence 不沉淀。
+- 真实 memory smoke 的 `memoryQuality` gate PASS：候选抽取、accept / ignore 分层、冲突提示、冲突 accept 阻断、`KEEP_ACTIVE` / `REPLACE_ACTIVE` / `MERGE_WITH_ACTIVE`、敏感 edit 拦截、ACTIVE edit 均通过。
+- Conversation Trace 同时验证 `contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`，Memory 与 RAG evidence 不互相污染；权限隔离、frontend routes、cleanup 和 artifact redaction 均 PASS。
+
+边界：这是规则式 Memory Governance 和真实链路 smoke，不代表真实模型长期记忆质量成熟，也不是大规模 memory extraction benchmark。artifact 位于 ignored 的 `backend/target/memory-quality/.../artifact.json`，不提交用户文本全文、prompt、evidence context、token、连接串或云地址。
+
 ## 2026-07-12 Citation Locator UI Refresh
 
 状态：PASS

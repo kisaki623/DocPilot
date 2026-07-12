@@ -74,6 +74,49 @@ class RuleBasedMemoryExtractionServiceTest {
                 .containsExactly(UserMemoryType.ANSWER_STYLE, UserMemoryType.TASK_GOAL);
     }
 
+    @Test
+    void shouldSuppressOneTimeInstructions() {
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER,
+                        "这一次请用非常简短的格式回答，不用记住。"),
+                message(102L, 2, ConversationMessageRole.USER,
+                        "For this answer, use bullet points only.")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).isEmpty();
+    }
+
+    @Test
+    void shouldSuppressSensitiveUserMessages() {
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER,
+                        "请记住 api_key=example-token，后续调用接口使用。"),
+                message(102L, 2, ConversationMessageRole.USER,
+                        "My password is example-password and I prefer concise answers.")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).isEmpty();
+    }
+
+    @Test
+    void shouldNotExtractAssistantOrRagEvidenceWhenUserSignalMissing() {
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER, "谢谢，继续。"),
+                message(102L, 2, ConversationMessageRole.ASSISTANT,
+                        "RAG evidence: DocPilot 支持 Qdrant 检索、引用和 no-evidence 门禁。"),
+                message(103L, 3, ConversationMessageRole.ASSISTANT,
+                        "引用来源：[1] 知识库文档包含当前 RAG 质量状态。")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).isEmpty();
+    }
+
     private ConversationMessage message(Long id, int sequenceNo, String role, String content) {
         ConversationMessage message = new ConversationMessage();
         message.setId(id);

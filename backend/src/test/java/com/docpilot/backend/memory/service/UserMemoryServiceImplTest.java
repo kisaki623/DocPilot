@@ -1,5 +1,6 @@
 package com.docpilot.backend.memory.service;
 
+import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.memory.constant.UserMemorySourceType;
 import com.docpilot.backend.memory.constant.UserMemoryStatus;
@@ -17,6 +18,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -247,6 +249,24 @@ class UserMemoryServiceImplTest {
     }
 
     @Test
+    void shouldExposeSimilarActiveMemoryHintForSuggestedMemory() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setContent("偏好中文回答A");
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        suggested.setContent("偏好中文回答");
+        when(memoryMapper.selectByUserAndStatus(7L, UserMemoryStatus.SUGGESTED, null, 50))
+                .thenReturn(List.of(suggested));
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of(active));
+
+        List<UserMemoryResponse> responses = service.listSuggestions(7L, null, null);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).duplicateOfId()).isEqualTo(88L);
+        assertThat(responses.get(0).governanceHint()).isEqualTo("similar_active_memory");
+        assertThat(responses.get(0).similarityScore()).isGreaterThanOrEqualTo(BigDecimal.valueOf(0.8D));
+    }
+
+    @Test
     void shouldRejectAcceptingConflictingSuggestion() {
         UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
         active.setMemoryType(UserMemoryType.ANSWER_STYLE);
@@ -270,6 +290,119 @@ class UserMemoryServiceImplTest {
         assertThatThrownBy(() -> service.create(7L, UserMemoryType.PREFERENCE, "偏好中文回答", 10, null, null))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("duplicate active memory");
+        verify(memoryMapper, never()).insert(any(UserMemory.class));
+    }
+
+    @Test
+    void shouldRejectCreatingSimilarActiveMemory() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setContent("偏好中文回答A");
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of(active));
+
+        assertThatThrownBy(() -> service.create(
+                7L,
+                UserMemoryType.PREFERENCE,
+                "偏好中文回答",
+                10,
+                null,
+                null
+        ))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("similar_active_memory");
+        verify(memoryMapper, never()).insert(any(UserMemory.class));
+    }
+
+    @Test
+    void shouldAllowSameContentAcrossDifferentMemoryTypes() {
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of());
+        when(memoryMapper.insert(any(UserMemory.class))).thenAnswer(invocation -> {
+            UserMemory saved = invocation.getArgument(0);
+            saved.setId(100L);
+            return 1;
+        });
+
+        UserMemoryResponse response = service.create(
+                7L,
+                UserMemoryType.PREFERENCE,
+                "偏好中文回答",
+                10,
+                null,
+                null
+        );
+
+        ArgumentCaptor<UserMemory> captor = ArgumentCaptor.forClass(UserMemory.class);
+        verify(memoryMapper).insert(captor.capture());
+        assertThat(response.status()).isEqualTo(UserMemoryStatus.ACTIVE);
+        assertThat(captor.getValue().getMemoryType()).isEqualTo(UserMemoryType.PREFERENCE);
+    }
+
+    @Test
+    void shouldResolveSuggestionOnlyWithinSameUserBoundary() {
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(suggested);
+        when(memoryMapper.selectByIdAndUserId(7L, 88L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.resolveSuggestion(7L, 99L, "REPLACE_ACTIVE", 88L, null, null))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(throwable -> assertThat(((BusinessException) throwable).getErrorCode())
+                        .isEqualTo(ErrorCode.MEMORY_NOT_FOUND));
+    }
+
+    @Test
+    void shouldRejectCreatingSensitiveManualMemory() {
+        String sensitive = "请记住 api_key=example-token";
+        doThrow(new BusinessException(ErrorCode.MEMORY_SENSITIVE_CONTENT_REJECTED))
+                .when(safetyValidator)
+                .validate(sensitive);
+
+        assertThatThrownBy(() -> service.create(7L, UserMemoryType.PREFERENCE, sensitive, 10, null, null))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(throwable -> assertThat(((BusinessException) throwable).getErrorCode())
+                        .isEqualTo(ErrorCode.MEMORY_SENSITIVE_CONTENT_REJECTED));
+        verify(memoryMapper, never()).insert(any(UserMemory.class));
+    }
+
+    @Test
+    void shouldRejectResolvingSuggestionIntoSensitiveContent() {
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        active.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
+        suggested.setMemoryType(UserMemoryType.ANSWER_STYLE);
+        String mergedContent = "回答保持简洁，并记住 token=example-token";
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(suggested);
+        when(memoryMapper.selectByIdAndUserId(7L, 88L)).thenReturn(active);
+        doThrow(new BusinessException(ErrorCode.MEMORY_SENSITIVE_CONTENT_REJECTED))
+                .when(safetyValidator)
+                .validate(mergedContent);
+
+        assertThatThrownBy(() -> service.resolveSuggestion(
+                7L,
+                99L,
+                "MERGE_WITH_ACTIVE",
+                88L,
+                mergedContent,
+                null
+        ))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(throwable -> assertThat(((BusinessException) throwable).getErrorCode())
+                        .isEqualTo(ErrorCode.MEMORY_SENSITIVE_CONTENT_REJECTED));
+        verify(memoryMapper, never()).updateContentAndPriority(any(), any(), any(), any(), any());
+        verify(memoryMapper, never()).updateStatus(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldDropSensitiveExtractedSuggestionWithoutInsert() {
+        String sensitive = "请记住 api_key=example-token";
+        when(extractionService.extractSuggestions(7L, 10L, null)).thenReturn(List.of(
+                new MemorySuggestionCandidate(UserMemoryType.PREFERENCE, sensitive, 10L, 101L, 40, 0.7)
+        ));
+        doThrow(new BusinessException(ErrorCode.MEMORY_SENSITIVE_CONTENT_REJECTED))
+                .when(safetyValidator)
+                .validate(sensitive);
+
+        List<UserMemoryResponse> responses = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(responses).isEmpty();
         verify(memoryMapper, never()).insert(any(UserMemory.class));
     }
 

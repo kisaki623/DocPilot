@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 Memory Governance 边界测试与 smoke
+
+- 补齐 Memory Governance 离线边界：相似 ACTIVE memory 对候选暴露 `similar_active_memory`，手动创建相似记忆被拒绝，不同 memory type 不互相误杀；resolve 保持当前用户边界。
+- 补齐安全与抽取边界：敏感手动创建、敏感 merge、敏感系统抽取均不入库；一次性 / 临时指令、敏感 user message、assistant RAG evidence / citation 在缺少用户长期信号时不沉淀为长期记忆。
+- 验证：`UserMemoryServiceImplTest`、`RuleBasedMemoryExtractionServiceTest`、`MemoryQualitySmokeScriptSafetyTest` 共 31 tests PASS；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-memory-quality-20260712155609-7ba60d`，memoryQuality、conversationTrace、permissionIsolation、frontendRoutes、cleanup 和 artifactRedaction 均 PASS。
+
 ## 2026-07-12 前端 citation locator 可见性
 
 - 补齐前端 citation / retrieval hit 类型字段，并新增 `citation-display` 工具统一展示来源标题、source locator、页码、section path、block / structure 和 chunk/version。

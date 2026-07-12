@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-12 Memory Governance 边界测试与真实 smoke（VERIFIED）
+
+- 已补齐 Memory Governance 离线边界测试：相似 ACTIVE memory 会对 SUGGESTED memory 暴露 `similar_active_memory` / `duplicateOfId` / `similarityScore`，手动创建相似 ACTIVE memory 会被门禁拒绝，同内容在不同 memory type 下不互相误杀。
+- 已补齐权限与安全测试：`resolveSuggestion` 只能通过 `selectByIdAndUserId` 处理当前用户 memory，跨用户 active memory 不可被 resolve；手动创建、merge/replace resolve 和系统抽取 suggestion 均经过 `MemorySafetyValidator`，敏感内容不会入库。
+- 已补齐规则抽取边界测试：一次性 / 临时指令、敏感 user message、assistant RAG evidence / citation 在缺少用户长期信号时都不会沉淀为长期记忆；仍保持“只从 USER message 抽取候选”的口径。
+- 已验证：`mvn "-Dtest=UserMemoryServiceImplTest,RuleBasedMemoryExtractionServiceTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（31 tests）；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-memory-quality-20260712155609-7ba60d`。
+- 真实 smoke 覆盖：候选抽取、accept / ignore 分层、冲突提示、冲突 accept 阻断、`KEEP_ACTIVE` / `REPLACE_ACTIVE` / `MERGE_WITH_ACTIVE`、敏感 edit 拦截、ACTIVE edit、Memory 与 RAG evidence 在 Context Trace 中分离、权限隔离、frontend routes、cleanup 和 artifact redaction。
+- 状态：Memory Governance v1 边界已锁入离线测试并通过真实链路回归；仍不声明真实模型长期记忆质量成熟，也不新增 Memory 版本历史、审计表或大规模 provider eval。
+
 ## 2026-07-12 前端 citation locator / metadata 可见性（VERIFIED）
 
 - 前端 API 类型已补齐 citation locator 字段：单文档 RAG、KnowledgeBase RAG、legacy QA 和 Agent RAG 结果现在都能接收 `sourceName` / `documentTitle`、`pageNumber`、`sourceLocator`、`blockType`、`sectionPath`、`structureType`、`indexVersion` 等可选字段。
