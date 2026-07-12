@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-12 rerank 代表语料 eval 与中文 / no-evidence 修复（VERIFIED）
+
+- 已新增 `scripts/smoke/rerank-representative-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`；`run` 会用同一套真实链路代表语料分别跑 hybrid-only baseline 和 hybrid+rerank candidate，并输出 ignored 的脱敏 `latest-summary.json`，不保存 query 原文、文档全文、prompt、evidence context、API key、连接串或云地址。
+- `cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRerankRepresentativeEvalGate`：真实链路临时创建 6 份代表文档，覆盖合规、审计、财务、安全、中文问法、干扰文档和 2 个 no-evidence case；每个 case 只记录 rank、coverage、citation leakage、no-evidence regression、multi-query 计数和 rerank 观测字段。
+- 真实 eval 初跑暴露三个质量缺口并已修复：`knowledge base` 这类泛词不应被当作 summary intent 绕过 near-threshold no-evidence support gate；中文问法需要受控 query rewrite / multi-query hybrid keyword 支撑；Windows PowerShell 5.1 下 JSON body 与中文 fixture 必须显式 UTF-8 / Base64，避免 mojibake 误杀。
+- 最终真实验证 PASS：`rerank-representative-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 产出 baseline marker `docpilot-rerank-representative-representative-hybrid-20260712151858-5543fd`、candidate marker `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81`；12 case 全部通过，10 个 target case 覆盖无回退，2 个 no-evidence case 无回退，candidate `rerankApplied=true`、`targetRerankAppliedCaseCount=10`、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,RuleBasedQueryRewriteServiceTest,RerankRepresentativeEvalSmokeScriptSafetyTest" test` PASS（26 tests）；`cloud-quality-smoke.ps1 -Mode plan` PASS；`rerank-representative-eval-smoke.ps1 -Mode plan` / `dry-run` / `run` PASS。
+- 状态：代表语料级 rerank 多 case eval 已从“下一步”推进为小样本真实链路证据；仍不能写成大规模 ranking benchmark、稳定线上 uplift 或通用语义 reranker 评测。
+
 ## 2026-07-12 ParseTask / reindex 恢复链路 + rerank relevance uplift（VERIFIED）
 
 - 已实现 ParseTask fail-closed 恢复链路：`ParseTaskRecoveryScanJob` 定时调用 `ParseTaskRecoveryService`，对长时间停留在处理中阶段的 parse task、以及 outbox 重试耗尽但 task 未终态的情况，统一标记 `FAILED`，同步文档解析状态和缓存失效；不新增 content-only reindex。
@@ -7,7 +16,7 @@
 - ParseTask status 观测已增强：返回 `stale` / `staleReason`、consume/outbox 状态、outbox retry / next retry；stale processing 返回 `STALE_RECONCILIATION_PENDING`，恢复说明明确要求通过 retry/reparse 原文件链路恢复，禁止仅依赖 `Document.content` 重建索引，以免丢失 page、block metadata、section path 和 citation locator。
 - Rerank hard fixture 已升级为独立 target / support / distractor 三文档：真实百炼 `qwen3-rerank` 对照 marker `docpilot-rerank-effect-hybrid-20260712015151-46c631` / `docpilot-rerank-effect-rerank-20260712015353-cc21a9` PASS；baseline distractor rank 1、target rank 2，rerank 后 target rank 1、support rank 2、distractor rank 3，`hardUpliftObserved=true`。
 - 已验证：`mvn "-Dtest=ParseTaskServiceImplTest,ParseTaskConsumeEntryServiceImplTest,ParseTaskRecoveryServiceTest,RerankEffectSmokeScriptSafetyTest" test` PASS（40 tests）；`powershell ... rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 rerank effect PASS；`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260712015555-91d1fd`；`mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）。
-- 状态：本轮任务完成。剩余边界是“自动重放原文件 reparse 的产品入口 / 操作策略”和“代表语料级 rerank 多 case eval”，二者应作为后续独立切片，不在本轮继续扩展。
+- 状态：本轮任务完成。剩余边界是“自动重放原文件 reparse 的产品入口 / 操作策略”；代表语料级 rerank 多 case eval 已由 2026-07-12 后续切片补齐为小样本真实链路证据，但仍不等于大规模 relevance benchmark。
 
 ## 2026-07-12 阿里云百炼 rerank provider 验证（VERIFIED / REVIEW）
 - 已按用户纠正将本机 `backend/.env` 的 rerank 非密钥配置改为阿里云百炼：启用 hybrid retrieval 与 rerank，provider 使用 `aliyun_bailian`，base URL 使用百炼 `compatible-api/v1/reranks` endpoint，model 使用 `qwen3-rerank`；真实 API key 只保留在本机 ignored `.env`。

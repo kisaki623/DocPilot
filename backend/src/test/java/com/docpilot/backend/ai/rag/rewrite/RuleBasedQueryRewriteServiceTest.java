@@ -32,4 +32,43 @@ class RuleBasedQueryRewriteServiceTest {
         assertThat(variants).hasSize(1);
         assertThat(variants.get(0).query()).isEqualTo("cache invalidation");
     }
+
+    @Test
+    void shouldGenerateEnglishDomainTermsForChineseComplianceQuery() {
+        List<QueryRewriteVariant> variants = service.rewrite(
+                "哪条政策证据说明合规导出检查点在进入审计留存证明前需要法律审核？",
+                5
+        );
+
+        assertThat(variants.get(0).query()).contains("合规导出检查点");
+        assertThat(variants).extracting(QueryRewriteVariant::strategy)
+                .contains("chinese_domain_terms");
+        assertThat(variants).extracting(QueryRewriteVariant::query)
+                .anySatisfy(query -> assertThat(query)
+                        .contains("compliance")
+                        .contains("export")
+                        .contains("checkpoint")
+                        .contains("audit")
+                        .contains("retention")
+                        .contains("legal")
+                        .contains("review"));
+    }
+
+    @Test
+    void shouldGenerateEnglishDomainTermsForChineseFinanceQuery() {
+        List<QueryRewriteVariant> variants = service.rewrite(
+                "报销由谁审批，发票档案保留多久？",
+                5
+        );
+
+        assertThat(variants).extracting(QueryRewriteVariant::query)
+                .anySatisfy(query -> assertThat(query)
+                        .contains("expense")
+                        .contains("reimbursement")
+                        .contains("approval")
+                        .contains("invoice")
+                        .contains("archives")
+                        .contains("retention")
+                        .contains("period"));
+    }
 }

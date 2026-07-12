@@ -66,16 +66,12 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
     private static final List<String> SUMMARY_INTENT_KEYWORDS = List.of(
             "总结",
             "概括",
-            "资料集",
-            "知识库",
             "所有文档",
             "全部文档",
             "文档内容",
             "summarize",
             "summary",
             "overview",
-            "corpus",
-            "knowledge base",
             "all documents"
     );
 
@@ -158,8 +154,9 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         String retrievalMode = retrievalProperties.isHybridEnabled() ? "hybrid" : "vector";
         List<VectorSearchHit> candidates;
         if (retrievalProperties.isHybridEnabled()) {
-            candidates = hybridRetrieve(resolved, documentIds, filteredHits);
-            candidates = applyHybridConfidenceGate(resolved, candidates);
+            String hybridKeywordQuery = hybridKeywordQuery(resolved);
+            candidates = hybridRetrieve(resolved, documentIds, filteredHits, hybridKeywordQuery);
+            candidates = applyHybridConfidenceGate(resolved, hybridKeywordQuery, candidates);
         } else {
             candidates = filteredHits;
         }
@@ -624,7 +621,9 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 .collect(Collectors.toList());
     }
 
-    private List<VectorSearchHit> applyHybridConfidenceGate(ResolvedQuery query, List<VectorSearchHit> hits) {
+    private List<VectorSearchHit> applyHybridConfidenceGate(ResolvedQuery query,
+                                                            String hybridKeywordQuery,
+                                                            List<VectorSearchHit> hits) {
         double threshold = retrievalProperties.getMinSimilarityThreshold();
         if (threshold <= 0.0) {
             return hits;
@@ -632,7 +631,8 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
         boolean summaryIntent = isSummaryIntent(query.query());
         return hits.stream()
                 .filter(hit -> scoreForThreshold(hit) >= threshold
-                        || (summaryIntent && positiveKeywordScore(hit)))
+                        || (summaryIntent && positiveKeywordScore(hit))
+                        || (query.multiQueryEnabled() && keywordHitHasSufficientSupport(hybridKeywordQuery, hit)))
                 .collect(Collectors.toList());
     }
 
@@ -649,6 +649,21 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
             }
         }
         return false;
+    }
+
+    private boolean keywordHitHasSufficientSupport(String query, VectorSearchHit hit) {
+        if (!positiveKeywordScore(hit)) {
+            return false;
+        }
+        List<String> supportTokens = supportTokens(query);
+        if (supportTokens.size() < MIN_SUPPORT_TOKEN_COUNT) {
+            return false;
+        }
+        String evidenceText = hit.content() == null ? "" : hit.content().toLowerCase(Locale.ROOT);
+        long supported = supportTokens.stream()
+                .filter(evidenceText::contains)
+                .count();
+        return ((double) supported / supportTokens.size()) >= MIN_NEAR_THRESHOLD_TOKEN_SUPPORT;
     }
 
     private double scoreForThreshold(VectorSearchHit hit) {
@@ -677,11 +692,12 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
      * Hybrid retrieval combining vector and keyword search using RRF.
      */
     private List<VectorSearchHit> hybridRetrieve(ResolvedQuery resolved,
-                                                  List<Long> documentIds,
-                                                  List<VectorSearchHit> vectorHits) {
+                                                 List<Long> documentIds,
+                                                 List<VectorSearchHit> vectorHits,
+                                                 String hybridKeywordQuery) {
         // Perform hybrid search with RRF fusion
         List<FusedSearchHit> fusedHits = hybridRetrievalService.hybridSearch(
-                resolved.query(),
+                hybridKeywordQuery,
                 resolved.userId(),
                 documentIds,
                 resolved.indexVersion(),
@@ -694,6 +710,23 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
                 .map(this::fusedToVectorHit)
                 .collect(Collectors.toList());
         return List.copyOf(hybridHits);
+    }
+
+    private String hybridKeywordQuery(ResolvedQuery resolved) {
+        if (!resolved.multiQueryEnabled()) {
+            return resolved.query();
+        }
+        List<QueryRewriteVariant> variants = queryRewriteService.rewrite(resolved.query(), resolved.maxQueryVariants())
+                .stream()
+                .filter(variant -> !variant.query().isBlank())
+                .toList();
+        if (variants.isEmpty()) {
+            return resolved.query();
+        }
+        return variants.stream()
+                .map(QueryRewriteVariant::query)
+                .distinct()
+                .collect(Collectors.joining(" "));
     }
 
     /**

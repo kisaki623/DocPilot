@@ -328,6 +328,37 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldNotTreatBareKnowledgeBaseMentionAsSummaryIntentForNoEvidenceGateAfterRerank() {
+        ragRetrievalProperties.setMinSimilarityThreshold(0.50D);
+        rerankProperties.setEnabled(true);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Finance Policy")));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(
+                hit("v1", 7L, 101L, 1,
+                        "Expense reimbursement approval belongs to the team lead and invoice archives are retained.",
+                        0.55D)
+        ), "in_memory", ""));
+        when(rerankService.rerank(any(RerankRequest.class))).thenReturn(new RerankResult(List.of(
+                new RerankResult.RerankHit(0, 0.43D)
+        ), "mock-reranker"));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "Which evidence explains Mars rover mineral sampling approval in this knowledge base?",
+                3,
+                1,
+                ""
+        ));
+
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.rerankApplied()).isTrue();
+        assertThat(result.hits()).isEmpty();
+        assertThat(result.citations()).isEmpty();
+        assertThat(result.documentHitCounts()).containsEntry(101L, 0);
+    }
+
+    @Test
     void shouldKeepNearThresholdHitsWhenEvidenceSupportsQueryTerms() {
         ragRetrievalProperties.setMinSimilarityThreshold(0.50D);
         when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Payroll Approval")));
@@ -396,6 +427,102 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         assertThat(result.citations()).isEmpty();
         assertThat(result.documentHitCounts()).containsEntry(101L, 0);
         verify(rerankService, never()).rerank(any());
+    }
+
+    @Test
+    void shouldUseExpandedMultiQueryTermsForHybridKeywordConfidence() {
+        ragRetrievalProperties.setHybridEnabled(true);
+        ragRetrievalProperties.setMinSimilarityThreshold(0.50D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Finance Policy")));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(), "in_memory", ""));
+        when(hybridRetrievalService.hybridSearch(any(String.class), eq(7L), eq(List.of(101L)), eq(1), any(), any(Integer.class)))
+                .thenReturn(List.of(new FusedSearchHit(
+                        901L,
+                        101L,
+                        7L,
+                        1,
+                        0,
+                        "Expense reimbursement is approved by the team lead and invoice archives are retained for seven years.",
+                        "hash-finance",
+                        0,
+                        98,
+                        12,
+                        "mock-model",
+                        null,
+                        0.020D,
+                        0.0D,
+                        5.20D
+                )));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "报销由谁审批，发票档案保留多久？",
+                3,
+                1,
+                "",
+                true,
+                5
+        ));
+
+        ArgumentCaptor<String> hybridQueryCaptor = ArgumentCaptor.forClass(String.class);
+        verify(hybridRetrievalService).hybridSearch(hybridQueryCaptor.capture(),
+                eq(7L), eq(List.of(101L)), eq(1), any(), any(Integer.class));
+        assertThat(hybridQueryCaptor.getValue())
+                .contains("expense")
+                .contains("reimbursement")
+                .contains("approval")
+                .contains("invoice")
+                .contains("archives")
+                .contains("retention");
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.multiQueryApplied()).isTrue();
+        assertThat(result.queryVariantCount()).isGreaterThanOrEqualTo(3);
+        assertThat(result.hits()).hasSize(1);
+        assertThat(result.hits().get(0).keywordScore()).isEqualTo(5.20D);
+    }
+
+    @Test
+    void shouldRejectWeakExpandedKeywordHitWhenEvidenceSupportIsLow() {
+        ragRetrievalProperties.setHybridEnabled(true);
+        ragRetrievalProperties.setMinSimilarityThreshold(0.50D);
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(doc(101L, "Finance Policy")));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any())).thenReturn(new VectorSearchResult(List.of(), "in_memory", ""));
+        when(hybridRetrievalService.hybridSearch(any(String.class), eq(7L), eq(List.of(101L)), eq(1), any(), any(Integer.class)))
+                .thenReturn(List.of(new FusedSearchHit(
+                        901L,
+                        101L,
+                        7L,
+                        1,
+                        0,
+                        "Expense reimbursement approval belongs to the team lead and invoice archives are retained.",
+                        "hash-finance",
+                        0,
+                        87,
+                        10,
+                        "mock-model",
+                        null,
+                        0.020D,
+                        0.0D,
+                        4.80D
+                )));
+
+        KnowledgeBaseRagRetrievalResult result = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "Which evidence explains Mars rover mineral sampling approval in this knowledge base?",
+                3,
+                1,
+                "",
+                true,
+                5
+        ));
+
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.hits()).isEmpty();
+        assertThat(result.documentHitCounts()).containsEntry(101L, 0);
     }
 
     @Test

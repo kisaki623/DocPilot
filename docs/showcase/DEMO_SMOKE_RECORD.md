@@ -4,6 +4,29 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-12 Rerank Representative Eval Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/rerank-representative-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- hybrid-only baseline：`docpilot-rerank-representative-representative-hybrid-20260712151858-5543fd`
+- hybrid + rerank candidate：`docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81`
+
+已验证：
+
+- 代表语料 gate 覆盖 6 份临时文档、12 个脱敏 case：合规、审计、财务、安全、中文问法、干扰文档和 2 个 no-evidence case。
+- baseline 与 candidate 整体均 PASS；candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReasons=[]`。
+- 10/10 target case 保持覆盖，2/2 no-evidence case 保持拒答；`targetCoverageRegressionCount=0`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`。
+- 排序 / 质量对比：`targetRerankAppliedCaseCount=10`、`strictImprovementCaseCount=2`、`upliftCaseCount=10`；中文 case 通过 request-scoped multi-query 与受控领域词 rewrite 获得目标覆盖。
+- artifact redaction PASS；本轮还修复了 summary intent 泛词绕过 no-evidence gate、PowerShell 5.1 中文 JSON 编码和 caseId 误触发 token 脱敏正则的问题。
+
+边界：这是小样本真实链路代表 eval，不是大规模 ranking benchmark、线上 SLA 或通用语义 reranker 评测。artifact 位于 ignored 的 `backend/target/rag-quality/rerank-representative-eval/latest-summary.json`，不提交 query 原文、文档全文、回答文本、prompt、evidence context、token、连接串或云地址。
+
 ## 2026-07-12 ParseTask Recovery / Bailian Rerank Uplift Refresh
 
 状态：PASS
@@ -1428,7 +1451,7 @@ What can be safely claimed:
 - Conversation Context / Agent Memory with accepted user memory and KnowledgeBase-bound evidence has been smoke tested.
 - Unified cloud quality gate smoke has passed once, covering two-document upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, two-document KnowledgeBase RAG, Conversation Trace, permission isolation, frontend routes, and redacted artifact output.
 - RAG real quality gate now passes with evidence confidence, answer audit, chunk structure payload checks, and rejects the smoke unrelated populated-KB query as no-evidence.
-- Small real rerank effect smoke confirms the configured rerank provider can be called and returns rerank scores without regressing KB coverage, no-evidence or security gates.
+- Small real rerank effect smoke confirms the configured rerank provider can be called and returns rerank scores without regressing KB coverage, no-evidence or security gates; the 2026-07-12 representative eval adds 12-case bounded evidence with target coverage preserved, no-evidence preserved, no citation leakage and limited uplift signals.
 - MinIO active storage has been smoke tested through upload and parse readback.
 - RocketMQ + Outbox active parse flow has been smoke tested through producer, consumer and final parse status.
 - Offline Function Calling adapter tests and multi-document eval artifact have passed.
@@ -1441,4 +1464,4 @@ What should be described with caveats:
 - Real answer model and real embedding were verified in separate smoke runs, not in one combined run.
 - Populated KnowledgeBase no-evidence has a calibrated smoke threshold, but broader no-evidence precision still needs more eval cases and domain coverage.
 - The current RAG real quality gate result is PASS, but broader no-evidence robustness still requires more eval coverage beyond this smoke fixture.
-- KnowledgeBase Hybrid / Rerank has only been smoke-tested with a small real rerank provider comparison; current fixture shows no regression but no measured coverage uplift, so broader rerank relevance uplift still needs harder eval cases.
+- KnowledgeBase Hybrid / Rerank now has configured-provider smoke, hard-fixture uplift evidence and a 12-case representative eval. It is still bounded smoke / eval evidence, not a broad production relevance benchmark or stable online uplift guarantee.

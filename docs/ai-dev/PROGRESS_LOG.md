@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-12 rerank 代表语料 eval
+
+- 新增 `rerank-representative-eval-smoke.ps1` 和 `cloud-quality-smoke.ps1 -EnableRerankRepresentativeEvalGate`：真实链路临时构造 6 份代表文档与 12 个脱敏 case，对比 hybrid-only baseline 与阿里云百炼 `qwen3-rerank` candidate。
+- 修复代表 eval 暴露的三个缺口：summary intent 不再把裸 `knowledge base` 泛词当作总结意图绕过 no-evidence support gate；中文问法增加受控领域词 query rewrite 并让 multi-query hybrid keyword 参与 confidence support；PowerShell 5.1 下中文 fixture / JSON body 改为 Base64 + UTF-8 bytes，避免 mojibake。
+- 最终真实 run PASS：baseline `docpilot-rerank-representative-representative-hybrid-20260712151858-5543fd`，candidate `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81`；12 case PASS、10/10 target coverage、2/2 no-evidence preserved、`rerankApplied=true`、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`。
+- 验证：`KnowledgeBaseRagRetrievalServiceImplTest`、`RuleBasedQueryRewriteServiceTest`、`RerankRepresentativeEvalSmokeScriptSafetyTest` 共 26 tests PASS；`cloud-quality-smoke.ps1 -Mode plan` PASS；代表 eval wrapper `plan` / `dry-run` / `run` PASS。边界：小样本真实链路 eval，不是大规模 ranking benchmark。
+
 ## 2026-07-12 ParseTask 恢复链路与 rerank uplift
 - 实现 ParseTask fail-closed recovery：stale processing task / outbox retry exhausted task 会安全收口为 FAILED，文档状态和缓存同步更新；status API 现在暴露 stale、consume/outbox 状态与恢复动作，继续禁止 content-only reindex。
 - 消费幂等记录新增 PROCESSING 超时 takeover，未超时重复消息仍跳过；避免半成品长时间卡住，也避免并发重复消费。

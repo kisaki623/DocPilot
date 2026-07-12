@@ -6,7 +6,7 @@
 
 DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示级”的 RAG 工程闭环：它不是只把文档全文塞进 prompt 的 demo，而是覆盖了文档解析、结构化 chunk、embedding、Qdrant 检索、metadata 权限过滤、KnowledgeBase 多文档 RAG、no-evidence、grounded QA、citation、Conversation Trace / Memory 和真实链路质量门禁。
 
-需要克制的边界也很明确：它不是完整商业 SaaS、不是线上 SLA 系统、不是 OCR / 复杂 PDF 版面理解系统，也不是大规模 relevance benchmark。rerank 当前已有代码链路、安全诊断、阿里云百炼真实 provider 调用证据，以及小样本 hard fixture 排序 uplift 证据；但仍不能把单次 hard fixture 写成稳定线上效果或大规模 ranking benchmark。
+需要克制的边界也很明确：它不是完整商业 SaaS、不是线上 SLA 系统、不是 OCR / 复杂 PDF 版面理解系统，也不是大规模 relevance benchmark。rerank 当前已有代码链路、安全诊断、阿里云百炼真实 provider 调用证据、小样本 hard fixture 排序 uplift 证据，以及 12-case 代表语料真实链路 eval 证据；但仍不能把这些 bounded smoke / eval 写成稳定线上效果或大规模 ranking benchmark。
 
 ## 组件成熟度
 
@@ -17,7 +17,7 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 | Embedding | `EmbeddingProvider` 抽象支持 mock 与 OpenAI-compatible provider；索引时做批量 embedding、维度和数量校验。 | 求职级够用偏强；成本治理和限流仍不是生产级。 |
 | Vector DB | Qdrant client 支持 collection ensure、upsert、search、delete；payload 带 userId / documentId / indexVersion / chunk / locator metadata。 | 求职级强；metadata filter 和二次 scope check 是核心亮点。 |
 | Hybrid / Multi-query | KnowledgeBase RAG 支持 rule-based query rewrite、多 query merge、BM25 + vector + RRF。 | 求职级偏强；默认可配置，不是完整 ES 生产检索平台。 |
-| Rerank | 有 `RerankService` / `HttpRerankService`，支持 Cohere / OpenAI-compatible / 阿里云百炼，失败 identity fallback；已暴露 `rerankFailureReason` 安全诊断。 | 代码链路求职级；百炼 provider 已真实生效，hard fixture 小样本观察到排序 uplift；仍需代表语料 eval 才能讲稳定效果。 |
+| Rerank | 有 `RerankService` / `HttpRerankService`，支持 Cohere / OpenAI-compatible / 阿里云百炼，失败 identity fallback；已暴露 `rerankFailureReason` 安全诊断。 | 代码链路求职级；百炼 provider 已真实生效，hard fixture 小样本观察到排序 uplift，12-case 代表 eval 无 coverage / no-evidence 回退；仍不是大规模 ranking benchmark。 |
 | Context Packing | `ContextAssemblyServiceImpl` 统一拼接 system、mode、summary、memory、recent turns、KB evidence、current message，并做权限过滤、token budget、trace。 | 求职级强；体现 RAG + 会话记忆融合。 |
 | Citation | 单文档 citation 已有 quote、chunk、offset、section/page/source locator；本轮补齐 KnowledgeBase citation / hit / Agent tool 的 locator 字段。 | 求职级强；仍不是 PDF 坐标级引用。 |
 | No-evidence / Grounding | KnowledgeBase QA 无证据时跳过模型，返回 no-evidence；有证据才构造 prompt 调模型，并做 answer-aware citation pruning。 | 求职级强；强调“不让模型凭记忆硬答”。 |
@@ -32,7 +32,8 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 - Memory provider：`docpilot-memory-provider-20260711172435-14083e` PASS，6 calls、`casePassRate=1.0000`、`rawProviderOutputStored=false`。
 - Agent quality：`docpilot-agent-quality-eval-20260711171903-fae364` PASS。
 - Rerank provider 对照：`docpilot-rerank-effect-hybrid-20260712015151-46c631` / `docpilot-rerank-effect-rerank-20260712015353-cc21a9` PASS，candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG、no-evidence 和权限安全无回退；hard fixture 从 baseline target rank 2 / distractor rank 1 改善到 rerank target rank 1 / distractor rank 3，`hardUpliftObserved=true`。
-- 本轮定向 ParseTask / rerank 回归：`ParseTaskServiceImplTest`、`ParseTaskConsumeEntryServiceImplTest`、`ParseTaskRecoveryServiceTest`、`RerankEffectSmokeScriptSafetyTest` 共 40 tests PASS。
+- Rerank 代表语料 eval：`docpilot-rerank-representative-representative-hybrid-20260712151858-5543fd` / `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81` PASS；12 case 中 10/10 target coverage、2/2 no-evidence preserved、candidate `rerankApplied=true`、`targetRerankAppliedCaseCount=10`、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`。
+- 本轮定向 ParseTask / rerank 回归：`ParseTaskServiceImplTest`、`ParseTaskConsumeEntryServiceImplTest`、`ParseTaskRecoveryServiceTest`、`RerankEffectSmokeScriptSafetyTest` 共 40 tests PASS；代表 eval 定向测试 26 tests PASS。
 - 本轮全量后端回归：`mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）。
 
 ## 面试讲法
@@ -45,11 +46,11 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 
 - 不要说“完整商业 SaaS / 线上 SLA / 大规模多租户计费”。
 - 不要说“支持复杂 PDF 智能解析、OCR、扫描件坐标级 citation”。
-- 不要说“大规模或稳定真实 rerank relevance uplift 已验证”；当前只能说“百炼 rerank provider 已真实调用，且小样本 hard fixture 观察到排序 uplift，核心 gate 无回退”。
+- 不要说“大规模或稳定真实 rerank relevance uplift 已验证”；当前只能说“百炼 rerank provider 已真实调用，hard fixture 观察到排序 uplift，12-case 代表 eval 未出现 coverage / no-evidence / citation leakage 回退，并观察到有限 uplift 信号”。
 - 不要把 smoke / eval 写成大规模 relevance benchmark；当前更准确的说法是“小样本真实链路质量门禁 + 离线回归”。
 
 ## 下一步优先级
 
-1. 把 rerank uplift 从 hard fixture 扩展到代表语料 eval，形成多 case 的 target rank / distractor demotion / citation leakage 趋势，不把单次小样本 PASS 写成大规模 relevance benchmark。
-2. 在前端 KnowledgeBase / Agent 展示中选择性呈现 page / section / source locator，避免用户只看到 chunk id。
-3. 扩展代表语料质量报告，把 hit、citation、no-evidence、answer faithfulness 和 distractor suppression 形成一页可读趋势摘要。
+1. 在前端 KnowledgeBase / Agent 展示中选择性呈现 page / section / source locator，避免用户只看到 chunk id。
+2. 扩展代表语料质量报告，把 hit、citation、no-evidence、answer faithfulness 和 distractor suppression 形成一页可读趋势摘要。
+3. 继续补 ParseTask / reparse 用户恢复入口和 Memory Governance v1 边界测试，让“失败可恢复、证据可定位、记忆可治理”更像完整求职作品。

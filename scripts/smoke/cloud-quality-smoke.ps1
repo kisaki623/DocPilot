@@ -15,6 +15,7 @@ param(
   [switch]$ReuseRunningServices,
   [switch]$EnableMemoryQualityGate,
   [switch]$EnableRerankHardGate,
+  [switch]$EnableRerankRepresentativeEvalGate,
   [switch]$EnableRepresentativeCorpusGate,
   [switch]$EnableMultiQueryGate,
   [switch]$EnableRealQaHardGate,
@@ -88,6 +89,10 @@ function Get-EnvValue($values, [string[]]$keys, [string]$default = "") {
     }
   }
   return $default
+}
+
+function Decode-Utf8Base64([string]$value) {
+  return [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($value))
 }
 
 function Test-TcpPort([int]$port) {
@@ -191,8 +196,8 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
         TimeoutSec = 180
       }
       if ($null -ne $body) {
-        $params["ContentType"] = "application/json"
-        $params["Body"] = ($body | ConvertTo-Json -Depth 20)
+        $params["ContentType"] = "application/json; charset=utf-8"
+        $params["Body"] = [System.Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Depth 20))
       }
       Invoke-RestMethod @params
     }
@@ -223,8 +228,8 @@ function Invoke-JsonApi([string]$method, [string]$path, $body = $null, [string]$
               TimeoutSec = 180
             }
             if ($null -ne $body) {
-              $params["ContentType"] = "application/json"
-              $params["Body"] = ($body | ConvertTo-Json -Depth 20)
+              $params["ContentType"] = "application/json; charset=utf-8"
+              $params["Body"] = [System.Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Depth 20))
             }
             Invoke-RestMethod @params
           }
@@ -1268,7 +1273,7 @@ function Show-PlanMode() {
     gates = @(
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
-      "knowledgeBaseRag", "knowledgeBaseAgent(optional)", "shortDocumentRag", "naturalCorpus(optional)", "frontendInteraction(optional)", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
+      "knowledgeBaseRag", "knowledgeBaseAgent(optional)", "shortDocumentRag", "naturalCorpus(optional)", "frontendInteraction(optional)", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "rerankRepresentativeEval(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
       "artifactRedaction", "cleanup", "gitStatus"
     )
     artifactRoot = $ArtifactRoot
@@ -1335,6 +1340,8 @@ function Invoke-Run() {
   $userAId = [long]$regA.data.userId
   $userBId = [long]$regB.data.userId
   $rerankHardResources = $null
+  $rerankRepresentativeEvalChecks = $null
+  $rerankRepresentativeEvalResources = $null
   $representativeCorpusResources = $null
   $naturalCorpusResources = $null
   $naturalCorpusGateChecks = $null
@@ -2356,6 +2363,184 @@ HARD-RERANK-FORBIDDEN says this glossary does not define the legal review requir
     }
   }
 
+  if ($EnableRerankRepresentativeEvalGate) {
+    $evalDocSpecs = @(
+      [ordered]@{
+        key = "compliance"
+        title = "Rerank Eval Compliance Policy"
+        text = @"
+# Rerank Eval Compliance Policy
+
+$smokeMarker
+RR-EVAL-COMPLIANCE-TARGET states that legal review is required before the compliance export checkpoint can proceed to audit trail retention proof.
+The compliance owner must attach the legal approval note before export evidence is retained.
+"@
+      },
+      [ordered]@{
+        key = "audit"
+        title = "Rerank Eval Audit Support"
+        text = @"
+# Rerank Eval Audit Support
+
+$smokeMarker
+RR-EVAL-AUDIT-SUPPORT states that audit trail retention proof is attached after legal review approves the compliance export checkpoint.
+This support note confirms the retention sequence after approval.
+"@
+      },
+      [ordered]@{
+        key = "compliance_noise"
+        title = "Rerank Eval Compliance Glossary"
+        text = @"
+# Rerank Eval Compliance Glossary
+
+$smokeMarker
+Compliance export checkpoint legal review audit trail retention proof requirement required before proceed evidence policy citation answer retrieve search terms repeat.
+Compliance export checkpoint legal review audit trail retention proof requirement required before proceed evidence policy citation answer retrieve search terms repeat.
+RR-EVAL-COMPLIANCE-FORBIDDEN says this glossary does not define any required legal review or retention policy.
+"@
+      },
+      [ordered]@{
+        key = "security"
+        title = "Rerank Eval Security Policy"
+        text = @"
+# Rerank Eval Security Policy
+
+$smokeMarker
+RR-EVAL-SECURITY-TARGET states that privileged access renewal requires admin token rotation every fourteen days by the security owner.
+The renewal checklist must be closed before privileged access is extended.
+"@
+      },
+      [ordered]@{
+        key = "finance"
+        title = "Rerank Eval Finance Policy"
+        text = @"
+# Rerank Eval Finance Policy
+
+$smokeMarker
+RR-EVAL-FINANCE-TARGET states that expense reimbursement is approved by the team lead and invoice archives are retained for seven years.
+The finance evidence must include both approval owner and invoice retention period.
+"@
+      },
+      [ordered]@{
+        key = "mixed_noise"
+        title = "Rerank Eval Mixed Glossary"
+        text = @"
+# Rerank Eval Mixed Glossary
+
+$smokeMarker
+Admin token rotation privileged access renewal fourteen days security owner reimbursement team lead invoice archive seven years finance approval terms repeat.
+Admin token rotation privileged access renewal fourteen days security owner reimbursement team lead invoice archive seven years finance approval terms repeat.
+RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used as policy evidence.
+"@
+      }
+    )
+
+    $evalDocMap = @{}
+    foreach ($spec in $evalDocSpecs) {
+      $path = Join-Path $artifactDir ("rerank-representative-" + $spec.key + ".txt")
+      [System.IO.File]::WriteAllText($path, [string]$spec.text, [System.Text.UTF8Encoding]::new($false))
+      $file = Upload-SmokeFile $path $tokenA
+      $doc = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $file.id }) $tokenA
+      Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $doc.data.id }) $tokenA | Out-Null
+      Wait-ParseSuccess ([long]$doc.data.id) $tokenA | Out-Null
+      Wait-IndexedChunks $envValues $userAId ([long]$doc.data.id) | Out-Null
+      $evalDocMap[$spec.key] = $doc
+    }
+
+    $evalKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Rerank Representative Eval $smokeMarker"; description = "temporary rerank representative eval fixture" }) $tokenA
+    $evalDocumentIds = @($evalDocSpecs | ForEach-Object { [long]($evalDocMap[$_.key]).data.id })
+    Invoke-JsonApi "POST" "/api/knowledge-bases/$($evalKb.data.id)/documents" ([ordered]@{ documentIds = $evalDocumentIds }) $tokenA | Out-Null
+
+    $evalCases = @(
+      [ordered]@{ caseId = "legal-review-required"; query = "Which policy evidence states that legal review is required before the compliance export checkpoint proceeds to audit trail retention proof?"; targetKeys = @("compliance"); supportKeys = @("audit"); distractorKey = "compliance_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "audit-retention-sequence"; query = "Which evidence says audit trail retention proof is attached after legal review approves the compliance export checkpoint?"; targetKeys = @("audit"); supportKeys = @("compliance"); distractorKey = "compliance_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "compliance-owner-approval"; query = "What must the compliance owner attach before export evidence is retained?"; targetKeys = @("compliance"); supportKeys = @("audit"); distractorKey = "compliance_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "security-token-rotation"; query = "Which policy requires admin token rotation every fourteen days for privileged access renewal?"; targetKeys = @("security"); supportKeys = @(); distractorKey = "mixed_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "security-owner-renewal"; query = "Who owns the token rotation before privileged access is extended?"; targetKeys = @("security"); supportKeys = @(); distractorKey = "mixed_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "finance-reimbursement-approval"; query = "Who approves expense reimbursement according to the finance policy evidence?"; targetKeys = @("finance"); supportKeys = @(); distractorKey = "mixed_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "finance-invoice-retention"; query = "How long are invoice archives retained in the finance evidence?"; targetKeys = @("finance"); supportKeys = @(); distractorKey = "mixed_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "zh-compliance-review"; query = (Decode-Utf8Base64 "5ZOq5p2h5pS/562W6K+B5o2u6K+05piO5ZCI6KeE5a+85Ye65qOA5p+l54K55Zyo6L+b5YWl5a6h6K6h55WZ5a2Y6K+B5piO5YmN6ZyA6KaB5rOV5b6L5a6h5qC477yf"); targetKeys = @("compliance"); supportKeys = @("audit"); distractorKey = "compliance_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "en-security-renewal"; query = "Find the security evidence for privileged access renewal and fourteen day admin token rotation."; targetKeys = @("security"); supportKeys = @(); distractorKey = "mixed_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "zh-finance-approval-retention"; query = (Decode-Utf8Base64 "5oql6ZSA55Sx6LCB5a6h5om577yM5Y+R56Wo5qGj5qGI5L+d55WZ5aSa5LmF77yf"); targetKeys = @("finance"); supportKeys = @(); distractorKey = "mixed_noise"; noEvidenceExpected = $false },
+      [ordered]@{ caseId = "no-evidence-payroll-tax"; query = "Which policy says payroll tax remittance is delegated to the geology sample curator?"; targetKeys = @(); supportKeys = @(); distractorKey = ""; noEvidenceExpected = $true },
+      [ordered]@{ caseId = "no-evidence-space-mission"; query = "Which evidence explains Mars rover mineral sampling approval in this knowledge base?"; targetKeys = @(); supportKeys = @(); distractorKey = ""; noEvidenceExpected = $true }
+    )
+
+    $evalCaseResults = @()
+    foreach ($case in $evalCases) {
+      $retrieve = Invoke-JsonApi "POST" "/api/knowledge-bases/$($evalKb.data.id)/rag/retrieve" ([ordered]@{ query = $case.query; topK = 6; indexVersion = $IndexVersion; multiQueryEnabled = $true; maxQueryVariants = 5 }) $tokenA
+      $hits = @($retrieve.data.hits)
+      $citations = @($retrieve.data.citations)
+      $targetIds = @($case.targetKeys | ForEach-Object { [long]($evalDocMap[$_]).data.id })
+      $supportIds = @($case.supportKeys | ForEach-Object { [long]($evalDocMap[$_]).data.id })
+      $distractorId = if ([string]::IsNullOrWhiteSpace([string]$case.distractorKey)) { 0L } else { [long]($evalDocMap[$case.distractorKey]).data.id }
+      $targetRanks = @($targetIds | ForEach-Object { Get-FirstDocumentRank $hits $_ } | Where-Object { $_ -gt 0 } | Sort-Object)
+      $supportRanks = @($supportIds | ForEach-Object { Get-FirstDocumentRank $hits $_ } | Where-Object { $_ -gt 0 } | Sort-Object)
+      $targetRetrieveCount = 0
+      foreach ($targetId in $targetIds) { $targetRetrieveCount += Get-DocumentHitCount $hits $targetId }
+      $supportRetrieveCount = 0
+      foreach ($supportId in $supportIds) { $supportRetrieveCount += Get-DocumentHitCount $hits $supportId }
+      $targetCitationCount = 0
+      foreach ($targetId in $targetIds) { $targetCitationCount += Get-DocumentHitCount $citations $targetId }
+      $distractorRetrieveCount = if ($distractorId -gt 0) { Get-DocumentHitCount $hits $distractorId } else { 0 }
+      $distractorCitationCount = if ($distractorId -gt 0) { Get-DocumentHitCount $citations $distractorId } else { 0 }
+      $noEvidenceCorrect = [bool]$case.noEvidenceExpected -and [bool]$retrieve.data.noEvidence -and $hits.Count -eq 0
+      $targetCovered = (-not [bool]$case.noEvidenceExpected) -and $targetRetrieveCount -gt 0 -and -not [bool]$retrieve.data.noEvidence
+      $evalCaseResults += [ordered]@{
+        caseId = $case.caseId
+        noEvidenceExpected = [bool]$case.noEvidenceExpected
+        noEvidence = [bool]$retrieve.data.noEvidence
+        targetDocumentIds = $targetIds
+        supportDocumentIds = $supportIds
+        distractorDocumentId = $distractorId
+        targetRetrieveCount = $targetRetrieveCount
+        supportRetrieveCount = $supportRetrieveCount
+        distractorRetrieveCount = $distractorRetrieveCount
+        targetCitationCount = $targetCitationCount
+        distractorCitationCount = $distractorCitationCount
+        targetBestRank = if ($targetRanks.Count -gt 0) { [int]$targetRanks[0] } else { 0 }
+        supportBestRank = if ($supportRanks.Count -gt 0) { [int]$supportRanks[0] } else { 0 }
+        distractorBestRank = if ($distractorId -gt 0) { Get-FirstDocumentRank $hits $distractorId } else { 0 }
+        retrieveHits = $hits.Count
+        citations = $citations.Count
+        retrievalMode = $retrieve.data.retrievalMode
+        rerankApplied = [bool]$retrieve.data.rerankApplied
+        rerankModel = $retrieve.data.rerankModel
+        rerankFailureReason = $retrieve.data.rerankFailureReason
+        multiQueryApplied = [bool]$retrieve.data.multiQueryApplied
+        queryVariantCount = [int]$retrieve.data.queryVariantCount
+        queryDedupeCount = [int]$retrieve.data.queryDedupeCount
+        retrieveScoreSummary = Get-ScoreSummary $hits
+        retrieveVectorScoreSummary = Get-FieldScoreSummary $hits "vectorScore"
+        retrieveRerankScoreSummary = Get-FieldScoreSummary $hits "rerankScore"
+        targetCovered = $targetCovered
+        noEvidenceCorrect = $noEvidenceCorrect
+      }
+    }
+    $targetEvalCases = @($evalCaseResults | Where-Object { -not $_.noEvidenceExpected })
+    $noEvidenceEvalCases = @($evalCaseResults | Where-Object { $_.noEvidenceExpected })
+    $targetCoveragePassCount = @($targetEvalCases | Where-Object { $_.targetCovered }).Count
+    $noEvidenceCorrectCount = @($noEvidenceEvalCases | Where-Object { $_.noEvidenceCorrect }).Count
+    $rerankRepresentativeEvalChecks = @([ordered]@{
+        knowledgeBaseId = [long]$evalKb.data.id
+        documentIds = $evalDocumentIds
+        caseCount = $evalCaseResults.Count
+        targetCaseCount = $targetEvalCases.Count
+        noEvidenceCaseCount = $noEvidenceEvalCases.Count
+        targetCoveragePassCount = $targetCoveragePassCount
+        noEvidenceCorrectCount = $noEvidenceCorrectCount
+        caseResults = $evalCaseResults
+      })
+    $representativeEvalStatus = if ($targetCoveragePassCount -eq $targetEvalCases.Count -and $noEvidenceCorrectCount -eq $noEvidenceEvalCases.Count) { "PASS" } else { "REVIEW" }
+    $representativeEvalMessage = if ($representativeEvalStatus -eq "PASS") { "" } else { "rerank representative eval has coverage or no-evidence review buckets" }
+    Set-Gate "rerankRepresentativeEval" $representativeEvalStatus $rerankRepresentativeEvalChecks $representativeEvalMessage
+    $rerankRepresentativeEvalResources = [ordered]@{
+      knowledgeBaseId = [long]$evalKb.data.id
+      documentIds = $evalDocumentIds
+      caseCount = $evalCaseResults.Count
+    }
+  }
+
   $memory = Invoke-JsonApi "POST" "/api/memories" ([ordered]@{
       memoryType = "PREFERENCE"
       content = "For $smokeMarker, prefer concise answers that still cite knowledge-base evidence."
@@ -2614,6 +2799,8 @@ HARD-RERANK-FORBIDDEN says this glossary does not define the legal review requir
       memoryQualityGateEnabled = [bool]$EnableMemoryQualityGate
       rerankHardGateEnabled = [bool]$EnableRerankHardGate
       rerankHardGate = $rerankHardResources
+      rerankRepresentativeEvalGateEnabled = [bool]$EnableRerankRepresentativeEvalGate
+      rerankRepresentativeEvalGate = $rerankRepresentativeEvalResources
       realQaHardGateEnabled = [bool]$EnableRealQaHardGate
       realQaHardGate = $realQaHardGateChecks
       realQaSemanticGateEnabled = [bool]$EnableRealQaSemanticGate

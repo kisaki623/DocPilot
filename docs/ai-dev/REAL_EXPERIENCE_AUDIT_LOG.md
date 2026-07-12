@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-12 | `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81` | PASS（rerank 代表语料 eval） | `backend/target/rag-quality/rerank-representative-eval/latest-summary.json` | 12-case 代表语料 eval PASS：candidate `rerankApplied=true`、10/10 target coverage、2/2 no-evidence preserved、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`；同轮修复 summary intent 泛词、中文问法 / UTF-8 编码和 redaction false positive。 |
 | 2026-07-12 | `docpilot-rerank-effect-rerank-20260712003244-46b2e3` | PASS / REVIEW（百炼 rerank provider 已生效，uplift 未证明） | `backend/target/rag-quality/rerank-effect/latest-summary.json` | 用户填入百炼 API key 后复验：candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG / no-evidence / security 无回退；hard fixture 未观察到排序 uplift，因此效果提升仍保持 REVIEW。 |
 | 2026-07-11 | `docpilot-real-user-qa-20260711170544-dff948` | PASS（最大压力真实用户审计） | `backend/target/audit/docpilot-real-user-qa-20260711170544-dff948/artifact.json` | 有界最大压力复验 PASS：自然语料 25 case、Memory、权限隔离、frontendInteraction、multi-query、answer grounding、no-evidence、cleanup 和 artifact redaction 均通过；同轮修复 frontendInteraction 脱敏诊断与财务多文档 compare 题歧义。 |
 | 2026-07-11 | `docpilot-rag-real-qa-20260711171137-ed38a0` | PASS（代表语料 / 真实模型质量） | `backend/target/rag-real-qa/docpilot-rag-real-qa-20260711171137-ed38a0/artifact.json` | RAG Real QA Eval PASS：representative corpus、multi-query、real QA hard / semantic、realProviderFaithfulness 和 frontendInteraction 均通过，真实回答 provider 为 openai-compatible / qwen-plus。 |
@@ -67,6 +68,9 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260712-P2-026` | VERIFIED（已验证） | P2 | RAG no-evidence 质量问题 | KnowledgeBase RAG Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 裸 `knowledge base` 泛词被当作总结意图，near-threshold 无关问题绕过 support gate |
+| `REA-20260712-P2-027` | VERIFIED（已验证） | P2 | RAG 召回质量问题 | Query Rewrite / Hybrid Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 中文代表问法未稳定映射到英文业务 evidence，target coverage 失败 |
+| `REA-20260712-P3-028` | VERIFIED（已验证） | P3 | 工程流程问题 | Rerank Representative Eval Runner | `rerank-representative-eval-smoke.ps1` 初跑 | PowerShell 5.1 中文 JSON / redaction 处理不稳，导致 mojibake 和 caseId 误报 token |
 | `REA-20260711-P3-022` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260711164556-93f35f` | frontendInteraction Node 异常被包装层吞成 false/0，缺少真实 safeMessage |
 | `REA-20260711-P2-023` | VERIFIED（已验证） | P2 | 质量门禁 fixture bug | Natural Corpus / Answer Faithfulness Gate | `docpilot-real-user-qa-20260711165345-ecc162` | 财务多文档 compare 题表述偏泛，真实模型答案表达和干扰 citation 存在波动 |
 | `REA-20260711-P3-024` | VERIFIED（已验证） | P3 | 工程流程问题 | Memory provider extraction smoke | `docpilot-memory-provider-20260711171644-030f7f` | Memory provider smoke run 模式未按文档加载 `.env`，直接运行误报 provider_config_missing |
@@ -95,6 +99,96 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-12 rerank 代表语料 eval 问题闭环
+
+### `REA-20260712-P2-026` 裸 `knowledge base` 泛词被当作总结意图，near-threshold 无关问题绕过 support gate
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P2
+- 类型：RAG no-evidence 质量问题
+- 模块：KnowledgeBase RAG Retrieval
+- 发现 marker：`docpilot-rerank-representative-representative-hybrid-20260712142138-...`
+
+复现步骤：
+
+1. 执行 rerank 代表语料真实链路 eval。
+2. 在 populated KnowledgeBase 中提问与语料无关、但包含 `knowledge base` 泛词的问题。
+3. 检查 no-evidence case 的 retrieve / citation 结果。
+
+实际结果：
+
+- 该无关问题返回了检索结果 / citation，代表 eval 标为 REVIEW。
+- 代码审计确认 `SUMMARY_INTENT_KEYWORDS` 中包含过宽的 `knowledge base` / `资料集` / `知识库` 等容器名词，导致普通问题被误判为 summary intent，从而绕过 near-threshold evidence support gate。
+
+预期结果：
+
+- 裸容器名词不能单独构成 summary intent；只有总结、概括、全部文档、overview 等明确总结意图才可触发总结类宽松策略。
+- 无关问题应保持 `noEvidence=true`、0 hits / citations，不能因为语义相近或泛词进入 grounded QA。
+
+修复与验证：
+
+- 修复位置：`KnowledgeBaseRagRetrievalServiceImpl`。
+- 修复方式：收窄 summary intent 关键词，新增回归测试 `shouldNotTreatBareKnowledgeBaseMentionAsSummaryIntentForNoEvidenceGateAfterRerank`。
+- 验证：定向 tests PASS；最终代表 eval `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81` PASS，2/2 no-evidence case preserved，`noEvidenceRegressionCount=0`。
+
+### `REA-20260712-P2-027` 中文代表问法未稳定映射到英文业务 evidence，target coverage 失败
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P2
+- 类型：RAG 召回质量问题
+- 模块：Query Rewrite / Hybrid Retrieval
+- 发现 marker：`docpilot-rerank-representative-representative-hybrid-20260712142138-...`
+
+复现步骤：
+
+1. 执行 rerank 代表语料真实链路 eval。
+2. 运行中文合规 / 财务问法 case。
+3. 检查 target coverage 与 multi-query 观测字段。
+
+实际结果：
+
+- 中文问法中的“合规、审计、保留、报销、发票、审批”等词未稳定支撑英文 evidence 召回，部分 target coverage 失败。
+- 仅靠原始中文 query 的 hybrid keyword support 不足，导致目标文档在 confidence gate 前后被削弱。
+
+预期结果：
+
+- 在不引入 LLM query planner 的前提下，受控规则 rewrite 应把常见中文企业知识库词汇扩展成英文业务词，并且只输出计数 / 布尔观测，不保存 rewritten query 原文。
+
+修复与验证：
+
+- 修复位置：`RuleBasedQueryRewriteService`、`KnowledgeBaseRagRetrievalServiceImpl`。
+- 修复方式：新增中文领域词 rewrite；multi-query 启用时让 hybrid keyword query 使用去重后的 query variants 参与 support 计算，同时保留 weak keyword support 拒绝测试。
+- 验证：`RuleBasedQueryRewriteServiceTest` 和 `KnowledgeBaseRagRetrievalServiceImplTest` PASS；最终代表 eval PASS，中文 case `multiQueryApplied=true`、`queryVariantCount=3`，目标覆盖成功。
+
+### `REA-20260712-P3-028` PowerShell 5.1 中文 JSON / redaction 处理不稳，导致 mojibake 和 caseId 误报 token
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Rerank Representative Eval Runner
+- 发现 marker：`rerank-representative-eval-smoke.ps1` 初跑
+
+复现步骤：
+
+1. 在 Windows PowerShell 5.1 下执行 rerank 代表语料 eval。
+2. 检查中文 case 的请求体、artifact redaction scan 和最终 wrapper summary。
+
+实际结果：
+
+- 中文 query 字符串经过脚本 / HTTP body 路径出现 mojibake，导致中文 case 被误杀。
+- redaction scan 把 caseId `security-token-rotation` 中的普通业务词 `token` 误判为敏感值，导致 artifact 扫描 false positive。
+
+预期结果：
+
+- 脚本应显式以 UTF-8 bytes 发送 JSON；中文 fixture 可用 Base64 常量解码避免脚本编码漂移。
+- redaction 规则应匹配敏感字段名、Bearer、连接串、非 loopback IP 等风险，而不是把普通 caseId 单词当作泄密。
+
+修复与验证：
+
+- 修复位置：`cloud-quality-smoke.ps1`、`rerank-representative-eval-smoke.ps1`、`RerankRepresentativeEvalSmokeScriptSafetyTest`。
+- 修复方式：`Invoke-JsonApi` body 改为 `UTF8.GetBytes` 且 `ContentType=application/json; charset=utf-8`；中文代表问题改为 Base64 解码；redaction scan 收窄到敏感字段 / token 形态 / 连接串。
+- 验证：wrapper `plan` / `dry-run` / `run` PASS；最终代表 eval artifact redaction PASS，未提交 artifact 原文或任何敏感值。
 
 ## 2026-07-11 最大压力真实链路审计
 
