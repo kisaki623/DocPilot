@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-13 Conversation 最近轮次 T27/T28 gate
+
+- 扩展 `conversation-grounding-smoke.ps1`：在既有 6 个 GroundingPolicy case 基础上新增 T27 同会话最近轮次记忆、T28 跨会话隔离两个 case；脚本仍只输出脱敏路由、布尔和计数摘要。
+- 修复 runner 兼容性：避免在无 BOM UTF-8 `.ps1` 中直接写新增中文 prompt，改为运行时用 Unicode code point 构造“蓝桥”；将 `$marker-...` 改为 `$($marker)-...`；`Start-TunnelIfNeeded` 改用 `$PSScriptRoot`，修复真实 run 前脚本路径为 null 的问题，登记为 `REA-20260713-P3-032`。
+- 验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS、`-Mode dry-run` PASS、PowerShell Parser `PARSE_OK`、`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS（3 tests）。
+- 真实 run：`scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` PASS，marker `docpilot-conversation-grounding-20260713010452-f8e612`，8/8 case 通过；T27 `recentMessageCount>=2` 且 answer 包含“蓝桥”，T28 `recentMessageCount=0` 且 answer 不包含该代号；artifact redaction scan PASS，常用端口无 LISTEN 残留。
+- 边界：本片为 API / Trace gate，不覆盖浏览器会话 UI、Memory T29-T31、长会话摘要 T32、Agent 或弱网并发。
+
 ## 2026-07-12 高强度 KnowledgeBase 生命周期 gate
 
 - 新增 `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate`，并让 `high-intensity-fixed-corpus-smoke.ps1` 同时启用 fixed corpus 与 lifecycle gate；lifecycle gate 复用 fixed corpus 已索引文档，但创建 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B` 专用知识库，不改 `KB_CORE` / `KB_NOISY`。

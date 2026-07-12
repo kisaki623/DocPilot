@@ -51,6 +51,27 @@ Marker:
 
 边界：本次命令显式 `-SkipFrontend`，因此 run overallStatus 为 `REVIEW`；该证据只证明 fixed corpus API/RAG gate 与 T22-T26 KB lifecycle scope gate 已通过，不代表完整 T01-T47 验收完成。artifact 位于 ignored `backend/target/high-intensity-acceptance/.../artifact.json`，只保留脱敏摘要，不提交 raw prompt、answer、evidence context、日志、凭据或源文件。
 
+## 2026-07-13 Conversation Recent Turns Context Gate
+
+状态：PASS（API / Trace gate，frontend skipped）
+
+Runner:
+
+- `scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -SkipFrontend`
+
+Marker:
+
+- `docpilot-conversation-grounding-20260713010452-f8e612`
+
+已验证：
+
+- Conversation grounding runner 已从 6 个路由 case 扩展为 8 个 case。
+- T27 `RECENT_TURNS` 同会话上下文 PASS：先记录项目代号“蓝桥”，隔轮追问时 trace 为 `MODEL_ONLY`、`recentMessageCount>=2`、`citationCount=0`，回答包含该代号。
+- T28 跨会话隔离 PASS：新建另一 `RECENT_TURNS` 会话直接追问项目代号时 trace 为 `MODEL_ONLY`、`recentMessageCount=0`、`citationCount=0`，回答不包含前一会话代号。
+- 原有 no-KB、AUTO_RAG、STRICT_KB 和 evidence citation 路由 case 同轮继续 PASS；artifact redaction scan PASS，常用端口无 LISTEN 残留。
+
+边界：本次是 T27/T28 的 API / Trace 自动化证据，命令显式 `-SkipFrontend`；不代表前端会话 UI、长会话摘要、Memory 生命周期、Agent ToolCall 或弱网并发已通过。artifact 位于 ignored `backend/target/conversation-grounding/.../artifact.json`，不提交 raw prompt、raw answer、evidence context、token、连接串或云地址。
+
 ## 2026-07-12 Quality Console Memory / RAG Trend View
 
 状态：PASS

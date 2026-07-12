@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-13 高强度 Conversation 最近轮次 T27/T28 自动化验收（VERIFIED / PARTIAL）
+
+- `scripts/smoke/conversation-grounding-smoke.ps1` 已从 6 个 GroundingPolicy 路由 case 扩展到 8 个 case，新增 T27 / T28：同一 `RECENT_TURNS` 会话内先记住项目代号“蓝桥”，隔轮追问必须回答该代号；另起一个 `RECENT_TURNS` 会话直接追问项目代号时不得泄漏前一会话上下文。
+- 为避免 Windows PowerShell 5.1 读取无 BOM UTF-8 `.ps1` 时误读中文字符串，本 runner 不直接写中文测试句，而是在运行时用 Unicode code point 构造“蓝桥”；所有 marker 后接 `-...` 的字符串均改为 `$($marker)-...`，避免 PowerShell tokenizer 歧义。
+- 真实 run 首次发现 `REA-20260713-P3-032`：`Start-TunnelIfNeeded` 在函数内使用 `$MyInvocation.MyCommand.Path` 取脚本路径时为 null，导致 smoke 进入真实链路前失败；已改为 `$PSScriptRoot` 并复跑通过。
+- 已验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS；`conversation-grounding-smoke.ps1 -Mode dry-run` PASS；PowerShell Parser `PARSE_OK`；`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS（3 tests）。
+- 真实验证：`scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-conversation-grounding-20260713010452-f8e612` PASS，8/8 case 通过；T27 `recentMessageCount>=2`、0 citation、模型调用且 answer 包含运行时构造的“蓝桥”；T28 `recentMessageCount=0`、0 citation、模型调用且 answer 不包含该代号。artifact redaction scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 边界：本片是 T27/T28 API + Trace + 会话隔离 gate，显式 `-SkipFrontend`，不声明浏览器会话 UI、长会话摘要 T32、Memory 候选 / 删除 T29-T31、Agent ToolCall 或弱网并发已通过。
+
 ## 2026-07-13 高强度 KnowledgeBase 生命周期 T26 与固定语料回归修复（VERIFIED / PARTIAL）
 
 - `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate` 已扩展到 T22-T26，并让 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1` 默认同时启用 fixed corpus 与 KnowledgeBase lifecycle gate。

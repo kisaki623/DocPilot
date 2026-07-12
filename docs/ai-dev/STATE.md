@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-13 Conversation 最近轮次 T27/T28 自动化验收状态（VERIFIED / PARTIAL）
+
+- `conversation-grounding-smoke.ps1` 已纳入高强度验收 T27 / T28：`RECENT_TURNS` 同会话可使用最近轮次回答项目代号“蓝桥”，新建另一会话不会继承该上下文；runner artifact 仍只记录 caseId、路由枚举、布尔值、计数和脱敏 id。
+- 最新真实 run marker `docpilot-conversation-grounding-20260713010452-f8e612` 为 `PASS`，8/8 case 通过；新增 case 中 T27 trace 为 `MODEL_ONLY` / `recentMessageCount>=2` / `citationCount=0`，T28 trace 为 `MODEL_ONLY` / `recentMessageCount=0` / `citationCount=0`，均调用模型且没有知识库 evidence。
+- 同轮修复 smoke 基础设施问题 `REA-20260713-P3-032`：函数内 `$MyInvocation.MyCommand.Path` 为空导致 tunnel script path 解析失败；现改为 `$PSScriptRoot` 并由脚本安全测试覆盖。
+- 已验证：`plan` PASS、`dry-run` PASS、PowerShell Parser `PARSE_OK`、`ConversationGroundingSmokeScriptSafetyTest` 3 tests PASS、真实 `run -SkipFrontend` PASS；artifact redaction scan PASS，常用端口无 LISTEN 残留。
+- 边界：本片只证明 T27/T28 的 API / Trace / 会话隔离自动化 gate 已通过；前端会话页面、长会话摘要、长期记忆生命周期、Agent ToolCall、权限矩阵和弱网并发仍在高强度验收剩余项中。
+
 ## 2026-07-13 高强度 KnowledgeBase 生命周期 T26 自动化验收状态（VERIFIED / PARTIAL）
 
 - `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate` 已覆盖 T22-T26，并让 `high-intensity-fixed-corpus-smoke.ps1` 同时启用 fixed corpus 与 lifecycle gate；该 gate 复用固定语料已索引文档创建 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B`，另为 T26 创建 `DELETE_DISPOSABLE` 临时文档和 `KB_LIFECYCLE_DELETE`，不删除共享固定语料。

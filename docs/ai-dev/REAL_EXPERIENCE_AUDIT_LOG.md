@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-13 | `docpilot-conversation-grounding-20260713010452-f8e612` | PASS（T27/T28 Conversation 最近轮次 gate） | `backend/target/conversation-grounding/docpilot-conversation-grounding-20260713010452-f8e612/artifact.json` | 扩展 conversation grounding runner 到 8 个 case：新增 T27 同会话最近轮次项目代号记忆和 T28 跨会话隔离。首次真实 run 前发现 runner 取脚本路径为 null，登记为 `REA-20260713-P3-032`；修复后复跑 PASS，artifact redaction scan PASS，常用端口无 LISTEN 残留。 |
 | 2026-07-13 | `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` | REVIEW（fixedBusinessCorpus PASS / lifecycle PASS / frontend skipped） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260713004622-113df1/artifact.json` | 修复 `REA-20260713-P1-031` 后复跑高强度固定语料 runner：`fixedBusinessCorpus` gate PASS，T11 多文档风险控制 answer claim 恢复；`knowledgeBaseLifecycle` gate PASS，覆盖 T22-T26，其中 T26 disposable 文档删除后 KB detail 0 文档、retrieve / QA no-evidence 且 0 citation。整体 run 为 REVIEW 仅因为显式 `-SkipFrontend`；artifact raw-field scan PASS，常用端口无 LISTEN 残留。 |
 | 2026-07-13 | `docpilot-high-intensity-fixed-corpus-20260713004019-b28e65` | FAILED_CORE_FLOW（固定业务语料 T11 回归） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260713004019-b28e65/artifact.json` | 扩展 T26 KnowledgeBase 生命周期前执行真实高强度 runner：tunnel、backend、上传解析、chunk / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG 和短文档 gate 通过；固定语料 T11 出现 `answer_claim_missing`，citations 已覆盖 `INCIDENT_REVIEW` / `API_POLICY` / `SLA_BETA` / `CONTRACT_ALPHA`，但模型答案未覆盖全部风险控制措施。artifact 已脱敏，不保存 raw answer / prompt / evidence context。 |
 | 2026-07-12 | `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` | REVIEW（fixedBusinessCorpus PASS / frontend skipped） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35/artifact.json` | 修复 `REA-20260712-P1-030` 后复跑固定业务语料 runner：`fixedBusinessCorpus` gate PASS，T02 duplicate upload 与 T06-T15 全部通过；T08 废弃草案冲突、T11 多文档风险控制、T12 多跳审批 citation coverage / support 均恢复。整体 run 为 REVIEW 仅因为本片显式 `-SkipFrontend`；artifact raw-field scan PASS，本地 fixed corpus 源文件数为 0。 |
@@ -73,6 +74,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260713-P3-032` | VERIFIED（已验证） | P3 | 工程流程问题 | Conversation grounding smoke runner | `conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` 初跑 | 函数内 `$MyInvocation.MyCommand.Path` 为 null，导致真实 smoke 启动 tunnel 前失败 |
 | `REA-20260713-P1-031` | VERIFIED（已验证） | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Prompt | `docpilot-high-intensity-fixed-corpus-20260713004019-b28e65` | 固定业务语料 T11 citations 覆盖正确但答案遗漏部分风险控制措施 |
 | `REA-20260712-P1-030` | VERIFIED（已验证） | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Citation | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足 |
 | `REA-20260712-P1-029` | VERIFIED（已验证） | P1 | 会话路由 bug | Conversation / Grounding Policy / Frontend | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | 未绑定知识库的普通会话误进 strict grounded no-evidence refusal，并显示 0 条来源 |
@@ -109,6 +111,42 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-12 Conversation grounding policy 问题闭环
+
+### `REA-20260713-P3-032` 函数内 `$MyInvocation.MyCommand.Path` 为 null，导致真实 smoke 启动 tunnel 前失败
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P3
+- 类型：工程流程问题
+- 模块：Conversation grounding smoke runner
+- 发现 marker：`conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` 初跑
+
+复现步骤：
+
+1. 在仓库根目录执行 `scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -SkipFrontend`。
+2. 观察 runner 在真实链路启动阶段的失败信息。
+
+实际结果：
+
+- runner 在创建临时用户 / 会话前失败，错误摘要为脚本路径参数为 null。
+- 根因位于 `Start-TunnelIfNeeded`：函数内使用 `$MyInvocation.MyCommand.Path` 解析当前脚本路径，在函数上下文中该值可能为空。
+
+预期结果：
+
+- runner 应稳定定位 `scripts/dev/start-cloud-tunnels.ps1`，在 tunnel 不可达时进入受控启动流程。
+- 即使失败，也应输出脱敏 artifact 和 safe failure，而不是卡在脚本路径解析。
+
+可能原因：
+
+- PowerShell 函数内部 `$MyInvocation.MyCommand.Path` 不等价于脚本文件路径；真实 runner 应使用 `$PSScriptRoot` 这类脚本级变量。
+
+建议修复位置：
+
+- `scripts/smoke/conversation-grounding-smoke.ps1`
+- `backend/src/test/java/com/docpilot/backend/conversation/ConversationGroundingSmokeScriptSafetyTest.java`
+
+修复提交：本提交（`test(conversation): cover recent turns isolation smoke`）
+
+验证记录：已改为 `$PSScriptRoot` 并增加脚本安全测试覆盖；`conversation-grounding-smoke.ps1 -Mode plan` PASS、`-Mode dry-run` PASS、PowerShell Parser `PARSE_OK`、`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS；真实 marker `docpilot-conversation-grounding-20260713010452-f8e612` PASS，8/8 case 通过，artifact redaction scan PASS，常用端口无 LISTEN 残留。
 
 ### `REA-20260713-P1-031` 固定业务语料 T11 citations 覆盖正确但答案遗漏部分风险控制措施
 
