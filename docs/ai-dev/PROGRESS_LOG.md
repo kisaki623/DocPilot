@@ -1,5 +1,10 @@
 # Progress Log
 
+## 2026-07-12 求职展示材料同步：GroundingPolicy 口径
+
+- 更新 `README.md`、`docs/showcase/RAG_QUALITY_REPORT.md` 和 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md`，把 Conversation `MODEL_ONLY / AUTO_RAG / STRICT_KB`、`groundingPolicy` / `routeDecision` Trace、普通模型“未使用知识库”和严格资料不足拒答的最新实现写入对外讲法。
+- 同步最新证据：`docpilot-conversation-grounding-20260712183609-a15fef` PASS、`ConversationGroundingSmokeScriptSafetyTest` 3 tests PASS、后端全量基线 953 tests PASS；同时继续声明这只是小规模真实链路 smoke / eval，不是线上 SLA 或大规模对话质量 benchmark。
+
 ## 2026-07-12 Conversation grounding smoke 固化
 
 - 新增 `scripts/smoke/conversation-grounding-smoke.ps1`，把未绑定 KB / AUTO_RAG / STRICT_KB 的回答路由防回归从临时手跑固化为专用 runner；`plan` / `dry-run` 不读 `.env` 不创建数据，`run` 才走真实本地 tunnel、backend、frontend 和临时 smoke 数据。

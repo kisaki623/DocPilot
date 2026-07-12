@@ -2,7 +2,7 @@
 
 > 企业文档知识库 RAG + 会话记忆工程化平台。项目围绕“上传文档 -> 异步解析 -> RAG indexing -> 单文档 / 多文档 KnowledgeBase 检索问答 -> SSE 流式输出 -> 可信引用 -> Conversation Memory / Trace -> Agent Quality Console 质量门禁”这条链路展开，呈现一个从业务流程、后端工程到 AI 质量治理逐步闭环的全栈项目。
 
-DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、真实 embedding + Qdrant smoke、SSE 降级、quote-level 引用证据、no-evidence / hard-negative / answer faithfulness 质量门禁、Conversation Trace、用户记忆治理、Agent 工具选择、执行步骤落库和脱敏质量控制台。
+DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、真实 embedding + Qdrant smoke、SSE 降级、quote-level 引用证据、GroundingPolicy 回答路由、no-evidence / hard-negative / answer faithfulness 质量门禁、Conversation Trace、用户记忆治理、Agent 工具选择、执行步骤落库和脱敏质量控制台。
 
 ## 项目定位
 
@@ -12,7 +12,7 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 | --- | --- |
 | 后端工程 | Spring Boot 分层、MyBatis-Plus、RocketMQ + Outbox、Redisson 幂等、Redis 缓存与限流、MinIO 上传链路 |
 | AI 应用 | 单文档 / 多文档 RAG、真实 embedding + Qdrant smoke、SSE 流式输出、引用证据、问答历史与异常降级 |
-| RAG / Memory 质量 | no-evidence、answer grounding、answer faithfulness、Conversation Trace、Memory governance、真实 audit / eval artifact |
+| RAG / Memory 质量 | GroundingPolicy、no-evidence、answer grounding、answer faithfulness、Conversation Trace、Memory governance、真实 audit / eval artifact |
 | Agent / 质量控制台 | ToolRegistry、ToolSelector、AgentTask / AgentStep trace、Agent Quality Console、失败桶、Run Comparison、token / cost 数值 |
 | 全栈联调 | Next.js 页面、文档状态轮询、问答流式事件解析、Agent 工作流可视化、错误降级与空状态文案 |
 
@@ -41,7 +41,7 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 
 - **业务闭环**：账号登录、文件上传、文档创建、异步解析、RAG indexing、文档列表 / 详情、普通问答、SSE 流式问答、引用证据和历史问答。
 - **异步链路**：使用 Outbox + RocketMQ 拆分接口响应与耗时解析，配合补偿扫描、消费去重和 Redisson 锁降低重复任务与消息不一致风险；该链路已在演示环境完成真实 smoke。
-- **AI 问答体验**：支持单文档 / 多文档 RAG retrieve、普通问答与 SSE 流式输出；回答展示 Markdown、代码块和结构化 citations，并通过 no-evidence、answer grounding、hard negative 与权限隔离 smoke 约束质量边界。
+- **AI 问答体验**：支持单文档 / 多文档 RAG retrieve、普通问答与 SSE 流式输出；回答展示 Markdown、代码块和结构化 citations，并通过 GroundingPolicy、no-evidence、answer grounding、hard negative 与权限隔离 smoke 约束质量边界。
 - **会话记忆与 Trace**：支持 Conversation Context、会话摘要、ACTIVE / SUGGESTED / IGNORED memory、候选治理、KnowledgeBase evidence 进入 Context Trace，并保持 user memory 与 RAG evidence 分层。
 - **Agent 工作流**：`/agent` 页面展示工具选择、执行步骤、持久化轨迹、最终回答、引用证据和检索召回结果。
 - **内部质量控制台**：`/quality` 聚合真实 audit / eval artifact，展示 Gate、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary；只展示脱敏摘要和数值统计。
@@ -59,7 +59,7 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 | Agent Trace | 已实现 AgentTask / AgentStep 持久化，前端可展示步骤、耗时、输入摘要和输出摘要 |
 | 检索召回展示 | 已实现 chunking、scope isolation、单文档 / 多文档 RAG retrieve、Qdrant adapter、真实 embedding smoke、召回片段、相关度、引用 metadata 和脱敏 trace summary |
 | RAG 质量门禁 | 已实现 chunk 质量、MySQL / Qdrant payload 一致性、no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace 和权限隔离 smoke；artifact 脱敏后只记录计数、状态和 score summary |
-| Conversation Memory | 已实现会话上下文、摘要、用户记忆候选、ACTIVE memory、重复 / 冲突治理、Context Trace 和 KnowledgeBase evidence 分层 |
+| Conversation Memory | 已实现会话上下文、摘要、用户记忆候选、ACTIVE memory、重复 / 冲突治理、Context Trace 和 KnowledgeBase evidence 分层；回答依据支持 `MODEL_ONLY / AUTO_RAG / STRICT_KB` |
 | Agent Quality Console | 已实现内部 `/quality` Overview + Run Detail、Quality API、Eval Catalog、Failure Triage、Trace Reference、Run Comparison 和 Model / Cost Summary |
 | 观测与验证 | 保留 Actuator health、benchmark / eval 记录、smoke 脚本和 lint/build/test 验证方式 |
 
@@ -127,7 +127,7 @@ Agent 目前聚焦文档业务场景，围绕状态查询、摘要、问答与 R
 
 ### Conversation Memory 与 Context Trace
 
-Conversation 工作台支持会话、摘要、最近消息、用户长期记忆候选、ACTIVE memory 和 KnowledgeBase evidence。Trace 中会区分 `recentMessages`、`conversationSummary`、`userMemory` 和 `ragEvidence`，避免把 RAG evidence 自动写成长期记忆；Memory 治理支持重复 / 冲突提示、候选接受 / 忽略和用户可控处理。
+Conversation 工作台支持会话、摘要、最近消息、用户长期记忆候选、ACTIVE memory 和 KnowledgeBase evidence。回答依据拆分为 `MODEL_ONLY / AUTO_RAG / STRICT_KB`：未绑定知识库的普通问题直接走底层模型，`AUTO_RAG` 只在资料意图触发时检索，显式严格知识库模式缺少 evidence 才拒答。Trace 中会区分 `recentMessages`、`conversationSummary`、`userMemory` 和 `ragEvidence`，并记录 `groundingPolicy`、`routeDecision`、`llmCalled`、`modelSkipped`，避免把普通会话误展示成“0 条来源”，也避免把 RAG evidence 自动写成长期记忆；Memory 治理支持重复 / 冲突提示、候选接受 / 忽略和用户可控处理。
 
 ### Agent Quality Console
 

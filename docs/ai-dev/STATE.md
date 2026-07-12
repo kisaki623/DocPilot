@@ -1,5 +1,9 @@
 # DocPilot 当前状态
 
+## 2026-07-12 对外展示口径同步（VERIFIED）
+
+- `README.md`、`docs/showcase/RAG_QUALITY_REPORT.md`、`docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 已同步 Conversation grounding policy 最新事实和 smoke 证据：`MODEL_ONLY / AUTO_RAG / STRICT_KB`、Trace 中的 `groundingPolicy` / `routeDecision` / `llmCalled` / `modelSkipped`、以及 `docpilot-conversation-grounding-20260712183609-a15fef`。对外口径继续声明这是小规模真实链路防回归 smoke，不是线上 SLA 或大规模对话质量 benchmark。
+
 ## 2026-07-12 Conversation grounding smoke 防回归状态（VERIFIED）
 
 - Conversation grounding 修复已固化为专用真实链路 runner：`scripts/smoke/conversation-grounding-smoke.ps1`，支持 `plan` / `dry-run` / `run`；真实 run 会启动 / 复用本地 tunnel、backend、frontend，创建临时用户 / KnowledgeBase / Conversation / 文档并生成 ignored 脱敏 artifact。
