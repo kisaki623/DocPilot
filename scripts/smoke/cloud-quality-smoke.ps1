@@ -1522,7 +1522,7 @@ function Invoke-FixedBusinessCorpusGate([string]$artifactDir, [string]$smokeMark
   }
 }
 
-function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [string]$smokeMarker, [hashtable]$envValues, [long]$userId, [string]$token, [string]$collection, [int]$indexVersion) {
+function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [string]$smokeMarker, [hashtable]$envValues, [long]$userId, [string]$token, [string]$collection, [int]$indexVersion, [string]$artifactDir) {
   $gateStarted = Get-Date
   if ($null -eq $fixedBusinessCorpusResources -or $null -eq $fixedBusinessCorpusResources.resources) {
     Set-Gate "knowledgeBaseLifecycle" "BLOCKED" @("fixedBusinessCorpus resources missing") "knowledge base lifecycle gate requires fixed corpus resources"
@@ -1580,6 +1580,51 @@ function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [strin
   $retrieveBAfterSharedRemove = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbBId/rag/retrieve" ([ordered]@{ query = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
   $retrieveBContractAfterSharedRemove = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbBId/rag/retrieve" ([ordered]@{ query = $contractQuestion; topK = 4; indexVersion = $indexVersion }) $token
 
+  $deleteFixtureDir = Join-Path $artifactDir "kb-lifecycle"
+  New-Item -ItemType Directory -Force -Path $deleteFixtureDir | Out-Null
+  $deletePath = Join-Path $deleteFixtureDir "t26_disposable_delete.md"
+  $deleteDocumentText = @"
+# Disposable KB Delete T26
+
+MARKER_KB_DELETE_T26
+
+T26 disposable document delete lifecycle rule: active KnowledgeBase search must cite this document before deletion.
+
+The valid deletion acceptance code is DELETE-47.
+
+After deleting this document through the document API, the KnowledgeBase must no longer list it, retrieval must return no evidence, and QA citations must be empty.
+
+This temporary smoke file is created only for marker $smokeMarker and does not contain secrets, endpoints, tokens, or production data.
+"@
+  [System.IO.File]::WriteAllText($deletePath, $deleteDocumentText, [System.Text.UTF8Encoding]::new($false))
+  try {
+    $deleteUpload = Upload-SmokeFile $deletePath $token
+  } finally {
+    Remove-Item -LiteralPath $deletePath -Force -ErrorAction SilentlyContinue
+  }
+  $deleteDocument = Invoke-JsonApi "POST" "/api/document/create" ([ordered]@{ fileRecordId = $deleteUpload.id }) $token
+  $deleteTask = Invoke-JsonApi "POST" "/api/task/parse/create" ([ordered]@{ documentId = $deleteDocument.data.id }) $token
+  Wait-ParseSuccess ([long]$deleteDocument.data.id) $token | Out-Null
+  $deleteChunksBefore = Wait-IndexedChunks $envValues $userId ([long]$deleteDocument.data.id)
+  $deletePointsBefore = Invoke-QdrantScroll $collection $userId ([long]$deleteDocument.data.id)
+  $deleteDocumentId = [long]$deleteDocument.data.id
+  $deleteQuestion = "MARKER_KB_DELETE_T26 DELETE-47 disposable document"
+  $kbDelete = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Lifecycle Delete KB $smokeMarker"; description = "temporary lifecycle acceptance kb delete" }) $token
+  $kbDeleteId = [long]$kbDelete.data.id
+  $addDelete = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbDeleteId/documents" ([ordered]@{ documentIds = @($deleteDocumentId) }) $token
+  $detailDeleteAfterAdd = Invoke-JsonApi "GET" "/api/knowledge-bases/$kbDeleteId" $null $token
+  $detailDeleteAfterAddIds = Get-KnowledgeBaseDetailDocumentIds $detailDeleteAfterAdd
+  $retrieveDeleteBefore = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbDeleteId/rag/retrieve" ([ordered]@{ query = $deleteQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $qaDeleteBefore = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbDeleteId/qa/rag" ([ordered]@{ question = $deleteQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $deleteDocumentResponse = Invoke-JsonApi "DELETE" "/api/document/$deleteDocumentId" $null $token
+  $detailDeleteAfterDocumentDelete = Invoke-JsonApi "GET" "/api/knowledge-bases/$kbDeleteId" $null $token
+  $detailDeleteAfterDocumentDeleteIds = Get-KnowledgeBaseDetailDocumentIds $detailDeleteAfterDocumentDelete
+  $retrieveDeleteAfter = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbDeleteId/rag/retrieve" ([ordered]@{ query = $deleteQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $qaDeleteAfter = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbDeleteId/qa/rag" ([ordered]@{ question = $deleteQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $deletedDocumentDetail = Invoke-JsonApi "GET" "/api/document/detail?documentId=$deleteDocumentId" $null $token -AllowFailure
+  $deleteChunksAfter = Get-MysqlChunks $envValues $userId $deleteDocumentId
+  $deletePointsAfter = Invoke-QdrantScroll $collection $userId $deleteDocumentId
+
   $apiChunksAfter = Get-MysqlChunks $envValues $userId $apiDocumentId
   $apiPointsAfter = Invoke-QdrantScroll $collection $userId $apiDocumentId
   $contractPointsAfter = Invoke-QdrantScroll $collection $userId $contractDocumentId
@@ -1623,6 +1668,26 @@ function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [strin
     -and (Test-RagItemsContainDocumentId $retrieveBContractAfterSharedRemove.data.hits $contractDocumentId) `
     -and (Test-RagItemsOnlyUseDocuments $retrieveBAfterSharedRemove.data.hits @($apiDocumentId, $contractDocumentId)) `
     -and (Test-RagItemsOnlyUseDocuments $retrieveBContractAfterSharedRemove.data.hits @($apiDocumentId, $contractDocumentId))
+  $t26Passed = [int]$addDelete.data.activeDocumentCount -eq 1 `
+    -and @($deleteChunksBefore).Count -gt 0 `
+    -and @($deletePointsBefore).Count -gt 0 `
+    -and @($detailDeleteAfterAddIds).Count -eq 1 `
+    -and $detailDeleteAfterAddIds -contains $deleteDocumentId `
+    -and (-not [bool]$retrieveDeleteBefore.data.noEvidence) `
+    -and @($retrieveDeleteBefore.data.hits).Count -ge 1 `
+    -and @($qaDeleteBefore.data.citations).Count -ge 1 `
+    -and (Test-RagItemsOnlyUseDocuments $retrieveDeleteBefore.data.hits @($deleteDocumentId)) `
+    -and (Test-RagItemsOnlyUseDocuments $qaDeleteBefore.data.citations @($deleteDocumentId)) `
+    -and (Test-RagItemsContainMarker $retrieveDeleteBefore.data.hits "MARKER_KB_DELETE_T26") `
+    -and (Test-RagItemsContainMarker $qaDeleteBefore.data.citations "MARKER_KB_DELETE_T26") `
+    -and [string]$deleteDocumentResponse.data.status -eq "REMOVED" `
+    -and [int]$deleteDocumentResponse.data.removedKnowledgeBaseRelationCount -ge 1 `
+    -and @($detailDeleteAfterDocumentDeleteIds).Count -eq 0 `
+    -and [bool]$retrieveDeleteAfter.data.noEvidence `
+    -and @($retrieveDeleteAfter.data.hits).Count -eq 0 `
+    -and [bool]$qaDeleteAfter.data.noEvidence `
+    -and @($qaDeleteAfter.data.citations).Count -eq 0 `
+    -and (-not [bool]$deletedDocumentDetail.ok)
   $indexUnchanged = @($apiChunksAfter).Count -eq @($apiChunksBefore).Count `
     -and @($apiPointsAfter).Count -eq @($apiPointsBefore).Count `
     -and @($contractPointsAfter).Count -eq @($contractPointsBefore).Count
@@ -1636,12 +1701,19 @@ function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [strin
   if (Test-RagItemsContainDocumentId $retrieveAAfterSharedRemove.data.hits $apiDocumentId) { $securityFailures += "T25_removed_shared_document_still_visible_in_a" }
   if (-not (Test-RagItemsOnlyUseDocuments $retrieveBAfterSharedRemove.data.hits @($apiDocumentId, $contractDocumentId))) { $securityFailures += "T25_b_scope_violation_after_a_remove" }
   if (-not (Test-RagItemsOnlyUseDocuments $retrieveBContractAfterSharedRemove.data.hits @($apiDocumentId, $contractDocumentId))) { $securityFailures += "T25_b_contract_scope_violation_after_a_remove" }
+  if (-not (Test-RagItemsOnlyUseDocuments $retrieveDeleteBefore.data.hits @($deleteDocumentId))) { $securityFailures += "T26_pre_delete_retrieve_scope_violation" }
+  if (-not (Test-RagItemsOnlyUseDocuments $qaDeleteBefore.data.citations @($deleteDocumentId))) { $securityFailures += "T26_pre_delete_citation_scope_violation" }
+  if (Test-RagItemsContainDocumentId $retrieveDeleteAfter.data.hits $deleteDocumentId) { $securityFailures += "T26_deleted_document_still_retrievable" }
+  if (Test-RagItemsContainDocumentId $qaDeleteAfter.data.citations $deleteDocumentId) { $securityFailures += "T26_deleted_document_still_cited" }
+  if (Test-RagItemsContainMarker $retrieveDeleteAfter.data.hits "MARKER_KB_DELETE_T26") { $securityFailures += "T26_deleted_marker_retrieve_leakage" }
+  if (Test-RagItemsContainMarker $qaDeleteAfter.data.citations "MARKER_KB_DELETE_T26") { $securityFailures += "T26_deleted_marker_citation_leakage" }
 
   $coreFailures = @()
   if (-not $t22Passed) { $coreFailures += "T22_join_immediate_query_failed" }
   if (-not $t23Passed) { $coreFailures += "T23_remove_query_failed" }
   if (-not $t24Passed) { $coreFailures += "T24_rejoin_query_failed" }
   if (-not $t25Passed) { $coreFailures += "T25_multi_kb_isolation_failed" }
+  if (-not $t26Passed) { $coreFailures += "T26_disposable_document_delete_failed" }
   if (-not $indexUnchanged) { $coreFailures += "membership_changed_index_counts" }
 
   $checks = @([ordered]@{
@@ -1649,15 +1721,18 @@ function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [strin
     knowledgeBaseIdsByKey = [ordered]@{
       KB_LIFECYCLE_A = $kbAId
       KB_LIFECYCLE_B = $kbBId
+      KB_LIFECYCLE_DELETE = $kbDeleteId
     }
     documentIdsByKey = [ordered]@{
       API_POLICY = $apiDocumentId
       CONTRACT_ALPHA = $contractDocumentId
+      DELETE_DISPOSABLE = $deleteDocumentId
     }
     t22JoinImmediateQuery = $t22Passed
     t23RemoveNoEvidence = $t23Passed
     t24RejoinRestored = $t24Passed
     t25MultiKbIsolation = $t25Passed
+    t26DisposableDocumentDelete = $t26Passed
     membershipIndexCountsUnchanged = $indexUnchanged
     apiChunkCountBefore = @($apiChunksBefore).Count
     apiChunkCountAfter = @($apiChunksAfter).Count
@@ -1673,10 +1748,26 @@ function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [strin
     aQaCitationsAfterRemove = @($qaAAfterRemove.data.citations).Count
     bRetrieveHitsAfterARemove = @($retrieveBAfterSharedRemove.data.hits).Count
     bContractRetrieveHitsAfterARemove = @($retrieveBContractAfterSharedRemove.data.hits).Count
-    t26DocumentDeleteBoundary = [ordered]@{
-      executed = $false
-      notExecutedReason = "shared_fixture_must_remain_inspectable"
-      followUp = "use a dedicated disposable document in a separate slice before testing document delete or archive relationships"
+    t26DisposableDocument = [ordered]@{
+      documentId = $deleteDocumentId
+      knowledgeBaseId = $kbDeleteId
+      parseTaskId = [long]$deleteTask.data.taskId
+      addedActiveDocumentCount = [int]$addDelete.data.activeDocumentCount
+      removedKnowledgeBaseRelationCount = [int]$deleteDocumentResponse.data.removedKnowledgeBaseRelationCount
+      preDeleteChunkCount = @($deleteChunksBefore).Count
+      postDeleteChunkCount = @($deleteChunksAfter).Count
+      preDeleteQdrantPointCount = @($deletePointsBefore).Count
+      postDeleteQdrantPointCount = @($deletePointsAfter).Count
+      qdrantResidualStrategy = "observed_only_relation_cleanup_is_hard_gate"
+      preDeleteRetrieveHits = @($retrieveDeleteBefore.data.hits).Count
+      preDeleteQaCitations = @($qaDeleteBefore.data.citations).Count
+      postDeleteKbDetailDocumentCount = @($detailDeleteAfterDocumentDeleteIds).Count
+      postDeleteRetrieveNoEvidence = [bool]$retrieveDeleteAfter.data.noEvidence
+      postDeleteRetrieveHits = @($retrieveDeleteAfter.data.hits).Count
+      postDeleteQaNoEvidence = [bool]$qaDeleteAfter.data.noEvidence
+      postDeleteQaCitations = @($qaDeleteAfter.data.citations).Count
+      postDeleteDocumentDetailOk = [bool]$deletedDocumentDetail.ok
+      postDeleteDocumentDetailCode = $deletedDocumentDetail.code
     }
     failedCoreCaseCount = $coreFailures.Count
     failedSecurityCaseCount = $securityFailures.Count
@@ -1689,7 +1780,7 @@ function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [strin
     userAId = $userId
     knowledgeBaseIdsByKey = $checks[0].knowledgeBaseIdsByKey
     documentIdsByKey = $checks[0].documentIdsByKey
-    t26DocumentDeleteBoundary = $checks[0].t26DocumentDeleteBoundary
+    t26DisposableDocument = $checks[0].t26DisposableDocument
   }
   if (-not (Test-SafeArtifactShape $resources $checks)) {
     Set-Gate "knowledgeBaseLifecycle" "FAILED_SECURITY_GATE" @() "knowledge base lifecycle artifact shape failed whitelist check"
@@ -1708,8 +1799,8 @@ function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [strin
     lifecycleVersion = "2026-07-12-kb-lifecycle-v1"
     resources = $resources
     summary = [ordered]@{
-      caseCount = 4
-      passedCaseCount = 4
+      caseCount = 5
+      passedCaseCount = 5
       failedCoreCaseCount = 0
       failedSecurityCaseCount = 0
       indexCountsUnchanged = $indexUnchanged
@@ -2188,11 +2279,10 @@ function Show-PlanMode() {
     knowledgeBaseLifecycleGate = [ordered]@{
       enabled = [bool]$EnableKnowledgeBaseLifecycleGate
       dependsOn = "fixedBusinessCorpus(optional)"
-      knowledgeBaseKeys = @("KB_LIFECYCLE_A", "KB_LIFECYCLE_B")
-      documentKeys = @("API_POLICY", "CONTRACT_ALPHA")
-      caseIds = @("T22_join_immediate_query", "T23_remove_no_evidence", "T24_rejoin_restored", "T25_multi_kb_isolation")
-      t26Boundary = "document delete/archive uses a dedicated disposable document in a later slice"
-      artifactPolicy = "stores only ids, document keys, booleans, counts and failure codes; no raw question, answer, snippet, quote, prompt or evidence context"
+      knowledgeBaseKeys = @("KB_LIFECYCLE_A", "KB_LIFECYCLE_B", "KB_LIFECYCLE_DELETE")
+      documentKeys = @("API_POLICY", "CONTRACT_ALPHA", "DELETE_DISPOSABLE")
+      caseIds = @("T22_join_immediate_query", "T23_remove_no_evidence", "T24_rejoin_restored", "T25_multi_kb_isolation", "T26_disposable_document_delete")
+      artifactPolicy = "stores only ids, document keys, booleans, counts, qdrant residual counts and failure codes; no raw question, answer, snippet, quote, prompt or evidence context"
     }
     artifactRoot = $ArtifactRoot
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
@@ -2226,10 +2316,9 @@ function Invoke-DryRun() {
     dependsOnFixedBusinessCorpus = $true
     dependencySatisfied = $knowledgeBaseLifecycleDependencySatisfied
     blockedReason = if ($knowledgeBaseLifecycleDependencySatisfied) { "" } else { "EnableFixedBusinessCorpusGate is required" }
-    knowledgeBaseKeys = @("KB_LIFECYCLE_A", "KB_LIFECYCLE_B")
-    documentKeys = @("API_POLICY", "CONTRACT_ALPHA")
-    caseIds = @("T22_join_immediate_query", "T23_remove_no_evidence", "T24_rejoin_restored", "T25_multi_kb_isolation")
-    t26Boundary = "document delete/archive uses a dedicated disposable document in a later slice"
+    knowledgeBaseKeys = @("KB_LIFECYCLE_A", "KB_LIFECYCLE_B", "KB_LIFECYCLE_DELETE")
+    documentKeys = @("API_POLICY", "CONTRACT_ALPHA", "DELETE_DISPOSABLE")
+    caseIds = @("T22_join_immediate_query", "T23_remove_no_evidence", "T24_rejoin_restored", "T25_multi_kb_isolation", "T26_disposable_document_delete")
   }
   $dryRunStatus = if ($knowledgeBaseLifecycleDependencySatisfied) { "PASS" } else { "BLOCKED" }
   $dryRunMessage = if ($knowledgeBaseLifecycleDependencySatisfied) { "" } else { "knowledge base lifecycle gate requires fixed corpus gate" }
@@ -2599,7 +2688,7 @@ Similar short policy category: onboarding evidence.
       Set-Gate "knowledgeBaseLifecycle" "BLOCKED" @("EnableFixedBusinessCorpusGate is required") "knowledge base lifecycle gate requires fixed corpus gate"
       Stop-WithStatus "BLOCKED" "knowledgeBaseLifecycle" "knowledge base lifecycle gate requires fixed corpus gate"
     }
-    $knowledgeBaseLifecycleResources = Invoke-KnowledgeBaseLifecycleGate $fixedBusinessCorpusResources $smokeMarker $envValues $userAId $tokenA $collection $IndexVersion
+    $knowledgeBaseLifecycleResources = Invoke-KnowledgeBaseLifecycleGate $fixedBusinessCorpusResources $smokeMarker $envValues $userAId $tokenA $collection $IndexVersion $artifactDir
   }
 
   if ($EnableNaturalCorpusGate) {

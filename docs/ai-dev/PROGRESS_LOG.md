@@ -1569,6 +1569,12 @@
 - 2026-06-13 完成迁移后登录态 runtime smoke：backend health `UP`，frontend `/conversations` HTTP 200；页面完成创建会话、发送消息、查看 Context Trace、刷新摘要、提取候选记忆、接受候选记忆，并通过第二轮消息验证 ACTIVE 记忆进入 Agent Memory 上下文（trace 显示 `Memory=1`、`summaryUsed=是`、最近消息 `2` 条 / `1` 轮、无截断 / fallback / model skipped）。KnowledgeBase 绑定 UI 已渲染，但本次 smoke 用户无可绑定知识库，未覆盖带真实 KB 文档 evidence 的浏览器端到端验证。
 - 2026-06-13 继续完成 T013 KnowledgeBase-bound evidence 收口：新建临时用户、上传 txt、创建文档、解析到 `SUCCESS`、创建 KnowledgeBase 并添加文档；KnowledgeBase retrieval 命中 1 条 evidence。绑定该 KB 的 Agent Memory 会话发送知识库问题后，API trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=1`、`documentHitCounts={93:1}`、citation `1`、无 fallback / model skipped。浏览器 `/conversations` 端到端复验中文“根据知识库”问题：助手回答引用 `t013-ui-kb-0613093939.txt`，页面 Trace 显示 `Evidence=1`、`RAG 触发=是`、`RAG 必需=是`、`No Evidence=否`，命中文档分布为 `#94: 1`。
 
+# 2026-07-13
+
+- 高强度 KnowledgeBase 生命周期 gate 已从 T22-T25 扩展到 T22-T26：新增 `DELETE_DISPOSABLE` 专用临时文档和 `KB_LIFECYCLE_DELETE`，真实验证删除前 retrieve / QA 各 1 条，删除后 KB detail 0 文档、retrieve / QA no-evidence 且 0 citation，文档详情不可读；Qdrant point / MySQL chunk 残留仅记录为观测计数，不作为物理删除声明。
+- 真实 run 首次 marker `docpilot-high-intensity-fixed-corpus-20260713004019-b28e65` 发现 `REA-20260713-P1-031`：T11 citations 覆盖正确但答案遗漏部分风险控制措施；已增强 KnowledgeBase summary prompt 的数量型、多文档覆盖和风险控制抽取约束。
+- 验证：`mvn "-Dtest=KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagQaServiceImplTest,CloudQualitySmokeScriptSafetyTest,HighIntensityFixedCorpusSmokeScriptSafetyTest,DocumentServiceImplTest" test` PASS（51 tests）；真实 `high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均 PASS，overall `REVIEW` 仅因跳过前端；artifact raw-field scan PASS，常用端口无 LISTEN 残留。
+
 ## 2026-06-08 环境恢复诊断
 
 - 尝试恢复本地后端通过 SSH tunnel 连接云端 MySQL / Qdrant：本地 `.env` 已指向 `127.0.0.1:13306` 和 `127.0.0.1:6333`，临时 tunnel TCP 可达。

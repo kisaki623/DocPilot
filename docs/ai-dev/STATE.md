@@ -1,12 +1,13 @@
 # DocPilot 当前状态
 
-## 2026-07-12 高强度 KnowledgeBase 生命周期自动化验收状态（VERIFIED / PARTIAL）
+## 2026-07-13 高强度 KnowledgeBase 生命周期 T26 自动化验收状态（VERIFIED / PARTIAL）
 
-- 已在 `cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableKnowledgeBaseLifecycleGate`，并让 `high-intensity-fixed-corpus-smoke.ps1` 同时启用 fixed corpus 与 lifecycle gate；该 gate 复用固定语料已索引文档，但新建 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B`，不修改 `KB_CORE` / `KB_NOISY`。
-- 已覆盖 T22-T25 的 API/RAG 主干：加入 KB 后立即可查、移出 KB 后 no-evidence 且 0 citation、重新加入后恢复、同一文档加入两个 KB 后移出 KB-A 不影响 KB-B；同时确认 membership 变化不改变 MySQL chunk 数或 Qdrant point 数。审查后已收紧 scope 断言：非空 hit / citation 必须带可审计 `documentId`，lifecycle-only dry-run 会标记 `BLOCKED`，artifact shape 检查覆盖实际 gate checks。
-- 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260712234011-a80fa6` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均为 `PASS`；overallStatus 仍为 `REVIEW`，原因是本轮显式 `-SkipFrontend`。
-- 已验证：`mvn "-Dtest=HighIntensityFixedCorpusSmokeScriptSafetyTest,CloudQualitySmokeScriptSafetyTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS（29 tests）；wrapper `plan` PASS、delegate `plan` / `dry-run` PASS、lifecycle-only dry-run `BLOCKED`；artifact raw-field scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 无 LISTEN 残留。
-- 边界：T26 文档删除 / 归档关系尚未执行，本片不删除共享 fixed corpus 文档；后续应使用专用 disposable 文档验证删除 / 归档后的 KB 关系、citation 页面和 Qdrant 残留策略。完整 T01-T47 仍未覆盖 Memory、Agent ToolCall 全矩阵、弱网并发、多标签页和浏览器缩放 UI。
+- `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate` 已覆盖 T22-T26，并让 `high-intensity-fixed-corpus-smoke.ps1` 同时启用 fixed corpus 与 lifecycle gate；该 gate 复用固定语料已索引文档创建 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B`，另为 T26 创建 `DELETE_DISPOSABLE` 临时文档和 `KB_LIFECYCLE_DELETE`，不删除共享固定语料。
+- 已覆盖 T22-T26 的 API/RAG 主干：加入 KB 后立即可查、移出 KB 后 no-evidence 且 0 citation、重新加入后恢复、同一文档加入两个 KB 后移出 KB-A 不影响 KB-B；删除 disposable 文档后 KB detail 不再列出、retrieve / QA 均 no-evidence 且 0 citation，文档详情不可读。审查后已收紧 scope 断言：非空 hit / citation 必须带可审计 `documentId`，lifecycle-only dry-run 会标记 `BLOCKED`，artifact shape 检查覆盖实际 gate checks。
+- 真实 run 先暴露 `REA-20260713-P1-031`：T11 citations 覆盖正确但答案遗漏部分风险控制措施；已增强 `KnowledgeBaseRagPromptBuilder` 的 summary prompt，要求数量型总结按 requested item count 输出、跨文档综合不能跳过已检索文档，并对风险控制 / 控制措施问题抽取审批、凭据 / Token / 日志 / 审计和运维缓解措施。
+- 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均为 `PASS`；T26 disposable 文档删除前 retrieve / QA 各 1 条，删除后 KB detail 0 个文档、retrieve / QA no-evidence 且 0 citation，文档详情返回业务错误；overallStatus 仍为 `REVIEW`，原因是本轮显式 `-SkipFrontend`。
+- 已验证：wrapper `plan` PASS、delegate `dry-run` PASS；`mvn "-Dtest=KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagQaServiceImplTest,CloudQualitySmokeScriptSafetyTest,HighIntensityFixedCorpusSmokeScriptSafetyTest,DocumentServiceImplTest" test` PASS（51 tests）；artifact raw-field scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 无 LISTEN 残留。
+- 边界：T26 当前验证的是软删除文档后的 KB 关系清理和 citation / retrieve 不再召回；MySQL chunk 和 Qdrant point 仍作为残留计数观测，不声明物理删除。完整 T01-T47 仍未覆盖 Memory、Agent ToolCall 全矩阵、弱网并发、多标签页和浏览器缩放 UI。
 
 ## 2026-07-12 高强度固定业务语料自动化验收修复状态（VERIFIED / PARTIAL）
 

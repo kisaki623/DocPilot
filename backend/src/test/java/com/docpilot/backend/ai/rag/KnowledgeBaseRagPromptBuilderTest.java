@@ -53,7 +53,25 @@ class KnowledgeBaseRagPromptBuilderTest {
         assertThat(prompt.noEvidence()).isFalse();
         assertThat(prompt.userPrompt()).contains("overview of the whole knowledge base or dataset");
         assertThat(prompt.userPrompt()).contains("summarize the covered documents by title");
+        assertThat(prompt.userPrompt()).contains("Do not skip any represented title or documentId");
         assertThat(prompt.evidenceContext()).contains("title=harness.md");
+    }
+
+    @Test
+    void shouldRequireItemizedCoverageForRiskControlSummaryQuestions() {
+        RagPrompt prompt = builder.build("综合合同、安全规范和事故复盘，总结当前系统需要落实的四项风险控制措施。", List.of(
+                hit(1, 101L, "Contract Alpha", "合同金额超过 50 万元时，需要法务和财务共同审批。"),
+                hit(2, 102L, "API Policy", "API 密钥必须每 90 天轮换一次。禁止在日志、数据库和代码仓库中明文记录访问 Token。"),
+                hit(3, 103L, "Incident Review", "改进措施包括连接池隔离、请求限流和紧急回滚开关。")
+        ), 2000);
+
+        assertThat(prompt.noEvidence()).isFalse();
+        assertThat(prompt.userPrompt())
+                .contains("specific number of items")
+                .contains("every represented document")
+                .contains("risk-control or control-measure")
+                .contains("credential or token controls")
+                .contains("operational mitigations");
     }
 
     @Test

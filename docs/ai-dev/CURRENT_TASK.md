@@ -1,14 +1,19 @@
 # Current Task
 
-## 2026-07-12 高强度 KnowledgeBase 生命周期 gate（VERIFIED / PARTIAL）
+## 2026-07-13 高强度 KnowledgeBase 生命周期 T26 与固定语料回归修复（VERIFIED / PARTIAL）
 
-- 已新增 `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate`，并让 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1` 默认同时启用 fixed corpus 与 KnowledgeBase lifecycle gate。
-- 生命周期 gate 复用 fixed corpus 中已索引的 `API_POLICY` / `CONTRACT_ALPHA`，但创建专用 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B`，避免污染 `KB_CORE` / `KB_NOISY` 的 T06-T15 稳定质量矩阵。
-- 已覆盖 T22-T25：加入 KB 后立即 retrieve / QA 可用；移出 KB 后 retrieve / QA 均 no-evidence 且 0 citation；重新加入后恢复；同一文档同时加入两个 KB 后，移出 KB-A 不影响 KB-B，且 KB-A 不返回 KB-B-only 文档。
+- `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate` 已扩展到 T22-T26，并让 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1` 默认同时启用 fixed corpus 与 KnowledgeBase lifecycle gate。
+- 生命周期 gate 继续复用 fixed corpus 中已索引的 `API_POLICY` / `CONTRACT_ALPHA` 创建专用 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B`，避免污染 `KB_CORE` / `KB_NOISY` 的 T06-T15 稳定质量矩阵；T26 另行创建 `DELETE_DISPOSABLE` 专用临时文档和 `KB_LIFECYCLE_DELETE`，只删除本轮 smoke 产生的数据，不删除共享固定语料。
+- 已覆盖 T22-T26：加入 KB 后立即 retrieve / QA 可用；移出 KB 后 retrieve / QA 均 no-evidence 且 0 citation；重新加入后恢复；同一文档同时加入两个 KB 后，移出 KB-A 不影响 KB-B，且 KB-A 不返回 KB-B-only 文档；删除 disposable 文档后 KB detail 不再列出、retrieve / QA 均 no-evidence 且 0 citation，文档详情不可读。
 - 审查后已收紧验收断言：非空 hit / citation 缺失 `documentId` 会失败；T25 同时检查 KB-A 不泄漏 KB-B-only marker、KB-B 在 KB-A 移除后仍能召回 shared 与 B-only 文档；lifecycle-only dry-run 会标记 `BLOCKED`；artifact shape 检查覆盖实际 gate checks。
-- 定向验证：`mvn "-Dtest=HighIntensityFixedCorpusSmokeScriptSafetyTest,CloudQualitySmokeScriptSafetyTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，29 tests。
-- 真实验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260712234011-a80fa6` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均 PASS；artifact raw-field scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
-- 边界：本片不执行 T26 文档删除 / 归档，避免删除共享 fixed corpus 文档；后续需用专用 disposable 文档验证删除 / 归档后的 KB 关系、citation 指向和 Qdrant 残留策略。整体 run 因 `-SkipFrontend` 仍为 `REVIEW`。
+- 真实 run 先发现 `REA-20260713-P1-031`：T11 citations 覆盖正确但答案遗漏部分风险控制措施；已增强 summary prompt 的数量型、多文档覆盖和风险控制抽取约束，并通过复跑验证。
+- 定向验证：`mvn "-Dtest=KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagQaServiceImplTest,CloudQualitySmokeScriptSafetyTest,HighIntensityFixedCorpusSmokeScriptSafetyTest,DocumentServiceImplTest" test` PASS，51 tests。
+- 真实验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均 PASS；T26 disposable 文档删除前 retrieve / QA 各 1 条，删除后 KB detail 0 个文档、retrieve / QA no-evidence 且 0 citation，文档详情返回业务错误；artifact raw-field scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 边界：T26 当前验证的是软删除文档后的 KB 关系清理和 citation / retrieve 不再召回；Qdrant point 与 MySQL chunk 仍作为残留计数观测，不作为删除硬门禁。整体 run 因 `-SkipFrontend` 仍为 `REVIEW`，完整 T01-T47 仍未覆盖 Memory、Agent ToolCall 全矩阵、弱网并发、多标签页和浏览器缩放 UI。
+
+## 2026-07-12 高强度 KnowledgeBase 生命周期 gate（VERIFIED / SUPERSEDED）
+
+- 已被 2026-07-13 T26 disposable 文档删除验证取代；历史 marker `docpilot-high-intensity-fixed-corpus-20260712234011-a80fa6` 覆盖 T22-T25。
 
 ## 2026-07-12 高强度固定业务语料 P1 修复（VERIFIED）
 

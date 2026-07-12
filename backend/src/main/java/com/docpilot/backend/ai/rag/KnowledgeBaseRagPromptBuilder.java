@@ -159,7 +159,11 @@ public class KnowledgeBaseRagPromptBuilder {
     private String summaryUserPrompt(String question) {
         return """
                 The user is asking for an overview of the whole knowledge base or dataset.
-                Use only the numbered evidence. First summarize the overall theme, then summarize the covered documents by title.
+                Use only the numbered evidence. First summarize the overall theme, then answer the user's requested summary or synthesis directly.
+                If the user requests a specific number of items, provide that many numbered items when the evidence supports them.
+                Do not skip any represented title or documentId: include at least one concrete, evidence-backed point from every represented document when synthesizing across documents.
+                For risk-control or control-measure questions, extract concrete controls from the evidence, such as approval controls, retention or audit controls, credential or token controls, logging restrictions, and operational mitigations when they are present.
+                Then summarize the covered documents by title.
                 If evidence from some knowledge-base documents is missing, say which document titles or documentIds are not represented in the evidence instead of inventing their contents.
                 Cite supporting evidence with markers such as [1] or [2].
 

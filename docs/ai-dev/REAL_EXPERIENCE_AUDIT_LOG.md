@@ -34,6 +34,8 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-13 | `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` | REVIEW（fixedBusinessCorpus PASS / lifecycle PASS / frontend skipped） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260713004622-113df1/artifact.json` | 修复 `REA-20260713-P1-031` 后复跑高强度固定语料 runner：`fixedBusinessCorpus` gate PASS，T11 多文档风险控制 answer claim 恢复；`knowledgeBaseLifecycle` gate PASS，覆盖 T22-T26，其中 T26 disposable 文档删除后 KB detail 0 文档、retrieve / QA no-evidence 且 0 citation。整体 run 为 REVIEW 仅因为显式 `-SkipFrontend`；artifact raw-field scan PASS，常用端口无 LISTEN 残留。 |
+| 2026-07-13 | `docpilot-high-intensity-fixed-corpus-20260713004019-b28e65` | FAILED_CORE_FLOW（固定业务语料 T11 回归） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260713004019-b28e65/artifact.json` | 扩展 T26 KnowledgeBase 生命周期前执行真实高强度 runner：tunnel、backend、上传解析、chunk / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG 和短文档 gate 通过；固定语料 T11 出现 `answer_claim_missing`，citations 已覆盖 `INCIDENT_REVIEW` / `API_POLICY` / `SLA_BETA` / `CONTRACT_ALPHA`，但模型答案未覆盖全部风险控制措施。artifact 已脱敏，不保存 raw answer / prompt / evidence context。 |
 | 2026-07-12 | `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` | REVIEW（fixedBusinessCorpus PASS / frontend skipped） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35/artifact.json` | 修复 `REA-20260712-P1-030` 后复跑固定业务语料 runner：`fixedBusinessCorpus` gate PASS，T02 duplicate upload 与 T06-T15 全部通过；T08 废弃草案冲突、T11 多文档风险控制、T12 多跳审批 citation coverage / support 均恢复。整体 run 为 REVIEW 仅因为本片显式 `-SkipFrontend`；artifact raw-field scan PASS，本地 fixed corpus 源文件数为 0。 |
 | 2026-07-12 | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | FAILED_CORE_FLOW（固定业务语料验收发现 P1） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3/artifact.json` | 新增固定业务语料自动化 runner 后执行真实 run：T02 duplicate upload、T06 / T07 / T09 / T10 / T13 / T14 / T15 通过；T08 返回 `answer_claim_missing`，T11 / T12 返回 `citation_document_coverage` 与 `citation_support_missing`，说明 KnowledgeBase RAG 在错误前提回答完整性、多文档总结和多跳审批 citation 支撑上仍有质量缺口。JSON artifact 已脱敏，不保存 raw answer / prompt / evidence context；本地 fixed corpus 源文件上传后删除，最新 run 目录下 fixed corpus 源文件数为 0。 |
 | 2026-07-12 | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | PASS（Conversation grounding 修复真实验证） | `tmp-e2e/conversation-grounding-runtime/cg20260712175003-50312c-artifact.json` | 用户报告未绑定 KnowledgeBase 的普通会话误进 strict no-evidence refusal；已授权执行 `008_add_context_trace_grounding.sql` 并确认 Trace 三列存在。真实 API smoke 覆盖未绑定 KB、误选 STRICT、AUTO_RAG 普通问题、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG evidence citation；Playwright 验证普通回答显示“未使用知识库”且无“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”；后端全量 953 tests、前端 lint/build PASS。 |
@@ -71,6 +73,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260713-P1-031` | VERIFIED（已验证） | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Prompt | `docpilot-high-intensity-fixed-corpus-20260713004019-b28e65` | 固定业务语料 T11 citations 覆盖正确但答案遗漏部分风险控制措施 |
 | `REA-20260712-P1-030` | VERIFIED（已验证） | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Citation | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足 |
 | `REA-20260712-P1-029` | VERIFIED（已验证） | P1 | 会话路由 bug | Conversation / Grounding Policy / Frontend | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | 未绑定知识库的普通会话误进 strict grounded no-evidence refusal，并显示 0 条来源 |
 | `REA-20260712-P2-026` | VERIFIED（已验证） | P2 | RAG no-evidence 质量问题 | KnowledgeBase RAG Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 裸 `knowledge base` 泛词被当作总结意图，near-threshold 无关问题绕过 support gate |
@@ -106,6 +109,44 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-12 Conversation grounding policy 问题闭环
+
+### `REA-20260713-P1-031` 固定业务语料 T11 citations 覆盖正确但答案遗漏部分风险控制措施
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P1
+- 类型：RAG 质量问题
+- 模块：KnowledgeBase RAG QA / Prompt
+- 发现 marker：`docpilot-high-intensity-fixed-corpus-20260713004019-b28e65`
+
+复现步骤：
+
+1. 执行 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend`。
+2. 使用固定业务语料 `KB_CORE` 提问 T11：综合合同、安全规范和事故复盘，总结当前系统需要落实的四项风险控制措施。
+3. 检查 fixedBusinessCorpus gate 中 T11 的 citation 覆盖、citation support 和 answer claim 检查。
+
+实际结果：
+
+- T11 的 citations 覆盖 `INCIDENT_REVIEW`、`API_POLICY`、`SLA_BETA`、`CONTRACT_ALPHA`，citation support 为 true。
+- answer claim 检查返回 `answer_claim_missing`，说明模型答案未覆盖全部风险控制措施。
+- 本轮 artifact 只保存脱敏 caseId、document keys、计数和失败码，不保存 raw answer、prompt 或 evidence context。
+
+预期结果：
+
+- 多文档风险控制总结应在 evidence 已覆盖的前提下，明确覆盖合同审批、安全规范中的凭据 / Token / 日志 / 审计控制，以及事故复盘中的连接池隔离、限流和回滚等措施。
+
+可能原因：
+
+- summary prompt 只要求概括整体和按文档标题总结，没有明确约束“数量型总结按 requested item count 输出”以及“跨文档综合不能跳过已检索到的文档证据”。
+
+建议修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/KnowledgeBaseRagPromptBuilder.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/KnowledgeBaseRagPromptBuilderTest.java`
+- `scripts/smoke/cloud-quality-smoke.ps1`
+
+修复提交：本轮 `test(rag): cover knowledge base document delete lifecycle`
+
+验证记录：`docpilot-high-intensity-fixed-corpus-20260713004622-113df1` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均 PASS；T11 answer claim 检查恢复通过；T26 disposable 文档删除后 KB detail 0 文档、retrieve / QA no-evidence 且 0 citation。artifact raw-field scan PASS，常用端口无 LISTEN 残留。
 
 ### `REA-20260712-P1-030` 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足
 
