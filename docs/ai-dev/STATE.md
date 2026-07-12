@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-12 Conversation grounding smoke 防回归状态（VERIFIED）
+
+- Conversation grounding 修复已固化为专用真实链路 runner：`scripts/smoke/conversation-grounding-smoke.ps1`，支持 `plan` / `dry-run` / `run`；真实 run 会启动 / 复用本地 tunnel、backend、frontend，创建临时用户 / KnowledgeBase / Conversation / 文档并生成 ignored 脱敏 artifact。
+- runner 覆盖未绑定 KB、未绑定 KB 误选 `STRICT_KB`、`AUTO_RAG` 普通问题、`AUTO_RAG` 无证据 fallback、`STRICT_KB` 无证据拒答、`AUTO_RAG` evidence citation 六类回归风险；Trace 断言 `groundingPolicy`、`routeDecision`、`ragTriggered`、`ragRequired`、`evidenceCount`、`llmCalled`、`modelSkipped`。
+- 已验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS，`conversation-grounding-smoke.ps1 -Mode dry-run` PASS，`ConversationGroundingSmokeScriptSafetyTest` 3 tests PASS；真实 marker `docpilot-conversation-grounding-20260712183609-a15fef` PASS，6/6 case 通过，artifact 位于 `backend/target/conversation-grounding/.../artifact.json`。边界：这是小规模真实链路防回归 smoke，不是大规模对话质量 benchmark。
+
 ## 2026-07-12 Conversation grounding policy 路由状态（VERIFIED）
 
 - Conversation 回答路由已拆分为独立 `GroundingPolicy`：未绑定 KnowledgeBase 默认 `MODEL_ONLY`，绑定 KB 默认 `AUTO_RAG`，只有用户显式选择 `STRICT_KB` 时才启用“无 evidence 安全拒答”。“精炼回答模式”和 `contextMode` 不再等价于严格知识库模式。

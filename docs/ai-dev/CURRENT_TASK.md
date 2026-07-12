@@ -1,5 +1,12 @@
 # Current Task
 
+## 2026-07-12 Conversation grounding smoke 固化（VERIFIED）
+
+- 新增专用 runner `scripts/smoke/conversation-grounding-smoke.ps1`，支持 `plan` / `dry-run` / `run`：`plan` 和 `dry-run` 不读取 `.env`、不启动服务、不创建数据；`run` 才启动 / 复用本地 tunnel、backend、frontend，创建临时用户 / KnowledgeBase / Conversation / 文档，并生成 ignored 脱敏 artifact。
+- 固化的 6 个真实路由 case：未绑定 KB 普通问题走 `MODEL_ONLY`；未绑定 KB 误选 `STRICT_KB` 仍归一为 `MODEL_ONLY`；`AUTO_RAG` 泛知识库概念问题不触发 RAG；`AUTO_RAG` 显式资料问题无 evidence 时 fallback 到模型；`STRICT_KB` 无 evidence 时拒答并跳过模型；`AUTO_RAG` 命中 evidence 时返回 citation。
+- 脚本 artifact 只记录 marker、路由枚举、布尔值、计数和脱敏 id，不保存 token、密码、raw prompt、raw answer、raw evidence、provider output、连接串或云地址；脚本结束会清理本轮启动的 8081 / 3000 服务进程，不关闭本来已存在的 tunnel。
+- 已验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS；`conversation-grounding-smoke.ps1 -Mode dry-run` PASS；`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS（3 tests）；真实 `conversation-grounding-smoke.ps1 -Mode run` PASS，marker `docpilot-conversation-grounding-20260712183609-a15fef`，6/6 case PASS，artifact `backend/target/conversation-grounding/docpilot-conversation-grounding-20260712183609-a15fef/artifact.json`。
+
 ## 2026-07-12 Conversation grounding policy 路由修复（VERIFIED）
 
 - 根因定位：Conversation 普通消息此前复用了 `AiAnswerService.answer(context, question)` 的严格文档 QA prompt；该 prompt 要求“只能基于提供的 document context 回答”，导致未绑定 KnowledgeBase 的普通常识问题也可能进入 no-evidence refusal 语义。同时 `contextMode` 与 RAG policy 耦合，Trace 缺少 `groundingPolicy` / `routeDecision` / `llmCalled`，前端刷新后只能看到“0 条来源”，无法区分普通模型回答、AUTO_RAG 未触发、STRICT_KB 无证据。

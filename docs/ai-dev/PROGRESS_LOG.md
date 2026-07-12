@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 Conversation grounding smoke 固化
+
+- 新增 `scripts/smoke/conversation-grounding-smoke.ps1`，把未绑定 KB / AUTO_RAG / STRICT_KB 的回答路由防回归从临时手跑固化为专用 runner；`plan` / `dry-run` 不读 `.env` 不创建数据，`run` 才走真实本地 tunnel、backend、frontend 和临时 smoke 数据。
+- 新增 `ConversationGroundingSmokeScriptSafetyTest`，锁定 runner 的 plan / dry-run 输出、脱敏 artifact 边界和危险操作边界；脚本避免使用中文 literal 判断 fallback 文案，改用稳定 Trace 枚举 `STRICT_KB_NO_EVIDENCE`，规避 Windows PowerShell 5.1 编码漂移。
+- 验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS；`conversation-grounding-smoke.ps1 -Mode dry-run` PASS；`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS（3 tests）；真实 `conversation-grounding-smoke.ps1 -Mode run` PASS，marker `docpilot-conversation-grounding-20260712183609-a15fef`，6/6 case PASS，artifact `backend/target/conversation-grounding/docpilot-conversation-grounding-20260712183609-a15fef/artifact.json`。
+
 ## 2026-07-12 Conversation grounding policy 路由修复
 
 - 修复 Conversation 普通会话误进 strict grounded RAG / no-evidence refusal 的根因：新增 `GroundingPolicy` / `RouteDecision`，Conversation 专用 `answerConversation(...)` 不再复用文档 QA strict prompt；未绑定 KB 默认 `MODEL_ONLY`，绑定 KB 默认 `AUTO_RAG`，显式 `STRICT_KB` 才无证据拒答。

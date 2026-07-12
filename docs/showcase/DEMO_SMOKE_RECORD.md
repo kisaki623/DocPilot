@@ -4,6 +4,29 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-12 Conversation Grounding Route Smoke
+
+状态：PASS
+
+Runner:
+
+- `scripts/smoke/conversation-grounding-smoke.ps1 -Mode run`
+- `mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test`
+
+Marker:
+
+- conversation grounding：`docpilot-conversation-grounding-20260712183609-a15fef`
+
+已验证：
+
+- 未绑定 KnowledgeBase 的普通问题走 `MODEL_ONLY`：`ragTriggered=false`、`ragRequired=false`、`evidenceCount=0`、`llmCalled=true`、`modelSkipped=false`。
+- 未绑定 KB 即使请求 `STRICT_KB` 也归一为 `MODEL_ONLY`，不触发资料不足拒答。
+- 绑定 KB 的 `AUTO_RAG` 普通知识库概念问题不触发 RAG；显式资料问题无 evidence 时 fallback 到模型，`routeDecision=AUTO_NO_EVIDENCE_MODEL`。
+- `STRICT_KB` 无 evidence 时安全拒答，`llmCalled=false`、`modelSkipped=true`、`routeDecision=STRICT_NO_EVIDENCE_FALLBACK`。
+- `AUTO_RAG` 命中 evidence 时返回 citation，`routeDecision=AUTO_RAG_EVIDENCE`。
+
+边界：这是 Conversation grounding policy 的小规模真实链路防回归 smoke，不是大规模对话质量 benchmark。artifact 位于 ignored 的 `backend/target/conversation-grounding/.../artifact.json`，只保存路由枚举、布尔值、计数和脱敏 id，不提交 token、密码、raw prompt、raw answer、raw evidence、provider output、连接串或云地址。
+
 ## 2026-07-12 Memory Governance Smoke
 
 状态：PASS
