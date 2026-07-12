@@ -1,5 +1,12 @@
 # DocPilot 当前状态
 
+## 2026-07-12 高强度验收执行状态（VERIFIED / PARTIAL）
+
+- 高强度验收计划已开始执行，第一层真实链路门禁 PASS：parser real-chain marker `docpilot-parser-real-chain-20260712212339-021ca3`，Conversation grounding marker `docpilot-conversation-grounding-20260712212500-d26151`，综合 cloud quality marker `docpilot-cloud-quality-20260712212603-173e7d`。
+- 已验证能力：PDF / HTML / DOCX 解析、负向解析边界、chunk / Qdrant 索引一致性、单文档 RAG、KnowledgeBase RAG、no-evidence、Conversation Trace、KnowledgeBase Agent、跨用户权限隔离、前端关键路由和前端交互 gate。
+- 当前未发现 P0 / P1 / P2 问题；因此未新增 `REAL_EXPERIENCE_AUDIT_LOG.md` 问题记录。所有 artifact 均为 ignored 脱敏产物，不提交 token、密码、prompt、answer、evidence context、连接串或云地址。
+- 剩余差距：固定 6 份业务语料的 T06-T15 质量矩阵、重复上传、KB 生命周期移出 / 重新加入 / 删除、长会话摘要、弱网并发、多标签页和缩放 UI 检查仍待执行，不能写成完整验收通过。
+
 ## 2026-07-12 高强度验收测试计划状态（TODO RECORDED）
 
 - `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md` 已记录一套后续可执行的高强度端到端验收计划，覆盖上传解析、RAG 精确问答、冲突证据、GroundingPolicy、KnowledgeBase 生命周期、Memory、Agent ToolCall、跨用户权限、安全和弱网并发 UI。

@@ -1,5 +1,12 @@
 # Current Task
 
+## 2026-07-12 高强度验收第一层真实链路执行（VERIFIED / PARTIAL）
+
+- 已执行三组真实链路门禁：`document-parser-real-chain-smoke.ps1 -Mode run` PASS，marker `docpilot-parser-real-chain-20260712212339-021ca3`；`conversation-grounding-smoke.ps1 -Mode run` PASS，marker `docpilot-conversation-grounding-20260712212500-d26151`；`cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -EnableKnowledgeBaseAgentGate` PASS，marker `docpilot-cloud-quality-20260712212603-173e7d`。
+- 已覆盖第一层验收：PDF / HTML / DOCX 上传解析、chunk / Qdrant 可见、检索 / QA citation、unsupported / empty / corrupted 文件负向边界、GroundingPolicy 6 case、User A / User B 权限隔离、KnowledgeBase RAG、Conversation Trace、KnowledgeBase Agent、前端关键页面和前端交互 gate。
+- 本轮未发现需写入 `REAL_EXPERIENCE_AUDIT_LOG.md` 的 P0 / P1 / P2 问题；artifact 均位于 ignored 目录，只记录 marker、状态、计数和脱敏 id。
+- 边界：这不是完整 T01-T47 全量验收。尚未执行用户计划中固定 6 份业务语料的完整问答矩阵、重复文件 SHA 去重、KB 移出 / 重新加入 / 删除生命周期、长会话摘要、弱网、多标签页、浏览器缩放和完整手工 UI 检查。
+
 ## 2026-07-12 高强度端到端验收测试计划归档（TODO RECORDED）
 
 - 新增 `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md`，记录用户提供的 3-5 小时高强度验收计划：环境记录、失败记录、固定测试语料、User A / User B、KB_CORE / KB_NOISY、T01-T47 测试矩阵、硬性验收标准和修复优先级。

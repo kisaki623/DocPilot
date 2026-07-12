@@ -8,7 +8,7 @@
 
 | 优先级 | 状态 | 范围 | 目标 | 执行入口 | 验证 / 回写 |
 | --- | --- | --- | --- | --- | --- |
-| P0/P1 | TODO | 上传解析、RAG、GroundingPolicy、KnowledgeBase、Memory、Agent、权限安全、弱网并发 UI | 用固定语料、固定问题、固定预期结果完成一次 3-5 小时可复现验收，检查 UI、接口、Trace、数据库状态和 citation 来源。 | `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md` | 按 T01-T47 执行；发现的问题写入 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`；只有真实通过的展示级摘要才写入 `docs/showcase/DEMO_SMOKE_RECORD.md`。 |
+| P0/P1 | IN_PROGRESS | 上传解析、RAG、GroundingPolicy、KnowledgeBase、Memory、Agent、权限安全、弱网并发 UI | 用固定语料、固定问题、固定预期结果完成一次 3-5 小时可复现验收，检查 UI、接口、Trace、数据库状态和 citation 来源。 | `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md` | 第一层真实链路已 PASS：parser `docpilot-parser-real-chain-20260712212339-021ca3`、grounding `docpilot-conversation-grounding-20260712212500-d26151`、cloud quality `docpilot-cloud-quality-20260712212603-173e7d`。剩余固定语料 T06-T15、重复上传、KB 生命周期、弱网并发和缩放 UI 待执行；发现的问题写入 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。 |
 
 ## 2026-07-12 Frontend UX TODO from Gemini CLI
 

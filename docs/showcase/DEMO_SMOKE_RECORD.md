@@ -4,6 +4,31 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-12 High Intensity Acceptance Layer 1
+
+状态：PASS
+
+Runner:
+
+- Parser：`scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run`
+- Grounding：`scripts/smoke/conversation-grounding-smoke.ps1 -Mode run`
+- Cloud quality：`scripts/smoke/cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -EnableKnowledgeBaseAgentGate`
+
+Marker:
+
+- parser real-chain：`docpilot-parser-real-chain-20260712212339-021ca3`
+- conversation grounding：`docpilot-conversation-grounding-20260712212500-d26151`
+- cloud quality：`docpilot-cloud-quality-20260712212603-173e7d`
+
+已验证：
+
+- PDF / HTML / DOCX 上传解析、chunk 可见、Qdrant 检索、QA citation 均 PASS。
+- unsupported、empty、corrupted 负向文件边界按预期失败并返回脱敏错误码。
+- GroundingPolicy 6 个路由 case PASS。
+- 综合 cloud quality 覆盖上传解析索引、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、no-evidence、Conversation Trace、KnowledgeBase Agent、跨用户权限隔离、前端关键路由和前端交互 gate。
+
+边界：这是高强度验收的第一层真实链路门禁，不是完整 T01-T47 全量通过。固定 6 份业务语料、重复上传、KnowledgeBase 生命周期、长会话摘要、弱网并发、多标签页和浏览器缩放 UI 仍待执行。artifact 位于 ignored 目录，只保留 marker、状态、计数和脱敏 id，不提交 token、密码、raw prompt、answer、evidence context、连接串或云地址。
+
 ## 2026-07-12 Quality Console Memory / RAG Trend View
 
 状态：PASS

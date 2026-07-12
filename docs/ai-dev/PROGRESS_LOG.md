@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-12 高强度验收第一层真实链路执行
+
+- 执行 `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -ReuseRunningServices` PASS，marker `docpilot-parser-real-chain-20260712212339-021ca3`：PDF / HTML / DOCX 上传解析、检索、QA citation 均通过，unsupported / empty / corrupted 负向文件边界 4/4 通过。
+- 执行 `scripts/smoke/conversation-grounding-smoke.ps1 -Mode run` PASS，marker `docpilot-conversation-grounding-20260712212500-d26151`：GroundingPolicy 6 个路由 case 通过。
+- 执行 `scripts/smoke/cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -EnableKnowledgeBaseAgentGate` PASS，marker `docpilot-cloud-quality-20260712212603-173e7d`：上传解析索引、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、no-evidence、Conversation Trace、KnowledgeBase Agent、权限隔离、前端路由和前端交互 gate 均通过。
+- 发现的环境细节：parser runner 在 finally 中调用统一 cleanup，会清理本地 backend / frontend 进程；后续 runner 已改为自行启动受控服务。未发现需要登记到 `REAL_EXPERIENCE_AUDIT_LOG.md` 的 P0 / P1 / P2 问题。该轮仍不是完整 T01-T47，全量固定语料和弱网并发 UI 仍待执行。
+
 ## 2026-07-12 高强度端到端验收测试计划归档
 
 - 新增 `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md`，把用户提供的 3-5 小时高强度验收建议整理为可执行测试计划，包含固定语料、T01-T47 测试矩阵、失败记录模板、严重程度、硬性验收标准和执行顺序。
