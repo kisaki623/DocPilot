@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-12 高强度固定业务语料自动化验收状态（REVIEW）
+
+- 已新增高强度固定业务语料 smoke 入口：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1`，复用 `cloud-quality-smoke.ps1 -EnableFixedBusinessCorpusGate`，覆盖 T02 串行重复上传、6 份固定 Markdown 业务语料、`KB_CORE` / `KB_NOISY` 和 T06-T15 API/RAG 质量矩阵。
+- 已验证脚本入口：wrapper `plan` PASS、delegate `dry-run` PASS、Windows PowerShell `ParseFile` PASS；`HighIntensityFixedCorpusSmokeScriptSafetyTest` + `CloudQualitySmokeScriptSafetyTest` 共 6 tests PASS。`cloud-quality-smoke.ps1` 需要保持 UTF-8 BOM + CRLF，避免 Windows PowerShell 5.1 读取中文 fixture 时 mojibake。
+- 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` 为 `FAILED_CORE_FLOW`：T02 duplicate upload PASS，T06 / T07 / T09 / T10 / T13 / T14 / T15 PASS；T08 返回 `answer_claim_missing`，T11 / T12 返回 `citation_document_coverage` 与 `citation_support_missing`。
+- 已登记 P1 质量问题 `REA-20260712-P1-030`：固定业务语料暴露 KnowledgeBase RAG 在错误前提回答完整性、多文档总结和多跳审批问题上的 citation 支撑不足。当前不能把固定语料 T06-T15 写成通过。
+- 本轮真实 run 的 JSON artifact 只保存 ignored 脱敏摘要，固定 synthetic 源文件上传后从 artifact 目录删除，最新 marker 的 `fixed-business-corpus` 目录为空；run 会在业务库 / 存储中创建临时 smoke 文档作为测试输入，但不提交 token、密码、prompt、answer、evidence context、连接串或云地址。runner cleanup 后确认 3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+
 ## 2026-07-12 高强度验收执行状态（VERIFIED / PARTIAL）
 
 - 高强度验收计划已开始执行，第一层真实链路门禁 PASS：parser real-chain marker `docpilot-parser-real-chain-20260712212339-021ca3`，Conversation grounding marker `docpilot-conversation-grounding-20260712212500-d26151`，综合 cloud quality marker `docpilot-cloud-quality-20260712212603-173e7d`。

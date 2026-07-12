@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-12 高强度固定业务语料自动化验收第一片
+
+- 新增 `high-intensity-fixed-corpus-smoke.ps1` wrapper，并在 `cloud-quality-smoke.ps1` 增加默认关闭的 `-EnableFixedBusinessCorpusGate`：固定 6 份 Markdown 语料、`KB_CORE` / `KB_NOISY`、T02 串行重复上传和 T06-T15 质量矩阵进入可复现 runner。
+- 修复脚本兼容性细节：`cloud-quality-smoke.ps1` 保持 UTF-8 BOM + CRLF，避免 Windows PowerShell 5.1 以本地编码解析中文 fixture；固定语料 JSON artifact shape 白名单禁止 raw question / answer / snippet / quote / prompt / evidence context，临时 synthetic 源文件上传后删除。
+- 验证：wrapper `plan` PASS、delegate `dry-run` PASS、Windows PowerShell `ParseFile` PASS；`mvn "-Dtest=HighIntensityFixedCorpusSmokeScriptSafetyTest,CloudQualitySmokeScriptSafetyTest" test` PASS（6 tests）。
+- 真实 run marker `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` 为 `FAILED_CORE_FLOW`：T02 duplicate upload、T06 / T07 / T09 / T10 / T13 / T14 / T15 PASS；T08 `answer_claim_missing`，T11 / T12 `citation_document_coverage` + `citation_support_missing`。已登记 `REA-20260712-P1-030`，最新 run 的本地 fixed corpus 源文件目录为空；下一片按 P1 修复固定语料 RAG 质量缺口。
+- 清理：runner cleanup PASS，统一 cleanup dry-run 显示无目标进程；3000 / 3001 / 3002 / 3007 / 3100 / 8081 均为 FREE。
+
 ## 2026-07-12 高强度验收第一层真实链路执行
 
 - 执行 `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -ReuseRunningServices` PASS，marker `docpilot-parser-real-chain-20260712212339-021ca3`：PDF / HTML / DOCX 上传解析、检索、QA citation 均通过，unsupported / empty / corrupted 负向文件边界 4/4 通过。

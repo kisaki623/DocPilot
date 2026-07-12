@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-12 高强度固定业务语料自动化验收第一片（REVIEW）
+
+- 新增 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1`，作为用户高强度验收计划的固定业务语料自动化入口；该 wrapper 默认调用 `scripts/smoke/cloud-quality-smoke.ps1 -EnableFixedBusinessCorpusGate`，不复制完整 cloud quality runner。
+- `cloud-quality-smoke.ps1` 新增默认关闭的固定语料 gate：创建 `CONTRACT_ALPHA`、`SLA_BETA`、`API_POLICY`、`INCIDENT_REVIEW`、`DECOY_DRAFT`、`PROMPT_INJECTION` 六份临时 Markdown 文档，构造 `KB_CORE` / `KB_NOISY`，验证 T02 串行重复上传和 T06-T15 问答 / citation / no-evidence / prompt injection 安全矩阵。JSON artifact 只保存 id、document key、状态、计数、布尔值和 failure code，不保存 raw question、answer、snippet、quote、prompt 或 evidence context；本地 fixed corpus 源文件上传后删除，不留在 artifact 目录。
+- 已新增 `HighIntensityFixedCorpusSmokeScriptSafetyTest`，锁定 wrapper plan、delegate gate、artifact 字段白名单和 dry-run contract；同时保留 `CloudQualitySmokeScriptSafetyTest` 回归。验证：`mvn "-Dtest=HighIntensityFixedCorpusSmokeScriptSafetyTest,CloudQualitySmokeScriptSafetyTest" test` PASS（6 tests）。
+- 真实 run：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` 为 `FAILED_CORE_FLOW`。T02 duplicate upload、T06 / T07 / T09 / T10 / T13 / T14 / T15 通过；T08 `answer_claim_missing`，T11 / T12 `citation_document_coverage` + `citation_support_missing`。
+- 已登记 `REA-20260712-P1-030`。当前切片状态为 REVIEW：自动化 runner 和脚本安全测试已完成，但固定语料真实验收暴露 P1 RAG 质量缺口，不能标记为完整 DONE；下一片应按 P1 优先修复 T08 / T11 / T12 后复跑固定语料 smoke。
+- 清理：runner cleanup PASS，`scripts/dev/cleanup-agent-processes.ps1 -DryRun` 确认无目标进程；3000 / 3001 / 3002 / 3007 / 3100 / 8081 均为 FREE。
+
 ## 2026-07-12 高强度验收第一层真实链路执行（VERIFIED / PARTIAL）
 
 - 已执行三组真实链路门禁：`document-parser-real-chain-smoke.ps1 -Mode run` PASS，marker `docpilot-parser-real-chain-20260712212339-021ca3`；`conversation-grounding-smoke.ps1 -Mode run` PASS，marker `docpilot-conversation-grounding-20260712212500-d26151`；`cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -EnableKnowledgeBaseAgentGate` PASS，marker `docpilot-cloud-quality-20260712212603-173e7d`。

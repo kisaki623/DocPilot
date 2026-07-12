@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-12 | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | FAILED_CORE_FLOW（固定业务语料验收发现 P1） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3/artifact.json` | 新增固定业务语料自动化 runner 后执行真实 run：T02 duplicate upload、T06 / T07 / T09 / T10 / T13 / T14 / T15 通过；T08 返回 `answer_claim_missing`，T11 / T12 返回 `citation_document_coverage` 与 `citation_support_missing`，说明 KnowledgeBase RAG 在错误前提回答完整性、多文档总结和多跳审批 citation 支撑上仍有质量缺口。JSON artifact 已脱敏，不保存 raw answer / prompt / evidence context；本地 fixed corpus 源文件上传后删除，最新 run 目录下 fixed corpus 源文件数为 0。 |
 | 2026-07-12 | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | PASS（Conversation grounding 修复真实验证） | `tmp-e2e/conversation-grounding-runtime/cg20260712175003-50312c-artifact.json` | 用户报告未绑定 KnowledgeBase 的普通会话误进 strict no-evidence refusal；已授权执行 `008_add_context_trace_grounding.sql` 并确认 Trace 三列存在。真实 API smoke 覆盖未绑定 KB、误选 STRICT、AUTO_RAG 普通问题、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG evidence citation；Playwright 验证普通回答显示“未使用知识库”且无“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”；后端全量 953 tests、前端 lint/build PASS。 |
 | 2026-07-12 | `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81` | PASS（rerank 代表语料 eval） | `backend/target/rag-quality/rerank-representative-eval/latest-summary.json` | 12-case 代表语料 eval PASS：candidate `rerankApplied=true`、10/10 target coverage、2/2 no-evidence preserved、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`；同轮修复 summary intent 泛词、中文问法 / UTF-8 编码和 redaction false positive。 |
 | 2026-07-12 | `docpilot-rerank-effect-rerank-20260712003244-46b2e3` | PASS / REVIEW（百炼 rerank provider 已生效，uplift 未证明） | `backend/target/rag-quality/rerank-effect/latest-summary.json` | 用户填入百炼 API key 后复验：candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG / no-evidence / security 无回退；hard fixture 未观察到排序 uplift，因此效果提升仍保持 REVIEW。 |
@@ -69,6 +70,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260712-P1-030` | OPEN | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Citation | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足 |
 | `REA-20260712-P1-029` | VERIFIED（已验证） | P1 | 会话路由 bug | Conversation / Grounding Policy / Frontend | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | 未绑定知识库的普通会话误进 strict grounded no-evidence refusal，并显示 0 条来源 |
 | `REA-20260712-P2-026` | VERIFIED（已验证） | P2 | RAG no-evidence 质量问题 | KnowledgeBase RAG Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 裸 `knowledge base` 泛词被当作总结意图，near-threshold 无关问题绕过 support gate |
 | `REA-20260712-P2-027` | VERIFIED（已验证） | P2 | RAG 召回质量问题 | Query Rewrite / Hybrid Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 中文代表问法未稳定映射到英文业务 evidence，target coverage 失败 |
@@ -103,6 +105,52 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-12 Conversation grounding policy 问题闭环
+
+### `REA-20260712-P1-030` 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足
+
+- 状态：OPEN
+- 严重级别：P1
+- 类型：RAG 质量问题
+- 模块：KnowledgeBase RAG QA / Citation
+- 发现 marker：`docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3`
+
+复现步骤：
+
+1. 运行 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend`。
+2. runner 创建 6 份固定 Markdown 业务语料，构造 `KB_CORE` / `KB_NOISY`。
+3. 检查 fixedBusinessCorpus gate 的 T08 / T11 / T12 case result。
+
+实际结果：
+
+- T08 `合同规定违约金是每天 1%，对吗？`：citation 覆盖合同与废弃草案，但 case 返回 `answer_claim_missing`，说明回答没有满足“明确否定 + 当前 0.3% + 最高 8%”的完整断言门禁。
+- T11 `综合合同、安全规范和事故复盘，总结当前系统需要落实的四项风险控制措施。`：回答有 evidence 与 citation，但 citation 文档为 `API_POLICY`、`SLA_BETA`，缺少合同与事故复盘支撑，返回 `citation_document_coverage`、`citation_support_missing`。
+- T12 `哪些场景需要多人审批？分别出现在什么文档中？`：citation 只覆盖 `CONTRACT_ALPHA`，缺少 `API_POLICY` 中管理员权限变更两名审批人的支撑，返回 `citation_document_coverage`、`citation_support_missing`。
+
+预期结果：
+
+- T08 应明确否定 1% 旧草案，并回答当前规则为每日 0.3%、最高 8%。
+- T11 citation 至少覆盖并支撑合同、安全规范和事故复盘三类风险控制证据。
+- T12 citation 至少覆盖合同超过 50 万元审批和管理员权限变更两名审批人两个文档来源。
+
+可能原因：
+
+- KnowledgeBase QA 的引用选择 / 精炼阶段没有把回答中采用的多文档 claim 全部映射回支撑 citation。
+- 多文档总结和多跳问题的 retrieval / rerank / prompt 组合会把相关文档作为 evidence 命中，但最终 citation 只保留了部分文档。
+- 错误前提纠正类问题的回答生成没有稳定输出完整当前规则断言。
+
+建议修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/KnowledgeBaseRagQaServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/KnowledgeBaseRagPromptBuilder.java`
+- `scripts/smoke/cloud-quality-smoke.ps1`
+- 必要时补 `KnowledgeBaseRagQaServiceImplTest` / fixed corpus 相关测试。
+
+修复提交：待补充。
+
+验证记录：
+
+- 当前失败验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend`，marker `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3`，overallStatus `FAILED_CORE_FLOW`。
+- 修复后需复跑同一 runner，要求 T02 + T06-T15 全部 PASS，并回填本条状态。
 
 ### `REA-20260712-P1-029` 未绑定知识库的普通会话误进 strict grounded no-evidence refusal，并显示 0 条来源
 
