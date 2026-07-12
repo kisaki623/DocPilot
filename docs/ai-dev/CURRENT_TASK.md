@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-07-12 Quality Console Memory / RAG 趋势视图（VERIFIED）
+
+- Quality Console 趋势摘要已新增 `domainTrends`：后端按脱敏 artifact 聚合 `memoryQuality` 与 `ragRepresentativeEval` 两个领域趋势，暴露最近状态、平均通过率、安全 metrics / flags、失败 / 复查分桶和迷你 trend points；前端新增“趋势”详情分区与“领域趋势”卡片，分别展示 Memory quality smoke 和 RAG representative eval 的关键指标。
+- `backend/target/rag-quality` 已加入 Quality artifact root；`rerank-representative-eval-smoke.ps1` 现在除 `latest-summary.json` 外，也输出兼容 Quality Console 的 `artifact.json` 摘要。兼容层会把旧 `latest-summary.json` 转成 `ragRepresentativeEval` synthetic gate，并按 marker 去重，避免同一次 rerank representative run 在 runs / trend 中重复计数。
+- API 验证 PASS：临时后端 `18081`（Quality Console enabled，mock AI）调用 `/api/quality/trends?limit=20`，`memoryQuality` 最新状态 `PASS`、runCount `1`；`ragRepresentativeEval` 最新状态 `PASS`、runCount `12`，`caseCount=12`、`upliftCaseCount=10`、`strictImprovementCaseCount=2`、`targetCoverageRegressionCount=0`；`/api/quality/runs?limit=20` 最近 20 条 marker 全唯一。
+- 浏览器验证 PASS：临时 frontend `3007` 打开 `/quality?autoload=1`，点击“趋势”分区后可见“质量趋势 / 领域趋势 / Memory quality smoke / RAG representative eval”；console error 为 `0`，`390px` 移动端横向溢出为 `0px`。
+- 已验证：`mvn "-Dtest=QualityArtifactServiceImplTest,QualityControllerTest,RerankRepresentativeEvalSmokeScriptSafetyTest" test` PASS（27 tests）；`npm run lint` PASS；`npm run build` PASS；真实 API / 浏览器 smoke PASS。临时 18081 后端和 3007 前端已清理，常用端口与 18081 无 LISTEN 残留。
+
 ## 2026-07-12 展示口径收口：Quality Console 已含 Conversation grounding（VERIFIED）
 
 - `docs/showcase/RAG_QUALITY_REPORT.md` 已把 Conversation grounding Quality Console 可见性写入最新证据，并把“继续把 Conversation grounding smoke 聚合进 Quality Console”从下一步改为已完成事实；下一步聚焦 Memory quality 和 RAG representative eval 的趋势视图。

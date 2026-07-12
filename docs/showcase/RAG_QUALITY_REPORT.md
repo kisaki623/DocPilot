@@ -28,6 +28,7 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 - 全量后端基线：`mvn test -DskipITs` PASS（953 tests，0 failures，5 skipped，本轮复验）。
 - Conversation Grounding：`docpilot-conversation-grounding-20260712183609-a15fef` PASS，6/6 case 覆盖未绑定 KB、误选 `STRICT_KB`、`AUTO_RAG` 普通问题、`AUTO_RAG` 无证据 fallback、`STRICT_KB` 无证据拒答和 `AUTO_RAG` evidence citation；`ConversationGroundingSmokeScriptSafetyTest` 3 tests PASS。
 - Quality Console 可见性：`/api/quality/runs` 和 `/quality?autoload=1` 已可见 `docpilot-conversation-grounding-20260712183609-a15fef`；detail 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`，Eval Catalog 6 个 Conversation grounding case 均 linked 到该 marker 且 latest status 为 `PASS`；浏览器 smoke console error 为 `0`，`390px` 移动端无横向溢出。
+- Quality Console 趋势视图：`/api/quality/trends` 已返回 `domainTrends.memoryQuality` 与 `domainTrends.ragRepresentativeEval`；Memory 最新 `PASS`，RAG representative 最新 `PASS`，`caseCount=12`、`upliftCaseCount=10`、`strictImprovementCaseCount=2`、`targetCoverageRegressionCount=0`；浏览器点击“趋势”后可见 `Memory quality smoke` 与 `RAG representative eval` 两张领域卡，console error 为 `0`，`390px` 移动端横向溢出为 `0px`。
 - 真实用户链路：`docpilot-real-user-qa-20260711170544-dff948` PASS。
 - 真实 RAG QA：`docpilot-rag-real-qa-20260711171137-ed38a0` PASS。
 - Parser 真实链路：`docpilot-parser-real-chain-20260712015555-91d1fd` PASS，source locator `3/3`、parser boundary `4/4`。
@@ -54,6 +55,6 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 
 ## 下一步优先级
 
-1. 扩展代表语料质量报告，把 hit、citation、no-evidence、answer faithfulness 和 distractor suppression 形成一页可读趋势摘要。
-2. Conversation grounding smoke 已进入 Quality Console runs、detail 和 Eval Catalog；下一步继续把 Memory quality smoke 与 RAG representative eval 做成更清晰的趋势视图，让“路由可追踪、证据可定位、记忆可治理”更像完整求职作品。
+1. 继续扩展代表语料质量报告，把 hit、citation、no-evidence、answer faithfulness 和 distractor suppression 形成更完整的一页可读摘要；当前趋势视图已经覆盖 Memory quality 与 RAG representative 的关键计数，但还不是大规模 relevance report。
+2. Conversation grounding、Memory quality smoke 与 RAG representative eval 均已进入 Quality Console 可见范围；下一步可增强筛选 / 对比体验，让“路由可追踪、证据可定位、记忆可治理”更适合现场演示。
 3. 后续如继续增强 citation，可评估 PDF 坐标级定位 / 页面截图锚点；当前不把它写成已实现能力。

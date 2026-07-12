@@ -190,6 +190,33 @@ export interface QualityTrendPoint {
   reviewBuckets: string[];
 }
 
+export interface QualityDomainTrendPoint {
+  marker: string;
+  status: string;
+  updatedAt: string;
+  passRate?: number | null;
+  metrics: Record<string, number>;
+  flags: Record<string, boolean>;
+  failureBuckets: string[];
+  reviewBuckets: string[];
+}
+
+export interface QualityDomainTrendSummary {
+  domain: string;
+  label: string;
+  runCount: number;
+  latestMarker: string;
+  latestStatus: string;
+  latestUpdatedAt?: string | null;
+  averagePassRate?: number | null;
+  latestMetrics: Record<string, number>;
+  latestFlags: Record<string, boolean>;
+  averageMetrics: Record<string, number>;
+  failureBucketCounts: Record<string, number>;
+  reviewBucketCounts: Record<string, number>;
+  points: QualityDomainTrendPoint[];
+}
+
 export interface QualityRepeatedCaseSummary {
   caseId: string;
   failedCount: number;
@@ -211,6 +238,7 @@ export interface QualityTrendSummary {
   averageDurationMs?: number | null;
   repeatedCases: QualityRepeatedCaseSummary[];
   points: QualityTrendPoint[];
+  domainTrends: Record<string, QualityDomainTrendSummary>;
 }
 
 export function listQualityRuns(

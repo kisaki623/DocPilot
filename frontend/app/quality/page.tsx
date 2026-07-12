@@ -16,6 +16,7 @@ import {
   type QualityRunSummary,
   type QualityTokenUsageSummary,
   type QualityTraceReference,
+  type QualityDomainTrendSummary,
   type QualityTrendPoint,
   type QualityTrendSummary,
 } from "@/lib/quality-api";
@@ -45,6 +46,7 @@ const DETAIL_SECTIONS = [
   { id: "failures", label: "待处理" },
   { id: "trace", label: "链路" },
   { id: "eval", label: "评测" },
+  { id: "trend", label: "趋势" },
   { id: "rag", label: "RAG" },
   { id: "memory", label: "记忆" },
   { id: "tools", label: "工具调用" },
@@ -2262,6 +2264,7 @@ function TrendPanel({
             <SmallMetric label="平均延迟" value={formatNullableStat(trend.averageLatencyMs)} />
             <SmallMetric label="平均耗时" value={formatNullableStat(trend.averageDurationMs)} />
           </div>
+          <DomainTrendCards trend={trend} />
           <TrendBucketCards
             title="失败类型 TopN"
             emptyText="暂无失败类型。"
@@ -2306,6 +2309,229 @@ function TrendPanel({
       )}
     </div>
   );
+}
+
+function DomainTrendCards({ trend }: { trend: QualityTrendSummary }) {
+  const domainTrends = trend.domainTrends || {};
+  const memoryTrend = domainTrends.memoryQuality || null;
+  const ragTrend = domainTrends.ragRepresentativeEval || null;
+  if (!memoryTrend && !ragTrend) {
+    return null;
+  }
+  return (
+    <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-3">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-blue-700">
+            领域趋势
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            只聚合 Memory quality smoke 与 RAG representative eval 的脱敏指标。
+          </p>
+        </div>
+        <span className="dp-badge dp-badge-info">artifact-only</span>
+      </div>
+      <div className="mt-3 grid gap-3 xl:grid-cols-2">
+        {memoryTrend ? (
+          <DomainTrendCard
+            title="Memory quality smoke"
+            description="观察记忆治理、上下文记忆命中与 RAG evidence 分离。"
+            summary={memoryTrend}
+            metricCards={[
+              {
+                label: "记忆命中",
+                value: formatNullableStat(domainMetric(memoryTrend, "memoryHitCount", "memoryCount")),
+              },
+              {
+                label: "RAG 证据",
+                value: formatNullableStat(domainMetric(memoryTrend, "ragEvidenceCount", "evidenceCount")),
+              },
+              {
+                label: "候选抽取",
+                value: formatNullableStat(domainMetric(memoryTrend, "extractedSuggestionCount")),
+              },
+              {
+                label: "冲突拦截",
+                value: formatQualityBoolean(domainFlag(memoryTrend, "conflictAcceptBlocked")),
+              },
+            ]}
+          />
+        ) : null}
+        {ragTrend ? (
+          <DomainTrendCard
+            title="RAG representative eval"
+            description="观察代表语料 coverage、no-evidence 守卫与 rerank uplift / regression。"
+            summary={ragTrend}
+            metricCards={[
+              {
+                label: "目标覆盖",
+                value: formatMetricPair(
+                  domainMetric(ragTrend, "targetCoveragePassCount"),
+                  domainMetric(ragTrend, "targetCaseCount")
+                ),
+              },
+              {
+                label: "无证据守卫",
+                value: formatMetricPair(
+                  domainMetric(ragTrend, "noEvidenceCorrectCount"),
+                  domainMetric(ragTrend, "noEvidenceCaseCount")
+                ),
+              },
+              {
+                label: "Rerank 应用",
+                value: `${formatQualityBoolean(domainFlag(ragTrend, "rerankApplied"))} / ${formatNullableStat(domainMetric(ragTrend, "targetRerankAppliedCaseCount"))}`,
+              },
+              {
+                label: "提升 / 回归",
+                value: `${formatNullableStat(domainMetric(ragTrend, "upliftCaseCount"))} / ${formatNullableStat(domainRegressionCount(ragTrend))}`,
+              },
+            ]}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function DomainTrendCard({
+  title,
+  description,
+  summary,
+  metricCards,
+}: {
+  title: string;
+  description: string;
+  summary: QualityDomainTrendSummary;
+  metricCards: Array<{ label: string; value: string }>;
+}) {
+  const failureBuckets = topBucketDiagnosticsFromCounts(summary.failureBucketCounts, 3);
+  const reviewBuckets = topBucketDiagnosticsFromCounts(summary.reviewBucketCounts, 3);
+  return (
+    <div className="min-w-0 rounded-xl border border-slate-200 bg-white p-3">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="break-words text-sm font-semibold text-slate-900">{title}</p>
+          <p className="mt-1 text-xs text-slate-500">{description}</p>
+        </div>
+        <span className={statusBadge(summary.latestStatus)}>
+          {formatStatus(summary.latestStatus)}
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        <SmallMetric label="运行次数" value={`${summary.runCount}`} />
+        <SmallMetric label="平均通过率" value={formatRate(summary.averagePassRate ?? null)} />
+        <SmallMetric label="最新 marker" value={summary.latestMarker || "-"} />
+      </div>
+      <DomainTrendSparkline points={summary.points} />
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {metricCards.map((item) => (
+          <SmallMetric key={`${title}-${item.label}`} label={item.label} value={item.value} />
+        ))}
+      </div>
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
+        <DomainTrendBucketSummary
+          title="失败桶"
+          emptyText="暂无失败桶。"
+          items={failureBuckets}
+          tone="danger"
+        />
+        <DomainTrendBucketSummary
+          title="复查桶"
+          emptyText="暂无复查桶。"
+          items={reviewBuckets}
+          tone="warning"
+        />
+      </div>
+    </div>
+  );
+}
+
+function DomainTrendSparkline({
+  points,
+}: {
+  points: QualityDomainTrendSummary["points"];
+}) {
+  const recent = points.slice(0, 12).reverse();
+  if (recent.length === 0) {
+    return <p className="mt-3 dp-meta">暂无历史点。</p>;
+  }
+  return (
+    <div className="mt-3 flex min-w-0 items-center gap-1 overflow-x-auto py-1">
+      <span className="mr-1 shrink-0 text-xs text-slate-500">历史</span>
+      {recent.map((point) => (
+        <span
+          key={`${point.marker}-${point.updatedAt}`}
+          title={`${point.marker} / ${formatStatus(point.status)} / ${formatRate(point.passRate ?? null)}`}
+          className={`h-4 w-2 shrink-0 rounded-sm ${
+            isPassStatus(point.status)
+              ? "bg-emerald-500"
+              : isReviewStatus(point.status)
+                ? "bg-amber-500"
+                : "bg-red-500"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function DomainTrendBucketSummary({
+  title,
+  emptyText,
+  items,
+  tone,
+}: {
+  title: string;
+  emptyText: string;
+  items: BucketDiagnostic[];
+  tone: "warning" | "danger";
+}) {
+  const toneClass = tone === "danger" ? "text-red-700" : "text-amber-700";
+  return (
+    <div className="rounded-lg border border-slate-100 bg-slate-50 p-2">
+      <p className={`text-xs font-semibold uppercase ${toneClass}`}>{title}</p>
+      {items.length === 0 ? (
+        <p className="mt-2 dp-meta">{emptyText}</p>
+      ) : (
+        <div className="mt-2 space-y-1">
+          {items.map((item) => (
+            <p key={`${title}-${item.bucket}`} className="break-words text-xs text-slate-600">
+              {labelBucket(item.bucket)} × {item.count}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function domainMetric(
+  summary: QualityDomainTrendSummary,
+  ...names: string[]
+): number | null {
+  for (const name of names) {
+    const latest = summary.latestMetrics?.[name];
+    if (typeof latest === "number") {
+      return latest;
+    }
+    const average = summary.averageMetrics?.[name];
+    if (typeof average === "number") {
+      return average;
+    }
+  }
+  return null;
+}
+
+function domainFlag(summary: QualityDomainTrendSummary, name: string): boolean | null {
+  const value = summary.latestFlags?.[name];
+  return typeof value === "boolean" ? value : null;
+}
+
+function domainRegressionCount(summary: QualityDomainTrendSummary): number | null {
+  const coverage = domainMetric(summary, "targetCoverageRegressionCount") || 0;
+  const citation = domainMetric(summary, "citationLeakageCount") || 0;
+  const noEvidence = domainMetric(summary, "noEvidenceRegressionCount") || 0;
+  return coverage + citation + noEvidence;
 }
 
 function RepeatedCaseTrendCard({
@@ -2850,6 +3076,10 @@ function RunDetailContent({
         </>
       ) : null}
 
+      {activeSection === "trend" ? (
+        <TrendPanel trend={trend} evalCatalog={evalCatalog} />
+      ) : null}
+
       {activeSection === "rag" ? (
         <DomainSummaryPanel detail={detail} domain="rag" diagnostics={runDiagnostics.rag} />
       ) : null}
@@ -2867,7 +3097,6 @@ function RunDetailContent({
           <ParserArtifactPanel detail={detail} />
           <ArtifactSummaryPanel summary={summary} />
           <EvalCatalogPanel items={evalCatalog} />
-          <TrendPanel trend={trend} evalCatalog={evalCatalog} />
         </>
       ) : null}
     </div>

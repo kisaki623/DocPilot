@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-12 Quality Console 趋势视图状态（VERIFIED）
+
+- Quality Console 已把 Memory quality smoke 与 RAG representative eval 从“散落 artifact / 文档证据”推进为可读趋势视图：`/api/quality/trends` 返回 `domainTrends.memoryQuality` 与 `domainTrends.ragRepresentativeEval`，前端 `/quality` 的“趋势”分区显示两张领域趋势卡。
+- Memory 趋势卡展示候选抽取、记忆命中、RAG evidence 分离、冲突 / 敏感拦截等脱敏指标；RAG representative 趋势卡展示 target coverage、no-evidence guard、rerank applied、strict improvement / uplift / regression 等脱敏指标。
+- `backend/target/rag-quality` 已纳入 Quality artifact root，但只读取 `artifact.json` 与 rerank representative `latest-summary.json` 的安全摘要；服务层按 marker 去重，避免 `latest-summary.json` 与同 marker run 目录 artifact 被重复计入 runs / trend。
+- 验证结果：Quality API smoke 显示 `memoryQuality` 最新 `PASS`、`ragRepresentativeEval` 最新 `PASS`，RAG representative `caseCount=12`、`upliftCaseCount=10`、`strictImprovementCaseCount=2`、`targetCoverageRegressionCount=0`；最近 20 条 run marker 全唯一。浏览器 smoke 打开 `/quality?autoload=1` 并点击“趋势”后可见两张领域卡，console error `0`，`390px` 移动端横向溢出 `0px`。
+- 已验证：后端 Quality 定向 27 tests PASS，前端 lint / build PASS，真实 API / 浏览器 smoke PASS。边界仍是内部质量台和小样本 smoke / eval 趋势，不是线上 SLA、跨机器持久质量仓库或大规模 benchmark。
+
 ## 2026-07-12 展示口径同步状态（VERIFIED）
 
 - `docs/showcase/RAG_QUALITY_REPORT.md` 和 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 已同步：Conversation grounding route smoke 不再只是待聚合项，而是已经进入 Quality Console runs、detail、Eval Catalog 和浏览器可见性证据。

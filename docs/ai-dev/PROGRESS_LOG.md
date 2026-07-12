@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-12 Quality Console Memory / RAG 趋势视图
+
+- 后端 Quality trend 新增 `domainTrends`，聚合 `memoryQuality` 与 `ragRepresentativeEval` 两个领域；`backend/target/rag-quality` 纳入脱敏 artifact root，rerank representative `latest-summary.json` 可转成 synthetic gate，并对同 marker 的 summary / artifact 做去重。
+- 前端 `/quality` 新增“趋势”详情分区和“领域趋势”卡片：Memory 卡展示记忆命中、RAG evidence、候选抽取、冲突拦截；RAG representative 卡展示目标覆盖、无证据守卫、rerank applied 和 uplift / regression。
+- 验证：`mvn "-Dtest=QualityArtifactServiceImplTest,QualityControllerTest,RerankRepresentativeEvalSmokeScriptSafetyTest" test` PASS（27 tests）；`npm run lint` PASS；`npm run build` PASS。真实 API smoke：`memoryQuality` 最新 PASS、`ragRepresentativeEval` 最新 PASS，最近 20 条 run marker 全唯一；浏览器 smoke：`/quality?autoload=1` 点击“趋势”可见两张卡，console error `0`，`390px` 移动端横向溢出 `0px`。
+- 清理：本轮启动的 18081 后端和 3007 前端已通过统一 cleanup 清理，常用端口与 18081 无 LISTEN 残留；输出和文档只记录脱敏计数与 marker，不提交 token、密码、raw artifact、prompt、answer、evidence context、日志原文、连接串或云地址。
+
 ## 2026-07-12 展示口径收口：Quality Console 已含 Conversation grounding
 
 - 更新 `docs/showcase/RAG_QUALITY_REPORT.md` 和 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md`，把 Conversation grounding run / gate / Eval Catalog 已进入 Quality Console 的事实同步到求职展示口径。

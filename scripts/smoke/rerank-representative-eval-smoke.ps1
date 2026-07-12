@@ -188,7 +188,36 @@ function Write-SafeArtifact($summary) {
   $dir = Join-Path $ArtifactRoot "rerank-representative-eval"
   New-Item -ItemType Directory -Force -Path $dir | Out-Null
   $path = Join-Path $dir "latest-summary.json"
+  $consolePath = Join-Path $dir "artifact.json"
   $json = $summary | ConvertTo-Json -Depth 14
+  $consoleArtifact = [PSCustomObject][ordered]@{
+    schemaVersion = 1
+    smokeMarker = $summary.rerankMarker
+    overallStatus = $summary.overallStatus
+    baselineMarker = $summary.baselineMarker
+    rerankMarker = $summary.rerankMarker
+    gates = [ordered]@{
+      ragRepresentativeEval = [ordered]@{
+        status = $summary.overallStatus
+        checks = @([ordered]@{
+            caseCount = [int]$summary.rerank.caseCount
+            targetCaseCount = [int]$summary.comparison.targetCaseCount
+            noEvidenceCaseCount = [int]$summary.comparison.noEvidenceCaseCount
+            targetCoveragePassCount = [int]$summary.rerank.targetCoveragePassCount
+            noEvidenceCorrectCount = [int]$summary.rerank.noEvidenceCorrectCount
+            targetQualityCaseCount = [int]$summary.comparison.targetQualityCaseCount
+            strictImprovementCaseCount = [int]$summary.comparison.strictImprovementCaseCount
+            upliftCaseCount = [int]$summary.comparison.upliftCaseCount
+            targetCoverageRegressionCount = [int]$summary.comparison.targetCoverageRegressionCount
+            citationLeakageCount = [int]$summary.comparison.citationLeakageCount
+            noEvidenceRegressionCount = [int]$summary.comparison.noEvidenceRegressionCount
+            targetRerankAppliedCaseCount = [int]$summary.comparison.targetRerankAppliedCaseCount
+            rerankApplied = [bool]$summary.comparison.rerankApplied
+          })
+      }
+    }
+  }
+  $consoleJson = $consoleArtifact | ConvertTo-Json -Depth 8
   $redactionPatterns = @(
     '(?i)"[^"]*(api[_-]?key|access[_-]?token|refresh[_-]?token|authorization|password|secret)[^"]*"\s*:',
     '(?i)Bearer\s+[A-Za-z0-9._-]+',
@@ -198,11 +227,12 @@ function Write-SafeArtifact($summary) {
     '\b(?!127\.0\.0\.1\b)(?:\d{1,3}\.){3}\d{1,3}\b'
   )
   foreach ($pattern in $redactionPatterns) {
-    if ($json -match $pattern) {
+    if ($json -match $pattern -or $consoleJson -match $pattern) {
       throw "redaction scan failed for rerank representative eval artifact"
     }
   }
   [System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))
+  [System.IO.File]::WriteAllText($consolePath, $consoleJson, [System.Text.UTF8Encoding]::new($false))
   return $path
 }
 

@@ -1,6 +1,8 @@
 package com.docpilot.backend.quality.service.impl;
 
 import com.docpilot.backend.quality.service.QualityArtifactService;
+import com.docpilot.backend.quality.vo.QualityDomainTrendPoint;
+import com.docpilot.backend.quality.vo.QualityDomainTrendSummary;
 import com.docpilot.backend.quality.vo.QualityEvalCaseResultDetail;
 import com.docpilot.backend.quality.vo.QualityGateSummary;
 import com.docpilot.backend.quality.vo.QualityRunDiagnostics;
@@ -42,6 +44,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             "backend/target/audit",
             "backend/target/rag-natural-corpus",
             "backend/target/rag-real-qa",
+            "backend/target/rag-quality",
             "backend/target/smoke/document-parser-real-chain",
             "backend/target/conversation-grounding",
             "backend/target/memory-quality",
@@ -69,6 +72,44 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             "evalCases",
             "cases"
     );
+    private static final String MEMORY_QUALITY_DOMAIN = "memoryQuality";
+    private static final String RAG_REPRESENTATIVE_DOMAIN = "ragRepresentativeEval";
+    private static final List<String> MEMORY_QUALITY_METRICS = List.of(
+            "casePassRate",
+            "extractedSuggestionCount",
+            "memoryCount",
+            "evidenceCount",
+            "memoryTriggerCount",
+            "memoryHitCount",
+            "memoryReviewCount",
+            "ragEvidenceCount"
+    );
+    private static final List<String> MEMORY_QUALITY_FLAGS = List.of(
+            "conflictAcceptBlocked",
+            "conflictWithIdPresent",
+            "sensitiveEditBlocked",
+            "replaceResolvedActive",
+            "mergeResolvedActive"
+    );
+    private static final List<String> RAG_REPRESENTATIVE_METRICS = List.of(
+            "casePassRate",
+            "caseCount",
+            "targetCaseCount",
+            "targetCoveragePassCount",
+            "noEvidenceCaseCount",
+            "noEvidenceCorrectCount",
+            "targetQualityCaseCount",
+            "strictImprovementCaseCount",
+            "upliftCaseCount",
+            "targetCoverageRegressionCount",
+            "citationLeakageCount",
+            "noEvidenceRegressionCount",
+            "targetRerankAppliedCaseCount"
+    );
+    private static final List<String> RAG_REPRESENTATIVE_FLAGS = List.of(
+            "rerankApplied",
+            "multiQueryApplied"
+    );
 
     private final Path repoRoot;
     private final ObjectMapper objectMapper;
@@ -86,10 +127,8 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     @Override
     public List<QualityRunSummary> listRecentRuns(int limit) {
         int resolvedLimit = limit <= 0 ? DEFAULT_LIMIT : limit;
-        return discoverArtifacts().stream()
-                .sorted(Comparator.comparing(QualityArtifactFile::updatedAt).reversed())
-                .limit(resolvedLimit)
-                .map(file -> parseDetail(file).summary())
+        return recentDetails(resolvedLimit).stream()
+                .map(QualityRunDetail::summary)
                 .toList();
     }
 
@@ -99,8 +138,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             return Optional.empty();
         }
         String expected = marker.trim();
-        return discoverArtifacts().stream()
-                .map(this::parseDetail)
+        return recentDetails(Integer.MAX_VALUE).stream()
                 .filter(detail -> expected.equals(detail.summary().marker()))
                 .findFirst();
     }
@@ -108,11 +146,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     @Override
     public QualityTrendSummary getTrendSummary(int limit) {
         int resolvedLimit = limit <= 0 ? DEFAULT_LIMIT : limit;
-        List<QualityRunDetail> details = discoverArtifacts().stream()
-                .sorted(Comparator.comparing(QualityArtifactFile::updatedAt).reversed())
-                .limit(resolvedLimit)
-                .map(this::parseDetail)
-                .toList();
+        List<QualityRunDetail> details = recentDetails(resolvedLimit);
         Map<String, Integer> statusCounts = new LinkedHashMap<>();
         Map<String, Integer> failureBucketCounts = new LinkedHashMap<>();
         Map<String, Integer> reviewBucketCounts = new LinkedHashMap<>();
@@ -191,8 +225,21 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 average(latencySum, latencyCount),
                 average(durationSum, durationCount),
                 caseAccumulator.repeatedCases(),
-                points
+                points,
+                buildDomainTrends(details)
         );
+    }
+
+    private List<QualityRunDetail> recentDetails(int limit) {
+        int resolvedLimit = limit <= 0 ? DEFAULT_LIMIT : limit;
+        Map<String, QualityRunDetail> byMarker = new LinkedHashMap<>();
+        discoverArtifacts().stream()
+                .sorted(Comparator.comparing(QualityArtifactFile::updatedAt).reversed())
+                .map(this::parseDetail)
+                .forEach(detail -> byMarker.putIfAbsent(detail.summary().marker(), detail));
+        return byMarker.values().stream()
+                .limit(resolvedLimit)
+                .toList();
     }
 
     private void increment(Map<String, Integer> counts, String key) {
@@ -246,6 +293,222 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         return count <= 0 ? null : sum / count;
     }
 
+    private Map<String, QualityDomainTrendSummary> buildDomainTrends(List<QualityRunDetail> details) {
+        Map<String, QualityDomainTrendSummary> trends = new LinkedHashMap<>();
+        QualityDomainTrendSummary memoryTrend = buildDomainTrend(
+                MEMORY_QUALITY_DOMAIN,
+                "Memory quality smoke",
+                details.stream().filter(this::isMemoryQualityRun).toList(),
+                MEMORY_QUALITY_METRICS,
+                MEMORY_QUALITY_FLAGS
+        );
+        if (memoryTrend.runCount() > 0) {
+            trends.put(MEMORY_QUALITY_DOMAIN, memoryTrend);
+        }
+        QualityDomainTrendSummary ragRepresentativeTrend = buildDomainTrend(
+                RAG_REPRESENTATIVE_DOMAIN,
+                "RAG representative eval",
+                details.stream().filter(this::isRagRepresentativeRun).toList(),
+                RAG_REPRESENTATIVE_METRICS,
+                RAG_REPRESENTATIVE_FLAGS
+        );
+        if (ragRepresentativeTrend.runCount() > 0) {
+            trends.put(RAG_REPRESENTATIVE_DOMAIN, ragRepresentativeTrend);
+        }
+        return trends;
+    }
+
+    private QualityDomainTrendSummary buildDomainTrend(String domain,
+                                                       String label,
+                                                       List<QualityRunDetail> details,
+                                                       List<String> metricNames,
+                                                       List<String> flagNames) {
+        List<QualityDomainTrendPoint> points = new ArrayList<>();
+        Map<String, Integer> failureBucketCounts = new LinkedHashMap<>();
+        Map<String, Integer> reviewBucketCounts = new LinkedHashMap<>();
+        MetricAverageAccumulator metricAccumulator = new MetricAverageAccumulator();
+        double passRateSum = 0.0;
+        int passRateCount = 0;
+
+        for (QualityRunDetail detail : details) {
+            Map<String, Number> metrics = domainMetrics(detail, metricNames);
+            Map<String, Boolean> flags = domainFlags(detail, flagNames);
+            Double passRate = domainPassRate(detail, metrics);
+            if (passRate != null) {
+                passRateSum += passRate;
+                passRateCount++;
+            }
+            metricAccumulator.accept(metrics);
+            List<String> failureBuckets = domainBuckets(detail, "failure");
+            List<String> reviewBuckets = domainBuckets(detail, "review");
+            failureBuckets.forEach(bucket -> increment(failureBucketCounts, bucket));
+            reviewBuckets.forEach(bucket -> increment(reviewBucketCounts, bucket));
+            QualityRunSummary summary = detail.summary();
+            points.add(new QualityDomainTrendPoint(
+                    summary.marker(),
+                    summary.status(),
+                    summary.updatedAt(),
+                    passRate,
+                    metrics,
+                    flags,
+                    failureBuckets,
+                    reviewBuckets
+            ));
+        }
+
+        QualityDomainTrendPoint latest = points.isEmpty() ? null : points.get(0);
+        return new QualityDomainTrendSummary(
+                domain,
+                label,
+                points.size(),
+                latest == null ? "" : latest.marker(),
+                latest == null ? "REVIEW" : latest.status(),
+                latest == null ? null : latest.updatedAt(),
+                average(passRateSum, passRateCount),
+                latest == null ? Map.of() : latest.metrics(),
+                latest == null ? Map.of() : latest.flags(),
+                metricAccumulator.averageMetrics(),
+                failureBucketCounts,
+                reviewBucketCounts,
+                points
+        );
+    }
+
+    private boolean isMemoryQualityRun(QualityRunDetail detail) {
+        String source = detail.summary().source();
+        String marker = detail.summary().marker();
+        return "backend/target/memory-quality".equals(source)
+                || normalizeFieldName(marker).contains("memoryquality");
+    }
+
+    private boolean isRagRepresentativeRun(QualityRunDetail detail) {
+        String source = detail.summary().source();
+        String marker = normalizeFieldName(detail.summary().marker());
+        return "backend/target/rag-quality".equals(source)
+                && (marker.contains("rerankrepresentative")
+                || hasGate(detail, "rerankRepresentativeEval")
+                || hasGate(detail, RAG_REPRESENTATIVE_DOMAIN));
+    }
+
+    private boolean hasGate(QualityRunDetail detail, String gateName) {
+        String expected = normalizeFieldName(gateName);
+        return detail.gates().stream()
+                .anyMatch(gate -> expected.equals(normalizeFieldName(gate.name())));
+    }
+
+    private Map<String, Number> domainMetrics(QualityRunDetail detail, List<String> metricNames) {
+        LinkedHashMap<String, Number> metrics = new LinkedHashMap<>();
+        for (String metricName : metricNames) {
+            Double value = findMetric(detail, metricName);
+            if (value != null) {
+                metrics.put(metricName, value);
+            }
+        }
+        if (isMemoryQualityRun(detail)) {
+            QualityRunDiagnostics.MemoryQualitySummary memory = detail.diagnostics().memoryQuality();
+            putIfPresent(metrics, "memoryTriggerCount", memory.memoryTriggerCount());
+            putIfPresent(metrics, "memoryHitCount", memory.memoryHitCount());
+            putIfPresent(metrics, "memoryReviewCount", memory.memoryReviewCount());
+            putIfPresent(metrics, "ragEvidenceCount", memory.ragEvidenceCount());
+        }
+        return metrics;
+    }
+
+    private void putIfPresent(Map<String, Number> metrics, String name, Number value) {
+        if (value != null) {
+            metrics.putIfAbsent(name, value);
+        }
+    }
+
+    private Map<String, Boolean> domainFlags(QualityRunDetail detail, List<String> flagNames) {
+        LinkedHashMap<String, Boolean> flags = new LinkedHashMap<>();
+        for (String flagName : flagNames) {
+            Boolean value = findFlag(detail, flagName);
+            if (value != null) {
+                flags.put(flagName, value);
+            }
+        }
+        return flags;
+    }
+
+    private Boolean findFlag(QualityRunDetail detail, String name) {
+        String expected = normalizeFieldName(name);
+        Boolean found = null;
+        for (QualityGateSummary gate : detail.gates()) {
+            for (Map.Entry<String, Boolean> entry : gate.flags().entrySet()) {
+                if (expected.equals(normalizeFieldName(entry.getKey()))) {
+                    found = Boolean.TRUE.equals(found) || Boolean.TRUE.equals(entry.getValue());
+                }
+            }
+        }
+        for (QualityEvalCaseResultDetail item : detail.evalCases()) {
+            for (Map.Entry<String, Boolean> entry : item.flags().entrySet()) {
+                if (expected.equals(normalizeFieldName(entry.getKey()))) {
+                    found = Boolean.TRUE.equals(found) || Boolean.TRUE.equals(entry.getValue());
+                }
+            }
+        }
+        return found;
+    }
+
+    private Double domainPassRate(QualityRunDetail detail, Map<String, Number> metrics) {
+        Number explicit = metrics.get("casePassRate");
+        if (explicit != null) {
+            return explicit.doubleValue();
+        }
+        Number caseCount = metrics.get("caseCount");
+        Number targetCoverage = metrics.get("targetCoveragePassCount");
+        Number noEvidenceCorrect = metrics.get("noEvidenceCorrectCount");
+        if (caseCount != null && caseCount.doubleValue() > 0
+                && (targetCoverage != null || noEvidenceCorrect != null)) {
+            double numerator = (targetCoverage == null ? 0.0 : targetCoverage.doubleValue())
+                    + (noEvidenceCorrect == null ? 0.0 : noEvidenceCorrect.doubleValue());
+            return numerator / caseCount.doubleValue();
+        }
+        String status = detail.summary().status();
+        if (isPassStatus(status)) {
+            return 1.0;
+        }
+        if (isFailedStatus(status)) {
+            return 0.0;
+        }
+        return null;
+    }
+
+    private List<String> domainBuckets(QualityRunDetail detail, String type) {
+        LinkedHashSet<String> buckets = new LinkedHashSet<>();
+        if ("failure".equals(type)) {
+            buckets.addAll(detail.summary().failureBuckets());
+        } else {
+            buckets.addAll(detail.summary().reviewBuckets());
+        }
+        for (QualityGateSummary gate : detail.gates()) {
+            if (isDomainGate(detail, gate)) {
+                buckets.addAll("failure".equals(type) ? gate.failureBuckets() : gate.reviewBuckets());
+            }
+        }
+        for (QualityEvalCaseResultDetail item : detail.evalCases()) {
+            if ("failure".equals(type)) {
+                buckets.addAll(item.failureBuckets());
+            } else {
+                buckets.addAll(item.reviewBuckets());
+            }
+        }
+        return List.copyOf(buckets);
+    }
+
+    private boolean isDomainGate(QualityRunDetail detail, QualityGateSummary gate) {
+        String normalized = normalizeFieldName(gate.name());
+        if (isMemoryQualityRun(detail)) {
+            return normalized.contains("memoryquality");
+        }
+        if (isRagRepresentativeRun(detail)) {
+            return normalized.contains("rerankrepresentativeeval")
+                    || normalized.contains(normalizeFieldName(RAG_REPRESENTATIVE_DOMAIN));
+        }
+        return false;
+    }
+
     private List<QualityArtifactFile> discoverArtifacts() {
         List<QualityArtifactFile> files = new ArrayList<>();
         for (String root : ARTIFACT_ROOTS) {
@@ -255,7 +518,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             }
             try (Stream<Path> stream = Files.walk(rootPath, 4)) {
                 stream.filter(Files::isRegularFile)
-                        .filter(path -> ARTIFACT_FILE_NAMES.contains(path.getFileName().toString()))
+                        .filter(path -> isQualityArtifactFile(root, rootPath, path))
                         .forEach(path -> files.add(new QualityArtifactFile(
                                 root,
                                 rootPath.relativize(path).toString().replace('\\', '/'),
@@ -267,6 +530,18 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             }
         }
         return files;
+    }
+
+    private boolean isQualityArtifactFile(String root, Path rootPath, Path path) {
+        String fileName = path.getFileName().toString();
+        if (ARTIFACT_FILE_NAMES.contains(fileName)) {
+            return true;
+        }
+        if ("backend/target/rag-quality".equals(root) && "latest-summary.json".equals(fileName)) {
+            String relativePath = rootPath.relativize(path).toString().replace('\\', '/');
+            return "rerank-representative-eval/latest-summary.json".equals(relativePath);
+        }
+        return false;
     }
 
     private QualityRunDetail parseDetail(QualityArtifactFile file) {
@@ -282,14 +557,21 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     }
 
     private QualityRunDetail safeDetail(QualityArtifactFile file, JsonNode root) {
-        List<QualityGateSummary> extractedGates = extractGates(root);
+        List<QualityGateSummary> extractedGates = new ArrayList<>(extractGates(root));
+        syntheticRagRepresentativeGate(root).ifPresent(gate -> {
+            boolean exists = extractedGates.stream()
+                    .anyMatch(item -> normalizeFieldName(item.name()).equals(normalizeFieldName(gate.name())));
+            if (!exists) {
+                extractedGates.add(gate);
+            }
+        });
         List<QualityGateSummary> gates = extractedGates.isEmpty() && root.path("cases").isArray()
                 ? List.of(toGateSummary(rootGateName(root), root))
                 : extractedGates;
         List<String> failureBuckets = mergeBuckets(root, gates, "failureBuckets");
         List<String> reviewBuckets = mergeBuckets(root, gates, "reviewBuckets");
         QualityTokenUsageSummary tokenUsage = extractTokenUsage(root);
-        String marker = firstText(root, "smokeMarker", "marker", "runMarker")
+        String marker = firstText(root, "smokeMarker", "marker", "runMarker", "rerankMarker", "baselineMarker")
                 .orElseGet(() -> markerFromPath(file));
         String status = firstText(root, "status", "overallStatus", "result")
                 .orElseGet(() -> inferStatus(gates, failureBuckets, reviewBuckets));
@@ -399,6 +681,81 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 gateFailureBuckets(node),
                 stringList(node.path("reviewBuckets"))
         );
+    }
+
+    private Optional<QualityGateSummary> syntheticRagRepresentativeGate(JsonNode root) {
+        JsonNode comparison = root.path("comparison");
+        JsonNode rerank = root.path("rerank");
+        if (!comparison.isObject() || !rerank.isObject() || !root.has("rerankMarker")) {
+            return Optional.empty();
+        }
+        LinkedHashMap<String, Number> metrics = new LinkedHashMap<>();
+        copyNumber(metrics, rerank, "caseCount");
+        copyNumber(metrics, rerank, "targetCoveragePassCount");
+        copyNumber(metrics, rerank, "noEvidenceCorrectCount");
+        copyNumber(metrics, comparison, "targetCaseCount");
+        copyNumber(metrics, comparison, "noEvidenceCaseCount");
+        copyNumber(metrics, comparison, "targetQualityCaseCount");
+        copyNumber(metrics, comparison, "strictImprovementCaseCount");
+        copyNumber(metrics, comparison, "upliftCaseCount");
+        copyNumber(metrics, comparison, "targetCoverageRegressionCount");
+        copyNumber(metrics, comparison, "citationLeakageCount");
+        copyNumber(metrics, comparison, "noEvidenceRegressionCount");
+        copyNumber(metrics, comparison, "targetRerankAppliedCaseCount");
+        Number caseCount = metrics.get("caseCount");
+        Number targetCoveragePassCount = metrics.get("targetCoveragePassCount");
+        Number noEvidenceCorrectCount = metrics.get("noEvidenceCorrectCount");
+        if (caseCount != null && caseCount.doubleValue() > 0) {
+            double passCount = (targetCoveragePassCount == null ? 0.0 : targetCoveragePassCount.doubleValue())
+                    + (noEvidenceCorrectCount == null ? 0.0 : noEvidenceCorrectCount.doubleValue());
+            metrics.put("casePassRate", passCount / caseCount.doubleValue());
+        }
+
+        LinkedHashMap<String, Boolean> flags = new LinkedHashMap<>();
+        optionalBoolean(comparison, "rerankApplied")
+                .ifPresent(value -> flags.put("rerankApplied", value));
+
+        LinkedHashSet<String> failureBuckets = new LinkedHashSet<>();
+        addRegressionBucket(failureBuckets, metrics, "targetCoverageRegressionCount", "targetCoverageRegression");
+        addRegressionBucket(failureBuckets, metrics, "citationLeakageCount", "citationLeakage");
+        addRegressionBucket(failureBuckets, metrics, "noEvidenceRegressionCount", "noEvidenceRegression");
+        if (Boolean.FALSE.equals(flags.get("rerankApplied"))) {
+            failureBuckets.add("rerankNotApplied");
+        }
+        LinkedHashSet<String> reviewBuckets = new LinkedHashSet<>();
+        String status = firstText(root, "overallStatus", "status")
+                .map(this::normalizeStatus)
+                .orElse("REVIEW");
+        if ("REVIEW".equals(status) && failureBuckets.isEmpty()) {
+            reviewBuckets.add("rerankRepresentativeReview");
+        }
+
+        return Optional.of(new QualityGateSummary(
+                RAG_REPRESENTATIVE_DOMAIN,
+                status,
+                isPassStatus(status) ? Boolean.TRUE : (isFailedStatus(status) ? Boolean.FALSE : null),
+                metrics,
+                flags,
+                List.copyOf(failureBuckets),
+                List.copyOf(reviewBuckets)
+        ));
+    }
+
+    private void copyNumber(Map<String, Number> metrics, JsonNode node, String fieldName) {
+        JsonNode value = node.path(fieldName);
+        if (value.isNumber() && isSafeMetricName(fieldName)) {
+            metrics.put(fieldName, value.numberValue());
+        }
+    }
+
+    private void addRegressionBucket(Set<String> buckets,
+                                     Map<String, Number> metrics,
+                                     String metricName,
+                                     String bucketName) {
+        Number value = metrics.get(metricName);
+        if (value != null && value.doubleValue() > 0) {
+            buckets.add(bucketName);
+        }
     }
 
     private List<ExtractedEvalCase> extractEvalCaseNodes(JsonNode root) {
@@ -1470,6 +1827,9 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 || normalized.endsWith("visible")
                 || normalized.endsWith("stored")
                 || normalized.endsWith("present")
+                || normalized.endsWith("blocked")
+                || normalized.endsWith("updated")
+                || normalized.endsWith("active")
                 || normalized.endsWith("covered")
                 || normalized.endsWith("correct")
                 || normalized.endsWith("supported")
@@ -1639,6 +1999,35 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             if (normalized.contains("rag") || normalized.contains("evidence")) {
                 ragEvidenceCount += count;
             }
+        }
+    }
+
+    private static final class MetricAverageAccumulator {
+        private final Map<String, Double> sums = new LinkedHashMap<>();
+        private final Map<String, Integer> counts = new LinkedHashMap<>();
+
+        private void accept(Map<String, Number> metrics) {
+            if (metrics == null) {
+                return;
+            }
+            metrics.forEach((name, value) -> {
+                if (value == null) {
+                    return;
+                }
+                sums.merge(name, value.doubleValue(), Double::sum);
+                counts.merge(name, 1, Integer::sum);
+            });
+        }
+
+        private Map<String, Number> averageMetrics() {
+            LinkedHashMap<String, Number> averages = new LinkedHashMap<>();
+            sums.forEach((name, sum) -> {
+                Integer count = counts.get(name);
+                if (count != null && count > 0) {
+                    averages.put(name, sum / count);
+                }
+            });
+            return averages;
         }
     }
 

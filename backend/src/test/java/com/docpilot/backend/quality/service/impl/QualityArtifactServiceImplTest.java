@@ -525,11 +525,207 @@ class QualityArtifactServiceImplTest {
                 .containsExactly("docpilot-trend-new", "docpilot-trend-mid", "docpilot-trend-old");
         assertThat(trend.repeatedCases()).hasSize(1);
         assertThat(trend.repeatedCases().get(0).caseId()).isEqualTo("case-repeat");
+        assertThat(trend.domainTrends()).isEmpty();
 
         String serialized = objectMapper.writeValueAsString(trend);
         assertThat(serialized)
                 .doesNotContain("RAW_ANSWER_SHOULD_NOT_LEAK")
                 .doesNotContain("QUESTION_SHOULD_NOT_LEAK");
+    }
+
+    @Test
+    void shouldBuildMemoryQualityDomainTrendFromSafeArtifactSummary() throws Exception {
+        Path artifact = artifactPath("backend/target/memory-quality",
+                "docpilot-memory-quality-test", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "smokeMarker": "docpilot-memory-quality-test",
+                  "overallStatus": "PASS",
+                  "gates": {
+                    "memoryQuality": {
+                      "status": "PASS",
+                      "checks": [
+                        {
+                          "extractedSuggestionCount": 2,
+                          "memoryCount": 1,
+                          "evidenceCount": 6,
+                          "conflictAcceptBlocked": true,
+                          "sensitiveEditBlocked": true,
+                          "contextSourceCounts": {
+                            "userMemory": 1,
+                            "ragEvidence": 6
+                          },
+                          "prompt": "PROMPT_SHOULD_NOT_LEAK",
+                          "answerText": "ANSWER_SHOULD_NOT_LEAK"
+                        }
+                      ]
+                    }
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        var trend = service.getTrendSummary(20);
+        var memoryTrend = trend.domainTrends().get("memoryQuality");
+
+        assertThat(memoryTrend).isNotNull();
+        assertThat(memoryTrend.runCount()).isEqualTo(1);
+        assertThat(memoryTrend.latestMarker()).isEqualTo("docpilot-memory-quality-test");
+        assertThat(memoryTrend.averagePassRate()).isEqualTo(1.0);
+        assertThat(memoryTrend.latestMetrics())
+                .containsEntry("extractedSuggestionCount", 2.0)
+                .containsEntry("memoryHitCount", 1)
+                .containsEntry("ragEvidenceCount", 6);
+        assertThat(memoryTrend.latestFlags())
+                .containsEntry("conflictAcceptBlocked", true)
+                .containsEntry("sensitiveEditBlocked", true);
+
+        String serialized = objectMapper.writeValueAsString(trend);
+        assertThat(serialized)
+                .doesNotContain("PROMPT_SHOULD_NOT_LEAK")
+                .doesNotContain("ANSWER_SHOULD_NOT_LEAK");
+    }
+
+    @Test
+    void shouldBuildRagRepresentativeDomainTrendFromLatestSummary() throws Exception {
+        Path dir = repoRoot.resolve("backend/target/rag-quality/rerank-representative-eval");
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("latest-summary.json"), """
+                {
+                  "overallStatus": "PASS",
+                  "baselineMarker": "docpilot-rerank-representative-hybrid-test",
+                  "rerankMarker": "docpilot-rerank-representative-rerank-test",
+                  "baseline": {
+                    "overallStatus": "PASS",
+                    "representativeEvalStatus": "PASS",
+                    "caseCount": 12,
+                    "targetCoveragePassCount": 10,
+                    "noEvidenceCorrectCount": 2
+                  },
+                  "rerank": {
+                    "overallStatus": "PASS",
+                    "representativeEvalStatus": "PASS",
+                    "caseCount": 12,
+                    "targetCoveragePassCount": 10,
+                    "noEvidenceCorrectCount": 2,
+                    "targetRerankAppliedCaseCount": 10,
+                    "rerankApplied": true
+                  },
+                  "comparison": {
+                    "targetCaseCount": 10,
+                    "noEvidenceCaseCount": 2,
+                    "targetQualityCaseCount": 10,
+                    "strictImprovementCaseCount": 2,
+                    "upliftCaseCount": 10,
+                    "targetCoverageRegressionCount": 0,
+                    "citationLeakageCount": 0,
+                    "noEvidenceRegressionCount": 0,
+                    "targetRerankAppliedCaseCount": 10,
+                    "rerankApplied": true
+                  },
+                  "prompt": "PROMPT_SHOULD_NOT_LEAK",
+                  "documentText": "DOCUMENT_TEXT_SHOULD_NOT_LEAK"
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-rerank-representative-rerank-test").orElseThrow();
+        var trend = service.getTrendSummary(20);
+        var ragTrend = trend.domainTrends().get("ragRepresentativeEval");
+
+        assertThat(detail.summary().source()).isEqualTo("backend/target/rag-quality");
+        assertThat(detail.summary().artifactName()).isEqualTo("rerank-representative-eval/latest-summary.json");
+        assertThat(detail.gates()).extracting(gate -> gate.name()).contains("ragRepresentativeEval");
+        assertThat(ragTrend).isNotNull();
+        assertThat(ragTrend.runCount()).isEqualTo(1);
+        assertThat(ragTrend.latestMetrics())
+                .containsEntry("targetCoveragePassCount", 10.0)
+                .containsEntry("noEvidenceCorrectCount", 2.0)
+                .containsEntry("strictImprovementCaseCount", 2.0)
+                .containsEntry("upliftCaseCount", 10.0)
+                .containsEntry("targetCoverageRegressionCount", 0.0)
+                .containsEntry("citationLeakageCount", 0.0)
+                .containsEntry("noEvidenceRegressionCount", 0.0);
+        assertThat(ragTrend.latestFlags()).containsEntry("rerankApplied", true);
+        assertThat(ragTrend.averagePassRate()).isEqualTo(1.0);
+
+        String serialized = objectMapper.writeValueAsString(trend);
+        assertThat(serialized)
+                .doesNotContain("PROMPT_SHOULD_NOT_LEAK")
+                .doesNotContain("DOCUMENT_TEXT_SHOULD_NOT_LEAK");
+    }
+
+    @Test
+    void shouldDeduplicateLatestRagRepresentativeSummaryAndRunArtifactByMarker() throws Exception {
+        Instant base = Instant.parse("2026-07-12T10:00:00Z");
+        String marker = "docpilot-rerank-representative-rerank-dedup";
+        Path runArtifact = artifactPath("backend/target/rag-quality", marker, "artifact.json");
+        Files.writeString(runArtifact, """
+                {
+                  "smokeMarker": "docpilot-rerank-representative-rerank-dedup",
+                  "overallStatus": "PASS",
+                  "gates": {
+                    "ragRepresentativeEval": {
+                      "status": "PASS",
+                      "checks": [
+                        {
+                          "caseCount": 12,
+                          "targetCoveragePassCount": 9,
+                          "noEvidenceCorrectCount": 2
+                        }
+                      ]
+                    }
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(runArtifact, FileTime.from(base));
+
+        Path latestDir = repoRoot.resolve("backend/target/rag-quality/rerank-representative-eval");
+        Files.createDirectories(latestDir);
+        Path latestSummary = latestDir.resolve("latest-summary.json");
+        Files.writeString(latestSummary, """
+                {
+                  "overallStatus": "PASS",
+                  "baselineMarker": "docpilot-rerank-representative-hybrid-dedup",
+                  "rerankMarker": "docpilot-rerank-representative-rerank-dedup",
+                  "rerank": {
+                    "overallStatus": "PASS",
+                    "representativeEvalStatus": "PASS",
+                    "caseCount": 12,
+                    "targetCoveragePassCount": 10,
+                    "noEvidenceCorrectCount": 2,
+                    "targetRerankAppliedCaseCount": 10,
+                    "rerankApplied": true
+                  },
+                  "comparison": {
+                    "targetCaseCount": 10,
+                    "noEvidenceCaseCount": 2,
+                    "strictImprovementCaseCount": 2,
+                    "upliftCaseCount": 10,
+                    "targetCoverageRegressionCount": 0,
+                    "rerankApplied": true
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+        Files.setLastModifiedTime(latestSummary, FileTime.from(base.plusSeconds(60)));
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        List<QualityRunSummary> runs = service.listRecentRuns(20);
+        var trend = service.getTrendSummary(20);
+        QualityRunDetail detail = service.getRunDetail(marker).orElseThrow();
+
+        assertThat(runs).hasSize(1);
+        assertThat(runs).extracting(QualityRunSummary::marker).containsExactly(marker);
+        assertThat(runs.get(0).artifactName()).isEqualTo("rerank-representative-eval/latest-summary.json");
+        assertThat(detail.summary().artifactName()).isEqualTo("rerank-representative-eval/latest-summary.json");
+        assertThat(trend.runCount()).isEqualTo(1);
+        assertThat(trend.domainTrends().get("ragRepresentativeEval").runCount()).isEqualTo(1);
+        assertThat(trend.domainTrends().get("ragRepresentativeEval").latestMetrics())
+                .containsEntry("targetCoveragePassCount", 10.0)
+                .containsEntry("upliftCaseCount", 10.0);
     }
 
     @Test

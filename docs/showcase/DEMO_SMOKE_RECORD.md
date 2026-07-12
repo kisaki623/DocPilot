@@ -4,6 +4,32 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-12 Quality Console Memory / RAG Trend View
+
+状态：PASS
+
+Runner:
+
+- 后端：`mvn "-Dtest=QualityArtifactServiceImplTest,QualityControllerTest,RerankRepresentativeEvalSmokeScriptSafetyTest" test`
+- 前端：`npm run lint`、`npm run build`
+- API：临时本地后端 `SERVER_PORT=18081`、`APP_QUALITY_CONSOLE_ENABLED=true`、`AI_MODE=mock`，调用 `/api/quality/trends?limit=20` 与 `/api/quality/runs?limit=20`
+- 浏览器：临时 frontend `3007`，Playwright 打开 `/quality?autoload=1` 并点击“趋势”
+
+Marker:
+
+- memory quality：`docpilot-memory-quality-20260712155609-7ba60d`
+- rerank representative candidate：`docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81`
+
+已验证：
+
+- `/api/quality/trends` 返回 `domainTrends.memoryQuality` 与 `domainTrends.ragRepresentativeEval`。
+- Memory 趋势最新状态 `PASS`，runCount `1`。
+- RAG representative 趋势最新状态 `PASS`，runCount `12`，`caseCount=12`、`upliftCaseCount=10`、`strictImprovementCaseCount=2`、`targetCoverageRegressionCount=0`。
+- `/api/quality/runs?limit=20` 最近 20 条 marker 全唯一，避免 `latest-summary.json` 与 run artifact 同 marker 重复计数。
+- 页面可见“质量趋势 / 领域趋势 / Memory quality smoke / RAG representative eval”；console error 为 `0`，`390px` 移动端横向溢出为 `0px`。
+
+边界：这是内部 Quality Console 趋势展示和小样本 smoke / eval 证据，不是线上 SLA、跨机器质量仓库或大规模 benchmark。输出只保留 marker、状态和计数摘要，不提交 token、注册密码、raw artifact、prompt、answer、evidence context、日志原文、连接串或云地址。临时 18081 后端和 3007 前端已清理，无端口残留。
+
 ## 2026-07-12 Quality Console Conversation Grounding API Visibility
 
 状态：PASS

@@ -15,7 +15,8 @@ public record QualityTrendSummary(
         Double averageLatencyMs,
         Double averageDurationMs,
         List<QualityRepeatedCaseSummary> repeatedCases,
-        List<QualityTrendPoint> points
+        List<QualityTrendPoint> points,
+        Map<String, QualityDomainTrendSummary> domainTrends
 ) {
 
     public QualityTrendSummary {
@@ -24,5 +25,25 @@ public record QualityTrendSummary(
         reviewBucketCounts = reviewBucketCounts == null ? Map.of() : Map.copyOf(reviewBucketCounts);
         repeatedCases = repeatedCases == null ? List.of() : List.copyOf(repeatedCases);
         points = points == null ? List.of() : List.copyOf(points);
+        domainTrends = domainTrends == null ? Map.of() : Map.copyOf(domainTrends);
+    }
+
+    public QualityTrendSummary(
+            int limit,
+            int runCount,
+            Map<String, Integer> statusCounts,
+            Map<String, Integer> failureBucketCounts,
+            Map<String, Integer> reviewBucketCounts,
+            Double averageCasePassRate,
+            Integer totalTokens,
+            Double estimatedCost,
+            Double averageLatencyMs,
+            Double averageDurationMs,
+            List<QualityRepeatedCaseSummary> repeatedCases,
+            List<QualityTrendPoint> points
+    ) {
+        this(limit, runCount, statusCounts, failureBucketCounts, reviewBucketCounts,
+                averageCasePassRate, totalTokens, estimatedCost, averageLatencyMs, averageDurationMs,
+                repeatedCases, points, Map.of());
     }
 }

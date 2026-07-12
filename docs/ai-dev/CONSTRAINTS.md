@@ -42,7 +42,7 @@
 
 1. Agent Quality Console 是内部质量控制台，不是面向普通用户的业务功能，也不是独立可商用观测平台。第一版页面信息架构为 `Overview`、`Trace`、`Eval`、`Failures`，P0 先做 `Overview + Run Detail`，仅保留 Trace / Eval 扩展入口。
 2. `/quality` 和 `/api/quality/**` 必须按内部页面 / API 处理。若当前没有完整 admin 角色，P0 先用开发环境开关或 admin token 控制访问；普通用户页面不展示 Trace / Eval 详情。
-3. Artifact 聚合只能读取 ignored 的脱敏结果摘要，默认 root 为 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/smoke/document-parser-real-chain`、`backend/target/conversation-grounding`、`backend/target/memory-quality`、`backend/target/memory-provider`、`backend/target/agent-quality-eval`、`backend/target/agent-search-route`、`backend/target/agent-kb-search-route` 和 `tmp-e2e/docpilot-cloud-quality-smoke`。前端不能直接读取 artifact 原文。
+3. Artifact 聚合只能读取 ignored 的脱敏结果摘要，默认 root 为 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/rag-quality`、`backend/target/smoke/document-parser-real-chain`、`backend/target/conversation-grounding`、`backend/target/memory-quality`、`backend/target/memory-provider`、`backend/target/agent-quality-eval`、`backend/target/agent-search-route`、`backend/target/agent-kb-search-route` 和 `tmp-e2e/docpilot-cloud-quality-smoke`。前端不能直接读取 artifact 原文。
 4. 所有 artifact parser、service DTO 和 API response 必须使用字段白名单。禁止返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 只允许返回 `prompt_tokens`、`completion_tokens`、`total_tokens`、`estimated_cost` 等数值统计。
 5. Artifact 文件不存在时降级为空列表或 `artifactMissing=true`；JSON 解析失败时降级为 `artifactParseFailed=true` / `REVIEW`，不能让控制台整体崩溃。
 6. 如发现泄露风险，优先关闭对应 artifact root、隐藏 detail 字段或只返回 summary；确认脱敏规则和回归测试补齐前，不继续扩大展示范围。
