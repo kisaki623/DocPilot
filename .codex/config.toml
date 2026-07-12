@@ -1,7 +1,7 @@
 # DocPilot 默认主线程：
 # 负责日常开发、任务协调、整合子 Agent 结果
-model = "gpt-5.6-terra"
-model_reasoning_effort = "high"
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 
 [agents]
 # 同时最多打开几个 Agent 线程

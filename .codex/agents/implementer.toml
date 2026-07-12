@@ -5,8 +5,8 @@ description = """
 当方案已经明确，需要进行跨文件编码、测试、调试和文档同步时使用。
 """
 
-model = "gpt-5.6-terra"
-model_reasoning_effort = "high"
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """
