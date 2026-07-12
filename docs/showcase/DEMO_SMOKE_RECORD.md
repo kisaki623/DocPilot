@@ -12,6 +12,7 @@ Runner:
 
 - 临时本地后端 `SERVER_PORT=18081`、`APP_QUALITY_CONSOLE_ENABLED=true`、`AI_MODE=mock`
 - API：`/api/quality/runs`、`/api/quality/runs/{marker}`、`/api/quality/eval-cases`
+- 浏览器：临时 frontend `3007`，Playwright 打开 `/quality?autoload=1`
 
 Marker:
 
@@ -22,8 +23,9 @@ Marker:
 - Quality runs 可见该 marker，source 为 `backend/target/conversation-grounding`。
 - Run detail 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`。
 - Eval Catalog 中 6 个 Conversation grounding case 均关联该 marker，latest status 为 `PASS`。
+- 页面可见 marker、source root 和 Artifact 分区 6 个 catalog case；console error 为 `0`，`390px` 移动端无横向溢出。
 
-边界：本次只验证 Quality API 读取 ignored artifact 和 catalog 关联；不上传文档、不调用 provider、不启动前端、不证明浏览器视觉回归。输出只保留 marker、状态和计数摘要，不提交 token、注册密码、raw artifact、prompt、answer、evidence context、日志原文、连接串或云地址。临时 18081 后端已清理，无端口残留。
+边界：本次只验证 Quality API / 页面读取 ignored artifact 和 catalog 关联；不上传文档、不调用 provider，不证明完整浏览器 E2E。输出只保留 marker、状态和计数摘要，不提交 token、注册密码、raw artifact、prompt、answer、evidence context、日志原文、连接串或云地址。临时 18081 后端和 3007 前端已清理，无端口残留。
 
 ## 2026-07-12 Conversation Grounding Route Smoke
 

@@ -4,7 +4,8 @@
 
 - 启动临时后端 `18081`（Quality Console enabled，mock AI）并复用本地 tunnel，注册临时 smoke 用户后验证 Quality API；不上传文档、不启动前端、不调用 provider。
 - API smoke PASS：runs 可见 `docpilot-conversation-grounding-20260712183609-a15fef`；detail 中 `conversationGrounding` gate 的 `caseCount=6`、`evalCaseCount=6`；Eval Catalog 6 个 Conversation grounding case 全部 linked 到该 marker 且 latest status 为 `PASS`。
-- 清理：本轮启动的 18081 后端已停止并确认无 LISTEN；输出只包含脱敏计数摘要。
+- 浏览器 smoke PASS：临时 frontend `3007` 打开 `/quality?autoload=1`，页面可见 marker、source root 和 Artifact 分区 6 个 catalog case；console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮启动的 18081 后端和 3007 前端已停止并确认无 LISTEN；输出只包含脱敏计数摘要。
 
 ## 2026-07-12 Eval Catalog 纳入 Conversation grounding 路由矩阵
 
