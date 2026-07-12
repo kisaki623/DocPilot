@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-12 Gemini CLI 前端 TODO 与流程固化
+
+- 新增 `docs/ai-dev/TASKS.md`，把 Gemini CLI 的前端体验建议记录为滚动 TODO，并标记首推切片为 `/knowledge-bases` 召回片段与引用卡片双向高亮。
+- 更新 `docs/README.md`、`AGENTS.md` 和 `docs/ai-dev/CONSTRAINTS.md`：固化 Gemini CLI 固定模型 `gemini-3.5-flash`、脱敏 PowerShell here-string、`--prompt $prompt` 正式调用路径，以及避免 stdin + `-p` 的本机失败经验。
+- 新增用户级 skill `C:\Users\Lenovo\.codex\skills\gemini-cli-collab`，用于后续前端 / UI 协作时按统一安全边界调用 Gemini CLI；该目录在 Codex 用户配置下，不纳入 DocPilot 仓库提交。
+- 验证：`quick_validate.py C:\Users\Lenovo\.codex\skills\gemini-cli-collab` PASS；`gemini.cmd -m gemini-3.5-flash --prompt "Reply exactly: READY"` 返回 `READY`。本轮未启动项目服务，未实现前端代码，未输出敏感配置值。
+
 ## 2026-07-12 Quality Console Memory / RAG 趋势视图
 
 - 后端 Quality trend 新增 `domainTrends`，聚合 `memoryQuality` 与 `ragRepresentativeEval` 两个领域；`backend/target/rag-quality` 纳入脱敏 artifact root，rerank representative `latest-summary.json` 可转成 synthetic gate，并对同 marker 的 summary / artifact 做去重。

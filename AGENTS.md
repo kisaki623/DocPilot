@@ -55,7 +55,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/start-cloud-tunnels.ps1
 
 真实链路验证优先走本地 SSH tunnel、后端、前端和 smoke runner。用户明确进入自驱迭代模式后，视为已授权代理在当前大目标内自行启动本地 tunnel、后端、前端，运行真实 smoke，创建带统一 marker 的临时 smoke 用户 / 文档 / KnowledgeBase / Conversation，并生成 ignored 脱敏 artifact；这些操作不再需要逐次等待用户确认。涉及云服务器 Docker / `hk-ops` 时，只读诊断（状态、日志、端口、网络、健康检查、非敏感计数）可在说明目的和命令类别后执行；启动、停止、重启、删除、迁移、改防火墙、改云资源、清空数据或修改数据库结构仍必须单独获得用户明确授权。不得为了方便绕过本地证据直接做远程破坏性操作。
 
-涉及前端开发或改善的工作请和 Gemini CLI 协作，Gemini CLI 负责创意、方案和代码建议，Codex 负责安全审查、代码落地、验证和文档回写；所有 Gemini CLI 调用必须显式使用 `gemini-3.5-flash`，包括短探测和正式协作，外层超时建议 `180000ms`。模型不可用、超时或返回异常时由 Codex 直接完成，不自动降级或改用其他模型；Gemini CLI 不直接接触 `.env`、secrets、远程服务器操作、数据库迁移或不相关文件。详细规则见 `docs/ai-dev/CONSTRAINTS.md`。
+涉及前端开发或改善的工作请和 Gemini CLI 协作，Gemini CLI 负责创意、方案和代码建议，Codex 负责安全审查、代码落地、验证和文档回写；所有 Gemini CLI 调用必须显式使用 `gemini-3.5-flash`，包括短探测和正式协作，外层超时建议 `180000ms`。2026-07-12 已验证的正式调用路径是先构造脱敏 PowerShell here-string，再执行 `gemini.cmd -m gemini-3.5-flash --prompt $prompt`；不要默认使用 stdin + `-p`。模型不可用、超时或返回异常时由 Codex 直接完成，不自动降级或改用其他模型；Gemini CLI 不直接接触 `.env`、secrets、远程服务器操作、数据库迁移或不相关文件。详细规则见 `docs/ai-dev/CONSTRAINTS.md`。
 
 实际运行前请根据 `backend/README.md`、`frontend/README.md`、`.run/` 配置和 `.env.example` /检查环境变量。不要提交真实 `.env`、密钥、密码、token、云服务地址或连接串。
 

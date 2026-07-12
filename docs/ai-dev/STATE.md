@@ -1,5 +1,12 @@
 # DocPilot 当前状态
 
+## 2026-07-12 Gemini CLI 前端协作状态（VERIFIED）
+
+- Gemini CLI 前端体验建议已整理到 `docs/ai-dev/TASKS.md`，作为滚动 TODO 而非已完成功能；首个建议落地点是 `/knowledge-bases` 的召回片段与引用卡片双向高亮。
+- Gemini CLI 调用流程已固化到 `AGENTS.md` 与 `docs/ai-dev/CONSTRAINTS.md`：前端协作仍固定使用 `gemini-3.5-flash`，正式请求优先使用脱敏 PowerShell here-string + `gemini.cmd -m gemini-3.5-flash --prompt $prompt`，不默认走 stdin + `-p`。
+- 本机 Codex 用户级 skill `gemini-cli-collab` 已创建并通过结构校验，可在后续 UI / 前端建议协作时复用；Codex 仍负责安全审查、代码落地、验证和文档回写。
+- 验证：Gemini CLI 最小 `READY` 探测 PASS，skill `quick_validate.py` PASS。边界：本轮不声明任何前端交互已实现，也不把 Gemini 输出直接视为设计决策或测试结论。
+
 ## 2026-07-12 Quality Console 趋势视图状态（VERIFIED）
 
 - Quality Console 已把 Memory quality smoke 与 RAG representative eval 从“散落 artifact / 文档证据”推进为可读趋势视图：`/api/quality/trends` 返回 `domainTrends.memoryQuality` 与 `domainTrends.ragRepresentativeEval`，前端 `/quality` 的“趋势”分区显示两张领域趋势卡。

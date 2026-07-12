@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-07-12 Gemini CLI 前端 TODO 与调用流程固化（VERIFIED）
+
+- 新增 `docs/ai-dev/TASKS.md`，把 Gemini CLI 给出的前端体验建议整理为滚动 TODO，当前首推切片是 `/knowledge-bases` 中召回片段与引用卡片的双向 hover / focus 高亮，后续候选包括 Conversation 上下文流水线、Quality 趋势交互、citation 定位联动和 dashboard 活跃解析反馈。
+- `docs/README.md` 已把 `docs/ai-dev/TASKS.md` 纳入文档地图；`AGENTS.md` 与 `docs/ai-dev/CONSTRAINTS.md` 已固化 2026-07-12 验证成功的 Gemini CLI 正式调用路径：先构造脱敏 PowerShell here-string，再执行 `gemini.cmd -m gemini-3.5-flash --prompt $prompt`。
+- 已新增用户级 skill `C:\Users\Lenovo\.codex\skills\gemini-cli-collab`，用于以后在前端 / UI 协作时按固定模型、脱敏上下文、安全边界和失败回退流程调用 Gemini CLI；该 skill 位于本机 Codex 用户目录，不属于当前仓库 git 变更。
+- 已验证：`gemini.cmd -m gemini-3.5-flash --prompt "Reply exactly: READY"` 返回 `READY`；`quick_validate.py C:\Users\Lenovo\.codex\skills\gemini-cli-collab` PASS。
+- 边界：本轮只落文档与 skill，不实现前端代码；Gemini 建议仍是 advisory TODO，后续落地需 Codex 逐项审查、实现和验证；本轮未启动 backend / frontend / tunnel，未读取或输出密钥、token、云地址、连接串、raw prompt / answer / evidence。
+
 ## 2026-07-12 Quality Console Memory / RAG 趋势视图（VERIFIED）
 
 - Quality Console 趋势摘要已新增 `domainTrends`：后端按脱敏 artifact 聚合 `memoryQuality` 与 `ragRepresentativeEval` 两个领域趋势，暴露最近状态、平均通过率、安全 metrics / flags、失败 / 复查分桶和迷你 trend points；前端新增“趋势”详情分区与“领域趋势”卡片，分别展示 Memory quality smoke 和 RAG representative eval 的关键指标。
