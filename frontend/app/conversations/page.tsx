@@ -23,6 +23,7 @@ import {
   type ConversationItem,
   type ConversationMessageItem,
   type ConversationSummaryData,
+  type GroundingPolicy,
 } from "@/lib/conversation-api";
 import {
   listKnowledgeBases,
@@ -51,7 +52,7 @@ const SUGGESTED_PROMPTS = [
   "请从产品使用视角评价 DocPilot 的文档问答体验。",
 ];
 const PENDING_STEPS = [
-  "正在检索相关资料",
+  "正在判断是否需要知识库",
   "正在整理会话记忆与摘要",
   "正在准备回答上下文",
   "正在生成最终回答",
@@ -105,6 +106,67 @@ function modeLabel(mode?: string): string {
     return "最近轮次";
   }
   return mode || "-";
+}
+
+function groundingPolicyLabel(policy?: string | null): string {
+  if (policy === "MODEL_ONLY") {
+    return "普通模型";
+  }
+  if (policy === "AUTO_RAG") {
+    return "自动知识库";
+  }
+  if (policy === "STRICT_KB") {
+    return "仅基于知识库";
+  }
+  return policy || "自动策略";
+}
+
+function routeDecisionLabel(routeDecision?: string | null): string {
+  if (!routeDecision) {
+    return "未记录路由";
+  }
+  const labels: Record<string, string> = {
+    MODEL_ONLY: "直接模型回答",
+    AUTO_NO_KB_MODEL: "未绑定知识库，模型回答",
+    AUTO_INTENT_NOT_TRIGGERED_MODEL: "未触发知识库，模型回答",
+    AUTO_RAG_EVIDENCE: "知识库命中",
+    AUTO_NO_EVIDENCE_MODEL: "无证据，模型回答",
+    AUTO_REQUIRED_NO_EVIDENCE_FALLBACK: "要求证据但资料不足",
+    STRICT_NO_KB_FALLBACK: "严格模式未绑定知识库",
+    STRICT_KB_EVIDENCE: "严格知识库命中",
+    STRICT_NO_EVIDENCE_FALLBACK: "严格模式资料不足",
+  };
+  return labels[routeDecision] || routeDecision;
+}
+
+function isModelSkipped(trace?: ContextTraceData | null): boolean {
+  return Boolean(trace?.modelSkipped ?? trace?.modelCallSkipped);
+}
+
+function assistantSourceLabel(message: ConversationMessageItem): string | null {
+  if (message.role !== "ASSISTANT") {
+    return null;
+  }
+  const trace = message.contextTrace;
+  const citationCount = message.citations?.length || 0;
+  const evidenceCount = trace?.evidenceCount || 0;
+  const sourceCount = citationCount > 0 ? citationCount : evidenceCount;
+  if (sourceCount > 0) {
+    return `${sourceCount} 条知识库来源`;
+  }
+  if (
+    isModelSkipped(trace) ||
+    trace?.fallbackUsed ||
+    trace?.routeDecision === "AUTO_REQUIRED_NO_EVIDENCE_FALLBACK" ||
+    trace?.routeDecision === "STRICT_NO_EVIDENCE_FALLBACK" ||
+    trace?.routeDecision === "STRICT_NO_KB_FALLBACK"
+  ) {
+    return "资料不足";
+  }
+  if (trace) {
+    return "未使用知识库";
+  }
+  return null;
 }
 
 function memoryTypeLabel(type?: string): string {
@@ -220,6 +282,10 @@ export default function ConversationsPage() {
 
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBaseItem[]>([]);
   const [selectedKnowledgeBaseId, setSelectedKnowledgeBaseId] = useState("");
+  const [selectedGroundingPolicy, setSelectedGroundingPolicy] =
+    useState<GroundingPolicy>("AUTO_RAG");
+  const [groundingPolicyManuallySelected, setGroundingPolicyManuallySelected] =
+    useState(false);
   const [binding, setBinding] = useState(false);
 
   const [summary, setSummary] = useState<ConversationSummaryData | null>(null);
@@ -277,6 +343,16 @@ export default function ConversationsPage() {
       trace.recentMessageCount > 0 ? "最近对话" : null,
     ].filter(Boolean) as string[];
   }, [trace]);
+
+  const resolvedGroundingPolicy = useMemo<GroundingPolicy>(() => {
+    if (!selectedConversation?.boundKnowledgeBaseId) {
+      return "MODEL_ONLY";
+    }
+    if (!groundingPolicyManuallySelected) {
+      return "AUTO_RAG";
+    }
+    return selectedGroundingPolicy;
+  }, [groundingPolicyManuallySelected, selectedConversation, selectedGroundingPolicy]);
 
   const sortedMemories = useMemo(() => {
     return [...memories].sort((left, right) => {
@@ -493,6 +569,16 @@ export default function ConversationsPage() {
   }, [loadConversationState, selectedConversationId]);
 
   useEffect(() => {
+    if (!selectedConversation?.boundKnowledgeBaseId) {
+      setSelectedGroundingPolicy("MODEL_ONLY");
+      setGroundingPolicyManuallySelected(false);
+      return;
+    }
+    setSelectedGroundingPolicy("AUTO_RAG");
+    setGroundingPolicyManuallySelected(false);
+  }, [selectedConversation?.conversationId, selectedConversation?.boundKnowledgeBaseId]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, messagesLoading, sending, pendingStepIndex]);
 
@@ -535,6 +621,8 @@ export default function ConversationsPage() {
             ? String(response.data.boundKnowledgeBaseId)
             : "",
         );
+        setSelectedGroundingPolicy(response.data.boundKnowledgeBaseId ? "AUTO_RAG" : "MODEL_ONLY");
+        setGroundingPolicyManuallySelected(false);
         setStatusMessage("会话已创建。");
       }
     } catch (error) {
@@ -572,6 +660,7 @@ export default function ConversationsPage() {
       const response = await sendConversationMessage(
         selectedConversationId,
         content,
+        resolvedGroundingPolicy,
       );
       const assistantMessage = response.data;
       if (assistantMessage) {
@@ -623,6 +712,8 @@ export default function ConversationsPage() {
               : item,
           ),
         );
+        setSelectedGroundingPolicy("AUTO_RAG");
+        setGroundingPolicyManuallySelected(false);
         setStatusMessage("知识库已绑定到当前会话。");
       }
     } catch (error) {
@@ -653,6 +744,8 @@ export default function ConversationsPage() {
           ),
         );
         setSelectedKnowledgeBaseId("");
+        setSelectedGroundingPolicy("MODEL_ONLY");
+        setGroundingPolicyManuallySelected(false);
         setStatusMessage("当前会话已解绑知识库。");
       }
     } catch (error) {
@@ -1062,7 +1155,7 @@ export default function ConversationsPage() {
             <div className="mt-1 flex flex-wrap gap-2">
               <span className="dp-chat-pill">{selectedConversation ? modeLabel(selectedConversation.contextMode) : "会话记忆"}</span>
               <span className="dp-chat-pill">{boundKnowledgeBaseLabel}</span>
-              <span className="dp-chat-pill">精炼回答模式</span>
+              <span className="dp-chat-pill">{groundingPolicyLabel(resolvedGroundingPolicy)}</span>
             </div>
           </div>
           <button
@@ -1120,9 +1213,7 @@ export default function ConversationsPage() {
           ) : (
             messages.map((message) => {
               const isAssistant = message.role === "ASSISTANT";
-              const citationCount = message.citations?.length || 0;
-              const evidenceCount = message.contextTrace?.evidenceCount || 0;
-              const sourceCount = citationCount > 0 ? citationCount : evidenceCount;
+              const sourceLabel = assistantSourceLabel(message);
               return (
                 <article key={message.messageId} className={`dp-chat-message ${isAssistant ? "is-assistant" : "is-user"}`}>
                   <div className="dp-chat-avatar" aria-hidden="true">{isAssistant ? "AI" : "你"}</div>
@@ -1160,7 +1251,7 @@ export default function ConversationsPage() {
                         <button type="button" onClick={() => handleLoadTrace(message.messageId)} disabled={traceLoading}>
                           {selectedTraceMessageId === message.messageId && traceLoading ? "加载溯源..." : "上下文溯源"}
                         </button>
-                        <span>{sourceCount} 条来源</span>
+                        {sourceLabel ? <span>{sourceLabel}</span> : null}
                       </div>
                     ) : null}
                   </div>
@@ -1192,6 +1283,23 @@ export default function ConversationsPage() {
             </select>
             <button type="button" onClick={handleBindKnowledgeBase} disabled={!selectedConversationId || !selectedKnowledgeBaseId || binding}>{binding ? "处理中" : "绑定"}</button>
             <button type="button" onClick={handleUnbindKnowledgeBase} disabled={!selectedConversationId || !selectedConversation?.boundKnowledgeBaseId || binding}>解绑</button>
+            <select
+              value={resolvedGroundingPolicy}
+              onChange={(event) => {
+                setSelectedGroundingPolicy(event.target.value as GroundingPolicy);
+                setGroundingPolicyManuallySelected(true);
+              }}
+              disabled={!selectedConversationId || sending || !selectedConversation?.boundKnowledgeBaseId}
+              aria-label="回答依据策略"
+            >
+              <option value="MODEL_ONLY">普通模型</option>
+              {selectedConversation?.boundKnowledgeBaseId ? (
+                <>
+                  <option value="AUTO_RAG">自动知识库</option>
+                  <option value="STRICT_KB">仅基于知识库</option>
+                </>
+              ) : null}
+            </select>
             <button type="button" onClick={() => { setInspectorOpen(true); setInspectorTab("memory"); }}>记忆 {memories.length}</button>
           </div>
           <div className="dp-chat-composer">
@@ -1208,7 +1316,9 @@ export default function ConversationsPage() {
               <button type="button" onClick={handleSendMessage} disabled={!selectedConversationId || sending || !messageInput.trim()} className="dp-chat-send">{sending ? "..." : "发送"}</button>
             </div>
           </div>
-          <p className="dp-chat-composer-note">当前为精炼回答模式：DocPilot 会先整理上下文，再一次性返回回答；溯源面板只展示摘要级运行信息。</p>
+          <p className="dp-chat-composer-note">
+            精炼回答只控制篇幅和风格；回答依据由“普通模型 / 自动知识库 / 仅基于知识库”单独控制。未绑定知识库时不会触发资料不足拒答。
+          </p>
         </footer>
       </section>
 
@@ -1233,10 +1343,12 @@ export default function ConversationsPage() {
                 <div className="dp-chat-trace-hero">
                   <p>本次回答来源</p>
                   <strong>{traceSources.join(" / ") || "最近轮次"}</strong>
+                  <span>{groundingPolicyLabel(trace.groundingPolicy)} · {routeDecisionLabel(trace.routeDecision)}</span>
                   <span>知识库 {trace.knowledgeBaseId ? `#${trace.knowledgeBaseId}` : "未使用"} · 来源 {trace.evidenceCount}</span>
                 </div>
                 <div className="dp-chat-metrics">
                   <div><span>模式</span><strong>{modeLabel(trace.contextMode)}</strong></div>
+                  <div><span>依据</span><strong>{groundingPolicyLabel(trace.groundingPolicy)}</strong></div>
                   <div><span>上下文长度</span><strong>{trace.estimatedPromptTokens}/{trace.maxPromptTokens}</strong></div>
                   <div><span>记忆</span><strong>{trace.memoryCount}</strong></div>
                   <div><span>来源</span><strong>{trace.evidenceCount}</strong></div>
@@ -1254,10 +1366,12 @@ export default function ConversationsPage() {
                   <div><dt>最近消息</dt><dd>{trace.recentMessageCount} 条 / {trace.recentTurnCount} 轮</dd></div>
                   <div><dt>知识库检索</dt><dd>{formatBoolean(trace.ragTriggered)}</dd></div>
                   <div><dt>检索优先</dt><dd>{formatBoolean(trace.ragRequired)}</dd></div>
+                  <div><dt>路由决策</dt><dd>{routeDecisionLabel(trace.routeDecision)}</dd></div>
+                  <div><dt>调用模型</dt><dd>{formatBoolean(Boolean(trace.llmCalled))}</dd></div>
                   <div><dt>来源不足</dt><dd>{formatBoolean(trace.noEvidence)}</dd></div>
                   <div><dt>截断</dt><dd>{formatBoolean(trace.truncated)}</dd></div>
                   <div><dt>Fallback</dt><dd>{trace.fallbackReason || formatBoolean(trace.fallbackUsed)}</dd></div>
-                  <div><dt>模型跳过</dt><dd>{formatBoolean(trace.modelCallSkipped)}</dd></div>
+                  <div><dt>模型跳过</dt><dd>{formatBoolean(isModelSkipped(trace))}</dd></div>
                 </dl>
                 <details className="dp-chat-detail-box">
                   <summary>来源文档分布与记忆类型</summary>

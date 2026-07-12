@@ -2,6 +2,8 @@ package com.docpilot.backend.conversation.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.docpilot.backend.ai.context.ContextTrace;
+import com.docpilot.backend.ai.context.GroundingPolicy;
+import com.docpilot.backend.ai.context.RouteDecision;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.conversation.entity.ConversationContextTrace;
 import com.docpilot.backend.conversation.mapper.ConversationContextTraceMapper;
@@ -41,6 +43,9 @@ class ConversationContextTraceServiceImplTest {
         ConversationContextTrace entity = captor.getValue();
         assertThat(entity.getUserId()).isEqualTo(7L);
         assertThat(entity.getMessageId()).isEqualTo(102L);
+        assertThat(entity.getGroundingPolicy()).isEqualTo(GroundingPolicy.AUTO_RAG.name());
+        assertThat(entity.getRouteDecision()).isEqualTo(RouteDecision.AUTO_RAG_EVIDENCE.name());
+        assertThat(entity.getLlmCalled()).isTrue();
         assertThat(entity.getMemoryTypesJson()).contains("PREFERENCE");
         assertThat(entity.getDocumentHitCountsJson()).contains("83");
         assertThat(entity.getTruncatedTypesJson()).contains("MEMORY");
@@ -57,6 +62,9 @@ class ConversationContextTraceServiceImplTest {
         assertThat(trace.conversationId()).isEqualTo(10L);
         assertThat(trace.messageId()).isEqualTo(102L);
         assertThat(trace.memoryTypes()).containsExactly("PREFERENCE");
+        assertThat(trace.groundingPolicy()).isEqualTo(GroundingPolicy.AUTO_RAG.name());
+        assertThat(trace.routeDecision()).isEqualTo(RouteDecision.AUTO_RAG_EVIDENCE.name());
+        assertThat(trace.llmCalled()).isTrue();
         assertThat(trace.documentHitCounts()).containsEntry(83L, 2);
         assertThat(trace.truncatedTypes()).containsExactly("MEMORY");
         assertThat(trace.getContextSourceCounts())
@@ -68,6 +76,19 @@ class ConversationContextTraceServiceImplTest {
                 .containsEntry("conversationContext", true)
                 .containsEntry("userMemory", true)
                 .containsEntry("ragEvidence", true);
+        assertThat(trace.getContextSourceFlags()).containsEntry("llmCalled", true);
+    }
+
+    @Test
+    void shouldReadTracesByMessagesAfterConversationOwnershipCheck() {
+        ConversationContextTrace entity = entity();
+        when(traceMapper.selectByMessages(7L, 10L, List.of(102L))).thenReturn(List.of(entity));
+
+        Map<Long, ContextTrace> traces = service.listByMessages(7L, 10L, java.util.Arrays.asList(102L, 102L, null));
+
+        verify(conversationService).requireOwnedActive(7L, 10L);
+        assertThat(traces).containsOnlyKeys(102L);
+        assertThat(traces.get(102L).routeDecision()).isEqualTo(RouteDecision.AUTO_RAG_EVIDENCE.name());
     }
 
     @Test
@@ -94,6 +115,9 @@ class ConversationContextTraceServiceImplTest {
                 10L,
                 102L,
                 "AGENT_MEMORY",
+                GroundingPolicy.AUTO_RAG.name(),
+                RouteDecision.AUTO_RAG_EVIDENCE.name(),
+                true,
                 true,
                 2,
                 4,
@@ -122,6 +146,9 @@ class ConversationContextTraceServiceImplTest {
         entity.setMessageId(102L);
         entity.setUserId(7L);
         entity.setContextMode("AGENT_MEMORY");
+        entity.setGroundingPolicy(GroundingPolicy.AUTO_RAG.name());
+        entity.setRouteDecision(RouteDecision.AUTO_RAG_EVIDENCE.name());
+        entity.setLlmCalled(true);
         entity.setSummaryUsed(true);
         entity.setRecentTurnCount(2);
         entity.setRecentMessageCount(4);

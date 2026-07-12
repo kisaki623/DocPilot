@@ -1,5 +1,15 @@
 # Current Task
 
+## 2026-07-12 Conversation grounding policy 路由修复（VERIFIED）
+
+- 根因定位：Conversation 普通消息此前复用了 `AiAnswerService.answer(context, question)` 的严格文档 QA prompt；该 prompt 要求“只能基于提供的 document context 回答”，导致未绑定 KnowledgeBase 的普通常识问题也可能进入 no-evidence refusal 语义。同时 `contextMode` 与 RAG policy 耦合，Trace 缺少 `groundingPolicy` / `routeDecision` / `llmCalled`，前端刷新后只能看到“0 条来源”，无法区分普通模型回答、AUTO_RAG 未触发、STRICT_KB 无证据。
+- 已实现：新增 `GroundingPolicy = MODEL_ONLY / AUTO_RAG / STRICT_KB` 与 `RouteDecision`；Conversation 入口改走 `answerConversation(...)` 专用非 strict prompt；未绑定 KB 默认 `MODEL_ONLY`，绑定 KB 默认 `AUTO_RAG`，只有显式 `STRICT_KB` 且无证据才拒答；`contextMode` 继续只控制最近轮次 / 记忆摘要，不再等价于严格知识库模式。
+- Trace 与持久化：`tb_context_trace` 新增 `grounding_policy`、`route_decision`、`llm_called`，并补 `008_add_context_trace_grounding.sql` 增量脚本；消息与 Trace 改为同事务保存，列表接口批量回读 Trace，避免回答可见但路由证据丢失。
+- 前端：Conversation 页面发送消息时携带 grounding policy；输入区提供“普通模型 / 自动知识库 / 仅基于知识库”；“精炼回答”仅作为篇幅风格说明，不再暗示严格资料模式；助手消息只有命中 citation / evidence 时显示知识库来源，普通模型回答显示“未使用知识库”，严格资料不足显示“资料不足”，不再显示“0 条来源”。
+- 测试：Conversation / grounding 定向 37 tests PASS，schema / smoke script safety 9 tests PASS；新增 `ContextTraceSerializationTest` 锁定 API JSON 同时暴露 `modelCallSkipped` 和验收字段 `modelSkipped`；`AUTO_RAG + noEvidence` 已反向锁定为调用模型、`STRICT_KB + noEvidence` 才跳过模型；`mvn test -DskipITs` PASS（953 tests，0 failures，0 errors，5 skipped）；前端 `npm run lint` / `npm run build` PASS。
+- 真实验证：已在授权后执行 `backend/src/main/resources/sql/008_add_context_trace_grounding.sql`，确认云 MySQL `tb_context_trace` 存在 `grounding_policy`、`route_decision`、`llm_called`；真实登录态 Conversation smoke marker `cg20260712175003-50312c` PASS，artifact `tmp-e2e/conversation-grounding-runtime/cg20260712175003-50312c-artifact.json`，覆盖未绑定 KB、未绑定 KB 误选 STRICT、AUTO_RAG 普通问题、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG evidence citation；前端 Playwright marker `ui-cg-20260712095111-7094ef` PASS，确认普通回答显示“未使用知识库”且没有“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”。
+- 状态：本轮任务已完成并通过真实链路验证；临时 smoke 用户、文档、KnowledgeBase 和 conversation 仅作为云库验证数据保留，artifact 位于 ignored `tmp-e2e/`。
+
 ## 2026-07-12 Memory Governance 边界测试与真实 smoke（VERIFIED）
 
 - 已补齐 Memory Governance 离线边界测试：相似 ACTIVE memory 会对 SUGGESTED memory 暴露 `similar_active_memory` / `duplicateOfId` / `similarityScore`，手动创建相似 ACTIVE memory 会被门禁拒绝，同内容在不同 memory type 下不互相误杀。

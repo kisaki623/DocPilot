@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-12 Conversation grounding policy 路由修复
+
+- 修复 Conversation 普通会话误进 strict grounded RAG / no-evidence refusal 的根因：新增 `GroundingPolicy` / `RouteDecision`，Conversation 专用 `answerConversation(...)` 不再复用文档 QA strict prompt；未绑定 KB 默认 `MODEL_ONLY`，绑定 KB 默认 `AUTO_RAG`，显式 `STRICT_KB` 才无证据拒答。
+- Trace 与前端同步：`tb_context_trace` 增加 `grounding_policy`、`route_decision`、`llm_called` 与增量 SQL；消息和 Trace 同事务保存，列表批量回读；Conversation 页面发送 grounding policy，普通模型回答显示“未使用知识库”，知识库命中才显示来源数，严格资料不足显示“资料不足”。
+- 授权后已执行 `008_add_context_trace_grounding.sql` 并确认云 MySQL Trace 三列存在；真实 Conversation grounding smoke marker `cg20260712175003-50312c` PASS，artifact `tmp-e2e/conversation-grounding-runtime/cg20260712175003-50312c-artifact.json`，覆盖未绑定 KB、误选 STRICT、AUTO_RAG 普通问题、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG evidence citation；Playwright marker `ui-cg-20260712095111-7094ef` PASS，确认普通回答显示“未使用知识库”且无“0 条来源”。
+- 验证：Conversation / grounding 定向 37 tests PASS，schema / smoke script safety 9 tests PASS，`ContextTraceSerializationTest` PASS；`mvn test -DskipITs` PASS（953 tests，0 failures，0 errors，5 skipped）；`npm run lint` PASS；`npm run build` PASS。
+
 ## 2026-07-12 Memory Governance 边界测试与 smoke
 
 - 补齐 Memory Governance 离线边界：相似 ACTIVE memory 对候选暴露 `similar_active_memory`，手动创建相似记忆被拒绝，不同 memory type 不互相误杀；resolve 保持当前用户边界。

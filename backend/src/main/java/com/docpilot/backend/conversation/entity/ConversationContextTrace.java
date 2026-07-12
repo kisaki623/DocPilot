@@ -25,6 +25,15 @@ public class ConversationContextTrace {
     @TableField("context_mode")
     private String contextMode;
 
+    @TableField("grounding_policy")
+    private String groundingPolicy;
+
+    @TableField("route_decision")
+    private String routeDecision;
+
+    @TableField("llm_called")
+    private Boolean llmCalled;
+
     @TableField("summary_used")
     private Boolean summaryUsed;
 
@@ -123,6 +132,30 @@ public class ConversationContextTrace {
 
     public void setContextMode(String contextMode) {
         this.contextMode = contextMode;
+    }
+
+    public String getGroundingPolicy() {
+        return groundingPolicy;
+    }
+
+    public void setGroundingPolicy(String groundingPolicy) {
+        this.groundingPolicy = groundingPolicy;
+    }
+
+    public String getRouteDecision() {
+        return routeDecision;
+    }
+
+    public void setRouteDecision(String routeDecision) {
+        this.routeDecision = routeDecision;
+    }
+
+    public Boolean getLlmCalled() {
+        return llmCalled;
+    }
+
+    public void setLlmCalled(Boolean llmCalled) {
+        this.llmCalled = llmCalled;
     }
 
     public Boolean getSummaryUsed() {

@@ -13,6 +13,7 @@ import com.docpilot.backend.conversation.service.ConversationContextTraceService
 import com.docpilot.backend.conversation.service.ConversationService;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,12 +64,39 @@ public class ConversationContextTraceServiceImpl implements ConversationContextT
         return toTrace(entity);
     }
 
+    @Override
+    public Map<Long, ContextTrace> listByMessages(Long userId, Long conversationId, List<Long> messageIds) {
+        ValidationUtils.requireNonNull(userId, "userId");
+        ValidationUtils.requireNonNull(conversationId, "conversationId");
+        if (messageIds == null || messageIds.isEmpty()) {
+            return Map.of();
+        }
+        conversationService.requireOwnedActive(userId, conversationId);
+
+        List<Long> distinctMessageIds = messageIds.stream()
+                .filter(id -> id != null && id > 0)
+                .distinct()
+                .toList();
+        if (distinctMessageIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, ContextTrace> traces = new LinkedHashMap<>();
+        for (ConversationContextTrace entity : traceMapper.selectByMessages(userId, conversationId, distinctMessageIds)) {
+            traces.put(entity.getMessageId(), toTrace(entity));
+        }
+        return traces;
+    }
+
     private ConversationContextTrace toEntity(Long userId, ContextTrace trace) {
         ConversationContextTrace entity = new ConversationContextTrace();
         entity.setConversationId(trace.conversationId());
         entity.setMessageId(trace.messageId());
         entity.setUserId(userId);
         entity.setContextMode(trace.contextMode());
+        entity.setGroundingPolicy(trace.groundingPolicy());
+        entity.setRouteDecision(trace.routeDecision());
+        entity.setLlmCalled(trace.llmCalled());
         entity.setSummaryUsed(trace.summaryUsed());
         entity.setRecentTurnCount(trace.recentTurnCount());
         entity.setRecentMessageCount(trace.recentMessageCount());
@@ -96,6 +124,9 @@ public class ConversationContextTraceServiceImpl implements ConversationContextT
                 entity.getConversationId(),
                 entity.getMessageId(),
                 entity.getContextMode(),
+                entity.getGroundingPolicy(),
+                entity.getRouteDecision(),
+                entity.getLlmCalled(),
                 Boolean.TRUE.equals(entity.getSummaryUsed()),
                 defaultInt(entity.getRecentTurnCount()),
                 defaultInt(entity.getRecentMessageCount()),

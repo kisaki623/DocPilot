@@ -3,8 +3,11 @@ package com.docpilot.backend.conversation.service.impl;
 import com.docpilot.backend.ai.context.ContextAssemblyRequest;
 import com.docpilot.backend.ai.context.ContextAssemblyResult;
 import com.docpilot.backend.ai.context.ContextTrace;
+import com.docpilot.backend.ai.context.GroundingPolicy;
+import com.docpilot.backend.ai.context.RouteDecision;
 import com.docpilot.backend.ai.context.token.TokenEstimator;
 import com.docpilot.backend.ai.service.AiAnswerService;
+import com.docpilot.backend.ai.service.ConversationAnswerRequest;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.util.ValidationUtils;
@@ -26,6 +29,7 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ConversationMessageServiceImpl implements ConversationMessageService {
@@ -62,7 +66,7 @@ public class ConversationMessageServiceImpl implements ConversationMessageServic
     }
 
     @Override
-    public ConversationMessageResponse send(Long userId, Long conversationId, String content) {
+    public ConversationMessageResponse send(Long userId, Long conversationId, String content, String groundingPolicy) {
         ValidationUtils.requireNonNull(userId, "userId");
         ValidationUtils.requireNonNull(conversationId, "conversationId");
         ValidationUtils.requireNonBlank(content, "content");
@@ -70,31 +74,49 @@ public class ConversationMessageServiceImpl implements ConversationMessageServic
         if (currentMessage.length() > MESSAGE_MAX_CHARS) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, "message content is too long");
         }
+        GroundingPolicy requestedPolicy = resolveGroundingPolicy(groundingPolicy);
         conversationService.requireOwnedActive(userId, conversationId);
 
         ContextAssemblyResult context = contextAssemblyService.buildContext(new ContextAssemblyRequest(
                 userId,
                 conversationId,
                 currentMessage,
-                null
+                null,
+                requestedPolicy == null ? null : requestedPolicy.name()
         ));
 
-        String answer = context.modelCallSkipped()
-                ? context.fallbackAnswer()
-                : aiAnswerService.answer(context.assembledContext(), currentMessage);
-        ConversationMessage assistantMessage = saveMessagePairInTransaction(userId, conversationId, currentMessage, answer);
-        ContextTrace trace = context.trace().withMessageId(assistantMessage.getId());
-        saveTraceBestEffort(userId, trace);
-        return ConversationMessageResponse.from(assistantMessage, context.citations(), trace);
+        boolean llmCalled = false;
+        String answer;
+        if (context.modelCallSkipped()) {
+            answer = context.fallbackAnswer();
+        } else {
+            answer = aiAnswerService.answerConversation(new ConversationAnswerRequest(
+                    context.promptMessages(),
+                    currentMessage,
+                    resolveTraceGroundingPolicy(context.trace()),
+                    resolveTraceRouteDecision(context.trace())
+            ));
+            llmCalled = true;
+        }
+        ContextTrace trace = context.trace().withLlmCalled(llmCalled);
+        SavedAssistantMessage saved = saveMessagePairInTransaction(userId, conversationId, currentMessage, answer, trace);
+        return ConversationMessageResponse.from(saved.message(), context.citations(), saved.trace());
     }
 
     @Override
     public List<ConversationMessageResponse> list(Long userId, Long conversationId, Integer limit) {
         conversationService.requireOwnedActive(userId, conversationId);
-        return conversationMessageMapper.selectActiveByConversation(userId, conversationId, resolveLimit(limit))
+        List<ConversationMessage> messages = conversationMessageMapper.selectActiveByConversation(userId, conversationId, resolveLimit(limit))
                 .stream()
                 .sorted(Comparator.comparingInt(message -> message.getSequenceNo() == null ? 0 : message.getSequenceNo()))
-                .map(ConversationMessageResponse::from)
+                .toList();
+        List<Long> assistantMessageIds = messages.stream()
+                .filter(message -> ConversationMessageRole.ASSISTANT.equals(message.getRole()))
+                .map(ConversationMessage::getId)
+                .toList();
+        Map<Long, ContextTrace> traces = contextTraceService.listByMessages(userId, conversationId, assistantMessageIds);
+        return messages.stream()
+                .map(message -> ConversationMessageResponse.from(message, List.of(), traces.get(message.getId())))
                 .toList();
     }
 
@@ -103,18 +125,21 @@ public class ConversationMessageServiceImpl implements ConversationMessageServic
         return contextTraceService.getByMessage(userId, conversationId, messageId);
     }
 
-    private ConversationMessage saveMessagePairInTransaction(Long userId,
-                                                             Long conversationId,
-                                                             String userContent,
-                                                             String assistantContent) {
+    private SavedAssistantMessage saveMessagePairInTransaction(Long userId,
+                                                               Long conversationId,
+                                                               String userContent,
+                                                               String assistantContent,
+                                                               ContextTrace trace) {
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         boolean commitStarted = false;
         try {
             ConversationMessage assistantMessage = saveMessagePair(userId, conversationId, userContent, assistantContent);
+            ContextTrace savedTrace = trace.withMessageId(assistantMessage.getId());
+            contextTraceService.save(userId, savedTrace);
             conversationMapper.updateLastMessageTime(userId, conversationId, LocalDateTime.now());
             commitStarted = true;
             transactionManager.commit(status);
-            return assistantMessage;
+            return new SavedAssistantMessage(assistantMessage, savedTrace);
         } catch (RuntimeException ex) {
             if (!commitStarted && !status.isCompleted()) {
                 transactionManager.rollback(status);
@@ -149,11 +174,32 @@ public class ConversationMessageServiceImpl implements ConversationMessageServic
         return message;
     }
 
-    private void saveTraceBestEffort(Long userId, ContextTrace trace) {
+    private GroundingPolicy resolveGroundingPolicy(String groundingPolicy) {
+        if (groundingPolicy == null || groundingPolicy.isBlank()) {
+            return null;
+        }
+        GroundingPolicy parsed = GroundingPolicy.normalizeOrNull(groundingPolicy);
+        if (parsed == null || parsed == GroundingPolicy.LEGACY_UNSPECIFIED) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "groundingPolicy is invalid");
+        }
+        return parsed;
+    }
+
+    private GroundingPolicy resolveTraceGroundingPolicy(ContextTrace trace) {
+        GroundingPolicy parsed = GroundingPolicy.normalizeOrNull(trace.groundingPolicy());
+        return parsed == null || parsed == GroundingPolicy.LEGACY_UNSPECIFIED
+                ? GroundingPolicy.MODEL_ONLY
+                : parsed;
+    }
+
+    private RouteDecision resolveTraceRouteDecision(ContextTrace trace) {
+        if (trace.routeDecision() == null || trace.routeDecision().isBlank()) {
+            return RouteDecision.LEGACY_UNKNOWN;
+        }
         try {
-            contextTraceService.save(userId, trace);
-        } catch (RuntimeException ignored) {
-            // Trace is diagnostic. A trace write failure must not break the user-facing answer path.
+            return RouteDecision.valueOf(trace.routeDecision().trim());
+        } catch (IllegalArgumentException ex) {
+            return RouteDecision.LEGACY_UNKNOWN;
         }
     }
 
@@ -162,5 +208,8 @@ public class ConversationMessageServiceImpl implements ConversationMessageServic
             return DEFAULT_MESSAGE_LIMIT;
         }
         return Math.min(limit, MAX_MESSAGE_LIMIT);
+    }
+
+    private record SavedAssistantMessage(ConversationMessage message, ContextTrace trace) {
     }
 }

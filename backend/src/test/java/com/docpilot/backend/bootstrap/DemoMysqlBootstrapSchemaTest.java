@@ -40,6 +40,9 @@ class DemoMysqlBootstrapSchemaTest {
         assertThat(sql).contains("UNIQUE KEY uk_kb_document (knowledge_base_id, document_id)");
         assertThat(sql).contains("UNIQUE KEY uk_conversation_sequence (conversation_id, sequence_no)");
         assertThat(sql).contains("UNIQUE KEY uk_context_trace_message (message_id)");
+        assertThat(sql).contains("grounding_policy VARCHAR(32) DEFAULT NULL");
+        assertThat(sql).contains("route_decision VARCHAR(64) DEFAULT NULL");
+        assertThat(sql).contains("llm_called TINYINT(1) DEFAULT NULL");
         assertThat(sql).contains("KEY idx_memory_user_status (user_id, status)");
         assertThat(sql).contains("KEY idx_task_step (task_id, step_index)");
     }

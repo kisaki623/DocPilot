@@ -3,11 +3,15 @@ import { buildAuthorizationHeader } from "@/lib/auth";
 import type { KnowledgeBaseCitationItem } from "@/lib/knowledge-base-api";
 
 export type ConversationContextMode = "RECENT_TURNS" | "AGENT_MEMORY";
+export type GroundingPolicy = "MODEL_ONLY" | "AUTO_RAG" | "STRICT_KB";
 
 export interface ContextTraceData {
   conversationId: number;
   messageId?: number | null;
   contextMode: string;
+  groundingPolicy?: string | null;
+  routeDecision?: string | null;
+  llmCalled?: boolean | null;
   summaryUsed: boolean;
   recentTurnCount: number;
   recentMessageCount: number;
@@ -29,6 +33,7 @@ export interface ContextTraceData {
   fallbackUsed: boolean;
   fallbackReason: string;
   modelCallSkipped: boolean;
+  modelSkipped?: boolean;
 }
 
 export interface ConversationItem {
@@ -140,14 +145,15 @@ export function listConversationMessages(
 
 export function sendConversationMessage(
   conversationId: number,
-  content: string
+  content: string,
+  groundingPolicy?: GroundingPolicy
 ): Promise<ApiResponse<ConversationMessageItem>> {
   return apiRequest<ConversationMessageItem>(`/api/conversations/${conversationId}/messages`, {
     method: "POST",
     headers: {
       ...buildAuthorizationHeader()
     },
-    body: JSON.stringify({ content })
+    body: JSON.stringify(groundingPolicy ? { content, groundingPolicy } : { content })
   });
 }
 

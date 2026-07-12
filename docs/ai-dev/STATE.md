@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-12 Conversation grounding policy 路由状态（VERIFIED）
+
+- Conversation 回答路由已拆分为独立 `GroundingPolicy`：未绑定 KnowledgeBase 默认 `MODEL_ONLY`，绑定 KB 默认 `AUTO_RAG`，只有用户显式选择 `STRICT_KB` 时才启用“无 evidence 安全拒答”。“精炼回答模式”和 `contextMode` 不再等价于严格知识库模式。
+- Conversation 入口不再复用单文档 / KnowledgeBase grounded QA 的 strict prompt，而是调用 `answerConversation(...)` 专用 prompt；普通常识、闲聊或 AUTO_RAG 未触发资料意图时会直接调用底层模型，不触发 no-evidence refusal。
+- Trace 现可记录并回读 `groundingPolicy`、`routeDecision`、`ragTriggered`、`ragRequired`、`evidenceCount`、`llmCalled`、`modelSkipped`、`fallbackReason`；消息与 Trace 同事务保存，刷新消息列表后仍能看到路由证据。
+- 前端 Conversation 页面已按 Trace 区分“知识库来源 / 未使用知识库 / 资料不足”，普通模型回答不再显示“0 条来源”；回答依据可在“普通模型 / 自动知识库 / 仅基于知识库”之间显式选择。
+- 已验证：Conversation / grounding 定向 37 tests PASS，schema / smoke script safety 9 tests PASS；新增 `ContextTraceSerializationTest` 锁定 `modelSkipped` JSON alias；授权后已执行 `008_add_context_trace_grounding.sql` 并确认云 MySQL Trace 三列存在；真实 Conversation grounding smoke marker `cg20260712175003-50312c` PASS，覆盖未绑定 KB、AUTO_RAG、STRICT_KB、evidence citation 和 no-evidence fallback；前端 Playwright marker `ui-cg-20260712095111-7094ef` PASS，确认普通回答显示“未使用知识库”且没有“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”；`mvn test -DskipITs` PASS（953 tests，0 failures，0 errors，5 skipped）；前端 `npm run lint` / `npm run build` PASS。
+
 ## 2026-07-12 四项任务收口：ParseTask、rerank、locator UI、Memory Governance（VERIFIED）
 
 - ParseTask / reindex 恢复链路已完成 fail-closed + 可观测闭环：stale processing / outbox exhausted 会安全收口为 `FAILED`，status API 与前端“解析与恢复”卡片展示 consume/outbox、retry/reparse 和“禁止 content-only reindex”的安全边界。

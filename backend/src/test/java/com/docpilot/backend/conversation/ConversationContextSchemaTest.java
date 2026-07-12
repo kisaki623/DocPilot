@@ -20,6 +20,9 @@ class ConversationContextSchemaTest {
         assertThat(sql).contains("CREATE TABLE IF NOT EXISTS tb_context_trace");
         assertThat(sql).contains("CREATE TABLE IF NOT EXISTS tb_user_memory");
         assertThat(sql).contains("context_mode VARCHAR(32) NOT NULL DEFAULT 'RECENT_TURNS'");
+        assertThat(sql).contains("grounding_policy VARCHAR(32) DEFAULT NULL");
+        assertThat(sql).contains("route_decision VARCHAR(64) DEFAULT NULL");
+        assertThat(sql).contains("llm_called TINYINT(1) DEFAULT NULL");
         assertThat(sql).contains("bound_knowledge_base_id BIGINT UNSIGNED DEFAULT NULL");
         assertThat(sql).contains("UNIQUE KEY uk_conversation_sequence (conversation_id, sequence_no)");
         assertThat(sql).contains("UNIQUE KEY uk_context_trace_message (message_id)");
@@ -27,8 +30,24 @@ class ConversationContextSchemaTest {
         assertThat(sql).contains("KEY idx_memory_user_status (user_id, status)");
     }
 
+    @Test
+    void shouldContainIncrementalGroundingTraceMigration() throws IOException {
+        String sql = readSqlScript("/sql/008_add_context_trace_grounding.sql");
+
+        assertThat(sql).contains("COLUMN_NAME = 'grounding_policy'");
+        assertThat(sql).contains("COLUMN_NAME = 'route_decision'");
+        assertThat(sql).contains("COLUMN_NAME = 'llm_called'");
+        assertThat(sql).contains("ALTER TABLE tb_context_trace ADD COLUMN grounding_policy");
+        assertThat(sql).contains("ALTER TABLE tb_context_trace ADD COLUMN route_decision");
+        assertThat(sql).contains("ALTER TABLE tb_context_trace ADD COLUMN llm_called");
+    }
+
     private String readSqlScript() throws IOException {
-        try (InputStream inputStream = getClass().getResourceAsStream("/sql/007_init_conversation_context.sql")) {
+        return readSqlScript("/sql/007_init_conversation_context.sql");
+    }
+
+    private String readSqlScript(String resourcePath) throws IOException {
+        try (InputStream inputStream = getClass().getResourceAsStream(resourcePath)) {
             assertThat(inputStream).isNotNull();
             return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
         }

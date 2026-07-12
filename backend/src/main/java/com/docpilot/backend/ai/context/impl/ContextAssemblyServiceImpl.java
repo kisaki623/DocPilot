@@ -7,7 +7,9 @@ import com.docpilot.backend.ai.context.ContextItem;
 import com.docpilot.backend.ai.context.ContextPolicy;
 import com.docpilot.backend.ai.context.ContextTrace;
 import com.docpilot.backend.ai.context.ContextType;
+import com.docpilot.backend.ai.context.GroundingPolicy;
 import com.docpilot.backend.ai.context.PromptMessage;
+import com.docpilot.backend.ai.context.RouteDecision;
 import com.docpilot.backend.ai.context.builder.KnowledgeBaseEvidenceBuilder;
 import com.docpilot.backend.ai.context.builder.KnowledgeBaseEvidenceResult;
 import com.docpilot.backend.ai.context.builder.RecentTurnsContextBuilder;
@@ -83,7 +85,15 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
         ValidationUtils.requireNonBlank(request.currentMessage(), "currentMessage");
 
         Conversation conversation = conversationService.requireOwnedActive(request.userId(), request.conversationId());
-        ContextPolicy policy = ContextPolicy.forMode(conversation.getContextMode(), request.maxPromptTokens());
+        GroundingPolicy groundingPolicy = GroundingPolicy.resolveDefault(
+                request.groundingPolicy(),
+                conversation.getBoundKnowledgeBaseId() != null
+        );
+        ContextPolicy policy = ContextPolicy.forMode(
+                conversation.getContextMode(),
+                request.maxPromptTokens(),
+                groundingPolicy != GroundingPolicy.MODEL_ONLY
+        );
 
         List<ContextItem> items = new ArrayList<>();
         items.add(systemItem(request.userId()));
@@ -110,7 +120,8 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
         KnowledgeBaseEvidenceResult evidenceResult = knowledgeBaseEvidenceBuilder.build(
                 conversation,
                 request.currentMessage(),
-                policy
+                policy,
+                groundingPolicy
         );
         items.addAll(evidenceResult.items());
         items.add(currentMessageItem(request.userId(), request.currentMessage()));
@@ -127,6 +138,7 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                 budgetResult,
                 evidenceResult,
                 policy,
+                groundingPolicy,
                 modelCallSkipped,
                 fallbackAnswer
         );
@@ -159,7 +171,8 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                     + "recent turns, and optional knowledge-base evidence. Memory is preference/context, not proof.";
         } else {
             content = "Current mode is RECENT_TURNS. Use only recent conversation turns and the current message. "
-                    + "Do not rely on long-term memory or knowledge-base evidence.";
+                    + "Do not rely on long-term memory. Knowledge-base evidence, if present, is controlled by the "
+                    + "grounding policy for the current answer.";
         }
         return new ContextItem(ContextType.MODE_INSTRUCTION, content, 980, tokenEstimator.estimate(content),
                 true, userId, "mode", "ACTIVE", Map.of("contextMode", mode));
@@ -197,6 +210,7 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                                     TokenBudgetResult budgetResult,
                                     KnowledgeBaseEvidenceResult evidenceResult,
                                     ContextPolicy policy,
+                                    GroundingPolicy groundingPolicy,
                                     boolean modelCallSkipped,
                                     String fallbackAnswer) {
         int recentMessageCount = countType(budgetResult.usedItems(), ContextType.RECENT_TURN);
@@ -211,6 +225,9 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                 conversation.getId(),
                 null,
                 policy.contextMode(),
+                groundingPolicy.name(),
+                evidenceResult.routeDecision().name(),
+                null,
                 summaryUsed,
                 recentMessageCount / 2,
                 recentMessageCount,
@@ -228,9 +245,21 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                 budgetResult.truncated(),
                 budgetResult.truncatedTypes(),
                 !fallbackAnswer.isBlank(),
-                !fallbackAnswer.isBlank() ? "NO_EVIDENCE" : "",
+                fallbackReason(evidenceResult.routeDecision(), fallbackAnswer),
                 modelCallSkipped
         );
+    }
+
+    private String fallbackReason(RouteDecision routeDecision, String fallbackAnswer) {
+        if (fallbackAnswer == null || fallbackAnswer.isBlank()) {
+            return "";
+        }
+        return switch (routeDecision) {
+            case STRICT_NO_KB_FALLBACK -> "STRICT_KB_NO_KB";
+            case STRICT_NO_EVIDENCE_FALLBACK -> "STRICT_KB_NO_EVIDENCE";
+            case AUTO_REQUIRED_NO_EVIDENCE_FALLBACK -> "REQUIRED_EVIDENCE_NO_EVIDENCE";
+            default -> "NO_EVIDENCE";
+        };
     }
 
     private int countType(List<ContextItem> items, ContextType type) {

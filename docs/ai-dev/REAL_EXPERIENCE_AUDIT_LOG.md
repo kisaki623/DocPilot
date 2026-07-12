@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-12 | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | PASS（Conversation grounding 修复真实验证） | `tmp-e2e/conversation-grounding-runtime/cg20260712175003-50312c-artifact.json` | 用户报告未绑定 KnowledgeBase 的普通会话误进 strict no-evidence refusal；已授权执行 `008_add_context_trace_grounding.sql` 并确认 Trace 三列存在。真实 API smoke 覆盖未绑定 KB、误选 STRICT、AUTO_RAG 普通问题、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG evidence citation；Playwright 验证普通回答显示“未使用知识库”且无“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”；后端全量 953 tests、前端 lint/build PASS。 |
 | 2026-07-12 | `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81` | PASS（rerank 代表语料 eval） | `backend/target/rag-quality/rerank-representative-eval/latest-summary.json` | 12-case 代表语料 eval PASS：candidate `rerankApplied=true`、10/10 target coverage、2/2 no-evidence preserved、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`；同轮修复 summary intent 泛词、中文问法 / UTF-8 编码和 redaction false positive。 |
 | 2026-07-12 | `docpilot-rerank-effect-rerank-20260712003244-46b2e3` | PASS / REVIEW（百炼 rerank provider 已生效，uplift 未证明） | `backend/target/rag-quality/rerank-effect/latest-summary.json` | 用户填入百炼 API key 后复验：candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG / no-evidence / security 无回退；hard fixture 未观察到排序 uplift，因此效果提升仍保持 REVIEW。 |
 | 2026-07-11 | `docpilot-real-user-qa-20260711170544-dff948` | PASS（最大压力真实用户审计） | `backend/target/audit/docpilot-real-user-qa-20260711170544-dff948/artifact.json` | 有界最大压力复验 PASS：自然语料 25 case、Memory、权限隔离、frontendInteraction、multi-query、answer grounding、no-evidence、cleanup 和 artifact redaction 均通过；同轮修复 frontendInteraction 脱敏诊断与财务多文档 compare 题歧义。 |
@@ -68,6 +69,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260712-P1-029` | VERIFIED（已验证） | P1 | 会话路由 bug | Conversation / Grounding Policy / Frontend | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | 未绑定知识库的普通会话误进 strict grounded no-evidence refusal，并显示 0 条来源 |
 | `REA-20260712-P2-026` | VERIFIED（已验证） | P2 | RAG no-evidence 质量问题 | KnowledgeBase RAG Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 裸 `knowledge base` 泛词被当作总结意图，near-threshold 无关问题绕过 support gate |
 | `REA-20260712-P2-027` | VERIFIED（已验证） | P2 | RAG 召回质量问题 | Query Rewrite / Hybrid Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 中文代表问法未稳定映射到英文业务 evidence，target coverage 失败 |
 | `REA-20260712-P3-028` | VERIFIED（已验证） | P3 | 工程流程问题 | Rerank Representative Eval Runner | `rerank-representative-eval-smoke.ps1` 初跑 | PowerShell 5.1 中文 JSON / redaction 处理不稳，导致 mojibake 和 caseId 误报 token |
@@ -99,6 +101,42 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-12 Conversation grounding policy 问题闭环
+
+### `REA-20260712-P1-029` 未绑定知识库的普通会话误进 strict grounded no-evidence refusal，并显示 0 条来源
+
+- 状态：VERIFIED（已验证）
+- 严重级别：P1
+- 类型：会话路由 bug
+- 模块：Conversation / Grounding Policy / Frontend
+- 发现 marker：`user-report-conversation-grounding-20260712`
+
+复现步骤：
+
+1. 在 Conversation 页面创建或进入未绑定 KnowledgeBase 的会话。
+2. 询问普通常识 / 闲聊类问题。
+3. 查看助手回答、来源展示和上下文 Trace。
+
+实际结果：
+
+- 系统返回“根据提供的文档上下文无法回答”一类 grounded refusal。
+- 前端显示 `0 条来源`，看起来像知识库回答失败，而不是普通模型回答。
+- 代码审计确认 Conversation 入口复用了 `AiAnswerService.answer(context, question)` 的文档 QA strict prompt；`contextMode` 与 RAG policy 也存在耦合，Trace 缺少 `groundingPolicy` / `routeDecision` / `llmCalled`，刷新后无法判断真实路由。
+
+预期结果：
+
+- 未绑定 KB：`groundingPolicy=MODEL_ONLY`，`ragTriggered=false`，`ragRequired=false`，`evidenceCount=0`，调用底层 AnswerProvider，不触发 no-evidence refusal，前端显示“未使用知识库”或隐藏来源。
+- 绑定 KB + `AUTO_RAG`：普通常识 / 闲聊不触发 RAG；资料相关问题才检索；检索无证据时 fallback 到模型，不触发资料不足拒答。
+- `STRICT_KB`：只有用户显式选择“仅基于知识库回答”时，缺 evidence 才拒答。
+
+修复与验证：
+
+- 修复位置：`ConversationMessageServiceImpl`、`ContextAssemblyServiceImpl`、`KnowledgeBaseEvidenceBuilder`、`RealAiAnswerService`、`ConversationContextTraceServiceImpl`、Conversation 前端页面和 `cloud-quality-smoke.ps1`。
+- 修复方式：新增 `GroundingPolicy` / `RouteDecision`；Conversation 改走 `answerConversation(...)` 非 strict prompt；Trace 增加 `grounding_policy`、`route_decision`、`llm_called` 与增量 SQL；消息和 Trace 同事务保存；前端发送 policy 并按 Trace 区分“知识库来源 / 未使用知识库 / 资料不足”。
+- 已验证：Conversation / grounding 定向 37 tests PASS，schema / smoke script safety 9 tests PASS；新增 `ContextTraceSerializationTest` 锁定 API JSON 同时暴露 `modelCallSkipped` 和 `modelSkipped`；授权后执行 `backend/src/main/resources/sql/008_add_context_trace_grounding.sql`，确认云 MySQL `tb_context_trace` 存在 `grounding_policy`、`route_decision`、`llm_called`。
+- 真实验证：API smoke marker `cg20260712175003-50312c` PASS，artifact `tmp-e2e/conversation-grounding-runtime/cg20260712175003-50312c-artifact.json`，覆盖未绑定 KB、未绑定 KB 误选 STRICT、AUTO_RAG 普通问题、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG evidence citation；前端 Playwright marker `ui-cg-20260712095111-7094ef` PASS，确认普通回答显示“未使用知识库”且没有“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”。
+- 回归门禁：`mvn test -DskipITs` PASS（953 tests，0 failures，0 errors，5 skipped）；前端 `npm run lint` / `npm run build` PASS。
 
 ## 2026-07-12 rerank 代表语料 eval 问题闭环
 

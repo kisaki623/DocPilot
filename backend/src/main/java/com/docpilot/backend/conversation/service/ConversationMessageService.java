@@ -7,7 +7,11 @@ import java.util.List;
 
 public interface ConversationMessageService {
 
-    ConversationMessageResponse send(Long userId, Long conversationId, String content);
+    default ConversationMessageResponse send(Long userId, Long conversationId, String content) {
+        return send(userId, conversationId, content, null);
+    }
+
+    ConversationMessageResponse send(Long userId, Long conversationId, String content, String groundingPolicy);
 
     List<ConversationMessageResponse> list(Long userId, Long conversationId, Integer limit);
 

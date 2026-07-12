@@ -206,7 +206,7 @@ public class MemoryQualityEvalRunner {
                     .thenReturn(memories(evalCase));
             when(summaryService.getActiveSummary(evalCase.userId(), evalCase.conversationId()))
                     .thenReturn(summary(evalCase));
-            when(evidenceBuilder.build(eq(conversation), eq(evalCase.currentMessage()), any(ContextPolicy.class)))
+            when(evidenceBuilder.build(eq(conversation), eq(evalCase.currentMessage()), any(ContextPolicy.class), any()))
                     .thenReturn(evidence(evalCase, tokenEstimator));
 
             this.extractionService = new RuleBasedMemoryExtractionService(conversationService, messageMapper);

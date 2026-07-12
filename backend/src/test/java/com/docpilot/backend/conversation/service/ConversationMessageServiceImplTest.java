@@ -3,9 +3,14 @@ package com.docpilot.backend.conversation.service;
 import com.docpilot.backend.ai.context.ContextAssemblyRequest;
 import com.docpilot.backend.ai.context.ContextAssemblyResult;
 import com.docpilot.backend.ai.context.ContextTrace;
+import com.docpilot.backend.ai.context.GroundingPolicy;
+import com.docpilot.backend.ai.context.PromptMessage;
+import com.docpilot.backend.ai.context.RouteDecision;
 import com.docpilot.backend.ai.context.token.TokenEstimator;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagEvidenceCitation;
 import com.docpilot.backend.ai.service.AiAnswerService;
+import com.docpilot.backend.ai.service.ConversationAnswerRequest;
+import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.conversation.constant.ConversationMessageRole;
 import com.docpilot.backend.conversation.entity.Conversation;
 import com.docpilot.backend.conversation.entity.ConversationMessage;
@@ -29,6 +34,7 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,8 +77,10 @@ class ConversationMessageServiceImplTest {
         assertThat(response.content()).contains("没有找到足够证据");
         assertThat(response.contextTrace().messageId()).isEqualTo(102L);
         assertThat(response.contextTrace().modelCallSkipped()).isTrue();
+        assertThat(response.contextTrace().llmCalled()).isFalse();
         verify(contextTraceService).save(7L, response.contextTrace());
         verify(aiAnswerService, never()).answer(any(), any());
+        verify(aiAnswerService, never()).answerConversation(any());
     }
 
     @Test
@@ -81,7 +89,7 @@ class ConversationMessageServiceImplTest {
         when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
         when(conversationMapper.selectActiveForUpdate(7L, 10L)).thenReturn(conversation());
         when(contextAssemblyService.buildContext(any())).thenReturn(contextResult(false));
-        when(aiAnswerService.answer("context", "hello")).thenReturn("answer");
+        when(aiAnswerService.answerConversation(any())).thenReturn("answer");
         when(conversationMessageMapper.selectMaxSequenceNo(7L, 10L)).thenReturn(0, 1);
         doAnswer(invocation -> {
             ConversationMessage message = invocation.getArgument(0);
@@ -92,22 +100,51 @@ class ConversationMessageServiceImplTest {
         ConversationMessageResponse response = service.send(7L, 10L, "hello");
 
         ArgumentCaptor<ConversationMessage> messageCaptor = ArgumentCaptor.forClass(ConversationMessage.class);
-        verify(conversationMessageMapper, org.mockito.Mockito.times(2)).insert(messageCaptor.capture());
+        verify(conversationMessageMapper, times(2)).insert(messageCaptor.capture());
         assertThat(messageCaptor.getAllValues()).extracting(ConversationMessage::getRole)
                 .containsExactly(ConversationMessageRole.USER, ConversationMessageRole.ASSISTANT);
         assertThat(response.content()).isEqualTo("answer");
+        assertThat(response.contextTrace().llmCalled()).isTrue();
         verify(contextTraceService).save(7L, response.contextTrace());
-        verify(aiAnswerService).answer("context", "hello");
-        verify(conversationMessageMapper, org.mockito.Mockito.times(1)).selectMaxSequenceNo(7L, 10L);
+        ArgumentCaptor<ConversationAnswerRequest> answerCaptor = ArgumentCaptor.forClass(ConversationAnswerRequest.class);
+        verify(aiAnswerService).answerConversation(answerCaptor.capture());
+        assertThat(answerCaptor.getValue().question()).isEqualTo("hello");
+        assertThat(answerCaptor.getValue().groundingPolicy()).isEqualTo(GroundingPolicy.MODEL_ONLY);
+        assertThat(answerCaptor.getValue().routeDecision()).isEqualTo(RouteDecision.MODEL_ONLY);
+        verify(aiAnswerService, never()).answer(any(), any());
+        verify(conversationMessageMapper, times(1)).selectMaxSequenceNo(7L, 10L);
     }
 
     @Test
-    void shouldNotFailAnswerWhenTracePersistenceFails() {
+    void shouldCallModelWhenAutoRagRetrievalHasNoEvidence() {
+        givenTransaction();
+        when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
+        when(conversationMapper.selectActiveForUpdate(7L, 10L)).thenReturn(conversation());
+        when(contextAssemblyService.buildContext(any())).thenReturn(autoNoEvidenceContextResult());
+        when(aiAnswerService.answerConversation(any())).thenReturn("model fallback answer");
+        when(conversationMessageMapper.selectMaxSequenceNo(7L, 10L)).thenReturn(0, 1);
+        doAnswer(invocation -> {
+            ConversationMessage message = invocation.getArgument(0);
+            message.setId(100L + message.getSequenceNo());
+            return 1;
+        }).when(conversationMessageMapper).insert(any(ConversationMessage.class));
+
+        ConversationMessageResponse response = service.send(7L, 10L, "根据知识库回答");
+
+        assertThat(response.content()).isEqualTo("model fallback answer");
+        assertThat(response.contextTrace().routeDecision()).isEqualTo(RouteDecision.AUTO_NO_EVIDENCE_MODEL.name());
+        assertThat(response.contextTrace().modelCallSkipped()).isFalse();
+        assertThat(response.contextTrace().llmCalled()).isTrue();
+        verify(aiAnswerService).answerConversation(any());
+    }
+
+    @Test
+    void shouldRollbackMessagesWhenTracePersistenceFails() {
         givenTransaction();
         when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
         when(conversationMapper.selectActiveForUpdate(7L, 10L)).thenReturn(conversation());
         when(contextAssemblyService.buildContext(any())).thenReturn(contextResult(false));
-        when(aiAnswerService.answer("context", "hello")).thenReturn("answer");
+        when(aiAnswerService.answerConversation(any())).thenReturn("answer");
         when(conversationMessageMapper.selectMaxSequenceNo(7L, 10L)).thenReturn(0, 1);
         doAnswer(invocation -> {
             ConversationMessage message = invocation.getArgument(0);
@@ -116,17 +153,18 @@ class ConversationMessageServiceImplTest {
         }).when(conversationMessageMapper).insert(any(ConversationMessage.class));
         doThrow(new IllegalStateException("trace down")).when(contextTraceService).save(any(), any());
 
-        ConversationMessageResponse response = service.send(7L, 10L, "hello");
+        assertThatThrownBy(() -> service.send(7L, 10L, "hello"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("trace down");
 
-        assertThat(response.content()).isEqualTo("answer");
-        assertThat(response.contextTrace().messageId()).isEqualTo(102L);
+        verify(transactionManager).rollback(any());
     }
 
     @Test
     void shouldNotPersistMessagesWhenModelCallFails() {
         when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
         when(contextAssemblyService.buildContext(any())).thenReturn(contextResult(false));
-        when(aiAnswerService.answer("context", "hello")).thenThrow(new IllegalStateException("model down"));
+        when(aiAnswerService.answerConversation(any())).thenThrow(new IllegalStateException("model down"));
 
         assertThatThrownBy(() -> service.send(7L, 10L, "hello"))
                 .isInstanceOf(IllegalStateException.class)
@@ -135,6 +173,55 @@ class ConversationMessageServiceImplTest {
         verify(conversationMessageMapper, never()).insert(any(ConversationMessage.class));
         verify(conversationMapper, never()).selectActiveForUpdate(any(), any());
         verify(conversationMessageMapper, never()).selectMaxSequenceNo(any(), any());
+    }
+
+    @Test
+    void shouldPassRequestedGroundingPolicyToContextAssembly() {
+        givenTransaction();
+        when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
+        when(conversationMapper.selectActiveForUpdate(7L, 10L)).thenReturn(conversation());
+        when(contextAssemblyService.buildContext(any())).thenReturn(contextResult(false));
+        when(aiAnswerService.answerConversation(any())).thenReturn("answer");
+        when(conversationMessageMapper.selectMaxSequenceNo(7L, 10L)).thenReturn(0, 1);
+        doAnswer(invocation -> {
+            ConversationMessage message = invocation.getArgument(0);
+            message.setId(100L + message.getSequenceNo());
+            return 1;
+        }).when(conversationMessageMapper).insert(any(ConversationMessage.class));
+
+        service.send(7L, 10L, "hello", "MODEL_ONLY");
+
+        ArgumentCaptor<ContextAssemblyRequest> requestCaptor = ArgumentCaptor.forClass(ContextAssemblyRequest.class);
+        verify(contextAssemblyService).buildContext(requestCaptor.capture());
+        assertThat(requestCaptor.getValue().groundingPolicy()).isEqualTo("MODEL_ONLY");
+    }
+
+    @Test
+    void shouldRejectInvalidGroundingPolicy() {
+        assertThatThrownBy(() -> service.send(7L, 10L, "hello", "STRICT_GROUNDED"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("groundingPolicy is invalid");
+
+        verify(contextAssemblyService, never()).buildContext(any());
+        verify(aiAnswerService, never()).answerConversation(any());
+    }
+
+    @Test
+    void shouldAttachPersistedTraceWhenListingMessages() {
+        ConversationMessage userMessage = message(101L, ConversationMessageRole.USER, 1, "hello");
+        ConversationMessage assistantMessage = message(102L, ConversationMessageRole.ASSISTANT, 2, "answer");
+        ContextTrace trace = contextResult(false).trace().withMessageId(102L);
+        when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
+        when(conversationMessageMapper.selectActiveByConversation(7L, 10L, 50))
+                .thenReturn(List.of(assistantMessage, userMessage));
+        when(contextTraceService.listByMessages(7L, 10L, List.of(102L))).thenReturn(Map.of(102L, trace));
+
+        List<ConversationMessageResponse> responses = service.list(7L, 10L, null);
+
+        assertThat(responses).extracting(ConversationMessageResponse::role)
+                .containsExactly(ConversationMessageRole.USER, ConversationMessageRole.ASSISTANT);
+        assertThat(responses.get(0).contextTrace()).isNull();
+        assertThat(responses.get(1).contextTrace()).isSameAs(trace);
     }
 
     @Test
@@ -155,6 +242,17 @@ class ConversationMessageServiceImplTest {
         return conversation;
     }
 
+    private ConversationMessage message(Long id, String role, int sequenceNo, String content) {
+        ConversationMessage message = new ConversationMessage();
+        message.setId(id);
+        message.setUserId(7L);
+        message.setConversationId(10L);
+        message.setRole(role);
+        message.setSequenceNo(sequenceNo);
+        message.setContent(content);
+        return message;
+    }
+
     private void givenTransaction() {
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
     }
@@ -164,6 +262,9 @@ class ConversationMessageServiceImplTest {
                 10L,
                 null,
                 modelCallSkipped ? "AGENT_MEMORY" : "RECENT_TURNS",
+                modelCallSkipped ? GroundingPolicy.STRICT_KB.name() : GroundingPolicy.MODEL_ONLY.name(),
+                modelCallSkipped ? RouteDecision.STRICT_NO_EVIDENCE_FALLBACK.name() : RouteDecision.MODEL_ONLY.name(),
+                null,
                 false,
                 0,
                 0,
@@ -181,18 +282,59 @@ class ConversationMessageServiceImplTest {
                 false,
                 List.of(),
                 modelCallSkipped,
-                modelCallSkipped ? "NO_EVIDENCE" : "",
+                modelCallSkipped ? "STRICT_KB_NO_EVIDENCE" : "",
                 modelCallSkipped
         );
         return new ContextAssemblyResult(
                 "context",
-                List.of(),
+                List.of(new PromptMessage("user", "hello")),
                 List.of(),
                 trace,
                 modelCallSkipped,
                 modelCallSkipped,
                 modelCallSkipped,
                 modelCallSkipped ? "当前知识库中没有找到足够证据，无法基于知识库回答该问题。" : "",
+                List.<KnowledgeBaseRagEvidenceCitation>of()
+        );
+    }
+
+    private ContextAssemblyResult autoNoEvidenceContextResult() {
+        ContextTrace trace = new ContextTrace(
+                10L,
+                null,
+                "AGENT_MEMORY",
+                GroundingPolicy.AUTO_RAG.name(),
+                RouteDecision.AUTO_NO_EVIDENCE_MODEL.name(),
+                null,
+                false,
+                0,
+                0,
+                false,
+                0,
+                List.of(),
+                true,
+                false,
+                3L,
+                0,
+                true,
+                Map.of(),
+                12000,
+                10,
+                false,
+                List.of(),
+                false,
+                "",
+                false
+        );
+        return new ContextAssemblyResult(
+                "context",
+                List.of(new PromptMessage("user", "根据知识库回答")),
+                List.of(),
+                trace,
+                true,
+                false,
+                false,
+                "",
                 List.<KnowledgeBaseRagEvidenceCitation>of()
         );
     }

@@ -1887,11 +1887,11 @@ Engineering Operations owns the release archive.
 
     $opsCorpus = $naturalCorpora["ops"]
     $naturalConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Natural Corpus $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $opsCorpus.knowledgeBaseId }) $opsCorpus.authToken
-    $naturalMessage = Invoke-JsonApi "POST" "/api/conversations/$($naturalConversation.data.conversationId)/messages" ([ordered]@{ content = "Use the bound knowledge base to summarize the checkout incident and support SLA." }) $opsCorpus.authToken
+    $naturalMessage = Invoke-JsonApi "POST" "/api/conversations/$($naturalConversation.data.conversationId)/messages" ([ordered]@{ content = "Use the bound knowledge base to summarize the checkout incident and support SLA."; groundingPolicy = "STRICT_KB" }) $opsCorpus.authToken
     $naturalTrace = Invoke-JsonApi "GET" "/api/conversations/$($naturalConversation.data.conversationId)/messages/$($naturalMessage.data.messageId)/trace" $null $opsCorpus.authToken
     $naturalIncidentDocId = [long]$opsCorpus.docIds["incident"]
     $naturalSupportDocId = [long]$opsCorpus.docIds["support"]
-    $naturalTraceOk = ([bool]$naturalTrace.data.ragTriggered -and [bool]$naturalTrace.data.ragRequired -and [int]$naturalTrace.data.evidenceCount -gt 0 -and
+    $naturalTraceOk = ($naturalTrace.data.groundingPolicy -eq "STRICT_KB" -and $naturalTrace.data.routeDecision -eq "STRICT_KB_EVIDENCE" -and [bool]$naturalTrace.data.llmCalled -and [bool]$naturalTrace.data.ragTriggered -and [bool]$naturalTrace.data.ragRequired -and [int]$naturalTrace.data.evidenceCount -gt 0 -and
       (Get-CountValue $naturalTrace.data.documentHitCounts ([string]$naturalIncidentDocId)) -ge 1 -and
       (Get-CountValue $naturalTrace.data.documentHitCounts ([string]$naturalSupportDocId)) -ge 1)
     $naturalTraceCaseResult = [ordered]@{
@@ -2551,17 +2551,20 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
   }
 
   $conversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Cloud Quality $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $kb.data.id }) $tokenA
-  $message = Invoke-JsonApi "POST" "/api/conversations/$($conversation.data.conversationId)/messages" ([ordered]@{ content = "Use the bound knowledge base to answer what the two documents prove for $smokeMarker. Cover ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE." }) $tokenA
+  $message = Invoke-JsonApi "POST" "/api/conversations/$($conversation.data.conversationId)/messages" ([ordered]@{ content = "Use the bound knowledge base to answer what the two documents prove for $smokeMarker. Cover ALPHA-CLOUD-GATE and BETA-CONTEXT-GATE."; groundingPolicy = "STRICT_KB" }) $tokenA
   $trace = Invoke-JsonApi "GET" "/api/conversations/$($conversation.data.conversationId)/messages/$($message.data.messageId)/trace" $null $tokenA
   $sourceCounts = $trace.data.contextSourceCounts
   $memorySourceCount = Get-CountValue $sourceCounts "userMemory"
   $ragSourceCount = Get-CountValue $sourceCounts "ragEvidence"
-  if (-not $trace.data.ragTriggered -or -not $trace.data.ragRequired -or [int]$trace.data.evidenceCount -lt 1 -or [int]$trace.data.memoryCount -lt 1 -or $memorySourceCount -lt 1 -or $ragSourceCount -lt 1 -or (Get-CountValue $trace.data.documentHitCounts ([string]$docA.data.id)) -lt 1 -or (Get-CountValue $trace.data.documentHitCounts ([string]$docB.data.id)) -lt 1) {
+  if ($trace.data.groundingPolicy -ne "STRICT_KB" -or $trace.data.routeDecision -ne "STRICT_KB_EVIDENCE" -or -not $trace.data.llmCalled -or -not $trace.data.ragTriggered -or -not $trace.data.ragRequired -or [int]$trace.data.evidenceCount -lt 1 -or [int]$trace.data.memoryCount -lt 1 -or $memorySourceCount -lt 1 -or $ragSourceCount -lt 1 -or (Get-CountValue $trace.data.documentHitCounts ([string]$docA.data.id)) -lt 1 -or (Get-CountValue $trace.data.documentHitCounts ([string]$docB.data.id)) -lt 1) {
     Stop-WithStatus "FAILED_CORE_FLOW" "conversationTrace" "conversation trace did not include required RAG evidence and active memory"
   }
   Set-Gate "conversationTrace" "PASS" @([ordered]@{
       ragTriggered = $trace.data.ragTriggered
       ragRequired = $trace.data.ragRequired
+      groundingPolicy = $trace.data.groundingPolicy
+      routeDecision = $trace.data.routeDecision
+      llmCalled = $trace.data.llmCalled
       evidenceCount = $trace.data.evidenceCount
       memoryCount = $trace.data.memoryCount
       contextSourceCounts = $sourceCounts

@@ -28,10 +28,11 @@ class ConversationMessageControllerTest {
         UserHolder.setUserId(7L);
         ConversationMessageSendRequest request = new ConversationMessageSendRequest();
         request.setContent("hello");
+        request.setGroundingPolicy("MODEL_ONLY");
 
         controller.send(10L, request);
 
-        verify(conversationMessageService).send(7L, 10L, "hello");
+        verify(conversationMessageService).send(7L, 10L, "hello", "MODEL_ONLY");
     }
 
     @Test

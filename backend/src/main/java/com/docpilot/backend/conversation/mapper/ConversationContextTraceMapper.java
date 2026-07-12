@@ -6,6 +6,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.util.List;
+
 @Mapper
 public interface ConversationContextTraceMapper extends BaseMapper<ConversationContextTrace> {
 
@@ -20,4 +22,20 @@ public interface ConversationContextTraceMapper extends BaseMapper<ConversationC
     ConversationContextTrace selectByMessage(@Param("userId") Long userId,
                                              @Param("conversationId") Long conversationId,
                                              @Param("messageId") Long messageId);
+
+    @Select("""
+            <script>
+            SELECT *
+              FROM tb_context_trace
+             WHERE user_id = #{userId}
+               AND conversation_id = #{conversationId}
+               AND message_id IN
+               <foreach collection="messageIds" item="messageId" open="(" separator="," close=")">
+                   #{messageId}
+               </foreach>
+            </script>
+            """)
+    List<ConversationContextTrace> selectByMessages(@Param("userId") Long userId,
+                                                    @Param("conversationId") Long conversationId,
+                                                    @Param("messageIds") List<Long> messageIds);
 }

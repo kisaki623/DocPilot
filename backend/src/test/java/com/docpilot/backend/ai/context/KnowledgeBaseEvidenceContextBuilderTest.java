@@ -32,7 +32,7 @@ class KnowledgeBaseEvidenceContextBuilderTest {
     );
 
     @Test
-    void shouldTriggerRequiredRagForChineseKnowledgeBaseIntent() {
+    void shouldTriggerAutoRagForChineseKnowledgeBaseIntent() {
         KnowledgeBaseRagRetrievalHit hit = hit("vector-1", "Doc A", "evidence content");
         KnowledgeBaseRagEvidenceCitation citation = hit.toCitation();
         when(retrievalService.retrieve(any())).thenReturn(result(List.of(hit), List.of(citation), Map.of(101L, 1)));
@@ -44,13 +44,14 @@ class KnowledgeBaseEvidenceContextBuilderTest {
         );
 
         assertThat(result.triggered()).isTrue();
-        assertThat(result.required()).isTrue();
+        assertThat(result.required()).isFalse();
         assertThat(result.noEvidence()).isFalse();
         assertThat(result.items()).hasSize(1);
         assertThat(result.items().get(0).type()).isEqualTo(ContextType.RAG_EVIDENCE);
         assertThat(result.items().get(0).content()).contains("documentTitle=Doc A", "evidence content");
         assertThat(result.citations()).containsExactly(citation);
         assertThat(result.documentHitCounts()).containsEntry(101L, 1);
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_RAG_EVIDENCE);
 
         ArgumentCaptor<KnowledgeBaseRagRetrievalQuery> captor =
                 ArgumentCaptor.forClass(KnowledgeBaseRagRetrievalQuery.class);
@@ -76,7 +77,61 @@ class KnowledgeBaseEvidenceContextBuilderTest {
         assertThat(result.noEvidence()).isTrue();
         assertThat(result.fallbackAnswer()).isBlank();
         assertThat(result.items()).isEmpty();
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_NO_EVIDENCE_MODEL);
         verify(retrievalService).retrieve(any());
+    }
+
+    @Test
+    void autoRagShouldNotTriggerRetrievalForGeneralQuestion() {
+        KnowledgeBaseEvidenceResult result = builder.build(
+                conversation(3L),
+                "太阳为什么会发光",
+                ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, true),
+                GroundingPolicy.AUTO_RAG
+        );
+
+        assertThat(result.triggered()).isFalse();
+        assertThat(result.required()).isFalse();
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_INTENT_NOT_TRIGGERED_MODEL);
+        verifyNoInteractions(retrievalService);
+    }
+
+    @Test
+    void autoRagShouldNotTreatKnowledgeBaseConceptQuestionAsRetrievalIntent() {
+        KnowledgeBaseEvidenceResult englishResult = builder.build(
+                conversation(3L),
+                "What is a knowledge base?",
+                ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, true),
+                GroundingPolicy.AUTO_RAG
+        );
+        KnowledgeBaseEvidenceResult chineseResult = builder.build(
+                conversation(3L),
+                "知识库是什么？",
+                ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, true),
+                GroundingPolicy.AUTO_RAG
+        );
+
+        assertThat(englishResult.triggered()).isFalse();
+        assertThat(englishResult.routeDecision()).isEqualTo(RouteDecision.AUTO_INTENT_NOT_TRIGGERED_MODEL);
+        assertThat(chineseResult.triggered()).isFalse();
+        assertThat(chineseResult.routeDecision()).isEqualTo(RouteDecision.AUTO_INTENT_NOT_TRIGGERED_MODEL);
+        verifyNoInteractions(retrievalService);
+    }
+
+    @Test
+    void modelOnlyShouldNotTriggerRetrievalEvenWhenKnowledgeBaseIsBound() {
+        KnowledgeBaseEvidenceResult result = builder.build(
+                conversation(3L),
+                "根据知识库回答",
+                ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, false),
+                GroundingPolicy.MODEL_ONLY
+        );
+
+        assertThat(result.triggered()).isFalse();
+        assertThat(result.required()).isFalse();
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.MODEL_ONLY);
+        verifyNoInteractions(retrievalService);
     }
 
     @Test
@@ -89,11 +144,12 @@ class KnowledgeBaseEvidenceContextBuilderTest {
 
         assertThat(result.triggered()).isFalse();
         assertThat(result.items()).isEmpty();
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.MODEL_ONLY);
         verifyNoInteractions(retrievalService);
     }
 
     @Test
-    void shouldReturnChineseFallbackForRequiredRagWithoutEvidence() {
+    void autoRagShouldFallbackToModelWhenTriggeredRetrievalHasNoEvidence() {
         when(retrievalService.retrieve(any())).thenReturn(result(List.of(), List.of(), Map.of()));
 
         KnowledgeBaseEvidenceResult result = builder.build(
@@ -103,10 +159,45 @@ class KnowledgeBaseEvidenceContextBuilderTest {
         );
 
         assertThat(result.triggered()).isTrue();
+        assertThat(result.required()).isFalse();
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.fallbackAnswer()).isBlank();
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_NO_EVIDENCE_MODEL);
+    }
+
+    @Test
+    void strictKbShouldRefuseWhenNoEvidence() {
+        when(retrievalService.retrieve(any())).thenReturn(result(List.of(), List.of(), Map.of()));
+
+        KnowledgeBaseEvidenceResult result = builder.build(
+                conversation(3L),
+                "普通问题",
+                ContextPolicy.forMode(ConversationContextMode.RECENT_TURNS, null, true),
+                GroundingPolicy.STRICT_KB
+        );
+
+        assertThat(result.triggered()).isTrue();
         assertThat(result.required()).isTrue();
         assertThat(result.noEvidence()).isTrue();
-        assertThat(result.fallbackAnswer())
-                .isEqualTo("\u5f53\u524d\u77e5\u8bc6\u5e93\u4e2d\u6ca1\u6709\u627e\u5230\u8db3\u591f\u8bc1\u636e\uff0c\u65e0\u6cd5\u57fa\u4e8e\u77e5\u8bc6\u5e93\u56de\u7b54\u8be5\u95ee\u9898\u3002");
+        assertThat(result.fallbackAnswer()).contains("没有找到足够证据");
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.STRICT_NO_EVIDENCE_FALLBACK);
+    }
+
+    @Test
+    void strictKbShouldNotRefuseWhenConversationHasNoKnowledgeBase() {
+        KnowledgeBaseEvidenceResult result = builder.build(
+                conversation(null),
+                "普通问题",
+                ContextPolicy.forMode(ConversationContextMode.RECENT_TURNS, null, true),
+                GroundingPolicy.STRICT_KB
+        );
+
+        assertThat(result.triggered()).isFalse();
+        assertThat(result.required()).isFalse();
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.fallbackAnswer()).isBlank();
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.MODEL_ONLY);
+        verifyNoInteractions(retrievalService);
     }
 
     @Test

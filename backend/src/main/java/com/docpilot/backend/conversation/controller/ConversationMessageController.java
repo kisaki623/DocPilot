@@ -33,7 +33,8 @@ public class ConversationMessageController {
         return ApiResponse.success(conversationMessageService.send(
                 userId,
                 conversationId,
-                request == null ? null : request.getContent()
+                request == null ? null : request.getContent(),
+                request == null ? null : request.getGroundingPolicy()
         ));
     }
 

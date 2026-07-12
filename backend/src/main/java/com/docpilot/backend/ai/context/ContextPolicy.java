@@ -18,14 +18,25 @@ public record ContextPolicy(
 
     public static ContextPolicy forMode(String mode, Integer requestedMaxPromptTokens) {
         String resolved = ConversationContextMode.normalizeOrDefault(mode);
+        return forMode(mode, requestedMaxPromptTokens, ConversationContextMode.AGENT_MEMORY.equals(resolved));
+    }
+
+    public static ContextPolicy forMode(String mode, Integer requestedMaxPromptTokens, boolean ragEnabled) {
+        String resolved = ConversationContextMode.normalizeOrDefault(mode);
         int maxPromptTokens = requestedMaxPromptTokens == null || requestedMaxPromptTokens <= 0
                 ? 12_000
                 : Math.min(24_000, requestedMaxPromptTokens);
         if (ConversationContextMode.AGENT_MEMORY.equals(resolved)) {
-            return new ContextPolicy(resolved, maxPromptTokens, 8, 5, 1_200, 6, 6_000, 800,
-                    true, true, true);
+            return new ContextPolicy(resolved, maxPromptTokens, 8, 5, 1_200,
+                    ragEnabled ? 6 : 0,
+                    ragEnabled ? 6_000 : 0,
+                    ragEnabled ? 800 : 0,
+                    true, true, ragEnabled);
         }
-        return new ContextPolicy(resolved, Math.min(maxPromptTokens, 8_000), 8, 0, 0, 0, 0, 0,
-                false, false, false);
+        return new ContextPolicy(resolved, Math.min(maxPromptTokens, 8_000), 8, 0, 0,
+                ragEnabled ? 6 : 0,
+                ragEnabled ? 6_000 : 0,
+                ragEnabled ? 800 : 0,
+                false, false, ragEnabled);
     }
 }

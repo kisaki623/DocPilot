@@ -3,6 +3,8 @@ package com.docpilot.backend.ai.context.builder;
 import com.docpilot.backend.ai.context.ContextItem;
 import com.docpilot.backend.ai.context.ContextPolicy;
 import com.docpilot.backend.ai.context.ContextType;
+import com.docpilot.backend.ai.context.GroundingPolicy;
+import com.docpilot.backend.ai.context.RouteDecision;
 import com.docpilot.backend.ai.context.token.TokenEstimator;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalHit;
 import com.docpilot.backend.ai.rag.KnowledgeBaseRagRetrievalQuery;
@@ -27,9 +29,7 @@ public class KnowledgeBaseEvidenceBuilder {
             "结合文档",
             "从文档",
             "资料里",
-            "资料集",
             "文档内容",
-            "knowledge base",
             "based on the document",
             "based on documents"
     );
@@ -57,12 +57,30 @@ public class KnowledgeBaseEvidenceBuilder {
     public KnowledgeBaseEvidenceResult build(Conversation conversation,
                                              String currentMessage,
                                              ContextPolicy policy) {
+        GroundingPolicy groundingPolicy = policy.ragEnabled() ? GroundingPolicy.AUTO_RAG : GroundingPolicy.MODEL_ONLY;
+        return build(conversation, currentMessage, policy, groundingPolicy);
+    }
+
+    public KnowledgeBaseEvidenceResult build(Conversation conversation,
+                                             String currentMessage,
+                                             ContextPolicy policy,
+                                             GroundingPolicy groundingPolicy) {
         if (!policy.ragEnabled() || conversation.getBoundKnowledgeBaseId() == null) {
-            return KnowledgeBaseEvidenceResult.notTriggered();
+            RouteDecision routeDecision = groundingPolicy == GroundingPolicy.AUTO_RAG
+                    ? RouteDecision.AUTO_NO_KB_MODEL
+                    : RouteDecision.MODEL_ONLY;
+            return KnowledgeBaseEvidenceResult.notTriggered(routeDecision);
         }
+
+        if (groundingPolicy == GroundingPolicy.MODEL_ONLY) {
+            return KnowledgeBaseEvidenceResult.notTriggered(RouteDecision.MODEL_ONLY);
+        }
+
         RagIntent intent = resolveIntent(currentMessage);
-        if (!intent.triggered()) {
-            return KnowledgeBaseEvidenceResult.notTriggered();
+        if (groundingPolicy == GroundingPolicy.STRICT_KB) {
+            intent = new RagIntent(true, true);
+        } else if (!intent.triggered()) {
+            return KnowledgeBaseEvidenceResult.notTriggered(RouteDecision.AUTO_INTENT_NOT_TRIGGERED_MODEL);
         }
 
         KnowledgeBaseRagRetrievalResult retrieval = retrievalService.retrieve(new KnowledgeBaseRagRetrievalQuery(
@@ -74,11 +92,18 @@ public class KnowledgeBaseEvidenceBuilder {
                 ""
         ));
         if (retrieval.noEvidence()) {
-            String fallback = intent.required()
+            boolean strictNoEvidence = groundingPolicy == GroundingPolicy.STRICT_KB;
+            String fallback = strictNoEvidence
                     ? "当前知识库中没有找到足够证据，无法基于知识库回答该问题。"
                     : "";
-            return new KnowledgeBaseEvidenceResult(true, intent.required(), true, fallback,
-                    List.of(), retrieval.citations(), retrieval.documentHitCounts());
+            RouteDecision routeDecision;
+            if (strictNoEvidence) {
+                routeDecision = RouteDecision.STRICT_NO_EVIDENCE_FALLBACK;
+            } else {
+                routeDecision = RouteDecision.AUTO_NO_EVIDENCE_MODEL;
+            }
+            return new KnowledgeBaseEvidenceResult(true, strictNoEvidence, true, fallback,
+                    List.of(), retrieval.citations(), retrieval.documentHitCounts(), routeDecision);
         }
 
         List<ContextItem> items = new ArrayList<>();
@@ -103,8 +128,11 @@ public class KnowledgeBaseEvidenceBuilder {
                     )
             ));
         }
-        return new KnowledgeBaseEvidenceResult(true, intent.required(), false, "",
-                items, retrieval.citations(), retrieval.documentHitCounts());
+        RouteDecision routeDecision = groundingPolicy == GroundingPolicy.STRICT_KB
+                ? RouteDecision.STRICT_KB_EVIDENCE
+                : RouteDecision.AUTO_RAG_EVIDENCE;
+        return new KnowledgeBaseEvidenceResult(true, groundingPolicy == GroundingPolicy.STRICT_KB, false, "",
+                items, retrieval.citations(), retrieval.documentHitCounts(), routeDecision);
     }
 
     private RagIntent resolveIntent(String message) {
