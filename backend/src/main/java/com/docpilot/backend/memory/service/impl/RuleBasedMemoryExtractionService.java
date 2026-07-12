@@ -52,11 +52,13 @@ public class RuleBasedMemoryExtractionService implements MemoryExtractionService
         if (!ConversationMessageRole.USER.equals(message.getRole())) {
             return Optional.empty();
         }
-        String content = compact(message.getContent());
-        String normalized = content.toLowerCase(Locale.ROOT);
-        if (looksSensitive(normalized) || looksTemporaryInstruction(normalized)) {
+        String rawContent = message.getContent().replaceAll("\\s+", " ").trim();
+        String normalizedRaw = rawContent.toLowerCase(Locale.ROOT);
+        if (looksSensitive(normalizedRaw) || looksTemporaryInstruction(normalizedRaw)) {
             return Optional.empty();
         }
+        String content = compact(rawContent);
+        String normalized = content.toLowerCase(Locale.ROOT);
 
         String memoryType = classify(normalized);
         if (memoryType == null) {
@@ -83,8 +85,11 @@ public class RuleBasedMemoryExtractionService implements MemoryExtractionService
                 "answer", "conclusion", "concise", "detailed", "style", "format")) {
             return UserMemoryType.ANSWER_STYLE;
         }
-        if (containsAny(normalized, "偏好", "喜欢", "习惯", "以后请", "希望你", "不要",
-                "prefer", "preference", "habit", "please", "do not")) {
+        if (containsAny(normalized, "优先考虑", "优先使用", "偏好", "喜欢", "习惯", "不要为了",
+                "prefer", "preference", "habit", "do not")) {
+            return UserMemoryType.PREFERENCE;
+        }
+        if (containsAny(normalized, "以后请", "希望你", "不要", "please")) {
             return UserMemoryType.PREFERENCE;
         }
         if (containsAny(normalized, "目标", "计划", "下一步", "待办", "完成", "阶段",
@@ -104,8 +109,9 @@ public class RuleBasedMemoryExtractionService implements MemoryExtractionService
 
     private boolean looksSensitive(String normalized) {
         return containsAny(normalized,
-                "api_key", "apikey", "secret", "password", "passwd", "token", "bearer ",
-                "authorization:", "jdbc:", ".env", "ssh-rsa", "private key", "access_key", "accesskey");
+                "api_key", "api key", "api-key", "apikey", "secret", "password", "passwd", "token", "bearer ",
+                "authorization:", "jdbc:", ".env", "ssh-rsa", "private key", "access_key", "accesskey")
+                || normalized.matches(".*\\bsk-[a-z0-9_-]{8,}\\b.*");
     }
 
     private boolean looksTemporaryInstruction(String normalized) {

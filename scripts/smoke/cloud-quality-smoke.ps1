@@ -445,7 +445,7 @@ function Invoke-MysqlQuery([hashtable]$envValues, [string]$query) {
 
   $env:MYSQL_PWD = $mysqlPassword
   try {
-    $output = & mysql --protocol=TCP -h 127.0.0.1 -P $MySqlLocalPort -u $mysqlUser $mysqlDatabase --batch --raw --skip-column-names -e $query
+    $output = $query | & $mysqlExe.Source --protocol=TCP -h 127.0.0.1 -P $MySqlLocalPort -u $mysqlUser $mysqlDatabase --batch --raw --skip-column-names
     if ($LASTEXITCODE -ne 0) {
       Stop-WithStatus "BLOCKED" "mysql" "mysql query failed"
     }
@@ -478,6 +478,30 @@ VALUES ${joinedValues};
 UPDATE tb_conversation SET last_message_time = NOW() WHERE id = ${conversationId} AND user_id = ${userId};
 "@
   Invoke-MysqlQuery $envValues $query | Out-Null
+}
+
+function Get-SmokeConversationUserMessageIds([hashtable]$envValues, [long]$userId, [long]$conversationId) {
+  $query = @"
+SELECT id
+FROM tb_conversation_message
+WHERE conversation_id=${conversationId} AND user_id=${userId} AND role='USER' AND status='ACTIVE'
+ORDER BY sequence_no ASC,id ASC;
+"@
+  $lines = @(Invoke-MysqlQuery $envValues $query)
+  return @($lines | Where-Object { $_ } | ForEach-Object { [long]$_ })
+}
+
+function Get-MemoryRowCountBySourceConversation([hashtable]$envValues, [long]$userId, [long]$conversationId) {
+  $query = @"
+SELECT COUNT(*)
+FROM tb_user_memory
+WHERE user_id=${userId} AND source_conversation_id=${conversationId};
+"@
+  $lines = @(Invoke-MysqlQuery $envValues $query)
+  if ($lines.Count -eq 0 -or -not $lines[0]) {
+    return 0
+  }
+  return [int]$lines[0]
 }
 
 function Get-MysqlChunks([hashtable]$envValues, [long]$userId, [long]$documentId) {
@@ -3584,8 +3608,8 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
   }
 
   $memory = Invoke-JsonApi "POST" "/api/memories" ([ordered]@{
-      memoryType = "PREFERENCE"
-      content = "For $smokeMarker, prefer concise answers that still cite knowledge-base evidence."
+      memoryType = "TECH_CONTEXT"
+      content = "For $smokeMarker, the smoke context keeps active memory separate from knowledge-base evidence."
       priority = 40
     }) $tokenA
   if ($memory.data.status -ne "ACTIVE") {
@@ -3628,6 +3652,153 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
     })
 
   if ($EnableMemoryQualityGate) {
+    $memoryQualityCaseResults = @()
+
+    $t29Conversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "T29 Memory Candidate $smokeMarker"; contextMode = "AGENT_MEMORY" }) $tokenA
+    $t29PreferenceText = "For project architecture for $smokeMarker T29, prefer Java backend implementation and do not split a Python service only for AI."
+    Add-SmokeConversationUserMessages $envValues $userAId ([long]$t29Conversation.data.conversationId) @($t29PreferenceText)
+    $t29MessageIds = @(Get-SmokeConversationUserMessageIds $envValues $userAId ([long]$t29Conversation.data.conversationId))
+    if ($t29MessageIds.Count -ne 1) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T29 did not create exactly one source user message"
+    }
+    $t29Suggestions = Invoke-JsonApi "POST" "/api/memories/suggestions/extract" ([ordered]@{ conversationId = $t29Conversation.data.conversationId; limit = 5 }) $tokenA
+    $t29SuggestionList = @($t29Suggestions.data)
+    $t29Suggestion = $t29SuggestionList |
+      Where-Object {
+        $_.memoryType -eq "PREFERENCE" -and
+        $_.status -eq "SUGGESTED" -and
+        $_.sourceType -eq "SYSTEM_EXTRACTED" -and
+        [long]$_.sourceConversationId -eq [long]$t29Conversation.data.conversationId -and
+        [long]$_.sourceMessageId -eq [long]$t29MessageIds[0]
+      } |
+      Select-Object -First 1
+    if (-not $t29Suggestion) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T29-agent-memory-candidate-confirmation"
+          extractedSuggestionCount = $t29SuggestionList.Count
+          suggestionTypes = @($t29SuggestionList | ForEach-Object { $_.memoryType })
+          suggestedStatusCount = @($t29SuggestionList | Where-Object { $_.status -eq "SUGGESTED" }).Count
+          sourceConversationMatchCount = @($t29SuggestionList | Where-Object { [long]$_.sourceConversationId -eq [long]$t29Conversation.data.conversationId }).Count
+        }) "T29 preference suggestion was not generated with source linkage"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T29 preference suggestion was not generated with source linkage"
+    }
+    $t29BeforeActive = Invoke-JsonApi "GET" "/api/memories?limit=100" $null $tokenA
+    $t29BeforeSuggestions = Invoke-JsonApi "GET" "/api/memories/suggestions?limit=100" $null $tokenA
+    $t29BeforeActiveIds = @($t29BeforeActive.data | ForEach-Object { [long]$_.memoryId })
+    $t29BeforeSuggestionIds = @($t29BeforeSuggestions.data | ForEach-Object { [long]$_.memoryId })
+    $t29SuggestedBeforeAccept = ($t29BeforeSuggestionIds -contains [long]$t29Suggestion.memoryId)
+    $t29ActiveBeforeAccept = ($t29BeforeActiveIds -contains [long]$t29Suggestion.memoryId)
+    if (-not $t29SuggestedBeforeAccept -or $t29ActiveBeforeAccept) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T29-agent-memory-candidate-confirmation"
+          suggestedBeforeAccept = $t29SuggestedBeforeAccept
+          activeBeforeAccept = $t29ActiveBeforeAccept
+        }) "T29 suggestion state before accept was inconsistent"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T29 suggestion state before accept was inconsistent"
+    }
+    $t29AcceptedMemory = Invoke-JsonApi "POST" "/api/memories/suggestions/$($t29Suggestion.memoryId)/accept" $null $tokenA
+    $t29AfterActive = Invoke-JsonApi "GET" "/api/memories?limit=100" $null $tokenA
+    $t29AfterSuggestions = Invoke-JsonApi "GET" "/api/memories/suggestions?limit=100" $null $tokenA
+    $t29AfterActiveIds = @($t29AfterActive.data | ForEach-Object { [long]$_.memoryId })
+    $t29AfterSuggestionIds = @($t29AfterSuggestions.data | ForEach-Object { [long]$_.memoryId })
+    $t29ActiveAfterAccept = ($t29AfterActiveIds -contains [long]$t29Suggestion.memoryId)
+    $t29SuggestedAfterAccept = ($t29AfterSuggestionIds -contains [long]$t29Suggestion.memoryId)
+    if ($t29AcceptedMemory.data.status -ne "ACTIVE" -or -not $t29ActiveAfterAccept -or $t29SuggestedAfterAccept) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T29-agent-memory-candidate-confirmation"
+          acceptedStatus = $t29AcceptedMemory.data.status
+          activeAfterAccept = $t29ActiveAfterAccept
+          suggestedAfterAccept = $t29SuggestedAfterAccept
+        }) "T29 accepted suggestion did not move cleanly into active memory"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T29 accepted suggestion did not move cleanly into active memory"
+    }
+    $t29TraceConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "T29 Memory Trace $smokeMarker"; contextMode = "AGENT_MEMORY" }) $tokenA
+    $t29TraceMessage = Invoke-JsonApi "POST" "/api/conversations/$($t29TraceConversation.data.conversationId)/messages" ([ordered]@{
+        content = "What implementation preference should guide project architecture for $smokeMarker T29?"
+      }) $tokenA
+    $t29Trace = Invoke-JsonApi "GET" "/api/conversations/$($t29TraceConversation.data.conversationId)/messages/$($t29TraceMessage.data.messageId)/trace" $null $tokenA
+    $t29TraceUserMemoryCount = Get-CountValue $t29Trace.data.contextSourceCounts "userMemory"
+    $t29TraceMemoryTypes = @($t29Trace.data.memoryTypes)
+    $t29TraceTruncatedTypes = @($t29Trace.data.truncatedTypes)
+    if ($t29Trace.data.contextMode -ne "AGENT_MEMORY" -or [int]$t29Trace.data.memoryCount -ne $t29TraceUserMemoryCount -or [int]$t29Trace.data.memoryCount -lt 1 -or ($t29TraceMemoryTypes -notcontains "PREFERENCE") -or ($t29TraceTruncatedTypes -contains "MEMORY")) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T29-agent-memory-candidate-confirmation"
+          traceContextMode = $t29Trace.data.contextMode
+          traceMemoryCount = $t29Trace.data.memoryCount
+          traceUserMemoryCount = $t29TraceUserMemoryCount
+          traceMemoryTypes = $t29TraceMemoryTypes
+          traceMemoryTruncated = ($t29TraceTruncatedTypes -contains "MEMORY")
+        }) "T29 accepted memory was not observable in AGENT_MEMORY trace"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T29 accepted memory was not observable in AGENT_MEMORY trace"
+    }
+    $memoryQualityCaseResults += [ordered]@{
+      caseId = "T29-agent-memory-candidate-confirmation"
+      caseType = "memory_candidate_confirmation"
+      status = "PASS"
+      passed = $true
+      suggestionGenerated = $true
+      suggestedBeforeAccept = $t29SuggestedBeforeAccept
+      activeBeforeAccept = $t29ActiveBeforeAccept
+      acceptedActive = $t29ActiveAfterAccept
+      suggestedAfterAccept = $t29SuggestedAfterAccept
+      traceMemoryCount = [int]$t29Trace.data.memoryCount
+      traceUserMemoryCount = $t29TraceUserMemoryCount
+      traceMemoryTypes = $t29TraceMemoryTypes
+      failureBuckets = @()
+      reviewBuckets = @()
+    }
+
+    $t30ControlConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "T30 Memory Control $smokeMarker"; contextMode = "AGENT_MEMORY" }) $tokenA
+    $t30ControlText = "For project architecture for $smokeMarker T30-control, prefer Java backend implementation and avoid optional Python service splits."
+    Add-SmokeConversationUserMessages $envValues $userAId ([long]$t30ControlConversation.data.conversationId) @($t30ControlText)
+    $t30ControlSuggestions = Invoke-JsonApi "POST" "/api/memories/suggestions/extract" ([ordered]@{ conversationId = $t30ControlConversation.data.conversationId; limit = 5 }) $tokenA
+    $t30ControlPreference = @($t30ControlSuggestions.data) |
+      Where-Object { $_.memoryType -eq "PREFERENCE" -and [long]$_.sourceConversationId -eq [long]$t30ControlConversation.data.conversationId } |
+      Select-Object -First 1
+    if (-not $t30ControlPreference) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T30-sensitive-memory-rejection"
+          controlSuggestionCount = @($t30ControlSuggestions.data).Count
+          controlSuggestionTypes = @($t30ControlSuggestions.data | ForEach-Object { $_.memoryType })
+        }) "T30 positive control did not produce a preference candidate"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T30 positive control did not produce a preference candidate"
+    }
+    $safeKeyTail = (($smokeMarker -replace '[^a-z0-9_-]', '') + "safetycheck")
+    $fakeKey = ("s" + "k" + "-" + $safeKeyTail).Substring(0, [Math]::Min(28, 3 + $safeKeyTail.Length))
+    $t30Conversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "T30 Sensitive Memory $smokeMarker"; contextMode = "AGENT_MEMORY" }) $tokenA
+    $t30SensitiveText = "For project architecture for $smokeMarker T30-sensitive, prefer Java backend implementation and remember api key $fakeKey."
+    Add-SmokeConversationUserMessages $envValues $userAId ([long]$t30Conversation.data.conversationId) @($t30SensitiveText)
+    $t30Suggestions = Invoke-JsonApi "POST" "/api/memories/suggestions/extract" ([ordered]@{ conversationId = $t30Conversation.data.conversationId; limit = 5 }) $tokenA
+    $t30CandidateCount = @($t30Suggestions.data | Where-Object { [long]$_.sourceConversationId -eq [long]$t30Conversation.data.conversationId }).Count
+    $t30MemoryRowCount = Get-MemoryRowCountBySourceConversation $envValues $userAId ([long]$t30Conversation.data.conversationId)
+    $t30AllSuggestions = Invoke-JsonApi "GET" "/api/memories/suggestions?limit=100" $null $tokenA
+    $t30AllActive = Invoke-JsonApi "GET" "/api/memories?limit=100" $null $tokenA
+    $t30SuggestionLeak = @($t30AllSuggestions.data | Where-Object { [long]$_.sourceConversationId -eq [long]$t30Conversation.data.conversationId }).Count -gt 0
+    $t30ActiveLeak = @($t30AllActive.data | Where-Object { [long]$_.sourceConversationId -eq [long]$t30Conversation.data.conversationId }).Count -gt 0
+    if ($t30CandidateCount -gt 0 -or $t30MemoryRowCount -gt 0 -or $t30SuggestionLeak -or $t30ActiveLeak) {
+      Set-Gate "memoryQuality" "FAILED_SECURITY_GATE" @([ordered]@{
+          caseId = "T30-sensitive-memory-rejection"
+          candidateCountFromT30 = $t30CandidateCount
+          memoryRowCountFromT30 = $t30MemoryRowCount
+          suggestionLeak = $t30SuggestionLeak
+          activeLeak = $t30ActiveLeak
+        }) "T30 sensitive memory text produced persisted memory data"
+      Stop-WithStatus "FAILED_SECURITY_GATE" "memoryQuality" "T30 sensitive memory text produced persisted memory data"
+    }
+    $memoryQualityCaseResults += [ordered]@{
+      caseId = "T30-sensitive-memory-rejection"
+      caseType = "memory_sensitive_rejection"
+      status = "PASS"
+      passed = $true
+      controlCandidateGenerated = $true
+      candidateCountFromT30 = $t30CandidateCount
+      memoryRowCountFromT30 = $t30MemoryRowCount
+      suggestionLeak = $t30SuggestionLeak
+      activeLeak = $t30ActiveLeak
+      failureBuckets = @()
+      reviewBuckets = @()
+    }
+
     $memoryConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Memory Quality $smokeMarker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $kb.data.id }) $tokenA
     Add-SmokeConversationUserMessages $envValues $userAId ([long]$memoryConversation.data.conversationId) @(
       "Please answer with the conclusion first, then explain tradeoffs for $smokeMarker.",
@@ -3750,6 +3921,20 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
       Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory governance merge action did not update active memory"
     }
     Set-Gate "memoryQuality" "PASS" @([ordered]@{
+        caseResults = $memoryQualityCaseResults
+        t29SuggestionGenerated = $true
+        t29SuggestedBeforeAccept = $t29SuggestedBeforeAccept
+        t29ActiveBeforeAccept = $t29ActiveBeforeAccept
+        t29AcceptedActive = $t29ActiveAfterAccept
+        t29SuggestedAfterAccept = $t29SuggestedAfterAccept
+        t29TraceMemoryCount = [int]$t29Trace.data.memoryCount
+        t29TraceUserMemoryCount = $t29TraceUserMemoryCount
+        t29TraceMemoryTypes = $t29TraceMemoryTypes
+        t30ControlCandidateGenerated = $true
+        t30CandidateCountFromSensitiveSource = $t30CandidateCount
+        t30MemoryRowCountFromSensitiveSource = $t30MemoryRowCount
+        t30SuggestionLeak = $t30SuggestionLeak
+        t30ActiveLeak = $t30ActiveLeak
         extractedSuggestionCount = $suggestionList.Count
         acceptedStatus = $acceptedMemory.data.status
         ignoredStatus = $ignoredMemory.data.status

@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-13 Agent Memory T29/T30 gate
+
+- 扩展 `memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate`：新增 T29 候选记忆确认流与 T30 敏感记忆拒绝流；gate 只输出 caseId、状态、类型、id 关联布尔和计数，不输出用户消息、memory content、fake key、prompt、answer 或 evidence context。
+- T29 断言链：独立 `AGENT_MEMORY` 会话插入项目实现偏好，extract 返回 `PREFERENCE` / `SUGGESTED` / `SYSTEM_EXTRACTED` 且 source conversation/message 匹配；accept 前 active list 不含该 `memoryId`，accept 后 active list 包含且 suggestions list 不再包含；新会话 Trace 中 `memoryCount == contextSourceCounts.userMemory` 且 `memoryTypes` 包含 `PREFERENCE`。
+- T30 断言链：先用无敏感片段的 Java 后端偏好做正对照，确认可产生 `PREFERENCE` 候选；再用运行时拼接的 `sk-...` 假凭据形状和 `api key` 标签构造敏感文本，要求 extract 候选数为 0、ACTIVE / SUGGESTED 列表无泄漏、`tb_user_memory` 按 source conversation 计数为 0。
+- 后端补强：`MemorySafetyValidator` 拦截 `api key` / `api-key` / `sk-...` 形状；`RuleBasedMemoryExtractionService` 将“优先考虑 / prefer / do not”强偏好信号前置，修复中文 T29 文案含“回答”时被误归为 `ANSWER_STYLE` 的问题。MySQL helper 改为 stdin 输入 SQL，避免测试语料出现在本机进程命令行。
+- 验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（44 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS；真实 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` 中 `memoryQuality` gate PASS，marker `docpilot-memory-quality-20260713013642-34b1f5`，overallStatus `REVIEW` 仅因前端跳过；artifact scan PASS，常用端口无 LISTEN 残留。
+- 边界：本片覆盖 T29/T30 API / Trace / DB gate，不覆盖前端 Memory 管理页、T31 删除 / 禁用记忆、T32 长会话摘要、Agent ToolCall 或弱网并发 UI。
+
 ## 2026-07-13 Conversation 最近轮次 T27/T28 gate
 
 - 扩展 `conversation-grounding-smoke.ps1`：在既有 6 个 GroundingPolicy case 基础上新增 T27 同会话最近轮次记忆、T28 跨会话隔离两个 case；脚本仍只输出脱敏路由、布尔和计数摘要。

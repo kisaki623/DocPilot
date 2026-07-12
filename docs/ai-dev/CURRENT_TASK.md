@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-13 高强度 Agent Memory T29/T30 自动化验收（VERIFIED / PARTIAL）
+
+- `scripts/smoke/memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 已新增 T29 / T30 明确 case：T29 验证 `AGENT_MEMORY` 候选记忆需要用户确认，accept 前只在 suggestion list，accept 后同一 `memoryId` 进入 ACTIVE list，并在新会话 Trace 中可见 `memoryTypes` 包含 `PREFERENCE`、`memoryCount == contextSourceCounts.userMemory`；T30 验证带凭据形状的偏好文本不会生成候选、不会进入 ACTIVE / SUGGESTED list，且 `tb_user_memory` 按 `source_conversation_id` 计数为 0。
+- 为减少误判，runner 新增 `Get-SmokeConversationUserMessageIds` 和 `Get-MemoryRowCountBySourceConversation`，只把 id、状态、类型和计数写入 artifact；MySQL helper 改为 stdin 输入 SQL，不再把插入语料放在本机进程命令行参数中。
+- 后端同步补强 Memory 安全规则：`api key` / `api-key` / `sk-...` 形状会被 `MemorySafetyValidator` 拦截；`RuleBasedMemoryExtractionService` 中“优先考虑 / prefer / do not”这类强偏好信号优先归类为 `PREFERENCE`，修复中文 T29 文案含“回答”时被误归为 `ANSWER_STYLE` 的缺口。
+- 已验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（44 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS；补丁后 `mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest" test` PASS（3 tests）。
+- 真实验证：`scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-memory-quality-20260713013642-34b1f5` 中 `memoryQuality` gate PASS；T29 `suggestedBeforeAccept=true`、`activeBeforeAccept=false`、`acceptedActive=true`、`suggestedAfterAccept=false`、Trace `memoryCount=2` 且 `memoryTypes=[PREFERENCE, TECH_CONTEXT]`；T30 `candidateCountFromT30=0`、`memoryRowCountFromT30=0`、`suggestionLeak=false`、`activeLeak=false`。artifact redaction scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 边界：本片是 T29/T30 的 API / Trace / DB 自动化证据，命令显式 `-SkipFrontend`，因此 run overallStatus 为 `REVIEW`；不声明前端 Memory 管理页、T31 删除 / 禁用记忆、T32 长会话摘要、Agent ToolCall、弱网并发、多标签页或浏览器缩放已通过。
+
 ## 2026-07-13 高强度 Conversation 最近轮次 T27/T28 自动化验收（VERIFIED / PARTIAL）
 
 - `scripts/smoke/conversation-grounding-smoke.ps1` 已从 6 个 GroundingPolicy 路由 case 扩展到 8 个 case，新增 T27 / T28：同一 `RECENT_TURNS` 会话内先记住项目代号“蓝桥”，隔轮追问必须回答该代号；另起一个 `RECENT_TURNS` 会话直接追问项目代号时不得泄漏前一会话上下文。

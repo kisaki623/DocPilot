@@ -26,6 +26,9 @@ function Show-MemoryQualityPlan {
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
     memoryGates = @(
       "manual active memory enters trace",
+      "T29 Agent Memory candidate requires user confirmation before becoming ACTIVE",
+      "T29 accepted memory is observable in AGENT_MEMORY trace",
+      "T30 sensitive memory candidate is rejected before memory persistence",
       "suggestion extraction produces answer style and task goal candidates",
       "accepted suggestion becomes ACTIVE",
       "ignored suggestion stays out of active memory list",

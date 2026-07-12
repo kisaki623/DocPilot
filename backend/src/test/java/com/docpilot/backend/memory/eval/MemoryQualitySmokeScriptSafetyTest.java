@@ -35,6 +35,8 @@ class MemoryQualitySmokeScriptSafetyTest {
         assertThat(process.exitValue()).isZero();
         assertThat(output)
                 .contains("docpilot-memory-quality")
+                .contains("T29 Agent Memory candidate requires user confirmation")
+                .contains("T30 sensitive memory candidate is rejected")
                 .contains("accepted suggestion becomes ACTIVE")
                 .contains("ignored suggestion stays out of active memory list")
                 .contains("conflicting answer-style suggestion reports governance hint")
@@ -68,6 +70,10 @@ class MemoryQualitySmokeScriptSafetyTest {
                 .contains("EnableMemoryQualityGate")
                 .contains("memoryQuality")
                 .contains("/api/memories/suggestions/extract")
+                .contains("T29-agent-memory-candidate-confirmation")
+                .contains("T30-sensitive-memory-rejection")
+                .contains("Get-MemoryRowCountBySourceConversation")
+                .contains("candidateCountFromT30")
                 .contains("activeMemoryContainsIgnored")
                 .contains("conflict_active_memory")
                 .contains("conflictWithId")
@@ -78,7 +84,11 @@ class MemoryQualitySmokeScriptSafetyTest {
                 .contains("MERGE_WITH_ACTIVE")
                 .contains("sensitiveEditBlocked")
                 .contains("memory suggestion requires governance before accept")
+                .doesNotContain("-e $query")
                 .doesNotContain("Remove-Item -Recurse")
+                .doesNotContain("s" + "k" + "-test-secret-123456")
+                .doesNotContain("rawPrompt")
+                .doesNotContain("rawAnswer")
                 .doesNotContain("apiKey =");
     }
 

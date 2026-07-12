@@ -75,6 +75,68 @@ class RuleBasedMemoryExtractionServiceTest {
     }
 
     @Test
+    void shouldExtractJavaBackendPreferenceForAgentMemoryCandidate() {
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER,
+                        "项目架构偏好：优先考虑 Java 后端实现，不要为了 AI 强行拆 Python 服务。")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).hasSize(1);
+        MemorySuggestionCandidate candidate = candidates.get(0);
+        assertThat(candidate.memoryType()).isEqualTo(UserMemoryType.PREFERENCE);
+        assertThat(candidate.sourceConversationId()).isEqualTo(10L);
+        assertThat(candidate.sourceMessageId()).isEqualTo(101L);
+        assertThat(candidate.content()).contains("Java 后端");
+    }
+
+    @Test
+    void shouldSuppressPreferenceCandidateWhenItContainsCredentialShape() {
+        String fakeKey = "s" + "k" + "-" + "test-" + "credential-" + "123456";
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER,
+                        "For future project questions, prefer Java backend implementation."),
+                message(102L, 2, ConversationMessageRole.USER,
+                        "For future project questions, prefer Java backend implementation and remember api key " + fakeKey + ".")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).sourceMessageId()).isEqualTo(101L);
+        assertThat(candidates.get(0).content()).doesNotContain(fakeKey);
+    }
+
+    @Test
+    void shouldSuppressSensitiveMessageEvenWhenCredentialAppearsAfterCompactBoundary() {
+        String filler = "x".repeat(320);
+        String fakeKey = "s" + "k" + "-" + "test-" + "credential-" + "123456";
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER,
+                        "For future project questions, prefer Java backend implementation. " + filler
+                                + " remember api key " + fakeKey + ".")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).isEmpty();
+    }
+
+    @Test
+    void shouldKeepAnswerStylePreferenceAsAnswerStyle() {
+        when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
+                message(101L, 1, ConversationMessageRole.USER,
+                        "I prefer detailed answers with tradeoff explanations.")
+        ));
+
+        List<MemorySuggestionCandidate> candidates = service.extractSuggestions(7L, 10L, null);
+
+        assertThat(candidates).hasSize(1);
+        assertThat(candidates.get(0).memoryType()).isEqualTo(UserMemoryType.ANSWER_STYLE);
+    }
+
+    @Test
     void shouldSuppressOneTimeInstructions() {
         when(messageMapper.selectRecentActive(7L, 10L, 30)).thenReturn(List.of(
                 message(101L, 1, ConversationMessageRole.USER,

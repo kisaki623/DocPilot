@@ -72,6 +72,27 @@ Marker:
 
 边界：本次是 T27/T28 的 API / Trace 自动化证据，命令显式 `-SkipFrontend`；不代表前端会话 UI、长会话摘要、Memory 生命周期、Agent ToolCall 或弱网并发已通过。artifact 位于 ignored `backend/target/conversation-grounding/.../artifact.json`，不提交 raw prompt、raw answer、evidence context、token、连接串或云地址。
 
+## 2026-07-13 Agent Memory Candidate And Sensitive Rejection Gate
+
+状态：PASS（memoryQuality gate；frontend skipped）
+
+Runner:
+
+- `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend`
+
+Marker:
+
+- `docpilot-memory-quality-20260713013642-34b1f5`
+
+已验证：
+
+- T29 Agent Memory 候选确认 PASS：项目实现偏好先生成 `PREFERENCE` / `SUGGESTED` 候选；accept 前不在 ACTIVE list，accept 后同一 `memoryId` 进入 ACTIVE list；新会话 Trace 中 `memoryCount=2`、`contextSourceCounts.userMemory=2`、`memoryTypes=[PREFERENCE, TECH_CONTEXT]`。
+- T30 敏感记忆拒绝 PASS：无敏感片段的 Java 后端偏好正对照可生成候选；带 `api key` 标签和运行时拼接 `sk-...` 假凭据形状的偏好文本不生成候选，不进入 ACTIVE / SUGGESTED list，`tb_user_memory` 按 source conversation 计数为 0。
+- 原有 Memory governance 同轮继续 PASS：answer-style / task-goal 候选、accept / ignore 分层、冲突治理、冲突 accept 阻断、keep / replace / merge、敏感 edit 拦截和 ACTIVE edit 均通过。
+- artifact redaction scan PASS，常用端口无 LISTEN 残留。
+
+边界：本次 run 显式 `-SkipFrontend`，overallStatus 为 `REVIEW`；该证据证明 T29/T30 的 API / Trace / DB gate 与 memoryQuality 门禁通过，不代表前端 Memory 管理页、T31 删除 / 禁用记忆、T32 长会话摘要、Agent ToolCall 或弱网并发 UI 已通过。artifact 位于 ignored `backend/target/memory-quality/.../artifact.json`，不提交用户消息、memory content、fake key、prompt、answer、evidence context、token、连接串或云地址。
+
 ## 2026-07-12 Quality Console Memory / RAG Trend View
 
 状态：PASS

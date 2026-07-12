@@ -21,7 +21,22 @@ class MemorySafetyValidatorTest {
     }
 
     @Test
+    void shouldRejectApiKeyLabelsAndCredentialShapes() {
+        String fakeKey = "s" + "k" + "-" + "test-" + "credential-" + "123456";
+
+        assertRejected("Please remember my API key is " + fakeKey);
+        assertRejected("Please remember my api-key is demo");
+        assertRejected("Please remember " + fakeKey + " for later calls");
+    }
+
+    @Test
     void shouldAllowNormalPreference() {
         validator.validate("用户希望回答先给结论，再解释工程取舍");
+    }
+
+    private void assertRejected(String content) {
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> validator.validate(content));
+        assertEquals(ErrorCode.MEMORY_SENSITIVE_CONTENT_REJECTED, ex.getErrorCode());
     }
 }
