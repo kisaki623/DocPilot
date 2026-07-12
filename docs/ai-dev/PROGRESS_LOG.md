@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 前端 citation locator 可见性
+
+- 补齐前端 citation / retrieval hit 类型字段，并新增 `citation-display` 工具统一展示来源标题、source locator、页码、section path、block / structure 和 chunk/version。
+- 文档详情、KnowledgeBase、Conversation 和 Agent 页面已展示 locator / metadata，避免用户只看到 chunk id / score；Conversation 引用 pill 加入短 locator 标签并保持横向滚动。
+- 验证：`npm run lint` PASS；`npm run build` PASS；完整真实 cloud quality marker `docpilot-cloud-quality-20260712154804-0540c6` PASS，核心 RAG、KB RAG、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 无回退。
+
 ## 2026-07-12 ParseTask 恢复状态前端可见性
 
 - 文档详情页新增“解析与恢复”卡片，接入 `GET /api/task/parse/status`，展示解析阶段、恢复建议、stale、retry/reparse、consume/outbox 摘要、失败阶段 / 错误码和更新时间。

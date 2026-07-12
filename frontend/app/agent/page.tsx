@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MarkdownViewer from "@/components/markdown-viewer";
 import { getToken } from "@/lib/auth";
+import { citationChunkLabel, citationLocatorLabel, citationSourceTitle, citationStructureLabel } from "@/lib/citation-display";
 import {
   getAgentTask,
   getAgentTaskSteps,
@@ -708,6 +709,13 @@ export default function AgentPage() {
                               相关度 {formatScore(item.score)}
                             </span>
                           </div>
+                          <p className="mb-1 text-xs font-semibold text-slate-700">{citationSourceTitle(item)}</p>
+                          <p className="mb-1 text-xs text-slate-600">
+                            {[citationLocatorLabel(item), citationChunkLabel(item)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                          </p>
+                          {citationStructureLabel(item) ? (
+                            <p className="mb-2 text-[11px] text-slate-500">{citationStructureLabel(item)}</p>
+                          ) : null}
                           <p className="text-xs leading-5 text-slate-700">{item.snippet || "-"}</p>
                           {entries.length > 0 ? (
                             <details className="mt-3 text-[11px] text-slate-500">
@@ -814,6 +822,10 @@ export default function AgentPage() {
                     {result.citations.map((item, index) => (
                       <li key={`${item.chunkIndex}-${item.charStart}-${index}`} className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
                         <p className="font-semibold text-slate-800 mb-1">引用 {index + 1}</p>
+                        <p className="mb-1 font-semibold text-slate-700">{citationSourceTitle(item)}</p>
+                        <p className="mb-1 text-slate-500">
+                          {[citationLocatorLabel(item), citationChunkLabel(item)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                        </p>
                         <p>{item.snippet}</p>
                       </li>
                     ))}

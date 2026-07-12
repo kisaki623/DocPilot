@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import MarkdownViewer from "@/components/markdown-viewer";
 import { getToken } from "@/lib/auth";
+import { citationLocatorLabel, citationSourceTitle } from "@/lib/citation-display";
 import {
   bindConversationKnowledgeBase,
   createConversation,
@@ -1145,7 +1146,8 @@ export default function ConversationsPage() {
                             onClick={() => { void handleLoadTrace(message.messageId); }}
                             title={citationQuote(citation)}
                           >
-                            [{index + 1}] {citation.documentTitle || `文档 #${citation.documentId}`}
+                            [{index + 1}] {citationSourceTitle(citation)}
+                            {citationLocatorLabel(citation) ? <em>{citationLocatorLabel(citation)}</em> : null}
                             <span>{typeof citation.score === "number" ? citation.score.toFixed(3) : "-"}</span>
                           </button>
                         ))}

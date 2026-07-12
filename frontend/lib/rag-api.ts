@@ -4,6 +4,7 @@ import { buildAuthorizationHeader } from "@/lib/auth";
 export interface RagCitationItem {
   index?: number;
   documentId?: number;
+  sourceName?: string;
   indexVersion?: number;
   chunkId?: number;
   chunkIndex?: number;
@@ -15,6 +16,11 @@ export interface RagCitationItem {
   quoteStartOffset?: number;
   quoteEndOffset?: number;
   score?: number;
+  sectionPath?: string;
+  structureType?: string;
+  pageNumber?: number;
+  sourceLocator?: string;
+  blockType?: string;
 }
 
 export interface RagRetrievalHitItem {
@@ -22,6 +28,7 @@ export interface RagRetrievalHitItem {
   vectorId?: string;
   score?: number;
   chunkId?: number;
+  sourceName?: string;
   chunkIndex?: number;
   content?: string;
   contentHash?: string;
@@ -32,6 +39,11 @@ export interface RagRetrievalHitItem {
   quoteEndOffset?: number;
   tokenCount?: number;
   embeddingModel?: string;
+  sectionPath?: string;
+  structureType?: string;
+  pageNumber?: number;
+  sourceLocator?: string;
+  blockType?: string;
 }
 
 export interface RagRetrievalData {

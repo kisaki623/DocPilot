@@ -22,6 +22,13 @@ export interface DocumentAgentRagResult {
   chunkIndex: number;
   score: number;
   snippet: string;
+  sourceName?: string;
+  indexVersion?: number;
+  sectionPath?: string;
+  structureType?: string;
+  pageNumber?: number;
+  sourceLocator?: string;
+  blockType?: string;
   metadata?: Record<string, string>;
 }
 

@@ -21,6 +21,13 @@ export interface DocumentQaCitationItem {
   charEnd: number;
   snippet: string;
   score: number;
+  sourceName?: string;
+  indexVersion?: number;
+  sectionPath?: string;
+  structureType?: string;
+  pageNumber?: number;
+  sourceLocator?: string;
+  blockType?: string;
 }
 
 export interface DocumentQaHistoryItem {

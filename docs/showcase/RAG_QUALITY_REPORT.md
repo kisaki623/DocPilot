@@ -19,7 +19,7 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 | Hybrid / Multi-query | KnowledgeBase RAG 支持 rule-based query rewrite、多 query merge、BM25 + vector + RRF。 | 求职级偏强；默认可配置，不是完整 ES 生产检索平台。 |
 | Rerank | 有 `RerankService` / `HttpRerankService`，支持 Cohere / OpenAI-compatible / 阿里云百炼，失败 identity fallback；已暴露 `rerankFailureReason` 安全诊断。 | 代码链路求职级；百炼 provider 已真实生效，hard fixture 小样本观察到排序 uplift，12-case 代表 eval 无 coverage / no-evidence 回退；仍不是大规模 ranking benchmark。 |
 | Context Packing | `ContextAssemblyServiceImpl` 统一拼接 system、mode、summary、memory、recent turns、KB evidence、current message，并做权限过滤、token budget、trace。 | 求职级强；体现 RAG + 会话记忆融合。 |
-| Citation | 单文档 citation 已有 quote、chunk、offset、section/page/source locator；本轮补齐 KnowledgeBase citation / hit / Agent tool 的 locator 字段。 | 求职级强；仍不是 PDF 坐标级引用。 |
+| Citation | 单文档和 KnowledgeBase citation / hit 已有 quote、chunk、offset、section/page/source locator；文档详情、KnowledgeBase、Conversation 和 Agent 页面现在都可展示 locator / metadata。 | 求职级强；仍不是 PDF 坐标级引用。 |
 | No-evidence / Grounding | KnowledgeBase QA 无证据时跳过模型，返回 no-evidence；有证据才构造 prompt 调模型，并做 answer-aware citation pruning。 | 求职级强；强调“不让模型凭记忆硬答”。 |
 | Eval / Smoke | 有离线单测、脚本安全测试、真实链路 smoke、artifact redaction、Quality Console 聚合。 | 求职展示很加分；仍不是大规模 benchmark。 |
 
@@ -33,6 +33,7 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 - Agent quality：`docpilot-agent-quality-eval-20260711171903-fae364` PASS。
 - Rerank provider 对照：`docpilot-rerank-effect-hybrid-20260712015151-46c631` / `docpilot-rerank-effect-rerank-20260712015353-cc21a9` PASS，candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG、no-evidence 和权限安全无回退；hard fixture 从 baseline target rank 2 / distractor rank 1 改善到 rerank target rank 1 / distractor rank 3，`hardUpliftObserved=true`。
 - Rerank 代表语料 eval：`docpilot-rerank-representative-representative-hybrid-20260712151858-5543fd` / `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81` PASS；12 case 中 10/10 target coverage、2/2 no-evidence preserved、candidate `rerankApplied=true`、`targetRerankAppliedCaseCount=10`、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`。
+- Citation locator UI：`docpilot-cloud-quality-20260712154804-0540c6` PASS；前端 lint/build PASS，文档详情、KnowledgeBase、Conversation 和 Agent 页面已展示 source locator / 页码 / section / block metadata。
 - 本轮定向 ParseTask / rerank 回归：`ParseTaskServiceImplTest`、`ParseTaskConsumeEntryServiceImplTest`、`ParseTaskRecoveryServiceTest`、`RerankEffectSmokeScriptSafetyTest` 共 40 tests PASS；代表 eval 定向测试 26 tests PASS。
 - 本轮全量后端回归：`mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）。
 
@@ -51,6 +52,6 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 
 ## 下一步优先级
 
-1. 在前端 KnowledgeBase / Agent 展示中选择性呈现 page / section / source locator，避免用户只看到 chunk id。
-2. 扩展代表语料质量报告，把 hit、citation、no-evidence、answer faithfulness 和 distractor suppression 形成一页可读趋势摘要。
-3. 继续补 ParseTask / reparse 用户恢复入口和 Memory Governance v1 边界测试，让“失败可恢复、证据可定位、记忆可治理”更像完整求职作品。
+1. 扩展代表语料质量报告，把 hit、citation、no-evidence、answer faithfulness 和 distractor suppression 形成一页可读趋势摘要。
+2. 继续补 ParseTask / reparse 用户恢复入口和 Memory Governance v1 边界测试，让“失败可恢复、证据可定位、记忆可治理”更像完整求职作品。
+3. 后续如继续增强 citation，可评估 PDF 坐标级定位 / 页面截图锚点；当前不把它写成已实现能力。

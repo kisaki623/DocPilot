@@ -4,6 +4,27 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-12 Citation Locator UI Refresh
+
+状态：PASS
+
+Runner:
+
+- `npm run lint`
+- `npm run build`
+- `scripts/smoke/cloud-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`
+
+Marker:
+
+- cloud quality：`docpilot-cloud-quality-20260712154804-0540c6`
+
+已验证：
+
+- 文档详情、KnowledgeBase、Conversation 和 Agent 页面均已展示 citation locator / metadata：文档名、`sourceLocator` / 页码 / section path、chunk/version、block / structure。
+- 完整真实 cloud quality PASS：单文档 RAG、KnowledgeBase RAG、短文档 RAG、answer grounding、no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 无回退。
+
+边界：这是 locator 可见性和真实链路回归，不是 PDF 坐标级引用、OCR 版面理解或大规模 citation benchmark。artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，不提交文档全文、prompt、evidence context、token、连接串或云地址。
+
 ## 2026-07-12 Rerank Representative Eval Smoke
 
 状态：PASS

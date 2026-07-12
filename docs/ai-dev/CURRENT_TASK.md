@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-07-12 前端 citation locator / metadata 可见性（VERIFIED）
+
+- 前端 API 类型已补齐 citation locator 字段：单文档 RAG、KnowledgeBase RAG、legacy QA 和 Agent RAG 结果现在都能接收 `sourceName` / `documentTitle`、`pageNumber`、`sourceLocator`、`blockType`、`sectionPath`、`structureType`、`indexVersion` 等可选字段。
+- 新增轻量 `citation-display` 前端工具，用统一优先级展示来源定位：`sourceLocator -> pageNumber -> sectionPath -> blockType / structureType`；没有 locator 时显示“来源定位待补充”，避免用户只看到 chunk id。
+- 已更新文档详情页、KnowledgeBase 页、Conversation citation chips 和 Agent 页：引用来源与召回片段现在展示文档名、locator、chunk/version、section / block 结构；Conversation pill 增加短 locator 标签并保持横向滚动。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；真实 `cloud-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-cloud-quality-20260712154804-0540c6`，覆盖单文档 RAG、KnowledgeBase RAG、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction。
+- 状态：前端 locator 可见性切片完成；仍不声明 PDF 坐标级引用，也不改变 retrieval ranking / prompt / schema。
+
 ## 2026-07-12 ParseTask 恢复状态前端可见性（VERIFIED）
 
 - 文档详情页已接入只读 `GET /api/task/parse/status?documentId=...`：右侧新增“解析与恢复”卡片，展示当前解析阶段、恢复建议、stale 提示、retry/reparse 可用性、consume/outbox 状态、重试计数、失败阶段 / 错误码和更新时间。

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MarkdownViewer from "@/components/markdown-viewer";
 import { getToken } from "@/lib/auth";
+import { citationChunkLabel, citationLocatorLabel, citationSourceTitle, citationStructureLabel } from "@/lib/citation-display";
 import { deleteDocument, getDocumentDetail, type DocumentDetailData } from "@/lib/document-api";
 import {
   askDocumentQuestion,
@@ -170,6 +171,12 @@ function buildRagEvidenceItems(
     startOffset: hit.startOffset,
     endOffset: hit.endOffset,
     contentHash: hit.contentHash,
+    sourceName: hit.sourceName,
+    sectionPath: hit.sectionPath,
+    structureType: hit.structureType,
+    pageNumber: hit.pageNumber,
+    sourceLocator: hit.sourceLocator,
+    blockType: hit.blockType,
     snippet: hit.content,
     quoteText: hit.quoteText,
     quoteStartOffset: hit.quoteStartOffset,
@@ -1211,9 +1218,15 @@ export default function DocumentDetailPage() {
                               <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">引用 {citation.index ?? index + 1}</span>
                               <span className="text-xs text-slate-400">score: {formatScore(citation.score)}</span>
                             </div>
-                            <p className="text-xs text-slate-500 mb-1">
-                              chunk #{citation.chunkIndex ?? "-"} · version {citation.indexVersion ?? "-"}
+                            <p className="mb-1 text-xs font-semibold text-slate-600">
+                              {citationSourceTitle(citation)}
                             </p>
+                            <p className="mb-1 text-xs text-slate-500">
+                              {[citationLocatorLabel(citation), citationChunkLabel(citation)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                            </p>
+                            {citationStructureLabel(citation) ? (
+                              <p className="mb-2 text-[11px] text-slate-400">{citationStructureLabel(citation)}</p>
+                            ) : null}
                             <p className="text-slate-800 line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="精确引用原文">
                               {citationQuote(citation, ragEvidenceTokens)}
                             </p>
@@ -1237,6 +1250,13 @@ export default function DocumentDetailPage() {
                                 <span className="font-semibold text-emerald-700">片段 {index + 1}</span>
                                 <span>score: {formatScore(hit.score)}</span>
                               </div>
+                              <p className="mb-1 font-semibold text-slate-700">{citationSourceTitle(hit)}</p>
+                              <p className="mb-1 text-slate-500">
+                                {[citationLocatorLabel(hit), citationChunkLabel(hit)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                              </p>
+                              {citationStructureLabel(hit) ? (
+                                <p className="mb-2 text-slate-400">{citationStructureLabel(hit)}</p>
+                              ) : null}
                               <p className="line-clamp-5 hover:line-clamp-none">{hit.content || "-"}</p>
                             </li>
                           ))}
@@ -1254,6 +1274,10 @@ export default function DocumentDetailPage() {
                           <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">引用 {index + 1}</span>
                           <span className="text-xs text-slate-400">score: {citation.score.toFixed(2)}</span>
                         </div>
+                        <p className="mb-1 text-xs font-semibold text-slate-600">{citationSourceTitle(citation)}</p>
+                        <p className="mb-1 text-xs text-slate-500">
+                          {[citationLocatorLabel(citation), citationChunkLabel(citation)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                        </p>
                         <p className="text-slate-700 line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="点击查看全部内容">
                           {citation.snippet}
                         </p>

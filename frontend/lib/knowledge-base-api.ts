@@ -52,6 +52,11 @@ export interface KnowledgeBaseCitationItem {
   keywordScore?: number;
   fusedScore?: number;
   rerankScore?: number;
+  sectionPath?: string;
+  structureType?: string;
+  pageNumber?: number;
+  sourceLocator?: string;
+  blockType?: string;
 }
 
 export interface KnowledgeBaseRetrievalHitItem {
@@ -76,6 +81,11 @@ export interface KnowledgeBaseRetrievalHitItem {
   keywordScore?: number;
   fusedScore?: number;
   rerankScore?: number;
+  sectionPath?: string;
+  structureType?: string;
+  pageNumber?: number;
+  sourceLocator?: string;
+  blockType?: string;
 }
 
 export interface KnowledgeBaseRetrievalData {

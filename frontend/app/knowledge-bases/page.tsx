@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MarkdownViewer from "@/components/markdown-viewer";
 import { getToken } from "@/lib/auth";
+import { citationChunkLabel, citationLocatorLabel, citationSourceTitle, citationStructureLabel } from "@/lib/citation-display";
 import { listDocuments, type DocumentListItem } from "@/lib/document-api";
 import {
   addKnowledgeBaseDocuments,
@@ -882,6 +883,12 @@ export default function KnowledgeBasesPage() {
                                   {formatScore(hit.score)}
                                 </span>
                               </div>
+                              <p className="mb-1 text-xs text-slate-500">
+                                {[citationLocatorLabel(hit), citationChunkLabel(hit)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                              </p>
+                              {citationStructureLabel(hit) ? (
+                                <p className="mb-2 text-[11px] text-slate-400">{citationStructureLabel(hit)}</p>
+                              ) : null}
                               <p className="line-clamp-4 text-xs leading-5 text-slate-600 hover:line-clamp-none">
                                 {hit.content || "-"}
                               </p>
@@ -916,13 +923,18 @@ export default function KnowledgeBasesPage() {
                             >
                               <div className="mb-2 flex items-center justify-between gap-2">
                                 <p className="font-semibold text-slate-800">
-                                  {citation.documentTitle ||
-                                    `文档 #${citation.documentId}`}
+                                  {citationSourceTitle(citation)}
                                 </p>
                                 <span className="text-xs text-slate-500">
                                   {formatScore(citation.score)}
                                 </span>
                               </div>
+                              <p className="mb-1 text-xs text-slate-500">
+                                {[citationLocatorLabel(citation), citationChunkLabel(citation)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                              </p>
+                              {citationStructureLabel(citation) ? (
+                                <p className="mb-2 text-[11px] text-slate-400">{citationStructureLabel(citation)}</p>
+                              ) : null}
                               <p className="line-clamp-4 text-xs leading-5 text-slate-800 hover:line-clamp-none">
                                 {citationQuote(citation)}
                               </p>

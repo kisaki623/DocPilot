@@ -968,6 +968,17 @@ a {
   font-weight: 700;
 }
 
+.dp-chat-citations button em {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #15803d;
+  font-style: normal;
+  font-weight: 700;
+  opacity: 0.78;
+}
+
 .dp-chat-message-actions {
   margin-top: 0.75rem;
   display: flex;
