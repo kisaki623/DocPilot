@@ -43,6 +43,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             "backend/target/rag-natural-corpus",
             "backend/target/rag-real-qa",
             "backend/target/smoke/document-parser-real-chain",
+            "backend/target/conversation-grounding",
             "backend/target/memory-quality",
             "backend/target/memory-provider",
             "backend/target/agent-quality-eval",
@@ -61,6 +62,12 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             "responses",
             "raw",
             "logs"
+    );
+    private static final List<String> CASE_ARRAY_FIELD_NAMES = List.of(
+            "caseResults",
+            "caseEvaluations",
+            "evalCases",
+            "cases"
     );
 
     private final Path repoRoot;
@@ -275,7 +282,10 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     }
 
     private QualityRunDetail safeDetail(QualityArtifactFile file, JsonNode root) {
-        List<QualityGateSummary> gates = extractGates(root);
+        List<QualityGateSummary> extractedGates = extractGates(root);
+        List<QualityGateSummary> gates = extractedGates.isEmpty() && root.path("cases").isArray()
+                ? List.of(toGateSummary(rootGateName(root), root))
+                : extractedGates;
         List<String> failureBuckets = mergeBuckets(root, gates, "failureBuckets");
         List<String> reviewBuckets = mergeBuckets(root, gates, "reviewBuckets");
         QualityTokenUsageSummary tokenUsage = extractTokenUsage(root);
@@ -376,6 +386,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         Map<String, Number> metrics = safeMetrics(node);
         Map<String, Boolean> flags = safeFlags(node);
         mergeCheckSummaries(node.path("checks"), metrics, flags);
+        mergeCaseSummaries(firstDirectCaseArray(node), metrics);
         Boolean passed = optionalBoolean(node, "passed")
                 .or(() -> optionalBoolean(node, "pass"))
                 .orElse(null);
@@ -408,7 +419,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             if (resolvedGateName.isBlank() && !currentName.isBlank() && looksLikeGate(node)) {
                 resolvedGateName = currentName;
             }
-            for (String fieldName : List.of("caseResults", "caseEvaluations", "evalCases")) {
+            for (String fieldName : CASE_ARRAY_FIELD_NAMES) {
                 JsonNode cases = node.get(fieldName);
                 if (cases != null && cases.isArray()) {
                     for (JsonNode item : cases) {
@@ -444,11 +455,14 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             if (caseId == null || caseId.isBlank()) {
                 continue;
             }
+            Boolean passed = optionalBoolean(item, "passed")
+                    .or(() -> optionalBoolean(item, "pass"))
+                    .orElse(null);
             results.add(new QualityEvalCaseResultDetail(
                     caseId,
-                    firstText(item, "caseType", "category").orElse(null),
-                    firstText(item, "status").map(this::normalizeStatus).orElse(null),
-                    optionalBoolean(item, "passed").orElse(null),
+                    firstText(item, "caseType", "category", "groundingPolicy").orElse(null),
+                    evalCaseStatus(item),
+                    passed,
                     firstScalarText(item, "traceId").orElse(null),
                     firstScalarText(item, "agentRunId").orElse(null),
                     stringList(item.path("failureBuckets")),
@@ -473,7 +487,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             String agentRunId = firstScalarText(item, "agentRunId").orElse("");
             List<String> failureBuckets = stringList(item.path("failureBuckets"));
             List<String> reviewBuckets = stringList(item.path("reviewBuckets"));
-            String status = firstText(item, "status").map(this::normalizeStatus).orElse("");
+            String status = evalCaseStatus(item);
             Map<String, Number> metrics = safeMetrics(item);
             Map<String, Boolean> flags = safeFlags(item);
             boolean hasLocator = !traceId.isBlank() || !agentRunId.isBlank();
@@ -490,7 +504,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             }
             references.add(new QualityTraceReference(
                     caseId,
-                    firstText(item, "caseType", "category").orElse(null),
+                    firstText(item, "caseType", "category", "groundingPolicy").orElse(null),
                     status,
                     extracted.gateName(),
                     traceId,
@@ -889,6 +903,82 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         safeFlags(checks.get(0)).forEach(flags::putIfAbsent);
     }
 
+    private JsonNode firstDirectCaseArray(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return null;
+        }
+        for (String fieldName : CASE_ARRAY_FIELD_NAMES) {
+            JsonNode cases = node.get(fieldName);
+            if (cases != null && cases.isArray()) {
+                return cases;
+            }
+        }
+        return null;
+    }
+
+    private void mergeCaseSummaries(JsonNode cases, Map<String, Number> metrics) {
+        if (cases == null || !cases.isArray()) {
+            return;
+        }
+        int caseCount = 0;
+        int knownOutcomeCount = 0;
+        int passedCaseCount = 0;
+        int failedCaseCount = 0;
+        int ragTriggeredCaseCount = 0;
+        int ragRequiredCaseCount = 0;
+        int evidenceCaseCount = 0;
+        int citationCaseCount = 0;
+        for (JsonNode item : cases) {
+            if (!item.isObject()) {
+                continue;
+            }
+            caseCount++;
+            Optional<Boolean> passed = optionalBoolean(item, "passed")
+                    .or(() -> optionalBoolean(item, "pass"));
+            if (passed.isPresent()) {
+                knownOutcomeCount++;
+                if (Boolean.TRUE.equals(passed.get())) {
+                    passedCaseCount++;
+                } else {
+                    failedCaseCount++;
+                }
+            } else {
+                String status = evalCaseStatus(item);
+                if (isPassStatus(status)) {
+                    knownOutcomeCount++;
+                    passedCaseCount++;
+                } else if (isFailedStatus(status)) {
+                    knownOutcomeCount++;
+                    failedCaseCount++;
+                }
+            }
+            if (optionalBoolean(item, "ragTriggered").orElse(false)) {
+                ragTriggeredCaseCount++;
+            }
+            if (optionalBoolean(item, "ragRequired").orElse(false)) {
+                ragRequiredCaseCount++;
+            }
+            Integer evidenceCount = optionalInt(item, "evidenceCount");
+            if (evidenceCount != null && evidenceCount > 0) {
+                evidenceCaseCount++;
+            }
+            Integer citationCount = optionalInt(item, "citationCount");
+            if (citationCount != null && citationCount > 0) {
+                citationCaseCount++;
+            }
+        }
+        metrics.putIfAbsent("caseCount", caseCount);
+        if (knownOutcomeCount > 0) {
+            metrics.putIfAbsent("passedCaseCount", passedCaseCount);
+            metrics.putIfAbsent("failedCaseCount", failedCaseCount);
+            metrics.putIfAbsent("casePassRate", (double) passedCaseCount / knownOutcomeCount);
+        }
+        metrics.putIfAbsent("ragTriggeredCaseCount", ragTriggeredCaseCount);
+        metrics.putIfAbsent("ragRequiredCaseCount", ragRequiredCaseCount);
+        metrics.putIfAbsent("evidenceCaseCount", evidenceCaseCount);
+        metrics.putIfAbsent("citationCaseCount", citationCaseCount);
+    }
+
     private List<String> gateFailureBuckets(JsonNode node) {
         LinkedHashSet<String> buckets = new LinkedHashSet<>(stringList(node.path("failureBuckets")));
         buckets.addAll(stringList(node.path("hardFailureBuckets")));
@@ -1270,6 +1360,35 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         return Optional.empty();
     }
 
+    private String evalCaseStatus(JsonNode item) {
+        Optional<String> explicitStatus = firstText(item, "status").map(this::normalizeStatus);
+        if (explicitStatus.isPresent()) {
+            return explicitStatus.get();
+        }
+        Optional<Boolean> passed = optionalBoolean(item, "passed")
+                .or(() -> optionalBoolean(item, "pass"));
+        if (passed.isPresent()) {
+            return Boolean.TRUE.equals(passed.get()) ? "PASS" : "FAILED";
+        }
+        return "";
+    }
+
+    private boolean isPassStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return false;
+        }
+        String normalized = normalizeStatus(status);
+        return "PASS".equals(normalized) || "SUCCESS".equals(normalized) || "OK".equals(normalized);
+    }
+
+    private boolean isFailedStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return false;
+        }
+        String normalized = normalizeStatus(status);
+        return normalized.startsWith("FAILED") || "FAIL".equals(normalized) || "ERROR".equals(normalized);
+    }
+
     private Optional<String> firstScalarText(JsonNode node, String... fieldNames) {
         for (String fieldName : fieldNames) {
             JsonNode value = node.path(fieldName);
@@ -1359,6 +1478,8 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 || normalized.endsWith("handled")
                 || normalized.startsWith("covers")
                 || normalized.contains("covers")
+                || normalized.equals("llmcalled")
+                || normalized.equals("modelskipped")
                 || normalized.equals("success")
                 || normalized.equals("noevidence")
                 || normalized.equals("ragtriggered")
@@ -1409,6 +1530,14 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
 
     private String normalizeFieldName(String field) {
         return field == null ? "" : field.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]", "");
+    }
+
+    private String rootGateName(JsonNode root) {
+        String marker = firstText(root, "smokeMarker", "marker", "runMarker").orElse("");
+        if (normalizeFieldName(marker).contains("conversationgrounding")) {
+            return "conversationGrounding";
+        }
+        return "caseSummary";
     }
 
     private String markerFromPath(QualityArtifactFile file) {

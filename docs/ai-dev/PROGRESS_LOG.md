@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 Quality Console 接入 Conversation grounding artifact
+
+- `QualityArtifactServiceImpl` 新增 `backend/target/conversation-grounding` artifact root，并兼容顶层 `cases[]` / `pass` 结构；没有显式 gates 的 conversation grounding artifact 会生成 `conversationGrounding` synthetic gate。
+- Quality detail 现在可从该类 artifact 聚合 case 数、通过率、RAG 触发 / 必需、evidence / citation 覆盖，以及 `llmCalled` / `modelSkipped` 等脱敏路由布尔信号；诱饵 prompt、answer、documentText、evidenceContext 不会进入返回对象。
+- 验证：`mvn "-Dtest=QualityArtifactServiceImplTest" test` PASS（14 tests）。
+
 ## 2026-07-12 求职展示材料同步：GroundingPolicy 口径
 
 - 更新 `README.md`、`docs/showcase/RAG_QUALITY_REPORT.md` 和 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md`，把 Conversation `MODEL_ONLY / AUTO_RAG / STRICT_KB`、`groundingPolicy` / `routeDecision` Trace、普通模型“未使用知识库”和严格资料不足拒答的最新实现写入对外讲法。

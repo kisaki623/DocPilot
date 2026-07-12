@@ -1,5 +1,12 @@
 # DocPilot 当前状态
 
+## 2026-07-12 Quality Console 与 Conversation grounding artifact（VERIFIED）
+
+- Quality Console artifact 聚合已纳入 `backend/target/conversation-grounding`。`conversation-grounding-smoke.ps1` 真实 run 生成的 ignored 脱敏 artifact 现在可通过 `/api/quality/runs` / `/quality` 发现，不再只停留在文档记录里。
+- `QualityArtifactServiceImpl` 已兼容顶层 `cases[]` 与 `pass` 字段，并在没有显式 gates 时生成 `conversationGrounding` synthetic gate；该 gate 只暴露 case 数、通过率、RAG 触发 / 必需、evidence / citation 覆盖等安全计数。
+- eval case 明细现在可展示 `caseId`、`groundingPolicy`、`evidenceCount`、`citationCount`、`ragTriggered`、`ragRequired`、`llmCalled` 和 `modelSkipped`；仍不返回 raw prompt、raw answer、文档全文、evidence context、provider output、token、连接串或云地址。
+- 已验证：`mvn "-Dtest=QualityArtifactServiceImplTest" test` PASS（14 tests）。
+
 ## 2026-07-12 对外展示口径同步（VERIFIED）
 
 - `README.md`、`docs/showcase/RAG_QUALITY_REPORT.md`、`docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 已同步 Conversation grounding policy 最新事实和 smoke 证据：`MODEL_ONLY / AUTO_RAG / STRICT_KB`、Trace 中的 `groundingPolicy` / `routeDecision` / `llmCalled` / `modelSkipped`、以及 `docpilot-conversation-grounding-20260712183609-a15fef`。对外口径继续声明这是小规模真实链路防回归 smoke，不是线上 SLA 或大规模对话质量 benchmark。

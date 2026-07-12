@@ -1,5 +1,12 @@
 # Current Task
 
+## 2026-07-12 Quality Console 接入 Conversation grounding artifact（VERIFIED）
+
+- `QualityArtifactServiceImpl` 的 artifact root 白名单已新增 `backend/target/conversation-grounding`，因此 `conversation-grounding-smoke.ps1 -Mode run` 生成的 ignored 脱敏 artifact 可以被 `/api/quality/runs` / `/quality` 发现。
+- 聚合解析已兼容顶层 `cases[]` 与 `pass` 字段：会生成 `conversationGrounding` synthetic gate，暴露 `caseCount`、`passedCaseCount`、`casePassRate`、`ragTriggeredCaseCount`、`ragRequiredCaseCount`、`evidenceCaseCount`、`citationCaseCount` 等安全计数；eval case 明细只展示 `caseId`、`groundingPolicy` 作为 case type、`evidenceCount` / `citationCount` 和 `ragTriggered` / `ragRequired` / `llmCalled` / `modelSkipped` 等布尔信号。
+- 安全边界：仍不返回 raw prompt、raw answer、documentText、evidenceContext、provider output、token、连接串或云地址；前端仍只通过 Quality API 读取 summary/detail，不直接读取 artifact 原文。
+- 已验证：`mvn "-Dtest=QualityArtifactServiceImplTest" test` PASS（14 tests）。
+
 ## 2026-07-12 求职展示材料同步：GroundingPolicy 口径（VERIFIED）
 
 - `README.md`、`docs/showcase/RAG_QUALITY_REPORT.md` 和 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 已同步 Conversation grounding policy 最新事实：回答依据拆分为 `MODEL_ONLY / AUTO_RAG / STRICT_KB`，未绑定 KB 普通问题不触发资料不足拒答，AUTO_RAG 无 evidence fallback 到模型，显式 STRICT_KB 无 evidence 才安全拒答。

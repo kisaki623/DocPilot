@@ -714,6 +714,107 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.toString()).doesNotContain("PROMPT_SHOULD_NOT_LEAK", "ANSWER_SHOULD_NOT_LEAK");
     }
 
+    @Test
+    void shouldScanConversationGroundingArtifactRootAndPromoteCases() throws Exception {
+        Path artifact = artifactPath("backend/target/conversation-grounding",
+                "docpilot-conversation-grounding-test", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "marker": "docpilot-conversation-grounding-test",
+                  "status": "PASS",
+                  "generatedAt": "2026-07-12T18:36:47+08:00",
+                  "cases": [
+                    {
+                      "caseId": "no-kb-model-only",
+                      "pass": true,
+                      "groundingPolicy": "MODEL_ONLY",
+                      "routeDecision": "MODEL_ONLY",
+                      "ragTriggered": false,
+                      "ragRequired": false,
+                      "evidenceCount": 0,
+                      "llmCalled": true,
+                      "modelSkipped": false,
+                      "citationCount": 0,
+                      "prompt": "PROMPT_SHOULD_NOT_LEAK",
+                      "answer": "ANSWER_SHOULD_NOT_LEAK"
+                    },
+                    {
+                      "caseId": "strict-no-evidence-refusal",
+                      "pass": true,
+                      "groundingPolicy": "STRICT_KB",
+                      "routeDecision": "STRICT_KB_NO_EVIDENCE",
+                      "ragTriggered": true,
+                      "ragRequired": true,
+                      "evidenceCount": 0,
+                      "llmCalled": false,
+                      "modelSkipped": true,
+                      "citationCount": 0,
+                      "evidenceContext": "EVIDENCE_SHOULD_NOT_LEAK"
+                    },
+                    {
+                      "caseId": "auto-rag-evidence-citations",
+                      "pass": true,
+                      "groundingPolicy": "AUTO_RAG",
+                      "routeDecision": "AUTO_RAG_EVIDENCE",
+                      "ragTriggered": true,
+                      "ragRequired": false,
+                      "evidenceCount": 1,
+                      "llmCalled": true,
+                      "modelSkipped": false,
+                      "citationCount": 1,
+                      "documentText": "DOCUMENT_TEXT_SHOULD_NOT_LEAK"
+                    }
+                  ]
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunDetail detail = service.getRunDetail("docpilot-conversation-grounding-test").orElseThrow();
+
+        assertThat(detail.summary().source()).isEqualTo("backend/target/conversation-grounding");
+        assertThat(detail.summary().status()).isEqualTo("PASS");
+        assertThat(detail.summary().gateCount()).isEqualTo(1);
+        assertThat(detail.gates()).extracting(gate -> gate.name()).containsExactly("conversationGrounding");
+        assertThat(detail.gates().get(0).metrics())
+                .containsEntry("caseCount", 3)
+                .containsEntry("passedCaseCount", 3)
+                .containsEntry("failedCaseCount", 0)
+                .containsEntry("ragTriggeredCaseCount", 2)
+                .containsEntry("ragRequiredCaseCount", 1)
+                .containsEntry("evidenceCaseCount", 1)
+                .containsEntry("citationCaseCount", 1);
+        assertThat(detail.gates().get(0).metrics().get("casePassRate").doubleValue()).isEqualTo(1.0);
+        assertThat(detail.evalCases()).hasSize(3);
+        assertThat(detail.evalCases()).extracting(QualityEvalCaseResultDetail::caseId)
+                .containsExactly("no-kb-model-only", "strict-no-evidence-refusal", "auto-rag-evidence-citations");
+        assertThat(detail.evalCases()).extracting(QualityEvalCaseResultDetail::caseType)
+                .containsExactly("MODEL_ONLY", "STRICT_KB", "AUTO_RAG");
+        assertThat(detail.evalCases()).extracting(QualityEvalCaseResultDetail::status)
+                .containsExactly("PASS", "PASS", "PASS");
+        assertThat(detail.evalCases().get(0).flags())
+                .containsEntry("llmCalled", true)
+                .containsEntry("modelSkipped", false)
+                .containsEntry("ragTriggered", false)
+                .containsEntry("ragRequired", false);
+        assertThat(detail.evalCases().get(1).flags())
+                .containsEntry("llmCalled", false)
+                .containsEntry("modelSkipped", true)
+                .containsEntry("ragTriggered", true)
+                .containsEntry("ragRequired", true);
+        assertThat(detail.evalCases().get(2).metrics())
+                .containsEntry("evidenceCount", 1)
+                .containsEntry("citationCount", 1);
+
+        String serialized = objectMapper.writeValueAsString(detail);
+        assertThat(serialized)
+                .doesNotContain("PROMPT_SHOULD_NOT_LEAK")
+                .doesNotContain("ANSWER_SHOULD_NOT_LEAK")
+                .doesNotContain("EVIDENCE_SHOULD_NOT_LEAK")
+                .doesNotContain("DOCUMENT_TEXT_SHOULD_NOT_LEAK")
+                .contains("no-kb-model-only");
+    }
+
     private Path artifactPath(String root, String marker, String fileName) throws Exception {
         Path dir = repoRoot.resolve(root).resolve(marker);
         Files.createDirectories(dir);
