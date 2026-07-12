@@ -2,6 +2,14 @@
 
 本文件只保留仍有价值、可后续执行的滚动待办。当前正在执行的任务仍以 `docs/ai-dev/CURRENT_TASK.md` 为准；已完成事实写入 `docs/ai-dev/STATE.md` 和 `docs/ai-dev/PROGRESS_LOG.md`。
 
+## 2026-07-12 High Intensity Acceptance Test TODO
+
+来源：2026-07-12 用户提供的网页版 GPT 高强度验收建议。完整计划见 `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md`；当前只记录为待执行测试，不代表已通过。
+
+| 优先级 | 状态 | 范围 | 目标 | 执行入口 | 验证 / 回写 |
+| --- | --- | --- | --- | --- | --- |
+| P0/P1 | TODO | 上传解析、RAG、GroundingPolicy、KnowledgeBase、Memory、Agent、权限安全、弱网并发 UI | 用固定语料、固定问题、固定预期结果完成一次 3-5 小时可复现验收，检查 UI、接口、Trace、数据库状态和 citation 来源。 | `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md` | 按 T01-T47 执行；发现的问题写入 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`；只有真实通过的展示级摘要才写入 `docs/showcase/DEMO_SMOKE_RECORD.md`。 |
+
 ## 2026-07-12 Frontend UX TODO from Gemini CLI
 
 来源：2026-07-12 Gemini CLI `gemini-3.5-flash` 脱敏前端体验协作建议。以下均为前端待办，不要求后端 schema、数据库迁移、远程服务操作或大规模重构；实现时继续保持页面文案克制，不把 `smoke`、线上 SLA 或求职口径放进 UI。

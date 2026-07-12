@@ -24,6 +24,7 @@
 - `docs/ai-dev/STATE.md`：当前项目状态。写清楚已实现能力、默认关闭能力、RAG/Agent 边界。
 - `docs/ai-dev/CURRENT_TASK.md`：当前任务卡。后续实现时优先按它推进，不被旧 TODO 带偏。
 - `docs/ai-dev/TASKS.md`：滚动待办。只保留仍有价值、可后续执行的任务候选；已完成事项不在这里重复记账。
+- `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md`：高强度端到端验收计划。记录固定测试语料、T01-T47 测试矩阵、失败记录模板和硬性验收标准；这是待执行计划，不是已通过证据。
 - `docs/ai-dev/ROADMAP_RAG.md`：RAG / Memory 生产化升级路线。包含当前真实基础、质量缺口、v3-v7 任务拆分和 smoke / eval 门禁；v3 no-evidence gate 已完成 smoke 级 PASS。
 - `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`：Agent Quality Console 求职级升级路线。用于后续自驱循环推进 Trace drill-down、Failure triage、Eval catalog、Run comparison、Cost / latency summary 和真实体验审计集成。
 - `docs/ai-dev/DECISIONS.md`：ADR 简版。记录认证、异步解析、存储、AI 模式、RAG 选型等关键决策。

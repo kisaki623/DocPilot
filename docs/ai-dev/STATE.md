@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-12 高强度验收测试计划状态（TODO RECORDED）
+
+- `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md` 已记录一套后续可执行的高强度端到端验收计划，覆盖上传解析、RAG 精确问答、冲突证据、GroundingPolicy、KnowledgeBase 生命周期、Memory、Agent ToolCall、跨用户权限、安全和弱网并发 UI。
+- `docs/ai-dev/TASKS.md` 已新增该计划的待办入口；当前状态仍是待执行，不代表真实验收已通过，也不进入 `docs/showcase/DEMO_SMOKE_RECORD.md`。
+- 后续执行该计划时，P0/P1/P2 问题必须写入 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`，通过后的展示级摘要再考虑同步到 showcase。
+
 ## 2026-07-12 Gemini CLI 前端协作状态（VERIFIED）
 
 - Gemini CLI 前端体验建议已整理到 `docs/ai-dev/TASKS.md`，作为滚动 TODO 而非已完成功能；首个建议落地点是 `/knowledge-bases` 的召回片段与引用卡片双向高亮。

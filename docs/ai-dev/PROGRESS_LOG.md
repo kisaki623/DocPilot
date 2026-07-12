@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 高强度端到端验收测试计划归档
+
+- 新增 `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md`，把用户提供的 3-5 小时高强度验收建议整理为可执行测试计划，包含固定语料、T01-T47 测试矩阵、失败记录模板、严重程度、硬性验收标准和执行顺序。
+- 更新 `docs/ai-dev/TASKS.md` 与 `docs/README.md`，为该计划建立滚动 TODO 入口和文档地图入口。
+- 本轮只做文档归档，未启动服务、未执行测试、未创建账号 / 知识库 / 测试语料、未生成 artifact；真实执行后发现的问题需回写 `REAL_EXPERIENCE_AUDIT_LOG.md`。
+
 ## 2026-07-12 Gemini CLI 前端 TODO 与流程固化
 
 - 新增 `docs/ai-dev/TASKS.md`，把 Gemini CLI 的前端体验建议记录为滚动 TODO，并标记首推切片为 `/knowledge-bases` 召回片段与引用卡片双向高亮。
