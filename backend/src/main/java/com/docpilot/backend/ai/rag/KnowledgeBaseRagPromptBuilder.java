@@ -2,6 +2,7 @@ package com.docpilot.backend.ai.rag;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 
 public class KnowledgeBaseRagPromptBuilder {
 
@@ -42,7 +43,9 @@ public class KnowledgeBaseRagPromptBuilder {
         }
 
         String evidenceContext = buildEvidenceContext(resolvedHits, maxContextChars);
-        String userPrompt = isSummaryIntent(resolvedQuestion)
+        String userPrompt = isCorrectionIntent(resolvedQuestion)
+                ? correctionUserPrompt(resolvedQuestion)
+                : isSummaryIntent(resolvedQuestion)
                 ? summaryUserPrompt(resolvedQuestion)
                 : defaultUserPrompt(resolvedQuestion);
         return new RagPrompt(SYSTEM_PROMPT, evidenceContext, userPrompt, false);
@@ -109,10 +112,43 @@ public class KnowledgeBaseRagPromptBuilder {
         return false;
     }
 
+    private boolean isCorrectionIntent(String question) {
+        String normalized = question == null ? "" : question.toLowerCase(Locale.ROOT);
+        return normalized.contains("对吗")
+                || normalized.contains("正确吗")
+                || normalized.contains("是不是")
+                || normalized.contains("还是")
+                || normalized.contains("只能")
+                || normalized.contains("被否决")
+                || normalized.contains("废弃")
+                || normalized.contains("旧草案")
+                || normalized.contains("obsolete draft")
+                || normalized.contains("rejected draft")
+                || normalized.contains("current rule")
+                || containsEnglishWord(normalized, "correct");
+    }
+
+    private boolean containsEnglishWord(String normalized, String word) {
+        return Pattern.compile("\\b" + Pattern.quote(word) + "\\b").matcher(normalized).find();
+    }
+
     private String defaultUserPrompt(String question) {
         return """
                 Please answer the user's question using only the numbered knowledge-base evidence below.
                 If the evidence does not contain enough information, state that the knowledge-base evidence is insufficient.
+                Cite supporting evidence with markers such as [1] or [2].
+
+                User question:
+                %s
+                """.formatted(question).trim();
+    }
+
+    private String correctionUserPrompt(String question) {
+        return """
+                Please answer the user's question using only the numbered knowledge-base evidence below.
+                If the user asks whether a proposed value, rule, or premise is correct, first say whether it is supported by the evidence, then state the current or effective rule from the evidence.
+                Include directly related caps, deadlines, exceptions, or retention limits only when they qualify the rule being corrected.
+                If evidence distinguishes current rules from obsolete drafts or rejected plans, make that distinction explicit.
                 Cite supporting evidence with markers such as [1] or [2].
 
                 User question:

@@ -1,13 +1,13 @@
 # Current Task
 
-## 2026-07-12 高强度固定业务语料自动化验收第一片（REVIEW）
+## 2026-07-12 高强度固定业务语料 P1 修复（VERIFIED）
 
-- 新增 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1`，作为用户高强度验收计划的固定业务语料自动化入口；该 wrapper 默认调用 `scripts/smoke/cloud-quality-smoke.ps1 -EnableFixedBusinessCorpusGate`，不复制完整 cloud quality runner。
-- `cloud-quality-smoke.ps1` 新增默认关闭的固定语料 gate：创建 `CONTRACT_ALPHA`、`SLA_BETA`、`API_POLICY`、`INCIDENT_REVIEW`、`DECOY_DRAFT`、`PROMPT_INJECTION` 六份临时 Markdown 文档，构造 `KB_CORE` / `KB_NOISY`，验证 T02 串行重复上传和 T06-T15 问答 / citation / no-evidence / prompt injection 安全矩阵。JSON artifact 只保存 id、document key、状态、计数、布尔值和 failure code，不保存 raw question、answer、snippet、quote、prompt 或 evidence context；本地 fixed corpus 源文件上传后删除，不留在 artifact 目录。
-- 已新增 `HighIntensityFixedCorpusSmokeScriptSafetyTest`，锁定 wrapper plan、delegate gate、artifact 字段白名单和 dry-run contract；同时保留 `CloudQualitySmokeScriptSafetyTest` 回归。验证：`mvn "-Dtest=HighIntensityFixedCorpusSmokeScriptSafetyTest,CloudQualitySmokeScriptSafetyTest" test` PASS（6 tests）。
-- 真实 run：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` 为 `FAILED_CORE_FLOW`。T02 duplicate upload、T06 / T07 / T09 / T10 / T13 / T14 / T15 通过；T08 `answer_claim_missing`，T11 / T12 `citation_document_coverage` + `citation_support_missing`。
-- 已登记 `REA-20260712-P1-030`。当前切片状态为 REVIEW：自动化 runner 和脚本安全测试已完成，但固定语料真实验收暴露 P1 RAG 质量缺口，不能标记为完整 DONE；下一片应按 P1 优先修复 T08 / T11 / T12 后复跑固定语料 smoke。
-- 清理：runner cleanup PASS，`scripts/dev/cleanup-agent-processes.ps1 -DryRun` 确认无目标进程；3000 / 3001 / 3002 / 3007 / 3100 / 8081 均为 FREE。
+- 已修复 `REA-20260712-P1-030`：`KnowledgeBaseRagQaServiceImpl` 避免多文档问题被全局数字 citation 精炼误删支撑来源；`KnowledgeBaseRagPromptBuilder` 为错误前提 / 冲突规则问题增加通用纠错 prompt，提示当前规则、废弃草案和直接相关限定条件。
+- 已保留自动化 runner：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1` 继续复用 `cloud-quality-smoke.ps1 -EnableFixedBusinessCorpusGate`，覆盖 T02 串行重复上传、6 份固定 Markdown 语料、`KB_CORE` / `KB_NOISY`、T06-T15 RAG 质量矩阵和脱敏 artifact shape 检查。
+- 定向验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagControllerTest" test` PASS，46 tests。
+- 真实验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` 中 `fixedBusinessCorpus` gate PASS，T02 + T06-T15 全部 PASS；T08 / T11 / T12 已恢复 citation coverage 与 support。
+- 边界：本次 run overallStatus 为 `REVIEW`，原因是显式 `-SkipFrontend`；本片不覆盖并行上传、KnowledgeBase 生命周期、Memory、Agent、弱网、多标签页和 UI 缩放。
+- 清理状态：runner cleanup 后 3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留；artifact raw-field scan PASS，本地 fixed corpus 源文件目录为空。
 
 ## 2026-07-12 高强度验收第一层真实链路执行（VERIFIED / PARTIAL）
 

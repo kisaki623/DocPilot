@@ -8,8 +8,7 @@
 
 | 优先级 | 状态 | 范围 | 目标 | 执行入口 | 验证 / 回写 |
 | --- | --- | --- | --- | --- | --- |
-| P0/P1 | IN_PROGRESS / REVIEW | 上传解析、RAG、GroundingPolicy、KnowledgeBase、Memory、Agent、权限安全、弱网并发 UI | 用固定语料、固定问题、固定预期结果完成一次 3-5 小时可复现验收，检查 UI、接口、Trace、数据库状态和 citation 来源。 | `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md` | 第一层真实链路已 PASS：parser `docpilot-parser-real-chain-20260712212339-021ca3`、grounding `docpilot-conversation-grounding-20260712212500-d26151`、cloud quality `docpilot-cloud-quality-20260712212603-173e7d`。固定语料自动化 runner 已落地，但 marker `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` 为 `FAILED_CORE_FLOW`，T08 / T11 / T12 暴露 P1 RAG 质量缺口；问题已写入 `REA-20260712-P1-030`。 |
-| P1 | TODO | KnowledgeBase RAG / Citation 支撑 | 修复固定语料 T08 / T11 / T12：错误前提问题需完整回答当前规则，跨文档总结和多人审批问题的 citation 必须覆盖并支撑对应文档。 | `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` | 修复后复跑固定语料 runner，要求 T02 + T06-T15 全部 PASS；同步回填 `REAL_EXPERIENCE_AUDIT_LOG.md`、`CURRENT_TASK.md`、`STATE.md` 和 `PROGRESS_LOG.md`。 |
+| P0/P1 | IN_PROGRESS / PARTIAL VERIFIED | 上传解析、RAG、GroundingPolicy、KnowledgeBase、Memory、Agent、权限安全、弱网并发 UI | 用固定语料、固定问题、固定预期结果完成一次 3-5 小时可复现验收，检查 UI、接口、Trace、数据库状态和 citation 来源。 | `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md` | 第一层真实链路已 PASS：parser `docpilot-parser-real-chain-20260712212339-021ca3`、grounding `docpilot-conversation-grounding-20260712212500-d26151`、cloud quality `docpilot-cloud-quality-20260712212603-173e7d`。固定语料自动化 runner 已落地，`REA-20260712-P1-030` 已修复验证；marker `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` 的 `fixedBusinessCorpus` gate PASS，T02 + T06-T15 全部 PASS。剩余 KB 生命周期、Memory、Agent、弱网并发、多标签页和 UI 缩放仍待执行。 |
 
 ## 2026-07-12 Frontend UX TODO from Gemini CLI
 

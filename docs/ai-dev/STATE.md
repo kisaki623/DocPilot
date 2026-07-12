@@ -1,11 +1,12 @@
 # DocPilot 当前状态
 
-## 2026-07-12 高强度固定业务语料自动化验收状态（REVIEW）
+## 2026-07-12 高强度固定业务语料自动化验收修复状态（VERIFIED / PARTIAL）
 
 - 已新增高强度固定业务语料 smoke 入口：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1`，复用 `cloud-quality-smoke.ps1 -EnableFixedBusinessCorpusGate`，覆盖 T02 串行重复上传、6 份固定 Markdown 业务语料、`KB_CORE` / `KB_NOISY` 和 T06-T15 API/RAG 质量矩阵。
 - 已验证脚本入口：wrapper `plan` PASS、delegate `dry-run` PASS、Windows PowerShell `ParseFile` PASS；`HighIntensityFixedCorpusSmokeScriptSafetyTest` + `CloudQualitySmokeScriptSafetyTest` 共 6 tests PASS。`cloud-quality-smoke.ps1` 需要保持 UTF-8 BOM + CRLF，避免 Windows PowerShell 5.1 读取中文 fixture 时 mojibake。
-- 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` 为 `FAILED_CORE_FLOW`：T02 duplicate upload PASS，T06 / T07 / T09 / T10 / T13 / T14 / T15 PASS；T08 返回 `answer_claim_missing`，T11 / T12 返回 `citation_document_coverage` 与 `citation_support_missing`。
-- 已登记 P1 质量问题 `REA-20260712-P1-030`：固定业务语料暴露 KnowledgeBase RAG 在错误前提回答完整性、多文档总结和多跳审批问题上的 citation 支撑不足。当前不能把固定语料 T06-T15 写成通过。
+- 已修复并验证 P1 质量问题 `REA-20260712-P1-030`：KnowledgeBase QA 的数字 citation 精炼现在只作用于非多文档问题；中文“综合 / 分别出现在什么文档”等多文档问题会保留跨文档 citation；错误前提 / 冲突规则问题使用更明确的纠错 prompt，但不硬编码固定语料业务值。
+- 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` 的 `fixedBusinessCorpus` gate 为 `PASS`：T02 duplicate upload 与 T06-T15 全部 PASS；T08 正确处理废弃草案冲突，T11 覆盖 `INCIDENT_REVIEW` / `API_POLICY` / `CONTRACT_ALPHA` / `SLA_BETA`，T12 覆盖 `CONTRACT_ALPHA` / `API_POLICY`。
+- 本次真实 run 的 overallStatus 为 `REVIEW` 是因为命令显式 `-SkipFrontend`，不是 fixed corpus gate 失败；完整 T01-T47 高强度验收仍未完成，KnowledgeBase 生命周期、Memory、Agent、弱网并发、多标签页和缩放 UI 仍待后续阶段执行。
 - 本轮真实 run 的 JSON artifact 只保存 ignored 脱敏摘要，固定 synthetic 源文件上传后从 artifact 目录删除，最新 marker 的 `fixed-business-corpus` 目录为空；run 会在业务库 / 存储中创建临时 smoke 文档作为测试输入，但不提交 token、密码、prompt、answer、evidence context、连接串或云地址。runner cleanup 后确认 3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
 
 ## 2026-07-12 高强度验收执行状态（VERIFIED / PARTIAL）

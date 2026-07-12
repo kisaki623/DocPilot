@@ -245,6 +245,26 @@ class KnowledgeBaseRagQaServiceImplTest {
     }
 
     @Test
+    void shouldStillFilterNumericDistractorForSingleFactQuestionWithTwoDocumentWording() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(numericDistractorRetrieval());
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenReturn("Invoice archive retention is 7 years [1].");
+
+        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "在两个文档中，invoice archive records retained 多久？",
+                2,
+                1,
+                "s1"
+        ));
+
+        assertThat(answer.retrieval().citations()).hasSize(1);
+        assertThat(answer.retrieval().citations().get(0).documentId()).isEqualTo(101L);
+        assertThat(answer.retrieval().citations().get(0).quoteText()).contains("7 years");
+    }
+
+    @Test
     void shouldKeepNonNumericSupportCitationWhenChunkContainsRunMarkerDigits() {
         when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(multiDocumentRetrievalWithRunMarker());
         when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
@@ -307,6 +327,46 @@ class KnowledgeBaseRagQaServiceImplTest {
         assertThat(answer.retrieval().citations()).hasSize(2);
         assertThat(answer.retrieval().citations()).extracting("documentId")
                 .containsExactly(101L, 102L);
+    }
+
+    @Test
+    void shouldKeepApprovalCitationForChineseMultiDocumentQuestionWhenAnswerHasOnlyContractNumber() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(fixedCorpusApprovalRetrieval());
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenReturn("超过 50 万元的合同需要法务和财务共同审批；管理员权限变更需要两名审批人共同确认 [1][2].");
+
+        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "哪些场景需要多人审批？分别出现在什么文档中？",
+                2,
+                1,
+                "s1"
+        ));
+
+        assertThat(answer.retrieval().citations()).hasSize(2);
+        assertThat(answer.retrieval().citations()).extracting("documentId")
+                .containsExactly(101L, 102L);
+    }
+
+    @Test
+    void shouldKeepComprehensiveRiskControlCitationsWhenAnswerMentionsOnlySomeNumbers() {
+        when(retrievalService.retrieve(org.mockito.Mockito.any())).thenReturn(fixedCorpusRiskControlsRetrieval());
+        when(aiAnswerService.answer(org.mockito.Mockito.anyString(), org.mockito.Mockito.anyString()))
+                .thenReturn("四项控制包括合同审批、API 密钥 90 天轮换、审计治理，以及连接池隔离、限流和紧急回滚 [1][2][3].");
+
+        KnowledgeBaseRagQaAnswer answer = service.answer(new KnowledgeBaseRagQaQuery(
+                7L,
+                10L,
+                "综合合同、安全规范和事故复盘，总结当前系统需要落实的四项风险控制措施。",
+                3,
+                1,
+                "s1"
+        ));
+
+        assertThat(answer.retrieval().citations()).hasSize(3);
+        assertThat(answer.retrieval().citations()).extracting("documentId")
+                .containsExactly(101L, 102L, 103L);
     }
 
     private KnowledgeBaseRagRetrievalResult retrieval(boolean noEvidence) {
@@ -594,6 +654,79 @@ class KnowledgeBaseRagQaServiceImplTest {
                 "",
                 "mock-model",
                 Map.of(101L, 1, 102L, 1)
+        );
+    }
+
+    private KnowledgeBaseRagRetrievalResult fixedCorpusApprovalRetrieval() {
+        List<KnowledgeBaseRagRetrievalHit> hits = List.of(
+                hit(1, 101L, "contract", "Contract Alpha",
+                        "合同金额超过 50 万元时，需要法务和财务共同审批。", 0.96D),
+                hit(2, 102L, "api", "API Policy",
+                        "API 密钥必须每 90 天轮换一次。管理员权限变更需要两名审批人共同确认。审计日志应保留 180 天。", 0.95D)
+        );
+        return retrieval("哪些场景需要多人审批？分别出现在什么文档中？", List.of(101L, 102L), hits);
+    }
+
+    private KnowledgeBaseRagRetrievalResult fixedCorpusRiskControlsRetrieval() {
+        List<KnowledgeBaseRagRetrievalHit> hits = List.of(
+                hit(1, 101L, "contract", "Contract Alpha",
+                        "合同金额超过 50 万元时，需要法务和财务共同审批。合同、验收单和付款凭证应保留 24 个月。", 0.97D),
+                hit(2, 102L, "api", "API Policy",
+                        "API 密钥必须每 90 天轮换一次。禁止在日志、数据库和代码仓库中明文记录访问 Token。审计日志应保留 180 天。", 0.96D),
+                hit(3, 103L, "incident", "P1 Incident Review",
+                        "根因是缓存预热任务占满数据库连接池。改进措施包括连接池隔离、请求限流和紧急回滚开关。", 0.95D)
+        );
+        return retrieval("综合合同、安全规范和事故复盘，总结当前系统需要落实的四项风险控制措施。",
+                List.of(101L, 102L, 103L),
+                hits);
+    }
+
+    private KnowledgeBaseRagRetrievalResult retrieval(String question,
+                                                      List<Long> documentIds,
+                                                      List<KnowledgeBaseRagRetrievalHit> hits) {
+        return new KnowledgeBaseRagRetrievalResult(
+                7L,
+                10L,
+                question,
+                hits.size(),
+                1,
+                documentIds,
+                hits,
+                hits.stream().map(KnowledgeBaseRagRetrievalHit::toCitation).toList(),
+                false,
+                "in_memory",
+                "",
+                "mock-model",
+                documentIds.stream().collect(java.util.stream.Collectors.toMap(
+                        id -> id,
+                        id -> (int) hits.stream().filter(hit -> id.equals(hit.documentId())).count()
+                ))
+        );
+    }
+
+    private KnowledgeBaseRagRetrievalHit hit(int index,
+                                             Long documentId,
+                                             String vectorId,
+                                             String title,
+                                             String content,
+                                             double score) {
+        return new KnowledgeBaseRagRetrievalHit(
+                index,
+                10L,
+                vectorId,
+                score,
+                7L,
+                documentId,
+                title,
+                1,
+                900L + index,
+                index - 1,
+                content,
+                "hash-" + vectorId,
+                0,
+                content.length(),
+                content.length(),
+                "mock-model"
         );
     }
 }

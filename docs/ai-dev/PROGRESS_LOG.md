@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 高强度固定业务语料 P1 修复验证
+
+- 修复 `REA-20260712-P1-030`：多文档 KnowledgeBase QA 不再因全局数字交集剪掉跨文档 citation；错误前提 / 冲突规则问题增加通用纠错 prompt，要求区分当前规则与废弃草案并补充直接相关限定条件。
+- 定向测试 `KnowledgeBaseRagRetrievalServiceImplTest`、`KnowledgeBaseRagQaServiceImplTest`、`KnowledgeBaseRagPromptBuilderTest`、`KnowledgeBaseRagControllerTest` 共 46 tests PASS，包含 reviewer 指出的“多文档措辞 + 单一数字事实 + 冲突 citation”交叉回归。
+- 真实 run marker `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35`：overallStatus `REVIEW`（显式 `-SkipFrontend`），但 `fixedBusinessCorpus` gate PASS，T02 + T06-T15 全部 PASS；artifact raw-field scan PASS，fixed corpus 源文件目录为空，端口 3000 / 3001 / 3002 / 3007 / 3100 / 8081 无 LISTEN 残留。中间 marker `docpilot-high-intensity-fixed-corpus-20260712230202-0e661d` 曾在进入 fixed corpus 前遇到一次 `document/detail` 500，立即复跑未复现。
+
 ## 2026-07-12 高强度固定业务语料自动化验收第一片
 
 - 新增 `high-intensity-fixed-corpus-smoke.ps1` wrapper，并在 `cloud-quality-smoke.ps1` 增加默认关闭的 `-EnableFixedBusinessCorpusGate`：固定 6 份 Markdown 语料、`KB_CORE` / `KB_NOISY`、T02 串行重复上传和 T06-T15 质量矩阵进入可复现 runner。

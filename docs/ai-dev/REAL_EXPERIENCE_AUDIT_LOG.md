@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-12 | `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` | REVIEW（fixedBusinessCorpus PASS / frontend skipped） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35/artifact.json` | 修复 `REA-20260712-P1-030` 后复跑固定业务语料 runner：`fixedBusinessCorpus` gate PASS，T02 duplicate upload 与 T06-T15 全部通过；T08 废弃草案冲突、T11 多文档风险控制、T12 多跳审批 citation coverage / support 均恢复。整体 run 为 REVIEW 仅因为本片显式 `-SkipFrontend`；artifact raw-field scan PASS，本地 fixed corpus 源文件数为 0。 |
 | 2026-07-12 | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | FAILED_CORE_FLOW（固定业务语料验收发现 P1） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3/artifact.json` | 新增固定业务语料自动化 runner 后执行真实 run：T02 duplicate upload、T06 / T07 / T09 / T10 / T13 / T14 / T15 通过；T08 返回 `answer_claim_missing`，T11 / T12 返回 `citation_document_coverage` 与 `citation_support_missing`，说明 KnowledgeBase RAG 在错误前提回答完整性、多文档总结和多跳审批 citation 支撑上仍有质量缺口。JSON artifact 已脱敏，不保存 raw answer / prompt / evidence context；本地 fixed corpus 源文件上传后删除，最新 run 目录下 fixed corpus 源文件数为 0。 |
 | 2026-07-12 | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | PASS（Conversation grounding 修复真实验证） | `tmp-e2e/conversation-grounding-runtime/cg20260712175003-50312c-artifact.json` | 用户报告未绑定 KnowledgeBase 的普通会话误进 strict no-evidence refusal；已授权执行 `008_add_context_trace_grounding.sql` 并确认 Trace 三列存在。真实 API smoke 覆盖未绑定 KB、误选 STRICT、AUTO_RAG 普通问题、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG evidence citation；Playwright 验证普通回答显示“未使用知识库”且无“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”；后端全量 953 tests、前端 lint/build PASS。 |
 | 2026-07-12 | `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81` | PASS（rerank 代表语料 eval） | `backend/target/rag-quality/rerank-representative-eval/latest-summary.json` | 12-case 代表语料 eval PASS：candidate `rerankApplied=true`、10/10 target coverage、2/2 no-evidence preserved、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`；同轮修复 summary intent 泛词、中文问法 / UTF-8 编码和 redaction false positive。 |
@@ -70,7 +71,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `REA-20260712-P1-030` | OPEN | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Citation | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足 |
+| `REA-20260712-P1-030` | VERIFIED（已验证） | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Citation | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足 |
 | `REA-20260712-P1-029` | VERIFIED（已验证） | P1 | 会话路由 bug | Conversation / Grounding Policy / Frontend | `cg20260712175003-50312c` / `ui-cg-20260712095111-7094ef` | 未绑定知识库的普通会话误进 strict grounded no-evidence refusal，并显示 0 条来源 |
 | `REA-20260712-P2-026` | VERIFIED（已验证） | P2 | RAG no-evidence 质量问题 | KnowledgeBase RAG Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 裸 `knowledge base` 泛词被当作总结意图，near-threshold 无关问题绕过 support gate |
 | `REA-20260712-P2-027` | VERIFIED（已验证） | P2 | RAG 召回质量问题 | Query Rewrite / Hybrid Retrieval | `docpilot-rerank-representative-representative-hybrid-20260712142138-...` | 中文代表问法未稳定映射到英文业务 evidence，target coverage 失败 |
@@ -108,7 +109,7 @@
 
 ### `REA-20260712-P1-030` 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足
 
-- 状态：OPEN
+- 状态：VERIFIED（已验证）
 - 严重级别：P1
 - 类型：RAG 质量问题
 - 模块：KnowledgeBase RAG QA / Citation
@@ -134,9 +135,9 @@
 
 可能原因：
 
-- KnowledgeBase QA 的引用选择 / 精炼阶段没有把回答中采用的多文档 claim 全部映射回支撑 citation。
-- 多文档总结和多跳问题的 retrieval / rerank / prompt 组合会把相关文档作为 evidence 命中，但最终 citation 只保留了部分文档。
-- 错误前提纠正类问题的回答生成没有稳定输出完整当前规则断言。
+- KnowledgeBase QA 的答案后 citation 数字精炼对跨文档问题过宽，会用全局数字交集剪掉回答中仍需引用的其他文档来源。
+- 中文“分别出现在什么文档”等多跳问题原先没有稳定进入多文档 citation 保留路径。
+- 错误前提纠正类问题的默认 prompt 没有明确要求先否定 / 肯定用户前提，并区分当前生效规则与废弃草案。
 
 建议修复位置：
 
@@ -145,12 +146,15 @@
 - `scripts/smoke/cloud-quality-smoke.ps1`
 - 必要时补 `KnowledgeBaseRagQaServiceImplTest` / fixed corpus 相关测试。
 
-修复提交：待补充。
+修复提交：本轮提交。
 
 验证记录：
 
 - 当前失败验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend`，marker `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3`，overallStatus `FAILED_CORE_FLOW`。
-- 修复后需复跑同一 runner，要求 T02 + T06-T15 全部 PASS，并回填本条状态。
+- 修复内容：`KnowledgeBaseRagQaServiceImpl` 将数字 citation 精炼限制在非多文档问题，并补充中文多文档意图识别；`KnowledgeBaseRagPromptBuilder` 为错误前提 / 冲突规则问题增加通用纠错 prompt，不硬编码固定业务值。
+- 定向回归：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagControllerTest" test` PASS，46 tests，包含 reviewer 指出的“多文档措辞 + 单一数字事实 + 冲突 citation”交叉回归。
+- 修复后真实验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend`，marker `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35`，overallStatus `REVIEW`（仅因 `-SkipFrontend`），`fixedBusinessCorpus` gate PASS，T02 + T06-T15 全部 PASS；artifact raw-field scan PASS，本地 fixed corpus 源文件目录为空。
+- 复跑说明：marker `docpilot-high-intensity-fixed-corpus-20260712230202-0e661d` 曾在进入 fixed corpus gate 前因 `GET /api/document/detail?documentId=1359` 返回业务 `code=500` 中断；后端日志未留异常栈，立即复跑 `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` 未复现，当前不作为 T08 / T11 / T12 修复失败证据。
 
 ### `REA-20260712-P1-029` 未绑定知识库的普通会话误进 strict grounded no-evidence refusal，并显示 0 条来源
 

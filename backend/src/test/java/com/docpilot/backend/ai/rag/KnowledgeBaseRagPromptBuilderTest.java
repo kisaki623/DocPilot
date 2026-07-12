@@ -56,6 +56,67 @@ class KnowledgeBaseRagPromptBuilderTest {
         assertThat(prompt.evidenceContext()).contains("title=harness.md");
     }
 
+    @Test
+    void shouldUseCorrectionPromptForFalsePremiseQuestions() {
+        RagPrompt prompt = builder.build("合同规定违约金是每天 1%，对吗？", List.of(
+                hit(1, 101L, "Contract Alpha", "违约金按照未付款金额的 0.3% 每日计算，累计最高不超过 8%。"),
+                hit(2, 102L, "Decoy Draft", "以下内容均为被否决的旧方案：违约金为每日 1%。")
+        ), 2000);
+
+        assertThat(prompt.noEvidence()).isFalse();
+        assertThat(prompt.userPrompt())
+                .contains("proposed value")
+                .contains("directly related caps")
+                .contains("obsolete drafts");
+    }
+
+    @Test
+    void shouldNotUseCorrectionPromptForSlaCalculationQuestions() {
+        RagPrompt prompt = builder.build("SLA 要求 P1 故障两小时内恢复。本次事故恢复用了 78 分钟，是否达到 SLA？", List.of(
+                hit(1, 101L, "SLA Beta", "P1 故障要求 10 分钟内响应，2 小时内恢复。"),
+                hit(2, 102L, "Incident Review", "本次故障从确认到恢复共耗时 78 分钟。")
+        ), 2000);
+
+        assertThat(prompt.noEvidence()).isFalse();
+        assertThat(prompt.userPrompt()).contains("only the numbered knowledge-base evidence");
+        assertThat(prompt.userPrompt()).doesNotContain("proposed value");
+    }
+
+    @Test
+    void shouldPreferCorrectionPromptWhenKnowledgeBaseFalsePremiseMentionsKnowledgeBase() {
+        RagPrompt prompt = builder.build("知识库里说合同违约金是每天 1%，对吗？", List.of(
+                hit(1, 101L, "Contract Alpha", "违约金按照未付款金额的 0.3% 每日计算，累计最高不超过 8%。"),
+                hit(2, 102L, "Decoy Draft", "以下内容均为被否决的旧方案：违约金为每日 1%。")
+        ), 2000);
+
+        assertThat(prompt.noEvidence()).isFalse();
+        assertThat(prompt.userPrompt()).contains("proposed value");
+        assertThat(prompt.userPrompt()).doesNotContain("overview of the whole knowledge base");
+    }
+
+    @Test
+    void shouldNotUseCorrectionPromptForEnglishWhetherCalculationQuestions() {
+        RagPrompt prompt = builder.build("Whether the 78-minute recovery met the two-hour SLA?", List.of(
+                hit(1, 101L, "SLA Beta", "P1 incidents must recover within 2 hours."),
+                hit(2, 102L, "Incident Review", "This incident recovered in 78 minutes.")
+        ), 2000);
+
+        assertThat(prompt.noEvidence()).isFalse();
+        assertThat(prompt.userPrompt()).contains("only the numbered knowledge-base evidence");
+        assertThat(prompt.userPrompt()).doesNotContain("proposed value");
+    }
+
+    @Test
+    void shouldNotUseCorrectionPromptForOrdinaryDraftQuestions() {
+        RagPrompt prompt = builder.build("What should draft customer updates exclude?", List.of(
+                hit(1, 101L, "Communication Guide", "Draft updates should not include internal incident commander notes.")
+        ), 2000);
+
+        assertThat(prompt.noEvidence()).isFalse();
+        assertThat(prompt.userPrompt()).contains("only the numbered knowledge-base evidence");
+        assertThat(prompt.userPrompt()).doesNotContain("proposed value");
+    }
+
     private KnowledgeBaseRagRetrievalHit hit(int index, Long documentId, String title, String content) {
         return new KnowledgeBaseRagRetrievalHit(
                 index,

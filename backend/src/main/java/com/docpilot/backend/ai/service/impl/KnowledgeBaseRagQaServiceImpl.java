@@ -31,6 +31,7 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
 
     private static final Logger log = LoggerFactory.getLogger(KnowledgeBaseRagQaServiceImpl.class);
     private static final Pattern NUMBER_PATTERN = Pattern.compile("\\b\\d+(?:\\.\\d+)?\\b");
+    private static final Pattern CITATION_MARKER_PATTERN = Pattern.compile("\\[(\\d+)]");
     private static final double LOW_CONFIDENCE_CITATION_SCORE_FLOOR = 0.05D;
     private static final double LOW_CONFIDENCE_CITATION_MAX_SCORE_GATE = 0.5D;
 
@@ -196,7 +197,7 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
         List<KnowledgeBaseRagEvidenceCitation> originalCitations = retrieval.citations();
         List<KnowledgeBaseRagEvidenceCitation> filtered = originalCitations;
         Set<String> answerNumbers = extractNumbers(answer);
-        if (!answerNumbers.isEmpty()) {
+        if (!answerNumbers.isEmpty() && shouldApplyNumericCitationFilter(answer, question)) {
             boolean hasNumericSupport = originalCitations.stream()
                     .map(this::extractNumbers)
                     .anyMatch(numbers -> intersects(numbers, answerNumbers));
@@ -238,6 +239,29 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                 retrieval.queryVariantCount(),
                 retrieval.queryDedupeCount()
         );
+    }
+
+    private boolean shouldApplyNumericCitationFilter(String answer, String question) {
+        if (!isMultiDocumentIntent(question)) {
+            return true;
+        }
+        return referencedCitationIndexes(answer).size() < 2;
+    }
+
+    private Set<Integer> referencedCitationIndexes(String answer) {
+        if (answer == null || answer.isBlank()) {
+            return Set.of();
+        }
+        Matcher matcher = CITATION_MARKER_PATTERN.matcher(answer);
+        Set<Integer> indexes = new LinkedHashSet<>();
+        while (matcher.find()) {
+            try {
+                indexes.add(Integer.parseInt(matcher.group(1)));
+            } catch (NumberFormatException ignored) {
+                // Ignore malformed citation marker numbers in model output.
+            }
+        }
+        return indexes;
     }
 
     private boolean canUseFilteredCitations(List<KnowledgeBaseRagEvidenceCitation> originalCitations,
@@ -285,8 +309,13 @@ public class KnowledgeBaseRagQaServiceImpl implements KnowledgeBaseRagQaService 
                 || normalized.contains("比较")
                 || normalized.contains("对比")
                 || normalized.contains("总结")
-                || normalized.contains("两份")
-                || normalized.contains("两个");
+                || normalized.contains("综合")
+                || normalized.contains("跨文档")
+                || normalized.contains("多文档")
+                || normalized.contains("多个文档")
+                || normalized.contains("出现在什么文档")
+                || (normalized.contains("分别")
+                && (normalized.contains("文档") || normalized.contains("来源") || normalized.contains("资料")));
     }
 
     private int distinctCitationDocumentCount(List<KnowledgeBaseRagEvidenceCitation> citations) {
