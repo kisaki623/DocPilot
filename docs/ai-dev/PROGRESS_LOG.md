@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 ParseTask 恢复状态前端可见性
+
+- 文档详情页新增“解析与恢复”卡片，接入 `GET /api/task/parse/status`，展示解析阶段、恢复建议、stale、retry/reparse、consume/outbox 摘要、失败阶段 / 错误码和更新时间。
+- 前端明确保留安全边界：不新增 content-only reindex，卡片提示必须通过原文件 retry / reparse 恢复，避免丢失 page、block、section path 和 citation locator。
+- 验证：`npm run lint` PASS；`npm run build` PASS；真实 parser/status 链路 marker `docpilot-parser-real-chain-20260712154120-5bb049` PASS，PDF / HTML / DOCX 均 parse、retrieve、QA citation 和 source locator 通过，parser boundary `4/4`。
+
 ## 2026-07-12 rerank 代表语料 eval
 
 - 新增 `rerank-representative-eval-smoke.ps1` 和 `cloud-quality-smoke.ps1 -EnableRerankRepresentativeEvalGate`：真实链路临时构造 6 份代表文档与 12 个脱敏 case，对比 hybrid-only baseline 与阿里云百炼 `qwen3-rerank` candidate。

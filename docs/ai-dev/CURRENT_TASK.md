@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-07-12 ParseTask 恢复状态前端可见性（VERIFIED）
+
+- 文档详情页已接入只读 `GET /api/task/parse/status?documentId=...`：右侧新增“解析与恢复”卡片，展示当前解析阶段、恢复建议、stale 提示、retry/reparse 可用性、consume/outbox 状态、重试计数、失败阶段 / 错误码和更新时间。
+- 前端继续不提供 content-only reindex 入口；卡片明确展示“纯 Document.content 重建索引：否”，并提示需要走原文件 retry / reparse，以保留 page、block、section path 和 citation locator。
+- `frontend/lib/task-api.ts` 已补齐 ParseTask status 类型与 API 封装；文档详情页轮询非终态解析时同步刷新状态投影，重新解析后清空旧问答 / citation 状态并重新拉取 status。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；真实 `document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260712154120-5bb049`，PDF / HTML / DOCX 均 parse、retrieve、QA citation 和 source locator 通过，`sourceLocatorCount=3/3`、parser boundary `4/4`、artifact redaction PASS。
+- 状态：前端恢复体验切片完成；自动重放复杂失败任务、远程数据修复、content-only reindex 和数据库 schema 变更仍不做。
+
 ## 2026-07-12 rerank 代表语料 eval 与中文 / no-evidence 修复（VERIFIED）
 
 - 已新增 `scripts/smoke/rerank-representative-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`；`run` 会用同一套真实链路代表语料分别跑 hybrid-only baseline 和 hybrid+rerank candidate，并输出 ignored 的脱敏 `latest-summary.json`，不保存 query 原文、文档全文、prompt、evidence context、API key、连接串或云地址。

@@ -23,7 +23,7 @@ import {
   type RagRetrievalData,
   type RagStreamPayload
 } from "@/lib/rag-api";
-import { reparseTask } from "@/lib/task-api";
+import { getParseTaskStatus, reparseTask, type ParseTaskStatusData } from "@/lib/task-api";
 
 const DETAIL_STATUS_POLLING_TIMEOUT_MS = 120_000;
 const TERMINAL_PARSE_STATUS = new Set(["SUCCESS", "FAILED"]);
@@ -97,11 +97,48 @@ function parseProgressLabel(status: string | undefined): string {
   return "解析中";
 }
 
+function formatOptionalBoolean(value: boolean | undefined): string {
+  if (value === true) {
+    return "是";
+  }
+  if (value === false) {
+    return "否";
+  }
+  return "-";
+}
+
 function formatScore(score: number | undefined): string {
   if (typeof score !== "number" || Number.isNaN(score)) {
     return "-";
   }
   return score.toFixed(4);
+}
+
+function recoveryActionLabel(action: string | undefined): string {
+  if (!action) {
+    return "无需操作";
+  }
+  const labels: Record<string, string> = {
+    REPARSE_AVAILABLE: "可重新解析",
+    RETRY_OR_REPARSE_REQUIRED: "需重试或重新解析",
+    STALE_RECONCILIATION_PENDING: "等待恢复扫描收口",
+    WAIT_OR_REFRESH: "等待或刷新",
+    NONE: "无需操作"
+  };
+  return labels[action] || action;
+}
+
+function buildParseStatusSummary(detail: DocumentDetailData, parseTaskStatus: ParseTaskStatusData | null): {
+  status: string;
+  statusLabel: string;
+  statusDescription: string;
+} {
+  const status = parseTaskStatus?.status || detail.parseStatus || "";
+  return {
+    status,
+    statusLabel: parseTaskStatus?.statusLabel || detail.parseStatusLabel || status || "-",
+    statusDescription: parseTaskStatus?.statusDescription || detail.parseStatusDescription || ""
+  };
 }
 
 function extractMarkerTokens(input: string): string[] {
@@ -160,6 +197,8 @@ export default function DocumentDetailPage() {
   const documentIdParam = useMemo(() => normalizeDocumentId(params?.documentId), [params]);
 
   const [detail, setDetail] = useState<DocumentDetailData | null>(null);
+  const [parseTaskStatus, setParseTaskStatus] = useState<ParseTaskStatusData | null>(null);
+  const [parseTaskStatusError, setParseTaskStatusError] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [hasToken, setHasToken] = useState<boolean | null>(null);
@@ -203,6 +242,10 @@ export default function DocumentDetailPage() {
     () => extractMarkerTokens(ragRetrieval?.query || question),
     [question, ragRetrieval?.query]
   );
+  const parseStatusSummary = useMemo(
+    () => (detail ? buildParseStatusSummary(detail, parseTaskStatus) : null),
+    [detail, parseTaskStatus]
+  );
 
   const fetchQaHistory = useCallback(async (documentId: number) => {
     setHistoryLoading(true);
@@ -219,6 +262,20 @@ export default function DocumentDetailPage() {
     }
   }, []);
 
+  const fetchParseTaskStatus = useCallback(async (documentId: number) => {
+    try {
+      const response = await getParseTaskStatus(documentId);
+      setParseTaskStatus(response.data || null);
+      setParseTaskStatusError("");
+      return response.data || null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "加载解析状态失败";
+      setParseTaskStatus(null);
+      setParseTaskStatusError(message);
+      return null;
+    }
+  }, []);
+
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
@@ -227,6 +284,7 @@ export default function DocumentDetailPage() {
     if (!token) {
       setHasToken(false);
       setDetail(null);
+      setParseTaskStatus(null);
       setErrorMessage("未检测到登录状态，请先登录");
       setHistoryList([]);
       setHistoryErrorMessage("");
@@ -239,6 +297,7 @@ export default function DocumentDetailPage() {
     const documentId = Number(documentIdParam);
     if (!documentIdParam || Number.isNaN(documentId) || documentId <= 0) {
       setDetail(null);
+      setParseTaskStatus(null);
       setErrorMessage("文档 ID 无效");
       setHistoryList([]);
       setHistoryErrorMessage("");
@@ -254,16 +313,18 @@ export default function DocumentDetailPage() {
         return;
       }
       setDetail(response.data);
+      void fetchParseTaskStatus(documentId);
       await fetchQaHistory(documentId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "加载文档详情失败";
       setDetail(null);
+      setParseTaskStatus(null);
       setErrorMessage(message);
       setHistoryList([]);
     } finally {
       setLoading(false);
     }
-  }, [documentIdParam, fetchQaHistory]);
+  }, [documentIdParam, fetchParseTaskStatus, fetchQaHistory]);
 
   useEffect(() => {
     fetchDetail();
@@ -310,6 +371,7 @@ export default function DocumentDetailPage() {
           return;
         }
         setDetail(response.data);
+        void fetchParseTaskStatus(documentId);
         const nextStatus = response.data.parseStatus || "";
         if (TERMINAL_PARSE_STATUS.has(nextStatus)) {
           setStatusPolling(false);
@@ -328,7 +390,7 @@ export default function DocumentDetailPage() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [detail, documentIdParam, hasToken, statusPollingStartedAt]);
+  }, [detail, documentIdParam, fetchParseTaskStatus, hasToken, statusPollingStartedAt]);
 
   useEffect(() => {
     const documentId = Number(documentIdParam);
@@ -681,6 +743,8 @@ export default function DocumentDetailPage() {
       const response = await reparseTask(documentId);
       const statusLabel = response.data?.statusLabel || response.data?.status || "PENDING";
       setReparseMessage(`已触发重新解析，当前状态：${statusLabel}。`);
+      setParseTaskStatus(null);
+      setParseTaskStatusError("");
       setAnswer("");
       setCitations([]);
       setRagCitations([]);
@@ -689,6 +753,7 @@ export default function DocumentDetailPage() {
       setRagFallbackReason("");
       setQaErrorMessage("");
       setStatusPollingStartedAt(Date.now());
+      void fetchParseTaskStatus(documentId);
       await fetchDetail();
     } catch (error) {
       const message = error instanceof Error ? error.message : "重新解析失败";
@@ -734,11 +799,11 @@ export default function DocumentDetailPage() {
             {detail?.title || detail?.fileName || "文档详情"}
             {detail ? (
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                detail.parseStatus === "SUCCESS" ? "bg-emerald-100 text-emerald-700" :
-                detail.parseStatus === "FAILED" ? "bg-rose-100 text-rose-700" :
+                parseStatusSummary?.status === "SUCCESS" ? "bg-emerald-100 text-emerald-700" :
+                parseStatusSummary?.status === "FAILED" ? "bg-rose-100 text-rose-700" :
                 "bg-blue-100 text-blue-700"
               }`}>
-                {detail.parseStatusLabel || detail.parseStatus || "未知状态"}
+                {parseStatusSummary?.statusLabel || detail.parseStatusLabel || detail.parseStatus || "未知状态"}
               </span>
             ) : null}
           </h1>
@@ -1004,6 +1069,111 @@ export default function DocumentDetailPage() {
             </div>
 
             <aside className="space-y-6">
+              {parseStatusSummary ? (
+                <article className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Parse Recovery</p>
+                      <h2 className="mt-1 text-base font-bold text-slate-900">解析与恢复</h2>
+                    </div>
+                    <span className={parseStatusBadge(parseStatusSummary.status)}>
+                      {parseStatusSummary.statusLabel}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 text-sm">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <p className="font-semibold text-slate-800">
+                        {parseStatusSummary.statusDescription || parseProgressLabel(parseStatusSummary.status)}
+                      </p>
+                      {statusPolling ? <p className="mt-1 text-xs text-blue-600">正在自动刷新解析状态...</p> : null}
+                      {parseTaskStatus?.stale ? (
+                        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          任务可能停留过久：{parseTaskStatus.staleReason || "等待系统恢复扫描安全收口"}。
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {parseTaskStatus?.recoveryDescription ? (
+                      <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-blue-800">
+                        <p className="text-xs font-bold uppercase tracking-wide text-blue-500">恢复建议</p>
+                        <p className="mt-1 leading-relaxed">{parseTaskStatus.recoveryDescription}</p>
+                      </div>
+                    ) : null}
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                        <p className="text-slate-400">恢复动作</p>
+                        <p className="mt-1 font-semibold text-slate-700">{recoveryActionLabel(parseTaskStatus?.recoveryAction)}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                        <p className="text-slate-400">重新解析</p>
+                        <p className="mt-1 font-semibold text-slate-700">{formatOptionalBoolean(parseTaskStatus?.reparseAllowed)}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                        <p className="text-slate-400">原文件 retry</p>
+                        <p className="mt-1 font-semibold text-slate-700">{formatOptionalBoolean(parseTaskStatus?.retryAllowed)}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                        <p className="text-slate-400">已解析正文</p>
+                        <p className="mt-1 font-semibold text-slate-700">{formatOptionalBoolean(parseTaskStatus?.parsedContentPresent)}</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-rose-100 bg-rose-50/60 p-3 text-xs text-rose-700">
+                      <p className="font-semibold">安全边界</p>
+                      <p className="mt-1">
+                        纯 Document.content 重建索引：{formatOptionalBoolean(parseTaskStatus?.contentOnlyReindexAllowed)}。
+                        需要恢复时请走原文件 retry / reparse，保留 page、block、section path 和 citation locator。
+                      </p>
+                    </div>
+
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs text-slate-500">
+                      <div>
+                        <dt className="font-semibold text-slate-400">任务状态</dt>
+                        <dd>{parseTaskStatus?.status || detail.parseStatus || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">文档状态</dt>
+                        <dd>{parseTaskStatus?.documentParseStatus || detail.parseStatus || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">消费记录</dt>
+                        <dd>{parseTaskStatus?.consumeStatus || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">Outbox</dt>
+                        <dd>{parseTaskStatus?.outboxStatus || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">Outbox 重试</dt>
+                        <dd>{parseTaskStatus?.outboxRetryCount ?? "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">Parse 重试</dt>
+                        <dd>{parseTaskStatus?.retryCount ?? "-"}</dd>
+                      </div>
+                      {parseTaskStatus?.failedStage || parseTaskStatus?.errorCode ? (
+                        <div className="col-span-2">
+                          <dt className="font-semibold text-slate-400">失败阶段 / 错误码</dt>
+                          <dd>{parseTaskStatus.failedStage || "-"} / {parseTaskStatus.errorCode || "-"}</dd>
+                        </div>
+                      ) : null}
+                      <div className="col-span-2">
+                        <dt className="font-semibold text-slate-400">更新时间</dt>
+                        <dd>{parseTaskStatus?.updateTime ? formatDateTime(parseTaskStatus.updateTime) : formatDateTime(detail.updateTime)}</dd>
+                      </div>
+                    </dl>
+
+                    {parseTaskStatusError ? (
+                      <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        解析状态投影暂不可用：{parseTaskStatusError}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              ) : null}
+
               {detail.summary && (
                 <article className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
                   <h2 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">

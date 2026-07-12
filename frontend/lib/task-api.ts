@@ -14,6 +14,38 @@ export interface ParseTaskCreateData {
   errorMsg?: string;
 }
 
+export interface ParseTaskStatusData {
+  taskId: number;
+  userId: number;
+  documentId: number;
+  fileRecordId: number;
+  status: string;
+  statusLabel?: string;
+  statusDescription?: string;
+  documentParseStatus?: string;
+  terminal?: boolean;
+  processing?: boolean;
+  retryAllowed?: boolean;
+  reparseAllowed?: boolean;
+  safeReindexAllowed?: boolean;
+  contentOnlyReindexAllowed?: boolean;
+  parsedContentPresent?: boolean;
+  stale?: boolean;
+  staleReason?: string;
+  consumeStatus?: string;
+  outboxStatus?: string;
+  outboxRetryCount?: number;
+  outboxNextRetryTime?: string;
+  errorCode?: string;
+  failedStage?: string;
+  recoveryAction?: string;
+  recoveryDescription?: string;
+  retryCount?: number;
+  startTime?: string;
+  finishTime?: string;
+  updateTime?: string;
+}
+
 export function createParseTask(
   documentId: number
 ): Promise<ApiResponse<ParseTaskCreateData>> {
@@ -50,3 +82,17 @@ export function reparseTask(
   });
 }
 
+export function getParseTaskStatus(
+  documentId: number
+): Promise<ApiResponse<ParseTaskStatusData>> {
+  const params = new URLSearchParams({
+    documentId: String(documentId)
+  });
+
+  return apiRequest<ParseTaskStatusData>(`/api/task/parse/status?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
+  });
+}

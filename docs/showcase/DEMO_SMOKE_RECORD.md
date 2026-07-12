@@ -41,6 +41,7 @@ Marker:
 - hybrid-only baseline：`docpilot-rerank-effect-hybrid-20260712015151-46c631`
 - hybrid + rerank candidate：`docpilot-rerank-effect-rerank-20260712015353-cc21a9`
 - parser real chain：`docpilot-parser-real-chain-20260712015555-91d1fd`
+- parser/status refresh：`docpilot-parser-real-chain-20260712154120-5bb049`
 
 已验证：
 
@@ -48,6 +49,7 @@ Marker:
 - hard rerank fixture 使用独立 target / support / distractor 三文档：baseline 中 distractor 排第 1、target 排第 2；启用 rerank 后 target 排第 1、support 排第 2、distractor 排第 3，`hardUpliftObserved=true`。
 - KB retrieve / QA citation 覆盖未下降，core RAG、no-evidence 与权限隔离无回退；artifact 只保存 id、rank、count、score summary 等脱敏摘要。
 - ParseTask / parser 真实链路回归通过：PDF / HTML / DOCX 均 parse、retrieve、QA citation 和 source locator 通过，`sourceLocatorCount=3/3`，parser boundary `4/4`。
+- 前端文档详情页已展示 ParseTask status 恢复卡：当前阶段、恢复建议、stale、retry/reparse、consume/outbox 摘要和“禁止纯 Document.content 重建索引”的安全边界可见；前端 lint / build 均通过。
 - 定向 ParseTask / rerank 测试 40 tests PASS；后端全量默认测试 `mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）。
 
 边界：rerank 结论仍是“小样本 hard fixture uplift 证据”，不是大规模 ranking benchmark；ParseTask 恢复链路本轮验证了 fail-closed 策略、状态可观测和正常真实解析链路未回退，不代表已完成自动重放、复杂迁移或线上 SLA。artifact 位于 ignored 的 `backend/target/...`，不提交文档全文、模型原始输出、prompt、evidence context、token、连接串或云地址。
