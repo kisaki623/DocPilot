@@ -4,6 +4,27 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-12 Quality Console Conversation Grounding API Visibility
+
+状态：PASS
+
+Runner:
+
+- 临时本地后端 `SERVER_PORT=18081`、`APP_QUALITY_CONSOLE_ENABLED=true`、`AI_MODE=mock`
+- API：`/api/quality/runs`、`/api/quality/runs/{marker}`、`/api/quality/eval-cases`
+
+Marker:
+
+- conversation grounding：`docpilot-conversation-grounding-20260712183609-a15fef`
+
+已验证：
+
+- Quality runs 可见该 marker，source 为 `backend/target/conversation-grounding`。
+- Run detail 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`。
+- Eval Catalog 中 6 个 Conversation grounding case 均关联该 marker，latest status 为 `PASS`。
+
+边界：本次只验证 Quality API 读取 ignored artifact 和 catalog 关联；不上传文档、不调用 provider、不启动前端、不证明浏览器视觉回归。输出只保留 marker、状态和计数摘要，不提交 token、注册密码、raw artifact、prompt、answer、evidence context、日志原文、连接串或云地址。临时 18081 后端已清理，无端口残留。
+
 ## 2026-07-12 Conversation Grounding Route Smoke
 
 状态：PASS

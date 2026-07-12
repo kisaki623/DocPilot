@@ -1,5 +1,11 @@
 # Current Task
 
+## 2026-07-12 Quality Console Conversation grounding API 可见性（VERIFIED）
+
+- 真实启动本地临时后端 `SERVER_PORT=18081`、`APP_QUALITY_CONSOLE_ENABLED=true`、`AI_MODE=mock`，复用本地 tunnel，只注册临时 smoke 用户并调用 Quality API；不上传文档、不创建 KnowledgeBase / Conversation、不调用 provider、不启动前端。
+- API 验证 PASS：`/api/quality/runs?limit=20` 可见 marker `docpilot-conversation-grounding-20260712183609-a15fef`，source 为 `backend/target/conversation-grounding`；`/api/quality/runs/{marker}` 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`；`/api/quality/eval-cases` 中 6 个 Conversation grounding catalog case 均关联该 marker 且 latest status 为 `PASS`。
+- 安全与清理：API smoke 只输出脱敏计数摘要，不输出 token、注册密码、raw artifact、prompt、answer、evidence context 或云地址；本轮启动的 18081 后端已按端口 owner 清理，确认无 LISTEN 残留。
+
 ## 2026-07-12 Eval Catalog 纳入 Conversation grounding 路由矩阵（VERIFIED）
 
 - `agent-quality-eval-cases.json` 新增 6 个 Conversation grounding 路由 catalog case：`no-kb-model-only`、`no-kb-strict-normalized`、`auto-generic-no-rag`、`auto-no-evidence-fallback-model`、`strict-no-evidence-refusal`、`auto-rag-evidence-citations`。

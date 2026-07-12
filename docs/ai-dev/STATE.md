@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-12 Quality Console Conversation grounding API 可见性（VERIFIED）
+
+- 已完成最小真实 API 可见性 smoke：启动本地临时后端（18081，Quality Console enabled，mock AI），注册临时用户后调用 `/api/quality/runs`、`/api/quality/runs/{marker}` 和 `/api/quality/eval-cases`。
+- 验证结果：`docpilot-conversation-grounding-20260712183609-a15fef` 在 Quality runs 中可见，source 为 `backend/target/conversation-grounding`；detail 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`；Eval Catalog 中 6 个 Conversation grounding case 全部关联该 marker 且 latest status 为 `PASS`。
+- 边界：本次只验证 Quality API 读取 ignored artifact 和 catalog 关联，不上传文档、不调用 provider、不启动前端；临时 18081 后端已清理，无端口残留。
+
 ## 2026-07-12 Conversation grounding Eval Catalog 资产化（VERIFIED）
 
 - Quality Eval Catalog 已纳入 Conversation grounding 路由矩阵，新增 6 个与真实 smoke artifact caseId 对齐的 catalog case：未绑定 KB 模型回答、未绑定 KB 误选 strict 归一、AUTO_RAG 泛问题不检索、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG 有 evidence citation。
