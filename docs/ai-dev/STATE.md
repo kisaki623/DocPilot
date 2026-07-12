@@ -1,5 +1,10 @@
 # DocPilot 当前状态
 
+## 2026-07-12 展示口径同步状态（VERIFIED）
+
+- `docs/showcase/RAG_QUALITY_REPORT.md` 和 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 已同步：Conversation grounding route smoke 不再只是待聚合项，而是已经进入 Quality Console runs、detail、Eval Catalog 和浏览器可见性证据。
+- 后续展示规划已收敛为 Memory quality smoke 与 RAG representative eval 的趋势视图增强；仍保持“小样本真实链路 smoke / 内部质量台，不是线上 SLA 或大规模 benchmark”的边界。
+
 ## 2026-07-12 Quality Console Conversation grounding API 可见性（VERIFIED）
 
 - 已完成最小真实 API 可见性 smoke：启动本地临时后端（18081，Quality Console enabled，mock AI），注册临时用户后调用 `/api/quality/runs`、`/api/quality/runs/{marker}` 和 `/api/quality/eval-cases`。

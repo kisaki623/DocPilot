@@ -30,7 +30,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的企业文档知识库 RAG
 - Agent + RAG Showcase：`/agent` 页面已通过 runtime 验证，`rag_tool` 能展示 retrieved chunk、score / similarity、citation metadata、routingReason、matchedKeywords、脱敏 RAG trace 摘要和 persisted steps；普通 QA 路径仍展示 citations。
 - Agent Workflow 展示：`/agent` 页面基于已有响应和 persisted trace 展示接收任务、选择工具、执行工具、生成结果和持久化 trace，不新增 API 或后端路由逻辑。
 - Prompt Engineering 证据链：`docs/PROMPT_ENGINEERING_NOTES.md` 说明 tool selection prompt 结构、JSON 输出协议、parser 校验、allowlist、fallback 和 bad cases，不记录真实文档内容或完整运行时 prompt。
-- Agent Quality Console 内部质量控制台：`/quality` 可展示最近真实 audit / eval run、Gate 状态、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary；所有 parser / API 采用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context 或凭据。
+- Agent Quality Console 内部质量控制台：`/quality` 可展示最近真实 audit / eval run、Conversation grounding route smoke、Gate 状态、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary；所有 parser / API 采用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context 或凭据。
 - 单文档 RAG、多文档 KnowledgeBase RAG、Conversation grounding route、真实回答模型、真实 embedding + Qdrant、Memory governance、RAG no-evidence / hard-negative / answer faithfulness 质量门禁、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例均已有 smoke 记录。
 
 ## 3. 当前半实现能力
@@ -67,7 +67,7 @@ DocPilot 是一个基于 Java Spring Boot + Next.js 的企业文档知识库 RAG
 
 ## 7. 求职展示优先级
 
-1. 先展示 `/quality` Agent Quality Console：最近真实 audit、Gate 列表、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary。
+1. 先展示 `/quality` Agent Quality Console：最近真实 audit、Conversation grounding route smoke、Gate 列表、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary。
 2. 再展示 KnowledgeBase / Conversations：说明多文档 RAG citation、GroundingPolicy、Context Trace、`ragTriggered=true`、`evidenceCount>0` 和 ACTIVE memory 如何进入上下文；顺手展示普通会话“未使用知识库”和严格资料模式“资料不足”的差异。
 3. 然后展示文档详情普通问答 / SSE 流式问答：说明 quote-level citation 和 no-evidence 如何约束回答可信度。
 4. 最后展示 `/agent` Agent Showcase：工具选择、routingReason、matchedKeywords、taskId、steps 和 citations，强调 Agent 是围绕文档工具和 Trace 的辅助层。

@@ -1,5 +1,10 @@
 # Progress Log
 
+## 2026-07-12 展示口径收口：Quality Console 已含 Conversation grounding
+
+- 更新 `docs/showcase/RAG_QUALITY_REPORT.md` 和 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md`，把 Conversation grounding run / gate / Eval Catalog 已进入 Quality Console 的事实同步到求职展示口径。
+- 收敛下一步表述：Conversation grounding 聚合已完成，后续优先把 Memory quality smoke 与 RAG representative eval 做成更清晰的趋势视图。
+
 ## 2026-07-12 Quality Console Conversation grounding API 可见性
 
 - 启动临时后端 `18081`（Quality Console enabled，mock AI）并复用本地 tunnel，注册临时 smoke 用户后验证 Quality API；不上传文档、不启动前端、不调用 provider。

@@ -1,5 +1,10 @@
 # Current Task
 
+## 2026-07-12 展示口径收口：Quality Console 已含 Conversation grounding（VERIFIED）
+
+- `docs/showcase/RAG_QUALITY_REPORT.md` 已把 Conversation grounding Quality Console 可见性写入最新证据，并把“继续把 Conversation grounding smoke 聚合进 Quality Console”从下一步改为已完成事实；下一步聚焦 Memory quality 和 RAG representative eval 的趋势视图。
+- `docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 已同步 `/quality` 可展示 Conversation grounding route smoke 的面试讲法。
+
 ## 2026-07-12 Quality Console Conversation grounding API 可见性（VERIFIED）
 
 - 真实启动本地临时后端 `SERVER_PORT=18081`、`APP_QUALITY_CONSOLE_ENABLED=true`、`AI_MODE=mock`，复用本地 tunnel，只注册临时 smoke 用户并调用 Quality API；不上传文档、不创建 KnowledgeBase / Conversation、不调用 provider、不启动前端。
