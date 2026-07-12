@@ -1,5 +1,11 @@
 # DocPilot 当前状态
 
+## 2026-07-12 Conversation grounding Eval Catalog 资产化（VERIFIED）
+
+- Quality Eval Catalog 已纳入 Conversation grounding 路由矩阵，新增 6 个与真实 smoke artifact caseId 对齐的 catalog case：未绑定 KB 模型回答、未绑定 KB 误选 strict 归一、AUTO_RAG 泛问题不检索、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG 有 evidence citation。
+- 这些 case 的 `lastVerifiedMarker` 指向 `docpilot-conversation-grounding-20260712183609-a15fef`，并通过 `regressionPolicy=["conversation_grounding_smoke","quality_tests"]` 固化回归入口；Catalog API 仍只返回安全 identifier、summary、policy、marker 和 hints，不返回 question / expectedBehavior 原文。
+- 已验证：`mvn "-Dtest=AgentQualityEvalRunnerTest,QualityEvalCatalogServiceImplTest" test` PASS（6 tests）。
+
 ## 2026-07-12 Quality Console 与 Conversation grounding artifact（VERIFIED）
 
 - Quality Console artifact 聚合已纳入 `backend/target/conversation-grounding`。`conversation-grounding-smoke.ps1` 真实 run 生成的 ignored 脱敏 artifact 现在可通过 `/api/quality/runs` / `/quality` 发现，不再只停留在文档记录里。

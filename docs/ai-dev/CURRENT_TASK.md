@@ -1,5 +1,12 @@
 # Current Task
 
+## 2026-07-12 Eval Catalog 纳入 Conversation grounding 路由矩阵（VERIFIED）
+
+- `agent-quality-eval-cases.json` 新增 6 个 Conversation grounding 路由 catalog case：`no-kb-model-only`、`no-kb-strict-normalized`、`auto-generic-no-rag`、`auto-no-evidence-fallback-model`、`strict-no-evidence-refusal`、`auto-rag-evidence-citations`。
+- 这 6 个 case 与 `conversation-grounding-smoke.ps1` artifact 中的真实 caseId 对齐，因此 Quality Eval Catalog 可从最近的 `backend/target/conversation-grounding` 脱敏 artifact 自动关联 latest status；每个 case 只保存安全的 caseId、tags、scoring summary、regression policy、lastVerifiedMarker 和 remediation hints，不返回 question / expectedBehavior 原文。
+- 已同步 `AgentQualityEvalRunnerTest` 的 trace optional 规则：Conversation grounding catalog case 属于 artifact-backed route matrix，不强制离线 Agent eval 生成 traceId / agentRunId。
+- 已验证：`mvn "-Dtest=AgentQualityEvalRunnerTest,QualityEvalCatalogServiceImplTest" test` PASS（6 tests）。
+
 ## 2026-07-12 Quality Console 接入 Conversation grounding artifact（VERIFIED）
 
 - `QualityArtifactServiceImpl` 的 artifact root 白名单已新增 `backend/target/conversation-grounding`，因此 `conversation-grounding-smoke.ps1 -Mode run` 生成的 ignored 脱敏 artifact 可以被 `/api/quality/runs` / `/quality` 发现。

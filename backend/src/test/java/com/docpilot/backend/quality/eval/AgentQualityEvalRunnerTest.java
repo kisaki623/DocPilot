@@ -32,14 +32,30 @@ class AgentQualityEvalRunnerTest {
                         "agent-document-search-route",
                         "agent-rag-answer-route",
                         "kb-agent-grounded-answer-route",
+                        "no-kb-model-only",
+                        "no-kb-strict-normalized",
+                        "auto-generic-no-rag",
+                        "auto-no-evidence-fallback-model",
+                        "strict-no-evidence-refusal",
+                        "auto-rag-evidence-citations",
                         "document-parser-real-chain",
                         "memory-provider-small-sample"
                 );
         assertThat(result.metrics().casePassRate()).isEqualTo(1.0D);
-        assertThat(result.metrics().traceLinkedCaseCount()).isGreaterThanOrEqualTo(result.metrics().caseCount() - 1);
+        List<String> traceOptionalCases = List.of(
+                "agent-document-search-route",
+                "no-kb-model-only",
+                "no-kb-strict-normalized",
+                "auto-generic-no-rag",
+                "auto-no-evidence-fallback-model",
+                "strict-no-evidence-refusal",
+                "auto-rag-evidence-citations"
+        );
+        assertThat(result.metrics().traceLinkedCaseCount())
+                .isGreaterThanOrEqualTo(result.metrics().caseCount() - traceOptionalCases.size());
         assertThat(result.caseResults()).allSatisfy(caseResult -> {
             assertThat(caseResult.caseId()).isNotBlank();
-            if (!"agent-document-search-route".equals(caseResult.caseId())) {
+            if (!traceOptionalCases.contains(caseResult.caseId())) {
                 assertThat(caseResult.traceId()).isNotBlank();
                 assertThat(caseResult.agentRunId()).isNotBlank();
             }
@@ -67,6 +83,12 @@ class AgentQualityEvalRunnerTest {
                 .doesNotContain("RAG retrieve topK chunks and show similarity score")
                 .doesNotContain("retrieve evidence and answer what")
                 .doesNotContain("knowledge base agent request")
+                .doesNotContain("unbound normal conversation")
+                .doesNotContain("strict knowledge base mode without")
+                .doesNotContain("AUTO_RAG generic common questions")
+                .doesNotContain("AUTO_RAG material intent can fall back")
+                .doesNotContain("explicit strict knowledge base mode")
+                .doesNotContain("AUTO_RAG material intent with evidence")
                 .doesNotContain("PDF, HTML and DOCX")
                 .doesNotContain("real-provider memory extraction")
                 .doesNotContain("SYSTEM_PROMPT")

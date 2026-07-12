@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-12 Eval Catalog 纳入 Conversation grounding 路由矩阵
+
+- 在 `agent-quality-eval-cases.json` 中新增 6 个 Conversation grounding route matrix case，与真实 smoke artifact 的 `caseId` 对齐，覆盖 no-KB、AUTO_RAG、STRICT_KB、no-evidence fallback/refusal 和 evidence citation。
+- 同步 `AgentQualityEvalRunnerTest`：这些 case 是 artifact-backed route matrix，不要求默认离线 Agent eval 生成 trace 链接；artifact / catalog 仍不返回 question、expectedBehavior、prompt、answer 或 evidence context。
+- 验证：`mvn "-Dtest=AgentQualityEvalRunnerTest,QualityEvalCatalogServiceImplTest" test` PASS（6 tests）。
+
 ## 2026-07-12 Quality Console 接入 Conversation grounding artifact
 
 - `QualityArtifactServiceImpl` 新增 `backend/target/conversation-grounding` artifact root，并兼容顶层 `cases[]` / `pass` 结构；没有显式 gates 的 conversation grounding artifact 会生成 `conversationGrounding` synthetic gate。
