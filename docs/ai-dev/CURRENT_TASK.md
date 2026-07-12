@@ -1,5 +1,15 @@
 # Current Task
 
+## 2026-07-12 高强度 KnowledgeBase 生命周期 gate（VERIFIED / PARTIAL）
+
+- 已新增 `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate`，并让 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1` 默认同时启用 fixed corpus 与 KnowledgeBase lifecycle gate。
+- 生命周期 gate 复用 fixed corpus 中已索引的 `API_POLICY` / `CONTRACT_ALPHA`，但创建专用 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B`，避免污染 `KB_CORE` / `KB_NOISY` 的 T06-T15 稳定质量矩阵。
+- 已覆盖 T22-T25：加入 KB 后立即 retrieve / QA 可用；移出 KB 后 retrieve / QA 均 no-evidence 且 0 citation；重新加入后恢复；同一文档同时加入两个 KB 后，移出 KB-A 不影响 KB-B，且 KB-A 不返回 KB-B-only 文档。
+- 审查后已收紧验收断言：非空 hit / citation 缺失 `documentId` 会失败；T25 同时检查 KB-A 不泄漏 KB-B-only marker、KB-B 在 KB-A 移除后仍能召回 shared 与 B-only 文档；lifecycle-only dry-run 会标记 `BLOCKED`；artifact shape 检查覆盖实际 gate checks。
+- 定向验证：`mvn "-Dtest=HighIntensityFixedCorpusSmokeScriptSafetyTest,CloudQualitySmokeScriptSafetyTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，29 tests。
+- 真实验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260712234011-a80fa6` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均 PASS；artifact raw-field scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 边界：本片不执行 T26 文档删除 / 归档，避免删除共享 fixed corpus 文档；后续需用专用 disposable 文档验证删除 / 归档后的 KB 关系、citation 指向和 Qdrant 残留策略。整体 run 因 `-SkipFrontend` 仍为 `REVIEW`。
+
 ## 2026-07-12 高强度固定业务语料 P1 修复（VERIFIED）
 
 - 已修复 `REA-20260712-P1-030`：`KnowledgeBaseRagQaServiceImpl` 避免多文档问题被全局数字 citation 精炼误删支撑来源；`KnowledgeBaseRagPromptBuilder` 为错误前提 / 冲突规则问题增加通用纠错 prompt，提示当前规则、废弃草案和直接相关限定条件。

@@ -240,6 +240,61 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
     }
 
     @Test
+    void shouldReReadActiveKnowledgeBaseMembershipAcrossLifecycleChanges() {
+        when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L))
+                .thenReturn(List.of(doc(101L, "API Policy")))
+                .thenReturn(List.of())
+                .thenReturn(List.of(doc(101L, "API Policy")));
+        when(embeddingProvider.embed(any())).thenReturn(embedding());
+        when(vectorStoreClient.search(any()))
+                .thenReturn(new VectorSearchResult(List.of(
+                        hit("api-before-remove", 7L, 101L, 1, "API keys rotate every 90 days.", 0.92D)
+                ), "in_memory", ""))
+                .thenReturn(new VectorSearchResult(List.of(
+                        hit("api-after-readd", 7L, 101L, 1, "API keys rotate every 90 days.", 0.91D)
+                ), "in_memory", ""));
+
+        KnowledgeBaseRagRetrievalResult beforeRemove = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "API key rotation",
+                3,
+                1,
+                ""
+        ));
+        KnowledgeBaseRagRetrievalResult afterRemove = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "API key rotation",
+                3,
+                1,
+                ""
+        ));
+        KnowledgeBaseRagRetrievalResult afterReAdd = service.retrieve(new KnowledgeBaseRagRetrievalQuery(
+                7L,
+                10L,
+                "API key rotation",
+                3,
+                1,
+                ""
+        ));
+
+        assertThat(beforeRemove.noEvidence()).isFalse();
+        assertThat(beforeRemove.documentHitCounts()).containsEntry(101L, 1);
+        assertThat(afterRemove.noEvidence()).isTrue();
+        assertThat(afterRemove.hits()).isEmpty();
+        assertThat(afterRemove.citations()).isEmpty();
+        assertThat(afterReAdd.noEvidence()).isFalse();
+        assertThat(afterReAdd.documentHitCounts()).containsEntry(101L, 1);
+        verify(embeddingProvider, org.mockito.Mockito.times(2)).embed(any());
+        ArgumentCaptor<VectorSearchRequest> searchCaptor = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        verify(vectorStoreClient, org.mockito.Mockito.times(2)).search(searchCaptor.capture());
+        assertThat(searchCaptor.getAllValues())
+                .extracting(VectorSearchRequest::documentIds)
+                .containsExactly(List.of(101L), List.of(101L));
+    }
+
+    @Test
     void shouldReturnNoEvidenceWhenAllVectorHitsAreBelowSimilarityThreshold() {
         ragRetrievalProperties.setMinSimilarityThreshold(0.80D);
         when(scopeGuard.listActiveKnowledgeBaseDocuments(7L, 10L)).thenReturn(List.of(

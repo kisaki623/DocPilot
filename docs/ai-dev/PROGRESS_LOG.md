@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-12 高强度 KnowledgeBase 生命周期 gate
+
+- 新增 `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate`，并让 `high-intensity-fixed-corpus-smoke.ps1` 同时启用 fixed corpus 与 lifecycle gate；lifecycle gate 复用 fixed corpus 已索引文档，但创建 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B` 专用知识库，不改 `KB_CORE` / `KB_NOISY`。
+- T22-T25 已自动化：加入后立即可查、移出后 no-evidence / 0 citation、重新加入恢复、同一文档跨两个 KB 时移出 KB-A 不影响 KB-B；同时校验 membership 变化不改变 MySQL chunk 数或 Qdrant point 数。
+- 审查后补强 scope / artifact 合约：非空 hit / citation 缺失 `documentId` 会失败，T25 增加 KB-A 不泄漏 KB-B-only marker 与 KB-B-only 移除后仍可查检查，lifecycle-only dry-run 标记 `BLOCKED`，artifact shape 检查覆盖实际 gate checks。
+- 验证：wrapper `plan` PASS、delegate `plan` / `dry-run` PASS、lifecycle-only dry-run `BLOCKED`；`mvn "-Dtest=HighIntensityFixedCorpusSmokeScriptSafetyTest,CloudQualitySmokeScriptSafetyTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS（29 tests）；真实 marker `docpilot-high-intensity-fixed-corpus-20260712234011-a80fa6` 的 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate PASS，overallStatus `REVIEW` 仅因显式 `-SkipFrontend`。
+- 清理：artifact raw-field scan PASS；3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。T26 文档删除 / 归档未执行，后续需用专用 disposable 文档单独验证。
+
 ## 2026-07-12 高强度固定业务语料 P1 修复验证
 
 - 修复 `REA-20260712-P1-030`：多文档 KnowledgeBase QA 不再因全局数字交集剪掉跨文档 citation；错误前提 / 冲突规则问题增加通用纠错 prompt，要求区分当前规则与废弃草案并补充直接相关限定条件。

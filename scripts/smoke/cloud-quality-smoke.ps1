@@ -24,7 +24,8 @@
   [switch]$EnableNaturalCorpusGate,
   [switch]$EnableKnowledgeBaseAgentGate,
   [switch]$EnableFrontendInteractionGate,
-  [switch]$EnableFixedBusinessCorpusGate
+  [switch]$EnableFixedBusinessCorpusGate,
+  [switch]$EnableKnowledgeBaseLifecycleGate
 )
 
 $ErrorActionPreference = "Stop"
@@ -779,6 +780,56 @@ function Test-RagItemsContainMarker($items, [string]$marker) {
   return $false
 }
 
+function Get-RagItemDocumentIds($items) {
+  $ids = @()
+  foreach ($item in @($items)) {
+    if ($null -ne $item.documentId) {
+      $ids += [long]$item.documentId
+    }
+  }
+  return @($ids | Select-Object -Unique)
+}
+
+function Test-RagItemsOnlyUseDocuments($items, [long[]]$allowedDocumentIds) {
+  $allowed = @{}
+  foreach ($documentId in @($allowedDocumentIds)) {
+    $allowed[[string]$documentId] = $true
+  }
+  foreach ($item in @($items)) {
+    if ($null -eq $item.documentId) {
+      return $false
+    }
+    try {
+      $documentId = [long]$item.documentId
+    } catch {
+      return $false
+    }
+    if (-not $allowed.ContainsKey([string]$documentId)) {
+      return $false
+    }
+  }
+  return $true
+}
+
+function Test-RagItemsContainDocumentId($items, [long]$documentId) {
+  foreach ($actualDocumentId in Get-RagItemDocumentIds $items) {
+    if ([long]$actualDocumentId -eq $documentId) {
+      return $true
+    }
+  }
+  return $false
+}
+
+function Get-KnowledgeBaseDetailDocumentIds($detail) {
+  $ids = @()
+  foreach ($document in @($detail.data.documents)) {
+    if ($null -ne $document.documentId) {
+      $ids += [long]$document.documentId
+    }
+  }
+  return @($ids)
+}
+
 function Test-TextContainsAll([string]$text, [string[]]$phrases) {
   $resolved = if ($null -eq $text) { "" } else { [string]$text }
   foreach ($phrase in @($phrases)) {
@@ -1265,6 +1316,45 @@ function Test-FixedCorpusArtifactShape($fixedResources, [array]$caseResults, $du
   return Test-Redaction $json
 }
 
+function Test-SafeArtifactShape($resources, $checks = @()) {
+  $artifact = [ordered]@{
+    schemaVersion = 1
+    runId = "shape-check"
+    smokeMarker = "docpilot-safe-shape"
+    mode = "run"
+    startedAt = "shape-check"
+    finishedAt = "shape-check"
+    overallStatus = "PASS"
+    resources = $resources
+    gates = [ordered]@{
+      shapeCheck = [ordered]@{
+        status = "PASS"
+        checks = @($checks)
+        safeMessage = ""
+      }
+    }
+    artifactRedacted = $true
+  }
+  $json = $artifact | ConvertTo-Json -Depth 20
+  $forbidden = @(
+    '"question"\s*:',
+    '"query"\s*:',
+    '"answer"\s*:',
+    '"content"\s*:',
+    '"snippet"\s*:',
+    '"quoteText"\s*:',
+    '"prompt"\s*:',
+    '"token"\s*:',
+    '"endpoint"\s*:'
+  )
+  foreach ($pattern in $forbidden) {
+    if ($json -match $pattern) {
+      return $false
+    }
+  }
+  return Test-Redaction $json
+}
+
 function Invoke-FixedBusinessCorpusGate([string]$artifactDir, [string]$smokeMarker, [hashtable]$envValues, [long]$userId, [string]$token, [string]$collection, [int]$indexVersion) {
   $gateStarted = Get-Date
   $fixtureDir = Join-Path $artifactDir "fixed-business-corpus"
@@ -1428,6 +1518,202 @@ function Invoke-FixedBusinessCorpusGate([string]$artifactDir, [string]$smokeMark
       passedCaseCount = @($caseResults | Where-Object { $_.status -eq "PASS" }).Count
       failedCoreCaseCount = $coreFailures.Count
       failedSecurityCaseCount = $securityFailures.Count
+    }
+  }
+}
+
+function Invoke-KnowledgeBaseLifecycleGate($fixedBusinessCorpusResources, [string]$smokeMarker, [hashtable]$envValues, [long]$userId, [string]$token, [string]$collection, [int]$indexVersion) {
+  $gateStarted = Get-Date
+  if ($null -eq $fixedBusinessCorpusResources -or $null -eq $fixedBusinessCorpusResources.resources) {
+    Set-Gate "knowledgeBaseLifecycle" "BLOCKED" @("fixedBusinessCorpus resources missing") "knowledge base lifecycle gate requires fixed corpus resources"
+    Stop-WithStatus "BLOCKED" "knowledgeBaseLifecycle" "knowledge base lifecycle gate requires fixed corpus resources"
+  }
+  $fixedResources = $fixedBusinessCorpusResources.resources
+  $documentIdsByKey = $fixedResources.documentIdsByKey
+  if ($null -eq $documentIdsByKey -or $null -eq $documentIdsByKey.API_POLICY -or $null -eq $documentIdsByKey.CONTRACT_ALPHA) {
+    Set-Gate "knowledgeBaseLifecycle" "BLOCKED" @("fixed corpus API_POLICY or CONTRACT_ALPHA missing") "knowledge base lifecycle gate requires fixed corpus document ids"
+    Stop-WithStatus "BLOCKED" "knowledgeBaseLifecycle" "knowledge base lifecycle gate requires fixed corpus document ids"
+  }
+
+  $apiDocumentId = [long]$documentIdsByKey.API_POLICY
+  $contractDocumentId = [long]$documentIdsByKey.CONTRACT_ALPHA
+  $apiChunksBefore = Get-MysqlChunks $envValues $userId $apiDocumentId
+  $apiPointsBefore = Invoke-QdrantScroll $collection $userId $apiDocumentId
+  $contractPointsBefore = Invoke-QdrantScroll $collection $userId $contractDocumentId
+
+  $kbA = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Lifecycle A KB $smokeMarker"; description = "temporary lifecycle acceptance kb a" }) $token
+  $kbB = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Lifecycle B KB $smokeMarker"; description = "temporary lifecycle acceptance kb b" }) $token
+  $kbAId = [long]$kbA.data.id
+  $kbBId = [long]$kbB.data.id
+  $apiQuestion = "API key rotation MARKER_API_POLICY 90 days"
+  $contractQuestion = "Contract payment and approval MARKER_CONTRACT_ALPHA"
+
+  $addA = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/documents" ([ordered]@{ documentIds = @($apiDocumentId) }) $token
+  $detailAAfterAdd = Invoke-JsonApi "GET" "/api/knowledge-bases/$kbAId" $null $token
+  $detailAAfterAddIds = Get-KnowledgeBaseDetailDocumentIds $detailAAfterAdd
+  $retrieveAAfterAdd = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/rag/retrieve" ([ordered]@{ query = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $qaAAfterAdd = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/qa/rag" ([ordered]@{ question = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+
+  $removeA = Invoke-JsonApi "DELETE" "/api/knowledge-bases/$kbAId/documents/$apiDocumentId" $null $token
+  $detailAAfterRemove = Invoke-JsonApi "GET" "/api/knowledge-bases/$kbAId" $null $token
+  $detailAAfterRemoveIds = Get-KnowledgeBaseDetailDocumentIds $detailAAfterRemove
+  $retrieveAAfterRemove = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/rag/retrieve" ([ordered]@{ query = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $qaAAfterRemove = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/qa/rag" ([ordered]@{ question = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+
+  $reAddA = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/documents" ([ordered]@{ documentIds = @($apiDocumentId) }) $token
+  $detailAAfterReAdd = Invoke-JsonApi "GET" "/api/knowledge-bases/$kbAId" $null $token
+  $detailAAfterReAddIds = Get-KnowledgeBaseDetailDocumentIds $detailAAfterReAdd
+  $retrieveAAfterReAdd = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/rag/retrieve" ([ordered]@{ query = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $qaAAfterReAdd = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/qa/rag" ([ordered]@{ question = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+
+  Invoke-JsonApi "POST" "/api/knowledge-bases/$kbBId/documents" ([ordered]@{ documentIds = @($apiDocumentId, $contractDocumentId) }) $token | Out-Null
+  $detailBAfterAdd = Invoke-JsonApi "GET" "/api/knowledge-bases/$kbBId" $null $token
+  $detailBAfterAddIds = Get-KnowledgeBaseDetailDocumentIds $detailBAfterAdd
+  $retrieveBShared = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbBId/rag/retrieve" ([ordered]@{ query = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $retrieveBContract = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbBId/rag/retrieve" ([ordered]@{ query = $contractQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $retrieveAForBOnly = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/rag/retrieve" ([ordered]@{ query = $contractQuestion; topK = 4; indexVersion = $indexVersion }) $token
+
+  Invoke-JsonApi "DELETE" "/api/knowledge-bases/$kbAId/documents/$apiDocumentId" $null $token | Out-Null
+  $detailAAfterSharedRemove = Invoke-JsonApi "GET" "/api/knowledge-bases/$kbAId" $null $token
+  $detailAAfterSharedRemoveIds = Get-KnowledgeBaseDetailDocumentIds $detailAAfterSharedRemove
+  $retrieveAAfterSharedRemove = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbAId/rag/retrieve" ([ordered]@{ query = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $retrieveBAfterSharedRemove = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbBId/rag/retrieve" ([ordered]@{ query = $apiQuestion; topK = 4; indexVersion = $indexVersion }) $token
+  $retrieveBContractAfterSharedRemove = Invoke-JsonApi "POST" "/api/knowledge-bases/$kbBId/rag/retrieve" ([ordered]@{ query = $contractQuestion; topK = 4; indexVersion = $indexVersion }) $token
+
+  $apiChunksAfter = Get-MysqlChunks $envValues $userId $apiDocumentId
+  $apiPointsAfter = Invoke-QdrantScroll $collection $userId $apiDocumentId
+  $contractPointsAfter = Invoke-QdrantScroll $collection $userId $contractDocumentId
+
+  $t22Passed = [int]$addA.data.activeDocumentCount -eq 1 `
+    -and @($detailAAfterAddIds).Count -eq 1 `
+    -and $detailAAfterAddIds -contains $apiDocumentId `
+    -and (-not [bool]$retrieveAAfterAdd.data.noEvidence) `
+    -and @($retrieveAAfterAdd.data.hits).Count -ge 1 `
+    -and @($qaAAfterAdd.data.citations).Count -ge 1 `
+    -and (Test-RagItemsOnlyUseDocuments $retrieveAAfterAdd.data.hits @($apiDocumentId)) `
+    -and (Test-RagItemsOnlyUseDocuments $qaAAfterAdd.data.citations @($apiDocumentId)) `
+    -and (Test-RagItemsContainMarker $retrieveAAfterAdd.data.hits "MARKER_API_POLICY") `
+    -and (Test-RagItemsContainMarker $qaAAfterAdd.data.citations "MARKER_API_POLICY")
+  $t23Passed = [int]$removeA.data.activeDocumentCount -eq 0 `
+    -and @($detailAAfterRemoveIds).Count -eq 0 `
+    -and [bool]$retrieveAAfterRemove.data.noEvidence `
+    -and @($retrieveAAfterRemove.data.hits).Count -eq 0 `
+    -and [bool]$qaAAfterRemove.data.noEvidence `
+    -and @($qaAAfterRemove.data.citations).Count -eq 0
+  $t24Passed = [int]$reAddA.data.activeDocumentCount -eq 1 `
+    -and @($detailAAfterReAddIds).Count -eq 1 `
+    -and $detailAAfterReAddIds -contains $apiDocumentId `
+    -and (-not [bool]$retrieveAAfterReAdd.data.noEvidence) `
+    -and @($retrieveAAfterReAdd.data.hits).Count -ge 1 `
+    -and @($qaAAfterReAdd.data.citations).Count -ge 1 `
+    -and (Test-RagItemsOnlyUseDocuments $retrieveAAfterReAdd.data.hits @($apiDocumentId)) `
+    -and (Test-RagItemsOnlyUseDocuments $qaAAfterReAdd.data.citations @($apiDocumentId))
+  $t25Passed = @($detailBAfterAddIds).Count -eq 2 `
+    -and $detailBAfterAddIds -contains $apiDocumentId `
+    -and $detailBAfterAddIds -contains $contractDocumentId `
+    -and (Test-RagItemsContainDocumentId $retrieveBShared.data.hits $apiDocumentId) `
+    -and (Test-RagItemsContainDocumentId $retrieveBContract.data.hits $contractDocumentId) `
+    -and (-not (Test-RagItemsContainDocumentId $retrieveAForBOnly.data.hits $contractDocumentId)) `
+    -and (-not (Test-RagItemsContainMarker $retrieveAForBOnly.data.hits "MARKER_CONTRACT_ALPHA")) `
+    -and (Test-RagItemsOnlyUseDocuments $retrieveAForBOnly.data.hits @($apiDocumentId)) `
+    -and @($detailAAfterSharedRemoveIds).Count -eq 0 `
+    -and [bool]$retrieveAAfterSharedRemove.data.noEvidence `
+    -and @($retrieveAAfterSharedRemove.data.hits).Count -eq 0 `
+    -and (Test-RagItemsContainDocumentId $retrieveBAfterSharedRemove.data.hits $apiDocumentId) `
+    -and (Test-RagItemsContainDocumentId $retrieveBContractAfterSharedRemove.data.hits $contractDocumentId) `
+    -and (Test-RagItemsOnlyUseDocuments $retrieveBAfterSharedRemove.data.hits @($apiDocumentId, $contractDocumentId)) `
+    -and (Test-RagItemsOnlyUseDocuments $retrieveBContractAfterSharedRemove.data.hits @($apiDocumentId, $contractDocumentId))
+  $indexUnchanged = @($apiChunksAfter).Count -eq @($apiChunksBefore).Count `
+    -and @($apiPointsAfter).Count -eq @($apiPointsBefore).Count `
+    -and @($contractPointsAfter).Count -eq @($contractPointsBefore).Count
+
+  $securityFailures = @()
+  if (-not (Test-RagItemsOnlyUseDocuments $retrieveAAfterAdd.data.hits @($apiDocumentId))) { $securityFailures += "T22_retrieve_scope_violation" }
+  if (-not (Test-RagItemsOnlyUseDocuments $qaAAfterAdd.data.citations @($apiDocumentId))) { $securityFailures += "T22_citation_scope_violation" }
+  if (Test-RagItemsContainDocumentId $retrieveAForBOnly.data.hits $contractDocumentId) { $securityFailures += "T25_a_returned_b_only_document" }
+  if (Test-RagItemsContainMarker $retrieveAForBOnly.data.hits "MARKER_CONTRACT_ALPHA") { $securityFailures += "T25_a_returned_b_only_marker" }
+  if (-not (Test-RagItemsOnlyUseDocuments $retrieveAForBOnly.data.hits @($apiDocumentId))) { $securityFailures += "T25_a_b_only_query_scope_violation" }
+  if (Test-RagItemsContainDocumentId $retrieveAAfterSharedRemove.data.hits $apiDocumentId) { $securityFailures += "T25_removed_shared_document_still_visible_in_a" }
+  if (-not (Test-RagItemsOnlyUseDocuments $retrieveBAfterSharedRemove.data.hits @($apiDocumentId, $contractDocumentId))) { $securityFailures += "T25_b_scope_violation_after_a_remove" }
+  if (-not (Test-RagItemsOnlyUseDocuments $retrieveBContractAfterSharedRemove.data.hits @($apiDocumentId, $contractDocumentId))) { $securityFailures += "T25_b_contract_scope_violation_after_a_remove" }
+
+  $coreFailures = @()
+  if (-not $t22Passed) { $coreFailures += "T22_join_immediate_query_failed" }
+  if (-not $t23Passed) { $coreFailures += "T23_remove_query_failed" }
+  if (-not $t24Passed) { $coreFailures += "T24_rejoin_query_failed" }
+  if (-not $t25Passed) { $coreFailures += "T25_multi_kb_isolation_failed" }
+  if (-not $indexUnchanged) { $coreFailures += "membership_changed_index_counts" }
+
+  $checks = @([ordered]@{
+    lifecycleVersion = "2026-07-12-kb-lifecycle-v1"
+    knowledgeBaseIdsByKey = [ordered]@{
+      KB_LIFECYCLE_A = $kbAId
+      KB_LIFECYCLE_B = $kbBId
+    }
+    documentIdsByKey = [ordered]@{
+      API_POLICY = $apiDocumentId
+      CONTRACT_ALPHA = $contractDocumentId
+    }
+    t22JoinImmediateQuery = $t22Passed
+    t23RemoveNoEvidence = $t23Passed
+    t24RejoinRestored = $t24Passed
+    t25MultiKbIsolation = $t25Passed
+    membershipIndexCountsUnchanged = $indexUnchanged
+    apiChunkCountBefore = @($apiChunksBefore).Count
+    apiChunkCountAfter = @($apiChunksAfter).Count
+    apiQdrantPointCountBefore = @($apiPointsBefore).Count
+    apiQdrantPointCountAfter = @($apiPointsAfter).Count
+    contractQdrantPointCountBefore = @($contractPointsBefore).Count
+    contractQdrantPointCountAfter = @($contractPointsAfter).Count
+    aDetailCountAfterAdd = @($detailAAfterAddIds).Count
+    aDetailCountAfterRemove = @($detailAAfterRemoveIds).Count
+    aDetailCountAfterReAdd = @($detailAAfterReAddIds).Count
+    bDetailCountAfterAdd = @($detailBAfterAddIds).Count
+    aRetrieveHitsAfterRemove = @($retrieveAAfterRemove.data.hits).Count
+    aQaCitationsAfterRemove = @($qaAAfterRemove.data.citations).Count
+    bRetrieveHitsAfterARemove = @($retrieveBAfterSharedRemove.data.hits).Count
+    bContractRetrieveHitsAfterARemove = @($retrieveBContractAfterSharedRemove.data.hits).Count
+    t26DocumentDeleteBoundary = [ordered]@{
+      executed = $false
+      notExecutedReason = "shared_fixture_must_remain_inspectable"
+      followUp = "use a dedicated disposable document in a separate slice before testing document delete or archive relationships"
+    }
+    failedCoreCaseCount = $coreFailures.Count
+    failedSecurityCaseCount = $securityFailures.Count
+    failureCodes = @($securityFailures + $coreFailures | Select-Object -Unique)
+    durationMs = [long]((Get-Date) - $gateStarted).TotalMilliseconds
+  })
+
+  $resources = [ordered]@{
+    lifecycleVersion = "2026-07-12-kb-lifecycle-v1"
+    userAId = $userId
+    knowledgeBaseIdsByKey = $checks[0].knowledgeBaseIdsByKey
+    documentIdsByKey = $checks[0].documentIdsByKey
+    t26DocumentDeleteBoundary = $checks[0].t26DocumentDeleteBoundary
+  }
+  if (-not (Test-SafeArtifactShape $resources $checks)) {
+    Set-Gate "knowledgeBaseLifecycle" "FAILED_SECURITY_GATE" @() "knowledge base lifecycle artifact shape failed whitelist check"
+    Stop-WithStatus "FAILED_SECURITY_GATE" "knowledgeBaseLifecycle" "knowledge base lifecycle artifact shape failed whitelist check"
+  }
+  if ($securityFailures.Count -gt 0) {
+    Set-Gate "knowledgeBaseLifecycle" "FAILED_SECURITY_GATE" $checks "knowledge base lifecycle scope isolation failed"
+    Stop-WithStatus "FAILED_SECURITY_GATE" "knowledgeBaseLifecycle" "knowledge base lifecycle scope isolation failed"
+  }
+  if ($coreFailures.Count -gt 0) {
+    Set-Gate "knowledgeBaseLifecycle" "FAILED_CORE_FLOW" $checks "knowledge base lifecycle regression failed"
+    Stop-WithStatus "FAILED_CORE_FLOW" "knowledgeBaseLifecycle" "knowledge base lifecycle regression failed"
+  }
+  Set-Gate "knowledgeBaseLifecycle" "PASS" $checks
+  return [ordered]@{
+    lifecycleVersion = "2026-07-12-kb-lifecycle-v1"
+    resources = $resources
+    summary = [ordered]@{
+      caseCount = 4
+      passedCaseCount = 4
+      failedCoreCaseCount = 0
+      failedSecurityCaseCount = 0
+      indexCountsUnchanged = $indexUnchanged
+      durationMs = [long]((Get-Date) - $gateStarted).TotalMilliseconds
     }
   }
 }
@@ -1889,7 +2175,7 @@ function Show-PlanMode() {
       "tunnel", "backendHealth", "frontendRoutes", "auth", "uploadParseIndex",
       "chunkQuality", "mysqlQdrantConsistency", "singleDocumentRag",
       "knowledgeBaseRag", "knowledgeBaseAgent(optional)", "shortDocumentRag", "naturalCorpus(optional)", "frontendInteraction(optional)", "multiQueryRag(optional)", "representativeCorpus(optional)", "answerGrounding", "realQaHardGate(optional)", "realQaSemanticGate(optional)", "realProviderFaithfulness(optional)", "noEvidenceThreshold", "rerankHardFixture(optional)", "rerankRepresentativeEval(optional)", "conversationTrace", "memoryQuality(optional)", "permissionIsolation",
-      "fixedBusinessCorpus(optional)", "artifactRedaction", "cleanup", "gitStatus"
+      "fixedBusinessCorpus(optional)", "knowledgeBaseLifecycle(optional)", "artifactRedaction", "cleanup", "gitStatus"
     )
     fixedBusinessCorpusGate = [ordered]@{
       enabled = [bool]$EnableFixedBusinessCorpusGate
@@ -1897,6 +2183,15 @@ function Show-PlanMode() {
       knowledgeBaseKeys = @("KB_CORE", "KB_NOISY")
       duplicateUploadCase = "T02_serial_duplicate_upload"
       caseIds = @("T06_contract_precise_numbers", "T07_contract_paraphrase_payment", "T08_contract_wrong_premise_penalty", "T09_api_rotation_conflict", "T10_sla_incident_calculation", "T11_cross_document_risk_controls", "T12_multi_hop_approval", "T13_hard_negative_audit_retention", "T14_strict_no_evidence", "T15_prompt_injection")
+      artifactPolicy = "stores only ids, document keys, booleans, counts and failure codes; no raw question, answer, snippet, quote, prompt or evidence context"
+    }
+    knowledgeBaseLifecycleGate = [ordered]@{
+      enabled = [bool]$EnableKnowledgeBaseLifecycleGate
+      dependsOn = "fixedBusinessCorpus(optional)"
+      knowledgeBaseKeys = @("KB_LIFECYCLE_A", "KB_LIFECYCLE_B")
+      documentKeys = @("API_POLICY", "CONTRACT_ALPHA")
+      caseIds = @("T22_join_immediate_query", "T23_remove_no_evidence", "T24_rejoin_restored", "T25_multi_kb_isolation")
+      t26Boundary = "document delete/archive uses a dedicated disposable document in a later slice"
       artifactPolicy = "stores only ids, document keys, booleans, counts and failure codes; no raw question, answer, snippet, quote, prompt or evidence context"
     }
     artifactRoot = $ArtifactRoot
@@ -1907,6 +2202,7 @@ function Show-PlanMode() {
 
 function Invoke-DryRun() {
   $checks = @()
+  $knowledgeBaseLifecycleDependencySatisfied = (-not [bool]$EnableKnowledgeBaseLifecycleGate) -or [bool]$EnableFixedBusinessCorpusGate
   $checks += [ordered]@{ name = "envFileExists"; pass = (Test-Path -LiteralPath $EnvFile) }
   $checks += [ordered]@{ name = "mysqlCliExists"; pass = [bool](Get-Command mysql -ErrorAction SilentlyContinue) }
   $checks += [ordered]@{ name = "nodeExists"; pass = [bool](Get-Command node -ErrorAction SilentlyContinue) }
@@ -1923,7 +2219,21 @@ function Invoke-DryRun() {
     corpusKeys = @("CONTRACT_ALPHA", "SLA_BETA", "API_POLICY", "INCIDENT_REVIEW", "DECOY_DRAFT", "PROMPT_INJECTION")
     caseIds = @("T02_serial_duplicate_upload", "T06_contract_precise_numbers", "T07_contract_paraphrase_payment", "T08_contract_wrong_premise_penalty", "T09_api_rotation_conflict", "T10_sla_incident_calculation", "T11_cross_document_risk_controls", "T12_multi_hop_approval", "T13_hard_negative_audit_retention", "T14_strict_no_evidence", "T15_prompt_injection")
   }
-  Set-Gate "dryRun" "PASS" @($checks)
+  $checks += [ordered]@{
+    name = "knowledgeBaseLifecyclePlanContract"
+    pass = $knowledgeBaseLifecycleDependencySatisfied
+    enabled = [bool]$EnableKnowledgeBaseLifecycleGate
+    dependsOnFixedBusinessCorpus = $true
+    dependencySatisfied = $knowledgeBaseLifecycleDependencySatisfied
+    blockedReason = if ($knowledgeBaseLifecycleDependencySatisfied) { "" } else { "EnableFixedBusinessCorpusGate is required" }
+    knowledgeBaseKeys = @("KB_LIFECYCLE_A", "KB_LIFECYCLE_B")
+    documentKeys = @("API_POLICY", "CONTRACT_ALPHA")
+    caseIds = @("T22_join_immediate_query", "T23_remove_no_evidence", "T24_rejoin_restored", "T25_multi_kb_isolation")
+    t26Boundary = "document delete/archive uses a dedicated disposable document in a later slice"
+  }
+  $dryRunStatus = if ($knowledgeBaseLifecycleDependencySatisfied) { "PASS" } else { "BLOCKED" }
+  $dryRunMessage = if ($knowledgeBaseLifecycleDependencySatisfied) { "" } else { "knowledge base lifecycle gate requires fixed corpus gate" }
+  Set-Gate "dryRun" $dryRunStatus @($checks) $dryRunMessage
   [PSCustomObject][ordered]@{
     mode = "dry-run"
     overallStatus = $script:OverallStatus
@@ -1981,6 +2291,7 @@ function Invoke-Run() {
   $realProviderFaithfulnessChecks = $null
   $frontendInteractionChecks = $null
   $fixedBusinessCorpusResources = $null
+  $knowledgeBaseLifecycleResources = $null
   Set-Gate "auth" "PASS" @("registered user A", "registered user B")
 
   $alphaText = @"
@@ -2282,6 +2593,13 @@ Similar short policy category: onboarding evidence.
 
   if ($EnableFixedBusinessCorpusGate) {
     $fixedBusinessCorpusResources = Invoke-FixedBusinessCorpusGate $artifactDir $smokeMarker $envValues $userAId $tokenA $collection $IndexVersion
+  }
+  if ($EnableKnowledgeBaseLifecycleGate) {
+    if (-not $EnableFixedBusinessCorpusGate) {
+      Set-Gate "knowledgeBaseLifecycle" "BLOCKED" @("EnableFixedBusinessCorpusGate is required") "knowledge base lifecycle gate requires fixed corpus gate"
+      Stop-WithStatus "BLOCKED" "knowledgeBaseLifecycle" "knowledge base lifecycle gate requires fixed corpus gate"
+    }
+    $knowledgeBaseLifecycleResources = Invoke-KnowledgeBaseLifecycleGate $fixedBusinessCorpusResources $smokeMarker $envValues $userAId $tokenA $collection $IndexVersion
   }
 
   if ($EnableNaturalCorpusGate) {
@@ -3451,6 +3769,8 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
       frontendInteractionGate = $frontendInteractionChecks
       fixedBusinessCorpusGateEnabled = [bool]$EnableFixedBusinessCorpusGate
       fixedBusinessCorpusGate = $fixedBusinessCorpusResources
+      knowledgeBaseLifecycleGateEnabled = [bool]$EnableKnowledgeBaseLifecycleGate
+      knowledgeBaseLifecycleGate = $knowledgeBaseLifecycleResources
       conversationId = [long]$conversation.data.conversationId
       messageId = [long]$message.data.messageId
     }

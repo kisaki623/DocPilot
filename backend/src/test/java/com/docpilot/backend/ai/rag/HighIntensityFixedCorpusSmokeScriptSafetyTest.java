@@ -44,10 +44,15 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
                 .contains("PROMPT_INJECTION")
                 .contains("KB_CORE")
                 .contains("KB_NOISY")
+                .contains("KB_LIFECYCLE_A")
+                .contains("KB_LIFECYCLE_B")
                 .contains("T02_serial_duplicate_upload")
                 .contains("T06_contract_precise_numbers")
                 .contains("T15_prompt_injection")
+                .contains("T22_join_immediate_query")
+                .contains("T25_multi_kb_isolation")
                 .contains("fixedBusinessCorpus")
+                .contains("knowledgeBaseLifecycle")
                 .contains("artifactPolicy")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer ")
@@ -66,9 +71,12 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
                 .contains("docpilot-high-intensity-fixed-corpus")
                 .contains("backend/target/high-intensity-acceptance")
                 .contains("-EnableFixedBusinessCorpusGate")
+                .contains("-EnableKnowledgeBaseLifecycleGate")
                 .contains("T02_serial_duplicate_upload")
                 .contains("T06_contract_precise_numbers")
                 .contains("T15_prompt_injection")
+                .contains("T22_join_immediate_query")
+                .contains("T25_multi_kb_isolation")
                 .doesNotContain("Remove-Item -Recurse")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer")
@@ -84,13 +92,19 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
         assertThat(delegate)
                 .contains("EnableFixedBusinessCorpusGate")
                 .contains("Invoke-FixedBusinessCorpusGate")
+                .contains("Invoke-KnowledgeBaseLifecycleGate")
                 .contains("New-FixedCorpusDefinitions")
                 .contains("New-FixedCorpusCaseDefinitions")
                 .contains("Test-FixedCorpusArtifactShape")
+                .contains("Test-SafeArtifactShape")
                 .contains("T02_serial_duplicate_upload")
                 .contains("T06_contract_precise_numbers")
                 .contains("T15_prompt_injection")
+                .contains("T22_join_immediate_query")
+                .contains("T25_multi_kb_isolation")
                 .contains("CONTRACT_ALPHA")
+                .contains("API_POLICY")
+                .contains("KB_LIFECYCLE_A")
                 .contains("PROMPT_INJECTION")
                 .contains("ORANGE-47")
                 .contains("\"question\"")
@@ -99,6 +113,8 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
                 .contains("\"quoteText\"")
                 .contains("fixedBusinessCorpusGateEnabled")
                 .contains("fixedBusinessCorpusGate")
+                .contains("knowledgeBaseLifecycleGateEnabled")
+                .contains("knowledgeBaseLifecycleGate")
                 .contains("application/json; charset=utf-8")
                 .contains("UTF8.GetBytes")
                 .doesNotContain("rawAnswer =")
@@ -116,7 +132,8 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
                 delegatePath().toString(),
                 "-Mode",
                 "plan",
-                "-EnableFixedBusinessCorpusGate"), 20);
+                "-EnableFixedBusinessCorpusGate",
+                "-EnableKnowledgeBaseLifecycleGate"), 20);
         ProcessResult dryRun = runPowerShell(List.of(
                 "-File",
                 delegatePath().toString(),
@@ -124,15 +141,21 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
                 "dry-run",
                 "-ArtifactRoot",
                 "backend/target/high-intensity-acceptance",
-                "-EnableFixedBusinessCorpusGate"), 30);
+                "-EnableFixedBusinessCorpusGate",
+                "-EnableKnowledgeBaseLifecycleGate"), 30);
 
         assertThat(plan.completed()).isTrue();
         assertThat(plan.exitCode()).isZero();
         assertThat(plan.output())
                 .contains("fixedBusinessCorpusGate")
+                .contains("knowledgeBaseLifecycleGate")
                 .contains("CONTRACT_ALPHA")
+                .contains("API_POLICY")
+                .contains("KB_LIFECYCLE_A")
                 .contains("T02_serial_duplicate_upload")
                 .contains("T15_prompt_injection")
+                .contains("T22_join_immediate_query")
+                .contains("T25_multi_kb_isolation")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer ")
                 .doesNotContain("apiKey =");
@@ -141,9 +164,39 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
         assertThat(dryRun.output())
                 .contains("\"mode\":  \"dry-run\"")
                 .contains("fixedBusinessCorpusPlanContract")
+                .contains("knowledgeBaseLifecyclePlanContract")
                 .contains("CONTRACT_ALPHA")
+                .contains("API_POLICY")
+                .contains("KB_LIFECYCLE_A")
                 .contains("T02_serial_duplicate_upload")
                 .contains("T15_prompt_injection")
+                .contains("T22_join_immediate_query")
+                .contains("T25_multi_kb_isolation")
+                .doesNotContain("Authorization")
+                .doesNotContain("Bearer ")
+                .doesNotContain("apiKey =");
+    }
+
+    @Test
+    void shouldBlockLifecycleDryRunWhenFixedCorpusGateIsDisabled() throws Exception {
+        ProcessResult dryRun = runPowerShell(List.of(
+                "-File",
+                delegatePath().toString(),
+                "-Mode",
+                "dry-run",
+                "-ArtifactRoot",
+                "backend/target/high-intensity-acceptance",
+                "-EnableKnowledgeBaseLifecycleGate"), 30);
+
+        assertThat(dryRun.completed()).isTrue();
+        assertThat(dryRun.exitCode()).isZero();
+        assertThat(dryRun.output())
+                .contains("\"mode\":  \"dry-run\"")
+                .contains("\"overallStatus\":  \"BLOCKED\"")
+                .contains("knowledgeBaseLifecyclePlanContract")
+                .contains("\"dependencySatisfied\":  false")
+                .contains("EnableFixedBusinessCorpusGate is required")
+                .contains("knowledge base lifecycle gate requires fixed corpus gate")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer ")
                 .doesNotContain("apiKey =");

@@ -27,11 +27,11 @@ Marker:
 - GroundingPolicy 6 个路由 case PASS。
 - 综合 cloud quality 覆盖上传解析索引、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、no-evidence、Conversation Trace、KnowledgeBase Agent、跨用户权限隔离、前端关键路由和前端交互 gate。
 
-边界：这是高强度验收的第一层真实链路门禁，不是完整 T01-T47 全量通过。固定业务语料矩阵已在后续 fixed corpus gate 中单独通过；KnowledgeBase 生命周期、长会话摘要、弱网并发、多标签页和浏览器缩放 UI 仍待执行。artifact 位于 ignored 目录，只保留 marker、状态、计数和脱敏 id，不提交 token、密码、raw prompt、answer、evidence context、连接串或云地址。
+边界：这是高强度验收的第一层真实链路门禁，不是完整 T01-T47 全量通过。固定业务语料矩阵和 KnowledgeBase 生命周期 T22-T25 已在后续 gate 中单独通过；T26 文档删除 / 归档、长会话摘要、弱网并发、多标签页和浏览器缩放 UI 仍待执行。artifact 位于 ignored 目录，只保留 marker、状态、计数和脱敏 id，不提交 token、密码、raw prompt、answer、evidence context、连接串或云地址。
 
-## 2026-07-12 High Intensity Fixed Corpus Matrix
+## 2026-07-12 High Intensity Fixed Corpus And KB Lifecycle Matrix
 
-状态：PASS（fixedBusinessCorpus gate）
+状态：PASS（fixedBusinessCorpus + knowledgeBaseLifecycle gates）
 
 Runner:
 
@@ -39,15 +39,17 @@ Runner:
 
 Marker:
 
-- `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35`
+- `docpilot-high-intensity-fixed-corpus-20260712234011-a80fa6`
 
 已验证：
 
 - T02 串行重复上传 PASS。
 - T06-T15 固定业务语料 RAG 质量矩阵全部 PASS，覆盖准确数字召回、近义表达、废弃草案冲突、跨文档计算、多文档总结、多跳审批、hard negative、strict no-evidence 和 prompt injection。
+- T22-T25 KnowledgeBase 生命周期 API/RAG scope gate PASS：加入后立即可查、移出后 no-evidence / 0 citation、重新加入恢复、同一文档跨两个 KB 时移出 KB-A 不影响 KB-B。
+- 该 gate 同时验证 membership 变化不改变 MySQL chunk 数或 Qdrant point 数，并且不修改 `KB_CORE` / `KB_NOISY` 的固定质量矩阵。
 - `REA-20260712-P1-030` 已通过真实 fixed corpus gate 验证：T08 / T11 / T12 的回答完整性、citation 文档覆盖和 citation support 均恢复。
 
-边界：本次命令显式 `-SkipFrontend`，因此 run overallStatus 为 `REVIEW`；该证据只证明 fixed corpus API/RAG gate 已通过，不代表完整 T01-T47 验收完成。artifact 位于 ignored `backend/target/high-intensity-acceptance/.../artifact.json`，只保留脱敏摘要，不提交 raw prompt、answer、evidence context、日志、凭据或源文件。
+边界：本次命令显式 `-SkipFrontend`，因此 run overallStatus 为 `REVIEW`；该证据只证明 fixed corpus API/RAG gate 与 T22-T25 KB lifecycle scope gate 已通过，不代表完整 T01-T47 验收完成。T26 文档删除 / 归档需要后续用专用 disposable 文档验证。artifact 位于 ignored `backend/target/high-intensity-acceptance/.../artifact.json`，只保留脱敏摘要，不提交 raw prompt、answer、evidence context、日志、凭据或源文件。
 
 ## 2026-07-12 Quality Console Memory / RAG Trend View
 

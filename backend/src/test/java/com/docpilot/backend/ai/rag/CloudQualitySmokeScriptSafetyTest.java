@@ -36,6 +36,40 @@ class CloudQualitySmokeScriptSafetyTest {
                 .isLessThan(script.indexOf("if (Wait-FrontendRoute 3)"));
     }
 
+    @Test
+    void shouldKeepKnowledgeBaseLifecycleGateBoundedAndDependentOnFixedCorpus() throws Exception {
+        String script = Files.readString(scriptPath(), StandardCharsets.UTF_8);
+
+        assertThat(script)
+                .contains("EnableKnowledgeBaseLifecycleGate")
+                .contains("Invoke-KnowledgeBaseLifecycleGate")
+                .contains("knowledgeBaseLifecyclePlanContract")
+                .contains("knowledgeBaseLifecycleGateEnabled")
+                .contains("knowledgeBaseLifecycleGate")
+                .contains("KB_LIFECYCLE_A")
+                .contains("KB_LIFECYCLE_B")
+                .contains("T22_join_immediate_query")
+                .contains("T23_remove_no_evidence")
+                .contains("T24_rejoin_restored")
+                .contains("T25_multi_kb_isolation")
+                .contains("knowledge base lifecycle gate requires fixed corpus gate")
+                .contains("shared_fixture_must_remain_inspectable")
+                .contains("Test-SafeArtifactShape")
+                .contains("if ($null -eq $item.documentId)")
+                .contains("Test-SafeArtifactShape $resources $checks")
+                .contains("T25_a_returned_b_only_marker")
+                .contains("T25_a_b_only_query_scope_violation")
+                .contains("retrieveBContractAfterSharedRemove")
+                .contains("dependencySatisfied")
+                .contains("blockedReason")
+                .doesNotContain("rawAnswer =")
+                .doesNotContain("rawResponse =")
+                .doesNotContain("prompt =")
+                .doesNotContain("evidenceContext =")
+                .doesNotContain("Remove-Item -Recurse")
+                .doesNotContain("apiKey =");
+    }
+
     private static Path scriptPath() {
         return Path.of("..", "scripts", "smoke", "cloud-quality-smoke.ps1");
     }

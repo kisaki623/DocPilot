@@ -34,6 +34,7 @@ function Show-FixedCorpusPlan {
       "PROMPT_INJECTION"
     )
     knowledgeBaseKeys = @("KB_CORE", "KB_NOISY")
+    lifecycleKnowledgeBaseKeys = @("KB_LIFECYCLE_A", "KB_LIFECYCLE_B")
     duplicateUploadCase = "T02_serial_duplicate_upload"
     caseIds = @(
       "T06_contract_precise_numbers",
@@ -45,7 +46,11 @@ function Show-FixedCorpusPlan {
       "T12_multi_hop_approval",
       "T13_hard_negative_audit_retention",
       "T14_strict_no_evidence",
-      "T15_prompt_injection"
+      "T15_prompt_injection",
+      "T22_join_immediate_query",
+      "T23_remove_no_evidence",
+      "T24_rejoin_restored",
+      "T25_multi_kb_isolation"
     )
     gates = @(
       "tunnel",
@@ -53,12 +58,13 @@ function Show-FixedCorpusPlan {
       "auth",
       "uploadParseIndex",
       "fixedBusinessCorpus",
+      "knowledgeBaseLifecycle",
       "artifactRedaction",
       "cleanup",
       "gitStatus"
     )
     artifactPolicy = "Stores only ids, document keys, booleans, counts and failure codes. It does not store raw question, answer, snippet, quote, prompt or evidence context."
-    boundary = "Covers T02 serial duplicate upload and T06-T15 API quality matrix only. It does not cover concurrent upload, KB lifecycle, Memory, Agent, weak network, multi-tab or full UI zoom checks."
+    boundary = "Covers T02 serial duplicate upload, T06-T15 API quality matrix and T22-T25 KnowledgeBase lifecycle API/RAG scope checks. It does not cover concurrent upload, unfinished indexing UI, T26 disposable document delete/archive, Memory, Agent, weak network, multi-tab or full UI zoom checks."
   } | ConvertTo-Json -Depth 6
 }
 
@@ -88,7 +94,8 @@ $argsList = @(
   "-MySqlLocalPort", $MySqlLocalPort,
   "-QdrantLocalPort", $QdrantLocalPort,
   "-IndexVersion", $IndexVersion,
-  "-EnableFixedBusinessCorpusGate"
+  "-EnableFixedBusinessCorpusGate",
+  "-EnableKnowledgeBaseLifecycleGate"
 )
 
 if ($SkipFrontend) {
