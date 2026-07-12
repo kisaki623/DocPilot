@@ -337,6 +337,54 @@ class UserMemoryServiceImplTest {
     }
 
     @Test
+    void shouldSoftDeleteActiveMemory() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ACTIVE);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.softDeleteByUser(7L, 99L)).thenReturn(1);
+
+        UserMemoryResponse response = service.delete(7L, 99L);
+
+        assertThat(response.memoryId()).isEqualTo(99L);
+        assertThat(response.status()).isEqualTo(UserMemoryStatus.DELETED);
+        verify(memoryMapper).softDeleteByUser(7L, 99L);
+    }
+
+    @Test
+    void shouldRejectDeletingForeignOrMissingMemory() {
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.delete(7L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(throwable -> assertThat(((BusinessException) throwable).getErrorCode())
+                        .isEqualTo(ErrorCode.MEMORY_NOT_FOUND));
+        verify(memoryMapper, never()).softDeleteByUser(any(), any());
+    }
+
+    @Test
+    void shouldRejectDeleteWhenSoftDeleteDoesNotUpdateRow() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ACTIVE);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.softDeleteByUser(7L, 99L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.delete(7L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(throwable -> assertThat(((BusinessException) throwable).getErrorCode())
+                        .isEqualTo(ErrorCode.BUSINESS_ERROR));
+    }
+
+    @Test
+    void shouldRejectRepeatedDeleteOfAlreadyDeletedMemory() {
+        UserMemory memory = memory(99L, UserMemoryStatus.DELETED);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.softDeleteByUser(7L, 99L)).thenReturn(0);
+
+        assertThatThrownBy(() -> service.delete(7L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(throwable -> assertThat(((BusinessException) throwable).getErrorCode())
+                        .isEqualTo(ErrorCode.BUSINESS_ERROR));
+    }
+
+    @Test
     void shouldResolveSuggestionOnlyWithinSameUserBoundary() {
         UserMemory suggested = memory(99L, UserMemoryStatus.SUGGESTED);
         when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(suggested);

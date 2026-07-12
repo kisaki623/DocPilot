@@ -1,5 +1,15 @@
 # Current Task
 
+## 2026-07-13 高强度 Agent Memory T31 删除 / 会话禁用自动化验收（VERIFIED / REVIEW）
+
+- `scripts/smoke/memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 已新增 T31 生命周期 case，并刻意放在通用 `TECH_CONTEXT` baseline memory 创建之前，先断言本轮 smoke 用户的 ACTIVE memory 数为 0，避免后续 Trace / `use_count` 证据被其它记忆污染。
+- T31a 会话模式禁用证据：创建唯一 `PREFERENCE` ACTIVE memory 后，新建 `AGENT_MEMORY` 会话要求 Trace `memoryUsed=true`、`memoryCount=1`、`memoryTypes` 包含 `PREFERENCE`，且目标 `tb_user_memory.use_count` 增加 1；再新建 `RECENT_TURNS` 会话要求 `memoryEnabled=false`、Trace `memoryUsed=false`、`memoryCount=0`，目标 `use_count` 不变。
+- T31b 删除后不再选入证据：调用 `DELETE /api/memories/{memoryId}` 后，API 返回同一 `memoryId` / `DELETED`，ACTIVE list 不再包含该 ID，DB 精确行状态为 `DELETED` 且 ACTIVE memory 数为 0；随后新建 `AGENT_MEMORY` 会话，Trace memory 仍为 0，目标 deleted row 的 `use_count` 不再增加。
+- 后端同步补测试：`UserMemoryServiceImplTest` 覆盖 soft delete 成功、跨用户 / 不存在删除拒绝、soft delete 更新 0 行失败和重复删除语义；`MemorySelectorTest` 覆盖非 ACTIVE / DELETED 不进入上下文、`maxCount=0` 不查 mapper；`ContextAssemblyServiceImplTest` 覆盖 `AGENT_MEMORY + memoryEnabled=false` 不调用长期记忆 selector。
+- 已验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ContextAssemblyServiceImplTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（57 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS。
+- 真实验证：`scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-memory-quality-20260713015241-320bed` 中 T31 case `passed=true`；`activeUseCountDelta=1`、`recentTurnsUseCountDelta=0`、`deleteResponseStatus=DELETED`、`deletedDbStatus=DELETED`、`activeDbCountAfterDelete=0`、`postDeleteMemoryCount=0`、`postDeleteUseCountDelta=0`。T29/T30 同轮继续 PASS，artifact redaction scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 边界：当前后端没有 per-memory `DISABLED` 状态、禁用 / 恢复 API 或用户全局长期记忆开关，因此严格的“禁用某条记忆后其它 `AGENT_MEMORY` 会话也不用它”能力仍为 REVIEW，已登记 `REA-20260713-P2-033`。本片只证明 `RECENT_TURNS` 会话级禁用与删除生命周期，不覆盖前端 Memory 管理页、T32 长会话摘要、Agent ToolCall、弱网并发、多标签页或浏览器缩放。
+
 ## 2026-07-13 高强度 Agent Memory T29/T30 自动化验收（VERIFIED / PARTIAL）
 
 - `scripts/smoke/memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 已新增 T29 / T30 明确 case：T29 验证 `AGENT_MEMORY` 候选记忆需要用户确认，accept 前只在 suggestion list，accept 后同一 `memoryId` 进入 ACTIVE list，并在新会话 Trace 中可见 `memoryTypes` 包含 `PREFERENCE`、`memoryCount == contextSourceCounts.userMemory`；T30 验证带凭据形状的偏好文本不会生成候选、不会进入 ACTIVE / SUGGESTED list，且 `tb_user_memory` 按 `source_conversation_id` 计数为 0。
@@ -7,7 +17,7 @@
 - 后端同步补强 Memory 安全规则：`api key` / `api-key` / `sk-...` 形状会被 `MemorySafetyValidator` 拦截；`RuleBasedMemoryExtractionService` 中“优先考虑 / prefer / do not”这类强偏好信号优先归类为 `PREFERENCE`，修复中文 T29 文案含“回答”时被误归为 `ANSWER_STYLE` 的缺口。
 - 已验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（44 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS；补丁后 `mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest" test` PASS（3 tests）。
 - 真实验证：`scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-memory-quality-20260713013642-34b1f5` 中 `memoryQuality` gate PASS；T29 `suggestedBeforeAccept=true`、`activeBeforeAccept=false`、`acceptedActive=true`、`suggestedAfterAccept=false`、Trace `memoryCount=2` 且 `memoryTypes=[PREFERENCE, TECH_CONTEXT]`；T30 `candidateCountFromT30=0`、`memoryRowCountFromT30=0`、`suggestionLeak=false`、`activeLeak=false`。artifact redaction scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
-- 边界：本片是 T29/T30 的 API / Trace / DB 自动化证据，命令显式 `-SkipFrontend`，因此 run overallStatus 为 `REVIEW`；不声明前端 Memory 管理页、T31 删除 / 禁用记忆、T32 长会话摘要、Agent ToolCall、弱网并发、多标签页或浏览器缩放已通过。
+- 边界：本片是 T29/T30 的 API / Trace / DB 自动化证据，命令显式 `-SkipFrontend`，因此 run overallStatus 为 `REVIEW`；T31 删除 / 会话级禁用已由后续 memory marker 补充，但严格 per-memory 禁用仍待定义；不声明前端 Memory 管理页、T32 长会话摘要、Agent ToolCall、弱网并发、多标签页或浏览器缩放已通过。
 
 ## 2026-07-13 高强度 Conversation 最近轮次 T27/T28 自动化验收（VERIFIED / PARTIAL）
 
@@ -16,7 +26,7 @@
 - 真实 run 首次发现 `REA-20260713-P3-032`：`Start-TunnelIfNeeded` 在函数内使用 `$MyInvocation.MyCommand.Path` 取脚本路径时为 null，导致 smoke 进入真实链路前失败；已改为 `$PSScriptRoot` 并复跑通过。
 - 已验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS；`conversation-grounding-smoke.ps1 -Mode dry-run` PASS；PowerShell Parser `PARSE_OK`；`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS（3 tests）。
 - 真实验证：`scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-conversation-grounding-20260713010452-f8e612` PASS，8/8 case 通过；T27 `recentMessageCount>=2`、0 citation、模型调用且 answer 包含运行时构造的“蓝桥”；T28 `recentMessageCount=0`、0 citation、模型调用且 answer 不包含该代号。artifact redaction scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
-- 边界：本片是 T27/T28 API + Trace + 会话隔离 gate，显式 `-SkipFrontend`，不声明浏览器会话 UI、长会话摘要 T32、Memory 候选 / 删除 T29-T31、Agent ToolCall 或弱网并发已通过。
+- 边界：本片是 T27/T28 API + Trace + 会话隔离 gate，显式 `-SkipFrontend`，不声明浏览器会话 UI、长会话摘要 T32、Memory 前端管理页、Agent ToolCall 或弱网并发已通过。
 
 ## 2026-07-13 高强度 KnowledgeBase 生命周期 T26 与固定语料回归修复（VERIFIED / PARTIAL）
 

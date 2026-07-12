@@ -26,6 +26,9 @@ function Show-MemoryQualityPlan {
     qualityMinSimilarityThreshold = $QualityMinSimilarityThreshold
     memoryGates = @(
       "manual active memory enters trace",
+      "T31 active memory enters AGENT_MEMORY trace before delete",
+      "T31 RECENT_TURNS contextMode suppresses long-term memory",
+      "T31 deleted memory is soft-deleted and no longer selected",
       "T29 Agent Memory candidate requires user confirmation before becoming ACTIVE",
       "T29 accepted memory is observable in AGENT_MEMORY trace",
       "T30 sensitive memory candidate is rejected before memory persistence",

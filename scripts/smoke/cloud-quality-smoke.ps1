@@ -504,6 +504,36 @@ WHERE user_id=${userId} AND source_conversation_id=${conversationId};
   return [int]$lines[0]
 }
 
+function Get-ActiveMemoryCountByUser([hashtable]$envValues, [long]$userId) {
+  $query = @"
+SELECT COUNT(*)
+FROM tb_user_memory
+WHERE user_id=${userId} AND status='ACTIVE';
+"@
+  $lines = @(Invoke-MysqlQuery $envValues $query)
+  if ($lines.Count -eq 0 -or -not $lines[0]) {
+    return 0
+  }
+  return [int]$lines[0]
+}
+
+function Get-MemoryStatusUseCount([hashtable]$envValues, [long]$userId, [long]$memoryId) {
+  $query = @"
+SELECT status,COALESCE(use_count,0)
+FROM tb_user_memory
+WHERE user_id=${userId} AND id=${memoryId};
+"@
+  $lines = @(Invoke-MysqlQuery $envValues $query)
+  if ($lines.Count -ne 1 -or -not $lines[0]) {
+    return $null
+  }
+  $cols = $lines[0] -split "`t"
+  return [ordered]@{
+    status = [string]$cols[0]
+    useCount = [int]$cols[1]
+  }
+}
+
 function Get-MysqlChunks([hashtable]$envValues, [long]$userId, [long]$documentId) {
   $query = @"
 SELECT id,document_id,user_id,chunk_index,CHAR_LENGTH(content),content_hash,start_offset,end_offset,token_count,index_status,index_version,embedding_model,vector_id
@@ -3607,6 +3637,200 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
     }
   }
 
+  $memoryQualityCaseResults = @()
+  if ($EnableMemoryQualityGate) {
+    $t31InitialActiveApi = Invoke-JsonApi "GET" "/api/memories?limit=100" $null $tokenA
+    $t31InitialActiveApiCount = @($t31InitialActiveApi.data).Count
+    $t31InitialActiveDbCount = Get-ActiveMemoryCountByUser $envValues $userAId
+    if ($t31InitialActiveApiCount -ne 0 -or $t31InitialActiveDbCount -ne 0) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T31-memory-delete-disable-lifecycle"
+          initialActiveApiCount = $t31InitialActiveApiCount
+          initialActiveDbCount = $t31InitialActiveDbCount
+        }) "T31 requires an isolated smoke user with no pre-existing active memory"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 requires an isolated smoke user with no pre-existing active memory"
+    }
+
+    $t31Memory = Invoke-JsonApi "POST" "/api/memories" ([ordered]@{
+        memoryType = "PREFERENCE"
+        content = "For $smokeMarker T31 lifecycle, prefer Java backend implementation."
+        priority = 90
+      }) $tokenA
+    if ($null -eq $t31Memory.data.memoryId -or $t31Memory.data.status -ne "ACTIVE") {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T31-memory-delete-disable-lifecycle"
+          createdStatus = $t31Memory.data.status
+          createdMemoryIdPresent = ($null -ne $t31Memory.data.memoryId)
+        }) "T31 active memory creation failed"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 active memory creation failed"
+    }
+    $t31MemoryId = [long]$t31Memory.data.memoryId
+    $t31CreatedDb = Get-MemoryStatusUseCount $envValues $userAId $t31MemoryId
+    $t31AfterCreateActive = Invoke-JsonApi "GET" "/api/memories?limit=100" $null $tokenA
+    $t31AfterCreateActiveIds = @($t31AfterCreateActive.data | ForEach-Object { [long]$_.memoryId })
+    $t31AfterCreateActiveDbCount = Get-ActiveMemoryCountByUser $envValues $userAId
+    if ($null -eq $t31CreatedDb -or $t31CreatedDb.status -ne "ACTIVE" -or [int]$t31CreatedDb.useCount -ne 0 -or ($t31AfterCreateActiveIds -notcontains $t31MemoryId) -or $t31AfterCreateActiveDbCount -ne 1) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T31-memory-delete-disable-lifecycle"
+          createdDbStatus = if ($null -eq $t31CreatedDb) { $null } else { $t31CreatedDb.status }
+          createdDbUseCount = if ($null -eq $t31CreatedDb) { $null } else { $t31CreatedDb.useCount }
+          activeApiContainsCreated = ($t31AfterCreateActiveIds -contains $t31MemoryId)
+          activeDbCountAfterCreate = $t31AfterCreateActiveDbCount
+        }) "T31 created memory was not uniquely active"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 created memory was not uniquely active"
+    }
+
+    $t31AgentConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "T31 Active Memory Trace $smokeMarker"; contextMode = "AGENT_MEMORY" }) $tokenA
+    if ($t31AgentConversation.data.contextMode -ne "AGENT_MEMORY" -or $t31AgentConversation.data.memoryEnabled -ne $true) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 active trace conversation was not AGENT_MEMORY with memory enabled"
+    }
+    $t31AgentMessage = Invoke-JsonApi "POST" "/api/conversations/$($t31AgentConversation.data.conversationId)/messages" ([ordered]@{
+        content = "Which implementation preference applies for $smokeMarker T31 lifecycle?"
+        groundingPolicy = "MODEL_ONLY"
+      }) $tokenA
+    $t31AgentTrace = Invoke-JsonApi "GET" "/api/conversations/$($t31AgentConversation.data.conversationId)/messages/$($t31AgentMessage.data.messageId)/trace" $null $tokenA
+    $t31AgentDb = Get-MemoryStatusUseCount $envValues $userAId $t31MemoryId
+    $t31AgentUserMemoryCount = Get-CountValue $t31AgentTrace.data.contextSourceCounts "userMemory"
+    $t31AgentMemoryTypes = @($t31AgentTrace.data.memoryTypes | Where-Object { $_ })
+    $t31AgentTruncatedTypes = @($t31AgentTrace.data.truncatedTypes | Where-Object { $_ })
+    if ($t31AgentTrace.data.contextMode -ne "AGENT_MEMORY" -or
+        $t31AgentTrace.data.memoryUsed -ne $true -or
+        [int]$t31AgentTrace.data.memoryCount -ne 1 -or
+        $t31AgentUserMemoryCount -ne 1 -or
+        ($t31AgentMemoryTypes -notcontains "PREFERENCE") -or
+        ($t31AgentTruncatedTypes -contains "MEMORY") -or
+        $null -eq $t31AgentDb -or
+        [int]$t31AgentDb.useCount -ne 1) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T31-memory-delete-disable-lifecycle"
+          activeTraceContextMode = $t31AgentTrace.data.contextMode
+          activeTraceMemoryUsed = $t31AgentTrace.data.memoryUsed
+          activeTraceMemoryCount = $t31AgentTrace.data.memoryCount
+          activeTraceUserMemoryCount = $t31AgentUserMemoryCount
+          activeTraceMemoryTypes = $t31AgentMemoryTypes
+          activeTraceMemoryTruncated = ($t31AgentTruncatedTypes -contains "MEMORY")
+          activeUseCountAfterTrace = if ($null -eq $t31AgentDb) { $null } else { $t31AgentDb.useCount }
+        }) "T31 active memory was not selected into AGENT_MEMORY trace"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 active memory was not selected into AGENT_MEMORY trace"
+    }
+
+    $t31RecentConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "T31 Recent Turns Disable $smokeMarker"; contextMode = "RECENT_TURNS" }) $tokenA
+    if ($t31RecentConversation.data.contextMode -ne "RECENT_TURNS" -or $t31RecentConversation.data.memoryEnabled -ne $false) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 disable trace conversation was not RECENT_TURNS with memory disabled"
+    }
+    $t31RecentMessage = Invoke-JsonApi "POST" "/api/conversations/$($t31RecentConversation.data.conversationId)/messages" ([ordered]@{
+        content = "Which implementation preference applies for $smokeMarker T31 lifecycle?"
+        groundingPolicy = "MODEL_ONLY"
+      }) $tokenA
+    $t31RecentTrace = Invoke-JsonApi "GET" "/api/conversations/$($t31RecentConversation.data.conversationId)/messages/$($t31RecentMessage.data.messageId)/trace" $null $tokenA
+    $t31RecentDb = Get-MemoryStatusUseCount $envValues $userAId $t31MemoryId
+    $t31RecentUserMemoryCount = Get-CountValue $t31RecentTrace.data.contextSourceCounts "userMemory"
+    $t31RecentMemoryTypes = @($t31RecentTrace.data.memoryTypes | Where-Object { $_ })
+    if ($t31RecentTrace.data.contextMode -ne "RECENT_TURNS" -or
+        $t31RecentTrace.data.memoryUsed -ne $false -or
+        [int]$t31RecentTrace.data.memoryCount -ne 0 -or
+        $t31RecentUserMemoryCount -ne 0 -or
+        $t31RecentMemoryTypes.Count -ne 0 -or
+        $null -eq $t31RecentDb -or
+        [int]$t31RecentDb.useCount -ne [int]$t31AgentDb.useCount) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T31-memory-delete-disable-lifecycle"
+          recentContextMode = $t31RecentTrace.data.contextMode
+          recentMemoryUsed = $t31RecentTrace.data.memoryUsed
+          recentMemoryCount = $t31RecentTrace.data.memoryCount
+          recentUserMemoryCount = $t31RecentUserMemoryCount
+          recentMemoryTypes = $t31RecentMemoryTypes
+          useCountAfterRecent = if ($null -eq $t31RecentDb) { $null } else { $t31RecentDb.useCount }
+        }) "T31 RECENT_TURNS conversation did not suppress long-term memory"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 RECENT_TURNS conversation did not suppress long-term memory"
+    }
+
+    $t31Delete = Invoke-JsonApi "DELETE" "/api/memories/$t31MemoryId" $null $tokenA
+    $t31DeletedDb = Get-MemoryStatusUseCount $envValues $userAId $t31MemoryId
+    $t31AfterDeleteActive = Invoke-JsonApi "GET" "/api/memories?limit=100" $null $tokenA
+    $t31AfterDeleteActiveIds = @($t31AfterDeleteActive.data | ForEach-Object { [long]$_.memoryId })
+    $t31AfterDeleteActiveDbCount = Get-ActiveMemoryCountByUser $envValues $userAId
+    if ([long]$t31Delete.data.memoryId -ne $t31MemoryId -or
+        $t31Delete.data.status -ne "DELETED" -or
+        $null -eq $t31DeletedDb -or
+        $t31DeletedDb.status -ne "DELETED" -or
+        ($t31AfterDeleteActiveIds -contains $t31MemoryId) -or
+        $t31AfterDeleteActiveDbCount -ne 0 -or
+        [int]$t31DeletedDb.useCount -ne [int]$t31RecentDb.useCount) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T31-memory-delete-disable-lifecycle"
+          deleteResponseStatus = $t31Delete.data.status
+          deletedDbStatus = if ($null -eq $t31DeletedDb) { $null } else { $t31DeletedDb.status }
+          deletedDbUseCount = if ($null -eq $t31DeletedDb) { $null } else { $t31DeletedDb.useCount }
+          activeApiContainsDeleted = ($t31AfterDeleteActiveIds -contains $t31MemoryId)
+          activeDbCountAfterDelete = $t31AfterDeleteActiveDbCount
+        }) "T31 delete did not produce a soft-deleted inactive memory"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 delete did not produce a soft-deleted inactive memory"
+    }
+
+    $t31AfterDeleteConversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "T31 Deleted Memory Trace $smokeMarker"; contextMode = "AGENT_MEMORY" }) $tokenA
+    if ($t31AfterDeleteConversation.data.contextMode -ne "AGENT_MEMORY" -or $t31AfterDeleteConversation.data.memoryEnabled -ne $true) {
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 post-delete trace conversation was not AGENT_MEMORY with memory enabled"
+    }
+    $t31AfterDeleteMessage = Invoke-JsonApi "POST" "/api/conversations/$($t31AfterDeleteConversation.data.conversationId)/messages" ([ordered]@{
+        content = "Which implementation preference applies for $smokeMarker T31 lifecycle after delete?"
+        groundingPolicy = "MODEL_ONLY"
+      }) $tokenA
+    $t31AfterDeleteTrace = Invoke-JsonApi "GET" "/api/conversations/$($t31AfterDeleteConversation.data.conversationId)/messages/$($t31AfterDeleteMessage.data.messageId)/trace" $null $tokenA
+    $t31AfterDeleteDb = Get-MemoryStatusUseCount $envValues $userAId $t31MemoryId
+    $t31AfterDeleteUserMemoryCount = Get-CountValue $t31AfterDeleteTrace.data.contextSourceCounts "userMemory"
+    $t31AfterDeleteMemoryTypes = @($t31AfterDeleteTrace.data.memoryTypes | Where-Object { $_ })
+    if ($t31AfterDeleteTrace.data.contextMode -ne "AGENT_MEMORY" -or
+        $t31AfterDeleteTrace.data.memoryUsed -ne $false -or
+        [int]$t31AfterDeleteTrace.data.memoryCount -ne 0 -or
+        $t31AfterDeleteUserMemoryCount -ne 0 -or
+        $t31AfterDeleteMemoryTypes.Count -ne 0 -or
+        $null -eq $t31AfterDeleteDb -or
+        $t31AfterDeleteDb.status -ne "DELETED" -or
+        [int]$t31AfterDeleteDb.useCount -ne [int]$t31DeletedDb.useCount) {
+      Set-Gate "memoryQuality" "FAILED_CORE_FLOW" @([ordered]@{
+          caseId = "T31-memory-delete-disable-lifecycle"
+          postDeleteContextMode = $t31AfterDeleteTrace.data.contextMode
+          postDeleteMemoryUsed = $t31AfterDeleteTrace.data.memoryUsed
+          postDeleteMemoryCount = $t31AfterDeleteTrace.data.memoryCount
+          postDeleteUserMemoryCount = $t31AfterDeleteUserMemoryCount
+          postDeleteMemoryTypes = $t31AfterDeleteMemoryTypes
+          postDeleteDbStatus = if ($null -eq $t31AfterDeleteDb) { $null } else { $t31AfterDeleteDb.status }
+          postDeleteUseCount = if ($null -eq $t31AfterDeleteDb) { $null } else { $t31AfterDeleteDb.useCount }
+        }) "T31 deleted memory was still selected or mutated"
+      Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "T31 deleted memory was still selected or mutated"
+    }
+
+    $memoryQualityCaseResults += [ordered]@{
+      caseId = "T31-memory-delete-disable-lifecycle"
+      caseType = "memory_delete_and_context_mode_disable"
+      status = "REVIEW"
+      passed = $true
+      memoryId = $t31MemoryId
+      createdStatus = $t31CreatedDb.status
+      activeTraceConversationId = [string]$t31AgentConversation.data.conversationId
+      activeTraceMessageId = [string]$t31AgentMessage.data.messageId
+      activeTraceMemoryCount = [int]$t31AgentTrace.data.memoryCount
+      activeTraceMemoryUsed = [bool]$t31AgentTrace.data.memoryUsed
+      activeUseCountDelta = ([int]$t31AgentDb.useCount - [int]$t31CreatedDb.useCount)
+      recentTurnsContextMode = $t31RecentConversation.data.contextMode
+      recentTurnsMemoryEnabled = [bool]$t31RecentConversation.data.memoryEnabled
+      recentTurnsMemoryCount = [int]$t31RecentTrace.data.memoryCount
+      recentTurnsUseCountDelta = ([int]$t31RecentDb.useCount - [int]$t31AgentDb.useCount)
+      deleteResponseStatus = $t31Delete.data.status
+      deletedDbStatus = $t31DeletedDb.status
+      activeDbCountAfterDelete = $t31AfterDeleteActiveDbCount
+      postDeleteConversationId = [string]$t31AfterDeleteConversation.data.conversationId
+      postDeleteMessageId = [string]$t31AfterDeleteMessage.data.messageId
+      postDeleteMemoryCount = [int]$t31AfterDeleteTrace.data.memoryCount
+      postDeleteMemoryUsed = [bool]$t31AfterDeleteTrace.data.memoryUsed
+      postDeleteUseCountDelta = ([int]$t31AfterDeleteDb.useCount - [int]$t31DeletedDb.useCount)
+      strictMemoryDisableCapability = "NOT_IMPLEMENTED"
+      failureBuckets = @()
+      reviewBuckets = @("strictMemoryDisableApiNotImplemented")
+    }
+  }
+
   $memory = Invoke-JsonApi "POST" "/api/memories" ([ordered]@{
       memoryType = "TECH_CONTEXT"
       content = "For $smokeMarker, the smoke context keeps active memory separate from knowledge-base evidence."
@@ -3652,8 +3876,6 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
     })
 
   if ($EnableMemoryQualityGate) {
-    $memoryQualityCaseResults = @()
-
     $t29Conversation = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "T29 Memory Candidate $smokeMarker"; contextMode = "AGENT_MEMORY" }) $tokenA
     $t29PreferenceText = "For project architecture for $smokeMarker T29, prefer Java backend implementation and do not split a Python service only for AI."
     Add-SmokeConversationUserMessages $envValues $userAId ([long]$t29Conversation.data.conversationId) @($t29PreferenceText)
@@ -3920,8 +4142,14 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
     if ($mergeResolved.data.memoryId -ne $governanceActive.data.memoryId -or $mergeResolved.data.status -ne "ACTIVE" -or [int]$mergeResolved.data.content.Length -ne $mergedContent.Length) {
       Stop-WithStatus "FAILED_CORE_FLOW" "memoryQuality" "memory governance merge action did not update active memory"
     }
-    Set-Gate "memoryQuality" "PASS" @([ordered]@{
+    $memoryQualityReviewBuckets = @($memoryQualityCaseResults | ForEach-Object { $_.reviewBuckets } | Where-Object { $_ })
+    $memoryQualityStatus = if ($memoryQualityReviewBuckets.Count -gt 0) { "REVIEW" } else { "PASS" }
+    $memoryQualityMessage = if ($memoryQualityStatus -eq "REVIEW") { "strict per-memory disable API is not implemented; covered contextMode-level memory suppression and delete lifecycle" } else { "" }
+    Set-Gate "memoryQuality" $memoryQualityStatus @([ordered]@{
         caseResults = $memoryQualityCaseResults
+        t31DeleteLifecycleCovered = $true
+        t31ContextModeDisableCovered = $true
+        t31StrictMemoryDisableCapability = "NOT_IMPLEMENTED"
         t29SuggestionGenerated = $true
         t29SuggestedBeforeAccept = $t29SuggestedBeforeAccept
         t29ActiveBeforeAccept = $t29ActiveBeforeAccept
@@ -3955,7 +4183,7 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
         memoryCount = $trace.data.memoryCount
         evidenceCount = $trace.data.evidenceCount
         documentHitCounts = $trace.data.documentHitCounts
-      })
+      }) $memoryQualityMessage
   }
 
   $fileUserB = Upload-SmokeFile $betaPath $tokenB

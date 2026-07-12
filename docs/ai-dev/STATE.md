@@ -1,11 +1,18 @@
 # DocPilot 当前状态
 
+## 2026-07-13 Agent Memory T31 删除 / 会话禁用自动化验收状态（VERIFIED / REVIEW）
+
+- Memory quality smoke 已纳入高强度验收 T31 的两个可自动化子项：`RECENT_TURNS` contextMode 会话级禁用长期记忆，以及 ACTIVE memory soft delete 后不再被新的 `AGENT_MEMORY` Trace 选入。
+- 最新真实 marker：`docpilot-memory-quality-20260713015241-320bed`，命令为 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend`；T31 case `passed=true`，目标 memory 创建后 `AGENT_MEMORY` Trace `memoryCount=1` 且 `use_count` 增加 1，`RECENT_TURNS` Trace `memoryCount=0` 且 `use_count` 不变，delete 后 DB 精确状态为 `DELETED`，新 `AGENT_MEMORY` Trace `memoryCount=0` 且 `use_count` 不再增加。
+- 同轮 T29 / T30 继续 PASS：候选记忆仍需用户确认，敏感 `api key` / `sk-...` 形状仍不产生候选或持久行；artifact redaction PASS，常用端口无 LISTEN 残留。
+- 边界：当前产品 / 后端没有 per-memory `DISABLED` 状态、禁用 / 恢复 API 或用户全局长期记忆开关，因此严格 T31 “禁用某条记忆”仍是 REVIEW / 产品待定义；已登记 `REA-20260713-P2-033`。该结果不代表前端 Memory 管理页、T32 长会话摘要、Agent ToolCall 或弱网 / 多标签 UI 已通过。
+
 ## 2026-07-13 Agent Memory T29/T30 自动化验收状态（VERIFIED / PARTIAL）
 
 - Memory quality smoke 已纳入高强度验收 T29 / T30：T29 验证候选记忆必须经用户确认后才从 `SUGGESTED` 变为 `ACTIVE`，且 accept 后可在 `AGENT_MEMORY` Trace 中以 `PREFERENCE` memory 类型被观测；T30 验证带凭据形状的偏好文本不会生成候选、不会进入 ACTIVE / SUGGESTED list，`tb_user_memory` 按 source conversation 计数为 0。
 - 后端 Memory 安全边界同步补强：`api key` / `api-key` / `sk-...` 形状由 `MemorySafetyValidator` 拦截；规则式抽取先识别“优先考虑 / prefer / do not”等强偏好信号，避免中文项目偏好被“回答”关键词误归为回答风格。
 - 最新真实 marker：`docpilot-memory-quality-20260713013642-34b1f5`，命令为 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend`；`memoryQuality` gate PASS，artifact redaction PASS，常用端口无 LISTEN 残留。
-- 边界：本片只证明 T29/T30 的 API / Trace / DB gate 已通过；run overallStatus 为 `REVIEW` 是因为显式跳过前端。Memory 管理页、T31 删除 / 禁用记忆、T32 长会话摘要、Agent ToolCall 和弱网 / 多标签 UI 仍待执行。
+- 边界：本片只证明 T29/T30 的 API / Trace / DB gate 已通过；T31 删除 / 会话模式禁用已在后续 memory marker 中补充，但严格 per-memory 禁用能力仍待产品定义。Memory 管理页、T32 长会话摘要、Agent ToolCall 和弱网 / 多标签 UI 仍待执行。
 
 ## 2026-07-13 Conversation 最近轮次 T27/T28 自动化验收状态（VERIFIED / PARTIAL）
 
@@ -22,7 +29,7 @@
 - 真实 run 先暴露 `REA-20260713-P1-031`：T11 citations 覆盖正确但答案遗漏部分风险控制措施；已增强 `KnowledgeBaseRagPromptBuilder` 的 summary prompt，要求数量型总结按 requested item count 输出、跨文档综合不能跳过已检索文档，并对风险控制 / 控制措施问题抽取审批、凭据 / Token / 日志 / 审计和运维缓解措施。
 - 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均为 `PASS`；T26 disposable 文档删除前 retrieve / QA 各 1 条，删除后 KB detail 0 个文档、retrieve / QA no-evidence 且 0 citation，文档详情返回业务错误；overallStatus 仍为 `REVIEW`，原因是本轮显式 `-SkipFrontend`。
 - 已验证：wrapper `plan` PASS、delegate `dry-run` PASS；`mvn "-Dtest=KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagQaServiceImplTest,CloudQualitySmokeScriptSafetyTest,HighIntensityFixedCorpusSmokeScriptSafetyTest,DocumentServiceImplTest" test` PASS（51 tests）；artifact raw-field scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 无 LISTEN 残留。
-- 边界：T26 当前验证的是软删除文档后的 KB 关系清理和 citation / retrieve 不再召回；MySQL chunk 和 Qdrant point 仍作为残留计数观测，不声明物理删除。完整 T01-T47 仍未覆盖 T31/T32、Agent ToolCall 全矩阵、弱网并发、多标签页和浏览器缩放 UI。
+- 边界：T26 当前验证的是软删除文档后的 KB 关系清理和 citation / retrieve 不再召回；MySQL chunk 和 Qdrant point 仍作为残留计数观测，不声明物理删除。完整 T01-T47 仍未覆盖 T31 严格 per-memory 禁用能力、T32 长会话摘要、Agent ToolCall 全矩阵、弱网并发、多标签页和浏览器缩放 UI。
 
 ## 2026-07-12 高强度固定业务语料自动化验收修复状态（VERIFIED / PARTIAL）
 
@@ -30,7 +37,7 @@
 - 已验证脚本入口：wrapper `plan` PASS、delegate `dry-run` PASS、Windows PowerShell `ParseFile` PASS；`HighIntensityFixedCorpusSmokeScriptSafetyTest` + `CloudQualitySmokeScriptSafetyTest` 共 6 tests PASS。`cloud-quality-smoke.ps1` 需要保持 UTF-8 BOM + CRLF，避免 Windows PowerShell 5.1 读取中文 fixture 时 mojibake。
 - 已修复并验证 P1 质量问题 `REA-20260712-P1-030`：KnowledgeBase QA 的数字 citation 精炼现在只作用于非多文档问题；中文“综合 / 分别出现在什么文档”等多文档问题会保留跨文档 citation；错误前提 / 冲突规则问题使用更明确的纠错 prompt，但不硬编码固定语料业务值。
 - 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` 的 `fixedBusinessCorpus` gate 为 `PASS`：T02 duplicate upload 与 T06-T15 全部 PASS；T08 正确处理废弃草案冲突，T11 覆盖 `INCIDENT_REVIEW` / `API_POLICY` / `CONTRACT_ALPHA` / `SLA_BETA`，T12 覆盖 `CONTRACT_ALPHA` / `API_POLICY`。
-- 本次真实 run 的 overallStatus 为 `REVIEW` 是因为命令显式 `-SkipFrontend`，不是 fixed corpus gate 失败；后续已补 T22-T26 KnowledgeBase 生命周期和 T29/T30 Memory gate，但完整 T01-T47 高强度验收仍未完成，T31/T32、Agent、弱网并发、多标签页和缩放 UI 仍待后续阶段执行。
+- 本次真实 run 的 overallStatus 为 `REVIEW` 是因为命令显式 `-SkipFrontend`，不是 fixed corpus gate 失败；后续已补 T22-T26 KnowledgeBase 生命周期、T29/T30 Memory gate 以及 T31 删除 / 会话级禁用 gate，但完整 T01-T47 高强度验收仍未完成，T31 严格 per-memory 禁用能力、T32、Agent、弱网并发、多标签页和缩放 UI 仍待后续阶段执行。
 - 本轮真实 run 的 JSON artifact 只保存 ignored 脱敏摘要，固定 synthetic 源文件上传后从 artifact 目录删除，最新 marker 的 `fixed-business-corpus` 目录为空；run 会在业务库 / 存储中创建临时 smoke 文档作为测试输入，但不提交 token、密码、prompt、answer、evidence context、连接串或云地址。runner cleanup 后确认 3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
 
 ## 2026-07-12 高强度验收执行状态（VERIFIED / PARTIAL）

@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 
 class ContextAssemblyServiceImplTest {
 
@@ -65,6 +66,24 @@ class ContextAssemblyServiceImplTest {
         assertThat(result.trace().ragTriggered()).isFalse();
         verify(summaryService, never()).getActiveSummary(7L, 10L);
         verify(memorySelector, never()).select(7L, 0);
+    }
+
+    @Test
+    void agentMemoryModeWithMemoryDisabledShouldNotSelectLongTermMemory() {
+        Conversation conversation = conversation(ConversationContextMode.AGENT_MEMORY, null, true, false);
+        when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation);
+        when(summaryService.getActiveSummary(7L, 10L)).thenReturn(null);
+        when(recentTurnsBuilder.build(7L, 10L, 8)).thenReturn(List.of(recentItem()));
+        when(evidenceBuilder.build(eq(conversation), eq("继续说"), any(ContextPolicy.class), eq(GroundingPolicy.MODEL_ONLY)))
+                .thenReturn(KnowledgeBaseEvidenceResult.notTriggered(RouteDecision.MODEL_ONLY));
+
+        ContextAssemblyResult result = service.buildContext(new ContextAssemblyRequest(7L, 10L, "继续说", null));
+
+        assertThat(result.trace().contextMode()).isEqualTo(ConversationContextMode.AGENT_MEMORY);
+        assertThat(result.trace().summaryUsed()).isFalse();
+        assertThat(result.trace().memoryUsed()).isFalse();
+        assertThat(result.trace().memoryCount()).isZero();
+        verify(memorySelector, never()).select(any(), anyInt());
     }
 
     @Test

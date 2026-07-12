@@ -1,5 +1,13 @@
 # Progress Log
 
+## 2026-07-13 Agent Memory T31 lifecycle gate
+
+- 扩展 `memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate`：新增 `T31-memory-delete-disable-lifecycle`，并把它放在通用 baseline memory 创建之前执行，先断言本轮 smoke 用户 ACTIVE memory 为 0。
+- T31 断言链：创建唯一 `PREFERENCE` ACTIVE memory 后，`AGENT_MEMORY` Trace 必须选入该 memory 且目标 `use_count` 增加；`RECENT_TURNS` 会话必须 `memoryEnabled=false`、Trace memory 为 0 且 `use_count` 不变；`DELETE /api/memories/{id}` 后 API / DB 均为 `DELETED`，ACTIVE list 与 ACTIVE DB count 归零；删除后的新 `AGENT_MEMORY` Trace memory 为 0 且 deleted row `use_count` 不变。
+- 后端测试补强：`UserMemoryServiceImplTest` 覆盖 soft delete、跨用户 / 不存在删除、更新 0 行和重复删除；`MemorySelectorTest` 覆盖 DELETED / 非 ACTIVE 不进上下文与 `maxCount=0`；`ContextAssemblyServiceImplTest` 覆盖 `memoryEnabled=false` 时不调用长期记忆 selector。
+- 验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ContextAssemblyServiceImplTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（57 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS；真实 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-memory-quality-20260713015241-320bed` 中 T31/T29/T30 自动化断言通过，artifact scan PASS，常用端口无 LISTEN 残留。
+- 边界：`memoryQuality` gate 状态为 `REVIEW`，原因是当前没有 per-memory 禁用 / 恢复 API 或 `DISABLED` 状态；本片覆盖的是会话级 `RECENT_TURNS` 禁用与删除生命周期，不覆盖严格“禁用某条记忆”的产品能力、前端 Memory 管理页或 T32 长会话摘要。
+
 ## 2026-07-13 Agent Memory T29/T30 gate
 
 - 扩展 `memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate`：新增 T29 候选记忆确认流与 T30 敏感记忆拒绝流；gate 只输出 caseId、状态、类型、id 关联布尔和计数，不输出用户消息、memory content、fake key、prompt、answer 或 evidence context。
@@ -7,7 +15,7 @@
 - T30 断言链：先用无敏感片段的 Java 后端偏好做正对照，确认可产生 `PREFERENCE` 候选；再用运行时拼接的 `sk-...` 假凭据形状和 `api key` 标签构造敏感文本，要求 extract 候选数为 0、ACTIVE / SUGGESTED 列表无泄漏、`tb_user_memory` 按 source conversation 计数为 0。
 - 后端补强：`MemorySafetyValidator` 拦截 `api key` / `api-key` / `sk-...` 形状；`RuleBasedMemoryExtractionService` 将“优先考虑 / prefer / do not”强偏好信号前置，修复中文 T29 文案含“回答”时被误归为 `ANSWER_STYLE` 的问题。MySQL helper 改为 stdin 输入 SQL，避免测试语料出现在本机进程命令行。
 - 验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（44 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS；真实 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` 中 `memoryQuality` gate PASS，marker `docpilot-memory-quality-20260713013642-34b1f5`，overallStatus `REVIEW` 仅因前端跳过；artifact scan PASS，常用端口无 LISTEN 残留。
-- 边界：本片覆盖 T29/T30 API / Trace / DB gate，不覆盖前端 Memory 管理页、T31 删除 / 禁用记忆、T32 长会话摘要、Agent ToolCall 或弱网并发 UI。
+- 边界：本片覆盖 T29/T30 API / Trace / DB gate；T31 删除 / 会话级禁用已由后续 lifecycle gate 补充，但严格 per-memory 禁用能力仍待定义。本片不覆盖前端 Memory 管理页、T32 长会话摘要、Agent ToolCall 或弱网并发 UI。
 
 ## 2026-07-13 Conversation 最近轮次 T27/T28 gate
 
@@ -15,7 +23,7 @@
 - 修复 runner 兼容性：避免在无 BOM UTF-8 `.ps1` 中直接写新增中文 prompt，改为运行时用 Unicode code point 构造“蓝桥”；将 `$marker-...` 改为 `$($marker)-...`；`Start-TunnelIfNeeded` 改用 `$PSScriptRoot`，修复真实 run 前脚本路径为 null 的问题，登记为 `REA-20260713-P3-032`。
 - 验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS、`-Mode dry-run` PASS、PowerShell Parser `PARSE_OK`、`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS（3 tests）。
 - 真实 run：`scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` PASS，marker `docpilot-conversation-grounding-20260713010452-f8e612`，8/8 case 通过；T27 `recentMessageCount>=2` 且 answer 包含“蓝桥”，T28 `recentMessageCount=0` 且 answer 不包含该代号；artifact redaction scan PASS，常用端口无 LISTEN 残留。
-- 边界：本片为 API / Trace gate，不覆盖浏览器会话 UI、Memory T29-T31、长会话摘要 T32、Agent 或弱网并发。
+- 边界：本片为 API / Trace gate，不覆盖浏览器会话 UI、长会话摘要 T32、Agent 或弱网并发；Memory T29-T31 已在后续 memory gates 中另行推进。
 
 ## 2026-07-12 高强度 KnowledgeBase 生命周期 gate
 
