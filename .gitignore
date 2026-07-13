@@ -37,6 +37,7 @@ frontend/.env.local
 
 # Local runtime artifacts
 backend/data/
+local-test-materials/
 tmp-e2e/
 pwtmp/
 test-results/
