@@ -4,6 +4,29 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-14 GitHub README Showcase Screenshots
+
+状态：PASS（README 展示截图 / 真实 UI）
+
+验证：
+
+- 临时后端 `18081` + 临时前端 `3007`
+- Playwright 浏览器截图
+- 虚构 P1 SLA 三文档 KnowledgeBase + 临时内部管理员 Quality Console
+
+Marker:
+
+- `readme-showcase-20260714201658`
+
+已验证：
+
+- README 新增 4 张真实 UI 截图：Conversation RAG 引用来源、Context Inspector 技术详情、Quality Console 概览、Quality Console 趋势。
+- Conversation `281` / assistant `609`：`groundingPolicy=STRICT_KB`、`routeDecision=STRICT_KB_EVIDENCE`、`evidenceCount=2`、`citationCount=2`，页面可见实际引用、召回证据和命中文档分离。
+- Quality Console 使用临时内部管理员导入最近 artifact：`scanned=50`、`imported=6`、`skippedDuplicate=44`、`failed=0`；页面可见 DB-backed run、数据来源、最近导入、失败桶和趋势 tab。
+- Playwright 截图过程 console error 为 `0`；截图文件位于 `docs/assets/screenshots/readme/`。
+
+边界：这是 README 展示材料刷新，不是新的业务功能或大规模质量评测。截图使用虚构临时数据，不提交 token、密码、raw prompt、answer 原文、evidence 全文、连接串、云地址、日志或 raw artifact；Quality Console 仍是默认关闭、仅内部管理员可访问的内部控制台。
+
 ## 2026-07-14 Document Parser Long Markdown Batch Split
 
 状态：PASS（parser core）/ REVIEW（overall 仅因本轮显式 SkipFrontend）

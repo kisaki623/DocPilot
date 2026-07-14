@@ -1,5 +1,14 @@
 # DocPilot 当前状态
 
+## 2026-07-14 GitHub README 展示截图刷新（VERIFIED / README+UI）
+
+- 根 README 已从旧版 5 月截图刷新为当前 RAG / Memory / Quality Console 主线展示：新增 CI badge，并将页面预览调整为 Conversation RAG 引用来源、Context Inspector 技术详情、Quality Console 概览、Quality Console 趋势、上传解析和 Agent 工作流。
+- 新增 README 专用截图目录 `docs/assets/screenshots/readme/`，并在 `.gitignore` 中显式放行 `docs/assets/screenshots/**`，避免 README 指向 GitHub 上不存在的本地图片。
+- 真实截图 marker `readme-showcase-20260714201658`：临时后端 `18081` + 前端 `3007`，创建虚构 P1 SLA 三文档 KnowledgeBase、Conversation `281`、assistant `609`；`groundingPolicy=STRICT_KB`、`routeDecision=STRICT_KB_EVIDENCE`、`evidenceCount=2`、`citationCount=2`。
+- Quality Console 截图使用临时内部管理员，执行 artifact import `scanned=50`、`imported=6`、`skippedDuplicate=44`、`failed=0`；截图覆盖 DB-backed run、数据来源、最近导入、失败桶和趋势 tab。Playwright 截图 console error 为 `0`。
+- 本轮发现历史 ignored UI summary 曾保存临时 token 字段；未提交、未引用，已在 `REAL_EXPERIENCE_AUDIT_LOG.md` 以脱敏方式登记为 artifact hygiene 注意项。本轮 README 截图流程只提交 PNG 与文档，不提交 token、日志、raw artifact、prompt、answer 原文、evidence 全文、连接串或云地址。
+- 收尾验证已完成：README 图片引用存在性通过，中文 Markdown 乱码扫描、diff 敏感字段扫描、`git diff --check`、前端 `npm run lint` 和 `npm run build` 均通过；临时 `18081` / `3007` 服务已清理。
+
 ## 2026-07-14 GitHub PR #4 发布分支 CI 状态（VERIFIED / LOCAL）
 
 - PR #4 的本地 CI 等价验证已恢复：后端全量测试 `1031` tests PASS（`5` skipped），前端 lint / production build PASS，前端 Playwright E2E `14` tests PASS。

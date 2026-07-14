@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-14 | `readme-showcase-20260714201658` | VERIFIED / PROCESS（README 截图流程已避免保存 token） | `backend/target/readme-showcase-20260714201658/readme-showcase-summary.json` | 本轮刷新 README 真实 UI 截图时，发现历史 ignored UI summary 曾保存临时登录 token 字段；该文件未提交、未被 README 引用。本轮截图脚本改为只在内存 / 环境变量中传递 token，最终 summary 只保存 marker、id、route、计数和截图路径，不保存 token / password / prompt / answer / evidence / 连接串 / 云地址；登记为 `REA-20260714-P3-040`。 |
 | 2026-07-14 | `docpilot-parser-real-chain-20260714184055-21d3de` | VERIFIED / CORE（长文档 batch split 与原失败任务恢复已核验） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260714184055-21d3de/artifact.json` | 收口 `REA-20260713-P1-001`：parser runner 新增 LONG_MD 长文档 canary，真实切出 `25` chunks，PDF / HTML / DOCX / LONG_MD 均 parse / retrieve / citation / source locator 通过；MySQL chunk / indexed / vectorId / Qdrant point 总计 `32 / 32 / 32 / 32`，payload 和 locator 摘要均 `32`，parser boundary `4/4`，artifact redaction PASS。原失败 document `1431` / task `1322` 已只读核验为 SUCCESS，task retryCount `2`，原文档 MySQL / Qdrant parity 为 `12 / 12 / 12 / 12`，最新 outbox `SENT`、consume `SUCCESS`。 |
 | 2026-07-14 | `docpilot-memory-quality-20260714175619-8f1939` / `memory-ui-disable-restore-20260714100303` | VERIFIED / API+UI（T31 per-memory disable / restore 已收口） | `backend/target/memory-quality/docpilot-memory-quality-20260714175619-8f1939/artifact.json` / `backend/target/memory-ui-disable-restore-20260714100303/memory-ui-disable-restore-summary.json` | 修复 `REA-20260713-P2-033`：复用 `ARCHIVED` 作为单条 memory 停用状态，新增 disabled list、disable、restore API；T31 真实 smoke 证明停用后新 `AGENT_MEMORY` 不再选入且 `use_count` 不变，恢复后重新选入，跨用户 disable / restore 被拒，delete 后不可 restore。浏览器验证 `/conversations` Memory 抽屉停用 / 恢复 PASS，console error `0`，桌面 / `390px` / `320px` 无横向溢出。 |
 | 2026-07-14 | `quality-console-closeout-20260714160116` | VERIFIED（Quality artifact import root 隔离已收口） | `backend/target/quality-console-closeout-20260714160116/api-summary.json` | 修复 `REA-20260714-P3-039`：单测 artifact 改用临时 repo root，runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 测试 marker，DB-backed runs/detail/trends 隐藏历史误导入测试 marker。真实 API 验证 `limit=1` 不再导入测试样本，`firstRunIsTestMarker=false`；`limit=50` 后 Memory/RAG representative domain trends 可见。 |
@@ -84,6 +85,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260714-P3-040` | VERIFIED / PROCESS | P3 | artifact hygiene / 安全流程 | README screenshots / ignored runtime artifact | `readme-showcase-20260714201658` | 历史 ignored UI summary 曾保存临时登录 token 字段，README 截图流程需避免落盘 token |
 | `REA-20260714-P3-039` | VERIFIED（已验证） | P3 | 工程流程 / 质量控制台导入体验 | Agent Quality Console / Artifact Import / Test artifact isolation | `docpilot-agent-quality-eval-20260714151238-756d91` 验证前置导入 | Quality Console artifact import root 会优先扫到单测残留 `docpilot-import-*` 样本 |
 | `REA-20260714-P2-038` | VERIFIED / UI+API | P2 | 质量控制台体验 / 诊断误导 | Agent Quality Console / Frontend / Quality API | `quality-console-disabled-state-20260714` | Quality Console disabled 被误显示为账号无权限和暂无样本 |
 | `REA-20260713-P2-037` | VERIFIED / UI | P2 | 可信引用 / 前端可解释性问题 | Conversation / Citation UI | `conversation-citation-expand-20260714172419` | 回答卡片混淆召回证据和实际引用，来源区域横向拥挤且无法定位支持片段 |
@@ -127,6 +129,54 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-14 README 展示截图刷新
+
+### `REA-20260714-P3-040` 历史 ignored UI summary 曾保存临时登录 token 字段，README 截图流程需避免落盘 token
+
+状态：VERIFIED / PROCESS
+
+严重级别：P3
+
+类型：artifact hygiene / 安全流程
+
+模块：README screenshots / ignored runtime artifact
+
+发现 marker：
+
+- `readme-showcase-20260714201658`
+
+复现步骤：
+
+1. 为刷新 GitHub README 图片，检查近期 Conversation citation UI 与 Quality Console UI 的 ignored 运行摘要。
+2. 对比当前 README 截图流程需要保存的字段：marker、id、route、计数、截图路径。
+
+实际结果：
+
+- 历史 ignored UI summary 中存在临时登录 token 字段。
+- 该文件位于 ignored 运行目录，未提交、未被 README 引用，但不符合“artifact 只保留脱敏摘要”的长期流程目标。
+
+预期结果：
+
+- README / UI 截图脚本可以在内存或进程环境变量中使用 token 注入浏览器登录态，但最终 summary 不应落盘 token、password、Authorization、prompt、answer 原文、evidence 全文、连接串或云地址。
+
+可能原因：
+
+- 早期手写 UI 验证摘要更偏调试便利，保存了登录态字段，未完全复用正式 smoke artifact 的 redaction 口径。
+
+建议修复位置：
+
+- 后续临时 UI / README 截图脚本或 smoke runner 的 summary 写入逻辑。
+
+修复提交：
+
+- 不适用；本轮未修改生产代码。当前 README 截图流程已按过程修正，后续如固化为脚本再补代码级防回归。
+
+验证记录：
+
+- 本轮新 summary `backend/target/readme-showcase-20260714201658/readme-showcase-summary.json` 仅保存 `conversationId`、`assistantMessageId`、`knowledgeBaseId`、`documentIds`、`routeDecision`、`groundingPolicy`、`evidenceCount`、`citationCount`、Quality import 计数和截图路径。
+- README 新增截图只保存 PNG，不保存 token、password、Authorization、prompt、answer 原文、evidence 全文、连接串或云地址。
+- Playwright 截图过程 console error 为 `0`。
 
 ## 2026-07-14 Agent Quality Console 持久化导入验证
 

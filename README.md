@@ -1,5 +1,7 @@
 # DocPilot
 
+[![CI](https://github.com/kisaki623/DocPilot/actions/workflows/ci.yml/badge.svg)](https://github.com/kisaki623/DocPilot/actions/workflows/ci.yml)
+
 > 企业文档知识库 RAG + 会话记忆工程化平台。项目围绕“上传文档 -> 异步解析 -> RAG indexing -> 单文档 / 多文档 KnowledgeBase 检索问答 -> SSE 流式输出 -> 可信引用 -> Conversation Memory / Trace -> Agent Quality Console 质量门禁”这条链路展开，呈现一个从业务流程、后端工程到 AI 质量治理逐步闭环的全栈项目。
 
 DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、真实 embedding + Qdrant smoke、SSE 降级、quote-level 引用证据、GroundingPolicy 回答路由、no-evidence / hard-negative / answer faithfulness 质量门禁、Conversation Trace、用户记忆治理、Agent 工具选择、执行步骤落库和脱敏质量控制台。
@@ -44,7 +46,7 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 - **AI 问答体验**：支持单文档 / 多文档 RAG retrieve、普通问答与 SSE 流式输出；回答展示 Markdown、代码块和结构化 citations，并通过 GroundingPolicy、no-evidence、answer grounding、hard negative 与权限隔离 smoke 约束质量边界。
 - **会话记忆与 Trace**：支持 Conversation Context、会话摘要、ACTIVE / SUGGESTED / IGNORED memory、候选治理、KnowledgeBase evidence 进入 Context Trace，并保持 user memory 与 RAG evidence 分层。
 - **Agent 工作流**：`/agent` 页面展示工具选择、执行步骤、持久化轨迹、最终回答、引用证据和检索召回结果。
-- **内部质量控制台**：`/quality` 聚合真实 audit / eval artifact，展示 Gate、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary；只展示脱敏摘要和数值统计。
+- **内部质量控制台**：`/quality` 通过脱敏 artifact 导入持久化 QualityRun，面向内部管理员展示 Gate、Eval Catalog、Failure Triage、Trace 定位、Run Comparison、趋势视图和 Model / Cost Summary；只展示脱敏摘要和数值统计。
 - **可复盘的工程细节**：README、截图、smoke 脚本和本地验证记录共同保留实现证据，便于从页面演示追溯到后端链路。
 
 ## 当前实现状态
@@ -60,19 +62,20 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 | 检索召回展示 | 已实现 chunking、scope isolation、单文档 / 多文档 RAG retrieve、Qdrant adapter、真实 embedding smoke、召回片段、相关度、引用 metadata 和脱敏 trace summary |
 | RAG 质量门禁 | 已实现 chunk 质量、MySQL / Qdrant payload 一致性、no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace 和权限隔离 smoke；artifact 脱敏后只记录计数、状态和 score summary |
 | Conversation Memory | 已实现会话上下文、摘要、用户记忆候选、ACTIVE memory、重复 / 冲突治理、Context Trace 和 KnowledgeBase evidence 分层；回答依据支持 `MODEL_ONLY / AUTO_RAG / STRICT_KB` |
-| Agent Quality Console | 已实现内部 `/quality` Overview + Run Detail、Quality API、Eval Catalog、Failure Triage、Trace Reference、Run Comparison 和 Model / Cost Summary |
+| Agent Quality Console | 已实现内部管理员可访问的 `/quality`，支持 QualityRun / QualityRunCase 持久化、artifact 导入、Overview + Run Detail、Eval Catalog、Failure Triage、Trace Reference、Run Comparison、Memory / RAG 趋势和 Model / Cost Summary |
 | 观测与验证 | 保留 Actuator health、benchmark / eval 记录、smoke 脚本和 lint/build/test 验证方式 |
 
 ## 页面预览
 
-以下截图来自本地 runtime 验证，使用已解析测试文档演示 Agent / RAG 页面。截图不包含 API Key、token、真实公网 IP 或环境变量。
+以下截图来自 2026-07-14 本地真实 runtime 验证，使用虚构的 README 展示知识库和临时 smoke 数据。截图已检查，不包含 API Key、token、真实公网 IP、连接串或环境变量。
 
 | 页面 | 展示内容 |
 | --- | --- |
-| ![首页展示](docs/assets/screenshots/home-showcase.png) | 项目定位、核心能力和演示入口 |
-| ![上传与解析工作流](docs/assets/screenshots/upload-workflow.png) | 文档上传、解析状态和后续问答入口 |
-| ![项目工作台](docs/assets/screenshots/dashboard-overview.png) | 文档状态、最近文档和核心入口 |
-| ![文档问答详情](docs/assets/screenshots/document-detail-qa.png) | 文档问答、引用证据和流式输出体验 |
+| ![Conversation RAG 引用来源](docs/assets/screenshots/readme/readme-conversation-rag-citations.png) | Conversation 绑定 KnowledgeBase 后，回答正文引用编号可定位来源卡；页面区分实际引用、召回证据和命中文档 |
+| ![Context Inspector 技术详情](docs/assets/screenshots/readme/readme-context-inspector-tech.png) | 同一 assistant message 绑定 Context Inspector，默认摘要、可切换技术详情，展示 route、evidence gate、阶段耗时和 token 分配 |
+| ![Quality Console 概览](docs/assets/screenshots/readme/readme-quality-console-overview.png) | 内部质量控制台展示 DB-backed run、数据来源、最近导入、通过 / 复查 / 失败计数和失败桶 |
+| ![Quality Console 趋势](docs/assets/screenshots/readme/readme-quality-console-trends.png) | 趋势页聚合 Memory quality smoke 与 RAG representative eval 的脱敏指标，辅助定位质量回归 |
+| ![上传与解析工作流](docs/assets/screenshots/upload-workflow.png) | 文档上传、异步解析状态和后续问答入口 |
 | ![Agent 工作流](docs/assets/screenshots/agent-workflow.png) | 工具选择、执行轨迹、结果与引用展示 |
 
 ## 技术栈
@@ -131,7 +134,7 @@ Conversation 工作台支持会话、摘要、最近消息、用户长期记忆�
 
 ### Agent Quality Console
 
-`/quality` 是内部质量控制台，不面向普通用户入口。它从 ignored 的脱敏 artifact 中聚合最近真实 audit / eval run，展示 PASS / REVIEW / BLOCKED、Gate 列表、Eval case 目录、失败桶、trace reference、修复前后 run comparison 和 token / cost 数值。所有 parser、DTO 和 API 都采用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context、API key、token、secret、连接串或云地址。
+`/quality` 是内部质量控制台，不面向普通用户入口。它默认关闭，开启后仍要求内部管理员权限；真实 audit / eval 完成后可经过脱敏扫描导入为 QualityRun / QualityRunCase，再展示 PASS / REVIEW / BLOCKED、Gate 列表、Eval case 目录、失败桶、trace reference、修复前后 run comparison、趋势视图和 token / cost 数值。所有 parser、DTO 和 API 都采用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context、API key、token、secret、连接串或云地址。
 
 ## 快速开始
 
@@ -260,7 +263,7 @@ DocPilot/
 - AI 默认可使用 mock answer service；真实回答模型已完成一次 smoke，复现仍依赖本地环境变量和可用 OpenAI-compatible provider。
 - Document Parser MVP 支持文本型 PDF、本地 HTML 和 DOCX 的基础文本抽取，但不支持 OCR、扫描件识别、外部网页抓取、`.doc` 旧格式或复杂版面还原；页码 / block locator 已进入 parser、chunk、retrieval 和 citation 链路，但仍不是复杂版面坐标级定位系统。
 - RAG 测试 / eval 仍可使用 fake embedding + in-memory vector store；真实 embedding provider + Qdrant 已在 smoke collection 验证，KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，hard-negative 支持度门禁是近阈值启发式而不是通用语义蕴含模型；这些都不等同于生产级完整向量 RAG、生产默认 rerank / hybrid search 或线上 SLA。
-- Agent Quality Console 是内部质量控制台，当前基于 ignored artifact 聚合最近 run；它不是企业级 APM、告警系统、多租户后台或长期质量数据仓库。
+- Agent Quality Console 是内部质量控制台，当前通过脱敏 artifact 导入 DB-backed QualityRun / QualityRunCase；它不是企业级 APM、告警系统、多租户后台或长期质量数据仓库。
 - Agent 当前围绕文档业务工具形成同步 API 闭环，MQ 异步 Agent 和多 Agent 编排属于后续演进方向。
 - `llm_execute` 是默认关闭的 OpenAI-compatible chat completions JSON 选择方案，再由服务端 allowlist 执行已有工具；尚未切换到官方 tools/function_call 接口。
 - selector Prometheus metrics 目前仍处于设计 / demo 边界，完整生产监控闭环留作后续扩展。

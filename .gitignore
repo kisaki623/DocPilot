@@ -26,6 +26,9 @@ docs/*
 !docs/agent/**
 !docs/showcase/
 !docs/showcase/**
+!docs/assets/
+!docs/assets/screenshots/
+!docs/assets/screenshots/**
 !docs/archive/
 !docs/archive/**
 

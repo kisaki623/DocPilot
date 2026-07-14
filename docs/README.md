@@ -94,7 +94,7 @@
 
 - `docs/assets/screenshots/`：README、项目展示、求职展示用截图资源。
 
-当前截图主要服务已有 showcase。RAG no-evidence、answer audit、chunk structure quality、v6 hybrid / rerank gate 和 v7 memory-aware trace 已有 smoke / eval 证据；等 eval corpus 和面试展示材料继续增强后，再补新的 RAG / Memory 截图会更有价值。
+当前截图主要服务 README、showcase 和求职展示。2026-07-14 已补 README 专用真实运行截图，覆盖 Conversation RAG 引用来源、Context Inspector 技术详情、DB-backed Quality Console 概览和趋势视图；截图仍必须使用脱敏临时数据，禁止提交 token、密钥、连接串、prompt、answer 原文或 evidence 全文。
 
 ## 8. 使用规则
 

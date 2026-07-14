@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-14 GitHub README 展示截图刷新
+
+- 更新根 README：新增 CI badge，页面预览改为当前 RAG / Trace / Quality Console 主线截图，Quality Console 文案同步为 DB-backed 内部控制台和 artifact import 口径。
+- 新增 README 专用真实截图：Conversation RAG 引用来源、Context Inspector 技术详情、Quality Console 概览、Quality Console 趋势；截图使用虚构 P1 SLA KB 和临时内部管理员，不包含 token、密钥、连接串、prompt、answer 原文或 evidence 全文。
+- 修正 `.gitignore`：放行 `docs/assets/screenshots/**`，避免 README 新图在 GitHub 上缺失。
+- 真实截图验证 marker `readme-showcase-20260714201658`：Conversation `281` / assistant `609` 为 `STRICT_KB_EVIDENCE`，`evidenceCount=2`、`citationCount=2`；Quality import `scanned=50`、`imported=6`、`failed=0`；Playwright 截图 console error `0`。
+- 发现历史 ignored UI summary 曾保存临时 token 字段，未提交、未引用；本轮新 summary 不保存 token，已登记 artifact hygiene 注意项。
+- 收尾验证：README 图片引用存在性通过，中文 Markdown 乱码扫描、diff 敏感字段扫描、`git diff --check`、`npm run lint`、`npm run build` 均通过；临时后端 / 前端端口已清理。
+
 ## 2026-07-14 GitHub PR CI checks 修复
 
 - 修复 PR #4 上 Backend tests 失败：`MemoryQualityEvalRunner` 的 eval harness 补齐 `memoryMapper.markUsed(...)` mock，匹配当前 `MemorySelector` 只有 markUsed 成功才注入 ACTIVE memory 的生产语义。

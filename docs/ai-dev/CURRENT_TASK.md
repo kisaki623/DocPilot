@@ -1,5 +1,14 @@
 # Current Task
 
+## 2026-07-14 GitHub README 内容与图片刷新（VERIFIED / README+UI）
+
+- 本轮目标：更新 GitHub README 内容与展示图片，尤其补齐当前 RAG + Context Trace + Quality Console 的真实页面证据；不改业务功能、不扩展接口、不 push。
+- 已完成 README 更新：新增 CI badge；页面预览替换为当前主线截图矩阵，新增 Conversation RAG 引用来源、Context Inspector 技术详情、Quality Console 概览、Quality Console 趋势，并保留上传解析与 Agent 工作流作为辅助展示。
+- 已完成截图资产：新增 `docs/assets/screenshots/readme/readme-conversation-rag-citations.png`、`readme-context-inspector-tech.png`、`readme-quality-console-overview.png`、`readme-quality-console-trends.png`；`.gitignore` 已放行 `docs/assets/screenshots/**`，避免新图被忽略。
+- 真实验证：临时后端 `18081` + 前端 `3007`，marker `readme-showcase-20260714201658`；虚构 P1 SLA KB 的 Conversation `281` / assistant `609` 返回 `STRICT_KB_EVIDENCE`、`evidenceCount=2`、`citationCount=2`；Quality import `scanned=50`、`imported=6`、`failed=0`；Playwright 截图 console error `0`。
+- 安全边界：截图与 README 不包含 API key、token、真实云地址、连接串、prompt、answer 原文或 evidence 全文；历史 ignored UI summary 中的临时 token 字段已登记为 artifact hygiene 注意项，本轮新 summary 不保存 token。
+- 状态：`VERIFIED / README+UI`。补充验证已完成：README 图片引用存在性通过，新增截图尺寸为 `1440x1000` / `1440x1280`；`npm run lint` PASS，`npm run build` PASS；中文 Markdown 乱码扫描、diff 敏感字段扫描、`git diff --check` 均通过；临时 `18081` / `3007` 服务已清理。
+
 ## 2026-07-14 GitHub PR #4 CI checks 修复（VERIFIED / LOCAL）
 
 - 本轮目标：解释并修复 GitHub PR #4 页面显示的 `CI / Backend tests (Java 17)` 与 `CI / Frontend checks (Node 20)` 失败，不扩展业务功能。
