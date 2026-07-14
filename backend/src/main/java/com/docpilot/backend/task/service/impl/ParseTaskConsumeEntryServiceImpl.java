@@ -228,8 +228,8 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             String errorType = resolveErrorType(ex);
             String safeErrorMessage = resolveSafeErrorMessage(ex);
             DocPilotMetrics.recordDocumentParserResult("unknown", "failed", 0, 0, 0, 0, 0);
-            log.error("[PARSE_PROCESS_EXCEPTION] taskId={}, documentId={}, fileRecordId={}, errorType={}",
-                    parseTask.getId(), document.getId(), fileRecord.getId(), errorType);
+            log.error("[PARSE_PROCESS_EXCEPTION] taskId={}, documentId={}, fileRecordId={}, errorType={}, error={}",
+                    parseTask.getId(), document.getId(), fileRecord.getId(), errorType, limitError(safeErrorMessage));
             markFailed(parseTask, document.getUserId(), document.getId(), errorType, safeErrorMessage);
         }
     }
@@ -260,7 +260,7 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             if (!result.success()) {
                 throw new RagIndexingFailedException(
                         "RAG_INDEX_" + result.status().name(),
-                        "indexing completed with status " + result.status().name()
+                        indexingFailureMessage(result)
                 );
             }
             if (!documentId.equals(result.documentId())
@@ -304,6 +304,68 @@ public class ParseTaskConsumeEntryServiceImpl implements ParseTaskConsumeEntrySe
             return indexingFailure.getMessage();
         }
         return ex.getMessage();
+    }
+
+    private String indexingFailureMessage(RagIndexingResult result) {
+        String failureCode = classifyRagIndexFailure(result.message());
+        StringBuilder message = new StringBuilder("indexing completed with status ")
+                .append(result.status())
+                .append(", failureCode=")
+                .append(failureCode)
+                .append(", indexVersion=")
+                .append(result.indexVersion())
+                .append(", chunkCount=")
+                .append(result.chunkCount())
+                .append(", preparedVectorCount=")
+                .append(result.vectorCount())
+                .append(", reason=")
+                .append(failureReason(failureCode));
+        return message.toString();
+    }
+
+    private String classifyRagIndexFailure(String rawMessage) {
+        String message = rawMessage == null ? "" : rawMessage.toLowerCase();
+        if (message.contains("batch size is invalid") || message.contains("larger than 10")) {
+            return "EMBEDDING_BATCH_TOO_LARGE";
+        }
+        if (message.contains("embedding validation failed")) {
+            return "EMBEDDING_VALIDATION_FAILED";
+        }
+        if (message.contains("vector dimension mismatch")
+                || message.contains("does not match qdrant dimension")) {
+            return "VECTOR_DIMENSION_MISMATCH";
+        }
+        if (message.contains("embedding failed") || message.contains("embedding provider")) {
+            return "EMBEDDING_PROVIDER_FAILED";
+        }
+        if (message.contains("qdrant vector store collection")
+                || message.contains("collection unavailable")) {
+            return "QDRANT_COLLECTION_UNAVAILABLE";
+        }
+        if (message.contains("qdrant vector store delete")) {
+            return "QDRANT_DELETE_FAILED";
+        }
+        if (message.contains("qdrant vector store upsert")) {
+            return "QDRANT_UPSERT_FAILED";
+        }
+        if (message.contains("failed after embedding")) {
+            return "VECTOR_STORE_WRITE_FAILED";
+        }
+        return "UNKNOWN";
+    }
+
+    private String failureReason(String failureCode) {
+        return switch (failureCode) {
+            case "EMBEDDING_BATCH_TOO_LARGE" -> "embedding_batch_size_exceeds_provider_limit";
+            case "EMBEDDING_VALIDATION_FAILED" -> "embedding_response_validation_failed";
+            case "VECTOR_DIMENSION_MISMATCH" -> "embedding_dimension_does_not_match_vector_store";
+            case "EMBEDDING_PROVIDER_FAILED" -> "embedding_provider_request_failed";
+            case "QDRANT_COLLECTION_UNAVAILABLE" -> "qdrant_collection_unavailable";
+            case "QDRANT_DELETE_FAILED" -> "qdrant_delete_failed_before_replace";
+            case "QDRANT_UPSERT_FAILED" -> "qdrant_upsert_failed_after_replace";
+            case "VECTOR_STORE_WRITE_FAILED" -> "vector_store_write_failed_after_embedding";
+            default -> "inspect_server_diagnostics";
+        };
     }
 
     private String resolveMessageKey(ParseTaskMessage message) {

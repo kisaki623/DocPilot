@@ -597,14 +597,20 @@ public class KnowledgeBaseRagRetrievalServiceImpl implements KnowledgeBaseRagRet
     }
 
     private Map<Long, Integer> documentHitCounts(List<Long> documentIds, List<KnowledgeBaseRagRetrievalHit> hits) {
-        Map<Long, Integer> counts = new LinkedHashMap<>();
-        for (Long documentId : documentIds) {
-            counts.put(documentId, 0);
-        }
+        Map<Long, Integer> hitCounts = new LinkedHashMap<>();
         for (KnowledgeBaseRagRetrievalHit hit : hits) {
-            counts.merge(hit.documentId(), 1, Integer::sum);
+            if (hit.documentId() != null) {
+                hitCounts.merge(hit.documentId(), 1, Integer::sum);
+            }
         }
-        return Collections.unmodifiableMap(new LinkedHashMap<>(counts));
+        Map<Long, Integer> orderedCounts = new LinkedHashMap<>();
+        for (Long documentId : documentIds) {
+            Integer count = hitCounts.remove(documentId);
+            if (count != null && count > 0) {
+                orderedCounts.put(documentId, count);
+            }
+        }
+        return Collections.unmodifiableMap(new LinkedHashMap<>(orderedCounts));
     }
 
     /**

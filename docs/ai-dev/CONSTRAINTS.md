@@ -28,15 +28,41 @@
 4. 自动提交只允许使用精确路径；禁止 `git add .`，禁止 push，禁止提交 `.env`、artifact 原文、日志、截图、Playwright 临时目录或任何真实凭据。
 5. 自驱模式默认采用真实链路优先验证：mock / unit test 是快速回归门禁，RAG、Memory、Conversation Trace、权限隔离和前端关键路径的质量结论优先以真实 smoke / runtime evidence 为准。
 6. 自驱模式允许在当前大目标内自行启动本地 tunnel / backend / frontend，运行真实 smoke，创建带统一 marker 的临时 smoke 数据，使用本机已有 `.env` 中的真实 provider / Qdrant / MySQL 配置，并生成 ignored 脱敏 artifact；这些操作不再逐次等待用户确认。
-7. 下列情况必须停止并汇报，不能继续硬做：需要用户产品取舍、数据库结构变更、删除业务数据、清空 collection、远程 Docker 启停 / 重启 / 迁移、改防火墙或云资源、大规模或高成本真实 provider 调用、无法脱敏的证据、连续验证失败、工作区出现影响当前切片的无关改动。
+7. 下列情况必须停止并汇报，不能继续硬做：需要用户产品取舍、破坏性数据库结构变更、删除业务数据、清空 collection、远程 Docker 启停 / 重启 / 迁移、改防火墙或云资源、大规模或高成本真实 provider 调用、无法脱敏的证据、连续验证失败、工作区出现影响当前切片的无关改动。
 8. 自驱模式不改变状态口径：没有真实链路验证不能把用户体验质量写 `DONE`；验证不完整写 `REVIEW`；环境 / 权限 / 配置缺失写 `BLOCKED`。
 
 ## 2.2 真实链路优先验证权限
 
 1. 默认允许：本地 SSH tunnel、后端、前端、Playwright、cloud / RAG smoke runner、临时 smoke 用户 / 文档 / KnowledgeBase / Conversation、ignored 脱敏 artifact、小规模真实 provider 调用。
 2. 受控允许：通过 `hk-ops` 或等价路径做只读远程诊断，包括容器状态、健康检查、日志摘要、端口、网络、非敏感计数；执行前说明目的和命令类别，输出必须脱敏。
-3. 仍需单独授权：远程 Docker 启动 / 停止 / 重启、数据库结构变更、业务数据删除、collection 清空、云资源或防火墙修改、大规模付费 eval、push。
+3. 仍需单独授权：远程 Docker 启动 / 停止 / 重启、破坏性数据库操作、业务数据删除、collection 清空、云资源或防火墙修改、大规模付费 eval、push。
 4. 敏感值永远不能输出或提交：`.env`、token、API key、账号密码、云地址、连接串、文档全文、prompt、evidence context。真实配置只能由本地应用、脚本或环境变量读取。
+
+## 2.2.1 受控开发库数据库常驻授权
+
+用户已授权后续协作代理在 DocPilot 当前开发库范围内执行受控数据库操作。该授权用于本地 tunnel / 开发库上的迁移、真实链路 smoke、内部质量控制台验证和临时数据闭环，不等价于生产运维 root 权限，也不覆盖非 DocPilot schema。
+
+默认允许：
+
+- 只读诊断查询、schema existence 检查、非敏感计数查询。
+- 已纳入仓库、可重复执行的幂等迁移脚本。
+- 当前任务明确需要的精确 `UPDATE`，例如明确账号的内部权限标记。
+- 带统一 marker 的临时 smoke 用户、文档、KnowledgeBase、Conversation 或 QualityRun 数据。
+- Quality Console artifact 导入后写入 `tb_quality_run*` 与 `tb_quality_import_event`。
+
+仍需单独确认：
+
+- `DROP` / `TRUNCATE`、批量删除、清空业务表、重置真实用户密码。
+- 清空或重建 Qdrant collection、删除对象存储业务文件。
+- 修改非 DocPilot schema、远程 Docker 启停 / 重启 / 迁移、云资源 / 防火墙 / 公网暴露变更。
+- 大规模或高成本真实 provider eval、`git push`。
+
+执行要求：
+
+- 执行前说明目的、SQL / 脚本来源和预检查；执行后记录影响行数、schema 校验或关键 API 验证。
+- 优先使用幂等脚本、事务和精确 WHERE；用户授权字段必须先确认目标用户唯一且 `status='ACTIVE'`。
+- 不得输出或写入 `.env`、密码、token、API key、连接串、云地址、Authorization 或 provider 原始响应。
+- 发现目标不唯一、脚本非幂等、影响行数异常、迁移失败、疑似生产库或需要破坏性操作时立即停止并汇报。
 
 ## 2.3 Agent Quality Console 约束
 
@@ -46,7 +72,7 @@
 4. 所有 artifact parser、service DTO 和 API response 必须使用字段白名单。禁止返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 只允许返回 `prompt_tokens`、`completion_tokens`、`total_tokens`、`estimated_cost` 等数值统计。
 5. Artifact 文件不存在时降级为空列表或 `artifactMissing=true`；JSON 解析失败时降级为 `artifactParseFailed=true` / `REVIEW`，不能让控制台整体崩溃。
 6. 如发现泄露风险，优先关闭对应 artifact root、隐藏 detail 字段或只返回 summary；确认脱敏规则和回归测试补齐前，不继续扩大展示范围。
-7. 第一阶段不新增数据库表。只有当 artifact 聚合无法满足跨机器历史保留、权限审计、趋势查询或质量门禁归档时，再评估引入 `quality_eval_run` / `quality_eval_gate`。
+7. 早期阶段默认不新增数据库表；2026-07-14 起用户已单独授权 Phase 7 持久化内部控制台，可以在受控开发库中创建 `tb_quality_run`、`tb_quality_run_gate`、`tb_quality_run_case`、`tb_quality_import_event` 和 `tb_user.is_internal_admin`。后续新增或破坏性调整其他质量表仍需重新确认。
 
 ## 3. 后端实现约束
 

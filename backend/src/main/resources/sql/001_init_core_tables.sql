@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS tb_user (
     phone VARCHAR(32) DEFAULT NULL COMMENT 'Optional phone number',
     nickname VARCHAR(64) DEFAULT NULL COMMENT 'Display name',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT 'User status: ACTIVE, DISABLED',
+    is_internal_admin TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Internal admin flag for restricted console access',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation time',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update time',
     PRIMARY KEY (id),

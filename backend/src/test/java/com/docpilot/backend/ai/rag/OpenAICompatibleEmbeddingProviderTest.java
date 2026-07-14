@@ -1,20 +1,26 @@
 package com.docpilot.backend.ai.rag;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class OpenAICompatibleEmbeddingProviderTest {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Test
     void shouldFailWithoutNetworkWhenConfigurationMissing() throws Exception {
@@ -74,6 +80,26 @@ class OpenAICompatibleEmbeddingProviderTest {
     }
 
     @Test
+    void shouldSplitLargeBatchIntoProviderLimitWindows() throws Exception {
+        AtomicInteger requestCount = new AtomicInteger();
+        List<Integer> batchSizes = new ArrayList<>();
+        try (StubEmbeddingServer server = StubEmbeddingServer.echoBatch(requestCount, batchSizes)) {
+            OpenAICompatibleEmbeddingProvider provider = new OpenAICompatibleEmbeddingProvider(openAiProperties(server.baseUrl()));
+            List<EmbeddingRequest> requests = IntStream.range(0, 12)
+                    .mapToObj(index -> new EmbeddingRequest("text-" + index, "", Map.of("chunkIndex", String.valueOf(index))))
+                    .toList();
+
+            List<EmbeddingResult> results = provider.embedBatch(requests);
+
+            assertThat(requestCount).hasValue(2);
+            assertThat(batchSizes).containsExactly(10, 2);
+            assertThat(results).hasSize(12);
+            assertThat(results).extracting(result -> result.metadata().get("chunkIndex"))
+                    .containsExactlyElementsOf(IntStream.range(0, 12).mapToObj(String::valueOf).toList());
+        }
+    }
+
+    @Test
     void shouldParseEmbeddingResponse() {
         OpenAICompatibleEmbeddingProvider provider = new OpenAICompatibleEmbeddingProvider(openAiProperties("https://example.invalid/v1"));
 
@@ -85,13 +111,18 @@ class OpenAICompatibleEmbeddingProviderTest {
     @Test
     void shouldFailSafelyForNon2xxStatus() throws Exception {
         AtomicInteger requestCount = new AtomicInteger();
-        try (StubEmbeddingServer server = StubEmbeddingServer.of(500, "{\"error\":\"failed\"}", requestCount)) {
+        try (StubEmbeddingServer server = StubEmbeddingServer.of(400,
+                "{\"error\":{\"message\":\"batch size is invalid, it should not be larger than 10\",\"type\":\"InvalidParameter\",\"code\":\"InvalidParameter\"}}",
+                requestCount)) {
             OpenAICompatibleEmbeddingProvider provider = new OpenAICompatibleEmbeddingProvider(openAiProperties(server.baseUrl()));
 
             IllegalStateException ex = assertThrows(IllegalStateException.class,
                     () -> provider.embed(EmbeddingRequest.of("hello")));
 
-            assertThat(ex.getMessage()).contains("status 500");
+            assertThat(ex.getMessage())
+                    .contains("status 400")
+                    .contains("code=InvalidParameter")
+                    .contains("batch size is invalid");
             assertThat(requestCount).hasValue(1);
         }
     }
@@ -166,6 +197,56 @@ class OpenAICompatibleEmbeddingProviderTest {
             });
             server.start();
             return new StubEmbeddingServer(server, requestCount, requestBody, authorization);
+        }
+
+        static StubEmbeddingServer echoBatch(AtomicInteger requestCount, List<Integer> batchSizes) throws IOException {
+            HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            AtomicReference<String> requestBody = new AtomicReference<>();
+            AtomicReference<String> authorization = new AtomicReference<>();
+            server.createContext("/v1/embeddings", exchange -> {
+                requestCount.incrementAndGet();
+                authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                requestBody.set(body);
+                try {
+                    int batchSize = inputSize(body);
+                    batchSizes.add(batchSize);
+                    byte[] bytes = batchResponse(batchSize).getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(200, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                } catch (Exception ex) {
+                    byte[] bytes = "{\"error\":\"invalid test request\"}".getBytes(StandardCharsets.UTF_8);
+                    exchange.sendResponseHeaders(500, bytes.length);
+                    exchange.getResponseBody().write(bytes);
+                } finally {
+                    exchange.close();
+                }
+            });
+            server.start();
+            return new StubEmbeddingServer(server, requestCount, requestBody, authorization);
+        }
+
+        private static int inputSize(String body) throws IOException {
+            JsonNode input = OBJECT_MAPPER.readTree(body).path("input");
+            if (input.isArray()) {
+                return input.size();
+            }
+            return input.isMissingNode() || input.isNull() ? 0 : 1;
+        }
+
+        private static String batchResponse(int batchSize) {
+            StringBuilder builder = new StringBuilder("{\"data\":[");
+            for (int i = 0; i < batchSize; i++) {
+                if (i > 0) {
+                    builder.append(',');
+                }
+                builder.append("{\"embedding\":[")
+                        .append(i).append(".1,")
+                        .append(i).append(".2],\"index\":")
+                        .append(i)
+                        .append('}');
+            }
+            return builder.append("],\"model\":\"embedding-model\"}").toString();
         }
 
         String baseUrl() {

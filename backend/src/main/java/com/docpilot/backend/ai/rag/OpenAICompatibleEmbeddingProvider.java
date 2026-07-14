@@ -21,6 +21,8 @@ public class OpenAICompatibleEmbeddingProvider implements EmbeddingProvider {
     public static final String PROVIDER = "openai_compatible";
     private static final String DISABLED_MESSAGE =
             "OpenAI-compatible embedding provider is not fully configured; no HTTP request was made.";
+    private static final int MAX_BATCH_SIZE = 10;
+    private static final int ERROR_DETAIL_MAX_LENGTH = 240;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final EmbeddingProperties properties;
@@ -58,14 +60,12 @@ public class OpenAICompatibleEmbeddingProvider implements EmbeddingProvider {
                 .map(request -> request == null ? EmbeddingRequest.of("") : request)
                 .toList();
         try {
-            HttpResponse<String> response = httpClient.send(
-                    buildHttpRequest(resolvedRequests),
-                    HttpResponse.BodyHandlers.ofString()
-            );
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new IllegalStateException("Embedding provider returned status " + response.statusCode());
+            List<EmbeddingResult> results = new ArrayList<>();
+            for (int start = 0; start < resolvedRequests.size(); start += MAX_BATCH_SIZE) {
+                int end = Math.min(start + MAX_BATCH_SIZE, resolvedRequests.size());
+                results.addAll(sendEmbeddingBatch(resolvedRequests.subList(start, end)));
             }
-            return parseEmbeddingResults(response.body(), resolvedRequests);
+            return results;
         } catch (IOException ex) {
             throw new IllegalStateException("Embedding provider I/O error: " + safeErrorType(ex), ex);
         } catch (InterruptedException ex) {
@@ -75,6 +75,19 @@ public class OpenAICompatibleEmbeddingProvider implements EmbeddingProvider {
             throw new IllegalStateException("Embedding provider returned invalid response: "
                     + ex.getClass().getSimpleName(), ex);
         }
+    }
+
+    private List<EmbeddingResult> sendEmbeddingBatch(List<EmbeddingRequest> requests)
+            throws IOException, InterruptedException {
+        HttpResponse<String> response = httpClient.send(
+                buildHttpRequest(requests),
+                HttpResponse.BodyHandlers.ofString()
+        );
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException("Embedding provider returned status " + response.statusCode()
+                    + providerErrorSuffix(response.body()));
+        }
+        return parseEmbeddingResults(response.body(), requests);
     }
 
     public OpenAiCompatibleEmbeddingRequest buildRequest(String input) {
@@ -214,6 +227,57 @@ public class OpenAICompatibleEmbeddingProvider implements EmbeddingProvider {
             return "timeout";
         }
         return ex.getClass().getSimpleName();
+    }
+
+    private String providerErrorSuffix(String responseBody) {
+        String detail = safeProviderError(responseBody);
+        if (detail.isBlank()) {
+            return "";
+        }
+        return ": " + detail;
+    }
+
+    private String safeProviderError(String responseBody) {
+        if (responseBody == null || responseBody.isBlank()) {
+            return "";
+        }
+        try {
+            JsonNode error = OBJECT_MAPPER.readTree(responseBody).path("error");
+            if (error.isMissingNode() || error.isNull()) {
+                return "";
+            }
+            List<String> parts = new ArrayList<>();
+            appendErrorField(parts, "code", error.path("code").asText(""));
+            appendErrorField(parts, "type", error.path("type").asText(""));
+            appendErrorField(parts, "message", error.path("message").asText(""));
+            return limitErrorDetail(String.join(", ", parts));
+        } catch (Exception ignored) {
+            return "";
+        }
+    }
+
+    private void appendErrorField(List<String> parts, String name, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        parts.add(name + "=" + redactErrorValue(value));
+    }
+
+    private String redactErrorValue(String value) {
+        return value
+                .replaceAll("(?i)(api[_-]?key|token|authorization|bearer)\\s*[:=]\\s*[^,\\s}]+", "$1=<redacted>")
+                .replaceAll("\\s+", " ")
+                .trim();
+    }
+
+    private String limitErrorDetail(String detail) {
+        if (detail == null || detail.isBlank()) {
+            return "";
+        }
+        if (detail.length() <= ERROR_DETAIL_MAX_LENGTH) {
+            return detail;
+        }
+        return detail.substring(0, ERROR_DETAIL_MAX_LENGTH);
     }
 
     private record IndexedEmbedding(int index, EmbeddingVector vector) {

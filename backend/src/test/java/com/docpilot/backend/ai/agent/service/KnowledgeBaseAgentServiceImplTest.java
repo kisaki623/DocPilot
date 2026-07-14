@@ -102,7 +102,7 @@ class KnowledgeBaseAgentServiceImplTest {
                 3,
                 1,
                 List.of(201L, 202L),
-                Map.of(201L, 0, 202L, 0),
+                Map.of(),
                 true,
                 0,
                 0,
@@ -130,7 +130,7 @@ class KnowledgeBaseAgentServiceImplTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getFinalAnswer()).contains("未在当前知识库索引中检索到足够证据");
         assertThat(response.getCitations()).isEmpty();
-        assertThat(response.getDocumentHitCounts()).containsEntry(201L, 0).containsEntry(202L, 0);
+        assertThat(response.getDocumentHitCounts()).isEmpty();
     }
 
     @Test

@@ -372,7 +372,15 @@ class ParseTaskConsumeEntryServiceImplTest {
         when(fileRecordMapper.selectById(35L)).thenReturn(fileRecord);
         when(fileContentReader.readText("failed-index.txt")).thenReturn("Parsed content retained after failed indexing");
         when(ragIndexingTriggerService.indexAfterParse(any(), any(), any(ParseResult.class)))
-                .thenReturn(new RagIndexingResult(RagIndexingStatus.FAILED, 24L, 100L, 1, 2, 0, "provider detail"));
+                .thenReturn(new RagIndexingResult(
+                        RagIndexingStatus.FAILED,
+                        24L,
+                        100L,
+                        1,
+                        2,
+                        0,
+                        "provider detail Bearer secret SELECT * FROM tb_document document marker"
+                ));
 
         service.handle(message);
 
@@ -381,7 +389,14 @@ class ParseTaskConsumeEntryServiceImplTest {
         ParseTask failedTask = taskCaptor.getAllValues().get(taskCaptor.getAllValues().size() - 1);
         assertEquals("FAILED", failedTask.getStatus());
         assertTrue(failedTask.getErrorMsg().contains("RAG_INDEX_FAILED"));
+        assertTrue(failedTask.getErrorMsg().contains("failureCode=UNKNOWN"));
+        assertTrue(failedTask.getErrorMsg().contains("chunkCount=2"));
+        assertTrue(failedTask.getErrorMsg().contains("preparedVectorCount=0"));
+        assertTrue(failedTask.getErrorMsg().contains("indexVersion=1"));
         assertTrue(!failedTask.getErrorMsg().contains("provider detail"));
+        assertTrue(!failedTask.getErrorMsg().contains("Bearer"));
+        assertTrue(!failedTask.getErrorMsg().contains("SELECT"));
+        assertTrue(!failedTask.getErrorMsg().contains("document marker"));
         ArgumentCaptor<Document> documentCaptor = ArgumentCaptor.forClass(Document.class);
         verify(documentMapper, org.mockito.Mockito.times(7)).updateById(documentCaptor.capture());
         Document indexedDocument = documentCaptor.getAllValues().get(documentCaptor.getAllValues().size() - 2);

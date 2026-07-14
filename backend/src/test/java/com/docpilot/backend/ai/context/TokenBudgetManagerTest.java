@@ -29,6 +29,8 @@ class TokenBudgetManagerTest {
                 .doesNotContain(ContextType.MEMORY);
         assertThat(result.truncated()).isTrue();
         assertThat(result.truncatedTypes()).contains("MEMORY");
+        assertThat(result.droppedItems()).extracting(ContextItem::type)
+                .containsExactly(ContextType.MEMORY);
     }
 
     @Test
@@ -46,6 +48,8 @@ class TokenBudgetManagerTest {
         assertThat(result.usedItems()).extracting(ContextItem::type)
                 .contains(ContextType.RAG_EVIDENCE)
                 .doesNotContain(ContextType.MEMORY);
+        assertThat(result.droppedItems()).extracting(ContextItem::type)
+                .containsExactly(ContextType.MEMORY);
     }
 
     private ContextItem item(ContextType type, int tokens, boolean required, int priority) {

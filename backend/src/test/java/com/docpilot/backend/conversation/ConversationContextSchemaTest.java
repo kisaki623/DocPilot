@@ -23,6 +23,9 @@ class ConversationContextSchemaTest {
         assertThat(sql).contains("grounding_policy VARCHAR(32) DEFAULT NULL");
         assertThat(sql).contains("route_decision VARCHAR(64) DEFAULT NULL");
         assertThat(sql).contains("llm_called TINYINT(1) DEFAULT NULL");
+        assertThat(sql).contains("document_hit_counts_json TEXT");
+        assertThat(sql).contains("citations_json TEXT");
+        assertThat(sql).contains("technical_details_json TEXT");
         assertThat(sql).contains("bound_knowledge_base_id BIGINT UNSIGNED DEFAULT NULL");
         assertThat(sql).contains("UNIQUE KEY uk_conversation_sequence (conversation_id, sequence_no)");
         assertThat(sql).contains("UNIQUE KEY uk_context_trace_message (message_id)");
@@ -40,6 +43,24 @@ class ConversationContextSchemaTest {
         assertThat(sql).contains("ALTER TABLE tb_context_trace ADD COLUMN grounding_policy");
         assertThat(sql).contains("ALTER TABLE tb_context_trace ADD COLUMN route_decision");
         assertThat(sql).contains("ALTER TABLE tb_context_trace ADD COLUMN llm_called");
+    }
+
+    @Test
+    void shouldContainIncrementalCitationTraceMigration() throws IOException {
+        String sql = readSqlScript("/sql/009_add_context_trace_citations.sql");
+
+        assertThat(sql).contains("COLUMN_NAME = 'citations_json'");
+        assertThat(sql).contains("ALTER TABLE tb_context_trace ADD COLUMN citations_json");
+        assertThat(sql).contains("AFTER document_hit_counts_json");
+    }
+
+    @Test
+    void shouldContainIncrementalTechnicalDetailsTraceMigration() throws IOException {
+        String sql = readSqlScript("/sql/010_add_context_trace_technical_details.sql");
+
+        assertThat(sql).contains("COLUMN_NAME = 'technical_details_json'");
+        assertThat(sql).contains("ALTER TABLE tb_context_trace ADD COLUMN technical_details_json");
+        assertThat(sql).contains("AFTER citations_json");
     }
 
     private String readSqlScript() throws IOException {

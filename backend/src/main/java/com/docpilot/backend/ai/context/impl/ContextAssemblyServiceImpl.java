@@ -6,6 +6,7 @@ import com.docpilot.backend.ai.context.ContextAssemblyService;
 import com.docpilot.backend.ai.context.ContextItem;
 import com.docpilot.backend.ai.context.ContextPolicy;
 import com.docpilot.backend.ai.context.ContextTrace;
+import com.docpilot.backend.ai.context.ContextTraceTechnicalDetails;
 import com.docpilot.backend.ai.context.ContextType;
 import com.docpilot.backend.ai.context.GroundingPolicy;
 import com.docpilot.backend.ai.context.PromptMessage;
@@ -84,7 +85,12 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
         ValidationUtils.requireNonNull(request.conversationId(), "conversationId");
         ValidationUtils.requireNonBlank(request.currentMessage(), "currentMessage");
 
+        long assemblyStartNanos = System.nanoTime();
+        Map<String, Long> timingsMs = new LinkedHashMap<>();
+
+        long stageStartNanos = System.nanoTime();
         Conversation conversation = conversationService.requireOwnedActive(request.userId(), request.conversationId());
+        putElapsed(timingsMs, "conversationLoad", stageStartNanos);
         GroundingPolicy groundingPolicy = GroundingPolicy.resolveDefault(
                 request.groundingPolicy(),
                 conversation.getBoundKnowledgeBaseId() != null
@@ -99,6 +105,7 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
         items.add(systemItem(request.userId()));
         items.add(modeInstructionItem(request.userId(), policy.contextMode()));
 
+        stageStartNanos = System.nanoTime();
         ConversationSummary activeSummary = null;
         if (policy.summaryEnabled() && Boolean.TRUE.equals(conversation.getSummaryEnabled())) {
             activeSummary = conversationSummaryService.getActiveSummary(request.userId(), request.conversationId());
@@ -106,33 +113,47 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                 items.add(summaryItem(activeSummary, policy.summaryMaxTokens()));
             }
         }
+        putElapsed(timingsMs, "summary", stageStartNanos);
 
+        stageStartNanos = System.nanoTime();
         if (policy.memoryEnabled() && Boolean.TRUE.equals(conversation.getMemoryEnabled())) {
             items.addAll(memorySelector.select(request.userId(), policy.memoryMaxCount()));
         }
+        putElapsed(timingsMs, "memory", stageStartNanos);
 
+        stageStartNanos = System.nanoTime();
         items.addAll(recentTurnsContextBuilder.build(
                 request.userId(),
                 request.conversationId(),
                 policy.recentTurnsMaxRounds()
         ));
+        putElapsed(timingsMs, "recentTurns", stageStartNanos);
 
+        stageStartNanos = System.nanoTime();
         KnowledgeBaseEvidenceResult evidenceResult = knowledgeBaseEvidenceBuilder.build(
                 conversation,
                 request.currentMessage(),
                 policy,
                 groundingPolicy
         );
+        putElapsed(timingsMs, "retrieval", stageStartNanos);
         items.addAll(evidenceResult.items());
         items.add(currentMessageItem(request.userId(), request.currentMessage()));
         items.add(outputRequirementItem(request.userId(), evidenceResult.triggered()));
 
+        stageStartNanos = System.nanoTime();
         List<ContextItem> permissionFiltered = contextPermissionFilter.filter(request.userId(), items);
+        putElapsed(timingsMs, "permissionFilter", stageStartNanos);
+        stageStartNanos = System.nanoTime();
         TokenBudgetResult budgetResult = tokenBudgetManager.apply(permissionFiltered, policy, evidenceResult.required());
+        putElapsed(timingsMs, "tokenBudget", stageStartNanos);
+        stageStartNanos = System.nanoTime();
         List<PromptMessage> promptMessages = promptRenderer.renderMessages(budgetResult.usedItems());
         String assembledContext = promptRenderer.renderContext(budgetResult.usedItems());
+        putElapsed(timingsMs, "promptRender", stageStartNanos);
         boolean modelCallSkipped = evidenceResult.required() && evidenceResult.noEvidence();
         String fallbackAnswer = modelCallSkipped ? evidenceResult.fallbackAnswer() : "";
+        timingsMs.put("contextAssembly", elapsedMs(assemblyStartNanos));
         ContextTrace trace = buildTrace(
                 conversation,
                 budgetResult,
@@ -140,7 +161,8 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                 policy,
                 groundingPolicy,
                 modelCallSkipped,
-                fallbackAnswer
+                fallbackAnswer,
+                timingsMs
         );
 
         return new ContextAssemblyResult(
@@ -212,7 +234,8 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                                     ContextPolicy policy,
                                     GroundingPolicy groundingPolicy,
                                     boolean modelCallSkipped,
-                                    String fallbackAnswer) {
+                                    String fallbackAnswer,
+                                    Map<String, Long> timingsMs) {
         int recentMessageCount = countType(budgetResult.usedItems(), ContextType.RECENT_TURN);
         int memoryCount = countType(budgetResult.usedItems(), ContextType.MEMORY);
         boolean summaryUsed = countType(budgetResult.usedItems(), ContextType.SUMMARY) > 0;
@@ -221,6 +244,34 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                 .map(item -> String.valueOf(item.metadata().getOrDefault("memoryType", "CUSTOM")))
                 .distinct()
                 .toList();
+        String fallbackReason = fallbackReason(evidenceResult.routeDecision(), fallbackAnswer);
+        ContextTraceTechnicalDetails technicalDetails = ContextTraceTechnicalDetails.build(
+                conversation.getId(),
+                null,
+                new ContextTraceTechnicalDetails.RouteDetails(
+                        groundingPolicy.name(),
+                        evidenceResult.routeDecision().name(),
+                        routeReason(evidenceResult.routeDecision(), fallbackReason),
+                        evidenceResult.triggered(),
+                        evidenceResult.required(),
+                        evidenceResult.noEvidence(),
+                        null,
+                        modelCallSkipped
+                ),
+                timingsMs,
+                evidenceResult.retrievalDetails(),
+                ContextTraceTechnicalDetails.TokenBudgetDetails.from(policy.maxPromptTokens(), budgetResult),
+                new ContextTraceTechnicalDetails.ContextUsageDetails(
+                        new ContextTraceTechnicalDetails.SummaryUsage(summaryUsed),
+                        new ContextTraceTechnicalDetails.MemoryUsage(memoryCount > 0, memoryCount, memoryTypes),
+                        new ContextTraceTechnicalDetails.RecentUsage(recentMessageCount / 2, recentMessageCount)
+                ),
+                new ContextTraceTechnicalDetails.FallbackDetails(
+                        !fallbackAnswer.isBlank(),
+                        fallbackReason,
+                        ""
+                )
+        );
         return new ContextTrace(
                 conversation.getId(),
                 null,
@@ -245,8 +296,10 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
                 budgetResult.truncated(),
                 budgetResult.truncatedTypes(),
                 !fallbackAnswer.isBlank(),
-                fallbackReason(evidenceResult.routeDecision(), fallbackAnswer),
-                modelCallSkipped
+                fallbackReason,
+                modelCallSkipped,
+                technicalDetails,
+                List.of()
         );
     }
 
@@ -262,8 +315,23 @@ public class ContextAssemblyServiceImpl implements ContextAssemblyService {
         };
     }
 
+    private String routeReason(RouteDecision routeDecision, String fallbackReason) {
+        if (fallbackReason != null && !fallbackReason.isBlank()) {
+            return fallbackReason;
+        }
+        return routeDecision == null ? "" : routeDecision.name();
+    }
+
     private int countType(List<ContextItem> items, ContextType type) {
         return (int) items.stream().filter(item -> item.type() == type).count();
+    }
+
+    private void putElapsed(Map<String, Long> timingsMs, String stage, long stageStartNanos) {
+        timingsMs.put(stage, elapsedMs(stageStartNanos));
+    }
+
+    private long elapsedMs(long startNanos) {
+        return Math.max(0L, (System.nanoTime() - startNanos) / 1_000_000L);
     }
 
     private String truncateByTokens(String text, int maxTokens) {

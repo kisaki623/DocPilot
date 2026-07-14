@@ -319,7 +319,7 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         assertThat(result.noEvidence()).isTrue();
         assertThat(result.hits()).isEmpty();
         assertThat(result.citations()).isEmpty();
-        assertThat(result.documentHitCounts()).containsEntry(101L, 0).containsEntry(102L, 0);
+        assertThat(result.documentHitCounts()).isEmpty();
         verify(rerankService, never()).rerank(any());
     }
 
@@ -379,7 +379,7 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         assertThat(result.noEvidence()).isTrue();
         assertThat(result.hits()).isEmpty();
         assertThat(result.citations()).isEmpty();
-        assertThat(result.documentHitCounts()).containsEntry(101L, 0).containsEntry(102L, 0);
+        assertThat(result.documentHitCounts()).isEmpty();
     }
 
     @Test
@@ -410,7 +410,7 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         assertThat(result.rerankApplied()).isTrue();
         assertThat(result.hits()).isEmpty();
         assertThat(result.citations()).isEmpty();
-        assertThat(result.documentHitCounts()).containsEntry(101L, 0);
+        assertThat(result.documentHitCounts()).isEmpty();
     }
 
     @Test
@@ -480,7 +480,7 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
         assertThat(result.noEvidence()).isTrue();
         assertThat(result.hits()).isEmpty();
         assertThat(result.citations()).isEmpty();
-        assertThat(result.documentHitCounts()).containsEntry(101L, 0);
+        assertThat(result.documentHitCounts()).isEmpty();
         verify(rerankService, never()).rerank(any());
     }
 
@@ -577,7 +577,7 @@ class KnowledgeBaseRagRetrievalServiceImplTest {
 
         assertThat(result.noEvidence()).isTrue();
         assertThat(result.hits()).isEmpty();
-        assertThat(result.documentHitCounts()).containsEntry(101L, 0);
+        assertThat(result.documentHitCounts()).isEmpty();
     }
 
     @Test

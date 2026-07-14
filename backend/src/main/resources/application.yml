@@ -132,6 +132,12 @@ app:
     enabled: ${APP_REDISSON_ENABLED:true}
     lock-watchdog-timeout-ms: ${REDISSON_LOCK_WATCHDOG_TIMEOUT_MS:30000}
     parse-task-lock-fail-message: ${REDISSON_PARSE_TASK_LOCK_FAIL_MESSAGE:当前文档解析任务处理中，请稍后重试}
+  quality:
+    console:
+      enabled: ${APP_QUALITY_CONSOLE_ENABLED:false}
+      environment: ${APP_QUALITY_CONSOLE_ENVIRONMENT:${spring.profiles.active:local}}
+    import:
+      max-file-bytes: ${APP_QUALITY_IMPORT_MAX_FILE_BYTES:2097152}
 
 rocketmq:
   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}

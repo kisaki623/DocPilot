@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.docpilot.backend.ai.context.ContextTrace;
+import com.docpilot.backend.ai.context.ContextTraceTechnicalDetails;
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagEvidenceCitation;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.util.ValidationUtils;
@@ -23,6 +25,10 @@ public class ConversationContextTraceServiceImpl implements ConversationContextT
     private static final TypeReference<List<String>> STRING_LIST_TYPE = new TypeReference<>() {
     };
     private static final TypeReference<Map<Long, Integer>> DOCUMENT_HIT_COUNTS_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<List<KnowledgeBaseRagEvidenceCitation>> CITATIONS_TYPE = new TypeReference<>() {
+    };
+    private static final TypeReference<ContextTraceTechnicalDetails> TECHNICAL_DETAILS_TYPE = new TypeReference<>() {
     };
 
     private final ConversationContextTraceMapper traceMapper;
@@ -109,6 +115,8 @@ public class ConversationContextTraceServiceImpl implements ConversationContextT
         entity.setEvidenceCount(trace.evidenceCount());
         entity.setNoEvidence(trace.noEvidence());
         entity.setDocumentHitCountsJson(writeJson(trace.documentHitCounts()));
+        entity.setCitationsJson(writeJson(trace.citations()));
+        entity.setTechnicalDetailsJson(writeJson(trace.technicalDetails()));
         entity.setMaxPromptTokens(trace.maxPromptTokens());
         entity.setEstimatedPromptTokens(trace.estimatedPromptTokens());
         entity.setTruncated(trace.truncated());
@@ -145,7 +153,9 @@ public class ConversationContextTraceServiceImpl implements ConversationContextT
                 readJson(entity.getTruncatedTypesJson(), STRING_LIST_TYPE, List.of()),
                 Boolean.TRUE.equals(entity.getFallbackUsed()),
                 entity.getFallbackReason(),
-                Boolean.TRUE.equals(entity.getModelCallSkipped())
+                Boolean.TRUE.equals(entity.getModelCallSkipped()),
+                readJson(entity.getTechnicalDetailsJson(), TECHNICAL_DETAILS_TYPE, null),
+                readJson(entity.getCitationsJson(), CITATIONS_TYPE, List.of())
         );
     }
 

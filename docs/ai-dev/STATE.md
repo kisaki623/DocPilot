@@ -1,5 +1,67 @@
 # DocPilot 当前状态
 
+## 2026-07-14 Agent Quality Console 持久化内部控制台状态（VERIFIED / DB+API+UI / CLOSEOUT）
+
+- Agent Quality Console 已从 artifact-backed 开发页升级为 DB-backed 内部质量控制台：默认仍由 `APP_QUALITY_CONSOLE_ENABLED=false` 关闭，开启后还必须满足当前登录用户 `status=ACTIVE` 且 `tb_user.is_internal_admin=1`。
+- 已在协作约束中写入“受控开发库数据库常驻授权”：当前 DocPilot 开发库允许只读诊断、幂等迁移、精确 `UPDATE`、临时 smoke 数据和 QualityRun 导入；破坏性数据库操作、远程 Docker / 云资源变更、非 DocPilot schema、清空 collection 和 push 仍需单独确认。
+- 真实开发库已执行 `011_init_quality_console_persistence.sql`，并二次执行验证幂等；确认 `tb_user.is_internal_admin`、`tb_quality_run`、`tb_quality_run_gate`、`tb_quality_run_case`、`tb_quality_import_event`、关键唯一索引均存在。
+- `username='zeus'` 已在唯一且 ACTIVE 的前提下设置 `is_internal_admin=1`；未读取或重置 zeus 密码。自动化验证使用临时 smoke 管理员账号完成，临时 token / log 已从 ignored 运行目录删除。
+- DB-backed 查询链路已验证：真实运行 `agent-quality-eval-smoke.ps1 -Mode run` 得到 marker `docpilot-agent-quality-eval-20260714151238-756d91`，导入后成为最新持久化 run，`status=PASS`、`dataSource=artifact_import`、`gateCount=1`、`evalCaseCount=19`。
+- P3 导入污染已收尾：测试 artifact 改用 `@TempDir`，runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 保留测试 marker；DB-backed runs/detail/trends 隐藏历史误导入测试 marker，不做破坏性删除。真实 API marker `quality-console-closeout-20260714160116` 验证 `limit=1` 不再被测试 marker 抢占，`limit=50` 导入后 `failed=0`。
+- DB-backed 领域趋势已恢复：artifact-backed 与 DB-backed 查询共用 `QualityDomainTrendAssembler`；真实 `/api/quality/trends?limit=50` 返回 `domainTrends.memoryQuality.runCount=4`、`domainTrends.ragRepresentativeEval.runCount=12`。
+- 权限和 UI 已验证：未登录 `/api/quality/runs` 业务 `401`，普通 ACTIVE 用户业务 `403`，内部管理员业务 `0`；管理员 `/quality?autoload=1` 显示最新 run、数据来源和导入信息，点击“趋势”tab 后可见 Memory / RAG representative 领域趋势卡；桌面与 `390px` 移动端无横向溢出，console error 为 `0`。
+- 已验证：后端 `mvn "-Dtest=*Quality*,DemoMysqlBootstrapSchemaTest" test` PASS（69 tests / 1 skipped）；前端 lint PASS；前端 build 在 `NODE_OPTIONS=--max-old-space-size=4096` 下 PASS；临时 18081 / 3007 和常用 dev 端口已释放。边界：并发导入行锁、批量查询性能和 DB JSON 损坏观测仍是后续增强项，不影响当前求职级收口。
+
+## 2026-07-14 Agent Quality Console disabled-state 状态（VERIFIED / UI+API）
+
+- 当前 `/quality` 页面误显示“运行次数 0 / 暂无样本 / 当前账号无权限”的根因已确认并修复：后端返回 `code=403` / `quality console is disabled` 时，前端不再泛化成账号无权限，也不再把加载失败解释成“没有生成 artifact”。
+- Quality Console 仍保持内部开关：默认 `app.quality.console.enabled=false`；未登录访问 `/api/quality/**` 仍返回 401，已登录但未开启 console flag 仍返回 403。只有本地内部验证环境显式开启 `APP_QUALITY_CONSOLE_ENABLED=true` 后，才允许读取本机 ignored artifact 聚合结果。
+- 当前质量运行数据链路仍是 artifact-backed，不是数据库持久化 QualityRun：`QualityArtifactServiceImpl` 扫描 `backend/target/**` 与 `tmp-e2e/**` 中的脱敏 artifact，本地仓库已有约 92 个可识别 run 文件；本轮未新增 QualityRun 表、未新增 owner 过滤，也未改变权限模型。
+- 前端修复点：`frontend/lib/api.ts` 增加 `quality console is disabled` 专用文案；`frontend/app/quality/page.tsx` 增加加载错误类型，disabled / forbidden / empty artifact 分开展示，并在刷新 runs 后自动修正过期 `selectedMarker`。
+- 已验证：前端 lint PASS；前端 build 在 `NODE_OPTIONS=--max-old-space-size=4096` 下 PASS；Quality 后端聚合相关 22 tests PASS；临时 3007 指向当前 8081 验证 disabled 文案正确；临时 18081（`APP_QUALITY_CONSOLE_ENABLED=true`）+ 3008 验证 runs=20、trend points=20、eval cases=19、detail 可读且 diagnostics 存在。边界：生产 build 会影响正在运行的旧 3000 dev 进程 `_next/static`，该已有进程需要手动重启恢复。
+
+## 2026-07-13 Conversation Context Inspector 状态（VERIFIED / UI+API）
+
+- Conversation 页右侧 Context Inspector 已升级为单一入口、双层结构：顶部按钮与回答内“上下文溯源”复用同一面板，不新增重复入口；顶部按钮会打开当前已选 trace 或最近一条 assistant 回答，回答内按钮绑定对应 `messageId`。
+- Inspector 默认展示产品化摘要层，继续突出本次回答来源、grounding policy、route decision、召回证据、实际引用、命中文档、Memory、Summary、fallback 和模型跳过状态；技术详情层需用户主动切换。
+- 新增 `ContextTrace.technicalDetails` / `tb_context_trace.technical_details_json`：记录 `traceId=ctx-{conversationId}-{messageId}`、messageId、路由原因、阶段耗时、retrieval score rows、evidence gate、token 分配和 dropped reasons、Memory/Summary 使用、fallback/safeError。`010_add_context_trace_technical_details.sql` 已在真实 MySQL tunnel 链路执行，列从缺失变为存在。
+- 技术详情安全边界已通过测试固化：不输出完整 prompt、assembled context、`ContextItem.content`、citation `quoteText/snippet`、证据全文、密钥、连接串、provider 原始错误体或 stack trace；历史 trace 缺少技术详情时标记 `available=false`。
+- 已验证：后端编译 PASS；后端定向 48 tests PASS；后端全量 `mvn test -DskipITs` PASS（999 tests / 5 skipped）；前端 `npm run lint` PASS、`npm run build` PASS；临时新版后端 `18081` + 前端 `3007` 的 Playwright 验证通过，marker `docpilot-context-inspector-ui-20260714003520`，覆盖顶部入口、回答内入口、`摘要 / 技术详情` 两层、assistant `#561` 严格模式无证据 gate 和 assistant `#559` 普通模型链路，`1021px` 打开态无横向溢出。边界：未替换用户已有 `8081` 进程，正向 evidence score row 未做浏览器视觉验证。
+
+## 2026-07-13 Conversation 引用来源展示状态（REVIEW / FRONTEND）
+
+- Conversation 回答卡片已从“横向铺满所有返回 citations”改成“摘要指标 + 默认实际引用 + 可展开完整返回证据”的结构，减少把检索召回结果误称为实际引用的混淆。
+- 页面现在区分 `实际引用`、`召回证据`、`命中文档`：正文出现 `[n]` 的 citation 计入实际引用；`contextTrace.evidenceCount` 表示召回证据；`documentHitCounts` 过滤正命中文档，缺 trace 的历史消息从 citations 自身 fallback 统计命中文档。
+- 正文 citation marker 会渲染为内部锚点样式，点击 `[n]` 可聚焦并高亮对应证据卡片；来源卡片展示文档标题、章节 / locator、chunk、quote/snippet 和次要 score，不再把文件名、编号、相似度压成一条横向 pill。
+- Trace Inspector 文案同步调整为“召回证据 / 实际引用 / 命中文档”，和回答卡片的来源口径保持一致。
+- 已验证：前端 `npm run lint` PASS、`npm run build` PASS。边界：未启动真实浏览器 / 后端 / tunnel 做点击定位、移动端和长文件名视觉验收。
+
+## 2026-07-13 Conversation citation 持久化与 hitCounts 去零状态（VERIFIED / API）
+
+- 已修复 Conversation 历史消息刷新后 citation cards 丢失的代码根因：`send()` 返回即时 citations，`list()` 现在从 `tb_context_trace.citations_json` 快照恢复顶层 `ConversationMessageResponse.citations`；旧行 `citations_json=NULL` 兼容为空，不回填旧回答。
+- 新增 `009_add_context_trace_citations.sql`，并同步 `007_init_conversation_context.sql` 与 demo fresh-volume 初始化脚本。`ContextTrace` 内部可携带 citations 供服务组装，但 JSON API 不暴露该字段，避免 Trace 摘要边界退化成 evidence 文本载体。
+- 已收敛 `documentHitCounts` 语义：后端只输出正命中文档；Conversation / KnowledgeBase 前端防御性过滤 `<=0`；Quality Console 的 zero-hit 文档数不再从旧 0 值推断，降级为未知。
+- 已验证：后端定向 72 tests PASS，`*Rag*,*KnowledgeBase*,*Conversation*` 回归 300 tests PASS（1 skipped），后端全量 `mvn test -DskipITs` PASS（996 tests / 0 failures / 5 skipped），前端 lint / build PASS，conversation grounding runner plan / dry-run PASS。
+- 真实迁移与 runtime 证据：`009_add_context_trace_citations.sql` 已在真实 MySQL tunnel 链路执行，`citations_json` 从缺失变为存在；临时新版后端 `18081` 的 `docpilot-conversation-grounding-20260713223647-cc009f` 9/9 PASS；临时新版后端 `18082` 的 `docpilot-citation-list-20260713224003-82668e` 验证 send/list citation 数量一致、citation 签名一致、hitCounts 无零值、Trace API 不暴露 citations。
+- 边界：这轮没有杀掉或替换用户已有 `8081` 后端进程，也没有跑浏览器 Playwright 页面刷新；当前手动 UI 要看到新版行为，需要重启现有后端。
+
+## 2026-07-13 Conversation AUTO_RAG 路由状态（VERIFIED）
+
+- 已修复 zeus / `运维知识库演示` 中 P1 SLA 问题未走 RAG 的通用根因：旧 AUTO_RAG 依赖少量正向 intent 关键词，业务制度类问题如 “P1 故障要求在多长时间内响应和恢复？” 未命中时会直接走底层模型。
+- 当前 `AUTO_RAG + bound KnowledgeBase` 采用极窄 negative gate：问候、感谢、助手身份 / 能力问题直接模型；其它实质问题先执行 KnowledgeBase retrieval probe，命中 evidence 后进入 `AUTO_RAG_EVIDENCE` 并返回 citations。
+- 当前 no-evidence 语义：非显式资料请求无 evidence 时 `AUTO_NO_EVIDENCE_MODEL`，模型继续回答；显式要求“根据 / 基于 / 引用文档或知识库”但无 evidence 时 `AUTO_REQUIRED_NO_EVIDENCE_FALLBACK`，`ragRequired=true`、`llmCalled=false`、`modelSkipped=true`；`STRICT_KB` 仍始终要求 evidence。
+- Conversation grounding runner 已更新为 9 个真实 case：`no-kb-model-only`、`no-kb-strict-normalized`、`T27/T28 recent turns`、`auto-smalltalk-no-rag`、`auto-no-evidence-fallback-model`、`auto-required-no-evidence-refusal`、`strict-no-evidence-refusal`、`auto-rag-evidence-citations`。
+- 最新真实 marker：`docpilot-conversation-grounding-20260713212058-5915ed`，命令为临时 18081 后端 + `conversation-grounding-smoke.ps1 -Mode run -SkipFrontend -ReuseRunningServices`；9/9 case PASS，artifact 只保存路由枚举、布尔、计数和脱敏 id，18081 已清理。
+- 边界：历史 zeus 会话中的旧 assistant 消息不会自动重写；需要新版后端重启后重新提问才能在 UI 看到修复效果。当前 retrieval 异常仍显式失败，不静默伪装成 no-evidence。
+
+## 2026-07-13 本地前后端启动报错诊断状态（BLOCKED / ENV）
+
+- 用户已有本地 frontend `3000` 与 backend `8081` 进程在监听；公开前端路由 `/`、`/login`、`/dashboard` 可返回 200，后端未鉴权接口可返回业务 401，说明前后端进程本身未崩溃。
+- 当前阻塞点是运行环境依赖：本地 MySQL / Qdrant tunnel 端口 `13306` / `6333` 不可达，而 `backend/.env` 的脱敏形状显示 MySQL 与 Qdrant 均按 localhost tunnel 方式配置。
+- 运行时证据：后端 `/actuator/health` 通过直连与前端 `/backend/actuator/health` 代理均超时；登录接口直连与前端代理均超时；JVM thread dump 显示 Tomcat 请求线程等待 Hikari 获取 MySQL 连接。
+- 结论：这轮不是前端 Next.js 进程崩溃，也不是端口未启动；主要是后端启动时未先建立云 MySQL / Qdrant 本地 tunnel，导致需要数据库的 API 卡住，并连带前端业务请求报错。
+- 未执行修复启动：本轮只做只读诊断与脱敏记录，未启动 tunnel、未重启用户已有 backend / frontend、未创建业务数据。
+
 ## 2026-07-13 Agent Memory T31 删除 / 会话禁用自动化验收状态（VERIFIED / REVIEW）
 
 - Memory quality smoke 已纳入高强度验收 T31 的两个可自动化子项：`RECENT_TURNS` contextMode 会话级禁用长期记忆，以及 ACTIVE memory soft delete 后不再被新的 `AGENT_MEMORY` Trace 选入。
@@ -76,14 +138,14 @@
 ## 2026-07-12 Quality Console Conversation grounding API 可见性（VERIFIED）
 
 - 已完成最小真实 API 可见性 smoke：启动本地临时后端（18081，Quality Console enabled，mock AI），注册临时用户后调用 `/api/quality/runs`、`/api/quality/runs/{marker}` 和 `/api/quality/eval-cases`。
-- 验证结果：`docpilot-conversation-grounding-20260712183609-a15fef` 在 Quality runs 中可见，source 为 `backend/target/conversation-grounding`；detail 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`；Eval Catalog 中 6 个 Conversation grounding case 全部关联该 marker 且 latest status 为 `PASS`。
-- 浏览器验证已补齐：临时 frontend（3007）指向 backend（18081），Playwright 打开 `/quality?autoload=1` 后可见 marker、source root 和 Artifact 分区 6 个 catalog case；console error 为 `0`，`390px` 移动端无横向溢出。
+- 验证结果：`docpilot-conversation-grounding-20260712183609-a15fef` 在 Quality runs 中可见，source 为 `backend/target/conversation-grounding`；detail 返回 `conversationGrounding` gate，历史 `caseCount=6`、`evalCaseCount=6`。2026-07-13 后 runner 已扩展到 9 case，并新增 AUTO required no-evidence 拒答语义。
+- 浏览器验证已补齐：临时 frontend（3007）指向 backend（18081），Playwright 打开 `/quality?autoload=1` 后可见 marker、source root 和 Artifact 分区当时的 catalog case；console error 为 `0`，`390px` 移动端无横向溢出。
 - 边界：本次只验证 Quality API / 页面读取 ignored artifact 和 catalog 关联，不上传文档、不调用 provider；临时 18081 后端和 3007 前端已清理，无端口残留。
 
 ## 2026-07-12 Conversation grounding Eval Catalog 资产化（VERIFIED）
 
-- Quality Eval Catalog 已纳入 Conversation grounding 路由矩阵，新增 6 个与真实 smoke artifact caseId 对齐的 catalog case：未绑定 KB 模型回答、未绑定 KB 误选 strict 归一、AUTO_RAG 泛问题不检索、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG 有 evidence citation。
-- 这些 case 的 `lastVerifiedMarker` 指向 `docpilot-conversation-grounding-20260712183609-a15fef`，并通过 `regressionPolicy=["conversation_grounding_smoke","quality_tests"]` 固化回归入口；Catalog API 仍只返回安全 identifier、summary、policy、marker 和 hints，不返回 question / expectedBehavior 原文。
+- Quality Eval Catalog 已纳入 Conversation grounding 路由矩阵，当前 catalog case 覆盖未绑定 KB 模型回答、未绑定 KB 误选 strict 归一、AUTO_RAG 明显闲聊不检索、AUTO_RAG 非显式资料无证据 fallback、AUTO_RAG 显式资料无证据拒答、STRICT_KB 无证据拒答、AUTO_RAG 有 evidence citation。
+- 这些 case 通过 `regressionPolicy=["conversation_grounding_smoke","quality_tests"]` 固化回归入口；Catalog API 仍只返回安全 identifier、summary、policy、marker 和 hints，不返回 question / expectedBehavior 原文。
 - 已验证：`mvn "-Dtest=AgentQualityEvalRunnerTest,QualityEvalCatalogServiceImplTest" test` PASS（6 tests）。
 
 ## 2026-07-12 Quality Console 与 Conversation grounding artifact（VERIFIED）
@@ -100,13 +162,13 @@
 ## 2026-07-12 Conversation grounding smoke 防回归状态（VERIFIED）
 
 - Conversation grounding 修复已固化为专用真实链路 runner：`scripts/smoke/conversation-grounding-smoke.ps1`，支持 `plan` / `dry-run` / `run`；真实 run 会启动 / 复用本地 tunnel、backend、frontend，创建临时用户 / KnowledgeBase / Conversation / 文档并生成 ignored 脱敏 artifact。
-- runner 覆盖未绑定 KB、未绑定 KB 误选 `STRICT_KB`、`AUTO_RAG` 普通问题、`AUTO_RAG` 无证据 fallback、`STRICT_KB` 无证据拒答、`AUTO_RAG` evidence citation 六类回归风险；Trace 断言 `groundingPolicy`、`routeDecision`、`ragTriggered`、`ragRequired`、`evidenceCount`、`llmCalled`、`modelSkipped`。
-- 已验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS，`conversation-grounding-smoke.ps1 -Mode dry-run` PASS，`ConversationGroundingSmokeScriptSafetyTest` 3 tests PASS；真实 marker `docpilot-conversation-grounding-20260712183609-a15fef` PASS，6/6 case 通过，artifact 位于 `backend/target/conversation-grounding/.../artifact.json`。边界：这是小规模真实链路防回归 smoke，不是大规模对话质量 benchmark。
+- runner 覆盖未绑定 KB、未绑定 KB 误选 `STRICT_KB`、`AUTO_RAG` 明显闲聊跳过、`AUTO_RAG` 非显式资料无证据 fallback、`AUTO_RAG` 显式资料无证据拒答、`STRICT_KB` 无证据拒答、`AUTO_RAG` evidence citation，以及 T27/T28 最近轮次上下文隔离；Trace 断言 `groundingPolicy`、`routeDecision`、`ragTriggered`、`ragRequired`、`evidenceCount`、`llmCalled`、`modelSkipped`。
+- 已验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS，`conversation-grounding-smoke.ps1 -Mode dry-run` PASS，`ConversationGroundingSmokeScriptSafetyTest` 3 tests PASS；历史 marker `docpilot-conversation-grounding-20260712183609-a15fef` PASS；最新 marker `docpilot-conversation-grounding-20260713212058-5915ed` 为 9/9 case PASS。边界：这是小规模真实链路防回归 smoke，不是大规模对话质量 benchmark。
 
 ## 2026-07-12 Conversation grounding policy 路由状态（VERIFIED）
 
-- Conversation 回答路由已拆分为独立 `GroundingPolicy`：未绑定 KnowledgeBase 默认 `MODEL_ONLY`，绑定 KB 默认 `AUTO_RAG`，只有用户显式选择 `STRICT_KB` 时才启用“无 evidence 安全拒答”。“精炼回答模式”和 `contextMode` 不再等价于严格知识库模式。
-- Conversation 入口不再复用单文档 / KnowledgeBase grounded QA 的 strict prompt，而是调用 `answerConversation(...)` 专用 prompt；普通常识、闲聊或 AUTO_RAG 未触发资料意图时会直接调用底层模型，不触发 no-evidence refusal。
+- Conversation 回答路由已拆分为独立 `GroundingPolicy`：未绑定 KnowledgeBase 默认 `MODEL_ONLY`，绑定 KB 默认 `AUTO_RAG`；用户显式选择 `STRICT_KB` 时始终要求 evidence；用户在 `AUTO_RAG` 中明确要求“根据 / 基于 / 引用文档或知识库”也会被视为 required evidence。“精炼回答模式”和 `contextMode` 不再等价于严格知识库模式。
+- Conversation 入口不再复用单文档 / KnowledgeBase grounded QA 的 strict prompt，而是调用 `answerConversation(...)` 专用 prompt；明显闲聊或无绑定 KB 直接调用底层模型，绑定 KB 的实质问题优先 retrieval probe，有 evidence 才注入 RAG。
 - Trace 现可记录并回读 `groundingPolicy`、`routeDecision`、`ragTriggered`、`ragRequired`、`evidenceCount`、`llmCalled`、`modelSkipped`、`fallbackReason`；消息与 Trace 同事务保存，刷新消息列表后仍能看到路由证据。
 - 前端 Conversation 页面已按 Trace 区分“知识库来源 / 未使用知识库 / 资料不足”，普通模型回答不再显示“0 条来源”；回答依据可在“普通模型 / 自动知识库 / 仅基于知识库”之间显式选择。
 - 已验证：Conversation / grounding 定向 37 tests PASS，schema / smoke script safety 9 tests PASS；新增 `ContextTraceSerializationTest` 锁定 `modelSkipped` JSON alias；授权后已执行 `008_add_context_trace_grounding.sql` 并确认云 MySQL Trace 三列存在；真实 Conversation grounding smoke marker `cg20260712175003-50312c` PASS，覆盖未绑定 KB、AUTO_RAG、STRICT_KB、evidence citation 和 no-evidence fallback；前端 Playwright marker `ui-cg-20260712095111-7094ef` PASS，确认普通回答显示“未使用知识库”且没有“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”；`mvn test -DskipITs` PASS（953 tests，0 failures，0 errors，5 skipped）；前端 `npm run lint` / `npm run build` PASS。
@@ -549,3 +611,12 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - 2026-06-13 已修复云服务器 Prometheus 9090 公网暴露：`docpilot-prometheus` 仅绑定远程本机 `127.0.0.1:9090`，远程 `firewalld` 已移除 `9090/tcp` 放行，公网 `62.234.3.22:9090` 验证不可连；腾讯云安全组仍建议在控制台重新检测并收口云侧入站规则。
 - T009 已补充 RAG scope guard：retrieval / QA / Agent `rag_qa_tool` / parse success indexing trigger 均以 userId、documentId、indexVersion 作为最小隔离边界。
 - Vector search 仍依赖 metadata filter；service 层新增返回 hit 的二次校验，防止跨用户、跨文档或跨版本 citation 泄露。
+
+## 7. 2026-07-13 ParseTask / embedding batch 当前事实
+
+- 当前百炼 `text-embedding-v4` OpenAI-compatible embedding endpoint 单条请求和短 batch 可用，返回向量维度为 `1024`。
+- 当前 Qdrant collection `docpilot_rag_v2` 可达、状态 green、vector size 为 `1024`，与本地 `RAG_QDRANT_DIMENSION=1024` 一致。
+- 已确认真实解析失败 task `1322` 的根因不是 parser、Qdrant collection 不存在或维度不一致，而是 OpenAI-compatible embedding provider 一次提交约 `18` 个 chunks，超过百炼 batch size `10` 限制，provider 返回 HTTP 400。
+- OpenAI-compatible embedding provider 已改为最多 `10` 条一组拆分 batch；这影响后续所有真实 embedding indexing / rebuild / retry。
+- ParseTask 的 RAG indexing 失败错误现在采用结构化安全摘要，不再持久化原始 provider message；错误摘要用于用户可见 status API 和后端日志诊断。
+- task `1322` 仍需在新版后端启动后通过 retry / reparse 恢复，不能仅凭离线测试标记为真实业务数据已恢复。

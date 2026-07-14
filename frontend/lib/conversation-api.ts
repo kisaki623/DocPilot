@@ -5,6 +5,81 @@ import type { KnowledgeBaseCitationItem } from "@/lib/knowledge-base-api";
 export type ConversationContextMode = "RECENT_TURNS" | "AGENT_MEMORY";
 export type GroundingPolicy = "MODEL_ONLY" | "AUTO_RAG" | "STRICT_KB";
 
+export interface ContextTraceTechnicalDetails {
+  available?: boolean;
+  traceId?: string;
+  messageId?: number | null;
+  route?: {
+    groundingPolicy?: string | null;
+    routeDecision?: string | null;
+    routeReason?: string | null;
+    ragTriggered?: boolean;
+    ragRequired?: boolean;
+    noEvidence?: boolean;
+    llmCalled?: boolean | null;
+    modelSkipped?: boolean;
+  };
+  timingsMs?: Record<string, number>;
+  retrieval?: {
+    retrievalMode?: string | null;
+    provider?: string | null;
+    topK?: number | null;
+    evidenceCount?: number;
+    documentHitCounts?: Record<string, number>;
+    rerankApplied?: boolean;
+    rerankModel?: string | null;
+    rerankFailureReason?: string | null;
+    multiQueryApplied?: boolean;
+    queryVariantCount?: number;
+    queryDedupeCount?: number;
+    evidenceGate?: {
+      status?: string;
+      reason?: string | null;
+    };
+    scoreRows?: Array<{
+      citationIndex?: number | null;
+      documentId?: number | null;
+      documentTitle?: string | null;
+      chunkId?: number | null;
+      chunkIndex?: number | null;
+      locator?: string | null;
+      vectorScore?: number | null;
+      keywordScore?: number | null;
+      fusedScore?: number | null;
+      rerankScore?: number | null;
+      finalScore?: number | null;
+      selectedAsCitation?: boolean;
+    }>;
+  };
+  tokenBudget?: {
+    maxPromptTokens?: number;
+    estimatedPromptTokens?: number;
+    truncated?: boolean;
+    byType?: Array<{
+      type: string;
+      usedCount: number;
+      usedTokens: number;
+      droppedCount: number;
+      droppedTokens: number;
+    }>;
+    droppedReasons?: Array<{
+      type: string;
+      count: number;
+      reason: string;
+    }>;
+  };
+  contextUsage?: {
+    summary?: { used?: boolean };
+    memory?: { used?: boolean; count?: number; types?: string[] };
+    recent?: { turnCount?: number; messageCount?: number };
+  };
+  fallback?: {
+    used?: boolean;
+    reason?: string | null;
+    safeError?: string | null;
+  };
+}
+
 export interface ContextTraceData {
   conversationId: number;
   messageId?: number | null;
@@ -34,6 +109,7 @@ export interface ContextTraceData {
   fallbackReason: string;
   modelCallSkipped: boolean;
   modelSkipped?: boolean;
+  technicalDetails?: ContextTraceTechnicalDetails | null;
 }
 
 export interface ConversationItem {

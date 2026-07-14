@@ -442,11 +442,11 @@ class QualityArtifactServiceImplTest {
 
         QualityRunDetail detail = service.getRunDetail("docpilot-quality-diagnostics").orElseThrow();
 
-        assertThat(detail.diagnostics().documentCoverage().documentCount()).isEqualTo(2);
+        assertThat(detail.diagnostics().documentCoverage().documentCount()).isEqualTo(1);
         assertThat(detail.diagnostics().documentCoverage().coveredDocumentCount()).isEqualTo(1);
-        assertThat(detail.diagnostics().documentCoverage().zeroHitDocumentCount()).isEqualTo(1);
+        assertThat(detail.diagnostics().documentCoverage().zeroHitDocumentCount()).isNull();
         assertThat(detail.diagnostics().documentCoverage().maxHitsPerDocument()).isEqualTo(3);
-        assertThat(detail.diagnostics().documentCoverage().minHitsPerDocument()).isEqualTo(0);
+        assertThat(detail.diagnostics().documentCoverage().minHitsPerDocument()).isEqualTo(3);
         assertThat(detail.diagnostics().toolQuality().toolCallCount()).isEqualTo(4);
         assertThat(detail.diagnostics().toolQuality().toolArgsReviewCount()).isEqualTo(1);
         assertThat(detail.diagnostics().memoryQuality().memoryHitCount()).isEqualTo(2);

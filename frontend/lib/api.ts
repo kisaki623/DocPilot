@@ -22,6 +22,18 @@ function normalizeApiErrorMessage(payload: ApiResponse<unknown> | null, fallback
   if (!payload) {
     return fallback;
   }
+  if (
+    payload.code === 403 &&
+    payload.message.toLowerCase().includes("quality console is disabled")
+  ) {
+    return "质量控制台未开启：请在本地内部验证环境设置 APP_QUALITY_CONSOLE_ENABLED=true 后重启后端。";
+  }
+  if (
+    payload.code === 403 &&
+    payload.message.toLowerCase().includes("quality console forbidden")
+  ) {
+    return "仅内部管理员可访问质量控制台。";
+  }
   if (payload.code === 1021 || payload.code === 1022) {
     return "无权限访问该知识库或该资源不存在，请确认当前登录账号和资源归属。";
   }

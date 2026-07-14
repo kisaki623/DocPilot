@@ -29,8 +29,9 @@ function Show-ConversationGroundingPlan {
     gates = @(
       "no KB uses MODEL_ONLY and never no-evidence refusal",
       "no KB with requested STRICT_KB is normalized to MODEL_ONLY",
-      "AUTO_RAG generic knowledge-base concept question does not trigger RAG",
-      "AUTO_RAG no evidence falls back to model",
+      "AUTO_RAG obvious small talk does not trigger RAG",
+      "AUTO_RAG substantive no evidence falls back to model",
+      "AUTO_RAG explicitly required no evidence refuses and skips the model",
       "STRICT_KB no evidence refuses and skips the model",
       "AUTO_RAG evidence returns citations",
       "T27 RECENT_TURNS keeps prior turns inside the same conversation",
@@ -42,8 +43,9 @@ function Show-ConversationGroundingPlan {
     plannedCases = @(
       "no-kb-model-only",
       "no-kb-strict-normalized",
-      "auto-generic-no-rag",
+      "auto-smalltalk-no-rag",
       "auto-no-evidence-fallback-model",
+      "auto-required-no-evidence-refusal",
       "strict-no-evidence-refusal",
       "auto-rag-evidence-citations",
       "T27-recent-turns-context",
@@ -331,13 +333,15 @@ if ($Mode -eq "dry-run") {
       [ordered]@{ name = "backendDirExists"; pass = (Test-Path -LiteralPath (Join-Path $repoRoot "backend")) },
       [ordered]@{ name = "frontendDirExists"; pass = (Test-Path -LiteralPath (Join-Path $repoRoot "frontend")) },
       [ordered]@{ name = "migrationScriptExists"; pass = (Test-Path -LiteralPath (Join-Path $repoRoot "backend/src/main/resources/sql/008_add_context_trace_grounding.sql")) },
+      [ordered]@{ name = "citationMigrationScriptExists"; pass = (Test-Path -LiteralPath (Join-Path $repoRoot "backend/src/main/resources/sql/009_add_context_trace_citations.sql")) },
       [ordered]@{ name = "noDataCreated"; pass = $true }
     )
     plannedCases = @(
       "no-kb-model-only",
       "no-kb-strict-normalized",
-      "auto-generic-no-rag",
+      "auto-smalltalk-no-rag",
       "auto-no-evidence-fallback-model",
+      "auto-required-no-evidence-refusal",
       "strict-no-evidence-refusal",
       "auto-rag-evidence-citations",
       "T27-recent-turns-context",
@@ -411,15 +415,15 @@ try {
 
   $emptyKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Empty KB $marker"; description = "temporary grounding smoke empty kb" }) $token
   $convAutoGeneric = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Auto Generic $marker"; contextMode = "RECENT_TURNS"; boundKnowledgeBaseId = $emptyKb.id }) $token
-  $case2 = Send-And-Trace $convAutoGeneric.conversationId "What is a knowledge base? Answer briefly." $token
-  Assert-True ($case2.trace.groundingPolicy -eq "AUTO_RAG") "auto_generic_policy"
-  Assert-True ($case2.trace.routeDecision -eq "AUTO_INTENT_NOT_TRIGGERED_MODEL") "auto_generic_route"
-  Assert-True (-not [bool]$case2.trace.ragTriggered) "auto_generic_rag_not_triggered"
-  Assert-True ([bool]$case2.trace.llmCalled -and -not [bool]$case2.trace.modelSkipped) "auto_generic_calls_model"
-  $cases.Add((New-CaseSummary "auto-generic-no-rag" $case2.trace 0))
+  $case2 = Send-And-Trace $convAutoGeneric.conversationId "Hello" $token
+  Assert-True ($case2.trace.groundingPolicy -eq "AUTO_RAG") "auto_smalltalk_policy"
+  Assert-True ($case2.trace.routeDecision -eq "AUTO_INTENT_NOT_TRIGGERED_MODEL") "auto_smalltalk_route"
+  Assert-True (-not [bool]$case2.trace.ragTriggered) "auto_smalltalk_rag_not_triggered"
+  Assert-True ([bool]$case2.trace.llmCalled -and -not [bool]$case2.trace.modelSkipped) "auto_smalltalk_calls_model"
+  $cases.Add((New-CaseSummary "auto-smalltalk-no-rag" $case2.trace 0))
 
   $convAutoNoEvidence = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Auto No Evidence $marker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $emptyKb.id }) $token
-  $case3 = Send-And-Trace $convAutoNoEvidence.conversationId "Based on the documents, answer whether $($marker)-EMPTY-EVIDENCE exists." $token "AUTO_RAG"
+  $case3 = Send-And-Trace $convAutoNoEvidence.conversationId "What does $($marker)-EMPTY-EVIDENCE mean?" $token "AUTO_RAG"
   Assert-True ($case3.trace.groundingPolicy -eq "AUTO_RAG") "auto_no_evidence_policy"
   Assert-True ($case3.trace.routeDecision -eq "AUTO_NO_EVIDENCE_MODEL") "auto_no_evidence_route"
   Assert-True ([bool]$case3.trace.ragTriggered) "auto_no_evidence_rag_triggered"
@@ -427,6 +431,16 @@ try {
   Assert-True ([int]$case3.trace.evidenceCount -eq 0) "auto_no_evidence_zero"
   Assert-True ([bool]$case3.trace.llmCalled -and -not [bool]$case3.trace.modelSkipped) "auto_no_evidence_calls_model"
   $cases.Add((New-CaseSummary "auto-no-evidence-fallback-model" $case3.trace 0))
+
+  $case3b = Send-And-Trace $convAutoNoEvidence.conversationId "Based on the documents, answer whether $($marker)-EMPTY-EVIDENCE exists." $token "AUTO_RAG"
+  Assert-True ($case3b.trace.groundingPolicy -eq "AUTO_RAG") "auto_required_no_evidence_policy"
+  Assert-True ($case3b.trace.routeDecision -eq "AUTO_REQUIRED_NO_EVIDENCE_FALLBACK") "auto_required_no_evidence_route"
+  Assert-True ([bool]$case3b.trace.ragTriggered) "auto_required_no_evidence_rag_triggered"
+  Assert-True ([bool]$case3b.trace.ragRequired) "auto_required_no_evidence_required"
+  Assert-True ([int]$case3b.trace.evidenceCount -eq 0) "auto_required_no_evidence_zero"
+  Assert-True (-not [bool]$case3b.trace.llmCalled -and [bool]$case3b.trace.modelSkipped) "auto_required_no_evidence_skips_model"
+  Assert-True ($case3b.trace.fallbackReason -eq "REQUIRED_EVIDENCE_NO_EVIDENCE") "auto_required_no_evidence_fallback_reason"
+  $cases.Add((New-CaseSummary "auto-required-no-evidence-refusal" $case3b.trace 0))
 
   $case4 = Send-And-Trace $convAutoNoEvidence.conversationId "Only use the knowledge base: what does $($marker)-STRICT-MISSING mean?" $token "STRICT_KB"
   Assert-True ($case4.trace.groundingPolicy -eq "STRICT_KB") "strict_no_evidence_policy"
@@ -452,7 +466,7 @@ try {
   $evidenceKb = Invoke-JsonApi "POST" "/api/knowledge-bases" ([ordered]@{ name = "Evidence KB $marker"; description = "temporary grounding smoke evidence kb" }) $token
   Invoke-JsonApi "POST" "/api/knowledge-bases/$($evidenceKb.id)/documents" ([ordered]@{ documentIds = @($doc.id) }) $token | Out-Null
   $convEvidence = Invoke-JsonApi "POST" "/api/conversations" ([ordered]@{ title = "Auto Evidence $marker"; contextMode = "AGENT_MEMORY"; boundKnowledgeBaseId = $evidenceKb.id }) $token
-  $case5 = Send-And-Trace $convEvidence.conversationId "Based on the documents, explain what $($marker)-AUTO-EVIDENCE proves." $token "AUTO_RAG"
+  $case5 = Send-And-Trace $convEvidence.conversationId "What does $($marker)-AUTO-EVIDENCE prove?" $token "AUTO_RAG"
   $citationCount = ($case5.message.citations | Measure-Object).Count
   Assert-True ($case5.trace.groundingPolicy -eq "AUTO_RAG") "auto_evidence_policy"
   Assert-True ($case5.trace.routeDecision -eq "AUTO_RAG_EVIDENCE") "auto_evidence_route"

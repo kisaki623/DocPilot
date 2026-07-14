@@ -72,7 +72,7 @@ class KnowledgeBaseSearchToolTest {
                 "mock",
                 "kb_collection",
                 "mock-embedding",
-                Map.of(101L, 1, 102L, 0),
+                Map.of(101L, 1, 102L, 0, 999L, 2),
                 "hybrid",
                 true,
                 "mock-rerank",
@@ -101,7 +101,7 @@ class KnowledgeBaseSearchToolTest {
         assertThat(queryCaptor.getValue().multiQueryEnabled()).isTrue();
         assertThat(queryCaptor.getValue().maxQueryVariants()).isEqualTo(3);
         assertThat(result.noEvidence()).isFalse();
-        assertThat(result.documentHitCounts()).containsEntry(101L, 1).containsEntry(102L, 0);
+        assertThat(result.documentHitCounts()).containsOnly(Map.entry(101L, 1));
         assertThat(result.retrievalMode()).isEqualTo("hybrid");
         assertThat(result.rerankApplied()).isTrue();
         assertThat(result.multiQueryApplied()).isTrue();
@@ -153,7 +153,7 @@ class KnowledgeBaseSearchToolTest {
 
         assertThat(result.noEvidence()).isTrue();
         assertThat(result.hitCount()).isZero();
-        assertThat(result.documentHitCounts()).containsEntry(101L, 0).containsEntry(102L, 0);
+        assertThat(result.documentHitCounts()).isEmpty();
         assertThat(result.outputSummary()).contains("noEvidence=true");
     }
 

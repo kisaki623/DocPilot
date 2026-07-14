@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
+import QualityNavLink from "@/components/quality-nav-link";
 import ShellAuthChip from "@/components/shell-auth-chip";
 import "./globals.css";
 
@@ -45,6 +46,7 @@ export default function RootLayout({
                     {item.label}
                   </Link>
                 ))}
+                <QualityNavLink />
               </nav>
 
               <ShellAuthChip />

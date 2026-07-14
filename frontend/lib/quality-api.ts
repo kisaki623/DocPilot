@@ -165,6 +165,9 @@ export interface QualityRunSummary {
   tokenUsage: QualityTokenUsageSummary;
   artifactMissing: boolean;
   artifactParseFailed: boolean;
+  environment?: string | null;
+  dataSource?: string | null;
+  importedAt?: string | null;
 }
 
 export interface QualityRunDetail {
@@ -225,6 +228,16 @@ export interface QualityRepeatedCaseSummary {
   latestRunMarker: string;
 }
 
+export interface QualityConsoleStatus {
+  enabled: boolean;
+  authorized: boolean;
+  reason: string;
+  dataMode: string;
+  runCount: number;
+  lastImportedAt?: string | null;
+  environment: string;
+}
+
 export interface QualityTrendSummary {
   limit: number;
   runCount: number;
@@ -246,6 +259,15 @@ export function listQualityRuns(
 ): Promise<ApiResponse<QualityRunSummary[]>> {
   const params = new URLSearchParams({ limit: String(limit) });
   return apiRequest<QualityRunSummary[]>(`/api/quality/runs?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
+  });
+}
+
+export function getQualityConsoleStatus(): Promise<ApiResponse<QualityConsoleStatus>> {
+  return apiRequest<QualityConsoleStatus>("/api/quality/status", {
     method: "GET",
     headers: {
       ...buildAuthorizationHeader()

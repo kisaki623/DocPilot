@@ -44,7 +44,7 @@ class KnowledgeBaseEvidenceContextBuilderTest {
         );
 
         assertThat(result.triggered()).isTrue();
-        assertThat(result.required()).isFalse();
+        assertThat(result.required()).isTrue();
         assertThat(result.noEvidence()).isFalse();
         assertThat(result.items()).hasSize(1);
         assertThat(result.items().get(0).type()).isEqualTo(ContextType.RAG_EVIDENCE);
@@ -63,12 +63,12 @@ class KnowledgeBaseEvidenceContextBuilderTest {
     }
 
     @Test
-    void shouldTriggerOptionalRagWithoutFallbackForProjectStatusIntent() {
+    void shouldProbeAutoRagWithoutFallbackForSubstantiveQuestionWhenNoEvidence() {
         when(retrievalService.retrieve(any())).thenReturn(result(List.of(), List.of(), Map.of()));
 
         KnowledgeBaseEvidenceResult result = builder.build(
                 conversation(3L),
-                "project status update",
+                "太阳为什么会发光",
                 ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null)
         );
 
@@ -82,10 +82,10 @@ class KnowledgeBaseEvidenceContextBuilderTest {
     }
 
     @Test
-    void autoRagShouldNotTriggerRetrievalForGeneralQuestion() {
+    void autoRagShouldNotTriggerRetrievalForObviousSmallTalk() {
         KnowledgeBaseEvidenceResult result = builder.build(
                 conversation(3L),
-                "太阳为什么会发光",
+                "你好",
                 ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, true),
                 GroundingPolicy.AUTO_RAG
         );
@@ -98,25 +98,52 @@ class KnowledgeBaseEvidenceContextBuilderTest {
     }
 
     @Test
-    void autoRagShouldNotTreatKnowledgeBaseConceptQuestionAsRetrievalIntent() {
-        KnowledgeBaseEvidenceResult englishResult = builder.build(
+    void autoRagShouldProbeOperationalKnowledgeBaseQuestionWithoutDomainKeyword() {
+        KnowledgeBaseRagRetrievalHit hit = hit(
+                "vector-p1",
+                "服务等级协议与客户支持规范",
+                "P1 故障需要 10 分钟内首次响应，并在 2 小时内恢复或提供可验证绕行方案。"
+        );
+        KnowledgeBaseRagEvidenceCitation citation = hit.toCitation();
+        when(retrievalService.retrieve(any())).thenReturn(result(List.of(hit), List.of(citation), Map.of(101L, 1)));
+
+        KnowledgeBaseEvidenceResult result = builder.build(
+                conversation(3L),
+                "P1 故障要求在多长时间内响应和恢复？",
+                ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, true),
+                GroundingPolicy.AUTO_RAG
+        );
+
+        assertThat(result.triggered()).isTrue();
+        assertThat(result.required()).isFalse();
+        assertThat(result.noEvidence()).isFalse();
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_RAG_EVIDENCE);
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().get(0).content()).contains("10 分钟", "2 小时");
+        assertThat(result.citations()).containsExactly(citation);
+
+        ArgumentCaptor<KnowledgeBaseRagRetrievalQuery> captor =
+                ArgumentCaptor.forClass(KnowledgeBaseRagRetrievalQuery.class);
+        verify(retrievalService).retrieve(captor.capture());
+        assertThat(captor.getValue().query()).isEqualTo("P1 故障要求在多长时间内响应和恢复？");
+    }
+
+    @Test
+    void autoRagShouldProbeKnowledgeBaseConceptQuestionWhenBound() {
+        when(retrievalService.retrieve(any())).thenReturn(result(List.of(), List.of(), Map.of()));
+
+        KnowledgeBaseEvidenceResult result = builder.build(
                 conversation(3L),
                 "What is a knowledge base?",
                 ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, true),
                 GroundingPolicy.AUTO_RAG
         );
-        KnowledgeBaseEvidenceResult chineseResult = builder.build(
-                conversation(3L),
-                "知识库是什么？",
-                ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, true),
-                GroundingPolicy.AUTO_RAG
-        );
 
-        assertThat(englishResult.triggered()).isFalse();
-        assertThat(englishResult.routeDecision()).isEqualTo(RouteDecision.AUTO_INTENT_NOT_TRIGGERED_MODEL);
-        assertThat(chineseResult.triggered()).isFalse();
-        assertThat(chineseResult.routeDecision()).isEqualTo(RouteDecision.AUTO_INTENT_NOT_TRIGGERED_MODEL);
-        verifyNoInteractions(retrievalService);
+        assertThat(result.triggered()).isTrue();
+        assertThat(result.required()).isFalse();
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_NO_EVIDENCE_MODEL);
+        verify(retrievalService).retrieve(any());
     }
 
     @Test
@@ -159,10 +186,28 @@ class KnowledgeBaseEvidenceContextBuilderTest {
         );
 
         assertThat(result.triggered()).isTrue();
-        assertThat(result.required()).isFalse();
+        assertThat(result.required()).isTrue();
         assertThat(result.noEvidence()).isTrue();
-        assertThat(result.fallbackAnswer()).isBlank();
-        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_NO_EVIDENCE_MODEL);
+        assertThat(result.fallbackAnswer()).contains("没有找到足够证据");
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_REQUIRED_NO_EVIDENCE_FALLBACK);
+    }
+
+    @Test
+    void autoRagShouldRefuseWhenExplicitCitationRequestHasNoEvidence() {
+        when(retrievalService.retrieve(any())).thenReturn(result(List.of(), List.of(), Map.of()));
+
+        KnowledgeBaseEvidenceResult result = builder.build(
+                conversation(3L),
+                "请引用材料回答这个编号是否存在",
+                ContextPolicy.forMode(ConversationContextMode.AGENT_MEMORY, null, true),
+                GroundingPolicy.AUTO_RAG
+        );
+
+        assertThat(result.triggered()).isTrue();
+        assertThat(result.required()).isTrue();
+        assertThat(result.noEvidence()).isTrue();
+        assertThat(result.fallbackAnswer()).contains("没有找到足够证据");
+        assertThat(result.routeDecision()).isEqualTo(RouteDecision.AUTO_REQUIRED_NO_EVIDENCE_FALLBACK);
     }
 
     @Test

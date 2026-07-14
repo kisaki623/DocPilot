@@ -70,6 +70,12 @@ public class ConversationContextTrace {
     @TableField("document_hit_counts_json")
     private String documentHitCountsJson;
 
+    @TableField("citations_json")
+    private String citationsJson;
+
+    @TableField("technical_details_json")
+    private String technicalDetailsJson;
+
     @TableField("max_prompt_tokens")
     private Integer maxPromptTokens;
 
@@ -252,6 +258,22 @@ public class ConversationContextTrace {
 
     public void setDocumentHitCountsJson(String documentHitCountsJson) {
         this.documentHitCountsJson = documentHitCountsJson;
+    }
+
+    public String getCitationsJson() {
+        return citationsJson;
+    }
+
+    public void setCitationsJson(String citationsJson) {
+        this.citationsJson = citationsJson;
+    }
+
+    public String getTechnicalDetailsJson() {
+        return technicalDetailsJson;
+    }
+
+    public void setTechnicalDetailsJson(String technicalDetailsJson) {
+        this.technicalDetailsJson = technicalDetailsJson;
     }
 
     public Integer getMaxPromptTokens() {

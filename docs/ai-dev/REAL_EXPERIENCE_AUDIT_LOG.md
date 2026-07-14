@@ -34,6 +34,12 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-14 | `quality-console-closeout-20260714160116` | VERIFIED（Quality artifact import root 隔离已收口） | `backend/target/quality-console-closeout-20260714160116/api-summary.json` | 修复 `REA-20260714-P3-039`：单测 artifact 改用临时 repo root，runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 测试 marker，DB-backed runs/detail/trends 隐藏历史误导入测试 marker。真实 API 验证 `limit=1` 不再导入测试样本，`firstRunIsTestMarker=false`；`limit=50` 后 Memory/RAG representative domain trends 可见。 |
+| 2026-07-14 | `quality-console-disabled-state-20260714` | VERIFIED / UI+API（disabled 文案与开启后可见性均验证） | 无新 artifact | 用户报告 Agent Quality Console 显示“运行次数 0 / 暂无样本 / 当前账号无权限”。根因是当前后端未开启 `app.quality.console.enabled`，业务返回 `quality console is disabled`，但前端把 403 泛化成账号无权限并把加载失败渲染成空 artifact。已修复错误文案、加载失败空态和旧 marker 选择；临时 3007 验证 disabled 文案，临时 18081 + 3008 验证真实 runs / trend / eval cases / detail 可见，登记为 `REA-20260714-P2-038`。 |
+| 2026-07-13 | `conversation-citation-ui-20260713` | FIXED_PENDING_VERIFY（前端 lint/build 通过，浏览器交互待验） | 无新 artifact | 用户指出 Conversation 回答卡片把全部召回证据横向称为“知识库来源”，与正文实际引用 `[2]`、`[5]` 混淆且可读性差。已改为默认展示实际引用、区分实际引用 / 召回证据 / 命中文档、展开查看完整返回证据，并支持点击正文引用定位证据卡片；登记为 `REA-20260713-P2-037`。 |
+| 2026-07-13 | `docpilot-citation-list-20260713224003-82668e` | VERIFIED / API（迁移与历史 list citation 恢复通过） | `backend/target/conversation-citation-list/docpilot-citation-list-20260713224003-82668e/artifact.json` | 用户复查 zeus / `运维知识库演示` 后发现最新 RAG 回答事实正确，但历史消息刷新后 citation cards 不能恢复，且 Trace 出现 `documentHitCounts` 零命中文档噪声。已新增 `citations_json` 快照、历史 list 恢复顶层 citations、hitCounts positive-only 和前端零值过滤；真实 MySQL 已执行 `009`，临时新版后端验证 send/list citation 数量均为 1、签名一致、send/list zero-hit count 均为 0，登记为 `REA-20260713-P2-036`。 |
+| 2026-07-13 | `docpilot-conversation-grounding-20260713212058-5915ed` | VERIFIED（Conversation AUTO_RAG 泛化路由修复） | `backend/target/conversation-grounding/docpilot-conversation-grounding-20260713212058-5915ed/artifact.json` | 用户 zeus / `运维知识库演示` 会话中 P1 SLA 问题未触发 RAG，Trace 为 `AUTO_INTENT_NOT_TRIGGERED_MODEL`、`ragTriggered=false`、`evidenceCount=0`，底层模型给出与 KB 不一致的响应 / 恢复时间；已改为极窄 negative gate + evidence probe，并新增 AUTO required no-evidence 拒答 case。真实 smoke 9/9 PASS，登记为 `REA-20260713-P1-035`。 |
+| 2026-07-13 | `local-runtime-diagnosis-20260713` | BLOCKED（本地 tunnel 缺失导致后端 DB 请求超时） | 无新 artifact | 用户已有 frontend `3000` 与 backend `8081` 进程在监听；前端公开路由返回 200，后端未鉴权 Quality API 返回业务 401。但本地 `13306` / `6333` tunnel 端口不可达，`/actuator/health` 与登录接口通过直连和前端代理均超时；JVM thread dump 显示请求线程等待 Hikari 获取 MySQL 连接。结论是启动顺序 / tunnel 缺失导致的环境阻塞，登记为 `REA-20260713-P3-034`。 |
 | 2026-07-13 | `docpilot-memory-quality-20260713015241-320bed` | REVIEW（T31 删除 / 会话级禁用通过，strict per-memory disable 缺口） | `backend/target/memory-quality/docpilot-memory-quality-20260713015241-320bed/artifact.json` | 扩展 memory quality runner 覆盖 T31：唯一 ACTIVE memory 在 `AGENT_MEMORY` Trace 中被选入且 `use_count` 增加，`RECENT_TURNS` 会话抑制长期记忆且 `use_count` 不变，delete 后 API / DB 状态为 `DELETED`，新的 `AGENT_MEMORY` Trace 不再选入。发现当前没有 per-memory `DISABLED` 状态或禁用 / 恢复 API，登记为 `REA-20260713-P2-033`；artifact redaction scan PASS，常用端口无 LISTEN 残留。 |
 | 2026-07-13 | `docpilot-conversation-grounding-20260713010452-f8e612` | PASS（T27/T28 Conversation 最近轮次 gate） | `backend/target/conversation-grounding/docpilot-conversation-grounding-20260713010452-f8e612/artifact.json` | 扩展 conversation grounding runner 到 8 个 case：新增 T27 同会话最近轮次项目代号记忆和 T28 跨会话隔离。首次真实 run 前发现 runner 取脚本路径为 null，登记为 `REA-20260713-P3-032`；修复后复跑 PASS，artifact redaction scan PASS，常用端口无 LISTEN 残留。 |
 | 2026-07-13 | `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` | REVIEW（fixedBusinessCorpus PASS / lifecycle PASS / frontend skipped） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260713004622-113df1/artifact.json` | 修复 `REA-20260713-P1-031` 后复跑高强度固定语料 runner：`fixedBusinessCorpus` gate PASS，T11 多文档风险控制 answer claim 恢复；`knowledgeBaseLifecycle` gate PASS，覆盖 T22-T26，其中 T26 disposable 文档删除后 KB detail 0 文档、retrieve / QA no-evidence 且 0 citation。整体 run 为 REVIEW 仅因为显式 `-SkipFrontend`；artifact raw-field scan PASS，常用端口无 LISTEN 残留。 |
@@ -75,6 +81,12 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260714-P3-039` | VERIFIED（已验证） | P3 | 工程流程 / 质量控制台导入体验 | Agent Quality Console / Artifact Import / Test artifact isolation | `docpilot-agent-quality-eval-20260714151238-756d91` 验证前置导入 | Quality Console artifact import root 会优先扫到单测残留 `docpilot-import-*` 样本 |
+| `REA-20260714-P2-038` | VERIFIED / UI+API | P2 | 质量控制台体验 / 诊断误导 | Agent Quality Console / Frontend / Quality API | `quality-console-disabled-state-20260714` | Quality Console disabled 被误显示为账号无权限和暂无样本 |
+| `REA-20260713-P2-037` | FIXED_PENDING_VERIFY | P2 | 可信引用 / 前端可解释性问题 | Conversation / Citation UI | `conversation-citation-ui-20260713` | 回答卡片混淆召回证据和实际引用，来源区域横向拥挤且无法定位支持片段 |
+| `REA-20260713-P2-036` | VERIFIED / API | P2 | 可信引用 / 前端可解释性问题 | Conversation / Context Trace / KnowledgeBase RAG / Citation UI | zeus / `运维知识库演示` | Conversation 历史消息刷新后 citation cards 丢失且 hitCounts 有零值噪声 |
+| `REA-20260713-P1-035` | VERIFIED（已验证） | P1 | 会话 RAG 路由质量问题 | Conversation / AUTO_RAG / KnowledgeBase evidence | zeus / `运维知识库演示` | 绑定 KB 的 P1 SLA 问题未触发 RAG，底层模型给出无证据错误数字 |
+| `REA-20260713-P3-034` | BLOCKED | P3 | 本地环境阻塞 | Backend startup / Cloud tunnel / Frontend proxy | `local-runtime-diagnosis-20260713` | 本地 MySQL / Qdrant tunnel 未启动，导致后端 health 和登录接口超时并连带前端业务请求报错 |
 | `REA-20260713-P2-033` | OPEN（待产品定义） | P2 | 验收能力缺口 | Memory API / Conversation context mode | `docpilot-memory-quality-20260713015241-320bed` | T31 严格 per-memory 禁用能力未实现，目前只能证明会话级禁用和删除生命周期 |
 | `REA-20260713-P3-032` | VERIFIED（已验证） | P3 | 工程流程问题 | Conversation grounding smoke runner | `conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` 初跑 | 函数内 `$MyInvocation.MyCommand.Path` 为 null，导致真实 smoke 启动 tunnel 前失败 |
 | `REA-20260713-P1-031` | VERIFIED（已验证） | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Prompt | `docpilot-high-intensity-fixed-corpus-20260713004019-b28e65` | 固定业务语料 T11 citations 覆盖正确但答案遗漏部分风险控制措施 |
@@ -111,6 +123,162 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-14 Agent Quality Console 持久化导入验证
+
+### `REA-20260714-P3-039` Quality Console artifact import root 会优先扫到单测残留 `docpilot-import-*` 样本
+
+状态：VERIFIED（已验证）
+
+严重级别：P3
+
+类型：工程流程 / 质量控制台导入体验
+
+模块：Agent Quality Console / Artifact Import / Test artifact isolation
+
+发现 marker：
+
+- 初始误导入样本：`docpilot-import-clean-3432907306300`
+- 最终验证 marker：`docpilot-agent-quality-eval-20260714151238-756d91`
+
+复现步骤：
+
+1. 在真实开发库执行 `011_init_quality_console_persistence.sql` 并开启临时 Quality Console 后端。
+2. 使用内部管理员 token 调用 `POST /api/quality/imports/artifacts?limit=1`。
+3. 查询 `/api/quality/runs?limit=5` 查看最新 run。
+
+实际结果：
+
+- 首次导入成功，但最新 run 为 `docpilot-import-clean-*`，这是 `QualityArtifactImportServiceImplTest` 生成在 `backend/target/agent-quality-eval` 下的测试 artifact。
+- 该 run 能证明 DB-backed 导入链路可写，但不适合作为真实质量控制台验收证据。
+- 重新执行 `agent-quality-eval-smoke.ps1 -Mode run` 生成最新真实评测 marker 后，再次 `limit=1` 导入，最新 run 正确变为 `docpilot-agent-quality-eval-20260714151238-756d91`。
+
+预期结果：
+
+- 内部质量控制台默认导入源应优先导入真实 smoke / eval artifact，不应被导入器单测残留样本抢占最新位置。
+- 单测用 artifact 应隔离到不会被 runtime import 默认扫描的目录，或导入器应显式跳过测试 marker / 测试 root。
+
+可能原因：
+
+- 当前单测会在真实 import root `backend/target/agent-quality-eval` 下生成 `docpilot-import-*` artifact。
+- 导入器按 artifact 更新时间扫描最新文件，且没有区分 runtime artifact 与 import-service test fixture。
+
+建议修复位置：
+
+- `backend/src/test/java/com/docpilot/backend/quality/service/impl/QualityArtifactImportServiceImplTest.java`
+- `backend/src/main/java/com/docpilot/backend/quality/service/impl/QualityArtifactImportServiceImpl.java`
+
+修复提交：
+
+- 待提交。
+
+验证记录：
+
+- 已修复：`QualityArtifactImportServiceImplTest` 改用 `@TempDir`，不再向真实 `backend/target/agent-quality-eval` 写入测试 artifact；runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 保留测试 marker；DB-backed runs/detail/trends 隐藏历史误导入测试 marker，不做破坏性删除。
+- 已恢复相关趋势：`QualityDomainTrendAssembler` 作为 artifact-backed 和 DB-backed 查询的共享领域趋势聚合器，`domainTrends.memoryQuality` 与 `domainTrends.ragRepresentativeEval` 不再因 DB-backed 服务而丢失。
+- 单测验证：`mvn "-Dtest=*Quality*,DemoMysqlBootstrapSchemaTest" test` PASS，69 tests / 1 skipped；新增用例覆盖测试 marker 不占用 `importRecentArtifacts(1)` 名额、Spring bean 装配和 DB-backed domainTrends。
+- 真实 API 验证 marker `quality-console-closeout-20260714160116`：未登录 `401`、普通用户 `403`、临时管理员授权 `1` 行；`importOne.scanned=1`、`skippedDuplicate=1`、`rejected=0`、`firstRunIsTestMarker=false`；`importMany.imported=47`、`skippedDuplicate=3`、`failed=0`；`trends.runCount=48`、Memory trend `4`、RAG representative trend `12`。
+- 真实 UI 验证：临时前端 `3007` 代理临时后端 `18081`，管理员打开 `/quality?autoload=1` 后点击“趋势”可见 `Memory quality smoke` 与 `RAG representative eval`；console error `0`，桌面与 `390px` 移动端横向溢出 `0`。
+
+## 2026-07-13 本地运行环境阻塞诊断
+
+### `REA-20260713-P1-035` 绑定 KB 的 P1 SLA 问题未触发 RAG，底层模型给出无证据错误数字
+
+状态：VERIFIED（已验证）
+
+严重级别：P1
+
+类型：会话 RAG 路由质量问题
+
+模块：Conversation / AUTO_RAG / KnowledgeBase evidence
+
+发现 marker：
+
+- 用户真实会话：zeus / `运维知识库演示`
+- 修复验证 marker：`docpilot-conversation-grounding-20260713212058-5915ed`
+
+复现步骤：
+
+1. 使用 zeus 账号打开绑定 `星河云运维与安全资料集` 的 Conversation。
+2. 在会话 `运维知识库演示` 中提问：`P1 故障要求在多长时间内响应和恢复？`
+3. 查看 assistant message 的 Context Trace 和 KB 文档事实。
+
+实际结果：
+
+- assistant 回答为 `15 分钟内响应，30 分钟内恢复`，该数字不在当前 KB evidence 中。
+- Trace 显示 `groundingPolicy=AUTO_RAG`、`routeDecision=AUTO_INTENT_NOT_TRIGGERED_MODEL`、`ragTriggered=false`、`ragRequired=false`、`evidenceCount=0`、`llmCalled=true`。
+- KB 文档中实际事实为 P1 `10 分钟内首次响应`、`2 小时内恢复或提供可验证绕行方案`；版本变更文档也说明旧规则已废弃。
+
+预期结果：
+
+- 绑定 KB 的 `AUTO_RAG` 对这类业务制度 / SLA 数字问题应先检索 KnowledgeBase。
+- 命中 evidence 时进入 `AUTO_RAG_EVIDENCE`，返回 citation 并让模型基于 evidence 回答。
+- 如果用户明确要求依据文档 / 知识库但无 evidence，应 `AUTO_REQUIRED_NO_EVIDENCE_FALLBACK` 并跳过模型，不能让底层模型补数字。
+
+根因：
+
+- `KnowledgeBaseEvidenceBuilder.resolveIntent` 原先依赖少量正向关键词触发 retrieval；P1 / SLA / 故障响应这类业务问法不包含 “根据知识库 / 文档内容 / 项目状态”等旧关键词时，会被判定为 `AUTO_INTENT_NOT_TRIGGERED_MODEL`。
+- 这不是 Qdrant、embedding 或 citation 引擎没命中，而是 retrieval 前的路由门误跳过。
+
+修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/ai/context/builder/KnowledgeBaseEvidenceBuilder.java`
+- `backend/src/test/java/com/docpilot/backend/ai/context/KnowledgeBaseEvidenceContextBuilderTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/context/ContextAssemblyServiceImplTest.java`
+- `backend/src/test/java/com/docpilot/backend/conversation/service/ConversationMessageServiceImplTest.java`
+- `scripts/smoke/conversation-grounding-smoke.ps1`
+- `backend/src/test/resources/quality/agent-quality-eval-cases.json`
+
+修复提交：待提交
+
+验证记录：
+
+- `mvn "-Dtest=KnowledgeBaseEvidenceContextBuilderTest,ContextAssemblyServiceImplTest,ConversationMessageServiceImplTest,ConversationMessageControllerTest,ConversationGroundingSmokeScriptSafetyTest,AgentQualityEvalRunnerTest" test` PASS，38 tests。
+- `mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseSearchToolTest,KnowledgeBaseAgentServiceImplTest,AgentKnowledgeBaseSearchRouteSmokeTest" test` PASS，48 tests / 1 skipped。
+- 真实 smoke：临时 18081 后端执行 `scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -BackendBaseUrl http://127.0.0.1:18081 -SkipFrontend -ReuseRunningServices`，marker `docpilot-conversation-grounding-20260713212058-5915ed` PASS，9/9 case 通过。
+- 清理：18081 临时后端已停止；未停止用户已有 8081 进程；未回写或改写历史 zeus assistant 消息。
+
+### `REA-20260713-P3-034` 本地 MySQL / Qdrant tunnel 未启动，导致后端 health 和登录接口超时并连带前端业务请求报错
+
+- 状态：BLOCKED
+- 严重级别：P3
+- 类型：本地环境阻塞
+- 模块：Backend startup / Cloud tunnel / Frontend proxy
+- 发现 marker：`local-runtime-diagnosis-20260713`
+
+复现步骤：
+
+1. 在用户已启动 frontend 与 backend 的状态下检查本地监听端口。
+2. 调用 backend `/actuator/health`、frontend 代理 `/backend/actuator/health`、backend 登录接口和 frontend 代理登录接口。
+3. 检查本地 MySQL / Qdrant tunnel 端口可达性，并用 JVM thread dump 查看后端请求线程状态。
+
+实际结果：
+
+- frontend `3000` 与 backend `8081` 均已监听；前端公开路由返回 200，后端未鉴权 Quality API 返回业务 401。
+- 本地 `13306` / `6333` tunnel 端口不可达。
+- backend `/actuator/health` 和登录接口直连均超时；通过 frontend `/backend/*` 代理调用同样超时。
+- JVM thread dump 显示 Tomcat 请求线程等待 Hikari 获取 MySQL 连接。
+
+预期结果：
+
+- 云中间件模式下，应先启动本地 tunnel 并确认 `13306` / `6333` 可达，再启动 backend。
+- tunnel 可达后，backend health 应返回确定状态，登录 / 上传 / 文档 / RAG 等依赖数据库的接口不应长时间卡住；frontend 代理请求不应因后端 DB 连接池等待而超时。
+
+可能原因：
+
+- `backend/.env` 以 localhost tunnel 方式配置 MySQL 与 Qdrant，但当前未先执行 `scripts/dev/start-cloud-tunnels.ps1`。
+- 后端仍能启动并开放端口，但第一次访问数据库相关接口时，Hikari 无法获得 MySQL connection，导致请求线程等待。
+
+建议修复位置：
+
+- 本地启动顺序：先在仓库根目录执行 `scripts/dev/start-cloud-tunnels.ps1`，确认 `13306` / `6333` 可达后再重启 backend。
+- 排障文档：`backend/README.md` 第 2 / 第 6 / 第 7 节已有对应说明，本轮不新增代码修复。
+
+修复提交：无，本轮为环境诊断。
+
+验证记录：
+
+- 已验证阻塞存在；未启动 tunnel、未重启服务、未做恢复后 runtime smoke。
 
 ## 2026-07-13 Memory lifecycle 问题闭环
 
@@ -1644,3 +1812,219 @@
 修复提交：待补充
 
 验证记录：`docpilot-cloud-quality-20260703231920-e74334` 的 `frontendInteraction` gate PASS；用户 B 打开用户 A 文档详情时 `permissionMessageVisible=true`，同轮权限隔离负向 gate 继续 PASS。
+
+## 2026-07-13
+
+### `REA-20260713-P1-001` 长文档解析在 RAG indexing 阶段失败且错误信息不可诊断
+
+状态：REVIEW（代码修复和离线回归已完成，真实 task 待新版后端重启后 retry / reparse）
+
+严重级别：P1
+
+类型：真实链路 bug / RAG indexing failure
+
+模块：ParseTask / OpenAI-compatible Embedding / Qdrant Indexing
+
+复现步骤：
+
+1. 在当前本地后端运行环境中上传并解析 document `1431`。
+2. RocketMQ 发送并消费 parse task `1322`。
+3. 后端日志显示 `errorType=RAG_INDEX_FAILED`，但未给出底层原因。
+
+实际结果：
+
+- ParseTask `1322` 状态为 `FAILED`。
+- Document `1431` 状态为 `FAILED`，但 content / summary 已写入。
+- `tb_document_chunk` 中 document `1431` 的 chunk 数为 `0`。
+- 用户可见错误只有 `RAG_INDEX_FAILED [stage=INDEXING]: indexing completed with status FAILED`，无法判断是 embedding、Qdrant 还是 DB 写入问题。
+
+预期结果：
+
+- 长文档默认 chunk 数超过 provider 单批限制时，embedding provider 应自动拆分请求。
+- 如果 RAG indexing 仍失败，ParseTask 错误应包含结构化、安全、可行动的 failureCode 和计数字段。
+- 错误信息不得泄露 endpoint、API key、Authorization、SQL 或文档正文片段。
+
+根因：
+
+- 百炼 `text-embedding-v4` OpenAI-compatible embedding endpoint 的 batch size 上限为 `10`。
+- 项目原实现一次将全部 chunks 作为一个 batch 请求；document `1431` 默认切分约 `18` 个 chunks，provider 返回 HTTP 400。
+- 上层 ParseTask 将 `RagIndexingResult.message()` 丢弃，只保留 `RAG_INDEX_FAILED`，导致无法从任务状态定位真实原因。
+
+修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/OpenAICompatibleEmbeddingProvider.java`
+- `backend/src/main/java/com/docpilot/backend/task/service/impl/ParseTaskConsumeEntryServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/OpenAICompatibleEmbeddingProviderTest.java`
+- `backend/src/test/java/com/docpilot/backend/task/service/ParseTaskConsumeEntryServiceImplTest.java`
+
+验证记录：
+
+- 只读 preflight：百炼 embedding 单条请求成功，返回维度 `1024`；Qdrant collection `docpilot_rag_v2` 为 green，vector size `1024`。
+- 手工复现：document `1431` 正文模拟约 `18` chunks 一次 batch 请求返回 HTTP 400，错误原因为 batch size 不得大于 `10`。
+- 自动化验证：`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,OpenAICompatibleEmbeddingProviderTest,RagIndexingServiceImplTest" test` 通过。
+- 自动化验证：`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,QdrantVectorStoreClientTest,ParseTaskServiceImplTest,ParseTaskRecoveryServiceTest" test` 通过，68 tests / 0 failures。
+
+剩余动作：
+
+- 重启当前运行中的后端，使 batch split 修复生效。
+- 对 task `1322` 关联文档执行 retry / reparse，并验证 ParseTask `SUCCESS`、chunkCount > 0、vectorCount = chunkCount、知识库问答可返回 citation。
+
+### `REA-20260714-P2-038` Quality Console disabled 被误显示为账号无权限和暂无样本
+
+- 状态：VERIFIED / UI+API
+- 严重级别：P2
+- 类型：质量控制台体验 / 诊断误导
+- 模块：Agent Quality Console / Frontend / Quality API
+- 发现 marker：`quality-console-disabled-state-20260714`
+
+复现步骤：
+
+1. 在本地前端打开 `/quality?autoload=1`。
+2. 当前登录态存在，但后端未设置 `APP_QUALITY_CONSOLE_ENABLED=true`。
+3. 观察页面顶部统计、运行记录空态和错误提示。
+
+实际结果：
+
+- 浏览器实际调用 `/backend/api/quality/runs?limit=20`、`/backend/api/quality/trends?limit=20`、`/backend/api/quality/eval-cases`。
+- 接口 HTTP 为 200，但业务响应为 `code=403`、`message=quality console is disabled`。
+- 前端全局错误映射将该 403 显示为“当前账号无权限执行该操作，请确认资源归属”。
+- Quality 页 `loadRuns()` catch 分支清空 runs / trend / catalog / detail，列表空态又提示“暂无质量运行记录，点击刷新后仍为空时说明还没有生成脱敏 artifact”，导致用户同时看到 0 次运行、暂无样本和无权限。
+
+预期结果：
+
+- console flag 关闭时应明确提示“质量控制台未开启”，不能误导为资源归属或账号无权限。
+- 接口失败时不能把清空后的 runs 当作真实空数据，也不能推断没有 artifact。
+- console flag 开启且用户已登录时，应能读取本地 ignored artifact 聚合出的真实 Run、指标、失败类型和详情。
+- 未登录和 console flag 关闭仍必须保持阻断，不能为了显示数据绕过权限隔离。
+
+可能原因：
+
+- `frontend/lib/api.ts` 对所有业务 `403` 使用同一个“当前账号无权限”文案。
+- `frontend/app/quality/page.tsx` 没有记录加载错误类型，无法区分 disabled、forbidden、not found 和真实空列表。
+- `selectedMarker` 只在为空时选择最新 run；刷新后旧 marker 不在新 runs 中时，可能继续访问过期详情。
+
+修复与验证：
+
+- 修复位置：`frontend/lib/api.ts`、`frontend/app/quality/page.tsx`。
+- 修复内容：为 `quality console is disabled` 增加专用中文提示；Quality 页增加 `QualityLoadErrorKind`；disabled / generic load error / 真空列表分开展示；刷新 runs 后当前 marker 不存在时自动切换到最新 run。
+- 权限边界：未修改 `QualityController` 访问控制；未新增 QualityRun 表；未把 console 默认打开；未绕过登录态。
+- 验证记录：`npm run lint` PASS；`NODE_OPTIONS=--max-old-space-size=4096 npm run build` PASS；`mvn "-Dtest=QualityArtifactServiceImplTest,QualityEvalCatalogServiceImplTest,QualityEvalCatalogServiceSpringContextTest,QualityArtifactServiceSpringContextTest" test` PASS（22 tests）。
+- 真实 UI/API 验证：临时前端 `3007` 指向当前 `8081`，已登录状态下页面显示“质量控制台未开启”，不显示“当前账号无权限”或“还没有生成脱敏 artifact”；临时后端 `18081` 设置 `APP_QUALITY_CONSOLE_ENABLED=true` + 临时前端 `3008` 后，`/api/quality/runs` 返回 20 条、`/api/quality/trends` 返回 20 个点、`/api/quality/eval-cases` 返回 19 个 case、detail marker `docpilot-conversation-grounding-20260713223647-cc009f` 返回 `PASS`、`gateCount=1`、`evalCaseCount=9`、`diagnostics=true`。
+- 运行边界：在已有 `3000` dev 进程运行时执行 production build 会导致该旧进程的 `_next/static` chunk 404，需要手动重启已有前端 dev 进程恢复；本轮临时验证端口结束前清理。
+
+### `REA-20260713-P2-037` 回答卡片混淆召回证据和实际引用，来源区域横向拥挤且无法定位支持片段
+
+状态：FIXED_PENDING_VERIFY（前端 lint/build 已通过；浏览器交互待验）
+
+严重级别：P2
+
+类型：可信引用 / 前端可解释性问题
+
+模块：Conversation / Citation UI
+
+发现于：用户反馈 `conversation-citation-ui-20260713`
+
+复现步骤：
+
+1. 打开绑定知识库的 Conversation 回答卡片。
+2. 观察回答正文只实际引用了部分编号，例如 `[2]`、`[5]`。
+3. 查看回答下方来源区域和右侧 Context Trace 的来源摘要。
+
+实际结果：
+
+- 页面直接横向展示全部返回 citations，信息拥挤并需要横向滚动。
+- 页面文案容易把 `6` 条召回证据称为 `6 条知识库来源`，没有区分“检索召回结果”和“正文实际引用”。
+- 引用项把文件名、编号、locator 和相似度挤在一条 pill 中，长文件名和章节路径可读性较差。
+- 用户点击正文 `[n]` 时不能直接定位到对应证据片段，难以判断每个引用具体支持哪一句结论。
+
+预期结果：
+
+- 默认只突出展示回答正文实际使用的引用；完整返回证据放入可展开区域。
+- 清晰区分 `实际引用数`、`召回证据数`、`命中文档数`。
+- 引用卡片优先展示文档标题、章节 / locator、chunk 和 quote/snippet，score 作为次要信息。
+- 点击正文引用编号或来源卡片时，应聚焦并高亮对应证据片段。
+- 长文件名、章节路径和片段内容应换行 / clamp，不再依赖横向滚动。
+
+可能原因：
+
+- 前端旧实现只按 `message.citations.length` 渲染横向 pill，未从回答正文中解析实际出现的 citation marker。
+- `assistantSourceLabel` 把 citationCount / evidenceCount 混合成一个“来源”文案，没有单独表达 retrieval evidence 与 actual citation。
+- MarkdownViewer 旧链接渲染只面向外部链接，没有内部 citation anchor 回调。
+
+修复位置：
+
+- `frontend/app/conversations/page.tsx`
+- `frontend/components/markdown-viewer.tsx`
+- `frontend/components/markdown-viewer.module.css`
+- `frontend/app/globals.css`
+
+修复提交：待提交
+
+验证记录：
+
+- `frontend npm run lint` PASS。
+- `frontend npm run build` PASS。
+- 未启动真实浏览器 / 后端 / tunnel；点击定位、移动端视觉和长文件名场景仍需后续 Playwright 或手动会话验证。
+
+### `REA-20260713-P2-036` Conversation 历史消息刷新后 citation cards 丢失且 hitCounts 有零值噪声
+
+状态：VERIFIED / API（代码修复、真实 DB 迁移和历史 list smoke 已完成；浏览器 Playwright 未单独执行）
+
+严重级别：P2
+
+类型：可信引用 / 前端可解释性问题
+
+模块：Conversation / Context Trace / KnowledgeBase RAG / Citation UI
+
+发现于：用户复查 zeus / `运维知识库演示` 会话
+
+复现步骤：
+
+1. 在绑定知识库的 Conversation 中提出 P1 SLA 问题。
+2. 新版 AUTO_RAG 修复后，最新 assistant 回答能命中知识库并返回 citations。
+3. 重新拉取历史消息或刷新页面，检查 assistant message 的 citation cards 与 Context Trace 的 `documentHitCounts`。
+
+实际结果：
+
+- 即时 `send()` response 有 citations，但历史 `list()` 固定返回空 citation list，刷新后 citation cards 丢失。
+- Trace 仍显示 `evidenceCount=6`，导致用户看到来源数量但没有可点击 citation cards。
+- `documentHitCounts` 包含未命中文档的 `0` 值，例如 `{1434:0}`，影响 Trace / UI 可读性。
+
+预期结果：
+
+- citation 必须作为回答生成时的快照持久化，刷新后从历史消息列表恢复。
+- Trace 继续只表达路由、计数和预算摘要，不重复暴露 quote/snippet。
+- `documentHitCounts` 只表示实际命中文档；前端对旧数据中的零值也要过滤。
+
+可能原因：
+
+- 原实现只把 citations 放在 `ContextAssemblyResult` / `send()` response，未写入数据库。
+- `ConversationMessageServiceImpl.list()` 显式传入 `List.of()`。
+- KnowledgeBase retrieval result 会按 active KB document 预填 `0`。
+
+修复位置：
+
+- `backend/src/main/java/com/docpilot/backend/ai/context/ContextTrace.java`
+- `backend/src/main/java/com/docpilot/backend/conversation/service/impl/ConversationContextTraceServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/conversation/service/impl/ConversationMessageServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/KnowledgeBaseRagRetrievalResult.java`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/KnowledgeBaseRagRetrievalServiceImpl.java`
+- `frontend/app/conversations/page.tsx`
+- `frontend/app/knowledge-bases/page.tsx`
+
+验证记录：
+
+- `mvn "-Dtest=ConversationContextTraceServiceImplTest,ConversationMessageServiceImplTest,ConversationContextSchemaTest,DemoMysqlBootstrapSchemaTest,ContextTraceSerializationTest,QualityArtifactServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseSearchToolTest,KnowledgeBaseAgentServiceImplTest" test` PASS（72 tests）。
+- `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*" test` PASS（300 tests / 1 skipped）。
+- `mvn test -DskipITs` PASS（996 tests / 5 skipped）。
+- `npm run lint` PASS。
+- `npm run build` PASS。
+- `scripts/smoke/conversation-grounding-smoke.ps1 -Mode plan` / `-Mode dry-run` PASS。
+- 用户授权后已执行真实 MySQL 迁移：`009_add_context_trace_citations.sql`，结果为 `beforeColumnExists=false`、`afterColumnExists=true`、`applied=true`。
+- 临时新版后端 `18081`：`scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -BackendBaseUrl http://127.0.0.1:18081 -SkipFrontend` PASS，marker `docpilot-conversation-grounding-20260713223647-cc009f`，9/9 case 通过。
+- 临时新版后端 `18082`：专门 citation-list smoke PASS，marker `docpilot-citation-list-20260713224003-82668e`；`sendCitationCount=1`、`listCitationCount=1`、`citationSignatureMatches=true`、send/list zero-hit count 均为 0，Trace API 与 message contextTrace 均不暴露 `citations` 字段。
+
+剩余动作：
+
+- 若要在当前手动浏览器 UI 中看到修复，需要重启用户已有 `8081` 后端，使其加载新版代码；本轮未杀掉 / 替换该用户进程。
+- 浏览器 Playwright 页面刷新检查仍未单独执行；当前 VERIFIED 范围是 DB 迁移 + API 历史 `list()` 刷新链路。

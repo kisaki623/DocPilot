@@ -76,6 +76,8 @@ class ConversationMessageServiceImplTest {
 
         assertThat(response.content()).contains("没有找到足够证据");
         assertThat(response.contextTrace().messageId()).isEqualTo(102L);
+        assertThat(response.contextTrace().technicalDetails().traceId()).isEqualTo("ctx-10-102");
+        assertThat(response.contextTrace().technicalDetails().timingsMs()).containsEntry("modelCall", 0L);
         assertThat(response.contextTrace().modelCallSkipped()).isTrue();
         assertThat(response.contextTrace().llmCalled()).isFalse();
         verify(contextTraceService).save(7L, response.contextTrace());
@@ -105,6 +107,8 @@ class ConversationMessageServiceImplTest {
                 .containsExactly(ConversationMessageRole.USER, ConversationMessageRole.ASSISTANT);
         assertThat(response.content()).isEqualTo("answer");
         assertThat(response.contextTrace().llmCalled()).isTrue();
+        assertThat(response.contextTrace().technicalDetails().traceId()).isEqualTo("ctx-10-102");
+        assertThat(response.contextTrace().technicalDetails().timingsMs()).containsKey("modelCall");
         verify(contextTraceService).save(7L, response.contextTrace());
         ArgumentCaptor<ConversationAnswerRequest> answerCaptor = ArgumentCaptor.forClass(ConversationAnswerRequest.class);
         verify(aiAnswerService).answerConversation(answerCaptor.capture());
@@ -114,6 +118,28 @@ class ConversationMessageServiceImplTest {
         verify(aiAnswerService, never()).answer(any(), any());
         verify(conversationMessageMapper, times(1)).selectMaxSequenceNo(7L, 10L);
     }
+
+    @Test
+    void shouldPersistAndReturnContextCitationsWhenSendingRagAnswer() {
+        givenTransaction();
+        when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
+        when(conversationMapper.selectActiveForUpdate(7L, 10L)).thenReturn(conversation());
+        when(contextAssemblyService.buildContext(any())).thenReturn(contextResultWithCitation());
+        when(aiAnswerService.answerConversation(any())).thenReturn("grounded answer");
+        when(conversationMessageMapper.selectMaxSequenceNo(7L, 10L)).thenReturn(0, 1);
+        doAnswer(invocation -> {
+            ConversationMessage message = invocation.getArgument(0);
+            message.setId(100L + message.getSequenceNo());
+            return 1;
+        }).when(conversationMessageMapper).insert(any(ConversationMessage.class));
+
+        ConversationMessageResponse response = service.send(7L, 10L, "P1 SLA?");
+
+        assertThat(response.citations()).containsExactly(citation());
+        assertThat(response.contextTrace().citations()).containsExactly(citation());
+        verify(contextTraceService).save(7L, response.contextTrace());
+    }
+
 
     @Test
     void shouldCallModelWhenAutoRagRetrievalHasNoEvidence() {
@@ -136,6 +162,29 @@ class ConversationMessageServiceImplTest {
         assertThat(response.contextTrace().modelCallSkipped()).isFalse();
         assertThat(response.contextTrace().llmCalled()).isTrue();
         verify(aiAnswerService).answerConversation(any());
+    }
+
+    @Test
+    void shouldSkipModelWhenAutoRagRequiredRetrievalHasNoEvidence() {
+        givenTransaction();
+        when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
+        when(conversationMapper.selectActiveForUpdate(7L, 10L)).thenReturn(conversation());
+        when(contextAssemblyService.buildContext(any())).thenReturn(autoRequiredNoEvidenceContextResult());
+        when(conversationMessageMapper.selectMaxSequenceNo(7L, 10L)).thenReturn(0, 1);
+        doAnswer(invocation -> {
+            ConversationMessage message = invocation.getArgument(0);
+            message.setId(100L + message.getSequenceNo());
+            return 1;
+        }).when(conversationMessageMapper).insert(any(ConversationMessage.class));
+
+        ConversationMessageResponse response = service.send(7L, 10L, "请引用文档回答");
+
+        assertThat(response.content()).contains("没有找到足够证据");
+        assertThat(response.contextTrace().routeDecision())
+                .isEqualTo(RouteDecision.AUTO_REQUIRED_NO_EVIDENCE_FALLBACK.name());
+        assertThat(response.contextTrace().modelCallSkipped()).isTrue();
+        assertThat(response.contextTrace().llmCalled()).isFalse();
+        verify(aiAnswerService, never()).answerConversation(any());
     }
 
     @Test
@@ -210,7 +259,9 @@ class ConversationMessageServiceImplTest {
     void shouldAttachPersistedTraceWhenListingMessages() {
         ConversationMessage userMessage = message(101L, ConversationMessageRole.USER, 1, "hello");
         ConversationMessage assistantMessage = message(102L, ConversationMessageRole.ASSISTANT, 2, "answer");
-        ContextTrace trace = contextResult(false).trace().withMessageId(102L);
+        ContextTrace trace = contextResult(false).trace()
+                .withMessageId(102L)
+                .withCitations(List.of(citation()));
         when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation());
         when(conversationMessageMapper.selectActiveByConversation(7L, 10L, 50))
                 .thenReturn(List.of(assistantMessage, userMessage));
@@ -222,6 +273,7 @@ class ConversationMessageServiceImplTest {
                 .containsExactly(ConversationMessageRole.USER, ConversationMessageRole.ASSISTANT);
         assertThat(responses.get(0).contextTrace()).isNull();
         assertThat(responses.get(1).contextTrace()).isSameAs(trace);
+        assertThat(responses.get(1).citations()).containsExactly(citation());
     }
 
     @Test
@@ -251,6 +303,35 @@ class ConversationMessageServiceImplTest {
         message.setSequenceNo(sequenceNo);
         message.setContent(content);
         return message;
+    }
+
+    private KnowledgeBaseRagEvidenceCitation citation() {
+        return new KnowledgeBaseRagEvidenceCitation(
+                1,
+                3L,
+                83L,
+                "SLA Guide",
+                1,
+                8301L,
+                2,
+                10,
+                120,
+                "hash-83",
+                "P1 incidents respond within 10 minutes.",
+                "P1 incidents respond within 10 minutes.",
+                10,
+                50,
+                "SLA / P1",
+                "paragraph",
+                2,
+                "page:2#block:5",
+                "PAGE",
+                0.91D,
+                0.91D,
+                null,
+                null,
+                null
+        );
     }
 
     private void givenTransaction() {
@@ -335,6 +416,88 @@ class ConversationMessageServiceImplTest {
                 false,
                 false,
                 "",
+                List.<KnowledgeBaseRagEvidenceCitation>of()
+        );
+    }
+
+    private ContextAssemblyResult contextResultWithCitation() {
+        ContextTrace trace = new ContextTrace(
+                10L,
+                null,
+                "AGENT_MEMORY",
+                GroundingPolicy.AUTO_RAG.name(),
+                RouteDecision.AUTO_RAG_EVIDENCE.name(),
+                null,
+                false,
+                0,
+                0,
+                false,
+                0,
+                List.of(),
+                true,
+                false,
+                3L,
+                1,
+                false,
+                Map.of(83L, 1),
+                12000,
+                10,
+                false,
+                List.of(),
+                false,
+                "",
+                false
+        );
+        return new ContextAssemblyResult(
+                "context",
+                List.of(new PromptMessage("user", "P1 SLA?")),
+                List.of(),
+                trace,
+                true,
+                false,
+                false,
+                "",
+                List.of(citation())
+        );
+    }
+
+    private ContextAssemblyResult autoRequiredNoEvidenceContextResult() {
+        ContextTrace trace = new ContextTrace(
+                10L,
+                null,
+                "AGENT_MEMORY",
+                GroundingPolicy.AUTO_RAG.name(),
+                RouteDecision.AUTO_REQUIRED_NO_EVIDENCE_FALLBACK.name(),
+                null,
+                false,
+                0,
+                0,
+                false,
+                0,
+                List.of(),
+                true,
+                true,
+                3L,
+                0,
+                true,
+                Map.of(),
+                12000,
+                10,
+                false,
+                List.of(),
+                true,
+                "REQUIRED_EVIDENCE_NO_EVIDENCE",
+                true
+        );
+        return new ContextAssemblyResult(
+                "context",
+                List.of(new PromptMessage("user", "请引用文档回答")),
+                List.of(),
+                trace,
+                true,
+                true,
+                true,
+                "当前知识库中没有找到足够证据，无法基于知识库回答该问题。",
                 List.<KnowledgeBaseRagEvidenceCitation>of()
         );
     }

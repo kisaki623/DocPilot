@@ -24,6 +24,9 @@ public class User {
 
     private String status;
 
+    @TableField(value = "is_internal_admin", select = false)
+    private Boolean internalAdmin;
+
     @TableField("create_time")
     private LocalDateTime createTime;
 
@@ -76,6 +79,14 @@ public class User {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Boolean getInternalAdmin() {
+        return internalAdmin;
+    }
+
+    public void setInternalAdmin(Boolean internalAdmin) {
+        this.internalAdmin = internalAdmin;
     }
 
     public LocalDateTime getCreateTime() {

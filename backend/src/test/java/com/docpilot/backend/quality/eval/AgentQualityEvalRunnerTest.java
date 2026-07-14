@@ -34,8 +34,9 @@ class AgentQualityEvalRunnerTest {
                         "kb-agent-grounded-answer-route",
                         "no-kb-model-only",
                         "no-kb-strict-normalized",
-                        "auto-generic-no-rag",
+                        "auto-smalltalk-no-rag",
                         "auto-no-evidence-fallback-model",
+                        "auto-required-no-evidence-refusal",
                         "strict-no-evidence-refusal",
                         "auto-rag-evidence-citations",
                         "document-parser-real-chain",
@@ -46,8 +47,9 @@ class AgentQualityEvalRunnerTest {
                 "agent-document-search-route",
                 "no-kb-model-only",
                 "no-kb-strict-normalized",
-                "auto-generic-no-rag",
+                "auto-smalltalk-no-rag",
                 "auto-no-evidence-fallback-model",
+                "auto-required-no-evidence-refusal",
                 "strict-no-evidence-refusal",
                 "auto-rag-evidence-citations"
         );
@@ -85,8 +87,9 @@ class AgentQualityEvalRunnerTest {
                 .doesNotContain("knowledge base agent request")
                 .doesNotContain("unbound normal conversation")
                 .doesNotContain("strict knowledge base mode without")
-                .doesNotContain("AUTO_RAG generic common questions")
+                .doesNotContain("AUTO_RAG obvious small talk")
                 .doesNotContain("AUTO_RAG material intent can fall back")
+                .doesNotContain("AUTO_RAG explicit source-grounded requests")
                 .doesNotContain("explicit strict knowledge base mode")
                 .doesNotContain("AUTO_RAG material intent with evidence")
                 .doesNotContain("PDF, HTML and DOCX")

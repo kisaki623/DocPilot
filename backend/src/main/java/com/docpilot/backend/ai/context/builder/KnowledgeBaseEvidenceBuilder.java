@@ -2,6 +2,7 @@ package com.docpilot.backend.ai.context.builder;
 
 import com.docpilot.backend.ai.context.ContextItem;
 import com.docpilot.backend.ai.context.ContextPolicy;
+import com.docpilot.backend.ai.context.ContextTraceTechnicalDetails;
 import com.docpilot.backend.ai.context.ContextType;
 import com.docpilot.backend.ai.context.GroundingPolicy;
 import com.docpilot.backend.ai.context.RouteDecision;
@@ -23,26 +24,45 @@ public class KnowledgeBaseEvidenceBuilder {
 
     private static final List<String> REQUIRED_RAG_KEYWORDS = List.of(
             "根据知识库",
+            "基于知识库",
             "结合知识库",
             "从知识库",
+            "只根据知识库",
+            "只依据知识库",
+            "仅根据知识库",
+            "仅依据知识库",
             "根据文档",
+            "基于文档",
             "结合文档",
             "从文档",
+            "请引用文档",
+            "引用文档",
+            "请引用材料",
+            "引用材料",
             "资料里",
             "文档内容",
+            "based on the knowledge base",
             "based on the document",
-            "based on documents"
+            "based on documents",
+            "according to the knowledge base",
+            "only use the knowledge base",
+            "use only the knowledge base",
+            "cite the document",
+            "cite documents"
     );
-    private static final List<String> OPTIONAL_RAG_KEYWORDS = List.of(
-            "项目状态",
-            "当前进度",
-            "做到哪",
-            "已完成",
-            "路线",
-            "设计文档",
-            "project status",
-            "roadmap",
-            "current state"
+    private static final List<String> MODEL_ONLY_EXACT_MESSAGES = List.of(
+            "你好",
+            "您好",
+            "hello",
+            "hi",
+            "hey",
+            "谢谢",
+            "thanks",
+            "thank you",
+            "你是谁",
+            "你能做什么",
+            "who are you",
+            "what can you do"
     );
 
     private final KnowledgeBaseRagRetrievalService retrievalService;
@@ -92,18 +112,22 @@ public class KnowledgeBaseEvidenceBuilder {
                 ""
         ));
         if (retrieval.noEvidence()) {
-            boolean strictNoEvidence = groundingPolicy == GroundingPolicy.STRICT_KB;
-            String fallback = strictNoEvidence
+            ContextTraceTechnicalDetails.RetrievalDetails retrievalDetails =
+                    ContextTraceTechnicalDetails.RetrievalDetails.fromRetrieval(retrieval);
+            boolean requiredNoEvidence = intent.required();
+            String fallback = requiredNoEvidence
                     ? "当前知识库中没有找到足够证据，无法基于知识库回答该问题。"
                     : "";
             RouteDecision routeDecision;
-            if (strictNoEvidence) {
+            if (groundingPolicy == GroundingPolicy.STRICT_KB) {
                 routeDecision = RouteDecision.STRICT_NO_EVIDENCE_FALLBACK;
+            } else if (requiredNoEvidence) {
+                routeDecision = RouteDecision.AUTO_REQUIRED_NO_EVIDENCE_FALLBACK;
             } else {
                 routeDecision = RouteDecision.AUTO_NO_EVIDENCE_MODEL;
             }
-            return new KnowledgeBaseEvidenceResult(true, strictNoEvidence, true, fallback,
-                    List.of(), retrieval.citations(), retrieval.documentHitCounts(), routeDecision);
+            return new KnowledgeBaseEvidenceResult(true, requiredNoEvidence, true, fallback,
+                    List.of(), retrieval.citations(), retrieval.documentHitCounts(), routeDecision, retrievalDetails);
         }
 
         List<ContextItem> items = new ArrayList<>();
@@ -131,8 +155,10 @@ public class KnowledgeBaseEvidenceBuilder {
         RouteDecision routeDecision = groundingPolicy == GroundingPolicy.STRICT_KB
                 ? RouteDecision.STRICT_KB_EVIDENCE
                 : RouteDecision.AUTO_RAG_EVIDENCE;
-        return new KnowledgeBaseEvidenceResult(true, groundingPolicy == GroundingPolicy.STRICT_KB, false, "",
-                items, retrieval.citations(), retrieval.documentHitCounts(), routeDecision);
+        ContextTraceTechnicalDetails.RetrievalDetails retrievalDetails =
+                ContextTraceTechnicalDetails.RetrievalDetails.fromRetrieval(retrieval);
+        return new KnowledgeBaseEvidenceResult(true, intent.required(), false, "",
+                items, retrieval.citations(), retrieval.documentHitCounts(), routeDecision, retrievalDetails);
     }
 
     private RagIntent resolveIntent(String message) {
@@ -142,12 +168,36 @@ public class KnowledgeBaseEvidenceBuilder {
                 return new RagIntent(true, true);
             }
         }
-        for (String keyword : OPTIONAL_RAG_KEYWORDS) {
-            if (normalized.contains(keyword.toLowerCase(Locale.ROOT))) {
-                return new RagIntent(true, false);
+        if (isObviousModelOnlyMessage(normalized)) {
+            return new RagIntent(false, false);
+        }
+        return new RagIntent(true, false);
+    }
+
+    private boolean isObviousModelOnlyMessage(String normalizedMessage) {
+        String compact = normalizedMessage == null ? "" : normalizedMessage
+                .replaceAll("\\s+", "")
+                .replace("？", "?")
+                .replace("！", "!")
+                .replace("。", "")
+                .replace(".", "")
+                .trim();
+        if (compact.isBlank()) {
+            return true;
+        }
+        for (String message : MODEL_ONLY_EXACT_MESSAGES) {
+            String normalized = message.toLowerCase(Locale.ROOT)
+                    .replaceAll("\\s+", "")
+                    .replace("？", "?")
+                    .replace("！", "!")
+                    .replace("。", "")
+                    .replace(".", "")
+                    .trim();
+            if (compact.equals(normalized) || compact.equals(normalized + "?") || compact.equals(normalized + "!")) {
+                return true;
             }
         }
-        return new RagIntent(false, false);
+        return false;
     }
 
     private String evidenceBlock(int index, KnowledgeBaseRagRetrievalHit hit, int singleEvidenceMaxTokens) {

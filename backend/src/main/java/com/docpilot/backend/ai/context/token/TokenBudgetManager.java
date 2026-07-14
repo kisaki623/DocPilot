@@ -33,6 +33,7 @@ public class TokenBudgetManager {
         }
 
         Set<String> truncatedTypes = new LinkedHashSet<>();
+        List<ContextItem> dropped = new ArrayList<>();
         for (ContextItem item : optionalItems) {
             if (tokens + item.estimatedTokens() <= maxPromptTokens) {
                 used.add(item);
@@ -40,10 +41,11 @@ public class TokenBudgetManager {
                 continue;
             }
             truncatedTypes.add(item.type().name());
+            dropped.add(item);
         }
 
         used.sort(Comparator.comparingInt(this::renderOrder));
-        return new TokenBudgetResult(used, tokens, !truncatedTypes.isEmpty(), List.copyOf(truncatedTypes));
+        return new TokenBudgetResult(used, tokens, !truncatedTypes.isEmpty(), List.copyOf(truncatedTypes), dropped);
     }
 
     private Comparator<ContextItem> optionalComparator(boolean ragRequired) {

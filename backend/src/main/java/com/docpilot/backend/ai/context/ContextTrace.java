@@ -1,5 +1,7 @@
 package com.docpilot.backend.ai.context;
 
+import com.docpilot.backend.ai.rag.KnowledgeBaseRagEvidenceCitation;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -31,8 +33,76 @@ public record ContextTrace(
         List<String> truncatedTypes,
         boolean fallbackUsed,
         String fallbackReason,
-        boolean modelCallSkipped
+        boolean modelCallSkipped,
+        ContextTraceTechnicalDetails technicalDetails,
+        @JsonIgnore
+        List<KnowledgeBaseRagEvidenceCitation> citations
 ) {
+
+    public ContextTrace(Long conversationId,
+                        Long messageId,
+                        String contextMode,
+                        String groundingPolicy,
+                        String routeDecision,
+                        Boolean llmCalled,
+                        boolean summaryUsed,
+                        int recentTurnCount,
+                        int recentMessageCount,
+                        boolean memoryUsed,
+                        int memoryCount,
+                        List<String> memoryTypes,
+                        boolean ragTriggered,
+                        boolean ragRequired,
+                        Long knowledgeBaseId,
+                        int evidenceCount,
+                        boolean noEvidence,
+                        Map<Long, Integer> documentHitCounts,
+                        int maxPromptTokens,
+                        int estimatedPromptTokens,
+                        boolean truncated,
+                        List<String> truncatedTypes,
+                        boolean fallbackUsed,
+                        String fallbackReason,
+                        boolean modelCallSkipped) {
+        this(conversationId, messageId, contextMode, groundingPolicy, routeDecision, llmCalled,
+                summaryUsed, recentTurnCount, recentMessageCount, memoryUsed, memoryCount, memoryTypes,
+                ragTriggered, ragRequired, knowledgeBaseId, evidenceCount, noEvidence, documentHitCounts,
+                maxPromptTokens, estimatedPromptTokens, truncated, truncatedTypes, fallbackUsed, fallbackReason,
+                modelCallSkipped, null, List.of());
+    }
+
+    public ContextTrace(Long conversationId,
+                        Long messageId,
+                        String contextMode,
+                        String groundingPolicy,
+                        String routeDecision,
+                        Boolean llmCalled,
+                        boolean summaryUsed,
+                        int recentTurnCount,
+                        int recentMessageCount,
+                        boolean memoryUsed,
+                        int memoryCount,
+                        List<String> memoryTypes,
+                        boolean ragTriggered,
+                        boolean ragRequired,
+                        Long knowledgeBaseId,
+                        int evidenceCount,
+                        boolean noEvidence,
+                        Map<Long, Integer> documentHitCounts,
+                        int maxPromptTokens,
+                        int estimatedPromptTokens,
+                        boolean truncated,
+                        List<String> truncatedTypes,
+                        boolean fallbackUsed,
+                        String fallbackReason,
+                        boolean modelCallSkipped,
+                        List<KnowledgeBaseRagEvidenceCitation> citations) {
+        this(conversationId, messageId, contextMode, groundingPolicy, routeDecision, llmCalled,
+                summaryUsed, recentTurnCount, recentMessageCount, memoryUsed, memoryCount, memoryTypes,
+                ragTriggered, ragRequired, knowledgeBaseId, evidenceCount, noEvidence, documentHitCounts,
+                maxPromptTokens, estimatedPromptTokens, truncated, truncatedTypes, fallbackUsed, fallbackReason,
+                modelCallSkipped, null, citations);
+    }
 
     public ContextTrace(Long conversationId,
                         Long messageId,
@@ -63,7 +133,7 @@ public record ContextTrace(
                 summaryUsed, recentTurnCount, recentMessageCount, memoryUsed, memoryCount, memoryTypes,
                 ragTriggered, ragRequired, knowledgeBaseId, evidenceCount, noEvidence, documentHitCounts,
                 maxPromptTokens, estimatedPromptTokens, truncated, truncatedTypes, fallbackUsed, fallbackReason,
-                modelCallSkipped);
+                modelCallSkipped, null, List.of());
     }
 
     public ContextTrace {
@@ -77,6 +147,10 @@ public record ContextTrace(
         documentHitCounts = documentHitCounts == null ? Map.of() : Map.copyOf(documentHitCounts);
         truncatedTypes = truncatedTypes == null ? List.of() : List.copyOf(truncatedTypes);
         fallbackReason = fallbackReason == null ? "" : fallbackReason.trim();
+        technicalDetails = technicalDetails == null
+                ? ContextTraceTechnicalDetails.unavailable(conversationId, messageId)
+                : technicalDetails;
+        citations = citations == null ? List.of() : List.copyOf(citations);
     }
 
     public ContextTrace withMessageId(Long resolvedMessageId) {
@@ -105,7 +179,9 @@ public record ContextTrace(
                 truncatedTypes,
                 fallbackUsed,
                 fallbackReason,
-                modelCallSkipped
+                modelCallSkipped,
+                technicalDetails.withMessageId(conversationId, resolvedMessageId),
+                citations
         );
     }
 
@@ -135,7 +211,105 @@ public record ContextTrace(
                 truncatedTypes,
                 fallbackUsed,
                 fallbackReason,
-                modelCallSkipped
+                modelCallSkipped,
+                technicalDetails.withLlmCalled(resolvedLlmCalled),
+                citations
+        );
+    }
+
+    public ContextTrace withModelCallMs(Long modelCallMs) {
+        return new ContextTrace(
+                conversationId,
+                messageId,
+                contextMode,
+                groundingPolicy,
+                routeDecision,
+                llmCalled,
+                summaryUsed,
+                recentTurnCount,
+                recentMessageCount,
+                memoryUsed,
+                memoryCount,
+                memoryTypes,
+                ragTriggered,
+                ragRequired,
+                knowledgeBaseId,
+                evidenceCount,
+                noEvidence,
+                documentHitCounts,
+                maxPromptTokens,
+                estimatedPromptTokens,
+                truncated,
+                truncatedTypes,
+                fallbackUsed,
+                fallbackReason,
+                modelCallSkipped,
+                technicalDetails.withTiming("modelCall", modelCallMs),
+                citations
+        );
+    }
+
+    public ContextTrace withTechnicalDetails(ContextTraceTechnicalDetails resolvedTechnicalDetails) {
+        return new ContextTrace(
+                conversationId,
+                messageId,
+                contextMode,
+                groundingPolicy,
+                routeDecision,
+                llmCalled,
+                summaryUsed,
+                recentTurnCount,
+                recentMessageCount,
+                memoryUsed,
+                memoryCount,
+                memoryTypes,
+                ragTriggered,
+                ragRequired,
+                knowledgeBaseId,
+                evidenceCount,
+                noEvidence,
+                documentHitCounts,
+                maxPromptTokens,
+                estimatedPromptTokens,
+                truncated,
+                truncatedTypes,
+                fallbackUsed,
+                fallbackReason,
+                modelCallSkipped,
+                resolvedTechnicalDetails,
+                citations
+        );
+    }
+
+    public ContextTrace withCitations(List<KnowledgeBaseRagEvidenceCitation> resolvedCitations) {
+        return new ContextTrace(
+                conversationId,
+                messageId,
+                contextMode,
+                groundingPolicy,
+                routeDecision,
+                llmCalled,
+                summaryUsed,
+                recentTurnCount,
+                recentMessageCount,
+                memoryUsed,
+                memoryCount,
+                memoryTypes,
+                ragTriggered,
+                ragRequired,
+                knowledgeBaseId,
+                evidenceCount,
+                noEvidence,
+                documentHitCounts,
+                maxPromptTokens,
+                estimatedPromptTokens,
+                truncated,
+                truncatedTypes,
+                fallbackUsed,
+                fallbackReason,
+                modelCallSkipped,
+                technicalDetails,
+                resolvedCitations
         );
     }
 

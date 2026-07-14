@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ApiError } from "@/lib/api";
 import { getToken } from "@/lib/auth";
 import {
+  getQualityConsoleStatus,
   getQualityRunDetail,
   getQualityTrendSummary,
   listQualityEvalCases,
   listQualityRuns,
+  type QualityConsoleStatus,
   type QualityEvalCaseCatalogItem,
   type QualityEvalCaseResultDetail,
   type QualityGateSummary,
@@ -40,6 +43,39 @@ const RUN_STATUS_FILTERS = [
   { value: "REVIEW", label: "需复查 / 阻塞" },
   { value: "FAILED", label: "失败" },
 ];
+
+type QualityLoadErrorKind =
+  | "NONE"
+  | "AUTH"
+  | "CONSOLE_DISABLED"
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "OTHER";
+
+function classifyQualityLoadError(error: unknown): QualityLoadErrorKind {
+  if (!(error instanceof ApiError)) {
+    return "OTHER";
+  }
+  const rawMessage = (error.rawMessage || "").toLowerCase();
+  const displayMessage = error.message.toLowerCase();
+  if (error.code === 403 && rawMessage.includes("quality console is disabled")) {
+    return "CONSOLE_DISABLED";
+  }
+  if (error.code === 403 && displayMessage.includes("质量控制台未开启")) {
+    return "CONSOLE_DISABLED";
+  }
+  if (error.code === 401) {
+    return "AUTH";
+  }
+  if (error.code === 403) {
+    return "FORBIDDEN";
+  }
+  if (error.code === 404) {
+    return "NOT_FOUND";
+  }
+  return "OTHER";
+}
+
 const DETAIL_SECTIONS = [
   { id: "summary", label: "摘要" },
   { id: "gates", label: "门禁" },
@@ -955,9 +991,13 @@ function buildRunDiagnostics(
   const documentCoverage = detail.diagnostics?.documentCoverage;
   const toolQuality = detail.diagnostics?.toolQuality;
   const memoryQuality = detail.diagnostics?.memoryQuality;
+  const zeroHitDocumentText =
+    typeof documentCoverage?.zeroHitDocumentCount === "number"
+      ? `未命中 ${formatNumber(documentCoverage.zeroHitDocumentCount)}`
+      : "未命中未知";
   const documentCoverageText =
     typeof documentCoverage?.documentCount === "number" && documentCoverage.documentCount > 0
-      ? `${formatNumber(documentCoverage.coveredDocumentCount)}/${formatNumber(documentCoverage.documentCount)}，未命中 ${formatNumber(documentCoverage.zeroHitDocumentCount)}`
+      ? `${formatNumber(documentCoverage.coveredDocumentCount)}/${formatNumber(documentCoverage.documentCount)}，${zeroHitDocumentText}`
       : "暂无安全摘要";
   const memoryQualityText =
     typeof memoryQuality?.memoryHitCount === "number" || typeof memoryQuality?.ragEvidenceCount === "number"
@@ -1240,27 +1280,74 @@ export default function QualityPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [compareLoading, setCompareLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [loadErrorKind, setLoadErrorKind] = useState<QualityLoadErrorKind>("NONE");
+  const [consoleStatus, setConsoleStatus] = useState<QualityConsoleStatus | null>(null);
+
+  const clearLoadedQualityData = useCallback(() => {
+    setRuns([]);
+    setEvalCatalog([]);
+    setTrend(null);
+    setDetail(null);
+    setCompareDetail(null);
+    setSelectedMarker("");
+    setCompareMarker("");
+  }, []);
+
+  const loadConsoleStatus = useCallback(async () => {
+    const response = await getQualityConsoleStatus();
+    const status = response.data;
+    setConsoleStatus(status);
+    return status;
+  }, []);
 
   const loadRuns = useCallback(async () => {
     const token = getToken();
     if (!token) {
       setHasToken(false);
-      setRuns([]);
-      setDetail(null);
+      clearLoadedQualityData();
       setLoading(false);
       setErrorMessage("未检测到登录状态。");
+      setLoadErrorKind("AUTH");
       return;
     }
 
     setHasToken(true);
     setLoading(true);
     setErrorMessage("");
+    setLoadErrorKind("NONE");
     try {
+      const status = await loadConsoleStatus();
+      if (!status?.enabled) {
+        clearLoadedQualityData();
+        setLoadErrorKind("CONSOLE_DISABLED");
+        setErrorMessage("质量控制台未开启：请在本地内部验证环境设置 APP_QUALITY_CONSOLE_ENABLED=true 后重启后端。");
+        return;
+      }
+      if (!status.authorized) {
+        clearLoadedQualityData();
+        setLoadErrorKind("FORBIDDEN");
+        setErrorMessage("仅内部管理员可访问质量控制台。");
+        return;
+      }
+      if (status.reason === "STORAGE_UNAVAILABLE") {
+        clearLoadedQualityData();
+        setLoadErrorKind("OTHER");
+        setErrorMessage("质量控制台存储未就绪：请先执行 011 质量控制台持久化迁移，再刷新页面。");
+        return;
+      }
       const response = await listQualityRuns(20);
       const nextRuns = response.data || [];
       setRuns(nextRuns);
-      setSelectedMarker((current) => current || nextRuns[0]?.marker || "");
-      setCompareMarker((current) => current || nextRuns[1]?.marker || "");
+      setSelectedMarker((current) =>
+        current && nextRuns.some((run) => run.marker === current)
+          ? current
+          : nextRuns[0]?.marker || ""
+      );
+      setCompareMarker((current) =>
+        current && nextRuns.some((run) => run.marker === current)
+          ? current
+          : nextRuns[1]?.marker || ""
+      );
       try {
         const trendResponse = await getQualityTrendSummary(20);
         setTrend(trendResponse.data || null);
@@ -1274,18 +1361,15 @@ export default function QualityPage() {
         setEvalCatalog([]);
       }
     } catch (error) {
-      setRuns([]);
-      setEvalCatalog([]);
-      setTrend(null);
-      setDetail(null);
-      setCompareDetail(null);
+      clearLoadedQualityData();
+      setLoadErrorKind(classifyQualityLoadError(error));
       setErrorMessage(
         error instanceof Error ? error.message : "加载质量运行记录失败"
       );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [clearLoadedQualityData, loadConsoleStatus]);
 
   const loadDetail = useCallback(async (marker: string) => {
     if (!marker) {
@@ -1294,6 +1378,7 @@ export default function QualityPage() {
     }
     setDetailLoading(true);
     setErrorMessage("");
+    setLoadErrorKind("NONE");
     try {
       const response = await getQualityRunDetail(marker);
       setDetail(response.data);
@@ -1327,21 +1412,23 @@ export default function QualityPage() {
     const token = getToken();
     if (!token) {
       setHasToken(false);
-      setRuns([]);
-      setDetail(null);
+      clearLoadedQualityData();
       setLoading(false);
       setErrorMessage("未检测到登录状态。");
+      setLoadErrorKind("AUTH");
       return;
     }
 
     setHasToken(true);
+    setLoadErrorKind("NONE");
     const shouldAutoload = new URLSearchParams(window.location.search).get("autoload") === "1";
     if (shouldAutoload) {
       loadRuns();
     } else {
+      loadConsoleStatus().catch(() => undefined);
       setLoading(false);
     }
-  }, [loadRuns]);
+  }, [clearLoadedQualityData, loadConsoleStatus, loadRuns]);
 
   useEffect(() => {
     if (selectedMarker) {
@@ -1428,6 +1515,7 @@ export default function QualityPage() {
         stats={stats}
         diagnostics={overviewDiagnostics}
         latestRun={latestRun}
+        consoleStatus={consoleStatus}
         loading={loading}
         onRefresh={() => loadRuns()}
       />
@@ -1443,6 +1531,7 @@ export default function QualityPage() {
           runs={filteredRuns}
           allRunCount={runs.length}
           loading={loading}
+          loadErrorKind={loadErrorKind}
           selectedMarker={selectedMarker}
           statusFilter={runStatusFilter}
           search={runSearch}
@@ -1472,6 +1561,7 @@ function QualityOverviewHeader({
   stats,
   diagnostics,
   latestRun,
+  consoleStatus,
   loading,
   onRefresh,
 }: {
@@ -1484,6 +1574,7 @@ function QualityOverviewHeader({
   };
   diagnostics: OverviewDiagnostics;
   latestRun?: QualityRunSummary;
+  consoleStatus: QualityConsoleStatus | null;
   loading: boolean;
   onRefresh: () => void;
 }) {
@@ -1557,10 +1648,15 @@ function QualityOverviewHeader({
           <div className="min-w-0">
             <p className="dp-eyebrow">Agent Quality Console</p>
             <h1 className="dp-title">内部质量排查控制台</h1>
-            <p className="dp-subtitle max-w-3xl">
-              先判断最近运行是否健康，再沿着门禁、失败项和链路定位排查问题。
-            </p>
-          </div>
+              <p className="dp-subtitle max-w-3xl">
+                先判断最近运行是否健康，再沿着门禁、失败项和链路定位排查问题。
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                环境：{consoleStatus?.environment || "-"} / 数据来源：{consoleStatus?.dataMode || "DB"} / 最近导入：
+                {" "}
+                {consoleStatus?.lastImportedAt ? formatDateTime(consoleStatus.lastImportedAt) : "暂无"}
+              </p>
+            </div>
           <button
             type="button"
             onClick={onRefresh}
@@ -1630,6 +1726,7 @@ function RunListSidebar({
   runs,
   allRunCount,
   loading,
+  loadErrorKind,
   selectedMarker,
   statusFilter,
   search,
@@ -1640,6 +1737,7 @@ function RunListSidebar({
   runs: QualityRunSummary[];
   allRunCount: number;
   loading: boolean;
+  loadErrorKind: QualityLoadErrorKind;
   selectedMarker: string;
   statusFilter: string;
   search: string;
@@ -1691,8 +1789,20 @@ function RunListSidebar({
       <div className="mt-4 grid max-h-[620px] gap-2 overflow-y-auto pr-1">
         {loading ? (
           <p className="dp-meta">正在加载运行记录...</p>
+        ) : loadErrorKind === "CONSOLE_DISABLED" ? (
+          <p className="dp-meta">
+            质量控制台未开启，当前没有加载运行记录。请用本地内部验证配置重启后端后再刷新。
+          </p>
+        ) : loadErrorKind === "FORBIDDEN" ? (
+          <p className="dp-meta">
+            当前账号不是内部管理员，不能查看质量运行记录。
+          </p>
+        ) : loadErrorKind !== "NONE" ? (
+          <p className="dp-meta">
+            运行记录未加载。请先处理上方错误提示，再点击刷新重试。
+          </p>
         ) : allRunCount === 0 ? (
-          <p className="dp-meta">暂无质量运行记录。点击刷新后仍为空时，说明还没有生成脱敏 artifact。</p>
+          <p className="dp-meta">暂无质量运行记录。请先导入通过脱敏扫描的质量 artifact。</p>
         ) : runs.length === 0 ? (
           <p className="dp-meta">没有匹配的运行记录，请调整筛选或搜索。</p>
         ) : (

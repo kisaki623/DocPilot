@@ -126,22 +126,27 @@ public record KnowledgeBaseRagRetrievalResult(
                                                                  List<KnowledgeBaseRagRetrievalHit> hits,
                                                                  Map<Long, Integer> providedCounts) {
         Map<Long, Integer> counts = new LinkedHashMap<>();
-        for (Long documentId : documentIds) {
-            if (documentId != null) {
-                counts.put(documentId, 0);
-            }
-        }
         if (providedCounts != null && !providedCounts.isEmpty()) {
-            providedCounts.forEach((documentId, count) -> {
+            for (Long documentId : documentIds) {
                 if (documentId != null) {
-                    counts.put(documentId, Math.max(0, count == null ? 0 : count));
+                    int resolvedCount = providedCounts.get(documentId) == null ? 0 : providedCounts.get(documentId);
+                    if (resolvedCount > 0) {
+                        counts.put(documentId, resolvedCount);
+                    }
                 }
-            });
+            }
             return Collections.unmodifiableMap(new LinkedHashMap<>(counts));
         }
+        Map<Long, Integer> hitCounts = new LinkedHashMap<>();
         for (KnowledgeBaseRagRetrievalHit hit : hits) {
             if (hit.documentId() != null) {
-                counts.merge(hit.documentId(), 1, Integer::sum);
+                hitCounts.merge(hit.documentId(), 1, Integer::sum);
+            }
+        }
+        for (Long documentId : documentIds) {
+            Integer count = hitCounts.remove(documentId);
+            if (documentId != null && count != null && count > 0) {
+                counts.put(documentId, count);
             }
         }
         return Collections.unmodifiableMap(new LinkedHashMap<>(counts));

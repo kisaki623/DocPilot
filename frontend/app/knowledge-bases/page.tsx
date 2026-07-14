@@ -76,7 +76,7 @@ function formatScoreDetails(item: {
 }
 
 function formatHitCounts(counts?: Record<string, number>): string {
-  const entries = Object.entries(counts || {});
+  const entries = Object.entries(counts || {}).filter(([, count]) => Number(count) > 0);
   if (entries.length === 0) {
     return "-";
   }
@@ -86,7 +86,7 @@ function formatHitCounts(counts?: Record<string, number>): string {
 }
 
 function countHitDocuments(counts?: Record<string, number>): number {
-  return Object.keys(counts || {}).length;
+  return Object.values(counts || {}).filter((count) => Number(count) > 0).length;
 }
 
 function buildSessionId(knowledgeBaseId: number): string {

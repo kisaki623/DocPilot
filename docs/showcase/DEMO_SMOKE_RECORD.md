@@ -1,8 +1,36 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-07-13
+> Last updated: 2026-07-14
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
+
+## 2026-07-14 Agent Quality Console DB-backed Internal Console
+
+状态：PASS（DB migration + internal admin + persisted QualityRun + import hygiene + DB-backed domain trends + UI/API）
+
+Runner / 验证：
+
+- `backend/src/main/resources/sql/011_init_quality_console_persistence.sql`
+- `scripts/smoke/agent-quality-eval-smoke.ps1 -Mode run`
+- 临时后端 `18081` + 临时前端 `3007` 管理员 / 普通用户浏览器验证
+
+Marker:
+
+- `docpilot-agent-quality-eval-20260714151238-756d91`
+- closeout：`quality-console-closeout-20260714160116`
+
+已验证：
+
+- 真实开发库已执行 011，并二次执行确认幂等；`tb_quality_run`、`tb_quality_run_gate`、`tb_quality_run_case`、`tb_quality_import_event` 与 `tb_user.is_internal_admin` 存在。
+- `zeus` 已作为唯一 ACTIVE 用户被标记为内部管理员；临时 smoke 管理员完成自动化验证。
+- 未登录 Quality API 返回业务 `401`，普通用户返回业务 `403`，内部管理员可读取 runs/detail/trends 并导入 artifact。
+- 真实 agent quality eval marker 导入后成为最新 DB-backed run：`status=PASS`、`dataSource=artifact_import`、`gateCount=1`、`evalCaseCount=19`。
+- 导入器已在 `limit` 截断前过滤 `docpilot-import-*` 测试 marker，单测改用 `@TempDir` 隔离；真实 API 验证 `limit=1` 下 `firstRunIsTestMarker=false`。
+- DB-backed `/api/quality/trends?limit=50` 已恢复领域趋势：`domainTrends.memoryQuality` 覆盖 4 个 run，`domainTrends.ragRepresentativeEval` 覆盖 12 个 run。
+- `/quality?autoload=1` 可见最新 run、数据来源和导入信息；普通用户导航隐藏“质量”，直接访问显示无权限；桌面和 `390px` 移动端无横向溢出，console error 为 `0`。
+- `/quality?autoload=1` 点击“趋势”后可见 `Memory quality smoke` 与 `RAG representative eval` 两张领域卡；桌面和 `390px` 移动端无横向溢出，console error 为 `0`。
+
+边界：Quality Console 仍是内部控制台，默认配置不开启；本次验证使用临时本地端口和开发库，不是生产运维系统。artifact 位于 ignored 目录，只保留 marker、状态、计数和脱敏 id，不提交 token、密码、raw prompt、answer、evidence context、连接串或云地址。历史残留的 `docpilot-import-*` 测试 marker 不做破坏性删除，但默认导入、runs/detail/trends 已隐藏或跳过，避免影响真实质量控制台验收。
 
 ## 2026-07-12 High Intensity Acceptance Layer 1
 
@@ -132,14 +160,15 @@ Runner:
 
 Marker:
 
-- conversation grounding：`docpilot-conversation-grounding-20260712183609-a15fef`
+- conversation grounding 可见性历史 marker：`docpilot-conversation-grounding-20260712183609-a15fef`
+- conversation grounding 最新 route marker：`docpilot-conversation-grounding-20260713212058-5915ed`
 
 已验证：
 
-- Quality runs 可见该 marker，source 为 `backend/target/conversation-grounding`。
-- Run detail 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`。
-- Eval Catalog 中 6 个 Conversation grounding case 均关联该 marker，latest status 为 `PASS`。
-- 页面可见 marker、source root 和 Artifact 分区 6 个 catalog case；console error 为 `0`，`390px` 移动端无横向溢出。
+- Quality runs 可见历史 marker，source 为 `backend/target/conversation-grounding`。
+- 历史 Run detail 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`；2026-07-13 最新 route smoke 已扩展为 9/9 case PASS。
+- Eval Catalog 中 Conversation grounding case 可关联 smoke marker，latest status 为 `PASS`。
+- 页面可见 marker、source root 和 Artifact 分区 catalog case；console error 为 `0`，`390px` 移动端无横向溢出。
 
 边界：本次只验证 Quality API / 页面读取 ignored artifact 和 catalog 关联；不上传文档、不调用 provider，不证明完整浏览器 E2E。输出只保留 marker、状态和计数摘要，不提交 token、注册密码、raw artifact、prompt、answer、evidence context、日志原文、连接串或云地址。临时 18081 后端和 3007 前端已清理，无端口残留。
 
@@ -160,9 +189,11 @@ Marker:
 
 - 未绑定 KnowledgeBase 的普通问题走 `MODEL_ONLY`：`ragTriggered=false`、`ragRequired=false`、`evidenceCount=0`、`llmCalled=true`、`modelSkipped=false`。
 - 未绑定 KB 即使请求 `STRICT_KB` 也归一为 `MODEL_ONLY`，不触发资料不足拒答。
-- 绑定 KB 的 `AUTO_RAG` 普通知识库概念问题不触发 RAG；显式资料问题无 evidence 时 fallback 到模型，`routeDecision=AUTO_NO_EVIDENCE_MODEL`。
+- 绑定 KB 的 `AUTO_RAG` 明显闲聊不触发 RAG；非显式资料问题无 evidence 时 fallback 到模型，`routeDecision=AUTO_NO_EVIDENCE_MODEL`。
+- 绑定 KB 的 `AUTO_RAG` 显式资料问题无 evidence 时安全拒答，`routeDecision=AUTO_REQUIRED_NO_EVIDENCE_FALLBACK`、`llmCalled=false`、`modelSkipped=true`。
 - `STRICT_KB` 无 evidence 时安全拒答，`llmCalled=false`、`modelSkipped=true`、`routeDecision=STRICT_NO_EVIDENCE_FALLBACK`。
 - `AUTO_RAG` 命中 evidence 时返回 citation，`routeDecision=AUTO_RAG_EVIDENCE`。
+- 本轮 runner 为 9/9 case PASS，包含未绑定 KB、STRICT 归一、RECENT_TURNS 同会话 / 跨会话、AUTO smalltalk、AUTO optional no-evidence、AUTO required no-evidence、STRICT no-evidence 和 AUTO evidence citation。
 
 边界：这是 Conversation grounding policy 的小规模真实链路防回归 smoke，不是大规模对话质量 benchmark。artifact 位于 ignored 的 `backend/target/conversation-grounding/.../artifact.json`，只保存路由枚举、布尔值、计数和脱敏 id，不提交 token、密码、raw prompt、raw answer、raw evidence、provider output、连接串或云地址。
 

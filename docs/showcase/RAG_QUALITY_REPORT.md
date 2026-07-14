@@ -1,6 +1,6 @@
 # DocPilot RAG 质量报告（求职展示版）
 
-更新时间：2026-07-12
+更新时间：2026-07-14
 
 ## 结论
 
@@ -20,15 +20,15 @@ DocPilot 当前已经达到“后端 / RAG 实习或初中级岗位求职展示�
 | Rerank | 有 `RerankService` / `HttpRerankService`，支持 Cohere / OpenAI-compatible / 阿里云百炼，失败 identity fallback；已暴露 `rerankFailureReason` 安全诊断。 | 代码链路求职级；百炼 provider 已真实生效，hard fixture 小样本观察到排序 uplift，12-case 代表 eval 无 coverage / no-evidence 回退；仍不是大规模 ranking benchmark。 |
 | Context Packing | `ContextAssemblyServiceImpl` 统一拼接 system、mode、summary、memory、recent turns、KB evidence、current message，并做权限过滤、token budget、trace。 | 求职级强；体现 RAG + 会话记忆融合。 |
 | Citation | 单文档和 KnowledgeBase citation / hit 已有 quote、chunk、offset、section/page/source locator；文档详情、KnowledgeBase、Conversation 和 Agent 页面现在都可展示 locator / metadata。 | 求职级强；仍不是 PDF 坐标级引用。 |
-| No-evidence / Grounding | KnowledgeBase QA 无证据时跳过模型，返回 no-evidence；Conversation 路由拆成 `MODEL_ONLY / AUTO_RAG / STRICT_KB`，未绑定 KB 不触发资料不足拒答，`AUTO_RAG` 无证据 fallback 到模型，显式 `STRICT_KB` 才安全拒答；有证据才构造 grounded prompt，并做 answer-aware citation pruning。 | 求职级强；强调“普通会话不误拒答、严格资料模式不让模型凭记忆硬答”。 |
+| No-evidence / Grounding | KnowledgeBase QA 无证据时跳过模型，返回 no-evidence；Conversation 路由拆成 `MODEL_ONLY / AUTO_RAG / STRICT_KB`，未绑定 KB 不触发资料不足拒答，`AUTO_RAG` 非显式资料问题无证据时 fallback 到模型，显式要求文档 / 知识库 / 引用依据或 `STRICT_KB` 无证据时安全拒答；有证据才构造 grounded prompt，并做 answer-aware citation pruning。 | 求职级强；强调“普通会话不误拒答、要求资料依据时不让模型凭记忆硬答”。 |
 | Eval / Smoke | 有离线单测、脚本安全测试、真实链路 smoke、artifact redaction、Quality Console 聚合。 | 求职展示很加分；仍不是大规模 benchmark。 |
 
 ## 最新证据
 
 - 全量后端基线：`mvn test -DskipITs` PASS（953 tests，0 failures，5 skipped，本轮复验）。
-- Conversation Grounding：`docpilot-conversation-grounding-20260712183609-a15fef` PASS，6/6 case 覆盖未绑定 KB、误选 `STRICT_KB`、`AUTO_RAG` 普通问题、`AUTO_RAG` 无证据 fallback、`STRICT_KB` 无证据拒答和 `AUTO_RAG` evidence citation；`ConversationGroundingSmokeScriptSafetyTest` 3 tests PASS。
-- Quality Console 可见性：`/api/quality/runs` 和 `/quality?autoload=1` 已可见 `docpilot-conversation-grounding-20260712183609-a15fef`；detail 返回 `conversationGrounding` gate，`caseCount=6`、`evalCaseCount=6`，Eval Catalog 6 个 Conversation grounding case 均 linked 到该 marker 且 latest status 为 `PASS`；浏览器 smoke console error 为 `0`，`390px` 移动端无横向溢出。
-- Quality Console 趋势视图：`/api/quality/trends` 已返回 `domainTrends.memoryQuality` 与 `domainTrends.ragRepresentativeEval`；Memory 最新 `PASS`，RAG representative 最新 `PASS`，`caseCount=12`、`upliftCaseCount=10`、`strictImprovementCaseCount=2`、`targetCoverageRegressionCount=0`；浏览器点击“趋势”后可见 `Memory quality smoke` 与 `RAG representative eval` 两张领域卡，console error 为 `0`，`390px` 移动端横向溢出为 `0px`。
+- Conversation Grounding：`docpilot-conversation-grounding-20260713212058-5915ed` PASS，9/9 case 覆盖未绑定 KB、误选 `STRICT_KB`、RECENT_TURNS 同会话 / 跨会话、`AUTO_RAG` 明显闲聊、`AUTO_RAG` 非显式资料无证据 fallback、`AUTO_RAG` 显式资料无证据拒答、`STRICT_KB` 无证据拒答和 `AUTO_RAG` evidence citation；`ConversationGroundingSmokeScriptSafetyTest` 3 tests PASS。
+- Quality Console 可见性：`/api/quality/runs` 和 `/quality?autoload=1` 已可见历史 marker `docpilot-conversation-grounding-20260712183609-a15fef`；detail 返回 `conversationGrounding` gate，历史 `caseCount=6`、`evalCaseCount=6`，Eval Catalog case linked 到该 marker 且 latest status 为 `PASS`；2026-07-13 后 runner / catalog 已扩展 AUTO required no-evidence case，最新后端 route smoke 为 9/9 PASS。
+- Quality Console 趋势视图：`quality-console-closeout-20260714160116` 真实 API/UI 验证 DB-backed `/api/quality/trends?limit=50` 已返回 `domainTrends.memoryQuality` 与 `domainTrends.ragRepresentativeEval`；Memory 趋势覆盖 4 个 run，RAG representative 趋势覆盖 12 个 run，`caseCount=12`、`upliftCaseCount=10`、`strictImprovementCaseCount=2`、`targetCoverageRegressionCount=0`；浏览器点击“趋势”后可见 `Memory quality smoke` 与 `RAG representative eval` 两张领域卡，console error 为 `0`，`390px` 移动端横向溢出为 `0px`。
 - 真实用户链路：`docpilot-real-user-qa-20260711170544-dff948` PASS。
 - 真实 RAG QA：`docpilot-rag-real-qa-20260711171137-ed38a0` PASS。
 - Parser 真实链路：`docpilot-parser-real-chain-20260712015555-91d1fd` PASS，source locator `3/3`、parser boundary `4/4`。

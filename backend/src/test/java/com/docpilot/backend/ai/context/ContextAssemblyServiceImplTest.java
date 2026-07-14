@@ -130,6 +130,16 @@ class ContextAssemblyServiceImplTest {
                 .containsEntry("conversationContext", true)
                 .containsEntry("userMemory", true)
                 .containsEntry("ragEvidence", true);
+        assertThat(result.trace().technicalDetails().available()).isTrue();
+        assertThat(result.trace().technicalDetails().traceId()).isEqualTo("ctx-10-pending");
+        assertThat(result.trace().technicalDetails().route().routeDecision())
+                .isEqualTo(RouteDecision.AUTO_RAG_EVIDENCE.name());
+        assertThat(result.trace().technicalDetails().timingsMs())
+                .containsKeys("summary", "memory", "recentTurns", "retrieval", "tokenBudget", "contextAssembly");
+        assertThat(result.trace().technicalDetails().tokenBudget().byType())
+                .extracting(ContextTraceTechnicalDetails.TokenBudgetTypeSummary::type)
+                .contains(ContextType.RAG_EVIDENCE.name());
+        assertThat(result.trace().technicalDetails().contextUsage().memory().types()).contains("PREFERENCE");
         assertThat(result.modelCallSkipped()).isFalse();
     }
 
@@ -158,6 +168,33 @@ class ContextAssemblyServiceImplTest {
         assertThat(result.ragRequired()).isFalse();
         assertThat(result.trace().routeDecision()).isEqualTo(RouteDecision.AUTO_NO_EVIDENCE_MODEL.name());
         assertThat(result.trace().fallbackReason()).isBlank();
+    }
+
+    @Test
+    void autoRagRequiredNoEvidenceShouldSkipModelCall() {
+        Conversation conversation = conversation(ConversationContextMode.AGENT_MEMORY, 3L, true, true);
+        when(conversationService.requireOwnedActive(7L, 10L)).thenReturn(conversation);
+        when(memorySelector.select(7L, 5)).thenReturn(List.of());
+        when(recentTurnsBuilder.build(7L, 10L, 8)).thenReturn(List.of());
+        when(evidenceBuilder.build(eq(conversation), eq("请引用文档回答"),
+                any(ContextPolicy.class), eq(GroundingPolicy.AUTO_RAG))).thenReturn(new KnowledgeBaseEvidenceResult(
+                true,
+                true,
+                true,
+                "当前知识库中没有找到足够证据，无法基于知识库回答该问题。",
+                List.of(),
+                List.of(),
+                Map.of(),
+                RouteDecision.AUTO_REQUIRED_NO_EVIDENCE_FALLBACK
+        ));
+
+        ContextAssemblyResult result = service.buildContext(new ContextAssemblyRequest(7L, 10L, "请引用文档回答", null));
+
+        assertThat(result.modelCallSkipped()).isTrue();
+        assertThat(result.fallbackAnswer()).contains("没有找到足够证据");
+        assertThat(result.ragRequired()).isTrue();
+        assertThat(result.trace().routeDecision()).isEqualTo(RouteDecision.AUTO_REQUIRED_NO_EVIDENCE_FALLBACK.name());
+        assertThat(result.trace().fallbackReason()).isEqualTo("REQUIRED_EVIDENCE_NO_EVIDENCE");
     }
 
     @Test

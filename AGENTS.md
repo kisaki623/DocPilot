@@ -53,7 +53,7 @@ powershell -ExecutionPolicy Bypass -File scripts/dev/start-cloud-tunnels.ps1
 
 
 
-真实链路验证优先走本地 SSH tunnel、后端、前端和 smoke runner。用户明确进入自驱迭代模式后，视为已授权代理在当前大目标内自行启动本地 tunnel、后端、前端，运行真实 smoke，创建带统一 marker 的临时 smoke 用户 / 文档 / KnowledgeBase / Conversation，并生成 ignored 脱敏 artifact；这些操作不再需要逐次等待用户确认。涉及云服务器 Docker / `hk-ops` 时，只读诊断（状态、日志、端口、网络、健康检查、非敏感计数）可在说明目的和命令类别后执行；启动、停止、重启、删除、迁移、改防火墙、改云资源、清空数据或修改数据库结构仍必须单独获得用户明确授权。不得为了方便绕过本地证据直接做远程破坏性操作。
+真实链路验证优先走本地 SSH tunnel、后端、前端和 smoke runner。用户明确进入自驱迭代模式后，视为已授权代理在当前大目标内自行启动本地 tunnel、后端、前端，运行真实 smoke，创建带统一 marker 的临时 smoke 用户 / 文档 / KnowledgeBase / Conversation，并生成 ignored 脱敏 artifact；这些操作不再需要逐次等待用户确认。涉及云服务器 Docker / `hk-ops` 时，只读诊断（状态、日志、端口、网络、健康检查、非敏感计数）可在说明目的和命令类别后执行；启动、停止、重启、删除、迁移、改防火墙、改云资源、清空数据、破坏性数据库结构变更或非 DocPilot schema 操作仍必须单独获得用户明确授权。不得为了方便绕过本地证据直接做远程破坏性操作。
 
 涉及前端开发或改善的工作请和 Gemini CLI 协作，Gemini CLI 负责创意、方案和代码建议，Codex 负责安全审查、代码落地、验证和文档回写；所有 Gemini CLI 调用必须显式使用 `gemini-3.5-flash`，包括短探测和正式协作，外层超时建议 `180000ms`。2026-07-12 已验证的正式调用路径是先构造脱敏 PowerShell here-string，再执行 `gemini.cmd -m gemini-3.5-flash --prompt $prompt`；不要默认使用 stdin + `-p`。模型不可用、超时或返回异常时由 Codex 直接完成，不自动降级或改用其他模型；Gemini CLI 不直接接触 `.env`、secrets、远程服务器操作、数据库迁移或不相关文件。详细规则见 `docs/ai-dev/CONSTRAINTS.md`。
 
@@ -161,7 +161,17 @@ curl http://localhost:8081/actuator/health
 
 自驱迭代模式不需要因为启动本地 tunnel / backend / frontend、创建临时 smoke 数据、运行真实 smoke、使用本机已有 `.env` 中的真实 provider / Qdrant / MySQL 配置而停下来等确认；但任何敏感值只能由应用或脚本读取，禁止复制到回复、文档、commit message 或 artifact。
 
-自驱迭代模式必须在以下情况停止并向用户汇报：大目标已完成；需要产品取舍；需要改数据库结构、删除业务数据、清空 collection、远程 Docker 启停 / 重启 / 迁移、改防火墙或云资源、大规模或高成本真实 provider 调用、push；无法脱敏的证据；连续验证失败且本地证据不足；发现影响当前切片的无关未提交改动；用户要求暂停、只读或进入 Plan 阶段。
+### 受控开发库数据库常驻授权
+
+用户已授权后续代理在 DocPilot 当前开发库范围内执行受控数据库操作，用于减少每次迁移 / smoke / 内部控制台验证前的重复确认。该授权只覆盖当前项目开发库和本地 tunnel 方式接入的 DocPilot 数据库，不等于生产运维 root 权限。
+
+默认允许的操作：只读诊断查询；幂等迁移脚本；当前任务明确需要的精确 `UPDATE`；带统一 marker 的临时 smoke 数据创建；QualityRun / QualityRunCase 等内部质量控制台导入；明确指定账号的内部管理员标记。执行前必须说明目的和 SQL / 脚本来源，执行后记录影响范围、行数或 schema 验证结果。
+
+仍必须单独获得用户确认的操作：`DROP` / `TRUNCATE`；批量删除或清空业务数据；重置真实用户密码；清空 Qdrant collection；修改非 DocPilot schema；远程 Docker 启动 / 停止 / 重启 / 迁移；修改云资源、防火墙或公网暴露；大规模或高成本真实 provider eval；`git push`。
+
+数据库操作安全要求：不得把 `.env`、密码、token、API key、连接串或云地址复制到回复、文档、commit message 或 artifact；优先使用幂等脚本和精确 WHERE；涉及用户授权字段时先确认目标用户唯一且 `ACTIVE`；发现目标不唯一、脚本非幂等、迁移失败、影响行数异常或疑似生产库时必须停止并汇报。
+
+自驱迭代模式必须在以下情况停止并向用户汇报：大目标已完成；需要产品取舍；需要破坏性或非幂等数据库结构变更、删除业务数据、清空 collection、远程 Docker 启停 / 重启 / 迁移、改防火墙或云资源、大规模或高成本真实 provider 调用、push；无法脱敏的证据；连续验证失败且本地证据不足；发现影响当前切片的无关未提交改动；用户要求暂停、只读或进入 Plan 阶段。
 
 自驱迭代提交规则：每个提交必须是小闭环；验证不完整时状态只能写 `REVIEW`；环境或权限缺失写 `BLOCKED`；不得提交 `.env`、artifact 原文、日志、截图、真实密钥、云地址或连接串。
 

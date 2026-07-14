@@ -86,21 +86,28 @@ public class ConversationMessageServiceImpl implements ConversationMessageServic
         ));
 
         boolean llmCalled = false;
+        Long modelCallMs = null;
         String answer;
         if (context.modelCallSkipped()) {
             answer = context.fallbackAnswer();
+            modelCallMs = 0L;
         } else {
+            long modelCallStartedNanos = System.nanoTime();
             answer = aiAnswerService.answerConversation(new ConversationAnswerRequest(
                     context.promptMessages(),
                     currentMessage,
                     resolveTraceGroundingPolicy(context.trace()),
                     resolveTraceRouteDecision(context.trace())
             ));
+            modelCallMs = elapsedMs(modelCallStartedNanos);
             llmCalled = true;
         }
-        ContextTrace trace = context.trace().withLlmCalled(llmCalled);
+        ContextTrace trace = context.trace()
+                .withLlmCalled(llmCalled)
+                .withModelCallMs(modelCallMs)
+                .withCitations(context.citations());
         SavedAssistantMessage saved = saveMessagePairInTransaction(userId, conversationId, currentMessage, answer, trace);
-        return ConversationMessageResponse.from(saved.message(), context.citations(), saved.trace());
+        return ConversationMessageResponse.from(saved.message(), saved.trace().citations(), saved.trace());
     }
 
     @Override
@@ -116,7 +123,14 @@ public class ConversationMessageServiceImpl implements ConversationMessageServic
                 .toList();
         Map<Long, ContextTrace> traces = contextTraceService.listByMessages(userId, conversationId, assistantMessageIds);
         return messages.stream()
-                .map(message -> ConversationMessageResponse.from(message, List.of(), traces.get(message.getId())))
+                .map(message -> {
+                    ContextTrace trace = traces.get(message.getId());
+                    return ConversationMessageResponse.from(
+                            message,
+                            trace == null ? List.of() : trace.citations(),
+                            trace
+                    );
+                })
                 .toList();
     }
 
@@ -208,6 +222,10 @@ public class ConversationMessageServiceImpl implements ConversationMessageServic
             return DEFAULT_MESSAGE_LIMIT;
         }
         return Math.min(limit, MAX_MESSAGE_LIMIT);
+    }
+
+    private long elapsedMs(long startNanos) {
+        return Math.max(0L, (System.nanoTime() - startNanos) / 1_000_000L);
     }
 
     private record SavedAssistantMessage(ConversationMessage message, ContextTrace trace) {

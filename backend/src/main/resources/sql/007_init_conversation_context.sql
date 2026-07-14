@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS tb_context_trace (
     evidence_count INT NOT NULL DEFAULT 0 COMMENT 'Knowledge-base evidence item count',
     no_evidence TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether retrieval had no evidence',
     document_hit_counts_json TEXT COMMENT 'Document hit counts as JSON',
+    citations_json TEXT COMMENT 'Knowledge-base citations as JSON',
+    technical_details_json TEXT COMMENT 'Safe context trace technical details as JSON',
     max_prompt_tokens INT NOT NULL DEFAULT 0 COMMENT 'Prompt token budget',
     estimated_prompt_tokens INT NOT NULL DEFAULT 0 COMMENT 'Estimated prompt tokens',
     truncated TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether optional context was dropped',

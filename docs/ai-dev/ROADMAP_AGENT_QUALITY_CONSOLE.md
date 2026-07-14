@@ -37,7 +37,7 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 统一收口标准：
 
-- 继续保持 artifact-only，不新增数据库表，除非用户单独确认 Phase 7 持久化。
+- 2026-07-14 前默认保持 artifact-only；Phase 7 已经在用户明确确认后升级为内部管理员可访问的 QualityRun 持久化控制台，后续仍不得保存 raw prompt、answer、evidence 全文、密钥、token、连接串或未脱敏原文。
 - 继续使用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址。
 - token usage、latency、cost、case pass rate、failure bucket count 只允许作为数值或枚举摘要展示。
 - 每个切片都必须有对应后端单测、前端 lint/build 或浏览器 smoke；真实用户体验结论必须用真实链路 smoke / audit 收口。
@@ -248,14 +248,16 @@ Agent Quality Console 是 DocPilot 的内部 AI 质量控制台，用来把 RAG�
 
 ### Phase 7：可选持久化
 
-默认不做。
+已在用户明确确认后实施最小持久化；默认仍保持功能开关关闭，仅内部管理员可访问。
 
-只有出现以下需求时，再单独请求用户确认是否新增 `quality_eval_run` / `quality_eval_gate` / `quality_eval_case_result`：
+2026-07-14 追加状态：VERIFIED。用户已明确确认推进持久化内部控制台并授权受控开发库数据库操作；已执行真实 MySQL `011_init_quality_console_persistence.sql` 并二次验证幂等，已将唯一 ACTIVE 的 `zeus` 标记为内部管理员，已运行并导入真实 `docpilot-agent-quality-eval-20260714151238-756d91`，DB-backed runs/detail/trends 与管理员 / 普通用户 UI 权限验证均通过。后续 closeout 已修复 `REA-20260714-P3-039`：单测 artifact 改用 `@TempDir` 隔离，runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 测试 marker，DB-backed runs/detail/trends 隐藏历史误导入测试 marker；`quality-console-closeout-20260714160116` 真实 API/UI 验证 Memory/RAG representative domain trends 可见。
 
-- artifact 扫描明显变慢。
-- 需要跨机器长期保存质量历史。
-- 需要多人协作标记 REVIEW 状态。
-- 需要稳定 CI / release gate 查询历史趋势。
+后续如要继续扩展为协作式质量平台，仍需单独确认：
+
+- 是否允许新增 REVIEW 人工标注、owner、处理状态和审计字段。
+- 是否允许把更多 smoke / eval runner 自动接入导入流程。
+- 是否允许增加跨环境同步、CI release gate 或长期趋势保留策略。
+- 是否允许对历史误导入测试 marker 做数据库清理；当前策略是不破坏性删除，只在查询和导入层隐藏 / 跳过。
 
 ### Phase 8：求职展示打磨
 
