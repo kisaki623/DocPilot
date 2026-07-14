@@ -171,7 +171,7 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
         assertThat(dryRun.completed()).isTrue();
         assertThat(dryRun.exitCode()).isZero();
         assertThat(dryRun.output())
-                .contains("\"mode\":  \"dry-run\"")
+                .containsPattern("\"mode\"\\s*:\\s*\"dry-run\"")
                 .contains("fixedBusinessCorpusPlanContract")
                 .contains("knowledgeBaseLifecyclePlanContract")
                 .contains("CONTRACT_ALPHA")
@@ -201,10 +201,10 @@ class HighIntensityFixedCorpusSmokeScriptSafetyTest {
         assertThat(dryRun.completed()).isTrue();
         assertThat(dryRun.exitCode()).isZero();
         assertThat(dryRun.output())
-                .contains("\"mode\":  \"dry-run\"")
-                .contains("\"overallStatus\":  \"BLOCKED\"")
+                .containsPattern("\"mode\"\\s*:\\s*\"dry-run\"")
+                .containsPattern("\"overallStatus\"\\s*:\\s*\"BLOCKED\"")
                 .contains("knowledgeBaseLifecyclePlanContract")
-                .contains("\"dependencySatisfied\":  false")
+                .containsPattern("\"dependencySatisfied\"\\s*:\\s*false")
                 .contains("EnableFixedBusinessCorpusGate is required")
                 .contains("knowledge base lifecycle gate requires fixed corpus gate")
                 .doesNotContain("Authorization")

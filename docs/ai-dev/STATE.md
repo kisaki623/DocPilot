@@ -5,6 +5,7 @@
 - PR #4 的本地 CI 等价验证已恢复：后端全量测试 `1031` tests PASS（`5` skipped），前端 lint / production build PASS，前端 Playwright E2E `14` tests PASS。
 - 后端 CI 失败根因是 Memory 质量评测测试夹具未跟上 `MemorySelector` 的 `markUsed` 注入语义；已在 `MemoryQualityEvalRunner` eval harness 中补齐 mock。
 - 前端 CI 失败根因是文档 RAG stream E2E fixture 未覆盖当前页面真实请求的 parse status 与 Quality Console status；已补齐 mock，避免未 mock 404 造成 console error 失败。
+- GitHub Ubuntu runner 追加暴露了 PowerShell `ConvertTo-Json` 跨平台空格差异：本机 Windows 输出字段冒号后两个空格，Ubuntu 输出一个空格。相关 smoke safety tests 已改为字段语义正则断言，不再依赖 JSON pretty-print 空格。
 - 当前边界：这是测试夹具 / CI 收口修复，不改变用户侧业务路由、RAG、Memory 或 Quality Console 权限语义；远端 GitHub Actions 结果以 push 后 PR checks 为准。
 
 ## 2026-07-14 Document Parser 长文档 batch split 与原失败任务状态（VERIFIED / CORE）

@@ -71,7 +71,7 @@ class ConversationGroundingSmokeScriptSafetyTest {
         assertThat(completed).isTrue();
         assertThat(process.exitValue()).isZero();
         assertThat(output)
-                .contains("\"mode\":  \"dry-run\"")
+                .containsPattern("\"mode\"\\s*:\\s*\"dry-run\"")
                 .contains("migrationScriptExists")
                 .contains("citationMigrationScriptExists")
                 .contains("noDataCreated")

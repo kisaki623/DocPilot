@@ -4,7 +4,8 @@
 
 - 修复 PR #4 上 Backend tests 失败：`MemoryQualityEvalRunner` 的 eval harness 补齐 `memoryMapper.markUsed(...)` mock，匹配当前 `MemorySelector` 只有 markUsed 成功才注入 ACTIVE memory 的生产语义。
 - 修复 PR #4 上 Frontend checks 失败：`document-rag-stream-failure.spec.ts` 补齐文档页真实会触发的 `/backend/api/task/parse/status` 与全局布局 `/backend/api/quality/status` mock，避免未 mock 请求落到 404 并触发 console error 断言。
-- 已验证：`mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（1031 tests / 5 skipped）；`npm run lint` PASS；`npm run build` PASS；`npm run test:e2e` PASS（14 tests）。
+- 远端 Ubuntu 后端 CI 追加暴露一组 PowerShell smoke safety test 过度依赖 Windows `ConvertTo-Json` 空格格式；已将相关断言改为字段语义正则，不再要求冒号后固定两个空格。
+- 已验证：远端失败 safety tests 定向 16 tests PASS；`mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（1031 tests / 5 skipped）；`npm run lint` PASS；`npm run build` PASS；`npm run test:e2e` PASS（14 tests）。
 
 ## 2026-07-14 Document Parser long document batch split closeout
 

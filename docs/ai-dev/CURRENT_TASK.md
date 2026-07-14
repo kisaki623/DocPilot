@@ -6,6 +6,8 @@
 - 后端根因与修复：Memory 单条停用 / 恢复后，生产 `MemorySelector` 会在 `markUsed(...)` 成功后才注入长期记忆；`MemoryQualityEvalRunner` 测试夹具缺少 `memoryMapper.markUsed(...)` mock，导致默认 eval case 误判 ACTIVE memory 未进入上下文。已补齐 mock。
 - 前端根因与修复：文档 RAG stream E2E fixture 只 mock 了 document / history / stream 链路，但当前页面还会请求 parse task status，global layout 还会请求 Quality Console status；未 mock 请求落到 fallback 404，触发 console error 断言失败。已补齐 `/backend/api/task/parse/status` 与 `/backend/api/quality/status` mock。
 - 已验证：后端定向 `MemoryQualityEvalRunnerTest` PASS；前端定向 `document-rag-stream-failure.spec.ts` PASS；完整本地 CI 等价验证 `mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（1031 tests / 5 skipped）、`npm run lint` PASS、`npm run build` PASS、`npm run test:e2e` PASS（14 tests）。
+- 远端追加根因：GitHub Ubuntu runner 上 PowerShell JSON 输出的冒号空格与本机 Windows 不同，导致 `ConversationGroundingSmokeScriptSafetyTest`、`QdrantPreflightScriptSafetyTest`、`RagRetrievalEvaluationTrendScriptSafetyTest`、`MemoryQualitySmokeScriptSafetyTest`、`HighIntensityFixedCorpusSmokeScriptSafetyTest` 中部分 `.contains("\"field\":  value")` 断言误失败。已改为 `containsPattern` 验证字段语义，保留原来的脱敏 / 安全断言。
+- 已追加验证：上述远端失败 safety tests 定向 16 tests PASS；后端完整 `mvn --batch-mode --no-transfer-progress test -DskipITs` 再次 PASS（1031 tests / 5 skipped）。
 - 状态：`VERIFIED / LOCAL`。下一步是提交、push 并等待 GitHub Actions 重新跑远端检查。
 
 ## 2026-07-14 Document Parser 长文档 batch split / 原失败任务恢复复验（VERIFIED / CORE）

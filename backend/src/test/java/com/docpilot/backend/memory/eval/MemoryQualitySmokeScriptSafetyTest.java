@@ -135,7 +135,7 @@ class MemoryQualitySmokeScriptSafetyTest {
                 .contains("secret-like content rejection")
                 .contains("Chinese durable PREFERENCE and PROJECT_STATE extraction")
                 .contains("one-time instruction suppression")
-                .contains("\"maxModelCalls\":  6")
+                .containsPattern("\"maxModelCalls\"\\s*:\\s*6")
                 .contains("redacted artifact")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer ")
