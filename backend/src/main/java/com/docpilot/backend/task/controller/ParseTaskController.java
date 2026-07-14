@@ -5,9 +5,12 @@ import com.docpilot.backend.common.context.UserHolder;
 import com.docpilot.backend.task.dto.ParseTaskCreateRequest;
 import com.docpilot.backend.task.service.ParseTaskService;
 import com.docpilot.backend.task.vo.ParseTaskCreateResponse;
+import com.docpilot.backend.task.vo.ParseTaskStatusResponse;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -36,6 +39,12 @@ public class ParseTaskController {
     public ApiResponse<ParseTaskCreateResponse> reparse(@RequestBody ParseTaskCreateRequest request) {
         Long userId = UserHolder.requireUserId();
         return ApiResponse.success(parseTaskService.reparse(request.getDocumentId(), userId));
+    }
+
+    @GetMapping("/parse/status")
+    public ApiResponse<ParseTaskStatusResponse> status(@RequestParam Long documentId) {
+        Long userId = UserHolder.requireUserId();
+        return ApiResponse.success(parseTaskService.status(documentId, userId));
     }
 }
 

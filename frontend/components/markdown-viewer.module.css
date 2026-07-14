@@ -285,6 +285,29 @@
   text-underline-offset: 2px;
 }
 
+.markdown :global(a[href^="#citation-"]) {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.82em;
+  font-weight: 800;
+  line-height: 1.2;
+  padding: 0 0.28rem;
+  text-decoration: none;
+  vertical-align: baseline;
+}
+
+.markdown :global(a[href^="#citation-"]:hover),
+.markdown :global(a[href^="#citation-"]:focus-visible) {
+  border-color: #22c55e;
+  background: #f0fdf4;
+  color: #166534;
+  outline: none;
+}
+
 .markdown :global(hr) {
   border: 0;
   border-top: 1px solid var(--dp-border);

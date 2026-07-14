@@ -69,11 +69,11 @@ public class AiRetryExecutor {
                     throw ex;
                 }
                 DocPilotMetrics.recordAiRetry(scene);
-                log.warn("AI 调用失败，将执行重试。scene={}, attempt={}/{}, reason={}",
+                log.warn("AI 调用失败，将执行重试。scene={}, attempt={}/{}, exceptionClass={}",
                         scene,
                         attempt,
                         attempts,
-                        ex.getMessage());
+                        ex.getClass().getSimpleName());
                 sleep(backoffMs);
                 backoffMs = nextBackoff(backoffMs);
             }

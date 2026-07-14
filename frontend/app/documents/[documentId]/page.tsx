@@ -1,11 +1,12 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MarkdownViewer from "@/components/markdown-viewer";
 import { getToken } from "@/lib/auth";
-import { getDocumentDetail, type DocumentDetailData } from "@/lib/document-api";
+import { citationChunkLabel, citationLocatorLabel, citationSourceTitle, citationStructureLabel } from "@/lib/citation-display";
+import { deleteDocument, getDocumentDetail, type DocumentDetailData } from "@/lib/document-api";
 import {
   askDocumentQuestion,
   askDocumentQuestionStream,
@@ -14,10 +15,26 @@ import {
   type DocumentQaHistoryItem,
   type DocumentQaStreamPayload
 } from "@/lib/qa-api";
-import { reparseTask } from "@/lib/task-api";
+import {
+  askDocumentRagQuestion,
+  askDocumentRagQuestionStream,
+  RagStreamRequestError,
+  retrieveDocumentRag,
+  type RagCitationItem,
+  type RagRetrievalData,
+  type RagStreamPayload
+} from "@/lib/rag-api";
+import { getParseTaskStatus, reparseTask, type ParseTaskStatusData } from "@/lib/task-api";
 
 const DETAIL_STATUS_POLLING_TIMEOUT_MS = 120_000;
 const TERMINAL_PARSE_STATUS = new Set(["SUCCESS", "FAILED"]);
+
+type QaMode = "legacy" | "rag";
+type RagEvidenceDisplayItem = RagCitationItem & {
+  content?: string;
+  source: "citation" | "hit";
+  vectorId?: string;
+};
 
 function formatDateTime(input: string): string {
   if (!input) {
@@ -38,10 +55,10 @@ function normalizeDocumentId(rawValue: string | string[] | undefined): string {
 }
 
 function buildErrorHint(message: string): string {
-  if (message.includes("无权") || message.includes("鏃犳潈")) {
+  if (message.includes("无权")) {
     return "该文档不属于当前登录用户，请返回列表选择自己的文档。";
   }
-  if (message.includes("不存在") || message.includes("涓嶅瓨鍦")) {
+  if (message.includes("不存在")) {
     return "文档可能不存在，或已被删除。";
   }
   return "";
@@ -81,18 +98,127 @@ function parseProgressLabel(status: string | undefined): string {
   return "解析中";
 }
 
+function formatOptionalBoolean(value: boolean | undefined): string {
+  if (value === true) {
+    return "是";
+  }
+  if (value === false) {
+    return "否";
+  }
+  return "-";
+}
+
+function formatScore(score: number | undefined): string {
+  if (typeof score !== "number" || Number.isNaN(score)) {
+    return "-";
+  }
+  return score.toFixed(4);
+}
+
+function recoveryActionLabel(action: string | undefined): string {
+  if (!action) {
+    return "无需操作";
+  }
+  const labels: Record<string, string> = {
+    REPARSE_AVAILABLE: "可重新解析",
+    RETRY_OR_REPARSE_REQUIRED: "需重试或重新解析",
+    STALE_RECONCILIATION_PENDING: "等待恢复扫描收口",
+    WAIT_OR_REFRESH: "等待或刷新",
+    NONE: "无需操作"
+  };
+  return labels[action] || action;
+}
+
+function buildParseStatusSummary(detail: DocumentDetailData, parseTaskStatus: ParseTaskStatusData | null): {
+  status: string;
+  statusLabel: string;
+  statusDescription: string;
+} {
+  const status = parseTaskStatus?.status || detail.parseStatus || "";
+  return {
+    status,
+    statusLabel: parseTaskStatus?.statusLabel || detail.parseStatusLabel || status || "-",
+    statusDescription: parseTaskStatus?.statusDescription || detail.parseStatusDescription || ""
+  };
+}
+
+function extractMarkerTokens(input: string): string[] {
+  const matches = input.match(/[A-Z][A-Z0-9]+(?:-[A-Z0-9]+){2,}/g) || [];
+  return Array.from(new Set(matches));
+}
+
+function citationQuote(citation: { quoteText?: string; snippet?: string; content?: string }, preferredTokens: string[] = []): string {
+  const candidates = [citation.quoteText, citation.snippet, citation.content]
+    .map((item) => item?.trim())
+    .filter((item): item is string => Boolean(item));
+  const markerBearing = candidates.find((item) => preferredTokens.some((token) => item.includes(token)));
+  return markerBearing || candidates[0] || "-";
+}
+
+function buildRagEvidenceItems(
+  citations: RagCitationItem[],
+  retrieval: RagRetrievalData | null
+): RagEvidenceDisplayItem[] {
+  if (citations.length > 0) {
+    return citations.map((citation) => ({ ...citation, source: "citation" }));
+  }
+  return (retrieval?.hits || []).map((hit, index) => ({
+    index: hit.citationIndex ?? index + 1,
+    documentId: retrieval?.documentId,
+    indexVersion: retrieval?.indexVersion,
+    chunkId: hit.chunkId,
+    chunkIndex: hit.chunkIndex,
+    startOffset: hit.startOffset,
+    endOffset: hit.endOffset,
+    contentHash: hit.contentHash,
+    sourceName: hit.sourceName,
+    sectionPath: hit.sectionPath,
+    structureType: hit.structureType,
+    pageNumber: hit.pageNumber,
+    sourceLocator: hit.sourceLocator,
+    blockType: hit.blockType,
+    snippet: hit.content,
+    quoteText: hit.quoteText,
+    quoteStartOffset: hit.quoteStartOffset,
+    quoteEndOffset: hit.quoteEndOffset,
+    score: hit.score,
+    content: hit.content,
+    source: "hit",
+    vectorId: hit.vectorId
+  }));
+}
+
+function normalizeRagError(message: string): string {
+  if (message.includes("无权") || message.includes("不存在")) {
+    return "文档不存在或当前账号无权访问，请重新选择自己的文档。";
+  }
+  if (message.toLowerCase().includes("no evidence")) {
+    return "暂未找到足够相关的引用来源，请换一个更贴近文档内容的问题。";
+  }
+  return message;
+}
+
 export default function DocumentDetailPage() {
   const params = useParams<{ documentId: string | string[] }>();
+  const router = useRouter();
   const documentIdParam = useMemo(() => normalizeDocumentId(params?.documentId), [params]);
 
   const [detail, setDetail] = useState<DocumentDetailData | null>(null);
+  const [parseTaskStatus, setParseTaskStatus] = useState<ParseTaskStatusData | null>(null);
+  const [parseTaskStatusError, setParseTaskStatusError] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [hasToken, setHasToken] = useState<boolean | null>(null);
 
   const [question, setQuestion] = useState("");
+  const [qaMode, setQaMode] = useState<QaMode>("rag");
   const [answer, setAnswer] = useState("");
   const [citations, setCitations] = useState<DocumentQaCitationItem[]>([]);
+  const [ragCitations, setRagCitations] = useState<RagCitationItem[]>([]);
+  const [ragRetrieval, setRagRetrieval] = useState<RagRetrievalData | null>(null);
+  const [ragRetrieving, setRagRetrieving] = useState(false);
+  const [ragNoEvidence, setRagNoEvidence] = useState(false);
+  const [ragFallbackReason, setRagFallbackReason] = useState("");
   const [asking, setAsking] = useState(false);
   const [useStreamingQa, setUseStreamingQa] = useState(true);
   const [streamingQa, setStreamingQa] = useState(false);
@@ -106,12 +232,27 @@ export default function DocumentDetailPage() {
 
   const [reparsing, setReparsing] = useState(false);
   const [reparseMessage, setReparseMessage] = useState("");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState("");
 
   const [statusPolling, setStatusPolling] = useState(false);
   const [statusPollingStartedAt, setStatusPollingStartedAt] = useState<number | null>(null);
 
   const streamAbortRef = useRef<AbortController | null>(null);
   const [firstTokenLatencyMs, setFirstTokenLatencyMs] = useState<number | null>(null);
+  const ragEvidenceItems = useMemo(
+    () => buildRagEvidenceItems(ragCitations, ragRetrieval),
+    [ragCitations, ragRetrieval]
+  );
+  const ragEvidenceTokens = useMemo(
+    () => extractMarkerTokens(ragRetrieval?.query || question),
+    [question, ragRetrieval?.query]
+  );
+  const parseStatusSummary = useMemo(
+    () => (detail ? buildParseStatusSummary(detail, parseTaskStatus) : null),
+    [detail, parseTaskStatus]
+  );
 
   const fetchQaHistory = useCallback(async (documentId: number) => {
     setHistoryLoading(true);
@@ -128,6 +269,20 @@ export default function DocumentDetailPage() {
     }
   }, []);
 
+  const fetchParseTaskStatus = useCallback(async (documentId: number) => {
+    try {
+      const response = await getParseTaskStatus(documentId);
+      setParseTaskStatus(response.data || null);
+      setParseTaskStatusError("");
+      return response.data || null;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "加载解析状态失败";
+      setParseTaskStatus(null);
+      setParseTaskStatusError(message);
+      return null;
+    }
+  }, []);
+
   const fetchDetail = useCallback(async () => {
     setLoading(true);
     setErrorMessage("");
@@ -136,6 +291,7 @@ export default function DocumentDetailPage() {
     if (!token) {
       setHasToken(false);
       setDetail(null);
+      setParseTaskStatus(null);
       setErrorMessage("未检测到登录状态，请先登录");
       setHistoryList([]);
       setHistoryErrorMessage("");
@@ -148,6 +304,7 @@ export default function DocumentDetailPage() {
     const documentId = Number(documentIdParam);
     if (!documentIdParam || Number.isNaN(documentId) || documentId <= 0) {
       setDetail(null);
+      setParseTaskStatus(null);
       setErrorMessage("文档 ID 无效");
       setHistoryList([]);
       setHistoryErrorMessage("");
@@ -163,16 +320,18 @@ export default function DocumentDetailPage() {
         return;
       }
       setDetail(response.data);
+      void fetchParseTaskStatus(documentId);
       await fetchQaHistory(documentId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "加载文档详情失败";
       setDetail(null);
+      setParseTaskStatus(null);
       setErrorMessage(message);
       setHistoryList([]);
     } finally {
       setLoading(false);
     }
-  }, [documentIdParam, fetchQaHistory]);
+  }, [documentIdParam, fetchParseTaskStatus, fetchQaHistory]);
 
   useEffect(() => {
     fetchDetail();
@@ -219,6 +378,7 @@ export default function DocumentDetailPage() {
           return;
         }
         setDetail(response.data);
+        void fetchParseTaskStatus(documentId);
         const nextStatus = response.data.parseStatus || "";
         if (TERMINAL_PARSE_STATUS.has(nextStatus)) {
           setStatusPolling(false);
@@ -237,7 +397,7 @@ export default function DocumentDetailPage() {
       active = false;
       window.clearInterval(timer);
     };
-  }, [detail, documentIdParam, hasToken, statusPollingStartedAt]);
+  }, [detail, documentIdParam, fetchParseTaskStatus, hasToken, statusPollingStartedAt]);
 
   useEffect(() => {
     const documentId = Number(documentIdParam);
@@ -282,6 +442,74 @@ export default function DocumentDetailPage() {
     return nextSessionId;
   }
 
+  function applyRagStreamPayload(payload?: RagStreamPayload): string | null {
+    if (!payload) {
+      return null;
+    }
+    let nextSessionId: string | null = null;
+    if (payload.sessionId && payload.sessionId.trim()) {
+      nextSessionId = payload.sessionId.trim();
+      setSessionId(nextSessionId);
+      const documentId = Number(documentIdParam);
+      if (!Number.isNaN(documentId) && documentId > 0) {
+        window.localStorage.setItem(buildSessionStorageKey(documentId), nextSessionId);
+      }
+    }
+    if (payload.retrieval) {
+      setRagRetrieval(payload.retrieval);
+    }
+    if (Array.isArray(payload.citations)) {
+      setRagCitations(payload.citations);
+    }
+    setRagNoEvidence(Boolean(payload.noEvidence));
+    setRagFallbackReason(payload.fallbackReason || "");
+    return nextSessionId;
+  }
+
+  async function handleRetrieveRag() {
+    const token = getToken();
+    if (!token) {
+      setHasToken(false);
+      setQaErrorMessage("未检测到登录状态，请先登录后检索");
+      return;
+    }
+
+    const normalizedQuestion = question.trim();
+    if (!normalizedQuestion) {
+      setQaErrorMessage("请输入检索问题后再试");
+      return;
+    }
+
+    const documentId = Number(documentIdParam);
+    if (!documentIdParam || Number.isNaN(documentId) || documentId <= 0) {
+      setQaErrorMessage("文档 ID 无效，无法检索");
+      return;
+    }
+
+    setQaErrorMessage("");
+    setRagRetrieving(true);
+    setRagRetrieval(null);
+    setRagCitations([]);
+    setRagNoEvidence(false);
+    setRagFallbackReason("");
+
+    try {
+      const response = await retrieveDocumentRag({
+        documentId,
+        query: normalizedQuestion,
+        topK: 5
+      });
+      setRagRetrieval(response.data || null);
+      setRagCitations(response.data?.citations || []);
+      setRagNoEvidence(Boolean(response.data?.noEvidence));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "检索预览失败";
+      setQaErrorMessage(normalizeRagError(message));
+    } finally {
+      setRagRetrieving(false);
+    }
+  }
+
   async function handleAskQuestion() {
     const token = getToken();
     if (!token) {
@@ -314,6 +542,10 @@ export default function DocumentDetailPage() {
     setStreamingQa(useStreamingQa);
     setAnswer("");
     setCitations([]);
+    setRagCitations([]);
+    setRagRetrieval(null);
+    setRagNoEvidence(false);
+    setRagFallbackReason("");
     setFirstTokenLatencyMs(null);
     const streamStartedAtMs = useStreamingQa ? Date.now() : 0;
     let firstChunkReceived = false;
@@ -331,8 +563,77 @@ export default function DocumentDetailPage() {
       setSessionHint("当前会话已续用，后续提问会自动携带历史上下文。");
     };
 
+    const askByRagApi = async () => {
+      const response = await askDocumentRagQuestion(documentId, {
+        question: normalizedQuestion,
+        sessionId: normalizedSessionId,
+        topK: 5
+      });
+      setAnswer(response.data?.answer || "");
+      setRagRetrieval(response.data?.retrieval || null);
+      setRagCitations(response.data?.citations || []);
+      setRagNoEvidence(Boolean(response.data?.noEvidence));
+      setRagFallbackReason(response.data?.fallbackReason || "");
+      nextSessionId = (response.data?.sessionId || "").trim() || normalizedSessionId;
+      setSessionHint("当前检索会话已续用，后续提问会自动携带上下文。");
+    };
+
     try {
-      if (useStreamingQa) {
+      if (qaMode === "rag" && useStreamingQa) {
+        const controller = new AbortController();
+        streamAbortRef.current = controller;
+        await askDocumentRagQuestionStream(
+          documentId,
+          {
+            question: normalizedQuestion,
+            sessionId: normalizedSessionId,
+            topK: 5
+          },
+          {
+            onMeta: (payload) => {
+              const payloadSessionId = applyRagStreamPayload(payload);
+              if (payloadSessionId) {
+                nextSessionId = payloadSessionId;
+              }
+            },
+            onRetrieval: (payload) => {
+              setRagRetrieval(payload);
+              setRagNoEvidence(Boolean(payload.noEvidence));
+            },
+            onCitation: (payload) => {
+              setRagCitations((current) => [...current, payload]);
+            },
+            onFallback: (payload) => {
+              applyRagStreamPayload(payload);
+            },
+            onChunk: (chunk) => {
+              if (!chunk) {
+                return;
+              }
+              streamedChunkCount += 1;
+              if (!firstChunkReceived && streamStartedAtMs > 0) {
+                firstChunkReceived = true;
+                setFirstTokenLatencyMs(Math.max(0, Date.now() - streamStartedAtMs));
+              }
+              setAnswer((prev) => prev + chunk);
+            },
+            onDone: (payload) => {
+              const payloadSessionId = applyRagStreamPayload(payload);
+              if (payloadSessionId) {
+                nextSessionId = payloadSessionId;
+              }
+              setStreamingQa(false);
+              setSessionHint("当前检索会话已续用，后续提问会自动携带上下文。");
+            },
+            onError: (streamError) => {
+              setQaErrorMessage(normalizeRagError(streamError.message || "检索增强问答失败"));
+              setStreamingQa(false);
+            }
+          },
+          controller.signal
+        );
+        setStreamingQa(false);
+      } else if (qaMode === "legacy" && useStreamingQa) {
         const controller = new AbortController();
         streamAbortRef.current = controller;
         await askDocumentQuestionStream(
@@ -375,6 +676,8 @@ export default function DocumentDetailPage() {
           controller.signal
         );
         setStreamingQa(false);
+      } else if (qaMode === "rag") {
+        await askByRagApi();
       } else {
         await askByNormalApi();
       }
@@ -389,26 +692,35 @@ export default function DocumentDetailPage() {
         return;
       }
       const streamErrorMessage = error instanceof Error ? error.message : "流式问答失败";
-      if (useStreamingQa) {
+      const streamStage = error instanceof RagStreamRequestError ? error.stage : "unknown";
+      const canFallbackToNonStream = useStreamingQa
+        && streamedChunkCount === 0
+        && streamStage !== "scope"
+        && streamStage !== "generation_partial";
+      if (canFallbackToNonStream) {
         setStreamingQa(false);
         try {
-          await askByNormalApi();
+          if (qaMode === "rag") {
+            await askByRagApi();
+          } else {
+            await askByNormalApi();
+          }
           setSessionId(nextSessionId);
           window.localStorage.setItem(buildSessionStorageKey(documentId), nextSessionId);
           await fetchQaHistory(documentId);
           setQaErrorMessage("");
-          setSessionHint(`实时输出中断（${streamErrorMessage}），已自动切换为普通问答。`);
+          setSessionHint(`实时输出中断（${streamErrorMessage}），已自动切换为非流式问答。`);
           return;
         } catch (fallbackError) {
           const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : "普通问答也失败";
-          if (streamedChunkCount > 0) {
-            setQaErrorMessage(`实时输出中断：${streamErrorMessage}；切换普通问答后仍未完成：${fallbackMessage}。已保留当前已生成内容。`);
-          } else {
-            setQaErrorMessage(`实时输出中断：${streamErrorMessage}；切换普通问答后仍未完成：${fallbackMessage}`);
-          }
+          setQaErrorMessage(`实时输出中断：${streamErrorMessage}；切换普通问答后仍未完成：${fallbackMessage}`);
         }
       } else {
-        setQaErrorMessage(streamErrorMessage);
+        if (streamedChunkCount > 0 || streamStage === "generation_partial") {
+          setQaErrorMessage("实时输出中断，已保留当前已生成内容。请重试获取完整回答。");
+        } else {
+          setQaErrorMessage(streamErrorMessage);
+        }
       }
     } finally {
       setAsking(false);
@@ -438,10 +750,17 @@ export default function DocumentDetailPage() {
       const response = await reparseTask(documentId);
       const statusLabel = response.data?.statusLabel || response.data?.status || "PENDING";
       setReparseMessage(`已触发重新解析，当前状态：${statusLabel}。`);
+      setParseTaskStatus(null);
+      setParseTaskStatusError("");
       setAnswer("");
       setCitations([]);
+      setRagCitations([]);
+      setRagRetrieval(null);
+      setRagNoEvidence(false);
+      setRagFallbackReason("");
       setQaErrorMessage("");
       setStatusPollingStartedAt(Date.now());
+      void fetchParseTaskStatus(documentId);
       await fetchDetail();
     } catch (error) {
       const message = error instanceof Error ? error.message : "重新解析失败";
@@ -451,26 +770,88 @@ export default function DocumentDetailPage() {
     }
   }
 
+  async function handleDeleteDocument() {
+    const token = getToken();
+    if (!token) {
+      setHasToken(false);
+      setDeleteMessage("未检测到登录状态，请先登录后删除。");
+      return;
+    }
+
+    const documentId = Number(documentIdParam);
+    if (!documentIdParam || Number.isNaN(documentId) || documentId <= 0) {
+      setDeleteMessage("文档 ID 无效，无法删除。");
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteMessage("");
+    try {
+      await deleteDocument(documentId);
+      router.push("/documents");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "删除文档失败";
+      setDeleteMessage(message);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <main className="dp-page max-w-7xl mx-auto py-8 px-4">
       <section className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 flex items-center justify-between">
         <div>
-          <p className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-1">文档工作台</p>
+          <p className="text-sm font-bold text-slate-400 tracking-wider uppercase mb-1">Document Space</p>
           <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
             {detail?.title || detail?.fileName || "文档详情"}
             {detail ? (
               <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-                detail.parseStatus === "SUCCESS" ? "bg-emerald-100 text-emerald-700" :
-                detail.parseStatus === "FAILED" ? "bg-rose-100 text-rose-700" :
+                parseStatusSummary?.status === "SUCCESS" ? "bg-emerald-100 text-emerald-700" :
+                parseStatusSummary?.status === "FAILED" ? "bg-rose-100 text-rose-700" :
                 "bg-blue-100 text-blue-700"
               }`}>
-                {detail.parseStatusLabel || detail.parseStatus || "未知状态"}
+                {parseStatusSummary?.statusLabel || detail.parseStatusLabel || detail.parseStatus || "未知状态"}
               </span>
             ) : null}
           </h1>
         </div>
 
         <div className="flex gap-3">
+          {detail ? (
+            confirmingDelete ? (
+              <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2">
+                <span className="text-sm font-semibold text-red-700">确认删除？</span>
+                <button
+                  type="button"
+                  onClick={handleDeleteDocument}
+                  disabled={deleting}
+                  className="text-sm font-semibold text-red-700 hover:text-red-800 disabled:opacity-50"
+                >
+                  {deleting ? "删除中..." : "确认"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={deleting}
+                  className="text-sm font-medium text-slate-500 hover:text-slate-700"
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setConfirmingDelete(true);
+                  setDeleteMessage("");
+                }}
+                disabled={loading || deleting}
+                className="dp-btn dp-btn-secondary text-red-600 hover:text-red-700"
+              >
+                删除文档
+              </button>
+            )
+          ) : null}
           {detail && TERMINAL_PARSE_STATUS.has(detail.parseStatus || "") ? (
             <button
               type="button"
@@ -515,15 +896,38 @@ export default function DocumentDetailPage() {
       {!loading && !errorMessage && detail ? (
         <>
           {reparseMessage ? <section className="bg-blue-50 text-blue-700 p-4 rounded-xl mb-8">{reparseMessage}</section> : null}
+          {deleteMessage ? <section className="bg-red-50 text-red-600 p-4 rounded-xl mb-8">{deleteMessage}</section> : null}
 
           <section className="grid gap-6 lg:grid-cols-[1fr_350px]">
             <div className="space-y-6">
               <article className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <span className="w-2 h-6 bg-blue-600 rounded-sm"></span> 文档问答与引用证据
+                    <span className="w-2 h-6 bg-blue-600 rounded-sm"></span> 文档问答与引用来源
                   </h2>
-                  <div className="flex items-center gap-4 text-sm text-slate-600">
+                  <div className="flex flex-wrap items-center justify-end gap-3 text-sm text-slate-600">
+                    <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+                      <button
+                        type="button"
+                        onClick={() => setQaMode("rag")}
+                        disabled={asking}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          qaMode === "rag" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        检索问答
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQaMode("legacy")}
+                        disabled={asking}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          qaMode === "legacy" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        普通问答
+                      </button>
+                    </div>
                     <label className="flex items-center gap-2 cursor-pointer hover:text-slate-900 transition-colors">
                       <input
                         type="checkbox"
@@ -567,6 +971,16 @@ export default function DocumentDetailPage() {
                       >
                         {asking ? "AI 思考中..." : "发送问题"}
                       </button>
+                      {qaMode === "rag" ? (
+                        <button
+                          type="button"
+                          onClick={handleRetrieveRag}
+                          disabled={asking || ragRetrieving || detail.parseStatus !== "SUCCESS"}
+                          className="dp-btn dp-btn-secondary px-5"
+                        >
+                          {ragRetrieving ? "检索中..." : "检索预览"}
+                        </button>
+                      ) : null}
                       {streamingQa ? (
                         <button
                           type="button"
@@ -582,6 +996,10 @@ export default function DocumentDetailPage() {
                           setQuestion("");
                           setAnswer("");
                           setCitations([]);
+                          setRagCitations([]);
+                          setRagRetrieval(null);
+                          setRagNoEvidence(false);
+                          setRagFallbackReason("");
                           setQaErrorMessage("");
                         }}
                         disabled={asking}
@@ -600,6 +1018,10 @@ export default function DocumentDetailPage() {
                             setSessionHint("已开启全新对话。");
                             setAnswer("");
                             setCitations([]);
+                            setRagCitations([]);
+                            setRagRetrieval(null);
+                            setRagNoEvidence(false);
+                            setRagFallbackReason("");
                           }
                         }}
                         className="dp-btn dp-btn-ghost px-4 text-slate-500 hover:text-slate-800"
@@ -610,6 +1032,11 @@ export default function DocumentDetailPage() {
                     </div>
 
                     {qaErrorMessage ? <p className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">{qaErrorMessage}</p> : null}
+                    {qaMode === "rag" && ragNoEvidence ? (
+                      <p className="bg-amber-50 text-amber-800 p-3 rounded-lg text-sm">
+                        暂未找到足够相关的引用来源{ragFallbackReason ? `：${ragFallbackReason}` : "。"}
+                      </p>
+                    ) : null}
 
                     {(answer || asking) && (
                       <div className="mt-6 pt-6 border-t border-slate-100">
@@ -649,6 +1076,111 @@ export default function DocumentDetailPage() {
             </div>
 
             <aside className="space-y-6">
+              {parseStatusSummary ? (
+                <article className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+                  <div className="mb-4 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Parse Recovery</p>
+                      <h2 className="mt-1 text-base font-bold text-slate-900">解析与恢复</h2>
+                    </div>
+                    <span className={parseStatusBadge(parseStatusSummary.status)}>
+                      {parseStatusSummary.statusLabel}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 text-sm">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+                      <p className="font-semibold text-slate-800">
+                        {parseStatusSummary.statusDescription || parseProgressLabel(parseStatusSummary.status)}
+                      </p>
+                      {statusPolling ? <p className="mt-1 text-xs text-blue-600">正在自动刷新解析状态...</p> : null}
+                      {parseTaskStatus?.stale ? (
+                        <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                          任务可能停留过久：{parseTaskStatus.staleReason || "等待系统恢复扫描安全收口"}。
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {parseTaskStatus?.recoveryDescription ? (
+                      <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3 text-blue-800">
+                        <p className="text-xs font-bold uppercase tracking-wide text-blue-500">恢复建议</p>
+                        <p className="mt-1 leading-relaxed">{parseTaskStatus.recoveryDescription}</p>
+                      </div>
+                    ) : null}
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                        <p className="text-slate-400">恢复动作</p>
+                        <p className="mt-1 font-semibold text-slate-700">{recoveryActionLabel(parseTaskStatus?.recoveryAction)}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                        <p className="text-slate-400">重新解析</p>
+                        <p className="mt-1 font-semibold text-slate-700">{formatOptionalBoolean(parseTaskStatus?.reparseAllowed)}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                        <p className="text-slate-400">原文件 retry</p>
+                        <p className="mt-1 font-semibold text-slate-700">{formatOptionalBoolean(parseTaskStatus?.retryAllowed)}</p>
+                      </div>
+                      <div className="rounded-lg border border-slate-100 bg-white px-3 py-2">
+                        <p className="text-slate-400">已解析正文</p>
+                        <p className="mt-1 font-semibold text-slate-700">{formatOptionalBoolean(parseTaskStatus?.parsedContentPresent)}</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-rose-100 bg-rose-50/60 p-3 text-xs text-rose-700">
+                      <p className="font-semibold">安全边界</p>
+                      <p className="mt-1">
+                        纯 Document.content 重建索引：{formatOptionalBoolean(parseTaskStatus?.contentOnlyReindexAllowed)}。
+                        需要恢复时请走原文件 retry / reparse，保留 page、block、section path 和 citation locator。
+                      </p>
+                    </div>
+
+                    <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs text-slate-500">
+                      <div>
+                        <dt className="font-semibold text-slate-400">任务状态</dt>
+                        <dd>{parseTaskStatus?.status || detail.parseStatus || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">文档状态</dt>
+                        <dd>{parseTaskStatus?.documentParseStatus || detail.parseStatus || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">消费记录</dt>
+                        <dd>{parseTaskStatus?.consumeStatus || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">Outbox</dt>
+                        <dd>{parseTaskStatus?.outboxStatus || "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">Outbox 重试</dt>
+                        <dd>{parseTaskStatus?.outboxRetryCount ?? "-"}</dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-slate-400">Parse 重试</dt>
+                        <dd>{parseTaskStatus?.retryCount ?? "-"}</dd>
+                      </div>
+                      {parseTaskStatus?.failedStage || parseTaskStatus?.errorCode ? (
+                        <div className="col-span-2">
+                          <dt className="font-semibold text-slate-400">失败阶段 / 错误码</dt>
+                          <dd>{parseTaskStatus.failedStage || "-"} / {parseTaskStatus.errorCode || "-"}</dd>
+                        </div>
+                      ) : null}
+                      <div className="col-span-2">
+                        <dt className="font-semibold text-slate-400">更新时间</dt>
+                        <dd>{parseTaskStatus?.updateTime ? formatDateTime(parseTaskStatus.updateTime) : formatDateTime(detail.updateTime)}</dd>
+                      </div>
+                    </dl>
+
+                    {parseTaskStatusError ? (
+                      <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        解析状态投影暂不可用：{parseTaskStatusError}
+                      </p>
+                    ) : null}
+                  </div>
+                </article>
+              ) : null}
+
               {detail.summary && (
                 <article className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
                   <h2 className="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
@@ -661,8 +1193,78 @@ export default function DocumentDetailPage() {
               )}
 
               <article className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-                <h2 className="text-base font-bold text-slate-900 mb-3 block">证据引用</h2>
-                {citations.length === 0 ? (
+                <h2 className="text-base font-bold text-slate-900 mb-3 block">引用来源</h2>
+                {qaMode === "rag" ? (
+                  <div className="space-y-4">
+                    {ragRetrieval ? (
+                      <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-3 text-xs text-slate-600">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold text-blue-700">检索命中</span>
+                          <span>{ragRetrieval.hits?.length ?? ragRetrieval.hitCount ?? 0} 条</span>
+                        </div>
+                        <p className="mt-1">TopK: {ragRetrieval.topK ?? "-"} / Index: {ragRetrieval.indexVersion ?? "-"}</p>
+                      </div>
+                    ) : null}
+
+                    {ragEvidenceItems.length === 0 ? (
+                      <p className="text-sm text-slate-400 italic">暂无引用来源或召回片段。</p>
+                    ) : null}
+
+                    {ragEvidenceItems.length > 0 ? (
+                      <ul className="space-y-3">
+                        {ragEvidenceItems.map((citation, index) => (
+                          <li key={`${citation.source}-${citation.vectorId || citation.chunkId}-${citation.chunkIndex}-${index}`} className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-sm">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">引用 {citation.index ?? index + 1}</span>
+                              <span className="text-xs text-slate-400">score: {formatScore(citation.score)}</span>
+                            </div>
+                            <p className="mb-1 text-xs font-semibold text-slate-600">
+                              {citationSourceTitle(citation)}
+                            </p>
+                            <p className="mb-1 text-xs text-slate-500">
+                              {[citationLocatorLabel(citation), citationChunkLabel(citation)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                            </p>
+                            {citationStructureLabel(citation) ? (
+                              <p className="mb-2 text-[11px] text-slate-400">{citationStructureLabel(citation)}</p>
+                            ) : null}
+                            <p className="text-slate-800 line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="精确引用原文">
+                              {citationQuote(citation, ragEvidenceTokens)}
+                            </p>
+                            {citation.quoteText && citation.snippet && citation.quoteText !== citation.snippet ? (
+                              <p className="mt-2 line-clamp-3 text-xs text-slate-500 hover:line-clamp-none">
+                                上下文：{citation.snippet}
+                              </p>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+
+                    {ragRetrieval?.hits && ragRetrieval.hits.length > 0 ? (
+                      <details className="rounded-xl border border-slate-100 bg-white p-3">
+                        <summary className="cursor-pointer text-sm font-semibold text-slate-700">查看召回片段</summary>
+                        <ol className="mt-3 space-y-3">
+                          {ragRetrieval.hits.map((hit, index) => (
+                            <li key={`${hit.vectorId || hit.chunkId}-${index}`} className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-3 text-xs text-slate-700">
+                              <div className="mb-2 flex items-center justify-between gap-2">
+                                <span className="font-semibold text-emerald-700">片段 {index + 1}</span>
+                                <span>score: {formatScore(hit.score)}</span>
+                              </div>
+                              <p className="mb-1 font-semibold text-slate-700">{citationSourceTitle(hit)}</p>
+                              <p className="mb-1 text-slate-500">
+                                {[citationLocatorLabel(hit), citationChunkLabel(hit)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                              </p>
+                              {citationStructureLabel(hit) ? (
+                                <p className="mb-2 text-slate-400">{citationStructureLabel(hit)}</p>
+                              ) : null}
+                              <p className="line-clamp-5 hover:line-clamp-none">{hit.content || "-"}</p>
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : citations.length === 0 ? (
                   <p className="text-sm text-slate-400 italic">暂无相关引用片段。</p>
                 ) : (
                   <ul className="space-y-3">
@@ -672,6 +1274,10 @@ export default function DocumentDetailPage() {
                           <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">引用 {index + 1}</span>
                           <span className="text-xs text-slate-400">score: {citation.score.toFixed(2)}</span>
                         </div>
+                        <p className="mb-1 text-xs font-semibold text-slate-600">{citationSourceTitle(citation)}</p>
+                        <p className="mb-1 text-xs text-slate-500">
+                          {[citationLocatorLabel(citation), citationChunkLabel(citation)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                        </p>
                         <p className="text-slate-700 line-clamp-4 hover:line-clamp-none transition-all cursor-pointer" title="点击查看全部内容">
                           {citation.snippet}
                         </p>

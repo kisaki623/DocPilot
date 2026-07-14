@@ -12,13 +12,16 @@ public class RagEmbeddingProperties {
 
     public static final String PROVIDER_DISABLED = "disabled";
     public static final String PROVIDER_FAKE = "fake";
+    public static final String PROVIDER_MOCK = "mock";
     public static final String PROVIDER_OPENAI_COMPATIBLE = "openai_compatible";
     private static final Set<String> ALLOWED_PROVIDERS = Set.of(
             PROVIDER_DISABLED,
             PROVIDER_FAKE,
+            PROVIDER_MOCK,
             PROVIDER_OPENAI_COMPATIBLE
     );
 
+    private boolean enabled = true;
     private String provider = PROVIDER_FAKE;
     private String baseUrl = "";
     private String model = "";
@@ -26,6 +29,14 @@ public class RagEmbeddingProperties {
     private int connectTimeoutMs = 5000;
     private int requestTimeoutMs = 30000;
     private int dimension = 32;
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
+    }
 
     public String getProvider() {
         return provider;
@@ -35,7 +46,7 @@ public class RagEmbeddingProperties {
         String normalizedProvider = normalizeProvider(provider);
         if (!ALLOWED_PROVIDERS.contains(normalizedProvider)) {
             throw new IllegalArgumentException("Unsupported app.rag.embedding.provider='" + provider
-                    + "'. Allowed values: disabled, fake, openai_compatible.");
+                    + "'. Allowed values: disabled, fake, mock, openai_compatible.");
         }
         this.provider = normalizedProvider;
     }
@@ -98,11 +109,11 @@ public class RagEmbeddingProperties {
     }
 
     public boolean isFakeProvider() {
-        return PROVIDER_FAKE.equals(provider);
+        return PROVIDER_FAKE.equals(provider) || PROVIDER_MOCK.equals(provider);
     }
 
     public boolean isDisabledProvider() {
-        return PROVIDER_DISABLED.equals(provider);
+        return PROVIDER_DISABLED.equals(provider) || !enabled;
     }
 
     public boolean isOpenAiCompatibleProvider() {
@@ -118,5 +129,24 @@ public class RagEmbeddingProperties {
             return PROVIDER_OPENAI_COMPATIBLE;
         }
         return normalized;
+    }
+
+    public EmbeddingProperties toEmbeddingProperties() {
+        EmbeddingProperties properties = new EmbeddingProperties();
+        properties.setEnabled(enabled);
+        if (isOpenAiCompatibleProvider()) {
+            properties.setProvider(EmbeddingProperties.PROVIDER_OPENAI_COMPATIBLE);
+        } else if (PROVIDER_DISABLED.equals(provider)) {
+            properties.setProvider(EmbeddingProperties.PROVIDER_DISABLED);
+        } else {
+            properties.setProvider(EmbeddingProperties.PROVIDER_MOCK);
+        }
+        properties.setBaseUrl(baseUrl);
+        properties.setModel(model);
+        properties.setApiKey(apiKey);
+        properties.setConnectTimeoutMs(connectTimeoutMs);
+        properties.setRequestTimeoutMs(requestTimeoutMs);
+        properties.setDimension(dimension);
+        return properties;
     }
 }

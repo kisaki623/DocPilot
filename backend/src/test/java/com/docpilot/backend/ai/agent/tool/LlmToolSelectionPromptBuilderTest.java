@@ -35,11 +35,19 @@ class LlmToolSelectionPromptBuilderTest {
                     true
             ),
             new ToolDefinition(
-                    DocumentRagTool.TOOL_NAME,
-                    "Document RAG retrieval",
-                    "Retrieves chunks.",
+                    DocumentSearchTool.TOOL_NAME,
+                    "Document search",
+                    "Retrieves evidence chunks.",
+                    "{\"query\":\"String\"}",
+                    "{\"hits\":[],\"citations\":[]}",
+                    true
+            ),
+            new ToolDefinition(
+                    DocumentRagQaTool.TOOL_NAME,
+                    "RAG QA",
+                    "Answers with retrieval hits and citations.",
                     "{\"task\":\"String\"}",
-                    "{\"retrievedChunks\":[]}",
+                    "{\"retrievalHits\":[],\"citations\":[]}",
                     true
             )
     );
@@ -51,7 +59,8 @@ class LlmToolSelectionPromptBuilderTest {
         assertTrue(prompt.contains("document_status_tool"));
         assertTrue(prompt.contains("document_summary_tool"));
         assertTrue(prompt.contains("document_qa_tool"));
-        assertTrue(prompt.contains(DocumentRagTool.TOOL_NAME));
+        assertTrue(prompt.contains(DocumentSearchTool.TOOL_NAME));
+        assertTrue(prompt.contains(DocumentRagQaTool.TOOL_NAME));
     }
 
     @Test
@@ -90,6 +99,7 @@ class LlmToolSelectionPromptBuilderTest {
         assertTrue(prompt.contains("status_only"));
         assertTrue(prompt.contains("summary_tool"));
         assertTrue(prompt.contains("qa_tool"));
+        assertTrue(prompt.contains("search_tool"));
         assertTrue(prompt.contains("rag_tool"));
     }
 
@@ -97,8 +107,10 @@ class LlmToolSelectionPromptBuilderTest {
     void shouldConstrainRagDecisionToRegisteredRagTool() {
         String prompt = buildPrompt();
 
-        assertTrue(prompt.contains("rag_tool -> " + DocumentRagTool.TOOL_NAME));
-        assertTrue(prompt.contains("Use rag_tool only for explicit RAG"));
+        assertTrue(prompt.contains("search_tool -> " + DocumentSearchTool.TOOL_NAME));
+        assertTrue(prompt.contains("rag_tool -> " + DocumentRagQaTool.TOOL_NAME));
+        assertTrue(prompt.contains("Use search_tool for retrieval-only"));
+        assertTrue(prompt.contains("Use rag_tool when the task asks to answer"));
         assertTrue(prompt.contains("toolNames must include document_status_tool and the required tool"));
     }
 

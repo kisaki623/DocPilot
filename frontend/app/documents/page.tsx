@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getToken } from "@/lib/auth";
-import { listDocuments, type DocumentListData, type DocumentListItem } from "@/lib/document-api";
+import { deleteDocument, listDocuments, type DocumentListData, type DocumentListItem } from "@/lib/document-api";
 
 const DEFAULT_PAGE_SIZE = 10;
 const TERMINAL_STATUS = new Set(["SUCCESS", "FAILED"]);
@@ -45,6 +45,9 @@ export default function DocumentsPage() {
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<number | null>(null);
+  const [deletingDocumentId, setDeletingDocumentId] = useState<number | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState("");
 
   const totalPages = useMemo(() => {
     if (total <= 0) {
@@ -158,13 +161,33 @@ export default function DocumentsPage() {
     await fetchDocuments(pageNo + 1);
   }
 
+  async function handleDeleteDocument(documentId: number) {
+    setDeletingDocumentId(documentId);
+    setDeleteMessage("");
+    setErrorMessage("");
+
+    try {
+      await deleteDocument(documentId);
+      const remainingInFilteredPage = filteredRecords.length - 1;
+      const nextPageNo = remainingInFilteredPage <= 0 && pageNo > 1 ? pageNo - 1 : pageNo;
+      setConfirmingDeleteId(null);
+      setDeleteMessage("文档已删除，列表已更新。");
+      await fetchDocuments(nextPageNo, true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "删除文档失败";
+      setDeleteMessage(message);
+    } finally {
+      setDeletingDocumentId(null);
+    }
+  }
+
   return (
     <main className="dp-page max-w-6xl mx-auto py-8 px-4">
       <section className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100 mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">文档库</h1>
           <p className="text-slate-500 max-w-2xl">
-            管理已上传文档，查看解析状态，并进入详情页发起问答与引用证据追踪。
+            管理已上传文档，查看解析状态，并进入详情页发起问答与引用来源追踪。
           </p>
         </div>
         <div className="flex gap-3">
@@ -190,6 +213,10 @@ export default function DocumentsPage() {
 
       {errorMessage && hasToken !== false ? (
         <section className="bg-red-50 text-red-600 p-4 rounded-xl mb-8">{errorMessage}</section>
+      ) : null}
+
+      {deleteMessage ? (
+        <section className="bg-blue-50 text-blue-700 p-4 rounded-xl mb-8">{deleteMessage}</section>
       ) : null}
 
       <section className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-8">
@@ -291,9 +318,43 @@ export default function DocumentsPage() {
                   <span className="text-xs text-slate-400">
                     上传时间：{formatDateTime(item.createTime)}
                   </span>
-                  <Link href={`/documents/${item.documentId}`} className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
-                    阅读文档 <span aria-hidden="true">&rarr;</span>
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    {confirmingDeleteId === item.documentId ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-red-600">确认删除？</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDocument(item.documentId)}
+                          disabled={deletingDocumentId === item.documentId}
+                          className="text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                        >
+                          {deletingDocumentId === item.documentId ? "删除中..." : "确认"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDeleteId(null)}
+                          disabled={deletingDocumentId === item.documentId}
+                          className="text-sm font-medium text-slate-500 hover:text-slate-700"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmingDeleteId(item.documentId);
+                          setDeleteMessage("");
+                        }}
+                        className="text-sm font-medium text-red-500 hover:text-red-700"
+                      >
+                        删除
+                      </button>
+                    )}
+                    <Link href={`/documents/${item.documentId}`} className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                      阅读文档 <span aria-hidden="true">&rarr;</span>
+                    </Link>
+                  </div>
                 </div>
               </li>
             ))}

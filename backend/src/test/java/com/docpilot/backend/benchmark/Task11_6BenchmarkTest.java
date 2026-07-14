@@ -17,6 +17,8 @@ import com.docpilot.backend.document.service.impl.DocumentServiceImpl;
 import com.docpilot.backend.document.vo.DocumentDetailResponse;
 import com.docpilot.backend.file.entity.FileRecord;
 import com.docpilot.backend.file.mapper.FileRecordMapper;
+import com.docpilot.backend.mq.mapper.ParseTaskConsumeRecordMapper;
+import com.docpilot.backend.mq.mapper.ParseTaskOutboxMessageMapper;
 import com.docpilot.backend.mq.service.ParseTaskOutboxRelayService;
 import com.docpilot.backend.task.entity.ParseTask;
 import com.docpilot.backend.task.mapper.ParseTaskMapper;
@@ -29,7 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -384,6 +385,8 @@ class Task11_6BenchmarkTest {
         ParseTaskServiceImpl service = new ParseTaskServiceImpl(
                 parseTaskMapper,
                 documentMapper,
+                mock(ParseTaskConsumeRecordMapper.class),
+                mock(ParseTaskOutboxMessageMapper.class),
                 outboxRelayService,
                 redissonClient,
                 stringRedisTemplate
@@ -501,6 +504,8 @@ class Task11_6BenchmarkTest {
         ParseTaskServiceImpl service = new ParseTaskServiceImpl(
                 parseTaskMapper,
                 documentMapper,
+                mock(ParseTaskConsumeRecordMapper.class),
+                mock(ParseTaskOutboxMessageMapper.class),
                 outboxRelayService,
                 redissonClient,
                 stringRedisTemplate

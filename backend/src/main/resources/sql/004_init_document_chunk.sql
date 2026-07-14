@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS tb_document_chunk (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Primary key',
+    document_id BIGINT UNSIGNED NOT NULL COMMENT 'Related document id',
+    user_id BIGINT UNSIGNED NOT NULL COMMENT 'Owner user id',
+    chunk_index INT NOT NULL COMMENT 'Zero-based chunk index within one document index version',
+    content TEXT NOT NULL COMMENT 'Chunk plain text content',
+    content_hash VARCHAR(64) NOT NULL COMMENT 'SHA-256 hash of chunk content',
+    start_offset INT NOT NULL COMMENT 'Start character offset in normalized document text',
+    end_offset INT NOT NULL COMMENT 'Exclusive end character offset in normalized document text',
+    token_count INT NOT NULL COMMENT 'Approximate token count, currently character count',
+    index_status VARCHAR(32) NOT NULL COMMENT 'Index status: PENDING, INDEXED, FAILED',
+    index_version INT NOT NULL DEFAULT 1 COMMENT 'Document chunk index version',
+    embedding_model VARCHAR(128) DEFAULT NULL COMMENT 'Embedding model name when indexed',
+    vector_id VARCHAR(128) DEFAULT NULL COMMENT 'External vector store id when indexed',
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation time',
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update time',
+    PRIMARY KEY (id),
+    KEY idx_document_chunk_document_id (document_id),
+    KEY idx_document_chunk_user_document (user_id, document_id),
+    UNIQUE KEY uk_document_version_chunk (document_id, index_version, chunk_index),
+    KEY idx_document_chunk_status (index_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='RAG document chunk table';

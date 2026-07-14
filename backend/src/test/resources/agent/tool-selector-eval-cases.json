@@ -75,49 +75,49 @@
     "task": "answer with evidence",
     "parseReady": true,
     "hasSummary": true,
-    "expectedDecision": "qa_tool"
+    "expectedDecision": "rag_tool"
   },
   {
     "task": "cite the source for the main claim",
     "parseReady": true,
     "hasSummary": true,
-    "expectedDecision": "qa_tool"
+    "expectedDecision": "search_tool"
   },
   {
     "task": "what proof supports the conclusion?",
     "parseReady": true,
     "hasSummary": false,
-    "expectedDecision": "qa_tool"
+    "expectedDecision": "rag_tool"
   },
   {
     "task": "根据原文证据回答核心内容",
     "parseReady": true,
     "hasSummary": true,
-    "expectedDecision": "qa_tool"
+    "expectedDecision": "rag_tool"
   },
   {
     "task": "请引用原文说明合同金额",
     "parseReady": true,
     "hasSummary": false,
-    "expectedDecision": "qa_tool"
+    "expectedDecision": "rag_tool"
   },
   {
     "task": "这句话的出处是什么",
     "parseReady": true,
     "hasSummary": true,
-    "expectedDecision": "qa_tool"
+    "expectedDecision": "rag_tool"
   },
   {
     "task": "summary with evidence",
     "parseReady": true,
     "hasSummary": true,
-    "expectedDecision": "qa_tool"
+    "expectedDecision": "rag_tool"
   },
   {
     "task": "总结并引用原文证据",
     "parseReady": true,
     "hasSummary": true,
-    "expectedDecision": "qa_tool"
+    "expectedDecision": "rag_tool"
   },
   {
     "task": "这篇文档主要讲了什么",

@@ -1,5 +1,8 @@
 package com.docpilot.backend.ai.service;
 
+import com.docpilot.backend.ai.context.GroundingPolicy;
+import com.docpilot.backend.ai.context.PromptMessage;
+import com.docpilot.backend.ai.context.RouteDecision;
 import com.docpilot.backend.ai.exception.AiNonRetryableException;
 import com.docpilot.backend.ai.exception.AiRetryableException;
 import com.docpilot.backend.ai.service.impl.RealAiAnswerService;
@@ -14,6 +17,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -108,6 +112,40 @@ class RealAiAnswerServiceTest {
         try {
             RealAiAnswerService service = buildService(server, 1000);
             assertThrows(AiNonRetryableException.class, () -> service.answer("ctx", "q"));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void conversationAnswerShouldUseNonStrictPromptForModelOnlyRoute() throws IOException {
+        AtomicReference<String> requestBody = new AtomicReference<>();
+
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/chat/completions", exchange -> {
+            requestBody.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            byte[] responseBytes = "{\"choices\":[{\"message\":{\"content\":\"general answer\"}}]}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, responseBytes.length);
+            try (OutputStream outputStream = exchange.getResponseBody()) {
+                outputStream.write(responseBytes);
+            }
+        });
+        server.start();
+
+        try {
+            RealAiAnswerService service = buildService(server, 1000);
+            String answer = service.answerConversation(new ConversationAnswerRequest(
+                    List.of(new PromptMessage("user", "太阳为什么会发光")),
+                    "太阳为什么会发光",
+                    GroundingPolicy.MODEL_ONLY,
+                    RouteDecision.MODEL_ONLY
+            ));
+
+            assertEquals("general answer", answer);
+            assertTrue(requestBody.get().contains("Grounding policy: MODEL_ONLY"));
+            assertTrue(requestBody.get().contains("Do not refuse solely because there is no document or knowledge-base context"));
+            assertTrue(!requestBody.get().contains("Answer only from the provided document context"));
         } finally {
             server.stop(0);
         }

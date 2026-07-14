@@ -1,19 +1,23 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
+import QualityNavLink from "@/components/quality-nav-link";
 import ShellAuthChip from "@/components/shell-auth-chip";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "DocPilot | AI 文档解析与问答平台",
-  description: "DocPilot：展示文档上传、异步解析、SSE 问答、引用证据和 Agent 工作流的工程化项目。"
+  description: "DocPilot：面向文档上传、异步解析、知识库检索、引用来源和 Agent 工具链的 AI 文档平台。"
 };
 
 const navItems = [
   { href: "/", label: "首页" },
-  { href: "/dashboard", label: "工作台" },
+  { href: "/dashboard", label: "空间" },
   { href: "/upload", label: "上传" },
   { href: "/documents", label: "文档库" },
+  { href: "/knowledge-bases", label: "知识库" },
+  { href: "/conversations", label: "会话" },
   { href: "/agent", label: "Agent" },
+  { href: "/agent/tools", label: "工具箱" },
   { href: "/login", label: "登录" }
 ];
 
@@ -42,6 +46,7 @@ export default function RootLayout({
                     {item.label}
                   </Link>
                 ))}
+                <QualityNavLink />
               </nav>
 
               <ShellAuthChip />

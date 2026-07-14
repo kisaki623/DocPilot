@@ -31,6 +31,9 @@ public class Document {
     @TableField("parse_status")
     private String parseStatus;
 
+    @TableField("status")
+    private String status;
+
     @TableField("create_time")
     private LocalDateTime createTime;
 
@@ -91,6 +94,14 @@ public class Document {
 
     public void setParseStatus(String parseStatus) {
         this.parseStatus = parseStatus;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public LocalDateTime getCreateTime() {

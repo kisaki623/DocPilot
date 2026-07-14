@@ -18,6 +18,7 @@ type MarkdownViewerProps = {
   className?: string;
   variant?: MarkdownVariant;
   mode?: "card" | "inline";
+  onInternalAnchorClick?: (href: string) => void;
 };
 
 const ALLOWED_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
@@ -64,7 +65,8 @@ export default function MarkdownViewer({
   emptyText = "-",
   className,
   variant = "document",
-  mode = "card"
+  mode = "card",
+  onInternalAnchorClick,
 }: MarkdownViewerProps) {
   const [viewMode, setViewMode] = useState<MarkdownViewMode>(defaultView);
   const content = markdown || "";
@@ -143,11 +145,25 @@ export default function MarkdownViewer({
               skipHtml
               urlTransform={safeUrlTransform}
               components={{
-                a: ({ children, ...props }) => (
-                  <a {...props} rel="noopener noreferrer nofollow" target="_blank">
-                    {children}
-                  </a>
-                )
+                a: ({ children, ...props }) => {
+                  const href = typeof props.href === "string" ? props.href : "";
+                  const isInternalAnchor = href.startsWith("#");
+                  return (
+                    <a
+                      {...props}
+                      rel={isInternalAnchor ? undefined : "noopener noreferrer nofollow"}
+                      target={isInternalAnchor ? undefined : "_blank"}
+                      onClick={(event) => {
+                        if (isInternalAnchor && onInternalAnchorClick) {
+                          event.preventDefault();
+                          onInternalAnchorClick(href);
+                        }
+                      }}
+                    >
+                      {children}
+                    </a>
+                  );
+                },
               }}
             >
               {content}

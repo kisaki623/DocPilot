@@ -50,6 +50,12 @@ export interface DocumentCreateData {
   reused?: boolean;
 }
 
+export interface DocumentDeleteData {
+  documentId: number;
+  status: string;
+  removedKnowledgeBaseRelationCount?: number;
+}
+
 export function listDocuments(
   query: DocumentListQuery
 ): Promise<ApiResponse<DocumentListData>> {
@@ -90,5 +96,16 @@ export function createDocument(
       ...buildAuthorizationHeader()
     },
     body: JSON.stringify({ fileRecordId })
+  });
+}
+
+export function deleteDocument(
+  documentId: number
+): Promise<ApiResponse<DocumentDeleteData>> {
+  return apiRequest<DocumentDeleteData>(`/api/document/${documentId}`, {
+    method: "DELETE",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
   });
 }

@@ -1,0 +1,361 @@
+[
+  {
+    "id": "multi-document-cache-and-vector-hit",
+    "userId": 1200,
+    "knowledgeBaseId": 2200,
+    "indexVersion": 1,
+    "topK": 4,
+    "query": "Where are docpilot redis session cache and qdrant vector index evidence described?",
+    "documents": [
+      {
+        "documentId": 3201,
+        "title": "Redis Operations Guide",
+        "text": "DocPilot redis session cache evidence marker kb-redis-marker explains hot login context storage."
+      },
+      {
+        "documentId": 3202,
+        "title": "Qdrant Vector Guide",
+        "text": "DocPilot qdrant vector index evidence marker kb-qdrant-marker explains semantic retrieval storage."
+      }
+    ],
+    "outOfScopeDocuments": [
+      {
+        "userId": 1200,
+        "documentId": 3299,
+        "title": "Non Member Private Guide",
+        "text": "forbidden-private-marker should never appear in knowledge base retrieval results."
+      }
+    ],
+    "expectedMarkers": ["kb-redis-marker", "kb-qdrant-marker"],
+    "expectedAnswerMarkers": ["kb-redis-marker", "kb-qdrant-marker"],
+    "forbiddenAnswerMarkers": ["forbidden-private-marker"],
+    "expectedDocumentIds": [3201, 3202],
+    "forbiddenDocumentIds": [3299],
+    "minCitationCount": 2,
+    "requiresMultiDocumentCoverage": true,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "single-document-router-hit",
+    "userId": 1201,
+    "knowledgeBaseId": 2201,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Which document explains rocketmq outbox parser retry marker?",
+    "documents": [
+      {
+        "documentId": 3211,
+        "title": "RocketMQ Outbox Notes",
+        "text": "Rocketmq outbox parser retry evidence marker kb-rocketmq-marker belongs to this document only."
+      },
+      {
+        "documentId": 3212,
+        "title": "MinIO Storage Notes",
+        "text": "Minio storage upload binary marker kb-minio-marker documents object storage behavior."
+      }
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["kb-rocketmq-marker"],
+    "expectedAnswerMarkers": ["kb-rocketmq-marker"],
+    "forbiddenAnswerMarkers": ["kb-minio-marker"],
+    "expectedDocumentIds": [3211],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 1,
+    "requiresMultiDocumentCoverage": false,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "no-evidence-empty-index",
+    "userId": 1202,
+    "knowledgeBaseId": 2202,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Which evidence describes nonexistent payment gateway settlement?",
+    "documents": [
+      {
+        "documentId": 3221,
+        "title": "Blank Knowledge Note",
+        "text": "   "
+      }
+    ],
+    "outOfScopeDocuments": [
+      {
+        "userId": 1202,
+        "documentId": 3229,
+        "title": "Out Of Scope Payment Note",
+        "text": "payment gateway settlement forbidden marker should not be retrievable."
+      }
+    ],
+    "expectedMarkers": [],
+    "expectedAnswerMarkers": [],
+    "forbiddenAnswerMarkers": ["payment gateway settlement forbidden marker"],
+    "expectedDocumentIds": [],
+    "forbiddenDocumentIds": [3229],
+    "minCitationCount": 0,
+    "requiresMultiDocumentCoverage": false,
+    "expectedNoEvidence": true,
+    "minSimilarityThreshold": 0.95
+  },
+  {
+    "id": "scope-isolation-user-and-version",
+    "userId": 1203,
+    "knowledgeBaseId": 2203,
+    "indexVersion": 2,
+    "topK": 3,
+    "query": "Where is active version two isolation marker for docpilot knowledge base?",
+    "documents": [
+      {
+        "documentId": 3231,
+        "title": "Version Two Scope Note",
+        "indexVersion": 2,
+        "text": "Active version two isolation marker kb-version-two-marker is the only allowed evidence."
+      }
+    ],
+    "outOfScopeDocuments": [
+      {
+        "userId": 1203,
+        "documentId": 3231,
+        "title": "Old Version Scope Note",
+        "indexVersion": 1,
+        "text": "old version forbidden marker kb-version-one-forbidden must not be returned."
+      },
+      {
+        "userId": 9999,
+        "documentId": 3239,
+        "title": "Other User Scope Note",
+        "indexVersion": 2,
+        "text": "other user forbidden marker kb-other-user-forbidden must not be returned."
+      }
+    ],
+    "expectedMarkers": ["kb-version-two-marker"],
+    "expectedAnswerMarkers": ["kb-version-two-marker"],
+    "forbiddenAnswerMarkers": ["kb-version-one-forbidden", "kb-other-user-forbidden"],
+    "expectedDocumentIds": [3231],
+    "forbiddenDocumentIds": [3239],
+    "minCitationCount": 1,
+    "requiresMultiDocumentCoverage": false,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "citation-source-correctness",
+    "userId": 1204,
+    "knowledgeBaseId": 2204,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Which knowledge base citation identifies qdrant title and chunk source?",
+    "documents": [
+      {
+        "documentId": 3241,
+        "title": "Citation Qdrant Source",
+        "text": "Citation source marker kb-citation-marker records document title and chunk index for qdrant evidence."
+      },
+      {
+        "documentId": 3242,
+        "title": "Citation Distractor Source",
+        "text": "Distractor citation text talks about upload sessions without the requested qdrant marker."
+      }
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["kb-citation-marker"],
+    "expectedAnswerMarkers": ["kb-citation-marker"],
+    "forbiddenAnswerMarkers": [],
+    "expectedDocumentIds": [3241],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 1,
+    "requiresMultiDocumentCoverage": false,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "semantic-no-evidence-populated-kb",
+    "userId": 1205,
+    "knowledgeBaseId": 2205,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Which evidence describes neon invoice reconciliation sla for vendor payouts?",
+    "documents": [
+      {
+        "documentId": 3251,
+        "title": "Conversation Memory Guide",
+        "text": "Conversation memory marker kb-memory-profile-marker records accepted user preferences and context trace sources."
+      },
+      {
+        "documentId": 3252,
+        "title": "Document Parser Guide",
+        "text": "Document parser marker kb-parser-block-marker describes markdown heading blocks and chunk structure quality."
+      }
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": [],
+    "expectedAnswerMarkers": [],
+    "forbiddenAnswerMarkers": ["kb-memory-profile-marker", "kb-parser-block-marker", "neon invoice reconciliation sla"],
+    "expectedDocumentIds": [],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 0,
+    "requiresMultiDocumentCoverage": false,
+    "expectedNoEvidence": true,
+    "minSimilarityThreshold": 0.5
+  },
+  {
+    "id": "hybrid-keyword-noise-no-evidence",
+    "userId": 1206,
+    "knowledgeBaseId": 2206,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Which agent pricing invoice settlement contract threshold defines enterprise billing?",
+    "documents": [
+      {
+        "documentId": 3261,
+        "title": "Agent Routing Policy",
+        "text": "Agent routing policy marker kb-agent-routing-marker stores tool selection trace and retry steps."
+      },
+      {
+        "documentId": 3262,
+        "title": "Agent Trace Events",
+        "text": "Agent trace marker kb-agent-trace-marker records tool call status and citation summary fields."
+      }
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": [],
+    "expectedAnswerMarkers": [],
+    "forbiddenAnswerMarkers": ["kb-agent-routing-marker", "kb-agent-trace-marker", "enterprise billing"],
+    "expectedDocumentIds": [],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 0,
+    "requiresMultiDocumentCoverage": false,
+    "expectedNoEvidence": true,
+    "minSimilarityThreshold": 0.95
+  },
+  {
+    "id": "multi-document-three-way-summary",
+    "userId": 1207,
+    "knowledgeBaseId": 2207,
+    "indexVersion": 1,
+    "topK": 3,
+    "query": "Summarize all documents about parse queue evidence, vector index evidence, and context trace evidence.",
+    "documents": [
+      {
+        "documentId": 3271,
+        "title": "Parse Queue Evidence",
+        "text": "Parse queue evidence marker kb-parse-queue-marker explains async parse task dispatch and retry status."
+      },
+      {
+        "documentId": 3272,
+        "title": "Vector Index Evidence",
+        "text": "Vector index evidence marker kb-vector-index-marker explains qdrant payload fields and embedding storage."
+      },
+      {
+        "documentId": 3273,
+        "title": "Context Trace Evidence",
+        "text": "Context trace evidence marker kb-context-trace-marker explains rag evidence counts and memory source counts."
+      },
+      {
+        "documentId": 3274,
+        "title": "Unrelated Upload Note",
+        "text": "Upload note marker kb-upload-distractor-marker explains browser drag and drop progress only."
+      }
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["kb-parse-queue-marker", "kb-vector-index-marker", "kb-context-trace-marker"],
+    "expectedAnswerMarkers": ["kb-parse-queue-marker", "kb-vector-index-marker", "kb-context-trace-marker"],
+    "forbiddenAnswerMarkers": ["kb-upload-distractor-marker"],
+    "expectedDocumentIds": [3271, 3272, 3273],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 3,
+    "requiresMultiDocumentCoverage": true,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "grounded-answer-distractor-suppression",
+    "userId": 1208,
+    "knowledgeBaseId": 2208,
+    "indexVersion": 1,
+    "topK": 2,
+    "query": "Where are retention policy evidence and deletion workflow evidence described?",
+    "documents": [
+      {
+        "documentId": 3281,
+        "title": "Retention Policy Evidence",
+        "text": "Retention policy evidence marker kb-retention-policy-marker explains keeping audit artifacts without raw prompts."
+      },
+      {
+        "documentId": 3282,
+        "title": "Deletion Workflow Evidence",
+        "text": "Deletion workflow evidence marker kb-deletion-workflow-marker explains temporary smoke data lifecycle boundaries."
+      },
+      {
+        "documentId": 3283,
+        "title": "Billing Policy Distractor",
+        "text": "Billing policy distractor marker kb-billing-policy-forbidden-marker explains invoice terms unrelated to deletion."
+      }
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["kb-retention-policy-marker", "kb-deletion-workflow-marker"],
+    "expectedAnswerMarkers": ["kb-retention-policy-marker", "kb-deletion-workflow-marker"],
+    "forbiddenAnswerMarkers": ["kb-billing-policy-forbidden-marker"],
+    "expectedDocumentIds": [3281, 3282],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 2,
+    "requiresMultiDocumentCoverage": true,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "cross-topic-distractor-routing",
+    "userId": 1209,
+    "knowledgeBaseId": 2209,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Where is tenant export archive marker for compliance packets?",
+    "documents": [
+      {
+        "documentId": 3291,
+        "title": "Tenant Export Archive",
+        "text": "Tenant export archive marker kb-tenant-export-marker explains compliance packet packaging and audit metadata."
+      },
+      {
+        "documentId": 3292,
+        "title": "Metrics Export Distractor",
+        "text": "Metrics export marker kb-metrics-export-forbidden-marker explains prometheus dashboard snapshots only."
+      }
+    ],
+    "outOfScopeDocuments": [],
+    "expectedMarkers": ["kb-tenant-export-marker"],
+    "expectedAnswerMarkers": ["kb-tenant-export-marker"],
+    "forbiddenAnswerMarkers": ["kb-metrics-export-forbidden-marker"],
+    "expectedDocumentIds": [3291],
+    "forbiddenDocumentIds": [],
+    "minCitationCount": 1,
+    "requiresMultiDocumentCoverage": false,
+    "expectedNoEvidence": false
+  },
+  {
+    "id": "out-of-scope-semantic-distractor",
+    "userId": 1210,
+    "knowledgeBaseId": 2210,
+    "indexVersion": 1,
+    "topK": 1,
+    "query": "Where is customer success playbook marker for onboarding evidence?",
+    "documents": [
+      {
+        "documentId": 3301,
+        "title": "Customer Success Playbook",
+        "text": "Customer success playbook marker kb-customer-success-marker explains onboarding checklist evidence."
+      }
+    ],
+    "outOfScopeDocuments": [
+      {
+        "userId": 1210,
+        "documentId": 3309,
+        "title": "Out Of Scope Success Playbook",
+        "text": "Customer success playbook marker kb-success-forbidden-marker is outside the active knowledge base."
+      }
+    ],
+    "expectedMarkers": ["kb-customer-success-marker"],
+    "expectedAnswerMarkers": ["kb-customer-success-marker"],
+    "forbiddenAnswerMarkers": ["kb-success-forbidden-marker"],
+    "expectedDocumentIds": [3301],
+    "forbiddenDocumentIds": [3309],
+    "minCitationCount": 1,
+    "requiresMultiDocumentCoverage": false,
+    "expectedNoEvidence": false
+  }
+]

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MarkdownViewer from "@/components/markdown-viewer";
 import { getToken } from "@/lib/auth";
+import { citationChunkLabel, citationLocatorLabel, citationSourceTitle, citationStructureLabel } from "@/lib/citation-display";
 import {
   getAgentTask,
   getAgentTaskSteps,
@@ -22,20 +23,20 @@ const TASK_TEMPLATES = [
   },
   {
     key: "status-summary",
-    label: "状态 + 总结",
-    helper: "先检查解析状态，再进入文档摘要。",
+    label: "解析校验与摘要",
+    helper: "先确认文档就绪状态，再生成结构化摘要。",
     task: "请先检查文档解析状态，再给出这篇文档的概览和下一步建议。"
   },
   {
     key: "evidence-qa",
-    label: "证据问答",
-    helper: "基于文档内容回答，并展示引用证据。",
-    task: "请根据原文证据回答：这篇文档的核心技术亮点是什么？"
+    label: "引用问答",
+    helper: "基于文档内容回答，并关联引用来源。",
+    task: "请根据原文内容回答：这篇文档的核心技术亮点是什么？"
   },
   {
     key: "rag-retrieval",
     label: "检索召回",
-    helper: "展示与问题相关的召回片段和证据来源。",
+    helper: "查看与问题相关的召回片段和来源信息。",
     task: "请根据文档内容检索相关片段，并回答这些片段能够支持哪些结论。"
   }
 ] as const;
@@ -44,14 +45,14 @@ const SHOWCASE_POINTS = [
   "围绕文档状态、摘要、问答和检索召回组织工具能力",
   "后端根据任务内容选择合适工具，并返回可解释的选择依据",
   "执行步骤、耗时和状态可在页面中连续追踪",
-  "问答结果展示引用证据，便于回到原文核对",
-  "检索召回场景展示相关片段、相关度和来源信息"
+  "问答结果保留引用来源，便于回到原文核对",
+  "检索场景呈现相关片段、相关度和来源信息"
 ];
 
 const BOUNDARY_POINTS = [
-  "当前页面聚焦已解析文档上的 Agent 工作流展示",
+  "当前页面聚焦已解析文档上的 Agent 工具链",
   "上传、解析和文档管理仍在其他页面独立呈现",
-  "检索召回展示采用后端当前配置，专用向量服务需在后端显式开启",
+  "检索召回采用当前运行配置，向量服务由后端配置控制",
   "工具选择和工具执行均由服务端受控逻辑完成，页面不执行任意模型指令"
 ];
 
@@ -216,7 +217,7 @@ export default function AgentPage() {
     const runtimeSteps = result.steps || [];
     const visibleSteps = persistedSteps.length > 0 ? persistedSteps : runtimeSteps;
     const persistedStatus = persistedTrace
-      ? `已持久化 ${persistedTrace.steps.length} 个步骤`
+      ? `已记录 ${persistedTrace.steps.length} 个编排步骤`
       : result.taskId
         ? loadingPersistedTrace
           ? "正在加载执行轨迹"
@@ -252,7 +253,7 @@ export default function AgentPage() {
         label: "记录执行轨迹",
         status: persistedTrace ? "done" : result.taskId ? "waiting" : "waiting",
         detail: persistedStatus,
-        evidence: persistedTrace?.task.status || (result.taskId ? "正在同步执行轨迹" : "暂不可用")
+        evidence: persistedTrace?.task.status || (result.taskId ? "正在同步执行轨迹" : "等待记录")
       }
     ];
   }, [loadingPersistedTrace, persistedTrace, result]);
@@ -374,10 +375,10 @@ export default function AgentPage() {
     <main className="dp-page max-w-7xl mx-auto py-8 px-4">
       <section className="dp-hero">
         <p className="dp-eyebrow">Agent Workflow</p>
-        <h1 className="dp-title">Agent 工具编排工作流</h1>
+        <h1 className="dp-title">Agent 工具链编排</h1>
         <p className="dp-subtitle">
-          选择当前账号可访问的已解析文档，运行文档工具链，观察系统如何选择工具、
-          执行步骤、生成回答并保留引用证据。
+          选择当前账号可访问的已解析文档，运行文档工具链，查看工具选择、
+          执行记录、回答内容与引用来源。
         </p>
       </section>
 
@@ -388,8 +389,8 @@ export default function AgentPage() {
             <span className="dp-badge dp-badge-info">工具编排</span>
           </div>
           <p className="text-sm text-slate-600 leading-6">
-            当前页面展示文档 Agent 的核心工作流：后端按任务选择文档状态、摘要、问答或检索工具，
-            前端同步呈现工具选择、执行轨迹、最终回答和引用证据。
+            当前页面呈现文档 Agent 的核心流程：后端按任务选择文档状态、摘要、问答或检索工具，
+            前端同步展示工具选择、执行记录、最终回答和引用来源。
           </p>
           <ul className="mt-4 grid gap-2 text-sm text-slate-700">
             {SHOWCASE_POINTS.map((point) => (
@@ -408,7 +409,7 @@ export default function AgentPage() {
               <span className="dp-badge dp-badge-warning">默认折叠</span>
             </div>
             <p className="mt-2 text-sm text-slate-600 leading-6">
-              展示边界和工程实现细节默认折叠，主流程优先呈现可观察的 Agent 工作流。
+              详细实现说明默认折叠，主流程优先呈现可观察的 Agent 工具链。
             </p>
           </summary>
           <ul className="mt-4 grid gap-2 text-sm text-slate-700">
@@ -439,7 +440,7 @@ export default function AgentPage() {
 
           {documentsError ? <div className="dp-alert dp-alert-error mb-4">{documentsError}</div> : null}
           <div className="dp-alert dp-alert-info mb-4">
-            建议选择已解析成功的文档，以便完整展示工具选择、执行步骤、回答与引用证据。
+            建议选择已解析成功的文档，以便完整查看工具选择、执行步骤、回答与引用来源。
           </div>
           {hasToken && !loadingDocuments && documents.length === 0 ? (
             <div className="dp-alert dp-alert-info mb-4">
@@ -521,7 +522,7 @@ export default function AgentPage() {
             </div>
 
             <label htmlFor="agent-task-input" className="grid gap-2">
-              <span className="text-sm font-semibold text-slate-700">工作流任务</span>
+              <span className="text-sm font-semibold text-slate-700">任务描述</span>
               <textarea
                 id="agent-task-input"
                 rows={4}
@@ -539,7 +540,7 @@ export default function AgentPage() {
                 disabled={running || hasToken === false || !selectedDocumentId}
                 className="dp-btn dp-btn-primary"
               >
-                {running ? "Agent 运行中..." : "运行工作流"}
+                {running ? "Agent 运行中..." : "运行工具链"}
               </button>
               <button
                 type="button"
@@ -566,7 +567,7 @@ export default function AgentPage() {
           {!result ? (
             <div className="dp-card-soft text-sm text-slate-600">
               <p className="font-semibold mb-2">等待运行</p>
-              <p>执行后会展示工具选择、执行步骤、最终回答与引用证据。</p>
+              <p>执行后会展示工具选择、执行步骤、最终回答与引用来源。</p>
             </div>
           ) : (
             <div className="grid gap-4">
@@ -642,7 +643,7 @@ export default function AgentPage() {
 
               <div className="dp-card-soft">
                 <div className="flex items-center justify-between gap-2 mb-3">
-                  <p className="text-sm font-semibold text-slate-700">Agent 工作流</p>
+                  <p className="text-sm font-semibold text-slate-700">Agent 工具链</p>
                   <span className="dp-badge dp-badge-info">轨迹视图</span>
                 </div>
                 <ol className="grid gap-3">
@@ -689,10 +690,10 @@ export default function AgentPage() {
               <div className="dp-card-soft">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <p className="text-sm font-semibold text-slate-700">检索召回片段</p>
-                  <span className="dp-badge dp-badge-warning">召回演示</span>
+                  <span className="dp-badge dp-badge-warning">检索结果</span>
                 </div>
                 <p className="text-xs leading-5 text-slate-500 mb-3">
-                  当前区域用于观察文档检索召回结果，展示相关片段、相关度和来源信息。
+                  当前区域用于查看文档检索召回结果、相关片段和来源信息。
                 </p>
                 {result.ragResults && result.ragResults.length > 0 ? (
                   <ol className="dp-list-clean">
@@ -708,6 +709,13 @@ export default function AgentPage() {
                               相关度 {formatScore(item.score)}
                             </span>
                           </div>
+                          <p className="mb-1 text-xs font-semibold text-slate-700">{citationSourceTitle(item)}</p>
+                          <p className="mb-1 text-xs text-slate-600">
+                            {[citationLocatorLabel(item), citationChunkLabel(item)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                          </p>
+                          {citationStructureLabel(item) ? (
+                            <p className="mb-2 text-[11px] text-slate-500">{citationStructureLabel(item)}</p>
+                          ) : null}
                           <p className="text-xs leading-5 text-slate-700">{item.snippet || "-"}</p>
                           {entries.length > 0 ? (
                             <details className="mt-3 text-[11px] text-slate-500">
@@ -814,6 +822,10 @@ export default function AgentPage() {
                     {result.citations.map((item, index) => (
                       <li key={`${item.chunkIndex}-${item.charStart}-${index}`} className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
                         <p className="font-semibold text-slate-800 mb-1">引用 {index + 1}</p>
+                        <p className="mb-1 font-semibold text-slate-700">{citationSourceTitle(item)}</p>
+                        <p className="mb-1 text-slate-500">
+                          {[citationLocatorLabel(item), citationChunkLabel(item)].filter(Boolean).join(" · ") || "来源定位待补充"}
+                        </p>
                         <p>{item.snippet}</p>
                       </li>
                     ))}

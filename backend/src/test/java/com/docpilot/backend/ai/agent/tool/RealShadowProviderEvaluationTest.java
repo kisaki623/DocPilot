@@ -26,7 +26,9 @@ class RealShadowProviderEvaluationTest {
                     new LlmToolSelectionParser(Set.of(
                             "document_status_tool",
                             "document_summary_tool",
-                            "document_qa_tool"
+                            "document_qa_tool",
+                            DocumentSearchTool.TOOL_NAME,
+                            DocumentRagQaTool.TOOL_NAME
                     ))
             ),
             fakeProviderProperties()
@@ -34,7 +36,9 @@ class RealShadowProviderEvaluationTest {
     private final List<ToolDefinition> toolDefinitions = List.of(
             new ToolDefinition("document_status_tool", "Document status", "Checks parse status.", "{}", "{}", true),
             new ToolDefinition("document_summary_tool", "Document summary", "Returns summary.", "{}", "{}", true),
-            new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true)
+            new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true),
+            new ToolDefinition(DocumentSearchTool.TOOL_NAME, "Document search", "Retrieves evidence without answer generation.", "{}", "{}", true),
+            new ToolDefinition(DocumentRagQaTool.TOOL_NAME, "RAG QA", "Answers with RAG citations.", "{}", "{}", true)
     );
 
     @Test

@@ -8,6 +8,8 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
+
 @Mapper
 public interface ParseTaskConsumeRecordMapper extends BaseMapper<ParseTaskConsumeRecord> {
 
@@ -45,6 +47,18 @@ public interface ParseTaskConsumeRecordMapper extends BaseMapper<ParseTaskConsum
 
     @Update("""
             UPDATE tb_parse_task_consume_record
+               SET status = 'PROCESSING',
+                   consume_count = consume_count + 1,
+                   last_error = NULL
+             WHERE message_key = #{messageKey}
+               AND status = 'PROCESSING'
+               AND update_time < #{staleBefore}
+            """)
+    int takeoverStaleProcessing(@Param("messageKey") String messageKey,
+                                @Param("staleBefore") LocalDateTime staleBefore);
+
+    @Update("""
+            UPDATE tb_parse_task_consume_record
                SET status = 'SUCCESS',
                    last_error = NULL
              WHERE message_key = #{messageKey}
@@ -59,5 +73,21 @@ public interface ParseTaskConsumeRecordMapper extends BaseMapper<ParseTaskConsum
             """)
     int markFailed(@Param("messageKey") String messageKey,
                    @Param("lastError") String lastError);
+
+    @Select("""
+            SELECT id,
+                   message_key,
+                   task_id,
+                   status,
+                   consume_count,
+                   last_error,
+                   create_time,
+                   update_time
+              FROM tb_parse_task_consume_record
+             WHERE task_id = #{taskId}
+             ORDER BY id DESC
+             LIMIT 1
+            """)
+    ParseTaskConsumeRecord selectLatestByTaskId(@Param("taskId") Long taskId);
 }
 

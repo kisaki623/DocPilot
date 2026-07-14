@@ -40,7 +40,7 @@ export default function LoginPage() {
     if (submitting) {
       return mode === "register" ? "创建中..." : "进入中...";
     }
-    return mode === "register" ? "创建并进入工作台" : "进入演示工作台";
+    return mode === "register" ? "创建并进入空间" : "进入工作空间";
   }, [mode, submitting]);
 
   function switchMode(nextMode: AuthMode) {
@@ -104,10 +104,10 @@ export default function LoginPage() {
         });
         const token = registerResponse.data?.token;
         if (!token) {
-          throw new Error("账号已创建，但暂时无法进入工作台，请稍后重试。");
+          throw new Error("账号已创建，但暂时无法进入工作空间，请稍后重试。");
         }
         saveToken(token);
-        setSuccessMessage("账号已创建，正在进入演示工作台...");
+        setSuccessMessage("账号已创建，正在初始化工作空间...");
       } else {
         const loginResponse = await loginByPassword({
           username: normalizedUsername,
@@ -115,17 +115,17 @@ export default function LoginPage() {
         });
         const token = loginResponse.data?.token;
         if (!token) {
-          throw new Error("登录成功，但暂时无法进入工作台，请稍后重试。");
+          throw new Error("登录成功，但暂时无法进入工作空间，请稍后重试。");
         }
         saveToken(token);
-        setSuccessMessage("登录成功，正在进入演示工作台...");
+        setSuccessMessage("登录成功，正在载入工作空间...");
       }
 
       window.setTimeout(() => {
         router.push("/dashboard");
       }, 450);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "无法进入工作台，请检查账号信息后重试。";
+      const message = error instanceof Error ? error.message : "无法进入工作空间，请检查账号信息后重试。";
       setErrorMessage(message);
     } finally {
       setSubmitting(false);
@@ -137,10 +137,10 @@ export default function LoginPage() {
       <section className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <article className="dp-hero">
           <p className="dp-eyebrow">Workspace Access</p>
-          <h1 className="dp-title">进入 DocPilot 演示工作台</h1>
+          <h1 className="dp-title">进入 DocPilot 工作空间</h1>
           <p className="dp-subtitle">
-            创建或登录一个本地演示账号，体验文档上传、异步解析、文档问答、SSE 流式输出、
-            引用证据和 Agent 工作流展示。
+            创建或登录账号，管理你的文档、解析任务、知识库问答和会话记录。
+            每个账号的数据相互隔离，便于持续追踪处理结果。
           </p>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -149,12 +149,12 @@ export default function LoginPage() {
               <p className="mt-1 text-sm font-semibold">用于隔离你的文档与问答记录</p>
             </div>
             <div className="dp-card-soft">
-              <p className="dp-meta">2. 进入工作台</p>
+              <p className="dp-meta">2. 进入空间</p>
               <p className="mt-1 text-sm font-semibold">查看文档状态与最近处理结果</p>
             </div>
             <div className="dp-card-soft">
-              <p className="dp-meta">3. 体验主链路</p>
-              <p className="mt-1 text-sm font-semibold">上传 {"->"} 解析 {"->"} 问答 {"->"} 引用</p>
+              <p className="dp-meta">3. 开始处理</p>
+              <p className="mt-1 text-sm font-semibold">上传 {"->"} 解析 {"->"} 提问 {"->"} 溯源</p>
             </div>
           </div>
 
@@ -190,10 +190,10 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <h2 className="dp-section-title mt-4">{mode === "register" ? "创建演示账号" : "进入已有账号"}</h2>
+          <h2 className="dp-section-title mt-4">{mode === "register" ? "创建账号" : "进入已有账号"}</h2>
           <p className="dp-subtitle">
             {mode === "register"
-              ? "首次体验请先创建账号，成功后会自动进入工作台。"
+              ? "首次使用请先创建账号，成功后会自动进入工作空间。"
               : "已有账号可直接登录，继续查看文档处理和问答结果。"}
           </p>
 

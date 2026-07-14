@@ -5,20 +5,29 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmbeddingModelFactory {
 
+    private final EmbeddingProviderFactory embeddingProviderFactory;
+
+    public EmbeddingModelFactory() {
+        this(new EmbeddingProviderFactory());
+    }
+
+    public EmbeddingModelFactory(EmbeddingProviderFactory embeddingProviderFactory) {
+        this.embeddingProviderFactory = embeddingProviderFactory == null ? new EmbeddingProviderFactory() : embeddingProviderFactory;
+    }
+
     public EmbeddingModel create(RagEmbeddingProperties properties) {
         RagEmbeddingProperties resolvedProperties = properties == null ? new RagEmbeddingProperties() : properties;
         if (resolvedProperties.isDisabledProvider()) {
             return new DisabledEmbeddingModel();
         }
-        if (resolvedProperties.isOpenAiCompatibleProvider()) {
-            return new OpenAiCompatibleEmbeddingModel(
-                    resolvedProperties.getModel(),
-                    resolvedProperties.getBaseUrl(),
-                    resolvedProperties.getApiKey(),
-                    resolvedProperties.getConnectTimeoutMs(),
-                    resolvedProperties.getRequestTimeoutMs()
-            );
+        return new ProviderBackedEmbeddingModel(embeddingProviderFactory.create(resolvedProperties));
+    }
+
+    private record ProviderBackedEmbeddingModel(EmbeddingProvider provider) implements EmbeddingModel {
+
+        @Override
+        public EmbeddingVector embed(String text) {
+            return provider.embed(EmbeddingRequest.of(text)).vector();
         }
-        return new FakeEmbeddingModel(resolvedProperties.getDimension());
     }
 }

@@ -1,5 +1,7 @@
 package com.docpilot.backend.ai.agent;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -47,7 +49,7 @@ class AgentDemoScriptSafetyTest {
     @Test
     void dryRunOutputShouldStayRedacted() throws Exception {
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",

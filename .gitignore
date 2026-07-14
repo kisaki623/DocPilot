@@ -5,12 +5,29 @@ Thumbs.db
 # IDE / editor local state
 .idea/
 .vscode/
+.claude/
 .runlogs/
 backend/.run/
 frontend/.run/
 
-# Internal docs are not part of public first upload
-docs/
+# Keep ai-dev benchmark artifacts and collaboration docs trackable for evidence chain
+docs/*
+!docs/
+!docs/CODEX_HANDOFF.md
+!docs/TODO_NEXT.md
+!docs/CHANGELOG_CODING.md
+!docs/CODEX_TOOLING.md
+!docs/agent-upgrade-roadmap.md
+!docs/ai-dev/
+!docs/ai-dev/**
+!docs/rag/
+!docs/rag/**
+!docs/agent/
+!docs/agent/**
+!docs/showcase/
+!docs/showcase/**
+!docs/archive/
+!docs/archive/**
 
 # Local env / secrets
 backend/.env
@@ -20,6 +37,7 @@ frontend/.env.local
 
 # Local runtime artifacts
 backend/data/
+local-test-materials/
 tmp-e2e/
 pwtmp/
 test-results/
@@ -28,6 +46,11 @@ frontend/.playwright-mcp/
 history-markdown-render.png
 stream-fix-final.png
 
+# Generated benchmark artifacts from local test runs
+docs/ai-dev/benchmarks/STAGE11_TASK11_6_RESULTS.md
+docs/ai-dev/benchmarks/artifacts/task11_6_latest.json
+
 # Logs and temp files
 *.log
 *.tmp
+test-hybrid-rag.sh

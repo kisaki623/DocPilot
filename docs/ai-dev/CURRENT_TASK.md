@@ -1,0 +1,2114 @@
+# Current Task
+
+## 2026-07-14 GitHub PR #4 CI checks 修复（VERIFIED / LOCAL）
+
+- 本轮目标：解释并修复 GitHub PR #4 页面显示的 `CI / Backend tests (Java 17)` 与 `CI / Frontend checks (Node 20)` 失败，不扩展业务功能。
+- 后端根因与修复：Memory 单条停用 / 恢复后，生产 `MemorySelector` 会在 `markUsed(...)` 成功后才注入长期记忆；`MemoryQualityEvalRunner` 测试夹具缺少 `memoryMapper.markUsed(...)` mock，导致默认 eval case 误判 ACTIVE memory 未进入上下文。已补齐 mock。
+- 前端根因与修复：文档 RAG stream E2E fixture 只 mock 了 document / history / stream 链路，但当前页面还会请求 parse task status，global layout 还会请求 Quality Console status；未 mock 请求落到 fallback 404，触发 console error 断言失败。已补齐 `/backend/api/task/parse/status` 与 `/backend/api/quality/status` mock。
+- 已验证：后端定向 `MemoryQualityEvalRunnerTest` PASS；前端定向 `document-rag-stream-failure.spec.ts` PASS；完整本地 CI 等价验证 `mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（1031 tests / 5 skipped）、`npm run lint` PASS、`npm run build` PASS、`npm run test:e2e` PASS（14 tests）。
+- 远端追加根因：GitHub Ubuntu runner 上 PowerShell JSON 输出的冒号空格与本机 Windows 不同，导致 `ConversationGroundingSmokeScriptSafetyTest`、`QdrantPreflightScriptSafetyTest`、`RagRetrievalEvaluationTrendScriptSafetyTest`、`MemoryQualitySmokeScriptSafetyTest`、`HighIntensityFixedCorpusSmokeScriptSafetyTest` 中部分 `.contains("\"field\":  value")` 断言误失败。已改为 `containsPattern` 验证字段语义，保留原来的脱敏 / 安全断言。
+- 已追加验证：上述远端失败 safety tests 定向 16 tests PASS；后端完整 `mvn --batch-mode --no-transfer-progress test -DskipITs` 再次 PASS（1031 tests / 5 skipped）。
+- 状态：`VERIFIED / LOCAL`。下一步是提交、push 并等待 GitHub Actions 重新跑远端检查。
+
+## 2026-07-14 Document Parser 长文档 batch split / 原失败任务恢复复验（VERIFIED / CORE）
+
+- 本轮目标：收口 `REA-20260713-P1-001`，证明百炼 `text-embedding-v4` 单批上限导致的长文档 `RAG_INDEX_FAILED` 已被“provider batch split + ParseTask 结构化失败摘要 + 真实重试恢复”闭环覆盖。
+- Runner 增强：`document-parser-real-chain-smoke.ps1` 新增 `LONG_MD` fixture，生成约 `17755` 字的长 Markdown，真实切出 `25` 个 chunks，超过 provider 单批 `10` 条上限；同时把每个 fixture 的 MySQL / Qdrant 一致性写入脱敏字段：`indexedChunkCount`、`vectorIdCount`、`qdrantPointCount`、`payloadSummaryOkCount`、`locatorPayloadCount`、`mysqlQdrantParity`。
+- 质量门禁：`parserRealChain` 现在不仅要求 parse / retrieve / QA citation / source locator 成功，还要求 MySQL chunk 已 `INDEXED`、全部有 `vectorId`、Qdrant filtered point 数与 chunk 数一致、payload 摘要字段一致；parity 失败会进入 `FAILED_CORE_FLOW`，不再被 citation 成功掩盖。
+- 上传限流边界：真实上传接口对单用户有限流，本轮将 `LONG_MD` 放入第二个临时 smoke 用户，避免第四次上传误触发 rate limit；direct retrieve follow-up 已改为携带各 case 自己的 token，避免跨用户后续确认误用主用户 token。
+- 真实 canary：`document-parser-real-chain-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-parser-real-chain-20260714184055-21d3de`，overall `REVIEW` 仅因为显式跳过前端；核心 `parserRealChain=PASS`。PDF / HTML / DOCX / LONG_MD 均 `parseStatus=SUCCESS`、direct retrieve / QA retrieval / citation / source locator 均为 true；总计 `chunkCount=32`、`indexedChunkCount=32`、`vectorIdCount=32`、`qdrantPointCount=32`、`payloadSummaryOkCount=32`、`locatorPayloadCount=32`、`mysqlQdrantParity=true`，parser boundary `4/4` PASS，artifact redaction PASS。
+- 原失败任务恢复证据：document `1431` 当前 `parse_status=SUCCESS`，task `1322` 当前 `status=SUCCESS`、`retry_count=2`、`error_msg` 为空；MySQL chunk summary 为 `12 / 12 / 12`（chunk / indexed / vectorId），Qdrant filtered point count 为 `12`，payload 摘要和 locator payload 均为 `12`；最新 outbox 为 `SENT`，最新 consume record 为 `SUCCESS`。
+- 已验证：PowerShell parser PASS；脚本 `-Mode plan` / `-Mode dry-run` PASS；`DocumentParserRealChainSmokeScriptSafetyTest` PASS；后端定向 `DocumentParserRealChainSmokeScriptSafetyTest,OpenAICompatibleEmbeddingProviderTest,RagIndexingServiceImplTest,ParseTaskConsumeEntryServiceImplTest` 共 `38` tests PASS。
+- 边界：本轮没有重置 zeus 密码、没有伪造 zeus token、没有用 owner API 重新发起原文档 QA；原文档恢复结论基于真实 DB / outbox / consume / Qdrant parity，通用 retrieve / citation / locator 由同环境长文档 canary 证明。`-SkipFrontend` 表示本片不声明浏览器 UI 通过。
+- 状态：`VERIFIED / CORE`。`REA-20260713-P1-001` 从 REVIEW 收口为 VERIFIED；后续如要展示到 Quality Console UI，可另跑非 `-SkipFrontend` 的 parser smoke 或导入最新 artifact。
+
+## 2026-07-14 Agent Memory 单条停用 / 恢复收口（VERIFIED / API+UI）
+
+- 本轮目标：解决 `REA-20260713-P2-033` 中 T31 只能证明 `RECENT_TURNS` 会话级禁用和 delete lifecycle、不能证明“禁用某条长期记忆后其它 `AGENT_MEMORY` 会话也不会使用它”的缺口。
+- 实现策略：不新增数据库迁移，不新增 `DISABLED` 枚举；复用既有 `ARCHIVED` 作为“用户停用 / 暂停使用但保留可恢复”的状态。新增 `GET /api/memories/disabled`、`POST /api/memories/{memoryId}/disable`、`POST /api/memories/{memoryId}/restore`。
+- 后端语义：`disable` 仅允许 `ACTIVE -> ARCHIVED`，重复停用幂等成功；`restore` 允许 `ARCHIVED -> ACTIVE`，重复恢复 ACTIVE 幂等成功；`DELETED / SUGGESTED / IGNORED` 不可恢复为 ACTIVE。恢复前重新执行敏感内容校验和重复 / 冲突 governance，跨用户仍由 `selectByIdAndUserId` 隔离。
+- 并发治理：`create / acceptSuggestion / resolveSuggestion / update / disable / restore` 等会改变 ACTIVE memory 集合的路径已放入按 `userId + memoryType` 维度的 Redisson governance lock；锁内重新读取记录并执行 duplicate / conflict 检查，降低同时 restore / accept / create 绕过治理的竞态风险。
+- 选择器竞态：`UserMemoryMapper.markUsed` 增加 `status='ACTIVE'` 条件；`MemorySelector` 只有在 `markUsed` 成功后才把 memory 注入 `ContextItem`，避免查询后被停用的 memory 仍进入本轮上下文。
+- 前端：Conversation 页 Memory 抽屉新增“已停用的长期记忆”分区和 KPI；生效记忆卡支持“停用”，停用卡支持“恢复 / 删除”；停用文案明确后续回答不再使用，恢复前会重新检查冲突和敏感内容。`/api/memories/disabled` 加载失败时降级为空停用列表，不阻塞 Conversation 页面和其它 Memory 数据加载。
+- Smoke：`scripts/smoke/memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 的 T31 已扩展为创建 ACTIVE -> `AGENT_MEMORY` 命中 -> `RECENT_TURNS` 抑制 -> per-memory 停用 -> 停用后 `AGENT_MEMORY` 不命中且 `use_count` 不变 -> 恢复 -> 恢复后再次命中 -> 跨用户停用 / 恢复被拒 -> 删除 -> 删除后不可恢复且不再命中。
+- 已验证：后端定向 `67` tests PASS；PowerShell parser 对 cloud / memory smoke 均 PASS；`memory-quality-smoke.ps1 -Mode plan` PASS；前端 `npm run lint` PASS；`NODE_OPTIONS=--max-old-space-size=4096 npm run build` PASS。
+- 真实验证：`scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-memory-quality-20260714175619-8f1939` 中 `memoryQuality=PASS`，`t31StrictMemoryDisableCapability=IMPLEMENTED`，overall 为 `REVIEW` 仅因为本次命令显式 `-SkipFrontend`。真实 UI marker `memory-ui-disable-restore-20260714100303` 验证 `/conversations` Memory 抽屉停用 / 恢复 PASS，console error `0`，桌面 / `390px` / `320px` 横向溢出均为 `0`。
+- 清理：本轮启动的临时后端 `18081` 和前端 `3007` 已清理；常用 dev 端口无 LISTEN 残留。`13306` / `6333` 仍为既有本地 tunnel 进程。
+- 状态：`VERIFIED / API+UI`。`REA-20260713-P2-033` 已从 OPEN 收口为 VERIFIED；旧的 2026-07-13 T31 记录仅保留为历史发现，不再代表当前实现状态。
+
+## 2026-07-14 Agent Quality Console 持久化内部控制台升级（VERIFIED / DB+API+UI / CLOSEOUT）
+
+- 本轮目标：把 Agent Quality Console 从“直接扫描本地 artifact 的开发页面”升级为默认关闭、仅内部管理员可访问、可持久化 `QualityRun` / `QualityRunCase` 的内部质量控制台，并在真实开发库完成迁移、授权、导入和 UI 验证。
+- 已落地协作规则：`AGENTS.md` 与 `CONSTRAINTS.md` 已新增“受控开发库数据库常驻授权”，允许当前 DocPilot 开发库的只读诊断、幂等迁移、精确 `UPDATE`、临时 smoke 数据和 QualityRun 导入；`DROP` / `TRUNCATE`、批量删除、清空 collection、远程 Docker / 云资源变更、非 DocPilot schema 和 `git push` 仍需单独确认。
+- 已执行真实 DB：通过本地 tunnel 执行 `011_init_quality_console_persistence.sql`，并二次执行验证幂等；确认 MySQL 8、当前 schema 匹配配置、可写、`tb_user.is_internal_admin` 存在且默认正确、4 张 `tb_quality_*` 表存在、`tb_quality_run` 两个唯一索引存在。
+- 已授权内部管理员：确认 `username='zeus'` 总数 `1`、ACTIVE `1` 后，精确设置 `is_internal_admin=1`，影响 `1` 行；另注册临时 smoke 用户并设置 internal admin 用于自动化 API / UI 验证，不重置或读取 zeus 密码。
+- 已验证权限与导入：临时后端 `18081` 以 `APP_QUALITY_CONSOLE_ENABLED=true` 启动；未登录访问 `/api/quality/runs` 返回业务 `401`，普通 ACTIVE 用户返回业务 `403`，内部管理员返回 `0`。真实运行 `agent-quality-eval-smoke.ps1 -Mode run`，marker `docpilot-agent-quality-eval-20260714151238-756d91` PASS，并导入为最新 DB-backed run，`status=PASS`、`dataSource=artifact_import`、`gateCount=1`、`evalCaseCount=19`。
+- 已收尾导入污染问题：`QualityArtifactImportServiceImplTest` 改用 `@TempDir` 隔离测试 artifact；导入器会在 `limit` 截断前过滤保留测试 marker `docpilot-import-*`，因此 runtime import 不再被单测残留抢占；DB-backed runs/detail/trends 同步隐藏历史误导入测试 marker，不做破坏性删除。真实 API marker `quality-console-closeout-20260714160116` 验证 `limit=1` 首项不是测试 marker，`importOne.skippedDuplicate=1`、`rejected=0`；`limit=50` 导入 `47` 条、重复跳过 `3` 条、失败 `0`。
+- 已恢复 DB-backed 领域趋势：新增共享 `QualityDomainTrendAssembler`，artifact-backed 与 DB-backed 查询复用同一套 `memoryQuality` / `ragRepresentativeEval` 白名单聚合规则；真实 API `/api/quality/trends?limit=50` 返回 `runCount=48`、`domainTrends.memoryQuality.runCount=4`、`domainTrends.ragRepresentativeEval.runCount=12`。
+- 已验证前端：临时前端 `3007` 代理到临时后端 `18081`，管理员打开 `/quality?autoload=1` 能看到最新 marker、运行次数、数据来源、导入信息和 eval case；点击“趋势”tab 后可见 `Memory quality smoke` 与 `RAG representative eval` 两张领域趋势卡；桌面和 `390px` 移动端横向溢出均为 `0`，console error 为 `0`。普通用户 API 验证仍为业务 `403`。
+- 安全边界：数据库和 API 仍只保存 / 返回白名单摘要，禁止保存回答原文、完整 Prompt、evidence 全文、Authorization、密钥、token 值、连接串、云地址或 raw artifact 原文；临时运行目录只保留脱敏 summary，18081 / 3007 和常用 dev 端口已释放。
+- 已验证：`mvn "-Dtest=*Quality*,DemoMysqlBootstrapSchemaTest" test` PASS（69 tests / 1 skipped）；`frontend npm run lint` PASS；`NODE_OPTIONS=--max-old-space-size=4096 npm run build` PASS；真实 API / 浏览器管理员 Quality Console 验证 PASS。
+- 状态：`VERIFIED / DB+API+UI / CLOSEOUT`。当前收尾完成；后续增强仅保留可选项：批量查询优化、并发导入行锁 / retryable duplicate 分类、导入器 scanner 接口拆分和 DB JSON 损坏可观测性。
+
+## 2026-07-14 Agent Quality Console disabled-state 误导修复（VERIFIED / UI+API）
+
+- 根因：当前用户页面实际调用 `/backend/api/quality/runs`、`/trends`、`/eval-cases`；本地 `8081` 后端未开启 `app.quality.console.enabled`，业务响应为 `code=403` / `message=quality console is disabled`。前端全局错误映射把它泛化成“当前账号无权限”，Quality 页又在加载失败时清空 runs 并显示“暂无质量运行记录 / 没有生成 artifact”，导致“运行次数 0、全部暂无样本、当前账号无权限”同时出现。
+- 已修复：`frontend/lib/api.ts` 对 `quality console is disabled` 给出专用中文提示；`frontend/app/quality/page.tsx` 增加 `QualityLoadErrorKind`，区分未登录、console disabled、forbidden、not found 和其它错误；run 列表加载失败时不再展示“没有生成 artifact”的空数据文案；刷新 runs 后若旧 `selectedMarker` 不在新列表中，会自动切到最新 run，避免旧 marker 卡住详情。
+- 数据链路确认：当前 Quality Console 仍是 artifact-backed，未新增 `QualityRun` 数据表或持久化 owner 过滤；本地仓库已有约 92 个可识别 artifact。权限边界保持不变：未登录仍 401，console flag 关闭时已登录仍 403，只有本地内部验证环境显式开启 `APP_QUALITY_CONSOLE_ENABLED=true` 才能读取 artifact 聚合结果。
+- 已验证：Gemini CLI READY 探测通过，正式建议调用超时后由 Codex 直接落地；`npm run lint` PASS；`NODE_OPTIONS=--max-old-space-size=4096 npm run build` PASS（默认 Node heap 下 build 会 OOM）；Quality 后端聚合定向 22 tests PASS；临时前端 `3007` 指向当前 `8081` 验证 disabled 页面显示“质量控制台未开启”且不显示“当前账号无权限 / 没有生成脱敏 artifact”；临时后端 `18081` 开启 Quality Console + 临时前端 `3008` 验证 `/api/quality/runs` 返回 20 条、`trends.runCount=20`、`eval-cases=19`、detail marker `docpilot-conversation-grounding-20260713223647-cc009f` 返回 `status=PASS`、`gateCount=1`、`evalCaseCount=9`、`diagnostics` 存在。
+- 状态：`VERIFIED / UI+API`。本轮没有把 Quality Console 默认开启，没有新增数据库表，也没有绕过登录态；临时验证端口会在本轮收尾清理。注意：在已有 `3000` dev 进程运行时执行 production build 会导致该旧进程的 `_next/static` chunk 404，需要手动重启已有前端 dev 进程恢复 3000。
+
+## 2026-07-13 Conversation Context Inspector 双层详情升级（VERIFIED / UI+API）
+
+- 本轮目标：审查并升级 Conversation 页现有 Context Inspector，避免顶部按钮和回答内“上下文溯源”形成重复入口；同一个面板必须绑定具体 assistant message，并拆成默认简洁的“摘要”层与可选“技术详情”层。
+- 已实现后端：`ContextTrace` 新增兼容字段 `technicalDetails`，`tb_context_trace` 新增 `technical_details_json` 与幂等迁移脚本 `010_add_context_trace_technical_details.sql`；Context assembly 记录 `conversationLoad / summary / memory / recentTurns / retrieval / permissionFilter / tokenBudget / promptRender / contextAssembly` 阶段耗时；Conversation message service 记录 `modelCall` 耗时；retrieval 技术详情只暴露 provider 名、retrieval mode、topK、evidence gate、document hit counts、rerank / multi-query 摘要和安全 score rows。
+- 安全边界：技术详情不暴露完整 prompt、assembled context、`ContextItem.content`、citation `quoteText/snippet`、证据全文、密钥、连接串、provider 原始错误体或 Java stack trace；历史 trace 缺少 `technical_details_json` 时返回 `available=false`，摘要层继续可用。
+- 已实现前端：Conversation Inspector 仍只有一个右侧面板；顶部按钮会绑定当前已选 trace 或最近一条 assistant message，单条回答按钮绑定该回答 messageId；面板 header 显示“绑定回答 #messageId”；一级 tab 调整为 `上下文 / 记忆 / 会话摘要`，上下文页内部新增 `摘要 / 技术详情` 两层，默认打开摘要层。
+- 技术详情展示：按卡片展示 traceId/messageId、route reason、grounding policy、ragTriggered/ragRequired/noEvidence、llmCalled/modelSkipped、evidence gate、阶段耗时、检索分数、token 分配与 dropped reasons、Memory/Summary 使用、fallback/safeError；长 traceId、文档标题、locator 和分数行均换行，避免横向滚动。
+- 已验证：后端 `mvn -DskipTests compile` PASS；后端定向 `48` tests PASS；后端全量 `mvn test -DskipITs` PASS（999 tests，0 failures，5 skipped）；前端 `npm run lint` PASS；前端 `npm run build` PASS。
+- 真实迁移与 UI 验证：用户授权后已执行真实 MySQL `010_add_context_trace_technical_details.sql`，结果为 `beforeColumnExists=false`、`afterColumnExists=true`、`applied=true`；临时新版后端 `18081` + 临时前端 `3007` 通过 Playwright 验证 Conversation 页面单一 Inspector 面板、顶部入口、回答内入口、`摘要 / 技术详情` 两层和具体 assistant message 绑定切换。验证数据 marker 为 `docpilot-context-inspector-ui-20260714003520`，conversationId `259`，assistant `#561` 覆盖 `STRICT_KB` 无 evidence / `modelSkipped=true` / evidence gate failed，assistant `#559` 覆盖 `MODEL_ONLY` / `ragTriggered=false` / `llmCalled=true`；`1021px` 视口打开态无横向溢出。
+- 状态：`VERIFIED / UI+API`。本轮没有替换用户已有 `8081` 后端进程；UI 验证使用临时端口和 mock AI，未在浏览器中验证正向 evidence score row 的视觉行，但后端测试已覆盖 score row 安全字段和序列化。
+
+## 2026-07-13 Conversation 引用来源展示优化（VERIFIED / UI）
+
+- 本轮目标：优化 Conversation 回答卡片中的知识库引用来源展示，解决“全部召回证据横向铺开”“6 条知识库来源与正文实际引用混淆”“文件名 / 编号 / 相似度堆叠难读”“点击引用不能定位证据片段”等体验问题。
+- 已实现：`frontend/app/conversations/page.tsx` 默认只突出展示回答正文实际出现的 citation 编号；来源摘要拆成 `实际引用 / 召回证据 / 命中文档`；完整返回证据改为可展开区；引用卡片展示文档标题、章节 / locator、chunk、quote/snippet 和次要分数字段；正文 `[n]` 变为内部可点击引用，点击后聚焦并高亮对应证据卡片。
+- 兼容边界：未改后端 API / DTO / Trace schema；继续使用 `ConversationMessageResponse.citations` 与 `contextTrace.evidenceCount/documentHitCounts`；对没有完整 Trace 的历史消息从 citations 自身 fallback 统计命中文档数。
+- 已同步：`MarkdownViewer` 增加内部锚点点击回调，保留外链安全属性；`globals.css` 移除旧横向滚动 pill，新增响应式 citation panel / card 样式；Trace Inspector 文案从“来源”调整为“召回证据 / 实际引用 / 命中文档”。
+- 已验证：`frontend npm run lint` PASS；`frontend npm run build` PASS。
+- 浏览器复验：2026-07-14 启动临时后端 `18081` + 前端 `3007`，创建 marker `conversation-citation-expand-20260714172419` 的受控 Conversation，`groundingPolicy=STRICT_KB`、`routeDecision=STRICT_KB_EVIDENCE`、`evidenceCount=3`、`citationCount=3`，回答正文实际只出现 `[1]` / `[2]`。
+- UI 结果：回答卡片摘要显示 `2` 实际引用、`3` 召回证据、`3` 命中文档；默认只展示 2 张实际引用卡；点击“查看全部返回证据（3）”后展示 3 张证据卡；点击正文 `[1]` 后聚焦并高亮 `citation-567-1`；桌面、`390px`、`320px` 横向溢出均为 `0`，console error 为 `0`。
+- 状态：`VERIFIED / UI`。脱敏 artifact 位于 `backend/target/conversation-citation-expand-20260714172419/ui-citation-browser-check.json`；本轮没有发现需继续修改的 citation UI 缺口。
+
+## 2026-07-13 Conversation citation 持久化与 hitCounts 去零（VERIFIED / API）
+
+- 根因：Conversation 即时 `send()` 会把 `ContextAssemblyResult.citations()` 返回给前端，但历史消息 `list()` 原先固定传入空 citation list；刷新或重新进入会话后只能看到 Trace 的 `evidenceCount`，无法恢复 citation cards。另一个噪声来源是 KnowledgeBase RAG 的 `documentHitCounts` 会把 KB 内未命中文档也写成 `0`。
+- 已修复代码：`tb_context_trace` 增加 `citations_json` 快照列和 `009_add_context_trace_citations.sql` 幂等增量脚本；保存 assistant message 时把回答当时的 citations 写入 trace 快照；历史 `list()` 从 trace 中恢复顶层 `ConversationMessageResponse.citations`。`ContextTrace` Java 内部携带 citations 供组装使用，但 JSON API 通过 `@JsonIgnore` 保持 Trace 摘要边界，避免 quote/snippet 在 `contextTrace` 内重复暴露。
+- 已修复命中统计：`KnowledgeBaseRagRetrievalServiceImpl` 和 `KnowledgeBaseRagRetrievalResult` 统一改为只输出正命中文档；Conversation / KnowledgeBase 前端对旧 trace 或滚动发布期返回的 `<=0` 计数做防御性过滤；Quality Console 不再从 `documentHitCounts` 的 0 值推断 zero-hit document count，而是降级为未知。
+- 已同步 schema：`007_init_conversation_context.sql`、`009_add_context_trace_citations.sql` 和 `deploy/mysql/init/02_init_rag_conversation_tables.sql` 已包含 `citations_json`；conversation grounding smoke dry-run 也检查 citation migration 文件存在。
+- 已验证：后端定向 `72` tests PASS；RAG / KnowledgeBase / Conversation 回归 `300` tests PASS（1 skipped）；后端全量 `mvn test -DskipITs` PASS（996 tests，0 failures，5 skipped）；前端 `npm run lint` PASS、`npm run build` PASS；`conversation-grounding-smoke.ps1 -Mode plan` / `-Mode dry-run` PASS。
+- 真实迁移与刷新验证：已在本地 tunnel 指向的真实 MySQL 上执行 `009_add_context_trace_citations.sql`，结果为 `beforeColumnExists=false`、`afterColumnExists=true`、`applied=true`；临时新版后端 `18081` 跑 `conversation-grounding-smoke.ps1 -Mode run -SkipFrontend`，marker `docpilot-conversation-grounding-20260713223647-cc009f` PASS，9/9 case 通过；临时新版后端 `18082` 跑专门的 citation-list smoke，marker `docpilot-citation-list-20260713224003-82668e` PASS，`sendCitationCount=1`、`listCitationCount=1`、`citationSignatureMatches=true`、send/list zero-hit count 均为 0，Trace API 与 message contextTrace 均不暴露 `citations` 字段。
+- 状态：`VERIFIED / API`。数据库迁移与 API 级刷新 / 历史 `list()` 验证已通过；浏览器页面刷新未单独跑 Playwright。未停止用户已有 `8081` 进程，要让当前手动 UI 会话使用新版代码，需要重启现有后端。
+
+## 2026-07-13 Conversation AUTO_RAG 泛化路由修复（VERIFIED）
+
+- 根因：`KnowledgeBaseEvidenceBuilder` 原先用少量正向关键词决定 AUTO_RAG 是否检索；用户在 zeus / `运维知识库演示` 会话中问 “P1 故障要求在多长时间内响应和恢复？” 未命中该 intent gate，Trace 为 `AUTO_INTENT_NOT_TRIGGERED_MODEL`、`ragTriggered=false`、`evidenceCount=0`，因此直接由底层模型回答，出现与 KB 事实不一致的 `15 分钟 / 30 分钟`。
+- 已修复：绑定 KB 的 `AUTO_RAG` 改为“极窄 negative gate + evidence probe”：只对问候、感谢、助手身份 / 能力这类明显模型问题跳过 retrieval；其它实质问题先走既有 KnowledgeBase retrieval，命中 evidence 才注入 RAG；无 evidence 且无显式资料约束时 fallback 模型；无 evidence 但用户明确要求“根据 / 基于 / 引用文档或知识库”时走 `AUTO_REQUIRED_NO_EVIDENCE_FALLBACK` 并跳过模型。
+- 语义边界：`ragTriggered=true` 表示本轮已尝试 KnowledgeBase retrieval；`ragRequired=true` 表示用户或 STRICT 策略要求资料依据；`modelSkipped=true` 只在系统已经生成安全 fallback 且确实未调用模型时为 true。`AUTO_RAG_EVIDENCE + ragRequired=true` 可表示“显式资料请求且命中证据”，不新增 route enum。
+- 已同步：`conversation-grounding-smoke.ps1` 从旧 8 case 更新为 9 case，新增 `auto-required-no-evidence-refusal`，并把旧 `auto-generic-no-rag` 收窄为 `auto-smalltalk-no-rag`；Quality Eval Catalog 同步新增 / 更名对应 case。
+- 已验证：`mvn "-Dtest=KnowledgeBaseEvidenceContextBuilderTest,ContextAssemblyServiceImplTest,ConversationMessageServiceImplTest,ConversationMessageControllerTest,ConversationGroundingSmokeScriptSafetyTest,AgentQualityEvalRunnerTest" test` PASS，38 tests；`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseSearchToolTest,KnowledgeBaseAgentServiceImplTest,AgentKnowledgeBaseSearchRouteSmokeTest" test` PASS，48 tests / 1 skipped。
+- 真实验证：未停止用户已有 8081 进程；另起临时后端 `SERVER_PORT=18081` 跑 `scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -BackendBaseUrl http://127.0.0.1:18081 -SkipFrontend -ReuseRunningServices`，marker `docpilot-conversation-grounding-20260713212058-5915ed` PASS，9/9 case 通过；18081 已清理。
+- 剩余边界：本轮未回写历史 zeus 会话消息，也未强行重启用户正在运行的 8081；要在 UI 中看到同一会话修复效果，需要用新版后端重启后重新提问。retrieval 基础设施异常目前仍 fail-closed，不会被伪装成 no-evidence。
+
+## 2026-07-13 本地前后端启动报错诊断（BLOCKED / ENV）
+
+- 本轮目标：排查用户已启动的本地前端 / 后端为什么报错；不改业务代码、不重启用户已有进程、不输出 `.env` 敏感值。
+- 已确认：`3000` 前端与 `8081` 后端均有进程监听；前端公开路由可返回 200；后端 `/api/quality/runs?limit=1` 可快速返回 `401 missing login token`，说明服务并非完全不可达。
+- 已确认阻塞：本地 tunnel 端口 `13306` / `6333` 不可达；`backend/.env` 脱敏形状显示 MySQL / Qdrant 按 localhost tunnel 配置；`/actuator/health` 和登录接口通过直连、前端代理均超时。
+- JVM 证据：`jcmd` thread dump 显示 `http-nio-8081-exec-*` 请求线程等待 Hikari / MySQL connection；这与未启动 MySQL tunnel 的症状一致。
+- 初步结论：前端报错是后端依赖不可用的连带现象；先按 `backend/README.md` 在仓库根目录启动 `scripts/dev/start-cloud-tunnels.ps1`，确认 `13306` / `6333` 可达后重启 backend，再刷新 frontend。
+- 状态：`BLOCKED`，原因是本轮未替用户启动 tunnel / 重启服务做恢复验证；真实修复验证待用户执行或授权继续启动本地 tunnel。
+
+## 2026-07-13 高强度 Agent Memory T31 删除 / 会话禁用自动化验收（SUPERSEDED / HISTORICAL）
+
+- `scripts/smoke/memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 已新增 T31 生命周期 case，并刻意放在通用 `TECH_CONTEXT` baseline memory 创建之前，先断言本轮 smoke 用户的 ACTIVE memory 数为 0，避免后续 Trace / `use_count` 证据被其它记忆污染。
+- T31a 会话模式禁用证据：创建唯一 `PREFERENCE` ACTIVE memory 后，新建 `AGENT_MEMORY` 会话要求 Trace `memoryUsed=true`、`memoryCount=1`、`memoryTypes` 包含 `PREFERENCE`，且目标 `tb_user_memory.use_count` 增加 1；再新建 `RECENT_TURNS` 会话要求 `memoryEnabled=false`、Trace `memoryUsed=false`、`memoryCount=0`，目标 `use_count` 不变。
+- T31b 删除后不再选入证据：调用 `DELETE /api/memories/{memoryId}` 后，API 返回同一 `memoryId` / `DELETED`，ACTIVE list 不再包含该 ID，DB 精确行状态为 `DELETED` 且 ACTIVE memory 数为 0；随后新建 `AGENT_MEMORY` 会话，Trace memory 仍为 0，目标 deleted row 的 `use_count` 不再增加。
+- 后端同步补测试：`UserMemoryServiceImplTest` 覆盖 soft delete 成功、跨用户 / 不存在删除拒绝、soft delete 更新 0 行失败和重复删除语义；`MemorySelectorTest` 覆盖非 ACTIVE / DELETED 不进入上下文、`maxCount=0` 不查 mapper；`ContextAssemblyServiceImplTest` 覆盖 `AGENT_MEMORY + memoryEnabled=false` 不调用长期记忆 selector。
+- 已验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ContextAssemblyServiceImplTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（57 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS。
+- 真实验证：`scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-memory-quality-20260713015241-320bed` 中 T31 case `passed=true`；`activeUseCountDelta=1`、`recentTurnsUseCountDelta=0`、`deleteResponseStatus=DELETED`、`deletedDbStatus=DELETED`、`activeDbCountAfterDelete=0`、`postDeleteMemoryCount=0`、`postDeleteUseCountDelta=0`。T29/T30 同轮继续 PASS，artifact redaction scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 历史边界：该 2026-07-13 run 只证明 `RECENT_TURNS` 会话级禁用与删除生命周期，当时发现严格 per-memory 禁用缺口并登记 `REA-20260713-P2-033`。该缺口已由 2026-07-14 `docpilot-memory-quality-20260714175619-8f1939` 和 `memory-ui-disable-restore-20260714100303` 收口验证；当前实现不新增 `DISABLED`，而是复用 `ARCHIVED` 作为停用 / 可恢复状态。
+
+## 2026-07-13 高强度 Agent Memory T29/T30 自动化验收（VERIFIED / PARTIAL）
+
+- `scripts/smoke/memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 已新增 T29 / T30 明确 case：T29 验证 `AGENT_MEMORY` 候选记忆需要用户确认，accept 前只在 suggestion list，accept 后同一 `memoryId` 进入 ACTIVE list，并在新会话 Trace 中可见 `memoryTypes` 包含 `PREFERENCE`、`memoryCount == contextSourceCounts.userMemory`；T30 验证带凭据形状的偏好文本不会生成候选、不会进入 ACTIVE / SUGGESTED list，且 `tb_user_memory` 按 `source_conversation_id` 计数为 0。
+- 为减少误判，runner 新增 `Get-SmokeConversationUserMessageIds` 和 `Get-MemoryRowCountBySourceConversation`，只把 id、状态、类型和计数写入 artifact；MySQL helper 改为 stdin 输入 SQL，不再把插入语料放在本机进程命令行参数中。
+- 后端同步补强 Memory 安全规则：`api key` / `api-key` / `sk-...` 形状会被 `MemorySafetyValidator` 拦截；`RuleBasedMemoryExtractionService` 中“优先考虑 / prefer / do not”这类强偏好信号优先归类为 `PREFERENCE`，修复中文 T29 文案含“回答”时被误归为 `ANSWER_STYLE` 的缺口。
+- 已验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（44 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS；补丁后 `mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest" test` PASS（3 tests）。
+- 真实验证：`scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-memory-quality-20260713013642-34b1f5` 中 `memoryQuality` gate PASS；T29 `suggestedBeforeAccept=true`、`activeBeforeAccept=false`、`acceptedActive=true`、`suggestedAfterAccept=false`、Trace `memoryCount=2` 且 `memoryTypes=[PREFERENCE, TECH_CONTEXT]`；T30 `candidateCountFromT30=0`、`memoryRowCountFromT30=0`、`suggestionLeak=false`、`activeLeak=false`。artifact redaction scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 边界：本片是 T29/T30 的 API / Trace / DB 自动化证据，命令显式 `-SkipFrontend`，因此 run overallStatus 为 `REVIEW`；T31 删除 / 会话级禁用已由后续 memory marker 补充，严格 per-memory 停用 / 恢复已在 2026-07-14 单独收口；本片自身仍不声明前端 Memory 管理页、T32 长会话摘要、Agent ToolCall、弱网并发、多标签页或浏览器缩放已通过。
+
+## 2026-07-13 高强度 Conversation 最近轮次 T27/T28 自动化验收（VERIFIED / PARTIAL）
+
+- `scripts/smoke/conversation-grounding-smoke.ps1` 已从 6 个 GroundingPolicy 路由 case 扩展到 8 个 case，新增 T27 / T28：同一 `RECENT_TURNS` 会话内先记住项目代号“蓝桥”，隔轮追问必须回答该代号；另起一个 `RECENT_TURNS` 会话直接追问项目代号时不得泄漏前一会话上下文。
+- 为避免 Windows PowerShell 5.1 读取无 BOM UTF-8 `.ps1` 时误读中文字符串，本 runner 不直接写中文测试句，而是在运行时用 Unicode code point 构造“蓝桥”；所有 marker 后接 `-...` 的字符串均改为 `$($marker)-...`，避免 PowerShell tokenizer 歧义。
+- 真实 run 首次发现 `REA-20260713-P3-032`：`Start-TunnelIfNeeded` 在函数内使用 `$MyInvocation.MyCommand.Path` 取脚本路径时为 null，导致 smoke 进入真实链路前失败；已改为 `$PSScriptRoot` 并复跑通过。
+- 已验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS；`conversation-grounding-smoke.ps1 -Mode dry-run` PASS；PowerShell Parser `PARSE_OK`；`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS（3 tests）。
+- 真实验证：`scripts/smoke/conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-conversation-grounding-20260713010452-f8e612` PASS，8/8 case 通过；T27 `recentMessageCount>=2`、0 citation、模型调用且 answer 包含运行时构造的“蓝桥”；T28 `recentMessageCount=0`、0 citation、模型调用且 answer 不包含该代号。artifact redaction scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 边界：本片是 T27/T28 API + Trace + 会话隔离 gate，显式 `-SkipFrontend`，不声明浏览器会话 UI、长会话摘要 T32、Memory 前端管理页、Agent ToolCall 或弱网并发已通过。
+
+## 2026-07-13 高强度 KnowledgeBase 生命周期 T26 与固定语料回归修复（VERIFIED / PARTIAL）
+
+- `cloud-quality-smoke.ps1 -EnableKnowledgeBaseLifecycleGate` 已扩展到 T22-T26，并让 `scripts/smoke/high-intensity-fixed-corpus-smoke.ps1` 默认同时启用 fixed corpus 与 KnowledgeBase lifecycle gate。
+- 生命周期 gate 继续复用 fixed corpus 中已索引的 `API_POLICY` / `CONTRACT_ALPHA` 创建专用 `KB_LIFECYCLE_A` / `KB_LIFECYCLE_B`，避免污染 `KB_CORE` / `KB_NOISY` 的 T06-T15 稳定质量矩阵；T26 另行创建 `DELETE_DISPOSABLE` 专用临时文档和 `KB_LIFECYCLE_DELETE`，只删除本轮 smoke 产生的数据，不删除共享固定语料。
+- 已覆盖 T22-T26：加入 KB 后立即 retrieve / QA 可用；移出 KB 后 retrieve / QA 均 no-evidence 且 0 citation；重新加入后恢复；同一文档同时加入两个 KB 后，移出 KB-A 不影响 KB-B，且 KB-A 不返回 KB-B-only 文档；删除 disposable 文档后 KB detail 不再列出、retrieve / QA 均 no-evidence 且 0 citation，文档详情不可读。
+- 审查后已收紧验收断言：非空 hit / citation 缺失 `documentId` 会失败；T25 同时检查 KB-A 不泄漏 KB-B-only marker、KB-B 在 KB-A 移除后仍能召回 shared 与 B-only 文档；lifecycle-only dry-run 会标记 `BLOCKED`；artifact shape 检查覆盖实际 gate checks。
+- 真实 run 先发现 `REA-20260713-P1-031`：T11 citations 覆盖正确但答案遗漏部分风险控制措施；已增强 summary prompt 的数量型、多文档覆盖和风险控制抽取约束，并通过复跑验证。
+- 定向验证：`mvn "-Dtest=KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagQaServiceImplTest,CloudQualitySmokeScriptSafetyTest,HighIntensityFixedCorpusSmokeScriptSafetyTest,DocumentServiceImplTest" test` PASS，51 tests。
+- 真实验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均 PASS；T26 disposable 文档删除前 retrieve / QA 各 1 条，删除后 KB detail 0 个文档、retrieve / QA no-evidence 且 0 citation，文档详情返回业务错误；artifact raw-field scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
+- 边界：T26 当前验证的是软删除文档后的 KB 关系清理和 citation / retrieve 不再召回；Qdrant point 与 MySQL chunk 仍作为残留计数观测，不作为删除硬门禁。整体 run 因 `-SkipFrontend` 仍为 `REVIEW`，完整 T01-T47 仍未覆盖 Memory、Agent ToolCall 全矩阵、弱网并发、多标签页和浏览器缩放 UI。
+
+## 2026-07-12 高强度 KnowledgeBase 生命周期 gate（VERIFIED / SUPERSEDED）
+
+- 已被 2026-07-13 T26 disposable 文档删除验证取代；历史 marker `docpilot-high-intensity-fixed-corpus-20260712234011-a80fa6` 覆盖 T22-T25。
+
+## 2026-07-12 高强度固定业务语料 P1 修复（VERIFIED）
+
+- 已修复 `REA-20260712-P1-030`：`KnowledgeBaseRagQaServiceImpl` 避免多文档问题被全局数字 citation 精炼误删支撑来源；`KnowledgeBaseRagPromptBuilder` 为错误前提 / 冲突规则问题增加通用纠错 prompt，提示当前规则、废弃草案和直接相关限定条件。
+- 已保留自动化 runner：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1` 继续复用 `cloud-quality-smoke.ps1 -EnableFixedBusinessCorpusGate`，覆盖 T02 串行重复上传、6 份固定 Markdown 语料、`KB_CORE` / `KB_NOISY`、T06-T15 RAG 质量矩阵和脱敏 artifact shape 检查。
+- 定向验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagControllerTest" test` PASS，46 tests。
+- 真实验证：`scripts/smoke/high-intensity-fixed-corpus-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` 中 `fixedBusinessCorpus` gate PASS，T02 + T06-T15 全部 PASS；T08 / T11 / T12 已恢复 citation coverage 与 support。
+- 边界：本次 run overallStatus 为 `REVIEW`，原因是显式 `-SkipFrontend`；本片不覆盖并行上传、KnowledgeBase 生命周期、Memory、Agent、弱网、多标签页和 UI 缩放。
+- 清理状态：runner cleanup 后 3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留；artifact raw-field scan PASS，本地 fixed corpus 源文件目录为空。
+
+## 2026-07-12 高强度验收第一层真实链路执行（VERIFIED / PARTIAL）
+
+- 已执行三组真实链路门禁：`document-parser-real-chain-smoke.ps1 -Mode run` PASS，marker `docpilot-parser-real-chain-20260712212339-021ca3`；`conversation-grounding-smoke.ps1 -Mode run` PASS，marker `docpilot-conversation-grounding-20260712212500-d26151`；`cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -EnableKnowledgeBaseAgentGate` PASS，marker `docpilot-cloud-quality-20260712212603-173e7d`。
+- 已覆盖第一层验收：PDF / HTML / DOCX 上传解析、chunk / Qdrant 可见、检索 / QA citation、unsupported / empty / corrupted 文件负向边界、GroundingPolicy 6 case、User A / User B 权限隔离、KnowledgeBase RAG、Conversation Trace、KnowledgeBase Agent、前端关键页面和前端交互 gate。
+- 本轮未发现需写入 `REAL_EXPERIENCE_AUDIT_LOG.md` 的 P0 / P1 / P2 问题；artifact 均位于 ignored 目录，只记录 marker、状态、计数和脱敏 id。
+- 边界：这不是完整 T01-T47 全量验收。尚未执行用户计划中固定 6 份业务语料的完整问答矩阵、重复文件 SHA 去重、KB 移出 / 重新加入 / 删除生命周期、长会话摘要、弱网、多标签页、浏览器缩放和完整手工 UI 检查。
+
+## 2026-07-12 高强度端到端验收测试计划归档（TODO RECORDED）
+
+- 新增 `docs/ai-dev/HIGH_INTENSITY_ACCEPTANCE_TEST_PLAN.md`，记录用户提供的 3-5 小时高强度验收计划：环境记录、失败记录、固定测试语料、User A / User B、KB_CORE / KB_NOISY、T01-T47 测试矩阵、硬性验收标准和修复优先级。
+- `docs/ai-dev/TASKS.md` 已新增该验收计划的滚动 TODO 入口；`docs/README.md` 已把该文档加入 ai-dev 文档地图。
+- 边界：本轮只归档计划，未执行测试、未启动 backend / frontend / tunnel / Playwright、未创建测试账号、未生成测试语料或 artifact；该计划不能写成已通过 smoke 或展示证据。后续真实执行时，发现的问题应写入 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md`。
+
+## 2026-07-12 Gemini CLI 前端 TODO 与调用流程固化（VERIFIED）
+
+- 新增 `docs/ai-dev/TASKS.md`，把 Gemini CLI 给出的前端体验建议整理为滚动 TODO，当前首推切片是 `/knowledge-bases` 中召回片段与引用卡片的双向 hover / focus 高亮，后续候选包括 Conversation 上下文流水线、Quality 趋势交互、citation 定位联动和 dashboard 活跃解析反馈。
+- `docs/README.md` 已把 `docs/ai-dev/TASKS.md` 纳入文档地图；`AGENTS.md` 与 `docs/ai-dev/CONSTRAINTS.md` 已固化 2026-07-12 验证成功的 Gemini CLI 正式调用路径：先构造脱敏 PowerShell here-string，再执行 `gemini.cmd -m gemini-3.5-flash --prompt $prompt`。
+- 已新增用户级 skill `C:\Users\Lenovo\.codex\skills\gemini-cli-collab`，用于以后在前端 / UI 协作时按固定模型、脱敏上下文、安全边界和失败回退流程调用 Gemini CLI；该 skill 位于本机 Codex 用户目录，不属于当前仓库 git 变更。
+- 已验证：`gemini.cmd -m gemini-3.5-flash --prompt "Reply exactly: READY"` 返回 `READY`；`quick_validate.py C:\Users\Lenovo\.codex\skills\gemini-cli-collab` PASS。
+- 边界：本轮只落文档与 skill，不实现前端代码；Gemini 建议仍是 advisory TODO，后续落地需 Codex 逐项审查、实现和验证；本轮未启动 backend / frontend / tunnel，未读取或输出密钥、token、云地址、连接串、raw prompt / answer / evidence。
+
+## 2026-07-12 Quality Console Memory / RAG 趋势视图（VERIFIED）
+
+- Quality Console 趋势摘要已新增 `domainTrends`：后端按脱敏 artifact 聚合 `memoryQuality` 与 `ragRepresentativeEval` 两个领域趋势，暴露最近状态、平均通过率、安全 metrics / flags、失败 / 复查分桶和迷你 trend points；前端新增“趋势”详情分区与“领域趋势”卡片，分别展示 Memory quality smoke 和 RAG representative eval 的关键指标。
+- `backend/target/rag-quality` 已加入 Quality artifact root；`rerank-representative-eval-smoke.ps1` 现在除 `latest-summary.json` 外，也输出兼容 Quality Console 的 `artifact.json` 摘要。兼容层会把旧 `latest-summary.json` 转成 `ragRepresentativeEval` synthetic gate，并按 marker 去重，避免同一次 rerank representative run 在 runs / trend 中重复计数。
+- API 验证 PASS：临时后端 `18081`（Quality Console enabled，mock AI）调用 `/api/quality/trends?limit=20`，`memoryQuality` 最新状态 `PASS`、runCount `1`；`ragRepresentativeEval` 最新状态 `PASS`、runCount `12`，`caseCount=12`、`upliftCaseCount=10`、`strictImprovementCaseCount=2`、`targetCoverageRegressionCount=0`；`/api/quality/runs?limit=20` 最近 20 条 marker 全唯一。
+- 浏览器验证 PASS：临时 frontend `3007` 打开 `/quality?autoload=1`，点击“趋势”分区后可见“质量趋势 / 领域趋势 / Memory quality smoke / RAG representative eval”；console error 为 `0`，`390px` 移动端横向溢出为 `0px`。
+- 已验证：`mvn "-Dtest=QualityArtifactServiceImplTest,QualityControllerTest,RerankRepresentativeEvalSmokeScriptSafetyTest" test` PASS（27 tests）；`npm run lint` PASS；`npm run build` PASS；真实 API / 浏览器 smoke PASS。临时 18081 后端和 3007 前端已清理，常用端口与 18081 无 LISTEN 残留。
+
+## 2026-07-12 展示口径收口：Quality Console 已含 Conversation grounding（VERIFIED）
+
+- `docs/showcase/RAG_QUALITY_REPORT.md` 已把 Conversation grounding Quality Console 可见性写入最新证据，并把“继续把 Conversation grounding smoke 聚合进 Quality Console”从下一步改为已完成事实；下一步聚焦 Memory quality 和 RAG representative eval 的趋势视图。
+- `docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 已同步 `/quality` 可展示 Conversation grounding route smoke 的面试讲法。
+
+## 2026-07-12 Quality Console Conversation grounding API 可见性（VERIFIED）
+
+- 真实启动本地临时后端 `SERVER_PORT=18081`、`APP_QUALITY_CONSOLE_ENABLED=true`、`AI_MODE=mock`，复用本地 tunnel，只注册临时 smoke 用户并调用 Quality API；不上传文档、不创建 KnowledgeBase / Conversation、不调用 provider、不启动前端。
+- API 验证 PASS：`/api/quality/runs?limit=20` 可见 marker `docpilot-conversation-grounding-20260712183609-a15fef`，source 为 `backend/target/conversation-grounding`；`/api/quality/runs/{marker}` 返回 `conversationGrounding` gate，历史 `caseCount=6`、`evalCaseCount=6`。2026-07-13 后 runner 已扩展到 9 case，并新增 AUTO required no-evidence 拒答语义。
+- 浏览器验证 PASS：临时 frontend `3007` 指向 backend `18081`，Playwright 注入登录态打开 `/quality?autoload=1`；页面可见 marker 和 `backend/target/conversation-grounding`，进入 `Artifact` 分区后可见当时的 Conversation grounding catalog case；console error 为 `0`，`390px` 移动端无横向溢出。
+- 安全与清理：API / 浏览器 smoke 只输出脱敏计数摘要，不输出 token、注册密码、raw artifact、prompt、answer、evidence context 或云地址；本轮启动的 18081 后端和 3007 前端已按端口 owner 清理，确认无 LISTEN 残留。
+
+## 2026-07-12 Eval Catalog 纳入 Conversation grounding 路由矩阵（VERIFIED）
+
+- `agent-quality-eval-cases.json` 当前包含 Conversation grounding 路由 catalog case：`no-kb-model-only`、`no-kb-strict-normalized`、`auto-smalltalk-no-rag`、`auto-no-evidence-fallback-model`、`auto-required-no-evidence-refusal`、`strict-no-evidence-refusal`、`auto-rag-evidence-citations`。
+- 这些 case 与 `conversation-grounding-smoke.ps1` artifact 中的真实 caseId 对齐，因此 Quality Eval Catalog 可从最近的 `backend/target/conversation-grounding` 脱敏 artifact 自动关联 latest status；每个 case 只保存安全的 caseId、tags、scoring summary、regression policy、lastVerifiedMarker 和 remediation hints，不返回 question / expectedBehavior 原文。
+- 已同步 `AgentQualityEvalRunnerTest` 的 trace optional 规则：Conversation grounding catalog case 属于 artifact-backed route matrix，不强制离线 Agent eval 生成 traceId / agentRunId。
+- 已验证：`mvn "-Dtest=AgentQualityEvalRunnerTest,QualityEvalCatalogServiceImplTest" test` PASS（6 tests）。
+
+## 2026-07-12 Quality Console 接入 Conversation grounding artifact（VERIFIED）
+
+- `QualityArtifactServiceImpl` 的 artifact root 白名单已新增 `backend/target/conversation-grounding`，因此 `conversation-grounding-smoke.ps1 -Mode run` 生成的 ignored 脱敏 artifact 可以被 `/api/quality/runs` / `/quality` 发现。
+- 聚合解析已兼容顶层 `cases[]` 与 `pass` 字段：会生成 `conversationGrounding` synthetic gate，暴露 `caseCount`、`passedCaseCount`、`casePassRate`、`ragTriggeredCaseCount`、`ragRequiredCaseCount`、`evidenceCaseCount`、`citationCaseCount` 等安全计数；eval case 明细只展示 `caseId`、`groundingPolicy` 作为 case type、`evidenceCount` / `citationCount` 和 `ragTriggered` / `ragRequired` / `llmCalled` / `modelSkipped` 等布尔信号。
+- 安全边界：仍不返回 raw prompt、raw answer、documentText、evidenceContext、provider output、token、连接串或云地址；前端仍只通过 Quality API 读取 summary/detail，不直接读取 artifact 原文。
+- 已验证：`mvn "-Dtest=QualityArtifactServiceImplTest" test` PASS（14 tests）。
+
+## 2026-07-12 求职展示材料同步：GroundingPolicy 口径（VERIFIED）
+
+- `README.md`、`docs/showcase/RAG_QUALITY_REPORT.md` 和 `docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 已同步 Conversation grounding policy 基础事实：回答依据拆分为 `MODEL_ONLY / AUTO_RAG / STRICT_KB`，未绑定 KB 普通问题不触发资料不足拒答，AUTO_RAG 非显式资料问题无 evidence fallback 到模型，显式资料约束或 `STRICT_KB` 无 evidence 时安全拒答。
+- 展示证据已补充 `docpilot-conversation-grounding-20260712183609-a15fef` 和 `ConversationGroundingSmokeScriptSafetyTest`，同时保留边界：这是小规模真实链路防回归 smoke，不是大规模对话质量 benchmark 或线上 SLA。
+
+## 2026-07-12 Conversation grounding smoke 固化（VERIFIED）
+
+- 新增专用 runner `scripts/smoke/conversation-grounding-smoke.ps1`，支持 `plan` / `dry-run` / `run`：`plan` 和 `dry-run` 不读取 `.env`、不启动服务、不创建数据；`run` 才启动 / 复用本地 tunnel、backend、frontend，创建临时用户 / KnowledgeBase / Conversation / 文档，并生成 ignored 脱敏 artifact。
+- 当前固化的真实路由 case：未绑定 KB 普通问题走 `MODEL_ONLY`；未绑定 KB 误选 `STRICT_KB` 仍归一为 `MODEL_ONLY`；`AUTO_RAG` 明显闲聊不触发 RAG；`AUTO_RAG` 非显式资料问题无 evidence 时 fallback 到模型；`AUTO_RAG` 显式资料问题无 evidence 时拒答并跳过模型；`STRICT_KB` 无 evidence 时拒答并跳过模型；`AUTO_RAG` 命中 evidence 时返回 citation；T27 / T28 覆盖 `RECENT_TURNS` 同会话上下文与跨会话隔离。
+- 脚本 artifact 只记录 marker、路由枚举、布尔值、计数和脱敏 id，不保存 token、密码、raw prompt、raw answer、raw evidence、provider output、连接串或云地址；脚本结束会清理本轮启动的 8081 / 3000 服务进程，不关闭本来已存在的 tunnel。
+- 已验证：`conversation-grounding-smoke.ps1 -Mode plan` PASS；`conversation-grounding-smoke.ps1 -Mode dry-run` PASS；`mvn "-Dtest=ConversationGroundingSmokeScriptSafetyTest" test` PASS（3 tests）；历史真实 marker `docpilot-conversation-grounding-20260712183609-a15fef` 为 6/6 case PASS；2026-07-13 最新 marker `docpilot-conversation-grounding-20260713212058-5915ed` 为 9/9 case PASS。
+
+## 2026-07-12 Conversation grounding policy 路由修复（VERIFIED）
+
+- 根因定位：Conversation 普通消息此前复用了 `AiAnswerService.answer(context, question)` 的严格文档 QA prompt；该 prompt 要求“只能基于提供的 document context 回答”，导致未绑定 KnowledgeBase 的普通常识问题也可能进入 no-evidence refusal 语义。同时 `contextMode` 与 RAG policy 耦合，Trace 缺少 `groundingPolicy` / `routeDecision` / `llmCalled`，前端刷新后只能看到“0 条来源”，无法区分普通模型回答、AUTO_RAG 未触发、STRICT_KB 无证据。
+- 已实现：新增 `GroundingPolicy = MODEL_ONLY / AUTO_RAG / STRICT_KB` 与 `RouteDecision`；Conversation 入口改走 `answerConversation(...)` 专用非 strict prompt；未绑定 KB 默认 `MODEL_ONLY`，绑定 KB 默认 `AUTO_RAG`，只有显式 `STRICT_KB` 且无证据才拒答；`contextMode` 继续只控制最近轮次 / 记忆摘要，不再等价于严格知识库模式。
+- Trace 与持久化：`tb_context_trace` 新增 `grounding_policy`、`route_decision`、`llm_called`，并补 `008_add_context_trace_grounding.sql` 增量脚本；消息与 Trace 改为同事务保存，列表接口批量回读 Trace，避免回答可见但路由证据丢失。
+- 前端：Conversation 页面发送消息时携带 grounding policy；输入区提供“普通模型 / 自动知识库 / 仅基于知识库”；“精炼回答”仅作为篇幅风格说明，不再暗示严格资料模式；助手消息只有命中 citation / evidence 时显示知识库来源，普通模型回答显示“未使用知识库”，严格资料不足显示“资料不足”，不再显示“0 条来源”。
+- 测试：Conversation / grounding 定向 37 tests PASS，schema / smoke script safety 9 tests PASS；新增 `ContextTraceSerializationTest` 锁定 API JSON 同时暴露 `modelCallSkipped` 和验收字段 `modelSkipped`；`AUTO_RAG + noEvidence` 已反向锁定为调用模型、`STRICT_KB + noEvidence` 才跳过模型；`mvn test -DskipITs` PASS（953 tests，0 failures，0 errors，5 skipped）；前端 `npm run lint` / `npm run build` PASS。
+- 真实验证：已在授权后执行 `backend/src/main/resources/sql/008_add_context_trace_grounding.sql`，确认云 MySQL `tb_context_trace` 存在 `grounding_policy`、`route_decision`、`llm_called`；真实登录态 Conversation smoke marker `cg20260712175003-50312c` PASS，artifact `tmp-e2e/conversation-grounding-runtime/cg20260712175003-50312c-artifact.json`，覆盖未绑定 KB、未绑定 KB 误选 STRICT、AUTO_RAG 普通问题、AUTO_RAG 无证据 fallback、STRICT_KB 无证据拒答、AUTO_RAG evidence citation；前端 Playwright marker `ui-cg-20260712095111-7094ef` PASS，确认普通回答显示“未使用知识库”且没有“0 条来源”，严格资料不足显示“资料不足 / 调用模型否 / 模型跳过是”。
+- 状态：本轮任务已完成并通过真实链路验证；临时 smoke 用户、文档、KnowledgeBase 和 conversation 仅作为云库验证数据保留，artifact 位于 ignored `tmp-e2e/`。
+
+## 2026-07-12 Memory Governance 边界测试与真实 smoke（VERIFIED）
+
+- 已补齐 Memory Governance 离线边界测试：相似 ACTIVE memory 会对 SUGGESTED memory 暴露 `similar_active_memory` / `duplicateOfId` / `similarityScore`，手动创建相似 ACTIVE memory 会被门禁拒绝，同内容在不同 memory type 下不互相误杀。
+- 已补齐权限与安全测试：`resolveSuggestion` 只能通过 `selectByIdAndUserId` 处理当前用户 memory，跨用户 active memory 不可被 resolve；手动创建、merge/replace resolve 和系统抽取 suggestion 均经过 `MemorySafetyValidator`，敏感内容不会入库。
+- 已补齐规则抽取边界测试：一次性 / 临时指令、敏感 user message、assistant RAG evidence / citation 在缺少用户长期信号时都不会沉淀为长期记忆；仍保持“只从 USER message 抽取候选”的口径。
+- 已验证：`mvn "-Dtest=UserMemoryServiceImplTest,RuleBasedMemoryExtractionServiceTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（31 tests）；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-memory-quality-20260712155609-7ba60d`。
+- 真实 smoke 覆盖：候选抽取、accept / ignore 分层、冲突提示、冲突 accept 阻断、`KEEP_ACTIVE` / `REPLACE_ACTIVE` / `MERGE_WITH_ACTIVE`、敏感 edit 拦截、ACTIVE edit、Memory 与 RAG evidence 在 Context Trace 中分离、权限隔离、frontend routes、cleanup 和 artifact redaction。
+- 状态：Memory Governance v1 边界已锁入离线测试并通过真实链路回归；仍不声明真实模型长期记忆质量成熟，也不新增 Memory 版本历史、审计表或大规模 provider eval。
+
+## 2026-07-12 前端 citation locator / metadata 可见性（VERIFIED）
+
+- 前端 API 类型已补齐 citation locator 字段：单文档 RAG、KnowledgeBase RAG、legacy QA 和 Agent RAG 结果现在都能接收 `sourceName` / `documentTitle`、`pageNumber`、`sourceLocator`、`blockType`、`sectionPath`、`structureType`、`indexVersion` 等可选字段。
+- 新增轻量 `citation-display` 前端工具，用统一优先级展示来源定位：`sourceLocator -> pageNumber -> sectionPath -> blockType / structureType`；没有 locator 时显示“来源定位待补充”，避免用户只看到 chunk id。
+- 已更新文档详情页、KnowledgeBase 页、Conversation citation chips 和 Agent 页：引用来源与召回片段现在展示文档名、locator、chunk/version、section / block 结构；Conversation pill 增加短 locator 标签并保持横向滚动。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；真实 `cloud-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-cloud-quality-20260712154804-0540c6`，覆盖单文档 RAG、KnowledgeBase RAG、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction。
+- 状态：前端 locator 可见性切片完成；仍不声明 PDF 坐标级引用，也不改变 retrieval ranking / prompt / schema。
+
+## 2026-07-12 ParseTask 恢复状态前端可见性（VERIFIED）
+
+- 文档详情页已接入只读 `GET /api/task/parse/status?documentId=...`：右侧新增“解析与恢复”卡片，展示当前解析阶段、恢复建议、stale 提示、retry/reparse 可用性、consume/outbox 状态、重试计数、失败阶段 / 错误码和更新时间。
+- 前端继续不提供 content-only reindex 入口；卡片明确展示“纯 Document.content 重建索引：否”，并提示需要走原文件 retry / reparse，以保留 page、block、section path 和 citation locator。
+- `frontend/lib/task-api.ts` 已补齐 ParseTask status 类型与 API 封装；文档详情页轮询非终态解析时同步刷新状态投影，重新解析后清空旧问答 / citation 状态并重新拉取 status。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；真实 `document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260712154120-5bb049`，PDF / HTML / DOCX 均 parse、retrieve、QA citation 和 source locator 通过，`sourceLocatorCount=3/3`、parser boundary `4/4`、artifact redaction PASS。
+- 状态：前端恢复体验切片完成；自动重放复杂失败任务、远程数据修复、content-only reindex 和数据库 schema 变更仍不做。
+
+## 2026-07-12 rerank 代表语料 eval 与中文 / no-evidence 修复（VERIFIED）
+
+- 已新增 `scripts/smoke/rerank-representative-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`；`run` 会用同一套真实链路代表语料分别跑 hybrid-only baseline 和 hybrid+rerank candidate，并输出 ignored 的脱敏 `latest-summary.json`，不保存 query 原文、文档全文、prompt、evidence context、API key、连接串或云地址。
+- `cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRerankRepresentativeEvalGate`：真实链路临时创建 6 份代表文档，覆盖合规、审计、财务、安全、中文问法、干扰文档和 2 个 no-evidence case；每个 case 只记录 rank、coverage、citation leakage、no-evidence regression、multi-query 计数和 rerank 观测字段。
+- 真实 eval 初跑暴露三个质量缺口并已修复：`knowledge base` 这类泛词不应被当作 summary intent 绕过 near-threshold no-evidence support gate；中文问法需要受控 query rewrite / multi-query hybrid keyword 支撑；Windows PowerShell 5.1 下 JSON body 与中文 fixture 必须显式 UTF-8 / Base64，避免 mojibake 误杀。
+- 最终真实验证 PASS：`rerank-representative-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 产出 baseline marker `docpilot-rerank-representative-representative-hybrid-20260712151858-5543fd`、candidate marker `docpilot-rerank-representative-representative-rerank-20260712152212-2e0f81`；12 case 全部通过，10 个 target case 覆盖无回退，2 个 no-evidence case 无回退，candidate `rerankApplied=true`、`targetRerankAppliedCaseCount=10`、`strictImprovementCaseCount=2`、`upliftCaseCount=10`、`citationLeakageCount=0`、`noEvidenceRegressionCount=0`。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,RuleBasedQueryRewriteServiceTest,RerankRepresentativeEvalSmokeScriptSafetyTest" test` PASS（26 tests）；`cloud-quality-smoke.ps1 -Mode plan` PASS；`rerank-representative-eval-smoke.ps1 -Mode plan` / `dry-run` / `run` PASS。
+- 状态：代表语料级 rerank 多 case eval 已从“下一步”推进为小样本真实链路证据；仍不能写成大规模 ranking benchmark、稳定线上 uplift 或通用语义 reranker 评测。
+
+## 2026-07-12 ParseTask / reindex 恢复链路 + rerank relevance uplift（VERIFIED）
+
+- 已实现 ParseTask fail-closed 恢复链路：`ParseTaskRecoveryScanJob` 定时调用 `ParseTaskRecoveryService`，对长时间停留在处理中阶段的 parse task、以及 outbox 重试耗尽但 task 未终态的情况，统一标记 `FAILED`，同步文档解析状态和缓存失效；不新增 content-only reindex。
+- 消费幂等恢复已补齐 lease 语义：`tb_parse_task_consume_record` 的 `PROCESSING` 记录只有超过 `app.parse-task.consume-processing-timeout-seconds` 后才允许 takeover，未超时的重复消息继续跳过，避免并发重复解析。
+- ParseTask status 观测已增强：返回 `stale` / `staleReason`、consume/outbox 状态、outbox retry / next retry；stale processing 返回 `STALE_RECONCILIATION_PENDING`，恢复说明明确要求通过 retry/reparse 原文件链路恢复，禁止仅依赖 `Document.content` 重建索引，以免丢失 page、block metadata、section path 和 citation locator。
+- Rerank hard fixture 已升级为独立 target / support / distractor 三文档：真实百炼 `qwen3-rerank` 对照 marker `docpilot-rerank-effect-hybrid-20260712015151-46c631` / `docpilot-rerank-effect-rerank-20260712015353-cc21a9` PASS；baseline distractor rank 1、target rank 2，rerank 后 target rank 1、support rank 2、distractor rank 3，`hardUpliftObserved=true`。
+- 已验证：`mvn "-Dtest=ParseTaskServiceImplTest,ParseTaskConsumeEntryServiceImplTest,ParseTaskRecoveryServiceTest,RerankEffectSmokeScriptSafetyTest" test` PASS（40 tests）；`powershell ... rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 rerank effect PASS；`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260712015555-91d1fd`；`mvn test -DskipITs` PASS（920 tests，0 failures，5 skipped）。
+- 状态：本轮任务完成。剩余边界是“自动重放原文件 reparse 的产品入口 / 操作策略”；代表语料级 rerank 多 case eval 已由 2026-07-12 后续切片补齐为小样本真实链路证据，但仍不等于大规模 relevance benchmark。
+
+## 2026-07-12 阿里云百炼 rerank provider 验证（VERIFIED / REVIEW）
+- 已按用户纠正将本机 `backend/.env` 的 rerank 非密钥配置改为阿里云百炼：启用 hybrid retrieval 与 rerank，provider 使用 `aliyun_bailian`，base URL 使用百炼 `compatible-api/v1/reranks` endpoint，model 使用 `qwen3-rerank`；真实 API key 只保留在本机 ignored `.env`。
+- 已同步 tracked 示例配置 `backend/.env.example`、`backend/.env.demo.example`、`backend/.env.cloud.example` 与 `backend/README.md`，说明百炼 chat / embedding 的 `compatible-mode/v1` 与 qwen3-rerank 的 `compatible-api/v1/reranks` 不是同一个 endpoint。
+- 已补齐 `HttpRerankService` 的 `aliyun_bailian` provider 兼容：qwen3-rerank 使用顶层 `query/documents/top_n` 请求结构，响应从顶层 `results` 解析；gte-rerank-v2 兼容 `output.results`。
+- 已完成真实 provider smoke：baseline marker `docpilot-rerank-effect-hybrid-20260712003119-0b7ed3`，candidate marker `docpilot-rerank-effect-rerank-20260712003244-46b2e3`；candidate `rerankApplied=true`、`rerankModel=qwen3-rerank`、`rerankFailureReason=""`，核心 RAG / no-evidence / 权限安全无回退。整体仍为 REVIEW，因为 hard fixture 未观察到排序 uplift，不能宣称大规模或稳定 relevance uplift。
+- 已验证：`mvn "-Dtest=HttpRerankServiceTest,RerankEffectSmokeScriptSafetyTest" test` PASS（8 tests）；`mvn test -DskipITs` PASS（914 tests，0 failures，5 skipped）。
+
+## 2026-07-11 RAG 求职级三项收口（REVIEW）
+
+- 已补齐 KnowledgeBase RAG locator 字段穿透：`KnowledgeBaseRagRetrievalHit`、`KnowledgeBaseRagEvidenceCitation`、retrieve / QA response、`KnowledgeBaseSearchTool` 和 KB Agent answer/search 路径现在可携带 `sectionPath`、`structureType`、`pageNumber`、`sourceLocator`、`blockType`；旧字段与旧构造器保持兼容，不改数据库 schema。
+- 已增强 rerank 诊断：`RerankResult` 新增 `fallbackUsed` / `fallbackReason`，`KnowledgeBaseRagRetrievalResult` / response / cloud smoke / `rerank-effect-smoke.ps1` 暴露安全枚举 `rerankFailureReason`，可区分 provider 未配置、NotFound、超时、鉴权、限流、HTTP 错误和 identity fallback；不记录 API key、URL、query 原文、文档全文或请求正文。
+- 新增求职展示报告 `docs/showcase/RAG_QUALITY_REPORT.md`，汇总 RAG 组件成熟度、最新真实 marker、面试讲法和不能夸大的边界。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseSearchToolTest,KnowledgeBaseAgentServiceImplTest,HttpRerankServiceTest,RerankEffectSmokeScriptSafetyTest" test` PASS（34 tests）。
+- 完整验证：`mvn test -DskipITs` PASS（912 tests，0 failures，5 skipped）；`rerank-effect-smoke.ps1 -Mode dry-run` PASS；真实 `rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 返回 REVIEW，baseline marker `docpilot-rerank-effect-hybrid-20260711194601-2623f5`，candidate marker `docpilot-rerank-effect-rerank-20260711194743-d98021`，`rerankFailureReason=provider_not_found`、`rerankApplied=false`，核心 RAG / no-evidence / 权限安全无回退。
+- 状态：代码、离线门禁和真实对照诊断已完成；真实 rerank provider/model 仍不可用，不能宣称真实 rerank 效果已验证。
+
+## 2026-07-11 补充：最大压力真实链路审计（VERIFIED / REVIEW）
+
+- 已按用户选择执行有界最大压力审计，不纳入 Next 16 major，不启动本机 Docker，不创建子 Agent；本机前后端 + 本地 tunnel + 服务器中间件链路真实运行。
+- 首轮完整 `real-user-qa-experience-audit.ps1` marker `docpilot-real-user-qa-20260711164556-93f35f` 暴露 `frontendInteraction` 失败时诊断被包装层吞掉的问题；已在 `cloud-quality-smoke.ps1` 增加 `nodeOverallStatus`、`nodeSafeMessage` 和 `scriptExecution` failure bucket，避免后续只看到 false/0。
+- 复跑 marker `docpilot-real-user-qa-20260711165345-ecc162` 再次暴露 `finance-expense-invoice-compare:answerFactExpression` 波动；已把该真实比较题改为明确要求说明“谁审批报销”和“invoice archive 保留多久”，自然语料专项 `docpilot-rag-natural-corpus-20260711165958-f4935a` PASS，完整 audit `docpilot-real-user-qa-20260711170544-dff948` PASS。
+- 代表语料 / 真实模型质量：`rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` marker `docpilot-rag-real-qa-20260711171137-ed38a0` PASS，覆盖 representative corpus、multi-query、real QA hard / semantic、realProviderFaithfulness 和 frontendInteraction。
+- Memory / Agent / Parser：`memory-provider-extraction-smoke.ps1` 已修复 run 模式 `.env` 注入后直接 PASS，marker `docpilot-memory-provider-20260711172435-14083e`，6 calls、`casePassRate=1.0000`、`rawProviderOutputStored=false`；`agent-quality-eval-smoke.ps1` marker `docpilot-agent-quality-eval-20260711171903-fae364` PASS；parser marker `docpilot-parser-real-chain-20260711171912-a8e65c` PASS，`sourceLocatorCount=3/3`、parser boundary `4/4`。
+- Rerank REVIEW：`rerank-effect-smoke.ps1` marker `docpilot-rerank-effect-rerank-20260711171449-522a4c` 核心 RAG / no-evidence / security 无回退，但真实 rerank model 返回 `NotFound`，服务降级为 `identity`，`rerankApplied=false`；登记为后续 provider 配置 / 模型可用性问题，不把当前结果写成真实 rerank 实效已验证。
+- 验证：`npm run lint` PASS，`npm run build` PASS，`mvn test -DskipITs` PASS（911 tests，0 failures，5 skipped）；本机 Docker engine 只读检查为 `not_running_or_unreachable`，符合本轮“不用本机 Docker 做项目主链路”的边界。
+
+## 2026-07-11 补充：真实用户全链路审计与修复（VERIFIED）
+
+- 已运行真实用户链路审计，首轮 marker `docpilot-real-user-qa-20260711155558-573a81` 暴露 `naturalCorpus` 中 `finance-expense-invoice-compare` 的 `answerFactExpression` 误杀：retrieve / citation / evidence support / distractor suppression 均通过，但回答事实表达只匹配英文短语导致失败，登记为 `REA-20260711-P2-020`。
+- 已修复自然语料 answer faithfulness fixture：财务发票对比 case 的“团队经理审批”和“7 年保留”门禁增加中英文同义表达，仍要求目标文档覆盖、citation phrase support 和无干扰 citation，不放宽 RAG 证据质量。
+- 复验：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260711160322-1cbcbc`；完整 `real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260711160913-98a440`。
+- parser 专项复验：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260711161514-6c4786`，PDF / HTML / DOCX、direct retrieve、QA retrieval、citation、source locator、parser boundary 和 redaction 均通过。
+- ParseTask status 真实 API smoke 已完成：临时文档解析成功后 `/api/task/parse/status?documentId=...` 返回 `status=SUCCESS`、`documentParseStatus=SUCCESS`、`terminal=true`、`parsedContentPresent=true`，且 `safeReindexAllowed=false`、`contentOnlyReindexAllowed=false`。
+- 真实检查中另发现注册 username 超长会被全局异常兜底为 500，已补 `BindException` / `ConstraintViolationException` 处理并登记为 `REA-20260711-P3-021`；运行时复验超长 username 返回 `code=400`，`mvn test -DskipITs` PASS（911 tests，0 failures，5 skipped）。
+
+## 2026-07-11 补充：求职级收口验收快照（VERIFIED / REVIEW）
+
+- 已完成本轮连续迭代：reindex 半成品恢复记录、Next 14.2.35 非 major 安全补丁恢复、ParseTask 状态观测与安全恢复口径、多 block citation locator 离线门禁和真实 parser / RAG smoke 刷新。
+- 验证：`mvn test -DskipITs` PASS（909 tests，0 failures，5 skipped），`npm run lint` PASS，`npm run build` PASS；真实 marker `docpilot-parser-real-chain-20260711152944-1db28d` PASS，`chunkCount=7`、`directRetrieveHitCount=3/3`、`qaRetrievalHitCount=3/3`、`citationCount=3/3`、`sourceLocatorCount=3/3`、parser boundary `4/4`。
+- 边界：Next audit 剩余 high / moderate 需 Next 16 major 升级评估；ParseTask status API 已离线验证但未单独跑真实登录态 API smoke；fresh-clone Docker MySQL runtime 与 GitHub Actions 首跑仍保持 REVIEW / BLOCKED 边界。
+
+## 2026-07-11 补充：多 block citation locator 覆盖门禁（REVIEW）
+
+- 已将 parser block locator 闭环测试升级为三页多 block / 多 chunk fixture，断言 retrieval hits 与 citations 都保留 `sectionPath`、`pageNumber`、`sourceLocator`、`blockType`，并覆盖 `page:1` / `page:2` / `page:3`。
+- 验证：`mvn "-Dtest=RagIndexingTriggerServiceImplTest,RagIndexingServiceImplTest,ChunkingServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS（43 tests）。
+- 边界：本片只增强离线门禁，不改生产 parser / indexing / retrieval 逻辑；真实 `document-parser-real-chain-smoke.ps1` 待后续统一执行。
+
+## 2026-07-11 补充：ParseTask 状态观测与安全恢复口径（REVIEW）
+
+- 已新增只读状态接口 `GET /api/task/parse/status?documentId=...`，用于展示最新任务阶段、Document parse 状态、错误码、失败阶段、retry/reparse 可用性与恢复建议。
+- 关键边界：不新增 `/parse/reindex`，不通过 `Document.content` 重建结构化 chunk/vector；RAG 索引失败只建议重新解析原文件并走 parser block metadata 链路，响应固定暴露 `safeReindexAllowed=false` / `contentOnlyReindexAllowed=false`。
+- 验证：`mvn "-Dtest=ParseTaskServiceImplTest,ParseTaskConsumeEntryServiceImplTest,ParseStatusConstantsTest" test` PASS（34 tests），`mvn -q -DskipTests compile` PASS。未跑真实链路 smoke，保持 REVIEW。
+
+## 2026-07-11 补充：Frontend Next 安全补丁恢复（REVIEW）
+
+- 已将 tracked `frontend/package.json` / `package-lock.json` 的 `next` 与 `eslint-config-next` 从回滚后的 `14.2.5` 重新升至 `14.2.35`，并保留 Next 生成的 `next-env.d.ts` 当前链接更新。
+- 验证：`npm run lint` PASS，`npm run build` PASS；`npm audit --omit=dev` 已无 critical，仍有 Next high 与 PostCSS moderate，audit 建议完整修复为 Next 16 major。
+- 边界：本片只恢复非 major 安全补丁基线，不执行 Next 16 / React major 升级，不改业务代码；`REA-20260710-P1-011` 保持 OPEN，后续如要清零 audit 需单独做 major 升级评估。
+
+## 2026-07-11 补充：reindex 半成品异常恢复（DONE）
+
+- 已按异常恢复结论回滚当前工作区中的 content-only reindex 半成品：不再暴露 `/api/task/parse/reindex`，不保留 `ParseTaskService.reindex`，不保留通过 `Document.content` 构造空 blocks `ParseResult` 后重建索引的测试与实现。
+- 回滚原因：该路径虽然可重新写 chunk/vector，但没有 parser block 来源数据，会丢失页码、block type、source locator 与 parser-derived section path，导致 citation locator 质量倒退。
+- 同步清理：前端 Next 依赖升级、`next-env.d.ts`、archive BOM 和 benchmark 行尾噪声按本次恢复选择一并恢复。后续若需要 Next 安全升级或 reindex 恢复链路，分别作为独立切片重新评审。
+
+当前任务：文档解析/索引可靠性与确定性 Agent 闭环；当前片：索引成功才收口 ParseTask SUCCESS（REVIEW，待真实链路验证）；下一片：消费 lease、受限 reindex 恢复与状态可观测性；fresh-clone demo bootstrap 保持 REVIEW，隔离 MySQL runtime 验收仍受本机 Docker Engine 未运行阻塞；离线 Playwright E2E 与 CI 基线仍保持 REVIEW，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：索引成功才收口 ParseTask SUCCESS（REVIEW）
+
+- 已完成：解析消费者进入 `INDEXING` 后先持久化业务内容与摘要，再同步调用索引；只有返回与当前用户、文档、版本一致且 chunk/vector 完整的 `SUCCESS` 才把 Document 与 ParseTask 置为 `SUCCESS`。
+- 失败收口：索引返回失败、空结果、异常或结果错配均把任务和文档置为 `FAILED`，只写入 `RAG_INDEX_*` 安全错误分类，已解析内容保留；失败日志不再打印底层 provider / Qdrant 异常堆栈或异常文本。
+- 已验证：`ParseTaskConsumeEntryServiceImplTest`、`RagIndexingTriggerServiceImplTest`、`RagIndexingServiceImplTest` 共 33 项 PASS；覆盖索引成功、返回失败、抛异常、请求结果错配、内容保留与错误脱敏。
+- 边界：当前 MQ 消费在索引业务失败后仍 ACK，依赖下一片的受限 reindex / reconciliation 恢复，尚未实现 `PROCESSING` lease、Outbox 原子 claim、自动恢复扫描、状态查询 API、指标或真实链路验证；因此本片保持 `REVIEW`。
+
+## 2026-07-10 补充：cloud smoke Next dev origin 对齐（VERIFIED）
+
+- 发现：真实 cloud quality run `docpilot-cloud-quality-20260710205934-95dd05` 的所有 RAG、Agent、Trace、权限与浏览器业务断言均通过，但 KnowledgeBase 初次 dev compile / RSC 刷新期间出现 1 条 `fetchServerResponse` 的 `Failed to fetch` console error。
+- 修复：runner 启动 Next dev 时从 `FrontendBaseUrl` 解析 loopback host，并显式使用 `-H <host> -p <port>`；拒绝非 loopback host。未改 Next 配置、用户未提交的依赖升级、业务 API、模型、数据库或云 Docker。
+- 已验证：`CloudQualitySmokeScriptSafetyTest` 2 项 PASS；完整真实 smoke `docpilot-cloud-quality-20260710210913-5ea91b`、`docpilot-cloud-quality-20260710211110-0b226b` 与前置 URL 安全校验后的 `docpilot-cloud-quality-20260710211530-6de04e` 均 PASS，KnowledgeBase 双 citation 可见、`consoleErrorCount=0`、cleanup / artifact redaction PASS。关联 `REA-20260710-P3-019`。
+
+## 2026-07-10 补充：RAG SSE clean-EOF fail-closed（VERIFIED）
+
+- 已完成：`askDocumentRagQuestionStream` 只有在收到命名 `event: done` 后才将 HTTP body EOF 视为成功；缺 done 的 clean EOF 会抛 `RagStreamRequestError(stage=transport_eof)`，不会再静默留下空白或不完整回答。
+- 已验证：production Next + Playwright 覆盖 meta 后 EOF（仅 1 次非流式回退）、chunk 后 EOF（保留部分回答且不重试）及正常 done（无回退）三条路径；定向 5/5、前端 lint/build 与完整 E2E 14/14 PASS，独立审查无 blocker。
+- 边界：当前是浏览器 route-mock 的 HTTP body clean-EOF 协议回归，不模拟 TCP reset、`reader.read()` reject、跨 read 的 done 或 done 后非法 error；后端当前正常 / no-evidence / retrieval fallback 成功分支均发送命名 done。
+
+## 2026-07-10 补充：Memory provider extraction case diversity v2（VERIFIED）
+
+- 已完成：测试侧真实 provider 抽取合同从固定 4 case 扩至固定 6 case；新增中文长期 `PREFERENCE + PROJECT_STATE` 与“一次性指令不得沉淀为长期记忆”的零 suggestion 负例。运行时 `/api/user-memories/suggestions/extract` 仍只使用规则式抽取，未接入 LLM、未改数据库。
+- 已修复：脚本此前允许 `MaxModelCalls` 小于固定 suite 实际调用数，预算口径可能失真；现在仅接受与 6-case suite 一致的值，plan / dry-run 公开该预算匹配门禁。
+- 安全复验：plan、dry-run 与定向 Maven 9 项 PASS（真实 smoke 默认 skipped 1）；最终真实 marker `docpilot-memory-provider-20260710204432-4540df` PASS，`modelCallCount=6`、`casePassRate=1.0000`、`rawProviderOutputStored=false`。首个 v2 run 暴露正例错误使用 forbidden marker，已修正并在受限 6-call 复验中通过，关联 `REA-20260710-P3-016`；随后独立审查发现 artifact 日志、格式 fail-open、预算约束和路径逃逸缺口，已安全收紧并经复审验证，关联 `REA-20260710-P1-017`。
+- 边界：这是测试侧的小样本 provider 输出语义 contract，不是运行时 LLM memory extraction、JSON 格式合规 benchmark 或大规模长期记忆质量结论；artifact 不存会话、候选记忆、prompt、原始输出、token 或凭据。
+
+## 2026-07-10 补充：fresh-clone demo schema bootstrap（REVIEW）
+
+- 已完成：`deploy/mysql/init/` 现在是空 demo MySQL volume 的完整初始化快照：核心文档 / Outbox、Agent、RAG chunk、KnowledgeBase、Conversation、Context Trace 与 User Memory 共 17 张持久表。
+- 已修复：`tb_document` 补齐应用层依赖的 `status` / `idx_document_status`；`tb_qa_history` 对齐当前参考 schema 的 `TEXT` question、`LONGTEXT` answer 与时间索引。不会把 Spring SQL init 接入运行时，也不会对云 MySQL 或已有 volume 执行 DDL。
+- 已验证：新增 `DemoMysqlBootstrapSchemaTest`，与既有 schema reference tests 共 5 项 PASS；README 已说明 Docker entrypoint 只会在空 volume 首次执行初始化 SQL。
+- 阻塞：本机 Docker Desktop Linux engine 未运行，无法启动隔离的临时 MySQL 容器；发现本机已有 `3306` listener，未连接、未修改、未删除该未知实例或任何现有 Docker volume。关联 `REA-20260710-P2-015`。
+
+## 2026-07-10 补充：Next dev 前端访问源兼容修复（VERIFIED）
+
+- 发现：真实 cloud quality run 使用既有 `127.0.0.1:3007` 访问时，KnowledgeBase RAG 的 citation 已渲染，但 Next App Router RSC 请求产生 `Failed to fetch` console error；用 `localhost:3007` 的同链路对照 run 全绿。
+- 修复：`frontend/next.config.js` 增加 `allowedDevOrigins: ["127.0.0.1"]`，使开发服务显式允许 smoke 与本地联调使用的 loopback 访问源；不改 KnowledgeBase API、数据库、模型、鉴权或生产 rewrite。
+- 已验证：`npm run lint`、`npm run build` PASS；原失败条件下的完整 cloud quality marker `docpilot-cloud-quality-20260710200547-6dec4e` PASS，KnowledgeBase 双 citation 可见、`consoleErrorCount=0`、cleanup 与 artifact redaction PASS，关联 `REA-20260710-P3-014`。
+
+## 2026-07-10 补充：阿里云百炼 Qwen 真实链路切换（VERIFIED）
+
+- 本机真实回答模型已切为百炼 `qwen-plus`，embedding 已切为百炼 OpenAI-compatible `text-embedding-v4`；遗留的旧 embedding 标识会返回 404，已登记并修复 `REA-20260710-P2-013`。
+- 探测结果：最小回答与脱敏 RAG 上下文调用均成功；embedding 返回 1024 维向量，与当前 Qdrant 运行配置兼容。
+- 真实验证：完整 cloud quality run `docpilot-cloud-quality-20260710195347-5fbdb7` PASS，覆盖上传解析、索引、单文档 / KnowledgeBase / 短文档 RAG、Conversation / Memory、Agent、权限与前端交互；runner cleanup 已完成。
+- 边界：仅调整 ignored 本机 `.env`，未提交 API Key、业务空间网关或其他连接信息，未改数据库、远端 collection、项目示例或默认 provider。
+
+## 2026-07-10 补充：SSE 流式 RAG 失败语义（VERIFIED）
+
+- 已完成：后端区分 `retrieval`、首 token 前 `generation` 和已输出内容后的 `generation_partial`；检索降级改为非致命 `fallback` 事件，前端继续消费降级 chunk / done。
+- 已完成：前端只在首个 chunk 前的 generation / transport 失败回退一次非流式请求；scope 错误不回退；已有内容时保留部分回答并提示用户重试，避免重放、覆盖内容或重复模型调用。
+- 已验证：`RagQaServiceImplTest` 14 项 PASS，覆盖 retrieval fallback、首 token 前 generation error、partial generation error 和 stage；前端 `npm run lint` / `npm run build` PASS。Gemini CLI `gemini-3.5-flash` 提供状态机建议，独立审查发现并推动修复 retrieval fallback 的终止事件 blocker。
+- 浏览器验收：新增 production Next + Playwright route-mock 真实页面测试。`generation` 在首 chunk 前失败时只发起 1 次普通 RAG 回退并显示回退答案；`generation_partial` 在已有 chunk 后保留部分回答、显示中断提示且普通 RAG 调用为 0。前端完整 `npm run test:e2e` 为 11/11 PASS。
+- 边界：该测试验证后端发出 SSE `error` 事件后的浏览器/UI 语义，不模拟 TCP 断流、跨 read 分帧或浏览器 fetch reject；这些属于后续独立 transport 失败契约。
+
+## 2026-07-10 补充：单文档 / KnowledgeBase RAG 回答模型可靠性（VERIFIED）
+
+- 目标：消除单文档 RAG 不走统一 AI 重试、KnowledgeBase RAG 对暂态模型故障过早降级，以及异常摘要可能写入日志的主链路可靠性缺口。
+- 已完成：`RagQaServiceImpl` 与 `KnowledgeBaseRagQaServiceImpl` 仅围绕回答模型调用复用 `AiRetryExecutor`；检索、提示构造、citation 精炼和历史写入均不重试。KnowledgeBase 返回的 `modelCallCount` 改为真实尝试数。
+- 安全：通用重试、单文档 RAG 与 KnowledgeBase RAG 日志均只记录安全维度和 `exceptionClass`，不记录问题、evidence、prompt、模型原始响应、异常 message、token 或连接信息。
+- SSE 边界：本片只处理普通 RAG QA；流式路径不自动重试，避免在已发送部分 chunk 后重放模型调用导致重复输出，后续作为独立体验切片评估。
+- 已验证：`AiRetryExecutorTest`、`RagQaServiceImplTest`、`KnowledgeBaseRagQaServiceImplTest`、`CloudQualitySmokeScriptSafetyTest` 共 28 项通过；覆盖可重试后成功、不可重试失败、无重复检索 / 历史写入、KB fallback 和实际尝试次数。
+- 根因验证：配置模型在当前账户可用列表中；同量级非流式 RAG 请求超过原本机 30 秒读取窗口后仍能正常完成，因此不是模型标识或检索问题。仅将 ignored 本机配置的读取窗口调为 60 秒，未提交、不改项目默认值或示例。
+- 真实验证：完整 cloud quality run `docpilot-cloud-quality-20260710191822-ec80b6` PASS，覆盖单文档 / KnowledgeBase / 短文档 RAG、Conversation / Memory、Agent、权限与浏览器交互；runner cleanup 后 `8081` / `3007` 无监听，关联 `REA-20260710-P1-012`。
+- 边界：该读取窗口是当前本机 provider/model 的运行调优，未改数据库、项目默认超时、示例配置或重试上限；其他 provider 的推荐值仍需单独证据。
+
+## 2026-07-10 补充：离线 Playwright E2E 路由 smoke
+
+- 目标：给前端主导航提供可在 CI 运行的真实浏览器回归入口，覆盖未登录路由渲染与浏览器错误，而不混入 backend、tunnel、云中间件或临时业务数据。
+- 实现：新增 `frontend/playwright.config.ts`、`frontend/e2e/public-routes.spec.ts` 与 `npm run test:e2e`；production `next start` 使用本地 `3100` 端口，覆盖 `/`、`/login`、`/dashboard`、`/upload`、`/documents`、`/knowledge-bases`、`/conversations`、`/agent`、`/agent/tools`，逐页断言 HTTP 非错误、标题、`main` 可见、无 page / console error。
+- CI：前端 job 在 build 后安装 Chromium 并执行 `npm run test:e2e`；不使用密钥、不启动 backend / tunnel、不访问云端。
+- 已验证：Gemini CLI `gemini-3.5-flash` 已给出最小 production route smoke 建议；本地 `npm run lint`、`npm run build`、`npm run test:e2e` PASS，9/9 routes PASS，测试后 `3100` 端口已释放。
+- 边界：未覆盖登录态、上传、SSE、权限隔离、RAG / Agent 业务交互或云链路；GitHub-hosted runner 的首次真实执行仍待后续 push / PR。
+
+## 2026-07-10 补充：Gemini CLI 本地恢复约束（DONE）
+
+- 已将 Gemini CLI 不可用、连接失败或超时时的受控恢复步骤写入 `docs/ai-dev/CONSTRAINTS.md`：在单独本地终端启动 `G:\code\Projects\gemini\AIStudioToAPI` 的 `npm start`，确认服务就绪后按原 `gemini-3.5-flash` 调用重试一次。
+- 边界：本轮未启动 AIStudioToAPI，也未读取其 `.env`、密钥或服务配置；恢复重试仍失败时由 Codex 接管，不承诺服务启动一定恢复调用，也不切换模型或放宽远程、数据库、Git 操作限制。
+- 当前离线 CI 基线状态不受本规则变更影响，仍为 `REVIEW`，等待首个 GitHub Actions run。
+
+## 2026-07-10 补充：离线 CI 基线
+
+- 目标：把当前默认离线回归固化为 GitHub Actions，避免把需要 tunnel、云 MySQL / Qdrant、临时业务数据或真实 provider 的 cloud smoke 误放入公共 CI。
+- 已完成：新增 `.github/workflows/ci.yml`，分别以 Java 17 运行 `mvn test -DskipITs`，以 Node 20 运行 `npm ci`、`npm run lint`、`npm run build`；workflow 仅 `push` / `pull_request` 和 `contents: read`，没有 env / secret、tunnel、Docker 或 cloud smoke 调用。
+- 已修复：独立审查发现 Ubuntu runner 会被脚本安全测试的硬编码 `powershell` 阻塞；新增 `PowerShellTestSupport`，Windows 继续使用 `powershell`，非 Windows 使用 `pwsh`，并替换 14 个测试文件的 20 处执行入口。复审继续发现离线 Agent demo suite 的内层 launcher 仍硬编码 `powershell`，已同步改为同一 OS-aware 选择并增加静态防回归断言。
+- 已验证：受影响的 offline Agent suite / artifact / OS helper 定向 5 tests PASS；本地 CI 等价后端全量 `mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（891 tests，0 failures，0 errors，5 skipped）；`npm ci`、`npm run lint`、`npm run build` PASS；workflow 静态 contract 与 `cloud-quality-smoke.ps1 -Mode dry-run` PASS。
+- 状态边界：当前仅完成本地等价验证，尚未由 GitHub runner 真实触发，故保持 `REVIEW`；dry-run 中 `13306` / `6333` 未监听是未启动 tunnel 的预期环境状态，不代表云链路已通过。
+- 安全记录：用户工作区中的 Next 14.2.35 升级已通过 lint/build/E2E 14/14 与真实 cloud smoke 回归；`npm audit --omit=dev` 仍有 Next high 与 PostCSS moderate，完全修复要求破坏性 Next 16 升级，`REA-20260710-P1-011` 保持 OPEN，未自动执行。
+
+## 2026-07-10 补充：默认 Maven 测试去外部依赖化
+
+- 目标：修复默认 `mvn test -DskipITs` 继承本机 `.env`、初始化 scheduled outbox / RocketMQ / Redisson / 外部基础设施客户端，以及 Surefire fork 可能被强杀的测试边界问题。
+- 已完成：Maven Surefire 默认注入 `SPRING_CONFIG_IMPORT` / `spring.config.import` 到空的 test resource，并固定 `SPRING_PROFILES_ACTIVE=test` / `spring.profiles.active=test`，避免普通单测读取开发者本机 `.env`。
+- 已完成：`@EnableScheduling` 从 `DocPilotApplication` 移入受 `app.scheduling.enabled` 控制的 `SchedulingConfig`；`ParseTaskOutboxScanJob` 受 `app.rocketmq.outbox.scan-enabled` 控制，`RedissonConfig` 受 `app.redisson.enabled` 控制，生产默认仍启用，测试可显式关闭。
+- 已验证：`mvn clean "-Dtest=DocPilotApplicationTests" test` PASS；`mvn test -DskipITs` PASS（889 tests，0 failures，0 errors，5 skipped）。
+- 验证补充：本轮全量测试未新增 `Surefire is going to kill self fork JVM` 记录；最新 dumpstream 检索未命中 fork kill 文本。
+- 边界：本片未启动 tunnel / backend / frontend，未做云 MySQL / Qdrant runtime smoke，未读取或输出 `.env` 值，未操作远程 Docker，不改数据库结构。真实链路验证仍需显式 tunnel 和 smoke runner。
+
+## 2026-07-10 补充：Document Parser 多 block / 多 chunk 来源覆盖 smoke v4
+
+- 已完成 smoke 增强：HTML fixture 增加超过默认 `800/120` chunk 策略的脱敏正文，HTML case 新增 `expectedMinChunks=2`、`multiChunkVerified` 和 `html_multi_chunk` 安全结构信号；artifact 只保存期望数、实际 chunk 数、布尔值和结构枚举。
+- 门禁语义：未达到最小 chunk 数会使 `parserRealChain` 标为 `REVIEW`，并记录 `multi_chunk_source_coverage_missing`，不会误归类为解析或 provider 核心失败。
+- 真实验证：执行 `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker `docpilot-parser-real-chain-20260710143019-38705a`，整体 PASS。
+- 结果：HTML `extractedChars=2389`、`chunkCount=5`、`expectedMinChunks=2`、`multiChunkVerified=true`，direct / QA retrieval 均 `hitCount=5`、`citationCount=5`；PDF / DOCX 各 `chunkCount=1`，三类文档 parse / retrieval / citation / source locator 均通过。总 `chunkCount=7`，`fixtureStructureCoverage.expectedSignals=11`、`coveredSignals=11`、`missingSignals=0`、`allCovered=true`；parser boundary `4/4`、artifact redaction PASS。
+- 已验证：脚本 plan / dry-run PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserFixtureCorpusTest,ChunkingServiceImplTest,QualityArtifactServiceImplTest" test` PASS（39 tests，0 skipped）。
+- 边界：本片仍是 marker 临时数据上的小样本真实链路；只验证多 chunk 生成与至少一条 citation 来源定位，不代表所有 chunk 都有跨 block 精确 locator，也不做 OCR、扫描件、旧 `.doc`、复杂版面、外部抓取或大规模 benchmark。下一片审计多 block 文档在 citation / chunk metadata 上的来源覆盖率。
+
+## 2026-07-10 补充：Document Parser 自然结构真实 smoke v3
+
+- 已完成 runner 增强：真实 HTML fixture 新增 `aside` 辅助栏噪声；`expectedStructures` / `structureSignals` 新增安全枚举 `html_noise_excluded`，只表示导航、脚本和辅助栏文本未进入解析结果，不把解析正文或噪声原文写入 artifact。
+- 真实验证：执行 `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker `docpilot-parser-real-chain-20260710142418-09566e`，整体 PASS。
+- 结果：PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、direct / QA retrieval hit、citation 和 source locator 均为真；`fixtureStructureCoverage.expectedSignals=10`、`coveredSignals=10`、`missingSignals=0`、`allCovered=true`，其中 HTML `html_noise_excluded` 通过；parser boundary `4/4` 和 artifact redaction 均 PASS，`environmentUnstable=false`。
+- 已验证：脚本 `plan` / `dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserFixtureCorpusTest" test` PASS（9 tests，0 skipped）。
+- 清理：runner 已清理本轮启动的 local tunnel、backend 和 frontend；后续复查端口不应保留 LISTEN。
+- 边界：本片只证明小样本文本型 PDF / HTML / DOCX 的自然 HTML 噪声隔离和完整真实链路，不做 OCR、扫描件、旧 `.doc`、外部抓取、复杂版面理解或大规模 benchmark。下一片优先增加多 block / 多 chunk 的来源覆盖门禁，避免单 chunk PASS 掩盖跨块 metadata 漂移。
+
+## 2026-07-10 补充：Document Parser chunk 来源定位端到端 contract 审计
+
+- 审计结论：现有生产链路已完整保留 `ParseResult.DocumentBlock` 的 `pageNumber`、`sectionPath`、`sourceLocator` 与 `blockType`：`RagIndexingTriggerServiceImpl` 转为 `RagSourceBlock`，`ChunkingServiceImpl` 写入 chunk structure metadata，`RagIndexingServiceImpl` 带入 vector payload，`RagDocumentRetrievalServiceImpl` 再组装为 citation。
+- 已补闭环测试：`RagIndexingTriggerServiceImplTest.shouldCarryParserBlockLocatorThroughIndexingToRetrievalCitation` 使用脱敏 PDF 式 `ParseResult`、受控同步 executor、mock embedding 和 in-memory vector store，断言 retrieval citation 返回 `sectionPath=Parser Evidence`、`pageNumber=2`、`sourceLocator=page:2` 与 `blockType=PAGE`。
+- 已验证：`mvn "-Dtest=RagIndexingTriggerServiceImplTest,RagIndexingServiceImplTest,ChunkingServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS（43 tests，0 skipped）。
+- 边界：该 contract 是离线内存回归，不替代 Qdrant runtime smoke；不新增 schema、不改检索阈值或 citation API、不展示文档全文、query、prompt、answer 原文、evidence context、token、secret、连接串或云地址。下一片把自然 HTML 噪声隔离纳入真实 parser smoke 的脱敏 gate，再运行一次小样本真实链路验证。
+
+## 2026-07-10 补充：Document Parser 自然样本 fixture v2
+
+- 目标：把长期 parser 回归从基础结构 fixture 扩展到更接近业务文章和多章节制度文档的脱敏自然样本，验证噪声隔离、标题层级、表格 / 列表和 `sectionPath` 不会在后续 parser 改动中回退。
+- 已完成 HTML 噪声隔离：`HtmlDocumentParser` 现在将 `aside` 与既有 `script/style/nav/header/footer` 一同从本地上传 HTML 中剔除，避免相关推荐或推广辅助栏混入 RAG 文本；不执行脚本，不访问外部资源。
+- 已新增自然 HTML fixture：覆盖 `h1/h2/h3`、有序列表、两行表格和 `aside` 噪声；断言列表与表格行继承正确层级路径，且辅助栏文本不会进入 `fullText`。
+- 已新增自然 DOCX fixture：覆盖从 `Heading1 / Heading2` 的“Retention Policy / Review Window”切换到新的顶级“Escalation Policy”；断言第二个章节的段落和表格不会继承上一个章节的 `sectionPath`。
+- 已验证：`mvn "-Dtest=DocumentParserTest,DocumentParserFixtureCorpusTest,ParseTaskConsumeEntryServiceImplTest" test` PASS（26 tests，0 skipped）。
+- 边界：本片不新增依赖、数据库表或二进制 fixture，不改上传 / 异步解析 / chunk / RAG 主链路，不做 OCR、扫描件、旧 `.doc`、复杂版面理解或外部网页抓取。下一片只审计 `ParseResult` block 元数据进入 chunk / citation 的端到端 contract，再决定是否需要最小修复。
+
+## 2026-07-10 补充：Document Parser 结构覆盖真实链路复验
+
+- 目标：对上一片新增的 `fixtureStructureCoverage` 做一次真实 cloud/local hybrid 链路复验，确认 PDF / HTML / DOCX 上传、异步解析、chunk、Qdrant retrieve、QA citation 和结构覆盖 artifact 在同轮 run 中全部成立。
+- 真实验证：执行 `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker 为 `docpilot-parser-real-chain-20260710001619-a1b510`，整体状态 PASS。
+- 结果：PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、direct retrieve hit `1`、QA retrieval hit `1`、citation `1`、source locator present；parser boundary `4/4` PASS，artifact redaction PASS。
+- 新结构覆盖结果：`fixtureStructureCoverage.expectedSignals=9`、`coveredSignals=9`、`missingSignals=0`、`allCovered=true`，覆盖 PDF 文本 / 页码来源、HTML 标题 / 表格 / 链接 / 列表、DOCX 标题 / 表格 / 列表。
+- 诊断结果：`directRetrieveOkCount=3`、`qaRetrieveOkCount=3`、direct / QA 最大重试次数均为 `1`，`environmentUnstable=false`。
+- 清理：本轮启动的本地 tunnel、backend、frontend 已由 smoke runner 清理，复查 `3000/3001/3002/3007/3100/8081` 未见 LISTEN。
+- 边界：本次 run 创建了临时 smoke 用户和临时文档，只提交脱敏摘要，不提交 ignored artifact 原文；仍不代表 OCR、扫描件识别、旧 `.doc`、复杂版面理解、外部网页抓取或大规模解析 benchmark。
+
+## 2026-07-09 补充：Document Parser fixture corpus 与真实 smoke 覆盖口径对齐
+
+- 目标：让真实 `document-parser-real-chain-smoke.ps1` 的 artifact 质量报告能表达与长期 parser fixture corpus 一致的结构覆盖口径，而不是只记录 PDF / HTML / DOCX 三类文件是否跑通。
+- 已完成 smoke artifact 增强：每个 parser case 新增 `expectedStructures` 和 `structureSignals` 枚举摘要；`parserQualityReport` 新增 `fixtureStructureCoverage`，包含预期结构信号数、覆盖结构信号数、缺失结构信号数和 `allCovered`。字段只保存安全枚举和计数，不保存解析文本、query、answer 原文、prompt、evidence context、token、secret、连接串或云地址。
+- 已完成 fixture recipe 对齐：真实 smoke 的 HTML fixture 新增列表结构，DOCX fixture 新增列表段落；结构信号覆盖 PDF 文本 / 页码来源、HTML 标题 / 表格 / 链接 / 列表、DOCX 标题 / 表格 / 列表。
+- 已完成 Quality API / 前端接入：`QualityArtifactServiceImpl` 白名单解析结构覆盖计数，`/quality` 文档解析质量摘要显示“结构覆盖”，诊断网格新增“结构 fixture 覆盖”，`fixture_structure_missing` 显示为中文待关注原因。
+- 已验证：`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserFixtureCorpusTest,QualityArtifactServiceImplTest,*Quality*" test` PASS（50 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；浏览器 `/quality?routeSmoke=2` 移动端 `390px` console error `0` 且无横向溢出。
+- 边界：本片未执行会创建业务数据的 `run`，没有新增数据库表，不改业务 parser / RAG service，不提交 artifact 原文，不做 OCR、旧 `.doc`、外部网页抓取或复杂版面理解。下一片建议跑一次真实 `run` 复验新的结构覆盖 artifact。
+
+## 2026-07-09 补充：Document Parser 长期回归 fixture 多样性增强
+
+- 目标：把 PDF / HTML / DOCX parser 的测试从“单个 demo case 可解析”增强为“长期结构化 fixture corpus 可回归”，避免后续 parser 改动破坏页码、标题层级、表格、列表、链接和噪声剔除等 RAG citation 关键元数据。
+- 已新增测试：`DocumentParserFixtureCorpusTest`，使用内存生成的脱敏 PDF / HTML / DOCX fixture，不落真实用户文件、不访问外部网络、不引入新依赖。
+- PDF 覆盖：三页文本型 PDF、第二页空页 warning、page-level block、`pageNumber` 和 `sourceLocator=page:n`。
+- HTML 覆盖：本地 HTML 的 `script/style/header/nav/footer` 噪声剔除，保留 `h1/h2` 标题层级、正文内联链接文本、表格行、列表项和独立链接 block。
+- DOCX 覆盖：`Heading1/Heading2` 标题继承、普通段落、列表段落、表格文本、`sectionPath` 和 `docx:table:*` source locator。
+- Registry 覆盖：确认 `txt/pdf/html/docx` 四类 parser selection 仍稳定。
+- 已验证：`mvn "-Dtest=DocumentParserTest,DocumentParserFixtureCorpusTest,ParseTaskConsumeEntryServiceImplTest" test` PASS（24 tests，0 skipped）。
+- 边界：本片只补长期回归单测，不改 parser 生产实现，不新增依赖，不提交 fixture 二进制文件，不做 OCR、扫描件识别、旧 `.doc`、外部网页抓取或复杂版面理解。
+
+## 2026-07-09 补充：Document Parser 质量报告可读性增强
+
+- 目标：把上一片新增的 direct retrieve / QA retrieve 脱敏诊断摘要接入 Agent Quality Console，让 parser smoke 不只输出 PASS / REVIEW，还能解释 direct endpoint、QA 内部检索、no-evidence 和运行环境稳定性的差异。
+- 已完成 runner 摘要增强：`parserQualityReport.ragChainSummary` 新增 `directRetrieveOkCount`、`qaRetrieveOkCount`、`directRetrieveNoEvidenceCount`、`qaRetrieveNoEvidenceCount`、`directRetrieveMaxAttempts`、`qaRetrieveMaxAttempts` 和 `environmentUnstable`。这些字段只保存计数、布尔值和重试次数，不保存 query、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。
+- 已完成 Quality API 白名单解析：`QualityArtifactServiceImpl` 和 `QualityRunDiagnostics.ParserQualitySummary` 允许上述安全字段进入 detail，单测覆盖未知敏感字段过滤和新增诊断字段解析。
+- 已完成前端可读性增强：`/quality` 的文档解析质量摘要新增“直接检索接口”“问答检索接口”“运行环境稳定”三张小卡，并在诊断网格中新增“直接 / 问答一致性”和“环境稳定性”，用于区分 parser/RAG 真实质量问题与本地 tunnel / backend runtime 断链。
+- 已验证：脚本 `plan` / `dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,QualityArtifactServiceImplTest,*Quality*" test` PASS（46 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；浏览器 `/quality?routeSmoke=2` 桌面 console error `0`，`390px` 移动端 console error `0` 且无横向溢出。
+- 边界：本片不改 parser / RAG 业务 service，不新增数据库表，不提交 artifact 原文，不做 OCR、旧 `.doc`、外部网页抓取或复杂版面理解；本片没有新跑真实上传业务数据，真实链路能力仍以最新 marker `docpilot-parser-real-chain-20260709233230-a08906` 为准。
+
+## 2026-07-09 补充：Document Parser direct retrieve / QA retrieve 同轮差异诊断与修复
+
+- 目标：接续上一片 `direct_retrieve_missing` REVIEW，定位同一 smoke 进程内 direct retrieve、QA retrieval 和 citation 计数不一致的问题，并避免环境断链或脚本计数误差污染 parser 质量结论。
+- 已完成脚本修复：`document-parser-real-chain-smoke.ps1` 新增 `directRetrieveDiagnostic` / `qaRetrieveDiagnostic` 脱敏诊断摘要，只记录 `ok`、`httpStatus`、业务 `code`、attempts、hit / citation count、`noEvidence`、provider 和 collection 是否存在；不保存 query 原文、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。
+- 已修复诊断误计数：PowerShell 中 `@($null).Count` 和函数返回数组展开会导致缺失 hits 被误读为 `1` 或 `null`；脚本新增 `Get-SafeItemCount`，统一处理 0 / 1 / 多条命中。
+- 已增强环境归因：direct retrieve / QA / runtime error 失败时会复查本地 MySQL / Qdrant tunnel 端口；若运行时环境断链，则写入 `environmentStability=BLOCKED`，并把 parser gate 标为 `BLOCKED`，避免把 tunnel / JDBC 断链误判成 parser 核心失败。
+- 真实验证：先跑出一次环境不稳定证据 `docpilot-parser-real-chain-20260709230208-fc2876`，本地日志显示运行中 MySQL 连接不可用，不能作为 parser 质量失败结论；随后修复脚本计数和归因后，真实 run `docpilot-parser-real-chain-20260709233230-a08906` PASS：PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、direct retrieve hit `1`、QA retrieval hit `1`、citation `1`、source locator present。
+- 已验证：脚本 `plan` / `dry-run` PASS；`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserTest,ParseTaskConsumeEntryServiceImplTest,RagDocumentRetrievalServiceImplTest,*Quality*" test` PASS（74 tests，1 skipped）；真实 `document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS；清理脚本确认 `3000/3001/3002/3007/3100/8081` 端口释放。
+- 边界：本片只修 smoke runner 诊断与归因，不改业务 RAG / Parser service，不新增数据库表，不删除业务数据，不提交 artifact 原文，不 push。下一片建议增强 Document Parser 质量报告和 fixture 长期回归能力，而不是扩大到 OCR、旧 `.doc`、外部网页抓取或复杂版面理解。
+
+## 2026-07-09 补充：Document Parser direct retrieve 质量门禁显性化
+
+- 目标：接续 Document Parser MVP，把 `directRetrieveHitCount=0` 这类真实链路风险从“展示记录里的备注”升级为可见质量门禁，避免 parser smoke 只因 QA citation 通过就掩盖 direct retrieve endpoint 缺口。
+- 已完成脚本修正：`document-parser-real-chain-smoke.ps1` 的 direct retrieve 现在使用与 QA 相同的用户式问题，并在 QA retrieval 已通过但 direct retrieve 仍未命中时做二次确认；artifact 仍只保存计数、布尔值和失败码，不保存 query 原文、answer 原文、文档全文、prompt、evidence context、token、secret、连接串或云地址。
+- 已完成质量口径修正：如果 PDF / HTML / DOCX 的 parse、chunk、QA retrieval、citation 和 source locator 都通过，但 direct retrieve endpoint 没有覆盖全部 fixture，则 `parserRealChain` gate 标为 `REVIEW`，`parserQualityReport.reviewReasons` 记录 `direct_retrieve_missing`。
+- 已完成前端可读性补充：`/quality` 对 `direct_retrieve_missing` 显示为“直接检索未命中”，避免展示 raw key。
+- 真实验证：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 最新 marker `docpilot-parser-real-chain-20260709223724-ceb637` 为 `REVIEW`；tunnel、backend、frontend root、auth、PDF / HTML / DOCX parse、chunk、QA retrieval、citation、source locator、parser boundary 和 artifact redaction 均通过；`directRetrieveHitCount=0/3`，`qaRetrievalHitCount=3/3`，`citationCount=3/3`。
+- 补充定位证据：对同批临时文档重启本地 backend 后，手动调用 `/api/rag/retrieve` 可得到 `directHits=1/1/1`，QA 仍为 `1/1/1`，说明 endpoint 和已写入 Qdrant 的索引最终可用；下一片要定位“同一 smoke 进程内 direct retrieve 为 0，但重启后 direct retrieve 可命中”的差异。
+- 已验证：`mvn "-Dtest=DocumentParserRealChainSmokeScriptSafetyTest,DocumentParserTest,ParseTaskConsumeEntryServiceImplTest,RagDocumentRetrievalServiceImplTest,*Quality*" test` PASS（74 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；脚本 `plan` / `dry-run` PASS。
+- 边界：本片没有修改业务 RAG / Parser service，没有新增数据库表，没有删除业务数据，没有提交 artifact 原文，没有 push。下一片优先做只读/小步代码级定位，不做 OCR、旧 `.doc`、外部网页抓取或复杂版面理解。
+
+## 2026-07-09 补充：真实登录态 Quality Console 回归审计
+
+- 目标：验证 A2 / B2 / C2 / A3 / B3 的前端增强不只在 route smoke 可用，也能在真实登录态 `/quality?autoload=1` 和 `/quality/trace` 中读取后端 Quality API 数据并正常展示。
+- 已执行：复用本地已有 MySQL / Qdrant tunnel；本地启动 backend（local profile，Quality Console enabled，mock AI）和 frontend（`3007`）；通过浏览器注册临时用户并写入登录态；打开 `/quality?autoload=1` 和一个真实 Trace 链接。
+- API 结果：`/api/quality/runs?limit=20`、`/api/quality/eval-cases`、`/api/quality/trends?limit=20` 均返回成功；可见 `20` 条 run、`12` 个 eval case、`20` 个趋势点，最新 marker 为 `docpilot-cloud-quality-20260709164330-452624`，状态为 `REVIEW`。
+- 页面结果：真实登录态下可见运行详情、待处理、链路、评测、文档解析质量摘要、评测用例库、能力层覆盖、覆盖缺口、质量趋势、反复失败用例和最近运行点；Trace 页面可见链路瀑布图、失败步骤、复查步骤、工具 / RAG、模型 / 引用、排查建议、关联门禁和关联评测用例。
+- 脱敏与布局：页面 DOM 未命中 Authorization 凭据、API key、secret、password、连接串、system prompt、answer raw、document full text 或 evidence context；桌面 console error 为 `0`，`390px` 移动端 `/quality` 和 `/quality/trace` 均无横向溢出。
+- 清理：本轮启动的 backend / frontend 已停止，`3000/3001/3002/3007/3100/8081` 端口已释放，临时启动日志已删除；已有 tunnel 未由本轮创建，未主动停止。
+- 边界：本轮只创建临时登录用户，不上传文档、不创建 KB / Conversation、不删除业务数据、不改数据库结构、不操作远程 Docker、不提交 artifact 原文、不 push。
+
+## 2026-07-09 补充：B3 Eval Catalog 覆盖缺口与用例分层审计
+
+- 目标：让 `/quality` 的 Eval Catalog 能判断当前用例库是否覆盖关键能力层，而不是只展示已有 case。
+- 已完成前端：新增必需能力层清单，覆盖 Agent RAG Trace、Memory Context Trace、RAG no-evidence、Citation Precision、Agent Search Routing、KB Agent Grounded Answer、Document Parser Real Chain 和 Memory Provider Contract。
+- 已完成覆盖摘要：Eval Catalog 顶部新增“能力层覆盖”分子 / 分母；下方新增“覆盖缺口”区域，缺层时显示中文能力层名称，全部覆盖时显示“核心能力层已覆盖”。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放，临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不改 eval runner 评分逻辑、不读取 raw artifact、不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
+## 2026-07-09 补充：A3 Trace Timeline 信息密度与步骤诊断增强
+
+- 目标：让 `/quality/trace` 的链路瀑布图不只是步骤列表，而是能快速判断一次 Agent 请求的失败 / 复查步骤分布、工具 / RAG / 模型 / 引用步骤数量和主要排查方向。
+- 已完成前端：`TraceWaterfallCard` 新增链路步骤摘要，展示失败步骤、复查步骤、工具 / RAG 步骤、模型 / 引用步骤和主要失败 / 复查类型。
+- 已完成步骤诊断：每个 Trace step 根据 `stepType`、`status` 和脱敏 bucket 生成“排查建议”，例如工具调用检查参数 / 超时 / fallback，RAG 检索检查 chunk / embedding / query rewrite / rerank / 阈值，citation 检查 grounding 与引用支撑。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality/trace?routeSmoke=1`，console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放，临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不读取 raw artifact、不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
+## 2026-07-09 补充：C2 最近 N 次 repeated failure / regression 轻量趋势增强
+
+- 目标：让 `/quality` 的趋势区不只显示 TopN bucket，还能看出哪些 eval case 反复失败、对应风险是什么、修复建议是什么、最近运行点有哪些异常信号。
+- 已完成前端：`TrendPanel` 现在接入 Eval Catalog，反复失败 case 会展示 case type、能力层、risk gate、失败次数、复查次数、最近运行 marker 和首条修复建议。
+- 已完成定位入口：反复失败 case 如果在 catalog 中有 `latestRunMarker` 与 `latestTraceId` / `latestAgentRunId`，可直接“查看 Trace”；缺失时显示“暂无链路引用”。
+- 已完成最近运行点增强：最近运行点卡片展示 case 通过率、失败 / 复查数、token、耗时、失败类型和复查类型，不再只展示 marker 和状态。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放，临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不引入趋势图、不读取 raw artifact、不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
+## 2026-07-09 补充：B2 Eval Case 风险与回归策略可读性增强
+
+- 目标：让 `/quality` 的 Eval Catalog 从 raw JSON 字段展示升级为“长期质量资产视图”，开发者能看懂每个 case 属于什么风险层、验什么、怎么回归、失败后怎么修。
+- 已完成前端：Eval Catalog 顶部新增用例总数、待处理用例、Trace 覆盖和高风险用例四个摘要；列表按失败 / 复查 / 未运行 / 高风险优先排序。
+- 已完成行级重构：每个 case 拆为“风险分层”“评分门禁”“回归策略”“历史与定位”“修复建议和期望证据”几个区域；`caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy`、`remediationHints` 等常见 key 显示为中文短语，raw key 保留在工程字段和 title 中便于对照。
+- 已完成 Trace 入口：有 `latestRunMarker` 且有 `latestTraceId` / `latestAgentRunId` 的 case 显示“查看 Trace”；缺失时显示“暂无链路引用”，避免误导。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，console error 为 `0`，`390px` 移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放，临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不改 eval runner 评分逻辑、不展示 question、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
+## 2026-07-09 补充：A2 Trace / Failure drill-down 入口联动增强
+
+- 目标：让 `/quality` 的“待处理”区不只是失败桶列表，而是能直接指导开发者从失败类型跳到相关 Trace、Gate 和 Eval 结果。
+- 已完成前端：失败分桶卡片现在展示模块标签、失败 / 复查次数、关联门禁数、关联评测数、关联链路数、简短说明和建议动作；有 trace reference 的 bucket 可直接“查看 Trace”，没有链路引用时明确显示“暂无链路引用”。
+- 已完成 Trace 可读性增强：Run Detail 的链路定位行展示步骤数和主要排查方向；`/quality/trace` 的 Trace reference 卡片新增“步骤数”，和链路瀑布图保持一致。
+- 已完成 Eval 关联提示：失败或需复查的 eval case 如果有 `traceId` / `agentRunId`，继续显示“查看 Trace”；如果没有，则明确显示“暂无链路引用”，用于暴露评测结果和 Trace 覆盖之间的缺口。
+- 已补 `PARSER_FAILURE` 到 Run Detail 失败类型筛选，避免 Document Parser 真实链路问题被折到“其他”。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 与 `/quality/trace?routeSmoke=1`，console error 均为 `0`，`390px` 移动端均无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放；临时启动日志已清理。
+- 边界：本片不改后端 API、不新增数据库表、不读取 raw artifact、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
+## 2026-07-09 补充：C1 Quality Console 趋势指标可信度增强
+
+- 目标：让 `/quality` 的趋势区不再只堆状态和 bucket 字符串，而是能解释“最近运行通过 / 复查 / 失败各是多少、哪些失败桶需要优先处理、缺样本字段是否可靠”。
+- 已完成前端趋势语义修正：`通过运行`、`复查运行`、`失败运行` 均按 `x / totalRuns` 展示，分母明确来自 `trend.runCount`；平均 case 通过率继续作为趋势均值展示，缺样本显示“暂无样本”。
+- 已完成 token / cost 缺失态修正：`totalTokens` 缺失显示“暂无统计”，只有明确数值 `0` 时显示 `0`；成本缺失显示“暂无样本”，明确 `0` 时显示 `0`。
+- 已完成失败 / 复查 TopN 卡片化：每个 bucket 显示中文类型名称、次数、模块标签、简短说明和建议动作；REVIEW 与 FAILED 分开展示，不混为一类。
+- 已新增 Parser 失败桶归类：parser / parse status / source locator / unsupported upload 相关问题归到 `Parser`，artifact JSON 解析坏文件仍归到 `Env`，避免把文档解析质量问题长期落入“其他”。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面和 `390px` 移动端 console error 均为 `0`，移动端无横向溢出。
+- 清理：本轮前端预览进程已停止，`3007` 端口已释放。
+- 边界：本片不改后端 API、不新增数据库表、不引入趋势图、不读取 raw artifact、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
+## 2026-07-09 补充：B1 Eval Case 资产化安全摘要增强
+
+- 目标：让 Eval Catalog 覆盖最新真实质量资产，不只停留在早期 7 个 case。
+- 已完成 catalog 扩容：`agent-quality-eval-cases.json` 新增 `kb-agent-grounded-answer-route`、`document-parser-real-chain`、`memory-provider-small-sample` 三个 case，分别覆盖 KB Agent search / grounded answer、PDF / HTML / DOCX parser 真实链路、Memory provider 小样本抽取契约。
+- 每个新增 case 都补齐 `caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy`、`failureHistoryMarkers`、`lastVerifiedMarker` 和 `remediationHints`，方便 Console 解释“验什么、为什么验、失败后怎么排查、如何回归”。
+- 已同步前端标签：`kb_agent` 显示为“知识库 Agent”，`parser` 显示为“文档解析”，`memory` 显示为“记忆质量”，减少 Eval Catalog raw tag。
+- 顺手修复：`RealShadowProviderEvaluationTest` 的 fake real-shadow allowed tools 和 tool definitions 补入 `document_search_tool`，避免当前 search route eval case 被旧测试契约误判为未知工具。
+- 验证：`mvn "-Dtest=*Quality*,*Eval*" test` PASS（82 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面 console error 为 `0`，`390px` 移动端主内容宽度在视口内。
+- 边界：本片不改变 eval runner 评分逻辑，不新增数据库表，不读业务库，不提交 artifact 原文，不展示 question、expectedBehavior、prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+
+## 2026-07-09 补充：A1 Agent Tool / Trace drill-down 安全摘要增强
+
+- 目标：让 KB Agent search / grounded answer 的 cloud quality artifact 不只停留在 `knowledgeBaseAgent` gate 数值里，而是能生成可打开的 Trace reference 和脱敏链路步骤。
+- 已完成后端：`QualityTraceStepDetail` 新增安全 `attributes` 字段，只允许短枚举 / 工具名等脱敏属性；`QualityArtifactServiceImpl` 会从 `knowledgeBaseAgent` gate 的 `decision`、`selectedTools`、`answerDecision`、`answerSelectedTools`、retrieve / citation 计数和安全布尔值生成 `knowledge-base-agent-runtime` trace reference。
+- 已完成前端：`/quality/trace` 的链路瀑布图新增“链路属性”列，中文展示路由决策、检索工具、回答决策和回答工具；工具枚举值保留原值，便于工程排查。
+- 脱敏边界：仍不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址；属性值也会过滤 URL、凭据、prompt / evidence context 类敏感片段。
+- 验证：`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面 console error 为 `0`，`/quality/trace` 空状态移动端无横向溢出且当前页无新增 console error。一次带不存在 marker 的 trace URL 因未启动 backend 返回 500，仅用于确认不可用 marker 行为，不作为业务失败。
+- 清理：本轮启动的前端预览已停止，`3007` 无 LISTEN，仅剩短暂 TimeWait；临时 `frontend/.next-quality-a1` 已清理。
+
+## 2026-07-09 补充：Agent Quality Console ABC 求职级增强循环
+
+- 总目标：把 Agent Quality Console 从“能展示 run / gate / artifact 摘要”推进到“能辅助排查 Agent / RAG / Eval 质量问题的内部质量控制台”，围绕 A/B/C 三条线连续迭代。
+- A 方向：Agent Tool / Trace drill-down。Run Detail 和 Trace 入口需要能看懂一次 Agent 请求的脱敏链路：selector decision、selected tool、ToolCall、RAG retrieve、citation、no-evidence、权限负向和 failure bucket；不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、token、secret、连接串或云地址。
+- B 方向：Eval Case 资产化。Eval 不只做 smoke 聚合，还要能说明 case 属于哪个能力层、风险等级、评分规则、失败桶、最近验证 marker 和修复建议；REVIEW 表示质量风险，FAILED 表示核心失败，二者不能混淆。
+- C 方向：Quality Console 趋势分析。基于最近 N 个 ignored 脱敏 artifact 聚合 pass/review/fail、failure bucket、case pass rate、token/cost 和 latency 趋势；字段缺失显示“暂无统计”，不能把缺样本误显示为 0。
+- 高质量验收：每片都必须保持 artifact-only 和字段白名单；后端至少跑 `mvn "-Dtest=*Quality*" test` 或更精确 targeted test；前端改动必须跑 `npm run lint`、`npm run build` 和 `/quality` Playwright 桌面 / 移动端检查；真实用户体验质量结论必须有真实 smoke / audit 证据。
+- 自驱边界：不新增数据库表，不做企业级 APM / 告警 / 多租户质量后台，不扩成复杂 planner，不提交 artifact 原文，不 push；如需要 schema 变更、远程 Docker 启停、删除数据、大规模真实 provider 调用或无法脱敏证据，必须停止确认。
+- Slice 0 验收：本任务、`ROADMAP_AGENT_QUALITY_CONSOLE.md`、`STATE.md` 和 `PROGRESS_LOG.md` 已同步 ABC 路线；中文乱码扫描和 `git diff --check` 通过后提交 `docs: plan quality console abc upgrade`。
+
+## 2026-07-09 补充：KB Agent answer route 前端真实可见性回归
+
+- 目标：验证 KB Agent answer route 的安全摘要不只存在于 Quality API，也能在真实 `/quality?autoload=1` 页面中被看到。
+- 已完成前端小修复：`knowledgeBaseAgent` 属于关键诊断 gate，即使状态为 PASS，在“已通过门禁”折叠组展开后也展示安全 signals；其他 PASS gate 继续保持压缩，避免页面变成长列表。
+- 真实 API 验证：本地 tunnel 已可用，backend 以 local profile 和 Quality Console 开关启动后，`/api/quality/runs/docpilot-cloud-quality-20260709164330-452624` 可读到 `knowledgeBaseAgent` gate：PASS，`answerCitations=6`、`answerCoversBothDocuments=true`、`answerNoEvidenceHandled=true`、`foreignKnowledgeBaseRejected=true`。
+- 真实浏览器验证：启动 frontend 后打开 `/quality?autoload=1`，浏览器内创建一次性临时用户并登录；切到“门禁”并展开“已通过门禁”后，可见最新 marker、`知识库 Agent`、`Agent 回答引用数`、`KB 回答覆盖两份文档` 和 `KB 无证据回答已处理`。
+- 脱敏与布局：页面未出现 prompt 原文、answer 原文、文档全文或 evidence context 字样；桌面 console error 为 `0`，`390px` 移动端 console error 为 `0`，`scrollWidth=clientWidth`，未见横向溢出。
+- 清理：本轮启动的 backend、frontend 和浏览器进程已清理，`3000/3001/3002/3007/3100/8081` 端口均已释放；本地临时 token / log 文件已删除。
+- 边界：本片不改后端 API，不读取 raw artifact，不提交 artifact 原文，不删除业务数据，不改 schema，不 push。下一步可进入 Agent Tool / Trace drill-down，把 KB Agent search / answer step 与 failure bucket 在 Trace 视图里连接得更清楚。
+
+## 2026-07-09 补充：Agent Quality Console KB answer 诊断可见性增强
+
+- 目标：让 `/quality` 对 KB Agent grounded answer 的安全摘要更容易阅读，不再只显示 raw key 或把 KB answer route 问题归到泛化 Agent / Citation 类。
+- 已完成前端标签：`knowledgeBaseAgent` 显示为“知识库 Agent”；新增 `answerCitations`、`answerDurationMs`、`answerDecisionPass`、`answerSuccess`、`answerCoversBothDocuments`、`answerNoEvidenceHandled` 等中文标签。
+- 已完成失败桶：`kbAnswerDecisionMismatch` 归类为“KB Agent 回答路由不匹配”，并给出检查 `KnowledgeBaseAgentService` grounded answer 分支、`KnowledgeBaseRagQaService` 调用和 KB answer route smoke case 的建议动作；KB Agent 专属桶判断提前，避免被泛化成“引用不支撑”或“其他”。
+- 已完成摘要：RAG 摘要的“回答引用数”会计入 `answerCitations`；新增“无证据已处理”事实，用于展示 `answerNoEvidenceHandled` / `noEvidenceCorrect` 这类安全布尔摘要。
+- 验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面和 `390px` 移动端 console error 均为 `0`，移动端 snapshot 未见横向溢出；本轮前端预览进程已清理，`3007` 端口已释放。
+- 边界：本片不改后端 API，不读取 raw artifact，不展示 prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串；Gemini CLI 可用但正式审阅请求超时，已按协作规则降级为 Codex 直接集成和验证。
+
+## 2026-07-09 补充：KB Agent grounded answer 真实 cloud smoke
+
+- 目标：把 KB Agent grounded answer route 从离线单测 / route smoke 推进到真实 cloud quality smoke，验证它在完整上传、parse、index、KnowledgeBase RAG、权限隔离和 artifact 脱敏链路中可用。
+- 已执行：`scripts/smoke/cloud-quality-smoke.ps1 -Mode run -SkipFrontend -EnableKnowledgeBaseAgentGate`，marker 为 `docpilot-cloud-quality-20260709164330-452624`。
+- 真实结果：`knowledgeBaseAgent` gate 为 PASS。search route 返回 `decision=search_tool`，selected tool 为 `knowledge_base_search_tool`，retrieve hits / citations 均为 `6`，并覆盖 Alpha / Beta 两份主文档。
+- Grounded answer route：answer intent 返回 `decision=rag_tool`，step 使用 `knowledge_base_rag_qa`，answer citations 为 `6`，并覆盖两份主文档；no-evidence answer 边界通过，跨用户访问用户 A 的 KB 被拒绝。
+- 同轮核心 gate：tunnel、backend health、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、answer grounding、no-evidence、Conversation Trace、权限隔离、cleanup 和 artifact redaction 均为 PASS。
+- 整体 run 为 REVIEW，仅因为本轮有意使用 `-SkipFrontend`，`frontendRoutes` 被标记为 REVIEW；这不是 KB Agent gate 失败，也不是完整前端体验回归。
+- 脱敏边界：artifact 位于 ignored 的 `tmp-e2e/docpilot-cloud-quality-smoke/.../artifact.json`，只保存计数、决策、工具名和布尔摘要；不提交原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 本片结束后建议：进入 Agent Quality Console KB answer 诊断可见性增强，让 `/quality` 能更清楚展示 search route / answer route / no-evidence / 权限负向这些安全摘要，而不是只看 gate 名称和 PASS 状态。
+
+## 2026-07-09 补充：KB Agent answer route smoke gate 扩展
+
+- 目标：把 KB Agent grounded answer P0 从后端单测推进到可复跑 smoke gate，确保后续真实 cloud quality smoke 能同时覆盖 search route、answer route、no-evidence 和权限负向。
+- 已更新 `cloud-quality-smoke.ps1`：`-EnableKnowledgeBaseAgentGate` 现在会额外调用 KB Agent answer intent，要求 `decision=rag_tool`、step 包含 `knowledge_base_rag_qa`、citation 覆盖 Alpha / Beta 两份文档；同时新增 no-evidence answer 边界，要求 `noEvidence=true` 且 citation 为 0。
+- 已更新离线 route smoke：`agent-kb-search-route-smoke.ps1` 的 plan 文案改为 answer intent 路由到 `knowledge_base_rag_qa`；`AgentKnowledgeBaseSearchRouteSmokeTest` 的 artifact 字段改为 `answerDecisionPass`，不再使用旧 `unsupportedIntentPass`。
+- Quality parser 边界：`QualityArtifactServiceImpl` 安全布尔 flag 白名单新增 `handled` 后缀，并允许 `answerCoversBothDocuments` 这类布尔摘要；测试覆盖 `answerCitations`、`answerCoversBothDocuments`、`answerNoEvidenceHandled` 可解析，同时 prompt / answer 诱饵字段不泄露。
+- 已验证：`cloud-quality-smoke.ps1 -Mode plan -EnableKnowledgeBaseAgentGate` PASS；`-Mode dry-run -EnableKnowledgeBaseAgentGate` PASS；`agent-kb-search-route-smoke.ps1 -Mode plan / dry-run / run` PASS，离线 marker `docpilot-agent-kb-search-route-20260709164129-9a8972`；artifact redaction scan PASS；`mvn "-Dtest=AgentKnowledgeBaseSearchRouteSmokeTest,AgentKnowledgeBaseSearchRouteSmokeScriptSafetyTest,RagRealQaEvalSmokeScriptSafetyTest,QualityArtifactServiceImplTest" test` PASS（22 tests，1 skipped）；`mvn "-Dtest=*Quality*" test` PASS（43 tests，1 skipped）。
+- 边界：本片仍未启动真实 backend / frontend，不创建业务数据，不提交 artifact 原文；真实 KB Agent answer route 质量要等下一片 cloud smoke run 验证。
+
+## 2026-07-09 补充：KB Agent grounded answer route P0 后端闭环
+
+- 目标：按 A 方案把 KB Agent 从 retrieval-only P0 扩展到 grounded answer P0，复用现有 `KnowledgeBaseRagQaService`，让 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run` 同时支持检索证据和基于 KB evidence 回答。
+- 已完成后端：`search_tool` 仍调用 `knowledge_base_search_tool`；`rag_tool` / `qa_tool` / `summary_tool` 现在调用 `KnowledgeBaseRagQaService.answer(...)`，并返回 `finalAnswer`、`citations`、`retrievalHits`、`documentHitCounts`、retrieval mode、multi-query / rerank 摘要、`noEvidence`、fallback 和模型调用计数。
+- 请求字段：`KnowledgeBaseAgentRequest` 新增可选 `sessionId`，并继续透传 `topK`、`indexVersion`、`multiQueryEnabled`、`maxQueryVariants` 到 KB RAG QA。
+- Trace / step 边界：answer 分支新增安全 step 名称 `knowledge_base_rag_qa`；step input / output summary 只展示 KB id、参数、是否有 session、hit / citation / document count、noEvidence、fallback 和 modelCallCount，不保存 prompt、answer 原文、文档全文或 evidence context。
+- 已同步离线 smoke 契约：`AgentKnowledgeBaseSearchRouteSmokeTest` 中 answer intent 从旧的 unsupported P0 改为 `rag_tool -> knowledge_base_rag_qa`，artifact 仍只保存 decision、step 名称、布尔值和计数摘要。
+- 已验证：`mvn "-Dtest=KnowledgeBaseAgentServiceImplTest,KnowledgeBaseAgentControllerTest,AgentKnowledgeBaseSearchRouteSmokeTest,AgentKnowledgeBaseSearchRouteSmokeScriptSafetyTest" test` PASS（13 tests，1 skipped）；`mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest" test` PASS（248 tests，3 skipped）。
+- 边界：本片只完成后端离线闭环，不启动真实 backend / tunnel，不创建业务数据，不提交 artifact 原文，不新增数据库表，不做复杂 planner，也不把 KB Agent 写成多 Agent 编排系统。
+- 下一片：扩展 `cloud-quality-smoke.ps1 -EnableKnowledgeBaseAgentGate`，新增 KB Agent answer / no-evidence / redaction gate，并跑真实 cloud smoke。
+
+## 2026-07-09 补充：KB Agent Quality Console 真实前端可见性回归
+
+- 目标：先完成“一”，验证 `knowledgeBaseAgent` gate 不只存在于 artifact / API 中，也能在真实本地 `/quality` 页面被用户看到；“二”再进入 KB Agent answer route 的产品选择和实现。
+- 已验证后端 API：本地 tunnel、backend、frontend 启动后，`GET /api/quality/runs/docpilot-cloud-quality-20260709153428-d25e54` 可读取 `knowledgeBaseAgent` gate，状态为 PASS；安全指标摘要包含 `retrieveHits=6`、`citations=6`、`coversBothDocuments=true`、`unsupportedIntentRejected=true`、`foreignKnowledgeBaseRejected=true`。
+- 已验证前端：浏览器打开 `/quality?autoload=1` 后可见最新 marker `docpilot-cloud-quality-20260709153428-d25e54`；切到“门禁”并展开已通过门禁后，可见“知识库 Agent 检索 / 通过”。桌面和 `390px` 移动端 console error 均为 0，未发现横向溢出。
+- 脱敏检查：页面文本未命中 Authorization 凭据、API key、secret、password、连接串、evidence context、system prompt、answer raw、document full text 等敏感模式；本轮没有提交 artifact 原文。
+- 当前限制：PASS 门禁在 UI 中默认压缩，只展示名称和状态；`retrieveHits / citations / coversBothDocuments / unsupportedIntentRejected / foreignKnowledgeBaseRejected` 这些深层指标已在 Quality API detail 中可见，但前端 PASS 折叠列表暂未展开显示这些细项。该点不是阻塞，但可作为后续 Console 可读性增强。
+- Phase 2 候选：
+  - A. 推荐：KB Agent grounded answer route P0。新增明确的 KB answer intent 入口或复用 KB Agent request 中的 answer mode，调用现有 `KnowledgeBaseRagQaService`，返回 answer + citations + trace summary，并保持 search / answer 意图边界。
+  - B. 保守：只把 KB Agent P0 保持为 retrieval-only，把 answer route 继续交给现有 KnowledgeBase RAG QA；补充 UI / 文档说明和 Quality Console 指标，避免 Agent 能力过度扩张。
+  - C. 中间路线：先做 KB Agent answer route 规划和离线契约测试，不启动真实 provider；确认接口、脱敏和 trace 口径后再进入真实链路 smoke。
+  - 验收建议：无论选择哪条，都必须覆盖 search intent 不误答、answer intent 有 citation、no-evidence 能拒答、跨用户 KB 拒绝、artifact 不保存 prompt / answer 原文 / 文档全文 / evidence context / token / 连接串。
+
+## 2026-07-09 补充：KB Agent Quality Console gate 诊断可读性
+
+- 目标：让 `knowledgeBaseAgent` 真实 cloud smoke gate 进入 `/quality` 后不显示 raw key，而是能读懂“知识库 Agent 检索”及关键通过条件。
+- 已完成后端：`QualityArtifactServiceImpl` 安全 flag 白名单允许 `success`、`covers...` 和 `...Rejected` 这类布尔摘要；单测覆盖 `knowledgeBaseAgent` gate 的 `retrieveHits`、`citations`、`coversBothDocuments`、`unsupportedIntentRejected`、`foreignKnowledgeBaseRejected` 可被解析，同时 prompt / answer 诱饵字段不泄露。
+- 已完成前端：`quality-labels.ts` 新增 `knowledgeBaseAgent` gate 中文名，以及 `coversBothDocuments`、`unsupportedIntentRejected`、`foreignKnowledgeBaseRejected`、`rerankApplied`、`multiQueryApplied`、`queryVariantCount` 等中文标签。
+- 边界：本片只增强 Quality Console 白名单摘要和中文展示，不扩大 raw artifact 展示，不改 KB Agent 业务行为，不新增数据库表，不提交 artifact 原文。
+
+## 2026-07-09 补充：KB Agent real-link runtime smoke gate
+
+- 目标：把 KB Agent P0 从离线路由 smoke 推进到真实 API 链路门禁，复用 cloud quality smoke 已创建的临时用户、两文档 KnowledgeBase 和权限负向上下文。
+- 已完成脚本：`scripts/smoke/cloud-quality-smoke.ps1` 新增默认关闭参数 `-EnableKnowledgeBaseAgentGate`。开启后会调用 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`，验证 retrieval-only 任务 `decision=search_tool`、step 使用 `knowledge_base_search_tool`、retrieve hits / citations 覆盖两份文档、answer / summary intent 被 P0 安全拒绝，以及用户 B 访问用户 A KB 被拒绝。
+- 脱敏边界：artifact 只保存 success、decision、selectedTools、hit / citation count、documentHitCounts、retrieval mode、rerank / multi-query 布尔和耗时等摘要，不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 已补安全测试：`RagRealQaEvalSmokeScriptSafetyTest` 检查 cloud smoke delegate 中包含 `EnableKnowledgeBaseAgentGate`、`knowledgeBaseAgentGateEnabled` 和 `knowledgeBaseAgentGate`，并继续约束不出现 raw prompt / answer / evidence context / token 输出。
+- 已验证：`cloud-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS（当时 tunnel 端口未监听，但 dry-run 自身 PASS）；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest,KnowledgeBaseAgentServiceImplTest,KnowledgeBaseAgentControllerTest" test` PASS（11 tests）；真实 `cloud-quality-smoke.ps1 -Mode run -SkipFrontend -EnableKnowledgeBaseAgentGate` 完成，marker `docpilot-cloud-quality-20260709153428-d25e54`。
+- 真实结果：`knowledgeBaseAgent` gate 为 PASS，`decision=search_tool`，selected tool 为 `knowledge_base_search_tool`，retrieve hits / citations 均为 `6`，documentHitCounts 覆盖两份主文档 `{782:3,783:3}`，unsupported intent rejected=true，foreign KB rejected=true。整体 run 为 `REVIEW` 仅因为本轮有意 `-SkipFrontend`，不代表 KB Agent gate 失败。
+
+## 2026-07-09 补充：Agent search smoke artifact Quality Console 可见性
+
+- 目标：让 Agent Quality Console 不只展示 `agent-quality-eval`，也能聚合单文档 Agent search route smoke 与 KB Agent search route smoke 的 ignored 脱敏 artifact，并把 KB Agent 路由失败显示成可行动中文诊断。
+- 已完成后端：`QualityArtifactServiceImpl` artifact root 白名单新增 `backend/target/agent-search-route` 与 `backend/target/agent-kb-search-route`；单测覆盖两个 root 的 summary / eval case 解析，以及 prompt、answer、documentText、secret 等诱饵字段不泄露。
+- 已完成前端：`/quality` 新增 `agent_search_route`、`agent_kb_search_route` 中文 case type；新增 `KB Agent 路由不匹配`、`KB Agent P0 意图边界异常`、`KB Agent 权限失败透传异常` 三类失败桶映射，分别给出模块标签、说明和建议动作；工具调用摘要会关联这些 Agent route bucket。
+- 边界：本片只改 Quality Console artifact 聚合和展示映射，不改 Agent / RAG 业务链路，不读取 raw artifact，不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、云地址或连接串，不提交 artifact 原文，不 push。
+- 下一片建议：启动本地 tunnel + backend，用临时用户 / 临时 KnowledgeBase 验证 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run` 的真实 API 链路，并把 runtime 结果继续沉淀为脱敏 smoke artifact。
+
+## 2026-07-09 补充：KB Agent search route smoke runner
+
+- 目标：把 KB Agent P0 的 retrieval-only 路由、unsupported answer intent、权限失败透传和 artifact 脱敏边界沉淀为可复跑 smoke runner。
+- 已完成脚本：新增 `scripts/smoke/agent-kb-search-route-smoke.ps1`，支持 `plan / dry-run / run`。`plan` 只输出验证计划；`dry-run` 检查 runner test、Maven 和 artifact root；`run` 只执行离线 JUnit smoke，不启动 backend / frontend / tunnel，不创建业务数据。
+- 已完成测试：新增 `AgentKnowledgeBaseSearchRouteSmokeTest`，显式环境变量启用时写入 ignored 脱敏 artifact；新增 `AgentKnowledgeBaseSearchRouteSmokeScriptSafetyTest`，约束脚本不读 `.env`、不输出 Authorization / Bearer / API key、不递归删除文件。
+- 覆盖 case：retrieval-only KB task 执行 `knowledge_base_search_tool`；answer intent 被 KB Agent P0 安全拒绝且不调用工具；`KNOWLEDGE_BASE_FORBIDDEN` 从工具结果透传为安全失败；artifact 不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 已验证：`agent-kb-search-route-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-kb-search-route-20260709152049-d529d6`；artifact redaction scan PASS；KB Agent smoke targeted 10 tests PASS（1 skipped）；KB Agent / Tool / eval targeted 34 tests PASS（1 skipped）。
+- 边界：本片仍是离线 route contract smoke，不等于真实 backend / tunnel runtime smoke；不改 Agent API，不新增数据库表，不做 KB answer agent，不提交 artifact 原文，不 push。
+- 下一片建议：启动本地 tunnel + backend，以临时用户 / 临时 KB 验证 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run` 的真实 API 链路；通过后再把 KB Agent smoke artifact 加入 Quality Console 聚合或展示标签。
+
+## 2026-07-09 补充：KB Agent retrieval-only route MVP
+
+- 目标：把 `knowledge_base_search_tool` 接入一个独立 KB Agent P0 入口，让 Agent 层能对 KnowledgeBase 做 retrieval-only evidence search，而不是继续只支持单文档 `DocumentAgentRequest`。
+- 已完成后端：新增 `KnowledgeBaseAgentRequest`、`KnowledgeBaseAgentResponse`、`KnowledgeBaseAgentService` / `KnowledgeBaseAgentServiceImpl` 和 `KnowledgeBaseAgentController`；API 为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。
+- 执行语义：P0 复用 `DocumentToolSelector` 判断 intent；只有 `search_tool` 会调用 ToolCall API 的 `knowledge_base_search_tool`。`rag_tool` / `qa_tool` / `summary_tool` 等回答或总结意图不会误调用 KB search，而是返回“P0 仅支持检索证据”的安全提示。
+- 输出边界：response 返回 `documentHitCounts`、retrieval mode、rerank / multi-query 数值、限长 hits / citations 和 step 摘要；不生成 answer，不保存或返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、云地址或连接串。KB 权限 / 不存在类失败从 ToolCallResult 重新抛出，不被工具不可用 fallback 掩盖。
+- 已验证：`mvn "-Dtest=KnowledgeBaseAgentServiceImplTest,KnowledgeBaseAgentControllerTest,KnowledgeBaseSearchToolTest,ToolCallServiceImplTest,ToolArgumentValidatorTest" test` PASS（27 tests）；`mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest" test` PASS（241 tests，2 skipped）。
+- 边界：本片不新增数据库表，不持久化 KB Agent task，不改 `KnowledgeBaseRagQaService` 主链路，不做 KB answer agent，不启动真实 backend / tunnel，不创建业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：新增 `agent-kb-search-route-smoke.ps1`，离线验证 KB Agent route 的 search / unsupported intent / 权限透传 / 脱敏 artifact；之后再跑真实 backend + tunnel 小样本 runtime smoke。
+
+## 2026-07-09 补充：KB Agent route design
+
+- 目标：为 `knowledge_base_search_tool` 接入 Agent 层先明确 request / context 语义，避免把多文档 KnowledgeBase 检索硬塞进当前单文档 `DocumentAgentRequest`。
+- 现状判断：`knowledge_base_search_tool` 已在 ToolSpec、ToolCall callable subset、参数校验和 `ToolInputMapper` 中可用；`KnowledgeBaseRagController` 已提供 `/api/knowledge-bases/{knowledgeBaseId}/rag/retrieve` 与 `/qa/rag`；当前缺口是 Agent 层没有 `knowledgeBaseId` request，也没有 KB Agent task / step 响应语义。
+- P0 推荐实现：新增独立 `KnowledgeBaseAgentRequest` / `KnowledgeBaseAgentService` / `KnowledgeBaseAgentController`，API 建议为 `POST /api/ai/agent/knowledge-bases/{knowledgeBaseId}/run`。P0 只支持 retrieval-only search intent，调用 ToolCall API 的 `knowledge_base_search_tool`，返回 KB search 摘要、`documentHitCounts`、retrieval mode、multi-query / rerank 数值、限长 quote/snippet 和 Agent step，不生成 answer。
+- P0 不改内容：不复用或扩展 `DocumentAgentRequest` 承载 KB；不新增数据库表；不改 `KnowledgeBaseRagQaService` 主链路；不把 KB search route 写成复杂 planner；不保存 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、云地址或连接串。
+- 验收标准：KB Agent search request 有明确 `knowledgeBaseId`、`task/query`、`topK`、`indexVersion`、`multiQueryEnabled`、`maxQueryVariants`；权限隔离由既有 KB scope guard 透传；retrieval-only 任务执行 `knowledge_base_search_tool`；输出包含安全 `documentHitCounts` 和 citation previews；no-evidence 返回清晰 search summary；测试覆盖成功、no-evidence、权限拒绝、脱敏和参数边界。
+- P1 后续：如果 P0 稳定，再考虑 KB grounded answer agent route，显式区分 `kb_search_tool` 与 `kb_rag_answer_tool`；若要进入 Conversation / Trace，需要单独设计 trace reference，不在 P0 混入。
+- 下一片实现建议：先做后端 P0 service/controller + 单测，不启动真实链路；通过后再补 `agent-kb-search-route-smoke.ps1` 和 Quality Console 诊断入口。
+
+## 2026-07-09 补充：Agent search route smoke runner
+
+- 目标：把单文档 Agent 的 retrieval-only search 路由从普通单测进一步沉淀为可复跑 smoke runner，验证“检索 / topK / 相似度 / 来源列表”类任务走 `search_tool` / `document_search_tool`，而 grounded answer 任务继续走 `rag_tool` / `rag_qa_tool`。
+- 已完成脚本：新增 `scripts/smoke/agent-search-route-smoke.ps1`，支持 `plan / dry-run / run`。`plan` 只输出验证计划；`dry-run` 只检查 runner test、Maven 和 artifact root；`run` 只执行离线 JUnit smoke，不启动 backend / frontend / tunnel，不创建业务数据。
+- 已完成测试：新增 `AgentSearchRouteSmokeTest`，显式启用环境变量时写入 ignored 脱敏 artifact；新增 `AgentSearchRouteSmokeScriptSafetyTest`，约束脚本不读 `.env`、不输出 Authorization / Bearer / API key、不递归删除文件。
+- 脱敏边界：artifact 只保存 marker、状态、caseId、expected / actual decision、selected tool、布尔结果、stepCount 和 failure buckets；不保存原始 task、prompt、answer 原文、文档全文、evidence context、token、凭据、云地址或连接串。
+- 已验证：`agent-search-route-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-search-route-20260709101258-021654`；artifact redaction scan PASS；`mvn "-Dtest=AgentSearchRouteSmokeTest,AgentSearchRouteSmokeScriptSafetyTest,DocumentAgentServiceImplTest" test` PASS（17 tests，1 skipped）；Agent / selector / eval targeted 63 tests PASS（1 skipped）。
+- 边界：本片仍是离线 route contract smoke，不等于浏览器或真实 cloud runtime smoke；不改 Agent API，不新增数据库表，不接 KB Agent 路由，不提交 artifact 原文，不 push。
+- 下一片建议：先做 KB Agent route design，明确 KnowledgeBase Agent request / context 语义，再决定是否新增 `/api/ai/agent/kb/run` 或独立 KB Agent service；如果先补真实链路，则应启动本地 backend / tunnel，用临时文档验证 `/api/ai/agent/run` search intent 的 ToolCall step 和 task persistence。
+
+## 2026-07-09 补充：Agent Quality Console search diagnostics
+
+- 目标：让 `/quality` 能更清楚展示 Agent search route eval 的诊断结果，避免 `expectedDecisionMatched`、`expectedDecisionMismatch`、`agent_search` 这类 raw key 直接落到未知指标或未知失败桶。
+- 已完成前端：`quality-labels.ts` 新增 `agent_search`、`expectedDecisionMatched` 和 `AGENT_ROUTING_MISMATCH` 中文标签；`expectedDecisionMatched` 显示为“是 / 否”，不再当普通数字展示。
+- 已完成分桶：`/quality` 的 triage 现在会把 `expectedDecisionMismatch`、selector、routing、search-overrouting、answer-overrouting 归到“Agent 路由不匹配”，模块标签为 `Agent`，建议动作指向 `DocumentToolSelector`、LLM selector prompt 和 search / answer 意图评测用例。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `http://127.0.0.1:3007/quality?routeSmoke=2`，桌面和 `390px` 移动端 console error 均为 0，移动端 snapshot 未见横向溢出；本轮启动的 3007 预览进程和临时日志目录已清理。
+- 边界：本片只改 Quality Console 前端展示映射，不改后端 API，不读取 raw artifact，不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址，不提交 artifact 原文，不 push。
+- 下一片建议：二选一推进：其一，做 Agent search real-link smoke，真实启动后端调用 `DocumentAgentService` 的 search intent 并验证工具调用摘要；其二，先做 KB Agent route design，因为当前 `DocumentAgentRequest` 仍是单文档语义，不能直接把 `knowledge_base_search_tool` 硬塞进单文档 Agent。
+
+## 2026-07-08 补充：Agent search eval 路由质量门禁
+
+- 目标：把 `document_search_tool` 与 `search_tool` 路由从普通单测提升为 Agent Quality Eval 可复查的质量资产，防止后续把 retrieval-only 意图误路由到 QA，或把 grounded answer 意图过度路由到 search。
+- 已完成 eval runner：`AgentQualityEvalRunner` 对带 `scoringRules.expectedDecision` 的 case 会真实调用 `DocumentToolSelector`，并用 `expectedDecisionMismatch` 标记漂移；artifact 只保存 `expectedDecisionMatched` 数值，不保存原始 question、expectedBehavior、prompt、answer 原文、文档全文或 evidence context。
+- 已完成 catalog：`agent-quality-eval-cases.json` 新增 `agent-document-search-route` 和 `agent-rag-answer-route` 两个 case，分别覆盖 `search_tool -> document_search_tool` 与 `rag_tool -> rag_qa_tool`，让检索意图和回答意图都有回归门禁。
+- 已完成 smoke：`agent-quality-eval-smoke.ps1` 的 plan 输出新增 `scoringRules.expectedDecision` 与 `expectedDecisionMatched` 说明；`plan`、`dry-run` 和 `run` 均保持不读 env、不启动服务、不创建业务数据、不提交 artifact 原文。
+- 已验证：`mvn "-Dtest=AgentQualityEvalRunnerTest,AgentQualityEvalRunnerSmokeTest,AgentQualityEvalSmokeScriptSafetyTest,QualityEvalCatalogServiceImplTest,QualityControllerTest" test` PASS（18 tests，1 skipped）；`mvn "-Dtest=*Quality*" test` PASS（41 tests，1 skipped）；`agent-quality-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-quality-eval-20260708231648-f178d4`。
+- 边界：本片仍是离线 eval / smoke 资产，不启动 backend / frontend / tunnel，不创建业务数据，不新增数据库表，不改 Agent 业务 API，不提交 ignored artifact，不 push。
+- 下一片建议：进入 Agent Quality Console search diagnostics，在 `/quality` 的 Eval / Tool / Failures 区域把 search route case、`expectedDecisionMatched`、search-overrouting / answer-overrouting failure bucket 做成更可读的诊断入口。
+
+## 2026-07-08 补充：Agent search intent 路由与评测门禁
+
+- 目标：让单文档 Agent 能区分 retrieval-only search intent 与 grounded QA intent；“检索 topK / 展示相似度 / 列来源 / citation list”走 `document_search_tool`，“回答 / 解释 / 总结并引用证据 / 说明事实”继续走 `rag_qa_tool`。
+- 已完成后端：`DocumentToolSelector` 新增 `search_tool` 决策；`LlmToolSelectionParser`、`LlmToolSelectionPromptBuilder` 和 `FakeLlmToolSelectionClient` 已同步允许 / 生成 `search_tool`；`DocumentAgentServiceImpl` 在最终决策为 `search_tool` 时调用 `document_search_tool`，并返回检索摘要而不是生成式业务答案。
+- 输出边界：search intent 的 final answer 只包含命中数、citation 数、topK、chunkId、chunkIndex、score、sourceLocator 和最多 3 条已限长 quote；`ragAnswerContext` 只放最多 3 条已限长 snippet；不返回完整 chunk content、文档全文、prompt、answer 原文、secret、连接串或云地址。
+- 评测边界：`tool-selector-eval-cases.json` 已同步新口径，`cite the source for the main claim` 作为 retrieval-only 来源查找走 `search_tool`；`请引用原文说明合同金额` 因包含“说明”事实回答意图，继续走 `rag_tool`。
+- 已验证：`mvn "-Dtest=DocumentToolSelectorTest,FakeLlmToolSelectionClientTest,FakeLlmToolSelectorTest,LlmToolSelectionParserTest,LlmToolSelectionPromptBuilderTest,DocumentAgentServiceImplTest" test` PASS（53 tests）；`mvn "-Dtest=ToolSelectorEvaluationTest,DocumentToolSelectorTest,FakeLlmToolSelectionClientTest,FakeLlmToolSelectorTest" test` PASS（27 tests）；`mvn "-Dtest=*Agent*,*ToolSelector*,*ToolSelection*,*ToolCall*,*Tool*,RagDocumentRetrievalServiceImplTest" test` PASS（212 tests，1 skipped）。
+- 边界：本片不接入 KB Agent 路由，因为当前 `DocumentAgentRequest` 仍是单文档语义；不新增数据库表，不改 RAG 主链路，不启动真实链路，不提交 artifact 原文，不 push。
+- 下一片建议：新增 search eval / smoke 资产，覆盖 retrieval-only 召回、QA intent 不误路由、search result 脱敏和 Agent Quality Console search diagnostics；KB Agent 路由需先单独设计 request / context 语义。
+
+## 2026-07-08 补充：KnowledgeBase `knowledge_base_search_tool` 最小闭环
+
+- 目标：新增 retrieval-only KB 多文档检索工具，让 Agent 可以显式搜索 KnowledgeBase evidence，并输出多文档命中分布和检索模式诊断，而不是只能依赖生成式 KB QA。
+- 已完成后端：新增 `KnowledgeBaseSearchTool`，输入 `userId`、`knowledgeBaseId`、`query`、`topK`、`indexVersion`、`multiQueryEnabled`、`maxQueryVariants`，复用 `KnowledgeBaseRagRetrievalService`；ToolSpec、ToolCall callable subset、参数校验和输入映射已同步接入。
+- 安全边界：工具返回自定义 `SearchHit` / `SearchCitation`，只包含 documentId、documentTitle、chunkId、chunkIndex、score、vector / keyword / fused / rerank 分数、contentHash、限长 quote/snippet、`documentHitCounts`、`retrievalMode`、rerank / multi-query 数值摘要；不返回完整 chunk content、文档全文、prompt、answer 原文、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=KnowledgeBaseSearchToolTest,DocumentSearchToolTest,ToolCallServiceImplTest,DefaultToolSpecProviderTest,ToolArgumentValidatorTest,ToolSpecRegistryTest,ToolDefinitionProviderTest,OpenAiToolSchemaAdapterTest" test` PASS（41 tests）；`mvn "-Dtest=*Tool*,*ToolCall*,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS（157 tests）；布尔参数边界收紧后 `mvn "-Dtest=KnowledgeBaseSearchToolTest,ToolCallServiceImplTest,ToolArgumentValidatorTest" test` PASS（21 tests）。
+- 边界：本片不改 Agent 旧关键词路由，不改 KB RAG 主链路，不新增数据库表，不启动真实链路，不提交 artifact 原文，不 push。
+- 下一片建议：进入 Agent search intent 路由，让“搜索 / 查找 / 证据 / 来源 / 命中”类意图优先选择 `document_search_tool` 或 `knowledge_base_search_tool`，并补 search eval gate 区分 retrieval-only 与 QA intent。
+
+## 2026-07-08 补充：单文档 `document_search_tool` 最小闭环
+
+- 目标：新增 retrieval-only Agent 工具，让 ToolCall API 能显式执行单文档检索，而不是把“搜索证据”强行绕到 `rag_qa_tool` 的生成式 QA。
+- 已完成后端：新增 `DocumentSearchTool`，输入 `userId`、`documentId`、`query`、`topK`、`indexVersion`，复用 `RagDocumentRetrievalService`；`DefaultToolSpecProvider` 将 `document_search_tool` 作为 LLM selectable spec 暴露；`ToolCallServiceImpl` 将它加入 callable subset；`ToolInputMapper` / `ToolArgumentValidator` 支持 `query` 参数归一化和 `topK` 上限。
+- 安全边界：工具返回自定义 `SearchHit` / `SearchCitation`，只包含 rank、score、sourceName、chunkId、chunkIndex、pageNumber、sectionPath、sourceLocator、blockType、contentHash 和限长 quote/snippet；不返回完整 chunk content、文档全文、prompt、answer 原文、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=DocumentSearchToolTest,ToolCallServiceImplTest,DefaultToolSpecProviderTest,ToolArgumentValidatorTest,OpenAiToolSchemaAdapterTest" test` PASS（24 tests）；`mvn "-Dtest=*Tool*,*ToolCall*,RagDocumentRetrievalServiceImplTest" test` PASS（123 tests）。
+- 边界：本片不改 `DocumentToolSelector` 旧关键词路由，不改 `rag_qa_tool` QA 行为，不新增数据库表，不做真实 provider 大规模评测，不提交 artifact 原文，不 push。
+- 下一片建议：新增 `knowledge_base_search_tool` 复用 `KnowledgeBaseRagRetrievalService`，并规划 Agent search intent 路由，让“查找证据 / 搜索文档 / 展示来源”优先走 search tool，“请回答 / 总结 / 解释”继续走 QA tool。
+
+## 2026-07-08 补充：Agent Document Search Tool 求职级增强路线
+
+- 目标：把 Agent 工具从“能调用 RAG QA 回答”推进到“能显式执行文档检索、暴露可诊断 evidence，并为后续 KB search / Agent 路由 / Quality Console 评测打基础”。
+- 当前现状：已有 `rag_qa_tool`，它复用 `RagQaService` 返回 answer、retrieval hits 和 citations；但它是问答工具，不适合承担“只检索、不生成答案”的 search intent。ToolCall API 当前只开放 `document_status_tool` 与 `rag_qa_tool`，还没有一等 `document_search_tool`。
+- 第一片实现边界：新增单文档 `document_search_tool`，输入 `userId`、`documentId`、`query`、`topK`、`indexVersion`，复用现有 `RagDocumentRetrievalService` / `RagScopeGuard` 权限边界，只返回限长、脱敏、结构化 retrieval 结果，不返回完整 chunk content、文档全文、prompt 或 answer 原文。
+- 后续切片：`knowledge_base_search_tool`、Agent search intent 路由、search eval / smoke、Agent Quality Console search diagnostics。每片都保持小闭环，先单文档检索能力稳定，再扩到 KB 与自动评测。
+- 验收标准：ToolSpec 可见且 ToolCall API 可调用；非法 userId / documentId / query / topK 正确拒绝；scope rejection 透传为失败结果；返回结果包含 hit count、citation count、source locator、score、chunkId、contentHash 等安全字段；后端 `*Tool*` / RAG retrieval 相关测试通过。
+- 本轮明确不做：不新增数据库表，不改 RAG 主链路，不改变 `rag_qa_tool` QA 行为，不接真实 provider 大规模评测，不提交 artifact 原文，不 push。
+
+## 2026-07-08 补充：Document Parser 真实链路质量回归与 Quality Console 可见性收口
+
+- 目标：用最新 `document-parser-real-chain-smoke.ps1` 跑一次受控真实链路，确认 PDF / HTML / DOCX 上传、异步解析、chunk、RAG QA retrieval、citation、source locator、错误边界和 `/quality` parser 摘要都可用。
+- 已完成 runner 稳定性修复：`run` 默认不再静默复用已经运行的 backend / frontend；只有显式传 `-ReuseRunningServices` 才复用，否则返回 `BLOCKED`，避免把不受控的本地服务配置误判为 parser 业务失败。runner 自己启动 backend 时通过子进程环境强制 `AI_MODE=mock` 和 `APP_QUALITY_CONSOLE_ENABLED=true`，不写入配置文件。
+- 已完成 QA 检索诊断增强：artifact 和 `parserQualityReport` 区分 `directRetrieveHitCount` 与 `qaRetrievalHitCount`；本轮真实 PASS 中直接 retrieve 为 `0/3`，QA 内部 retrieval 为 `3/3`，citation 为 `3/3`，因此核心 parser QA 链路通过，但直接 retrieve endpoint / query 语义仍是后续可排查项。
+- 已完成 Quality Console 工作目录修复：`QualityArtifactServiceImpl` 会从当前工作目录向上解析仓库根，避免 backend 从 `backend/` 或 `backend/target/classes` 启动时扫不到 `backend/target/smoke/...` artifact。
+- 已完成前端展示：`/quality` 的“文档解析质量摘要”新增“检索来源”，显示“直接 / 问答”两个脱敏计数，方便解释 direct retrieve 与 QA retrieval 的差异。
+- 已验证真实链路：`document-parser-real-chain-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-parser-real-chain-20260708212742-0f9baa`；PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`qaRetrievalHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`；`parserBoundary` 为 `4/4` PASS；artifact redaction PASS。
+- 已验证 Console 可见性：`GET /api/quality/runs` 最新 run 为 `docpilot-parser-real-chain-20260708212742-0f9baa`，`parserQuality.fileCount=3`、`parsedFileCount=3`、`directRetrieveHitCount=0`、`qaRetrievalHitCount=3`、`citationCount=3`、`boundaryPassRate=1.0`；浏览器 `/quality?autoload=1` 的 Artifact 分区可见最新 marker、“文档解析质量摘要”和“检索来源”，桌面和 `390px` 移动端均无横向溢出，console error 为 `0`。
+- 已验证离线回归：`mvn "-Dtest=*Quality*" test` PASS（40 tests，1 skipped）；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不改 parser / RAG 主链路，不新增数据库表，不删除业务数据，不操作远程 Docker，不提交 artifact 原文，不 push；真实 run 创建临时 smoke 用户 / 文档和 ignored 脱敏 artifact。
+- 下一片建议：进入 Document Parser fixture corpus v3，重点补 PDF 多页结构、HTML 表格 / 列表 / 噪声边界、DOCX 表格 / 列表 / 标题层级与 parser warning 的质量用例，并单独排查 direct retrieve endpoint 在 parser fixture 上 `0/3` 的原因。
+
+## 2026-07-08 补充：Document Parser 解析质量报告 / Quality Console parser 诊断增强
+
+- 目标：把 Document Parser smoke 从“几个 gate 数字可见”推进到“可诊断解析质量报告”，让 `/quality` 能直接判断 PDF / HTML / DOCX 覆盖、解析成功率、source locator 覆盖、RAG retrieve / citation 覆盖和错误边界是否可信。
+- 已完成 smoke artifact 增强：`scripts/smoke/document-parser-real-chain-smoke.ps1` 的 `run` artifact 新增脱敏 `parserQualityReport`，仅由现有安全 `files`、`boundary` 和 gate 数值派生，包含 `fileTypeCoverage`、`parseStatusSummary`、`sourceLocatorSummary`、`ragChainSummary`、`boundarySummary`、`warningsSummary`、`reviewReasons` 和 `unavailableMetrics`。
+- 已完成后端白名单解析：`QualityRunDiagnostics` 新增 `parserQuality` 安全摘要；`QualityArtifactServiceImpl` 只读取数值、布尔值和安全短 bucket，不透传 raw artifact，也不返回 prompt、answer、文档全文、evidence context、异常堆栈、secret、连接串或云地址。
+- 已完成前端展示：`/quality` 的“文档解析质量摘要”优先展示 parser quality report，增加格式覆盖、解析成功率、检索与引用覆盖、错误边界四张诊断卡；缺失指标显示“暂无统计”，不会把缺样本误显示为 0。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS（39 tests，1 skipped）；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 桌面和 `390px` 移动端均无 console error、无横向溢出。
+- 边界：本片不改 parser / RAG 主链路，不新增数据库表，不启动真实云链路 run，不创建业务数据，不提交 artifact 原文，不 push。真实 parser report 可见性将在下一片通过 `document-parser-real-chain-smoke.ps1 -Mode run` 和 `/quality?autoload=1` 验证。
+- 下一片建议：进入 Document Parser fixture corpus v3 / 真实链路质量回归，补更复杂但仍非 OCR 的 PDF / HTML / DOCX fixture，并跑一次真实上传、parse、chunk、retrieve、QA citation 和 Quality Console 可见性闭环。
+
+当前任务：Document Parser Quality Console parser 指标展示增强（DONE）；下一片：Document Parser 解析质量报告 / fixture corpus v3（READY）
+
+## 2026-07-06 补充：Document Parser Quality Console parser 指标展示增强
+
+- 目标：让 Agent Quality Console 的 `/quality` 能直接读懂 Document Parser smoke 的关键指标，不再只在 Artifact 元信息或门禁明细里找 `parserRealChain` / `parserBoundary`。
+- 已完成前端：`/quality` 的 Artifact 分区新增“文档解析质量摘要”，展示解析成功文件、切片总数、检索 / 引用、来源定位、解析失败数、运行耗时、不支持格式拒绝和负向边界通过数。
+- 已完成中文标签：`frontend/lib/quality-labels.ts` 补充 parser gate 和 metrics 的中文展示，包括 `parserRealChain`、`parserBoundary`、`fileCount`、`parsedFileCount`、`sourceLocatorCount`、`negativeCasePassCount`、`unsupportedUploadRejected` 等。
+- 脱敏边界：本片只读取已有 `QualityRunDetail.gates` 中的数值和布尔字段，不改后端 API、不读取 raw artifact、不展示文档全文、prompt、answer、evidence context、异常堆栈、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 打开 `/quality?autoload=1` 后可见“文档解析质量摘要”“负向边界通过”“不支持格式拒绝”，桌面与 `390px` 移动端均无横向溢出，最新 console error 为 0。
+- 边界：本片不新增数据库表、不改 parser / RAG 主链路、不创建业务数据、不提交 artifact 原文、不 push；本轮启动的前端预览进程已清理，端口释放。
+- 下一片建议：进入 Document Parser 解析质量报告 / fixture corpus v3，把 fixture 结构质量、parser warning、source locator 覆盖和 boundary 结果汇总成更可读的脱敏报告，或继续扩展 PDF / HTML / DOCX fixture 到更复杂但仍不涉及 OCR 的样例。
+
+## 2026-07-06 补充：Document Parser fixture corpus v2
+
+- 目标：把 parser 单测 fixture 从最简单文本样例推进到更接近真实文档结构的质量门禁，覆盖多页 PDF、HTML 层级 / 表格 / 链接和 DOCX 标题 / 列表 / 表格。
+- 已完成 HTML parser 增强：`tr` 行现在按 `th/td` 单元格抽取并用 ` | ` 分隔，避免表格结构被压成不可读空格文本；独立链接仍作为 `LINK` block，段落 / 列表内链接继续合并进正文。
+- 已完成 DOCX parser 增强：带编号或 list 样式的段落会标记为 `BlockType.LIST`，并继承当前 `sectionPath`，方便后续 chunk metadata 和 citation 定位列表来源。
+- 已完成 fixture 断言：PDF fixture 覆盖 3 页且中间空页生成 `empty_page:2` warning；HTML fixture 覆盖 `h1/h2`、表格行、列表、独立链接和噪声标签剔除；DOCX fixture 覆盖 `Heading1/Heading2`、普通段落、list 样式段落和表格。
+- 已验证离线测试：`mvn "-Dtest=DocumentParserTest" test` PASS，7 tests；`mvn "-Dtest=*Parser*,ParseTaskConsumeEntryServiceImplTest,FileContentReaderTest,FileServiceImplTest" test` PASS，44 tests。
+- 已验证真实链路：`document-parser-real-chain-smoke.ps1 -Mode run` PASS，marker `docpilot-parser-real-chain-20260706215802-78374c`，PDF / HTML / DOCX 均 parse SUCCESS、chunk、retrieve、QA citation 和 source locator PASS，parserBoundary 继续 PASS。
+- 边界：本片不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原；真实 run 创建临时 smoke 数据和 ignored 脱敏 artifact，不删除业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：把 Document Parser 的安全摘要接入 Agent Quality Console 的 Run Detail，让 parserName、parseStatus、extractedChars、pageCount、blockCount、warningCount 和 parserBoundary 结果在内部质量控制台更容易阅读。
+
+## 2026-07-06 补充：Document Parser 错误边界 API 负向增强
+
+- 目标：把 parser smoke 的错误边界从“准备坏文件 / 依赖单测”推进到真实 API 链路，覆盖 upload 拒绝、空内容、损坏 PDF 和损坏 DOCX 的稳定失败状态与脱敏错误码。
+- 已完成 runner 增强：`scripts/smoke/document-parser-real-chain-smoke.ps1` 的 `run` 模式新增 `parserBoundary` gate，真实执行 upload / document create / parse task create / parse terminal polling；失败原因只读取并保存白名单错误码，不保存异常堆栈、文件内容、prompt、answer 或 evidence context。
+- 已完成负向 case：不支持格式上传返回 `UPLOAD_REJECTED`；空白 `TXT` 解析终态为 `FAILED` 且错误码为 `PARSER_EMPTY_CONTENT`；损坏 `PDF` / `DOCX` 解析终态为 `FAILED` 且错误码为 `PARSER_CORRUPTED_FILE`。
+- 已处理真实链路插曲：首轮 boundary run 触发同一临时用户上传频率限制，导致负向 case 在 parser 前被 upload 拒绝；runner 已改为每个负向 case 使用独立临时 smoke 用户，避免把限流误判为 parser 失败。
+- 已验证：`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-parser-real-chain-20260706215134-857b73`，`parserBoundary` 为 PASS，`negativeCasePassCount=4/4`、`negativeCaseFailCount=0`、`unsupportedUploadRejected=true`。
+- 边界：本片不删除业务数据、不改数据库结构、不操作远程 Docker、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原，不提交 artifact 原文，不 push。
+- 下一片建议：进入 Parser fixture corpus v2，补多页 PDF、HTML 列表 / 表格 / 噪声结构、DOCX 表格 / 列表 / 标题层级等可复现 fixture，并让单测和 smoke 更能证明真实解析质量。
+
+## 2026-07-06 补充：Document Parser source locator 贯通到 RAG citation
+
+- 目标：把 `ParseResult.blocks()` 中的 page / block / section locator 从 parser 层继续传到 chunk metadata、embedding metadata、vector payload、RAG retrieve hit 和 QA citation，避免真实引用只能停留在文件名或粗粒度 section。
+- 已完成后端：新增 `RagSourceBlock`，`RagIndexingTriggerService` 支持接收 `ParseResult`；`ParseTaskConsumeEntryServiceImpl` 在 parse success 后把完整 parse result 交给 RAG indexing trigger；`ChunkingService` 根据 parser source block 为 chunk 写入 `pageNumber`、`sourceLocator`、`blockType`、`sectionPath` 和 `structureType`。
+- 已完成 RAG citation：`RagIndexingServiceImpl` 将 page/source/block 元数据写入 embedding metadata 和 vector payload；`RagRetrievalHit`、`RagEvidenceCitation`、`RagRetrievalHitResponse`、`RagCitationResponse` 返回脱敏 locator 字段，方便前端和 smoke 判断 citation 来源是否可定位。
+- 已完成 parser offset 回归：HTML / DOCX heading block 的 `endOffset` 与 `fullText` 中的 Markdown heading 片段对齐，避免后续 chunk source block overlap 判断偏移。
+- 已完成 smoke 增强：`scripts/smoke/document-parser-real-chain-smoke.ps1` 的 `sourceLocatorPresent` 现在优先识别 `sourceLocator`、`pageNumber`、`blockType`，而不是只依赖文件名 / section / offset。
+- 已验证离线测试：`mvn "-Dtest=DocumentParserTest,ChunkingServiceImplTest,RagIndexingServiceImplTest,RagDocumentRetrievalServiceImplTest,ParseTaskConsumeEntryServiceImplTest" test` PASS，56 tests；`mvn "-Dtest=*Parser*,ParseTaskConsumeEntryServiceImplTest,FileContentReaderTest,FileServiceImplTest,ChunkingServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,RagDocumentRetrievalQualitySmokeTest,RagDocumentRetrievalServiceImplTest" test` PASS，88 tests。
+- 已验证真实链路：`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-parser-real-chain-20260706214209-dcb8f2`，PDF / HTML / DOCX 均为 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`。
+- 边界：本片不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原 / PDF 坐标级 citation；真实 run 创建临时 smoke 用户和文档，不删除已有业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：进入 Parser 错误边界 API 负向增强，补空文件、极短文件、损坏 PDF / DOCX、超限文件和不支持格式在真实 API 链路中的稳定失败状态与脱敏错误码。
+
+## 2026-07-06 补充：Document Parser MVP 真实链路验证
+
+- 目标：把 Document Parser MVP 从离线单测推进到真实上传链路，验证 PDF / HTML / DOCX 能经过上传、异步解析、chunk、embedding / index、RAG retrieve、QA citation 和脱敏 artifact。
+- 已完成 parser locator 修复：HTML / DOCX parser 在 `fullText` 中保留 Markdown heading 形式，便于现有 chunker 生成 `sectionPath` / `structureType`；block 原始标题文本和 parser metadata 不变。
+- 已完成 citation source metadata：单文档 RAG retrieve / QA citation 现在返回脱敏 `sourceName`、`sectionPath`、`structureType` 等来源摘要，便于真实 smoke 判断 citation locator 是否可用；不返回 prompt、answer 原文、文档全文或 evidence context。
+- 已新增真实链路 runner：`scripts/smoke/document-parser-real-chain-smoke.ps1` 支持 `plan / dry-run / run`。`run` 会生成小型 PDF / HTML / DOCX 临时 fixture，启动或复用本地 tunnel / backend / frontend，注册临时用户，上传三类文档，等待 parse `SUCCESS`，验证 chunk count、RAG retrieve、QA citation 和 source locator，并写入 ignored 脱敏 `artifact.json`。
+- 已接入 Agent Quality Console：`backend/target/smoke/document-parser-real-chain` 加入 Quality artifact 白名单，parser smoke 的 `parserRealChain` gate 暴露 `fileCount`、`parsedFileCount`、`parserFailureCount`、`chunkCount`、`retrieveHitCount`、`citationCount`、`sourceLocatorCount` 和 `durationMs` 等安全数值。
+- 已验证真实 run：`docpilot-parser-real-chain-20260706172220-f03956` 状态 PASS；PDF / HTML / DOCX 均 `parseStatus=SUCCESS`、`chunkCount=1`、`retrieveHit=true`、`citationPresent=true`、`sourceLocatorPresent=true`；tunnel、backend、frontend、unsupported format boundary 和 artifact redaction 均 PASS。
+- 已验证测试：`mvn "-Dtest=*Quality*,DocumentParserTest,ChunkingServiceImplTest,RagDocumentRetrievalServiceImplTest" test` PASS，70 tests，1 skipped；`document-parser-real-chain-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS。
+- 边界：本轮不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原 / PDF 坐标级 citation；真实 run 创建 marker 临时用户和临时文档，不删除已有业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：进入 Parser 质量增强 P1，重点补 block/page locator 到 chunk metadata 的更强桥接、损坏 PDF / DOCX API 级负向 smoke、空文件 / 超大文件真实 API 边界、以及 `/quality` 页面 parser 指标展示文案。
+
+## 2026-07-06 补充：Document Parser MVP 第一片
+
+- 目标：把文档解析从 `txt / md` 和 PDF 占位推进到工程化 Parser MVP，支持 `txt / md`、文本型 PDF、本地 HTML 和 DOCX 的稳定文本抽取，并接入既有“上传 -> 异步解析 -> chunk -> embedding -> vector index -> RAG QA”链路。
+- 已完成后端：新增 `backend/src/main/java/com/docpilot/backend/document/parser/**`，包含 `DocumentParser`、`ParserRegistry`、`ParseResult`、`DocumentBlock`、PDFBox parser、Jsoup HTML parser、Apache POI DOCX parser 和文本 parser。
+- 已完成链路接入：`ParseTaskConsumeEntryServiceImpl` 现在按 contentType / extension 选择 parser，解析成功后继续写入 document content / summary、推进 parse status、触发 RAG indexing；RAG indexing trigger 失败仍与 parse success 隔离。
+- 已完成上传与配置：上传 allowlist 扩展到 `pdf/md/txt/html/htm/docx`；`application.yml` 和 `.env*.example` 新增 `APP_DOCUMENT_PARSER_MAX_FILE_SIZE_BYTES` 与 `APP_DOCUMENT_PARSER_TIMEOUT_MS`。
+- 已完成可观测边界：parser metrics 记录 parserName、status、duration、extractedChars、pageCount、blockCount 和 warningCount；日志不打印文档全文。
+- 已验证：`mvn "-Dtest=*Parser*,ParseTaskConsumeEntryServiceImplTest,FileContentReaderTest,FileServiceImplTest" test` PASS，44 tests；`mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,RagDocumentRetrievalQualitySmokeTest" test` PASS，34 tests；此前 `mvn -DskipTests compile` PASS。
+- 边界：本片不新增数据库表、不改 schema、不做 OCR / 扫描件识别 / 外部网页抓取 / `.doc` 旧格式 / 复杂版面还原 / PDF 坐标级 citation；未启动 tunnel / backend / frontend，未创建业务数据，未做真实 PDF / HTML / DOCX cloud runtime smoke。
+- 下一片建议：启动本地 tunnel + backend + frontend，上传小型 PDF / HTML / DOCX 临时文档，验证 parse SUCCESS、chunk 进入 MySQL、Qdrant indexing、单文档 RAG retrieve / QA citation 和脱敏 artifact。
+
+## 2026-07-06 补充：Agent Quality Console 真实可见性回归
+
+- 目标：在本地 backend + frontend + cloud tunnel 环境下打开 `/quality?autoload=1`，确认最近几片展示语义改动没有破坏真实控制台可见性。
+- 已完成真实回归：本地 tunnel 已可用，backend `/actuator/health` 为 `UP`；前端使用 `next build` + `next start -p 3007` 启动，注册临时 smoke 用户后用浏览器打开 `/quality?autoload=1`。
+- 验证结果：页面可见“内部质量排查控制台”和“质量诊断”，质量运行记录已加载；分母为 `totalRuns` 的提示和“暂无统计”缺样本语义可见；桌面 `1440px` 与移动端 `390px` 均无横向溢出，console error 为 `0`。
+- 插曲：`next dev -p 3007` 本轮卡在 Starting 且端口监听但 HTTP 超时，改用生产预览完成验证；暂不作为业务 bug 记录。
+- 边界：本轮只创建临时登录用户，不上传文档、不创建 KB / Conversation、不提交 artifact 原文、不 push。
+
+## 2026-07-06 补充：Agent Quality Console token 文案一致性收口
+
+- 目标：继续改善 `/quality` 页面可读性，不新增指标，只统一 token 相关展示文案。
+- 已完成前端：`Token / TOKENS / tokens` 混用的显示文案已收敛为“token 数”“token 用量”“token 增量”，诊断卡优先排查文案中的成本入口也改为“模型调用 / token 用量 / 重试”。
+- 边界：本片只改页面展示文字，不改 DTO、不改 API、不新增功能、不启动真实链路。
+
+## 2026-07-06 补充：Agent Quality Console 延迟指标缺样本语义修正
+
+- 目标：继续收口 `/quality` 质量指标可信度，避免 Trend 面板里的延迟字段在缺少样本时显示不明确的 `-`。
+- 已完成前端：Trend 面板“平均延迟”改为缺样本显示“暂无统计”；Overview 的 P95 延迟说明补充“基于最近 trend points 的 `latencyMs`，没有 point 样本时显示暂无统计”。
+- 边界：本片只改前端展示语义，不改后端 API、不新增数据库表、不读取 raw artifact、不启动真实链路。
+
+## 2026-07-06 补充：前端文档详情错误提示乱码兜底清理
+
+- 目标：收口上一片自检发现的前端源码乱码残留，避免文档详情页继续包含历史 mojibake 字面量。
+- 已完成前端：`frontend/app/documents/[documentId]/page.tsx` 的 `buildErrorHint` 只保留正常中文 `无权` / `不存在` 判断；底层 `frontend/lib/api.ts` 已统一把文档和知识库权限 / 不存在错误归一为中文提示，因此页面无需再识别乱码变体。
+- 边界：本片不改 API 协议、不改后端、不新增功能、不触碰真实业务数据、不展示 prompt、answer 原文、文档全文、evidence context、凭据、连接串或云地址。
+
+## 2026-07-06 补充：Agent Quality Console 质量指标可信度与失败桶可行动化
+
+- 目标：不继续堆新指标、不做 P1 / P2 大功能，只把当前 `/quality` 已有通过率、复查率、失败率、token、成本、失败类型 TopN 和复查类型 TopN 改得更可信、更可解释、更能指导排查。
+- 已完成前端：Overview 诊断卡的通过率、复查率、失败率现在展示百分比和分子 / 分母，例如 `1 / 3`，并在说明中明确分母为 `totalRuns`；复查率说明已明确 REVIEW / BLOCKED 是质量风险，不一定阻断核心链路。
+- 已完成指标语义修正：`token_usage` 缺失或无法解析时显示“暂无统计”，不再误显示为 `0`；只有明确 `totalTokens=0` 时才显示 `0`。成本同理，缺少 `estimatedCost` 样本时显示“暂无样本”。
+- 已完成质量诊断增强：每张诊断卡保留原建议，并新增“优先排查”字段，例如失败率优先看 `Failures / Gates / Trace`，复查率优先看 `Citation / RAG / Eval Scorer`，P95 延迟优先看 `LLM / RAG / Tool latency`，token 偏高优先看 `Context / Prompt / RAG chunks`。
+- 已完成失败 / 复查 TopN 增强：每个 bucket 现在展示类型名称、次数、简短说明、建议动作和模块标签；模块标签覆盖 `RAG`、`Citation`、`Tool`、`Memory`、`Security`、`Env` 和 `Unknown`。无法可靠归类时仍保留 `Unknown / 其他`，并提示需要补充 bucket 映射规则。
+- 边界：本片只改前端基于现有 DTO 的安全映射，不改后端 API、不新增数据库表、不读取 raw artifact、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 打开 `/quality?autoload=1`，桌面和 `390px` 移动端均无 console error、无横向溢出，并验证分子 / 分母、缺失 token 降级、模块标签、建议动作和 Unknown fallback 文案可见。
+
+## 2026-07-06 补充：Agent Quality Console P1 parser 安全摘要增强
+
+- 目标：把 P0 页面中需要 parser 支撑的诊断项推进为后端白名单安全摘要，让 `/quality` 能展示文档覆盖、工具参数复查和记忆命中摘要，而不是继续停留在占位文案。
+- 已完成后端：`QualityRunDetail` 新增 `diagnostics`，包含 `documentCoverage`、`toolQuality` 和 `memoryQuality` 三组安全数值摘要；`QualityArtifactServiceImpl` 从 artifact 中的 `documentHitCounts`、`contextSourceCounts`、tool / memory metrics 和 bucket 聚合统计。
+- 脱敏边界：`documentHitCounts` 只转成 `documentCount`、`coveredDocumentCount`、`zeroHitDocumentCount`、`maxHitsPerDocument`、`minHitsPerDocument`，不返回文档 ID、原始 map、query、snippet、answer、prompt、文档全文或 evidence context。
+- 已完成前端：`frontend/lib/quality-api.ts` 同步 `QualityRunDiagnostics` 类型；`/quality` 的 RAG / 记忆 / 工具调用诊断卡改为展示命中文档分布、记忆命中摘要和工具参数复查摘要；缺少 diagnostics 时保留“暂无安全摘要”降级。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，38 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright mock Quality API 覆盖桌面和 `390px` 移动端，新增安全摘要可见、无 console error、无横向溢出；端口已清理释放。
+
+## 2026-07-06 补充：Agent Quality Console 诊断指标 P0
+
+- 目标：在不改后端 DTO / API、不读取 raw artifact 的前提下，让 `/quality` 能基于现有脱敏 summary/detail/trend/eval catalog 派生更多诊断比率，帮助判断 RAG、Memory、Tool、Eval 和失败桶的优化方向。
+- 已完成 Overview：新增质量诊断区，展示通过率、复查率、失败率、P95 延迟、平均 tokens、成功运行成本，并展示失败类型 TopN / 复查类型 TopN 及建议动作。
+- 已完成 Run Detail：新增独立“评测”tab；RAG / 记忆 / 工具调用 tab 增加诊断比率卡。RAG 覆盖检索命中率、引用覆盖率、证据覆盖率、引用支撑率、无证据拒答正确率、平均检索 chunk、干扰引用通过率；记忆覆盖记忆触发率、记忆证据覆盖、治理复查率；工具覆盖工具触发率、工具失败率、工具调用数、Agent 步骤失败率、最大链路步数。
+- 已完成 Eval / Failures：Eval tab 展示用例数、评测通过率、失败用例数、失败用例 Trace 覆盖、按标签通过率；Failures tab 展示当前失败/复查、新增失败、已恢复失败及 failure bucket 到建议动作的映射。
+- 降级边界：`documentHitCounts`、严格 `toolSelectionAccuracy` / `toolArgsAccuracy`、`memoryUsefulHitRate` / `memoryNoiseRate` 仍标记为需要 P1/P2 parser 或 eval schema 扩展，不在 P0 硬算。
+- 脱敏边界：本片只展示数值、比率、bucket、短安全 ID 和建议动作；不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS。浏览器 mock Quality API 验证和最终自检见本轮收尾记录。
+
+## 2026-07-06 补充：Agent Quality Console 前端信息架构重构
+
+- 目标：把 `/quality` 从“长页面数据展示”改成更像内部质量排查控制台的结构，让用户先判断最近 run 是否健康，再定位失败门禁、复查项、Trace、RAG、Memory、Tool Calls 和 artifact 摘要。
+- 已完成前端：`/quality` 顶部改为“内部质量排查控制台”Overview，显示最近运行健康判断、状态、运行次数、PASS / REVIEW / FAILED 统计和 token 数值摘要。
+- 已完成左侧：运行记录列表增加状态筛选和 marker / 来源搜索；空数据、筛选无结果和加载状态都有明确中文文案。
+- 已完成右侧：Run Detail 增加分区导航，拆成“摘要 / 门禁 / 待处理 / 链路 / RAG / 记忆 / 工具调用 / Artifact”。摘要区保留模型成本和运行对比；门禁区将 FAILED / REVIEW 默认展开，PASS 默认折叠；链路区保留 Trace 定位，并让失败或需复查 eval case 直接显示“查看 Trace”入口。
+- 已完成摘要卡：RAG、Memory 和 Tool Calls 只基于现有脱敏 metrics / flags / buckets 展示数值摘要，不新增后端 API。
+- 已完成 Artifact 区：只展示 source、artifactName、marker、updatedAt、artifactMissing、artifactParseFailed 等脱敏元信息；Eval Catalog 和 Trend 移到非首屏分区，避免抢占排查主线。
+- Gemini 协作：`gemini.cmd --version` 可用，但正式建议调用返回 malformed / empty response；已按约束降级为 Codex 直接集成、验证和回写。
+- 脱敏边界：本片不改 Quality API、不新增后端字段、不读取业务库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；token usage 仍只作为数值统计展示。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 静态 route smoke 和 mock Quality API smoke 覆盖桌面与 `390px` 移动端，均无 console error、无横向溢出；mock smoke 验证失败门禁突出、PASS 门禁折叠、Eval “查看 Trace”入口和 run 搜索可见。
+
+## 2026-07-06 补充：Agent Quality Console 前端中文化二次增强
+
+- 目标：按用户反馈继续改善 `/quality` 和 `/quality/trace` 可读性，中文能表达清楚的字段默认直接显示中文，不再在正文里追加英文 raw key 或枚举注释。
+- 已完成前端：`frontend/lib/quality-labels.ts` 的 format 函数改为默认返回纯中文；状态、失败桶、指标、布尔门禁、用例类型、门禁名和链路步骤不再显示 `通过 (PASS)`、`RAG 漏召回 (RAG_RETRIEVAL_MISS)` 这类形式。
+- 已完成页面文案：`Overview / Eval Catalog / Quality Trend / Run Detail / Run Comparison / Trace Reference / Gate / Eval Case` 等标题和计数文案进一步改为“质量总览 / 评测用例库 / 质量趋势 / 运行详情 / 运行对比 / 链路定位 / 门禁 / 评测用例”。
+- 调试边界：少数排查需要的 raw key 只保留在 `title` 悬停信息、`marker`、`caseId`、`traceId`、`agentRunId` 等技术定位 ID 中，不作为中文字段后的括号注释展示。
+- Gemini 协作：`gemini.cmd --version` 和 READY 探测通过，但正式文案建议调用连续超时；已按约束降级为 Codex 直接集成、验证和回写。
+- 脱敏边界：本片不改 Quality API、不新增后端字段、不读取业务库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；token usage 仍只作为数值统计展示。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright route smoke 和最终清理见本轮提交记录。
+
+## 2026-07-06 补充：Agent Quality Console 前端可读性增强
+
+- 目标：降低 `/quality` 和 `/quality/trace` 的阅读门槛，让用户不必理解所有 raw artifact key，也能看懂状态、指标、失败桶、Trace step 和成本摘要。
+- 已完成前端：新增 `frontend/lib/quality-labels.ts`，集中维护 status、failure bucket、metric、flag、case type、gate 和 trace step 的中文展示；后续二次增强已把默认正文改为纯中文展示。
+- 已完成 `/quality`：Overview、Eval Catalog、Quality Trend、Run Detail、Failure Triage、Trace 定位、Gate / Eval Case 明细、Model / Cost Summary 和 Run Comparison 已改为更易读的中文标签。
+- 已完成 `/quality/trace`：Trace Reference、链路瀑布图、关联 Gate 和关联 Eval Case 已使用同一套中文标签；仍只展示脱敏状态、数值、布尔门禁和失败 / 复查类型。
+- 脱敏边界：本片不改 Quality API、不新增后端字段、不读取业务库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；token usage 仍只作为数值统计展示。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright route smoke 打开 `/quality?routeSmoke=2` 和 `/quality/trace?routeSmoke=1...`，桌面与 `390px` 移动端均无业务 console error、无横向溢出；`scripts/dev/cleanup-agent-processes.ps1` 已清理本轮前端进程并确认 `3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：若继续 Agent Quality Console，可做“趋势解释 v2”，把 repeated case / failure bucket 与 trace reference、recent point 更直接联动；若回到核心能力，可继续 RAG / Memory 真实问答体验审计。
+
+## 2026-07-05 补充：Agent Quality Console Trace / Eval / Trend 真实链路回归
+
+- 目标：跑一轮真实用户 QA 审计，并确认 `/quality?autoload=1` 能展示最新真实 run、Eval v2、Quality Trend v1 和 Trace Drill-down v3 的脱敏链路瀑布图。
+- 已完成 smoke runner：`frontendInteraction` console error 诊断增强为 `phase/kind/messageShape` 安全摘要；预期权限负向路径的 failed resource 只作为观察项，不阻断 gate；其他 `TypeError` / hydration / reference error 仍会阻断。
+- 已完成 artifact：真实审计的 `naturalCorpus` 和 `conversationTrace` gate 现在写入脱敏 trace case result，包含 `caseId/status/traceId/conversationId` 和 RAG / evidence / memory 数值布尔指标，不写入用户消息、answer 原文、文档全文或 evidence context。
+- 真实审计：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 最终 PASS，marker `docpilot-real-user-qa-20260705210119-7b8092`。
+- Console 验证：开启 `APP_QUALITY_CONSOLE_ENABLED=true` 后，`/api/quality/runs` 可见最新 marker；`/api/quality/runs/{marker}` 返回 `summary.status=PASS`、`gateCount=22`、`evalCaseCount=27`、`traceReferenceCount=2`；`/api/quality/eval-cases` 返回 7 个 case；`/api/quality/trends?limit=20` 返回 20 个趋势点。
+- 浏览器验证：Playwright 打开 `/quality?autoload=1` 可见最新 marker、`Eval Catalog`、`Quality Trend` 和 trace reference；打开 `/quality/trace?...` 可见 `Eval case` 链路步骤。桌面和 `390px` 移动端 console error count 均为 `0`，无横向溢出。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，37 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；`git diff --check` PASS。
+- 中途发现并记录：`docpilot-real-user-qa-20260705205210-8c882e` 曾因 KB 阶段 `TypeError` 被 `frontendInteraction` 阻断，但旧 artifact 只有 kind、缺少安全 message shape；已记录为 `REA-20260705-P3-008`，本轮先修 smoke 诊断，最终回归未复现该 TypeError。
+- 清理：本轮启动的 backend / frontend 已通过 `scripts/dev/cleanup-agent-processes.ps1` 清理，`3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：若继续 Agent Quality Console，可做“趋势解释 v2”：把 repeated case / failure bucket 与对应 trace reference 更直接联动；若回到核心能力，可继续做 RAG / Memory 的真实问答体验审计。
+
+## 2026-07-05 补充：Agent Quality Console Quality Trend v1
+
+- 目标：让 Console 不只看单次 run 或两次 run 对比，而是能基于最近 N 个脱敏 artifact 展示质量趋势。
+- 已完成后端：新增 `QualityTrendSummary`、`QualityTrendPoint` 和 `QualityRepeatedCaseSummary`；`QualityArtifactService.getTrendSummary(limit)` 从最近 N 个 parsed detail 聚合状态分布、failure / review bucket 计数、平均 casePassRate、token / cost、latency / duration 和反复失败 / REVIEW case。
+- 已完成 API：新增内部只读 `GET /api/quality/trends?limit=20`，复用 `/api/quality/**` 的 console enabled 和登录上下文控制。
+- 已完成前端：`frontend/lib/quality-api.ts` 增加 trend 类型和请求；`/quality` 新增 `Quality Trend` 面板，展示最近 run 数、状态分布、Top failure / review buckets、平均 pass rate、tokens / cost / latency、反复失败 case 和最近 points。
+- 脱敏边界：trend 只使用现有 Quality DTO 的状态、计数、数值、caseId、marker 和 bucket 摘要，不读取或展示原始 artifact、prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：首次 `mvn "-Dtest=*Quality*" test` 暴露趋势未统计 eval case 层 bucket，已修正；复跑 `mvn "-Dtest=*Quality*" test` PASS，37 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；`/quality?routeSmoke=2` 在 `390px` 宽度下无 console error、无横向溢出。
+- 清理：本轮启动的前端 dev server 和浏览器进程已通过 `scripts/dev/cleanup-agent-processes.ps1` 清理，`3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：跑一轮真实链路回归，开启 `/quality?autoload=1` 验证最新真实 audit run、Trace 瀑布图、Eval 资产字段和 Trend 面板能一起展示；仍不提交 artifact 原文、不 push。
+
+## 2026-07-05 补充：Agent Quality Console Eval Asset v2
+
+- 目标：把 7 个 eval catalog case 从“case 列表”继续推进为长期质量资产，让每个 case 能说明分层、风险门禁、评分摘要、回归策略和历史失败 / 修复 marker。
+- 已完成 JSON：`agent-quality-eval-cases.json` 为 7 个默认 case 增加 `caseLayer`、`riskGate`、`scoringSummary`、`regressionPolicy` 和 `failureHistoryMarkers`。
+- 已完成后端：`QualityEvalCaseCatalogItem` 和 `QualityEvalCatalogServiceImpl` 白名单读取并返回上述字段；安全 identifier 上限调整为 160 字符，以容纳脱敏 marker / status / issue 摘要，同时继续过滤 URL、token、secret、连接串形态。
+- 已完成前端：`frontend/lib/quality-api.ts` 同步新字段；`/quality` Eval Catalog 卡片展示 case layer、risk gate、scoring summary、regression policy 和 failure history marker。
+- 脱敏边界：本片仍不返回 question、expectedBehavior、mustContain、mustNotContain、prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址；failure history 只保存脱敏 marker、status 和 issue id 摘要。
+- 已验证：首次 `mvn "-Dtest=*Quality*" test` 暴露 Controller test fixture 构造参数未同步，已修正；复跑 `mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；`/quality?routeSmoke=2` 在 `390px` 宽度下无 console error、无横向溢出。
+- 清理：本轮启动的前端 dev server 和浏览器进程已通过 `scripts/dev/cleanup-agent-processes.ps1` 清理，`3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：进入 Quality Trend v1，在现有 artifact 聚合结果上增加最近 N 次趋势摘要和 `/quality` Trend 面板，继续不新增数据库表。
+
+## 2026-07-05 补充：Agent Quality Console Trace Drill-down v3
+
+- 目标：把现有 trace reference 从“能定位 ID”升级为“能查看脱敏链路瀑布图”，用于解释一次 Agent / RAG 质量问题如何从 eval case 定位到 RAG retrieve、tool call、model call、citation 和 failure bucket。
+- 已完成后端：新增 `QualityTraceStepDetail`，`QualityTraceReference` 增加 `steps`；`QualityArtifactServiceImpl` 从 eval case 的安全 metrics / flags / buckets 推断 `eval_case`、`agent_step`、`rag_retrieve`、`tool_call`、`model_call`、`citation` 和 `failure_bucket` 步骤摘要。
+- 已完成前端：`frontend/lib/quality-api.ts` 增加 `QualityTraceStepDetail` 类型；`/quality/trace` 新增“链路瀑布图”面板，按顺序展示 step type、status、metrics、flags 和 buckets。
+- 脱敏边界：本片仍只读 artifact 聚合结果，不读业务数据库、不新增 API、不新增数据库表；step 只来自白名单数值、布尔值和安全 bucket，不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、凭据、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality/trace?routeSmoke=1&marker=docpilot-route-smoke&caseId=route-smoke&traceId=trace-route-smoke&agentRunId=agent-route-smoke` 无 console error；`390px` 宽度 `scrollWidth == clientWidth == 390`。
+- 清理：本轮启动的前端 dev server、Playwright / Chromium 进程已通过 `scripts/dev/cleanup-agent-processes.ps1` 清理，`3000/3001/3002/3007/3100/8081` 均为 FREE。
+- 下一片建议：进入 Eval Asset v2，在 `agent-quality-eval-cases.json` 上补 caseLayer、riskGate、scoringSummary、regressionPolicy 和脱敏 failureHistoryMarkers，并同步 API / 前端 catalog 展示和测试。
+
+## 2026-07-05 补充：Agent Quality Console 三线升级收口
+
+- 目标：把当前距离求职级 Agent Quality Console 还差的三条主线写成后续自驱循环依据，避免后续实现时在 Trace、Eval 和 Trend 之间漂移。
+- 已完成：`docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md` 增加“三线升级收口”，明确后续只围绕 Trace Drill-down v3、Eval Asset v2 和 Quality Trend v1 三条主线推进。
+- Trace Drill-down v3 目标：从“能定位 trace reference”升级为“能查看脱敏链路瀑布图”，覆盖 run、gate、eval case、agent step、RAG retrieve、tool call、model call、citation 和 failure bucket 的安全摘要。
+- Eval Asset v2 目标：把 7 个 eval catalog case 继续推进成长期质量资产，补齐 case 分层、risk gate、scoring summary、regression policy 和 failure history marker。
+- Quality Trend v1 目标：基于最近 N 个脱敏 artifact 展示状态趋势、case pass rate、失败桶、token / cost、latency 和反复失败 case。
+- 统一边界：继续 artifact-only，不新增数据库表；不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址；token usage / latency / cost 只展示数值统计。
+- 下一片建议：进入 Trace Drill-down v3 的最小实现，优先复用现有 QualityRunDetail / traceReferences，不读业务库、不新增后端业务流程。
+
+## 2026-07-05 补充：Agent Quality Console 7-case 真实审计回归
+
+- 目标：跑一轮真实用户 QA 审计，并验证 `/quality?autoload=1` 能展示最新 run、7 个 Eval Catalog case、source issue、verified marker、remediation hints 和筛选体验。
+- 已完成：`real-user-qa-experience-audit.ps1 -Mode plan` PASS，确认 plan 模式不读 env、不启动服务、不创建数据。
+- 已完成：`real-user-qa-experience-audit.ps1 -Mode dry-run -FrontendBaseUrl http://127.0.0.1:3007` PASS，确认 env、工具、tunnel 端口和 ignored artifact root 可用。
+- 真实审计：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705192354-eba0fc`。
+- 真实结果：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、naturalCorpus、multiQueryRag、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Console 验证：`/api/quality/runs` 可见最新 marker，detail 状态为 `PASS`；`/api/quality/eval-cases` 返回 7 个 case，其中 4 个带 `sourceIssueIds`，7 个带 `remediationHints`；浏览器 `/quality?autoload=1` 桌面和 `390px` 移动端无 console error、无横向溢出。
+- 后续验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 secrets / token / 云地址 / 连接串，未 push。
+- 下一片建议：如果继续 Agent Quality Console，可做面试展示收口，把 7-case catalog 和本轮 marker 同步到 showcase 讲稿；如果回到核心能力，可继续 RAG / Memory 质量增强。
+
+## 2026-07-05 补充：Agent Quality Console Eval Catalog 筛选 v1
+
+- 目标：让 `/quality` 的 Eval Catalog 不只是静态列表，而是能按风险、owner 和最新状态快速定位 case。
+- 已完成：`frontend/app/quality/page.tsx` 的 Eval Catalog 增加本地筛选控件：risk、owner、status；筛选在浏览器端完成，不新增后端 API。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2`，确认存在 3 个筛选控件，桌面和 `390px` 移动端无横向溢出，console error 为 `0`。
+- 边界：本片不新增数据库表，不改 Quality API，不启动后端 / tunnel，不创建业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：跑一轮小规模真实审计，确认 `/quality?autoload=1` 能展示最新 run、7 个 catalog case、source issue、verified marker 和 remediation hints。
+
+## 2026-07-05 补充：Agent Quality Console Eval Catalog Remediation Hint v1
+
+- 目标：让 Eval Catalog 不只展示 case 和来源问题编号，还能展示上次验证 marker 和修复排查方向，支撑“失败 -> 定位 -> 修复 -> 回归”的面试讲述。
+- 已完成：`agent-quality-eval-cases.json` 为 7 个默认 case 增加 `lastVerifiedMarker` 和 `remediationHints`，marker 均来自已记录的脱敏 smoke / audit run，hint 只使用安全 identifier。
+- 已完成：`QualityEvalCatalogServiceImpl`、`QualityEvalCaseCatalogItem`、`GET /api/quality/eval-cases` 和 `/quality` Eval Catalog 同步展示 verified marker / remediation hints；URL、secret-like hint 和连接串形态继续被字段白名单过滤。
+- 已完成：`QualityControllerTest` 和 `QualityEvalCatalogServiceImplTest` 覆盖新字段返回与不安全值过滤。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不新增数据库表，不启动真实链路，不创建业务数据，不调用真实 provider，不提交 artifact 原文，不 push；这是 catalog 可解释性增强，不是新一轮 runtime audit。
+- 下一片建议：跑一轮小规模真实审计，确认 `/quality?autoload=1` 能看到 7 个 case 的 catalog、来源编号、verified marker 和 remediation hints；或先做 Eval Catalog 按 owner / riskLevel / latestStatus 的前端筛选。
+
+## 2026-07-05 补充：Agent Quality Console Real Audit Case 扩容 v1
+
+- 目标：把真实体验审计中已经暴露并修复验证过的典型问题沉淀为常驻 eval catalog case，让 `/quality` 能展示“这些真实风险后续会被持续盯住”。
+- 已完成：`agent-quality-eval-cases.json` 从 3 个默认 case 扩到 7 个，新增 `short-document-rag-evidence`、`kb-two-document-coverage`、`citation-distractor-pruning` 和 `quality-console-startup-health`。
+- 已完成：新增安全字段 `sourceIssueIds`，只返回 `REA-...` 这类脱敏问题编号；`QualityEvalCatalogServiceImpl` 继续使用字段白名单和安全 identifier 过滤，URL / token / secret / 连接串形态不会进入 API。
+- 已完成：`/quality` Eval Catalog 卡片展示 source issue 摘要；`QualityControllerTest`、`QualityEvalCatalogServiceImplTest` 和 `AgentQualityEvalRunnerTest` 固定新增字段、默认 case 数和 artifact 不泄露原文的约束。
+- 脱敏边界：新增 case 的 question / expectedBehavior 只作为离线 synthetic contract；result artifact、API 和前端仍不返回 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址。
+- 已验证：首次 `mvn "-Dtest=*Quality*" test` 暴露 fixture marker 自相矛盾，已修正；复跑 `mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不新增数据库表，不启动 tunnel / backend / frontend，不调用真实 provider，不创建业务数据，不提交 artifact 原文，不 push；这是质量题库沉淀，不是新一轮真实链路审计。
+- 下一片建议：给 Eval Catalog 增加 failure owner / remediation hint / last verified marker 的安全摘要，或跑一轮小规模真实审计确认 7 个 catalog case 在 `/quality` 中可见。
+
+## 2026-07-05 补充：Agent Quality Console Eval Case Version v1
+
+- 目标：让轻量 Eval Case JSON 不只是 caseId 清单，而是带有最小维护元数据，便于后续解释 case 版本、归属、更新时间和风险级别。
+- 已完成：`agent-quality-eval-cases.json` 为 3 个默认 case 增加 `caseVersion`、`owner`、`lastUpdated` 和 `riskLevel`。
+- 已完成：`QualityEvalCatalogServiceImpl` 读取并白名单返回上述安全字段；`QualityEvalCaseCatalogItem` 和 `GET /api/quality/eval-cases` 同步扩展。
+- 已完成：`/quality` 的 Eval Catalog 卡片展示 version、owner、lastUpdated 和 riskLevel。
+- 兼容性：test-side `AgentQualityEvalCase` 忽略未知 JSON 字段，避免 catalog 元数据破坏离线 eval runner；eval result artifact 仍不保存 question、expectedBehavior、mustContain、mustNotContain、prompt、answer 原文、文档全文或 evidence context。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不新增数据库表，不新增业务 API，不改变 eval scoring 语义，不调用真实 provider，不创建业务数据，不提交 artifact 原文。
+- 下一片建议：Real Audit Case 扩容 v1，把真实体验审计中最常见的 RAG / Memory / frontend issue 抽成更多脱敏 audit case 或 gate 摘要；仍先不做 Phase 7 持久化。
+
+## 2026-07-05 补充：Agent Quality Console Trace Detail 最小入口
+
+- 目标：让 `/quality` 的 Trace 定位项不只复制 ID，而是可以打开一个内部详情页查看同一 run 下的脱敏 trace reference、关联 gate 和关联 eval case。
+- 已完成：新增 `frontend/app/quality/trace/page.tsx`，通过 query 参数接收 marker、caseId、traceId、agentRunId 和 conversationId，复用现有 `GET /api/quality/runs/{marker}` 拉取 QualityRunDetail，并只展示白名单字段。
+- 已完成：`frontend/app/quality/page.tsx` 的 Trace 定位行新增“打开”链接，跳转到 `/quality/trace?...`。
+- 脱敏边界：Trace Detail 不新增后端 API、不读业务数据库、不展示 prompt、answer 原文、文档全文、evidence context、真实用户输入、API key、token、secret、连接串或云地址；只展示 marker、caseId、gateName、traceId、agentRunId、conversationId、failure / review bucket 和安全 metrics / flags。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality/trace?routeSmoke=1&marker=docpilot-route-smoke&caseId=route-smoke` 桌面与 `390px` 移动端无 console error，未见横向溢出；本轮不启动后端、不创建业务数据。
+- 边界：这是基于 artifact 的脱敏定位详情，不是真实业务 Trace 原文页面；后续如要打开业务 ContextTrace 详情，需要单独评估权限和字段白名单。
+- 下一片建议：Eval Case Version v1，为 JSON case 增加 version / owner / lastUpdated / riskLevel 等安全元数据，或扩容真实 audit case。
+
+## 2026-07-05 补充：Agent Quality Console 求职展示打磨
+
+- 目标：把 Agent Quality Console、RAG / Memory 真实质量闭环和 2026-07-05 “真实审计发现问题 -> 定位 -> 修复 -> 回归 PASS”的故事同步到 README / showcase / 面试材料。
+- 已完成：`README.md` 已从旧的“RAG + Agent 文档问答”口径更新为“企业文档知识库 RAG + 会话记忆 + 内部质量门禁”口径，并补充 `/quality`、Conversation Memory、Context Trace 和 Agent Quality Console 边界。
+- 已完成：`docs/showcase/PROJECT_INTERVIEW_BRIEF.md` 更新项目定位、已实现能力、简历亮点、展示优先级和高风险追问；明确 Agent 是围绕文档工具和 Trace 的辅助层，核心主线是 RAG / Memory / Quality Console。
+- 已完成：`docs/showcase/RESUME_BULLETS.md` 增加 Agent Quality Console、真实 audit / eval artifact、Memory governance 和 RAG 质量门禁相关 bullet，并明确不能写成商业 APM、大规模 benchmark 或线上 SLA。
+- 已完成：`docs/showcase/INTERVIEW_QA.md` 更新一分钟介绍、核心亮点、RAG 完整性、Agent Quality Console 价值和项目不足回答；可讲 2026-07-05 真实 audit 首轮 BLOCKED、定位构造器注入问题、修复后 PASS 的闭环。
+- 边界：本片只更新对外展示和内部事实源文档，不改业务代码，不启动服务，不创建业务数据，不提交 artifact 原文，不 push。
+- 下一片建议：如果继续 Agent Quality Console，可优先做 Trace Detail 最小跳转 / Eval Case version 元数据 / 真实 audit case 扩容；Phase 7 数据库存储继续默认不做，除非出现跨机器历史、权限审计或趋势查询刚需。
+
+## 2026-07-05 补充：Agent Quality Console 真实体验审计集成 v2
+
+- 目标：跑一次真实用户 QA 审计，并验证 `/quality?autoload=1` 能看到最新真实 run、Eval Catalog、Failure Triage、Run Comparison 和 Model / Cost Summary。
+- 首轮结果：`docpilot-real-user-qa-20260705164732-f54da1` 为 `BLOCKED`，tunnel / config consistency PASS，但 backend health 超时。根因是 `QualityEvalCatalogServiceImpl` 有多个构造器但缺少显式 `@Autowired`，真实 Spring 启动时尝试找默认构造器失败。
+- 已修复：`QualityEvalCatalogServiceImpl` 主构造器补 `@Autowired`，新增 `QualityEvalCatalogServiceSpringContextTest` 防回归。
+- 真实审计复跑：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705165151-bbe588`。
+- 真实结果：tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant consistency、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、naturalCorpus、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、cleanup 和 artifact redaction 均 PASS。
+- Console 可见性：开启 `APP_QUALITY_CONSOLE_ENABLED=true` 后，`/api/quality/runs` 可见最新 marker，detail 状态为 `PASS`，`/api/quality/eval-cases` 返回 3 个 case；浏览器 `/quality?autoload=1` 可见最新 marker、`Eval Catalog`、`Failure Triage`、`Run Comparison` 和 `Model / Cost Summary`，console error count 为 `0`，`390px` 宽度无横向溢出。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，35 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；真实审计 PASS；Console autoload 验证 PASS；清理脚本确认端口释放。
+- 边界：本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+- 下一片建议：跳过默认不做的 Phase 7 持久化，进入 Phase 8 求职展示打磨，把“失败 -> 定位 -> 修复 -> 回归通过”的 Agent Quality Console 故事同步到 showcase / 面试材料。
+
+## 2026-07-05 补充：Agent Quality Console Cost / Latency / Model Summary v1
+
+- 目标：补齐 Agent Quality Console 的 AI 系统成本和运行摘要，让 Run Detail 能回答本次评测用了多少 token、模型调用、工具调用、耗时和 retry。
+- 已完成后端：`QualityArtifactServiceImpl` 的安全 metric 白名单新增 `*Ms`、`latencyMs`、`durationMs` 和 `estimatedCost` 等数值字段；`modelCallCount`、`toolCallCount`、`retryCount` 继续作为 count 类安全字段保留。
+- 已完成前端：Run Detail 新增 `Model / Cost Summary` 面板，聚合展示 prompt / completion / total tokens、estimated cost、model calls、tool calls、latency ms、duration ms 和 retries。
+- 脱敏边界：只展示数值统计，不返回或展示 system prompt、user prompt、answer 原文、provider 原始输出、文档全文、evidence context、API key、token、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，34 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 6 真实体验审计集成 v2，跑一次真实 quality audit，并验证 `/quality?autoload=1` 能看到最新 run 和新增 summary / comparison / catalog 面板。
+
+## 2026-07-05 补充：Agent Quality Console Run Comparison v1
+
+- 目标：让 `/quality` 能展示当前 run 与选定 previous run 的脱敏差异，用于支撑“发现问题 -> 修复 -> 回归通过”的质量闭环说明。
+- 已完成前端：Run Detail 新增 `Run Comparison` 面板，支持选择 previous run，并用现有 `GET /api/quality/runs/{marker}` 拉取对比详情；本片不新增后端 compare API。
+- 对比内容：展示 status 变化、gate 数 delta、failed / review gate delta、token total delta、casePassRate delta、新增失败桶、已修复失败桶、gate status changes 和 eval case status changes。
+- 脱敏边界：对比只使用现有 Quality DTO 的 marker、status、计数、metrics、bucket、caseId 等白名单字段；不展示 prompt、answer 原文、文档全文、evidence context、API key、token、secret、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 5 Cost / Latency / Model Summary v1，补齐 token、model call、tool call、latency、retry 等数值摘要。
+
+## 2026-07-05 补充：Agent Quality Console Eval Case Catalog v1
+
+- 目标：让 eval 不只是 smoke 聚合结果，而是能在 `/quality` 中看到当前有哪些安全 eval case、每类 case 验什么、最近一次状态如何。
+- 已完成后端：新增 `QualityEvalCatalogService` / `QualityEvalCatalogServiceImpl` 和 `QualityEvalCaseCatalogItem`，从 `backend/src/test/resources/quality/agent-quality-eval-cases.json` 读取白名单字段，并从最近 Quality run 中关联 `latestStatus`、`latestRunMarker`、`latestTraceId` 和 `latestAgentRunId`。
+- 已完成 API：`GET /api/quality/eval-cases` 复用 `/api/quality/**` 内部访问控制和 `app.quality.console.enabled` 开关，返回脱敏 eval catalog 摘要。
+- 已完成前端：`frontend/lib/quality-api.ts` 新增 catalog 类型和请求；`/quality` Overview 左侧新增 `Eval Catalog` 卡片，展示 caseId、caseType、tags、expectedEvidence、expectedTools、scoringRules 和最近运行状态。
+- 脱敏边界：不返回或展示 `question`、`expectedBehavior`、`mustContain`、`mustNotContain`、answer 原文、prompt、文档全文、evidence context、API key、token、secret、连接串或云地址；catalog parser 对标识符字段做白名单过滤。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，34 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下无 console error、主要容器未横向溢出；清理脚本确认端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 4 Run Comparison v1，支持 latest run 与 selected previous run 的 gate / case / bucket / token usage 差异对比。
+
+## 2026-07-05 补充：Agent Quality Console Failure Triage v1
+
+- 目标：让 `/quality` Run Detail 从“展示结果”升级为“定位问题”，支持按 status、failure bucket taxonomy、gate name 和 case type 过滤。
+- 已完成前端：新增 Failure Triage 面板，内置 `RAG_RETRIEVAL_MISS`、`CITATION_UNSUPPORTED`、`DISTRACTOR_CITATION`、`NO_EVIDENCE_FALSE_POSITIVE`、`MEMORY_CONFLICT`、`TOOL_FAILURE`、`PERMISSION_REGRESSION`、`FRONTEND_UX`、`ENV_BLOCKED` 和 `OTHER` 归一化分类。
+- 已完成筛选：Gate 列表、Eval Case 和 Trace 定位会随筛选条件联动；支持清除筛选，并展示筛选后的 gates / eval / traces 数量。
+- 脱敏边界：本片只使用现有 Quality API 的白名单字段，不新增后端接口，不返回 prompt、answer 原文、文档全文、evidence context、question、API key、token、secret、连接串或云地址。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `/quality?routeSmoke=2` 在移动端宽度下页面非空、无 console error、主要容器未横向溢出；清理脚本确认 `3007` / `8081` 等端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 3 Eval Case Catalog v1，让 Console 能展示 eval case 的安全目录、case type / tags、scoring rule 摘要和最近一次状态。
+
+## 2026-07-05 补充：Agent Quality Console Trace 定位入口
+
+- 目标：让 `/quality` Run Detail 不只裸展示 eval case 的 `traceId` / `agentRunId`，而是提供可定位的内部 Trace reference 摘要，用于从失败 / REVIEW case 回到具体 trace / agent run。
+- 已完成后端：新增 `QualityTraceReference`，`QualityRunDetail` 增加 `traceReferences`；`QualityArtifactServiceImpl` 递归收集 `caseResults` / `caseEvaluations` / `evalCases`，保留父级 `gateName`，并只输出 caseId、caseType、status、gateName、traceId、agentRunId、conversationId、failureBuckets 和 reviewBuckets。
+- 已完成前端：`/quality` Run Detail 新增“Trace 定位”面板，展示脱敏定位项，并提供复制 `traceId` / `agentRunId` / `conversationId` 的按钮；当前不新增真实 Trace 详情页，不读取业务数据库。
+- 脱敏边界：仍不返回或展示 prompt、answer 原文、文档全文、evidence context、question、API key、token、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，30 tests，1 skipped；`npm run lint` PASS；`npm run build` PASS；浏览器打开 `/quality?routeSmoke=2` 在 `390x844` 下无 console error、无横向溢出；清理脚本确认 `3007` / `8081` 等端口释放。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动真实 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一片建议：进入 Phase 2 Failure Triage v1，统一失败桶 taxonomy，并让 Run Detail 支持按 status、failure bucket、case tag / gate name 过滤。
+
+## 2026-07-05 补充：Agent Quality Console 求职级升级路线图
+
+- 目标：把 Agent Quality Console 从当前 MVP / Explainability v1 推进到求职级内部质量控制台，并把后续可连续自驱执行的 Slice、验收标准和停止条件沉淀到项目文档。
+- 已完成：新增 `docs/ai-dev/ROADMAP_AGENT_QUALITY_CONSOLE.md`，明确当前基础、主要差距、Phase 0-8、每阶段验收标准、自驱循环规则和明确不做事项。
+- 已完成：`docs/README.md` 已把 Agent Quality Console 路线图纳入默认文档地图；后续路线图看 `ROADMAP_AGENT_QUALITY_CONSOLE.md`，当前任务仍看 `CURRENT_TASK.md`。
+- 下一片建议：进入 Phase 1 Trace Drill-down v2，优先让失败 / REVIEW eval case 在 `/quality` Run Detail 中能定位 `traceId` / `agentRunId`；若真实 trace detail API 暂不足，先做“复制 ID + 失败桶过滤”的轻量闭环。
+- 边界：本片只更新文档与任务口径，未修改业务代码，未启动服务，未创建业务数据，未提交 artifact 原文，未 push。
+
+## 2026-07-05 补充：Quality Console signals 真实链路验证
+
+- 目标：跑一次真实 quality audit，并验证 Agent Quality Console 能展示最新 run 的嵌套 gate、RAG evidence / eval signals 和关键自然语料指标。
+- 已完成真实审计：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705151944-950f42`。
+- 关键结果：`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`；frontendInteraction、Memory quality、Conversation Trace、权限隔离、artifact redaction 均 PASS。
+- Console 验证：开启 `APP_QUALITY_CONSOLE_ENABLED=true` 后，浏览器打开 `/quality?autoload=1` 可见最新 marker、`naturalCorpus` gate、`CASEPASSRATE`、`DISTRACTORCITATIONFREECOUNT` 和 eval case `ops-incident-support-summary`；console error count 为 `0`，`1366x900` 无横向溢出。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS；`npm run lint` PASS；`npm run build` PASS；Playwright route smoke 和 autoload smoke PASS。
+- 边界：本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation、Memory 和临时登录用户；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push；本轮 backend / frontend / tunnel 已清理。
+- 下一步建议：继续 Agent Quality Console Trace drill-down v2，优先把 eval case 的 `traceId` / `agentRunId` 变成可点击的内部定位入口；若没有真实 trace detail API，则先做“复制 ID + 失败桶过滤”的轻量闭环。
+
+## 2026-07-05 补充：`/quality` Evidence / Eval Lens 展示
+
+- 目标：让 Agent Quality Console Run Detail 能展示 Slice A 暴露的脱敏 gate / eval case 指标，使质量结果更容易解释和排查。
+- 已完成：`frontend/lib/quality-api.ts` 同步 `QualityEvalCaseResultDetail.metrics` / `flags` 类型；`frontend/app/quality/page.tsx` 在 gate 和 eval case 行中新增安全 signals 小格子，展示数值指标和布尔结果。
+- 已完成：Eval case 现在同时展示 failure / review buckets、traceId / agentRunId 和脱敏 signals；不展示 question、answer 原文、文档全文、prompt 或 evidence context。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `http://127.0.0.1:3007/quality?routeSmoke=2` 页面非空、console error count 为 `0`、`390x844` 无横向溢出。
+- 边界：本片未新增后端 API，未启动 backend / tunnel，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一步：进入 Slice C，跑真实 quality audit，并用 `/quality?autoload=1` 验证最新 run 的 `naturalCorpus` gate 和 eval case signals 可见。
+
+## 2026-07-05 补充：Quality Console 嵌套 gate 与 eval case 安全指标
+
+- 目标：让 Agent Quality Console 能正确读取 cloud quality / real-user audit artifact 中嵌套的 `gates.*`，并为 Run Detail 提供更可解释的脱敏 gate / eval case 指标。
+- 已完成：`QualityArtifactServiceImpl` 支持解析顶层 `gates` 容器下的嵌套 gate；`checks` 为单个 object 时合并安全数值 / 布尔字段，多个 check 时只保留 `checkCount`，避免透传明细。
+- 已完成：`hardFailureBuckets` 纳入 failure bucket 聚合；`QualityEvalCaseResultDetail` 新增安全 `metrics` / `flags`，用于展示 `retrieveHits`、`qaCitations`、`distractorCitationCount`、`targetCitationCovered`、`noEvidenceCorrect` 等脱敏指标。
+- 脱敏边界：仍不返回 prompt、answer 原文、文档全文、evidence context、question、API key、token、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，30 tests，1 skipped。
+- 边界：本片未新增数据库表，未新增 endpoint，未启动真实服务，未创建业务数据，未提交 artifact 原文，未 push。
+- 下一步：进入 Slice B，更新 `/quality` Run Detail 的 Evidence / Eval Lens 展示。
+
+## 2026-07-05 补充：多文档 summary citation 精度收口
+
+- 目标：修复真实用户 QA 审计中 `ops-incident-support-summary` 在目标覆盖满足时仍带入一条低置信度干扰 citation 的问题。
+- 已完成：`KnowledgeBaseRagQaServiceImpl` 在答案生成后的 citation 后处理阶段新增多文档意图保护下的极低分 citation 裁剪；保留 retrieval hits 和 `documentHitCounts`，不破坏 Trace / 调试所需的召回证据。
+- 已完成防回归：`KnowledgeBaseRagQaServiceImplTest` 新增短复现用例，覆盖“目标两文档 citation 保留、低分干扰 citation 移除、召回 hits 仍保留”的行为。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest" test` PASS；`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS。
+- 真实回归：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260705145304-7a53b8`；`naturalCorpus.casePassRate=1`，`distractorCitationFreeCount=25/25`，frontendInteraction、Memory quality、Conversation Trace、权限隔离和 artifact redaction 均 PASS。
+- 问题台账：`REA-20260704-P2-006` 已从 `OPEN` 更新为 `VERIFIED`。
+- 边界：本轮未改数据库结构，未删除业务数据，未操作远程 Docker / hk-ops，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+- 下一步建议：继续进入 Agent Quality Console 的 Trace drill-down / citation explainability 小切片，让 Run Detail 能更清楚解释 citation 裁剪、REVIEW 桶和 traceId / agentRunId 的定位关系。
+
+## 2026-07-04 补充：Agent Quality Console 真实回归与可见性验证
+
+- 目标：跑一次真实 quality audit，让 Agent Quality Console 能看到该 run，并把最新质量结果写回文档。
+- 已完成：`agent-quality-eval-smoke.ps1 -Mode run` PASS，marker `docpilot-agent-quality-eval-20260704221655-48a5cf`；artifact 位于 ignored 的 `backend/target/agent-quality-eval/...`。
+- 已完成真实审计：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker `docpilot-real-user-qa-20260704221704-4abc6f`，整体状态 `REVIEW`。
+- 核心结果：tunnel、backend health、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG、shortDocumentRag、multiQueryRag、answerGrounding、noEvidenceThreshold、Conversation Trace、Memory quality、权限隔离、frontendInteraction、frontend routes、cleanup 和 artifactRedaction 均 PASS。
+- REVIEW 项：`naturalCorpus` 中 25 case 的 `casePassRate=1`，但 `ops-incident-support-summary` 出现 `distractorCitation` review，`distractorCitationFreeCount=24/25`；已记录为 `REA-20260704-P2-006`，后续应进入 RAG citation 精度治理。
+- 本轮修复：真实启动时发现 `QualityArtifactServiceImpl` 缺少显式 Spring 构造器注入导致 backend health timeout；已补 `@Autowired` 并新增 `QualityArtifactServiceSpringContextTest` 防回归。
+- Console 验证：开启 `app.quality.console.enabled=true` 后，`GET /api/quality/runs` 与 `GET /api/quality/runs/{marker}` 能看到 `docpilot-real-user-qa-20260704221704-4abc6f`；浏览器打开 `/quality?autoload=1` 可见该 marker 和 `REVIEW` 状态，console error count 为 `0`。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，29 tests，1 skipped；artifact 脱敏扫描 PASS；本轮启动的 backend / frontend 已清理，`3007` / `8081` 端口释放。
+- 边界：未提交原始 artifact，未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+- 下一步建议：优先修复 `REA-20260704-P2-006`，让多文档 summary 在保留目标覆盖的同时减少干扰 citation；其次再扩展 Quality Console 的 Trace drill-down。
+
+当前任务：Agent Quality Console MVP Slice 5：前端 Overview + Run Detail（DONE）
+
+## 2026-07-04 补充：`/quality` 内部质量控制台页面
+
+- 目标：新增前端 Agent Quality Console P0 页面，覆盖 Overview + Run Detail，不做复杂 APM、告警系统、多租户后台或大规模调度平台。
+- 已完成：新增 `frontend/lib/quality-api.ts`，封装 `GET /api/quality/runs` 与 `GET /api/quality/runs/{marker}` 的脱敏类型和请求；新增 `frontend/app/quality/page.tsx`。
+- 页面能力：Overview 展示最近 run、PASS / REVIEW / FAILED 统计、gate 数、失败 / REVIEW 桶、token usage / cost 数值；Run Detail 展示 gate 列表、eval case 结果、RAG / Memory / Agent 类摘要字段；`Trace` / `Eval` / `Failures` 作为预留入口。
+- 路由 smoke 策略：`/quality` 默认渲染控制台壳和刷新按钮，不自动请求后端，避免旧登录态或未启动 backend 时把 route smoke 变成后端可达性测试；完整链路验证可使用 `/quality?autoload=1` 自动拉取 API。
+- 已完成小修：新增 `frontend/app/icon.svg`，避免浏览器 route smoke 产生 favicon 404。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；Playwright 打开 `http://localhost:3007/quality?routeSmoke=2` 无 console error；`390x844` 移动端 snapshot 未见横向溢出；本轮启动的 `3007` 前端 dev server 已清理释放。
+- 边界：本片不新增后端功能，不改变业务流程，不展示普通用户入口，不提交 artifact 原文，不 push。
+
+当前任务：Agent Quality Console MVP Slice 4：轻量 Eval Case JSON + Runner（DONE）
+
+## 2026-07-04 补充：Agent Quality Eval 轻量离线门禁
+
+- 目标：为 Agent Quality Console 增加轻量 Eval Case JSON 和离线 runner，使 Eval 不只是 smoke artifact 聚合，而是有 caseId、期望行为、期望 evidence / tool 和 scoringRules 的最小评测合约。
+- 已完成：新增 `backend/src/test/resources/quality/agent-quality-eval-cases.json`，case 字段包含 `caseId`、`question`、`expectedBehavior`、`expectedEvidence`、`expectedTools`、`mustContain`、`mustNotContain`、`tags` 和 `scoringRules`。
+- 已完成 runner：新增 `backend/src/test/java/com/docpilot/backend/quality/eval/**`，`AgentQualityEvalRunner` 可加载 JSON case、根据脱敏 observation 生成 `QualityEvalCaseResultDetail`，并输出只含 caseId、caseType、status、passed、traceId、agentRunId、failureBuckets / reviewBuckets 的安全结果。
+- 已完成 smoke 脚本：新增 `scripts/smoke/agent-quality-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`；`run` 只执行离线 JUnit，不读 `.env`、不调用 provider、不启动服务、不创建业务数据，artifact root 为 ignored 的 `backend/target/agent-quality-eval`。
+- Artifact 聚合同步：`QualityArtifactServiceImpl` 已把 `backend/target/agent-quality-eval` 加入白名单 root，后续 Console 可读取该类脱敏 artifact。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，28 tests，1 skipped（默认关闭的 smoke writer）；`agent-quality-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker `docpilot-agent-quality-eval-20260704220047-9c9af0`；artifact 脱敏扫描 PASS。
+- 边界：本片是离线轻量 eval 合约，不是大规模 Agent benchmark，不调用真实模型，不读取业务数据库，不新增表，不提交 artifact 原文，不 push。
+
+当前任务：Agent Quality Console MVP Slice 3：后端 Quality API（DONE）
+
+## 2026-07-04 补充：Quality API 最小入口
+
+- 目标：在 Slice 2 的 artifact 聚合 service 之上增加内部只读 Quality API，供后续 `/quality` 前端读取脱敏 summary/detail。
+- 已完成：新增 `QualityController`，提供 `GET /api/quality/runs` 和 `GET /api/quality/runs/{marker}`；返回 `ApiResponse<List<QualityRunSummary>>` 和 `ApiResponse<QualityRunDetail>`。
+- 访问控制：`/api/quality/**` 仍走现有 `/api/**` 登录拦截；Controller 额外要求 `app.quality.console.enabled=true`，默认关闭时返回 `FORBIDDEN`。P0 未新增 admin 角色表，也未改用户权限模型。
+- 安全边界：API 只返回 Slice 2 的脱敏 DTO，不返回原始 artifact、prompt、answer 原文、文档全文、evidence context、API key、secret、连接串或云地址。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，21 tests；Controller test 覆盖 console disabled、缺登录上下文、空列表 / 默认 limit、detail 查询和 detail missing。
+- 边界：本片未新增数据库表，未改变核心业务流程，未启动服务，未创建业务数据，未做前端页面，未提交 artifact 原文，未 push。
+
+当前任务：Agent Quality Console MVP Slice 2：后端 artifact 聚合 service（DONE）
+
+## 2026-07-04 补充：Quality artifact 聚合 service
+
+- 目标：为 Agent Quality Console MVP 增加后端只读 artifact 聚合 service，先不暴露 API、不做前端、不建表。
+- 已完成：新增 `backend/src/main/java/com/docpilot/backend/quality/**`，包含 `QualityArtifactService`、`QualityArtifactServiceImpl` 和 `QualityRunSummary` / `QualityRunDetail` / `QualityGateSummary` / `QualityEvalCaseResultDetail` / `QualityTokenUsageSummary`。
+- 聚合边界：service 默认扫描 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/memory-quality`、`backend/target/memory-provider` 和 `tmp-e2e/docpilot-cloud-quality-smoke`，只识别 `artifact.json` 与历史审计 `real-experience-audit-report.json`。
+- 安全策略：只返回 marker、source、artifactName、status、updatedAt、gate 计数、失败 / REVIEW 桶、gate 数值 / 布尔指标、eval case 摘要和 token usage 数值；不透传原始 artifact，不返回 prompt、answer 原文、文档全文、evidence context、API key、secret、连接串或云地址。
+- 降级策略：缺 artifact root 返回空列表；坏 JSON 生成 `REVIEW` summary/detail，`artifactParseFailed=true`，失败桶包含 `artifactParseFailed`；detail 查询只按 marker 匹配已发现 artifact，不接受任意文件路径。
+- 已验证：`mvn "-Dtest=*Quality*" test` PASS，15 tests；新增单测覆盖空目录、缺文件、坏 JSON、正常 artifact、历史审计文件名、最近 N 个排序和未知敏感字段过滤。
+- 边界：本片未新增 Controller / API，未改鉴权，未启动服务，未创建业务数据，未新增数据库表，未提交 artifact 原文，未 push。
+
+当前任务：Agent Quality Console MVP Slice 1：文档与接口口径（DONE）
+
+## 2026-07-04 补充：Agent Quality Console 内部质量控制台口径
+
+- 目标：把 Agent Quality Console 统一定位为 DocPilot 内部质量控制台，用于聚合真实 smoke / audit / eval artifact，展示质量总览、单次 run 明细、Trace / Eval 扩展入口和失败桶，不把它拆成两个独立“大平台”。
+- 已完成文档口径：第一版信息架构为 `Overview`、`Trace`、`Eval`、`Failures`；P0 只要求 `Overview + Run Detail` 最小闭环，同时保留 Trace / Eval drill-down 的 API / DTO 扩展设计。
+- P0 范围：读取 ignored artifact 摘要、按字段白名单生成 `QualityRunSummary` / `QualityRunDetail`、暴露内部 `/quality` 页面和 `/api/quality/**` 只读 API 口径、展示 PASS / REVIEW / BLOCKED / FAILED_CORE_FLOW / FAILED_SECURITY_GATE 等质量状态。
+- P1 范围：补全 Trace 详情、Eval case 详情、Failures 桶、趋势对比和失败 case 到 Trace 的跳转；后续再按证据决定是否引入 `quality_eval_run` / `quality_eval_gate` 表。
+- Trace / Eval 关系：现有 smoke / audit runner 是第一阶段数据来源，但 Eval 不等于 smoke 聚合。轻量 Eval case 先用 JSON 文件描述 `caseId`、`question`、`expectedBehavior`、`expectedEvidence`、`expectedTools`、`mustContain`、`mustNotContain`、`tags` 和 `scoringRules`；Eval result 必须能关联 `traceId` 或 `agentRunId`。
+- Artifact 聚合边界：P0 默认只扫描 `backend/target/audit`、`backend/target/rag-natural-corpus`、`backend/target/rag-real-qa`、`backend/target/memory-quality`、`backend/target/memory-provider` 和 `tmp-e2e/docpilot-cloud-quality-smoke` 下的脱敏 summary；文件不存在降级为空列表或 `artifactMissing=true`，解析失败降级为 `artifactParseFailed=true` / `REVIEW`。
+- 脱敏规则：parser 和 API 必须使用字段白名单；禁止返回 prompt、answer 原文、文档全文、evidence context、API key、access token、secret、连接串和云地址；`token_usage` 只允许返回 `prompt_tokens`、`completion_tokens`、`total_tokens`、`estimated_cost` 等数值统计。
+- 泄露风险回滚：一旦发现某个 artifact root 或 detail 字段存在泄露风险，优先关闭该 root、隐藏 detail 字段或只保留 summary；前端不得直接读取 artifact 原文。
+- 权限边界：`/quality` 和 `/api/quality/**` 是内部页面 / API；如果当前没有完整 admin 角色，P0 先使用开发环境开关或 admin token；普通用户页面不展示 Trace / Eval 详情。
+- 边界：本片仅更新文档与接口口径；未修改业务代码，未新增页面 / API 实现，未启动服务，未创建业务数据，未提交 artifact 原文，未 push。
+
+当前任务：Memory provider 小样本 v1（DONE）
+
+## 2026-07-04 补充：真实 provider 记忆抽取小样本
+
+- 目标：把 Memory provider 从 stub/provider contract 推进到小规模真实 provider 证据，同时保持普通离线测试不依赖真实密钥、不保存原始对话、provider 输出或 memory 内容。
+- 已完成：新增默认关闭的 `MemoryProviderExtractionRealProviderSmokeTest`，通过 `DOCPILOT_MEMORY_PROVIDER_SMOKE_ENABLED=true` 才运行；新增 `scripts/smoke/memory-provider-extraction-smoke.ps1`，支持 `plan` / `dry-run` / `run`，最多 4 次模型调用，artifact root 为 ignored 的 `backend/target/memory-provider`。
+- 已完成 runner 稳定性：`MemoryProviderExtractionEvalRunner` 支持 provider 返回 JSON code fence、`task-goal` / `answer style` 这类大小写与分隔符变化，并按 memory type multiset 判断类型命中，避免真实 provider 的无意义顺序差异造成误判。
+- 真实验证：`memory-provider-extraction-smoke.ps1 -Mode run` PASS，marker `docpilot-memory-provider-20260704192850-695412`；`modelCallCount=4`，`casePassRate=1.0000`，`rawProviderOutputStored=false`。
+- 离线验证：`memory-provider-extraction-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=MemoryProviderExtractionEvalRunnerTest,MemoryProviderExtractionRealProviderSmokeTest,MemoryQualitySmokeScriptSafetyTest" test` PASS，7 tests，其中真实 provider smoke 默认 skipped 1。
+- 边界：这是 4 case 小样本真实 provider 验证，不是大规模 memory extraction benchmark、生产 LLM 记忆抽取替换或长期记忆质量成熟结论；未启动后端 / 前端 / tunnel，未创建业务数据，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+当前任务：真实用户问答体验审计 v2（DONE）
+
+## 2026-07-04 补充：真实用户 QA 体验审计入口
+
+- 目标：把已经成熟的 cloud quality / natural corpus / frontend interaction / memory quality gate 组合成一个真实用户问答体验审计入口，便于后续一键从用户视角检查 RAG、KnowledgeBase、Conversation Trace、Memory、权限隔离和脱敏 artifact。
+- 已完成：新增 `scripts/smoke/real-user-qa-experience-audit.ps1`，支持 `plan` / `dry-run` / `run`；默认委托 `cloud-quality-smoke.ps1`，并启用 `naturalCorpus`、`multiQueryRag`、`frontendInteraction` 和 `memoryQuality` gate，artifact root 为 ignored 的 `backend/target/audit`，marker 前缀为 `docpilot-real-user-qa`。
+- 已完成门禁修正：`cloud-quality-smoke.ps1` 的回答事实表达检查支持 `a|b|c` 同义表达组，避免真实回答用 `seven days` / `7 days`、`five-year` / `5 years` 等自然表达差异时误杀；citation phrase support、forbidden answer、no-evidence 和权限隔离仍保持硬门禁。
+- 真实过程：首轮真实 run marker `docpilot-real-user-qa-20260704190235-553df7` 暴露 3 个自然语料 QA case 的 `answerFactExpression` 过度依赖单一英文短语；修正表达组后重跑通过。
+- 真实验证：`real-user-qa-experience-audit.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-real-user-qa-20260704191307-661bc0`；`naturalCorpus.casePassRate=1`，`answerFaithfulnessPassCount=11/11`，`citationPhraseSupportPassCount=22/22`，`frontendInteraction`、`memoryQuality`、`conversationTrace`、`permissionIsolation`、`artifactRedaction` 均 PASS。
+- 边界：本片是小规模真实链路用户体验审计入口，不是大规模人工评测、线上 SLA 或完整浏览器 E2E 覆盖；本轮创建临时 smoke 用户、文档、KnowledgeBase、Conversation 和 Memory 数据，未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 secrets，未 push。
+
+当前任务：Evidence Coverage 报告 v1（DONE）
+
+## 2026-07-04 补充：自然语料 case 级覆盖报告
+
+- 目标：让自然语料 smoke artifact 不只给总体 PASS / FAIL，还能直接报告漏召回、漏 citation、citation 事实短语不支持、回答事实不满足、干扰 citation 泄漏和 no-evidence 失败的 caseId 清单。
+- 已完成：`naturalCorpus` summary 新增脱敏 `evidenceCoverageReport`，包含 `retrieveCoveragePassCount`、`citationCoveragePassCount`、`citationPhraseSupportPassCount`、`answerFaithfulnessPassCount`、`noEvidenceCorrectCount`、`distractorCitationFreeCount`，以及 `retrievalCoverageMisses`、`citationCoverageMisses`、`citationPhraseMisses`、`answerFaithfulnessMisses`、`distractorCitationLeaks`、`noEvidenceFailures`。
+- 口径调整：多文档 summary 的目标 citation 和事实短语支撑仍是硬门禁；如果目标覆盖与事实支撑都满足，额外干扰 citation 进入 REVIEW 报告，不再和单数字事实干扰一样直接阻断核心链路。单文档 / 数字事实里的干扰 citation 仍是硬失败。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704160327-16b351`；`evidenceCoverageReport` 中 retrieval / citation / phrase / answer / distractor / no-evidence 的 miss、leak、failure 清单均为空。
+- 边界：报告只保存 caseId、计数和布尔结果，不保存原文、回答、prompt、evidence context、token、云地址或连接串；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未 push。
+
+当前任务：Answer / Citation Faithfulness v2（DONE）
+
+## 2026-07-04 补充：自然语料回答与引用支撑硬门禁
+
+- 目标：在 RAG 自然语料 v2 的 25 case 基础上，把 QA case 的回答事实表达和 citation 对预期事实短语的支撑从观测字段升级为硬门禁，避免只看 hit / citation 数量。
+- 已完成：`Invoke-NaturalCorpusCase` 修正单条 citation / hit 的计数方式，避免 artifact 中 `qaCitations` 在单 citation 场景显示为 `null`；新增 `answerFaithfulnessRequired`、`citationPhraseSupport`，并把需要回答事实表达的 QA case 中 `answerFactExpression=false` 记为 failure bucket。
+- 已完成聚合：`naturalCorpus` summary 新增 `answerFaithfulnessCaseCount`、`answerFaithfulnessPassCount`、`citationSupportCaseCount`、`citationPhraseSupportPassCount`，让 artifact 能直接显示回答事实和 citation 支撑覆盖率。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704152850-e07b13`；`answerFaithfulnessPassCount=11/11`，`citationPhraseSupportPassCount=22/22`，`casePassRate=1`。
+- 边界：本片仍是小规模自然语料 smoke 门禁，不是大规模人工 faithfulness benchmark、NLI 模型评测或线上 SLA；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 secrets，未 push。
+
+当前任务：RAG 自然语料扩容 v2（DONE）
+
+## 2026-07-04 补充：12 文档 / 25 case 自然语料质量门禁
+
+- 目标：把 v1 自然语料 gate 从 5 文档 / 6 case 扩展为更接近真实企业知识库的 3 个 corpus、12 份临时 txt 文档、25 个 case，覆盖单文档事实、数字事实、日期事实、审批链、负向事实、多文档 compare / summary、干扰 citation、no-evidence、Conversation Trace、frontendInteraction 和 multi-query。
+- 已完成 runner：`cloud-quality-smoke.ps1` 的 `naturalCorpus` gate 升级为 `schemaVersion=2`，输出 `caseResults`、`casePassRate`、`failureBuckets`、`reviewBuckets`、目标 / 干扰文档覆盖计数和 score summary；artifact 仍不保存文档原文、问题原文、回答原文、prompt、evidence context、token、云地址或连接串。
+- 已完成 wrapper：`rag-natural-corpus-audit-smoke.ps1 -Mode plan` 明确 `defaultCorpusTarget=3`、`defaultDocumentTarget=12`、`defaultCaseTarget=25`，并新增 `natural_date_fact`、`natural_approval_chain`、`natural_negative_fact`、`natural_case_coverage` 等 case 类型口径。
+- 已完成后端修复：KnowledgeBase QA 的数字 citation 精炼不再破坏 compare / summary 这类多文档意图的 citation 覆盖；当数字过滤会把多文档引用压成单文档时，会保留原始 citations。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704151615-bc193d`；`naturalCorpus.casePassRate=1`，12 文档 / 25 case 全部通过，3 个 no-evidence 全部正确拒答，4 个多文档 case 全部覆盖目标文档，25 个含干扰文档的 case 均无干扰 citation，Conversation Trace `ragTriggered=true`、`ragRequired=true`、`evidenceCount=4`。
+- 本轮真实发现并修复：`ops-backup-rollback-compare` 曾因 answer-aware numeric citation filter 只保留 rollback citation，漏掉 backup citation；自然语料 runner 的 `smokegovernance...` 用户名超过注册 32 字符约束，已改为短 alias。
+- 边界：本轮使用真实本地 backend / frontend / tunnel / MySQL / Qdrant 链路和临时 smoke 数据；未删除业务数据，未操作远程 Docker / hk-ops，未改数据库结构，未提交 artifact 原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+当前任务：RAG 自然语料真实审计 gate v1（DONE）
+
+## 2026-07-04 补充：自然语料真实链路质量门禁
+
+- 目标：把 RAG 真实体验审计从 marker-heavy smoke 扩到更接近真实企业知识库问法的自然语料 gate，覆盖单文档事实、数字事实、多文档总结、干扰文档、no-evidence、Conversation Trace、前端交互和 multi-query。
+- 已完成：新增 `scripts/smoke/rag-natural-corpus-audit-smoke.ps1`，默认委托 `cloud-quality-smoke.ps1` 并启用 `naturalCorpus`、`multiQueryRag` 和 `frontendInteraction` gate；`cloud-quality-smoke.ps1` 新增 `-EnableNaturalCorpusGate`、上传限流 retry 和更长 API retry。
+- 已完成后端：KnowledgeBase QA 在回答生成后增加答案数字一致性的 citation 精炼；当答案明确给出数字事实时，会过滤只包含其他数字值的干扰引用，但保留 retrieval hits 和 documentHitCounts 便于 trace / 调试。
+- 真实验证：`rag-natural-corpus-audit-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-rag-natural-corpus-20260704143033-86b4f3`；`naturalCorpus` 覆盖 5 份自然语料临时文档、6 类 case，单文档 / 数字事实 / 多文档 / 干扰 / no-evidence / Trace 均通过，`distractorMarketingCitationCount=0`。
+- 本轮过程：真实 run 先暴露上传限流 `code=1014`、invoice retention 问题引用 marketing retention 干扰文档、以及 run marker 长数字导致 citation 精炼误伤多文档总结引用；已分别通过 runner retry、数字 citation 精炼和忽略长编号修复并重跑 PASS。
+- 边界：本轮真实 run 创建临时 smoke 用户、文档、KnowledgeBase 和 Conversation；artifact 位于 ignored 的 `backend/target/rag-natural-corpus/.../artifact.json`，不提交原文。未删除业务数据，未操作远程 Docker，未改数据库结构，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+
+当前任务：真实体验审计问题防回归与短文档泛化 gate（DONE）
+
+## 2026-07-04 补充：旧 REA 问题防回归收口
+
+- 目标：在四个真实体验审计问题均已 `VERIFIED` 后，把 P1/P2/P3 修复升级成更稳定的质量门禁，覆盖短文档中文 / 数字事实 / 相似短文档干扰、quote-first UI 和权限提示回归。
+- 已完成：`cloud-quality-smoke.ps1` 的 `shortDocumentRag` gate 增加细分失败桶，记录 `singleDocumentEvidence`、中文短文档 retrieve、数字事实 retrieve、KB 双文档覆盖、相似短文档干扰和 citation marker；`frontendInteraction` gate 失败时记录 `quoteFirstUi`、KB citation UI、`permissionUx` 和 console error 桶。
+- 已完成：`rag-real-qa-eval-smoke.ps1` 默认在未 `-SkipFrontend` 时启用 `frontendInteraction`，使 RAG real QA wrapper 也覆盖 quote-first / 权限 UX 细验。
+- 真实验证：`cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker `docpilot-cloud-quality-20260704135601-944384`；`shortDocumentRag.failureBuckets=[]`，`frontendInteraction.failureBuckets=[]`。
+- 补充说明：本轮前两次真实 run 暴露 smoke fixture 中中文行 marker 受 Windows PowerShell 脚本编码影响写坏，已改为 ASCII-safe marker + codepoint 生成中文内容；该问题属于 runner fixture 稳定性，不是后端解析链路 bug。
+- 边界：未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未 push。
+
+当前任务：真实体验审计 P1/P2/P3 修复与浏览器交互 smoke gate（DONE）
+
+## 2026-07-03 补充：短文档 RAG / KB 修复验证
+
+- 目标：修复真实体验审计 marker `docpilot-real-audit-20260703195519-5118e8` 暴露的短 txt 单文档 RAG 无 evidence、短文档 KnowledgeBase 双文档覆盖退化、quote-first UI 和权限错误提示问题。
+- 已完成后端：单文档 RAG 增加收窄的 marker-supported fallback；KnowledgeBase 总结类问题增加按文档 marker-supported backfill，避免短文档在阈值过滤后完全丢失，但不降低全局 similarity threshold，不放宽普通 no-evidence。
+- 已完成前端：文档详情和 KnowledgeBase 引用卡片优先显示 `quoteText`，`snippet` 作为上下文；Conversation citation hover title 优先使用 quote；`apiRequest` 统一抛出带 `code/status/rawMessage` 的 `ApiError`，并对无权限 / 不存在场景给出更清晰中文提示。
+- 已完成 smoke：`scripts/smoke/cloud-quality-smoke.ps1` 新增 `shortDocumentRag` gate，覆盖短 Alpha 单文档 retrieve / QA citation、短 Alpha / Beta KnowledgeBase retrieve / QA citation 和 answer grounding。
+- 真实验证：`cloud-quality-smoke.ps1 -Mode run` PASS，marker `docpilot-cloud-quality-20260703213703-dbef08`；短单文档 `1` hit / `1` citation，短双文档 KB `2` hits / `2` citations，核心 gate、no-evidence、Conversation Trace、权限隔离、frontend routes、artifact redaction 和 cleanup 均 PASS。
+- 当前状态：P1/P2/P3 均已真实验证。`cloud-quality-smoke.ps1 -Mode run -EnableFrontendInteractionGate` PASS，marker `docpilot-cloud-quality-20260703231920-e74334`；新增 `frontendInteraction` gate 覆盖文档详情 quote-first 可见、KnowledgeBase 双 marker citation 可见、跨用户文档无权限提示可见和 console error count `0`。
+- 补充说明：本轮曾有一次真实 run 因临时文档 parse timeout 未进入浏览器 gate，清理后重跑 PASS；该失败按环境波动记录，不做远程修复。
+- 边界：未删除业务数据，未操作远程 Docker，未改数据库结构，未提交 artifact 原文，未 push。
+
+当前任务：中文文档与真实体验问题自动记录规则沉淀（DONE）
+
+## 2026-07-03 补充：中文记录与真实体验问题自动台账
+
+- 目标：把用户要求沉淀成长期协作规则：内部文档和审计记录默认用中文；Codex 真实体验项目后发现的问题必须自动写入台账。
+- 已完成：`AGENTS.md`、`docs/README.md`、`docs/ai-dev/CONSTRAINTS.md` 和 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md` 已明确中文记录规范、真实体验问题触发条件、脱敏边界和问题记录必填字段。
+- 当前规则：技术名、路径、API、状态枚举、命令可保留原文；目标、结论、复现步骤、实际结果、预期结果、可能原因、边界说明必须用中文。
+- 边界：仅文档 / 流程规则沉淀；未启动服务，未创建业务数据，未修改业务代码，未提交 artifact 原文，未 commit，未 push。
+
+当前任务：DocPilot 真实体验审计问题台账（DONE）
+
+## 2026-07-03 补充：真实体验审计问题台账
+
+- 目标：为 Codex 像真实用户一样运行 DocPilot 后发现的 bug 和质量问题，建立可持续维护、只记录脱敏摘要的文档入口。
+- 已完成：新增 `docs/ai-dev/REAL_EXPERIENCE_AUDIT_LOG.md` 作为真实体验审计问题台账，包含严重级别、状态、问题记录格式、首轮审计摘要，以及 marker `docpilot-real-audit-20260703195519-5118e8` 发现的 4 个 OPEN（待修复）问题。
+- 流程同步：`AGENTS.md`、`docs/README.md` 和 `docs/ai-dev/CONSTRAINTS.md` 已要求后续真实体验问题写入该台账，避免把完整问题流水塞进 showcase smoke 记录。
+- 当前待修复问题：`REA-20260703-P1-001` 短 txt 单文档 RAG 无 evidence；`REA-20260703-P1-002` 短文档 KB 双文档问题退化成单文档命中；`REA-20260703-P2-001` quote-level API 需要 quote-first UI；`REA-20260703-P3-001` 权限拒绝前端提示需要更清晰。
+- 边界：本轮仅为文档 / 流程切片；未启动服务，未创建业务数据，未修改代码，未提交 artifact 原文，未 commit，未 push。
+
+Current task: DocPilot Quality Loop v6.6: Memory Provider Extraction Eval Contract (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.6 Memory Provider Extraction Eval Contract
+
+- Goal: continue M1 by adding a test-side provider extraction evaluator that can validate JSON memory suggestions from an `AiAnswerService` provider without storing raw conversation text, provider output or memory content.
+- Done: `MemoryProviderExtractionEvalRunner` sends a strict JSON-only extraction contract, parses provider suggestions, checks expected memory types, safety validation and forbidden marker leakage, and emits only safe summaries.
+- Evidence: stubbed provider tests cover a PASS case for `ANSWER_STYLE` + `TASK_GOAL` extraction and a FAIL case where unsafe token-like provider output is flagged without dumping content.
+- Verified: `mvn "-Dtest=MemoryProviderExtractionEvalRunnerTest,MemoryQualityEvalRunnerTest,MemoryQualityEvalFixtureTest,MemoryQualitySmokeScriptSafetyTest" test` PASS, 7 tests; `mvn "-Dtest=*Memory*,*Context*" test` PASS, 65 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS, 276 tests.
+- Boundary: this is provider-contract / parser / artifact-safety work using a stub provider, not a real external provider run, not production LLM memory extraction, not schema change, not runtime smoke and not artifact submission.
+
+Current task: DocPilot Quality Loop v6.5: Memory Provider Readiness Eval Artifact (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.5 Memory Provider Readiness Eval Artifact
+
+- Goal: start M1 by making Memory Quality Eval explicitly report whether extraction is rule-based or real-provider-backed, so the project does not overclaim LLM memory extraction quality.
+- Done: Memory eval metrics now include `providerBackedCaseRate`; safe artifacts include `providerEvaluation` with `extractionProvider`, `status`, `realProviderConfigured`, `modelCallCount`, `rawProviderOutputStored` and a boundary note. Each case summary also records `extractionProvider` and `providerBacked`.
+- Current result: offline Memory Quality Eval remains `rule_based` with real provider status `not_configured`, `modelCallCount=0` and `rawProviderOutputStored=false`.
+- Verified: `mvn "-Dtest=MemoryQualityEvalFixtureTest,MemoryQualityEvalRunnerTest,MemoryQualitySmokeScriptSafetyTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ContextAssemblyServiceImplTest" test` PASS, 27 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS, 274 tests.
+- Boundary: this is provider-readiness / artifact honesty work, not real LLM memory extraction. No tunnel/backend/frontend startup, no business data creation, no provider call, no schema change, no raw conversation or memory text artifact submission and no push.
+
+Current task: DocPilot Quality Loop v6.4: Quote-level RAG Citation API (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.4 Quote-level RAG Citation API
+
+- Goal: start R3 by moving RAG evidence exposure from chunk-level `snippet` only toward quote-level citations that are easier to audit for answer grounding.
+- Done: single-document RAG and KnowledgeBase RAG retrieval hits now derive `quoteText`, `quoteStartOffset` and `quoteEndOffset` from the retrieved chunk; citation records and API response VOs expose the same fields while preserving existing `snippet`, chunk offsets and scores.
+- Frontend contract: `frontend/lib/rag-api.ts` and `frontend/lib/knowledge-base-api.ts` now include optional quote fields so UI slices can render quote-first citation cards later without changing the API contract again.
+- Verified: `mvn "-Dtest=RagEvidenceQuoteExtractorTest,RagQaControllerTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,DocumentAgentServiceImplTest" test` PASS, 26 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 214 tests; `npm run lint` PASS.
+- Boundary: no schema change, no retrieval ranking change, no prompt / answer-generation change, no tunnel/backend/frontend startup, no business data creation, no real provider call, no artifact submission and no push. The frontend page rendering change is deferred because several page files need a separate encoding-safe cleanup before editing user-facing Chinese copy.
+
+Current task: DocPilot Quality Loop v6.3: Multi-query Real Smoke Evidence (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.3 Multi-query Real Smoke Evidence
+
+- Goal: finish R1's runtime evidence loop by running the real RAG QA smoke with the new request-scoped multi-query gate enabled.
+- Done: `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS with marker `docpilot-rag-real-qa-20260703192456-2a62e9`.
+- Multi-query evidence: `multiQueryRag` PASS with `multiQueryApplied=true`, `queryVariantCount=4`, `queryDedupeCount=24`, `6` retrieve hits, `6` QA citations, Alpha retrieve/citation `3/3` and Beta retrieve/citation `3/3`.
+- Regression evidence: tunnel, backend health, frontend routes, auth, upload / parse / indexing, chunk quality, MySQL / Qdrant consistency, single-document RAG, KnowledgeBase RAG, representative corpus, answer grounding, hard negative, semantic gate, real provider faithfulness, no-evidence, Conversation Trace, permission isolation, cleanup and artifact redaction all remained PASS.
+- Note: the first run marker `docpilot-rag-real-qa-20260703192105-e953d2` reached `multiQueryRag` PASS but failed later at Conversation message API with `FAILED_CORE_FLOW`; cleanup succeeded and the immediate rerun passed.
+- Boundary: this is small real-link smoke evidence for request-scoped multi-query, not a large-scale relevance uplift benchmark, LLM query planner evaluation or online SLA. Artifacts remain ignored and were not submitted.
+
+Current task: DocPilot Quality Loop v6.2: Multi-query Real Smoke Gate Runner (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.2 Multi-query Real Smoke Gate Runner
+
+- Goal: continue R1 by making the real cloud quality smoke able to explicitly exercise request-scoped multi-query retrieval, without changing the default cloud-quality runner behavior.
+- Done: `cloud-quality-smoke.ps1` now supports optional `-EnableMultiQueryGate`; `rag-real-qa-eval-smoke.ps1` enables that gate by default and exposes `-SkipMultiQueryGate`.
+- Gate behavior: the optional gate sends KnowledgeBase retrieve / QA requests with `multiQueryEnabled=true` and `maxQueryVariants=4`, then records redacted checks for `multiQueryApplied`, `queryVariantCount`, `queryDedupeCount`, two-document retrieve/citation coverage and answer grounding.
+- Verified: `rag-real-qa-eval-smoke.ps1 -Mode plan` PASS; `rag-real-qa-eval-smoke.ps1 -Mode dry-run` PASS; `mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS, 3 tests.
+- Boundary: this slice did not run `run` mode, did not start tunnel/backend/frontend, did not create business data, did not call a real provider, did not submit artifacts and did not push. Real-link multi-query evidence still requires the next smoke run.
+
+Current task: DocPilot Quality Loop v6.1: Request-scoped Multi-query Retrieval Eval (DONE)
+
+## 2026-07-03 Addendum: Quality Loop v6.1 Request-scoped Multi-query Retrieval Eval
+
+- Goal: start R1 by making KnowledgeBase multi-query retrieval explicitly controllable per request, while keeping the default runtime behavior unchanged.
+- Done: `KnowledgeBaseRagRetrieveRequest` and `KnowledgeBaseRagQaRequest` now accept optional `multiQueryEnabled` and `maxQueryVariants`; controller / QA / retrieval services propagate the override, validate request-scoped variant limits and still default to global `app.rag.retrieval.*` settings when fields are absent.
+- Eval evidence: KnowledgeBase offline eval now reports `retrievalModeMetrics.multi_query` beside `vector` and `hybrid`, giving a redacted comparison point for multi-query retrieval without storing rewritten query text, document text, prompt, evidence context or answer output.
+- Verified: `mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalFixtureTest,RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 211 tests.
+- Boundary: this slice did not start tunnel/backend/frontend, create business data, call a real provider, change schema, touch remote Docker, submit artifacts or push. Multi-query remains default-off unless config or request explicitly enables it.
+- Next: continue R1 with a real-link enabled multi-query smoke comparison, then move to R3 quote-level citation or M1 real-provider memory extraction eval.
+
+Current task: DocPilot Quality Loop v5.6: Query Rewrite / Multi-query Retrieval (DONE)
+
+## 2026-06-29 Addendum: Quality Loop v5.6 Query Rewrite / Multi-query Retrieval
+
+- Goal: finish A6 with a conservative KnowledgeBase retrieval enhancement for complex questions, without changing the default runtime behavior.
+- Done: added a rule-based `QueryRewriteService` and default-off `app.rag.retrieval.multi-query-enabled`; when enabled, KnowledgeBase retrieval generates bounded query variants, runs vector search per variant, deduplicates hits by chunk identity, then continues through the existing threshold, hybrid, rerank, scope guard and diversity gates.
+- Observability: `KnowledgeBaseRagRetrievalResult` / response now expose `multiQueryApplied`, `queryVariantCount` and `queryDedupeCount`; variant text is not stored in the result or artifact-facing response.
+- Configuration: `APP_RAG_RETRIEVAL_MULTI_QUERY_ENABLED=false` and `APP_RAG_RETRIEVAL_MAX_QUERY_VARIANTS=3` are documented in config examples.
+- Verified: `mvn "-Dtest=RuleBasedQueryRewriteServiceTest,RagRetrievalPropertiesTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest" test` PASS, 32 tests; `mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS, 209 tests; real `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007 -ReuseRunningServices` PASS, marker `docpilot-rag-real-qa-20260629202542-3e47d9`.
+- Boundary: this is deterministic rule-based query rewrite, not LLM query planning, not real-provider query expansion, not a proven relevance uplift benchmark, and not enabled by default.
+- Next: A4-A6 are complete. A natural next slice is an explicitly enabled multi-query runtime/eval comparison to determine whether it improves recall on complex questions without hurting no-evidence.
+
+Current task: DocPilot Quality Loop v5.5: Chunk Quality v2 (DONE)
+
+## 2026-06-29 Addendum: Quality Loop v5.5 Chunk Quality v2
+
+- Goal: continue A5 by making chunk quality metadata more useful for real RAG diagnosis, especially section path, structured blocks and split / duplicate signals.
+- Done: `DocumentChunkCandidate` now carries `sectionPath`; `ChunkingServiceImpl` builds nested heading paths, detects table / list blocks, flags window and mid-sentence splits, and marks duplicate chunk content. Indexing metadata and Qdrant payload propagation now include `sectionPath`.
+- Smoke gate sync: `cloud-quality-smoke.ps1` now includes `sectionPath` in the MySQL / Qdrant payload consistency field set.
+- Verified: `mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,DocumentChunkServiceImplTest,VectorPointTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS, 41 tests.
+- Boundary: no database schema change, no backend / frontend / tunnel startup, no business data creation, no real provider call, no remote Docker or hk-ops operation in this slice.
+- Next: continue A6 default-off KnowledgeBase query rewrite / multi-query retrieval, then decide whether to run a full real cloud quality smoke after A6.
+
+Current task: DocPilot Quality Loop v5.4: RAG Retrieval Error Analysis Report (DONE)
+
+## 2026-06-29 Addendum: Quality Loop v5.4 RAG Retrieval Error Analysis Report
+
+- Goal: land A4 by turning offline RAG eval output from aggregate pass rates into a redacted retrieval error analysis report.
+- Done: `RagRetrievalErrorAnalysis` now summarizes missed retrieval, wrong retrieval, no-evidence refusal, citation unsupported, answer unsupported, forbidden leak, scope violation and ranking candidate pass counts for both KnowledgeBase RAG eval and RAG Real QA eval artifacts.
+- Safety boundary: the report stores counts, booleans, failure reason buckets and case ids only; it does not store document text, query text, answer text, model instructions, evidence context, credentials, cloud addresses or connection strings.
+- Verified: `mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest,KnowledgeBaseRagEvalRunnerTest" test` PASS, 5 tests.
+- Boundary: this is an offline `MockEmbeddingProvider` + `InMemoryVectorStoreClient` eval/reporting gate, not a real provider benchmark, online SLA or broad relevance dashboard.
+- Next: continue A5 Chunk Quality v2, then A6 default-off KnowledgeBase multi-query retrieval.
+
+当前任务：DocPilot Quality Loop v5.3：RAG Real Provider Faithfulness Smoke（DONE）
+
+## 2026-06-29 追加任务：Quality Loop v5.3 RAG Real Provider Faithfulness Smoke
+
+- 目标：完成用户选择的 A1，把 RAG Real QA smoke 从“真实链路 retrieve / citation / marker gate”推进到“小规模真实回答 provider answer faithfulness 证据”，确认关键 grounded QA 不是 mock 回答。
+- 已完成 runner 增强：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealProviderFaithfulnessGate`，`rag-real-qa-eval-smoke.ps1` 默认开启并提供 `-SkipRealProviderFaithfulnessGate`；gate 只保存 `answerProvider`、`answerModel`、`modelCallCount`、`answerLength`、`noEvidence` 和 `passed`，不保存回答原文、prompt、文档原文、evidence context、token、云地址或连接串。
+- 真实 run 过程：首次 run 暴露 `realQaHardGate.answerFaithfulness` 问法不够稳定，真实回答未带出 `ALPHA-CLOUD-GATE` / citation marker，整体 `FAILED_CORE_FLOW`；随后把该问法收窄为直接询问 `ALPHA-CLOUD-GATE` 本身并重跑。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629191831-69d71e`。
+- 关键结果：`realProviderFaithfulness` PASS，`knowledgeBaseRag`、`answerFaithfulness`、`claimSupport`、`numericFaithfulness` 四个 scope 均为非 mock provider、`modelCallCount=1`、`noEvidence=false`、answer length 大于 `0`；`realQaHardGate`、`realQaSemanticGate`、representative corpus、answer grounding、no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 均保持 PASS。
+- 边界：本片是小规模真实 provider smoke，不是大规模 answer faithfulness benchmark、通用语义蕴含模型或线上 SLA；真实 smoke 创建了临时 smoke 用户、文档、KnowledgeBase、Conversation 和 ignored 脱敏 artifact，不提交 artifact 原文，不 push。
+- 下一步：A1 + A2 + A3 已完成一轮闭环；后续可继续做 A4“真实失败样本审计与题库沉淀”，把首次 run 这种问法不稳的 case 系统化记录成 REVIEW 样本，或转向 Memory 真实 provider 抽取质量小样本。
+
+## 2026-06-29 追加任务：Quality Loop v5.2 RAG Claim Support Evidence Scorer
+
+- 目标：继续推进用户选择的 A2，把 RAG Real QA Eval 从“marker / citation 数量达标”推进到“关键 claim 必须被目标 evidence marker 支撑”，为后续真实 provider 小样本 answer faithfulness 对比提供更细的离线门禁。
+- 已完成 test-side scorer：新增 `RagClaimSupportScorer` / `RagClaimSupportScore`，`RagRealQaEvalCase` 支持可选 `expectedClaims`，每个 claim 只保存脱敏 claim id、answer marker、evidence marker 和 forbidden marker；`RagRealQaEvalResult` 的 case summary 输出 `claimSupportRequired`、`claimCount`、`supportedClaimCount`、`unsupportedClaimCount`、`claimSupportHit`、`forbiddenClaimHit` 等脱敏字段，不保存回答原文、文档原文、prompt 或 evidence context。
+- 已完成指标增强：`RagRealQaEvalMetrics` 新增 `claimSupportScorerPassRate`、`supportedClaimRate`、`unsupportedClaimRate`、`forbiddenClaimRate`；`real-qa-eval-cases.json` 为访问审批链、四小时 SLA、root cause、报销限额和 vendor risk citation grounding 等代表 case 增加 `expectedClaims`。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 test-side scorer / fixture / metrics / artifact schema 和事实源文档；不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API 或数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该 scorer 基于 synthetic marker contract，不是通用自然语言蕴含模型或大规模真实 provider benchmark。
+- 下一步：继续进入 A1，小规模真实 provider Answer Faithfulness Eval；优先用已有 smoke runner 的真实链路门禁做小样本验证，不做大规模付费 eval，不扩大能力边界。
+
+## 2026-06-29 追加任务：Quality Loop v5.1 RAG Real Corpus Expansion to 40 Cases
+
+- 目标：进入用户选择的 A1 + A2 + A3 路线后，先落地 A3 的最小闭环，把 RAG Real QA Eval 的脱敏离线语料从 `26` 个 case 扩到 `40` 个 case，让后续 A2 claim / evidence scorer 和 A1 真实 provider 小样本验证有更扎实的覆盖面。
+- 已完成离线语料扩容：`real-qa-eval-cases.json` 新增 `14` 个脱敏企业知识库样例，覆盖合同续约通知、访问变更审批链、SLA 数字忠实度、审计交接、多文档客户事故沟通、API deprecation hard negative、隐私删除 near-miss no-evidence、root cause answer faithfulness、SSO / MFA 比较、报销限额数字忠实度、跨租户 scope isolation、长备份 runbook、hybrid keyword 噪声和 vendor risk citation grounding。
+- 已完成 fixture 门禁增强：`RagRealQaEvalFixtureTest` 要求总 case 数至少 `40`，并提高 `hard_negative`、`answer_faithfulness`、`claim_support`、`numeric_faithfulness`、`multi_doc_summary`、`scope_isolation` 等关键类别的覆盖下限；`RagRealQaEvalRunnerTest` 同步要求 eval case count 至少 `40`。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 test-side eval / JSON fixture / 测试和事实源文档；不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API 或数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果是脱敏离线质量门禁扩容，不代表真实 provider 大规模 answer faithfulness benchmark。
+- 下一步：继续进入 A2，给 Real QA Eval 增加 claim support / evidence support scorer，让指标不只看 marker 和 citation 数，还能显式判断“回答中的关键 claim 是否被目标 evidence marker 支撑、是否泄漏 forbidden claim”。
+
+## 2026-06-29 追加任务：Quality Loop v4.3 RAG Real QA Semantic Gate Smoke
+
+- 目标：把 v4.2 离线 `claim_support` / `numeric_faithfulness` 语义支持门禁迁移到真实 RAG Real QA smoke，让真实链路同时检查“结论必须由目标 evidence 支持”和“数字 / 年限不能被相近文档带偏”。
+- 已完成 smoke runner 增强：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealQaSemanticGate`，在 Alpha / Beta 临时 KnowledgeBase 中加入目标 evidence marker 和干扰 marker；`rag-real-qa-eval-smoke.ps1` 默认打开该 gate，并提供 `-SkipRealQaSemanticGate`。
+- 已完成脱敏边界：artifact 只保存 no-evidence 布尔值、hit / citation 数、target / forbidden citation count、score summary、answer length 和 marker / citation 布尔结果，不保存回答原文、prompt、文档原文、evidence context、token、云地址或连接串。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629183549-4aafc3`。
+- 关键结果：`realQaSemanticGate` PASS；`claimSupport` 与 `numericFaithfulness` 均为 `1` retrieve hit、`1` QA citation、target citation count `1`、forbidden citation count `0`、expected marker satisfied、forbidden marker absent、citation marker present。`realQaHardGate`、representative corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、frontend routes、cleanup 和 artifact redaction 均保持 PASS。
+- 边界：本片只增强 smoke runner / wrapper / 安全测试和文档记录，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。该结果是小规模真实链路语义支持门禁，不代表通用语义蕴含模型、大规模真实 provider benchmark 或线上 SLA。
+- 下一步：可继续 RAG 方向做更难的真实 provider 小样本 answer faithfulness / citation support 对比；也可转入 Memory 方向做真实 provider 抽取质量小样本，或做前端 Trace / Evidence 可解释性二次审计。
+
+## 2026-06-29 追加任务：Quality Loop v4.2 RAG Claim Support / Numeric Faithfulness Eval
+
+- 目标：继续把 RAG Real QA Eval 从普通 answer faithfulness 推进到更细的语义支持门禁，覆盖“结论必须由目标 evidence 支持”和“数字 / 年限不能被相近文档带偏”两类常见面试追问。
+- 已完成离线 eval：`real-qa-eval-cases.json` 新增 `claim_support` 与 `numeric_faithfulness` 两个脱敏企业场景；前者验证 vendor access renewal 的 manager approval 只能来自目标 evidence，后者验证 invoice archive retention 的 seven-year evidence 不被 three-year 干扰文档污染。
+- 已完成指标增强：`RagRealQaEvalMetrics` 新增 `claimSupportPassRate` 与 `numericFaithfulnessPassRate`，safe artifact 同步输出两个指标，仍不保存文档全文、query 原文、prompt、evidence context 或模型输出。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests。
+- 边界：本片只增强离线 Real QA eval / fixture / metrics，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果是离线语义支持门禁增强，不代表真实 provider 大规模 answer faithfulness benchmark。
+
+## 2026-06-29 追加任务：Quality Loop v4.1 Memory Extraction Quality Eval
+
+- 目标：把 Memory Quality Eval 从“状态分层 / trace 计数可用”推进到“能拦住更多低质量长期记忆候选”，覆盖多信号抽取、assistant 指令污染、低价值寒暄、一次性回答风格、敏感 token/API key 指令等 case。
+- 已完成规则收窄：`RuleBasedMemoryExtractionService` 在抽取候选前过滤敏感内容和一次性 / 临时指令，避免把 token/API key 占位指令或“这一次回答详细一点，后面不用记住”沉淀为长期记忆候选；正常用户长期偏好和任务目标抽取保持不变。
+- 已完成离线 eval：`memory-quality-eval-cases.json` 新增 `multi_signal_extraction`、`assistant_contamination`、`low_value_suppression`、`temporary_instruction_suppression`、`sensitive_suggestion_suppression` 五类脱敏 case；`MemoryQualityEvalMetrics` 新增 `suggestionSafetyRate`、`userSignalExtractionRate`、`noiseSuppressionRate`、`temporaryInstructionSuppressionRate`，artifact 仍只保存脱敏 summary、布尔值、类型和计数，不保存会话正文或 memory 正文。
+- 已验证：`mvn "-Dtest=MemoryQualityEvalFixtureTest,MemoryQualityEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*Memory*,*Context*" test` PASS，63 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，267 tests。
+- 边界：本片不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 LLM memory extraction，不改数据库结构，不删除业务数据，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果是规则式 Memory 候选抽取的离线质量门禁增强，不代表真实 provider 长期记忆抽取质量或大规模个性化效果评测。
+
+## 2026-06-29 追加任务：Quality Loop v3.9 Memory Governance Edit / Resolve
+
+- 目标：把 Memory Governance 从“发现重复 / 冲突并阻断直接 accept”推进到“用户能处理冲突”：支持编辑 ACTIVE memory、保留旧记忆、用候选替换旧记忆、手动合并候选，并用真实 smoke 验证治理闭环。
+- 已完成后端：新增 `PATCH /api/memories/{memoryId}` 编辑 ACTIVE memory；新增 `POST /api/memories/suggestions/{memoryId}/resolve`，支持 `KEEP_ACTIVE`、`REPLACE_ACTIVE`、`MERGE_WITH_ACTIVE`。所有路径都校验当前用户、状态、同类型、敏感内容、重复 / 冲突治理；不改数据库结构、不 hard delete。
+- 已完成前端：`/conversations` Memory 抽屉中 ACTIVE memory 可编辑 / 保存 / 取消；带 `duplicateOfId` 或 `conflictWithId` 的候选显示“保留旧记忆 / 替换旧记忆 / 合并”，合并文本由用户确认，不做自动 LLM merge。
+- 已完成 smoke：`memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 新增 Memory resolution gate，覆盖冲突候选直接 accept 被拦截、`KEEP_ACTIVE` 后候选变 `IGNORED`、`REPLACE_ACTIVE` 更新旧 ACTIVE、敏感编辑被拒、普通编辑成功、`MERGE_WITH_ACTIVE` 更新旧 ACTIVE，artifact 只保存状态、计数、长度和错误 code，不保存记忆正文。
+- 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，63 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，267 tests；`mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，5 tests；`npm run lint` PASS；`npm run build` PASS；`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-memory-quality-20260629140941-6668d9`。
+- 追加修复：首次真实 run 在 `answerGrounding` 暴露 KnowledgeBase QA 回答未逐字带出 `ALPHA-CLOUD-GATE` / `BETA-CONTEXT-GATE`，已把 KB gate 的问题文本改为明确要求逐字包含 evidence marker，随后真实 run PASS。
+- 边界：本片不做真实 LLM memory extraction，不做自动合并，不新增版本历史 / 审计表，不改数据库结构，不删除业务数据，不操作远程 Docker，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果证明用户可控的 Memory 治理闭环，不代表大规模长期记忆个性化效果评测。
+
+## 2026-06-29 追加任务：Quality Loop v3.8 RAG Quality Interview Docs Sync
+
+- 目标：把 v3.5-v3.7 的 RAG hard negative / answer faithfulness / answer grounding 质量闭环同步到 README 和 showcase 面试材料，避免对外材料停留在“可演示 RAG / Agent”旧口径，也避免夸大成线上 SLA 或大规模 benchmark。
+- 已完成：`README.md` 补充 no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace、MySQL / Qdrant 一致性和脱敏 artifact 质量门禁口径。
+- 已完成：`docs/showcase/PROJECT_INTERVIEW_BRIEF.md`、`RESUME_BULLETS.md`、`INTERVIEW_QA.md` 同步 RAG 工程闭环讲法，强调真实 embedding + Qdrant smoke、hard-negative 支持度门禁和边界。
+- 边界：本片只改对外 / 面试文档和事实源，不改业务代码、不启动服务、不创建业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。hard-negative 支持度门禁明确写成近阈值启发式，不写成通用语义蕴含模型或大规模 relevance benchmark。
+
+## 2026-06-29 追加任务：Quality Loop v3.7 Hard Negative Near-threshold Support Gate
+
+- 目标：修复 v3.6 暴露的真实链路质量缺口：高词面相似但缺少目标结论的 hard negative 问题仍能越过 `0.50` evidence confidence gate，返回 `3` hits / `3` citations。
+- 已完成：`KnowledgeBaseRagRetrievalServiceImpl` 在既有 similarity threshold、hybrid confidence gate、rerank 和 diversity selection 后，新增近阈值低支持度拒答门；仅当非总结类问题、最高 threshold score 只略高于阈值、且 query 关键英文业务词在候选 evidence 中覆盖不足时，才清空 hits 进入 no-evidence。
+- 已完成测试：新增 hard negative 低支持度拒答测试，以及近阈值但 evidence 覆盖关键业务词时不误杀的正例测试；已有 summary / hybrid keyword-only 多文档召回测试保持通过。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，13 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，207 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629130454-1d1d6c`。
+- 关键结果：`realQaHardGate` 从 v3.6 的 `REVIEW` 变为 PASS；`hardNegative` 为 `retrieveNoEvidence=true`、`qaNoEvidence=true`、`0` hits、`0` citations；`answerFaithfulness` 仍 PASS，target citation `1`、forbidden citation `0`；representative corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、frontend routes 和 artifact redaction 均保持 PASS。
+- 边界：这是启发式的近阈值支持度门禁，不是通用自然语言蕴含模型；不改数据库结构，不删除业务数据，不操作远程 Docker，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。后续如果要更强，应做 evidence entailment / claim support scorer，而不是继续堆硬编码规则。
+- 下一步：可进入 README / showcase 面试口径同步，把 RAG 质量门禁从 REVIEW 到 PASS 的证据讲清楚；或继续 Memory 编辑 / 合并交互与门禁。
+
+## 2026-06-29 追加任务：Quality Loop v3.6 RAG Real QA Hard Gate Smoke 第一片
+
+- 目标：把 v3.5 的 hard negative / answer faithfulness 代表检查小规模迁移进真实 RAG Real QA smoke，让真实链路不只验证普通 no-evidence 和 answer grounding，也能暴露高词面相似但结论缺失的问题。
+- 已完成：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRealQaHardGate`，复用本轮 Alpha / Beta 临时 KnowledgeBase，不额外上传文件，检查 `hardNegative` 与 `answerFaithfulness` 两个 scope；`rag-real-qa-eval-smoke.ps1` 默认打开该 gate，并提供 `-SkipRealQaHardGate`。
+- 已完成脱敏边界：artifact 只保存 no-evidence 布尔值、hit / citation 数、score summary、marker 命中计数和 answer length，不保存回答原文、prompt、文档原文、evidence context、token、云地址或连接串；脚本安全测试已覆盖新 gate。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` 完成，marker 为 `docpilot-rag-real-qa-20260629125627-c0915e`，整体 `REVIEW`。
+- 关键结果：核心链路 gate 均 PASS，包括 tunnel、backend health、frontend routes、auth、上传 / parse / indexing、chunk quality、MySQL / Qdrant 一致性、单文档 RAG、KB RAG、representative corpus、answer grounding、普通 no-evidence、Conversation Trace、权限隔离、cleanup 和 artifact redaction。`answerFaithfulness` PASS：target citation `1`、forbidden citation `0`、expected marker satisfied、forbidden marker absent。`hardNegative` REVIEW：高词面相似问题仍返回 `3` hits / `3` citations，vector score 约 `0.50-0.55`，说明当前 evidence confidence / grounding policy 对这类缺证结论还不够严格。
+- 边界：本片只增强 smoke runner / wrapper / 安全测试和文档记录，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。真实 smoke 创建了临时用户、三份文档、KnowledgeBase、Conversation 和 ignored artifact；该结果是小规模真实链路质量缺口证据，不是大规模 benchmark。
+- 下一步：优先做 hard negative 召回后的拒答治理：比较 query / evidence 语义支持度、answer audit fallback reason、rerank score 与 vector score 组合门禁，先以离线测试和小规模 smoke 校准，不直接调高全局阈值伤害正常多文档召回。
+
+## 2026-06-29 追加任务：Quality Loop v3.5 RAG Hard Negative / Answer Faithfulness Eval 第一片
+
+- 目标：继续把 RAG Real QA Eval 从“覆盖更多真实问法”推进到“能拦住高词面相似但无证据的问题，并观察回答是否忠实落在目标 evidence 上”，优先补 hard negative 与 answer faithfulness 两类离线门禁。
+- 已完成：`real-qa-eval-cases.json` 追加 `real-hard-negative-payroll-tax` 和 `real-answer-faithfulness-policy-exception` 两个脱敏企业场景；前者用 payroll / tax / vendor / owner 等强词面干扰但不提供目标结论，要求 no-evidence；后者在目标 evidence 与 SLA 干扰文档之间要求只命中 `real-policy-exception-owner-marker`，不得泄漏 forbidden marker。
+- 已完成指标增强：`RagRealQaEvalMetrics` 新增 `hardNegativePassRate` 与 `answerFaithfulnessPassRate`，artifact safe map 同步输出两个脱敏指标；`hard_negative` 同时纳入 distractor suppression 聚合。
+- 已验证：`mvn "-Dtest=RagRealQaEvalFixtureTest,RagRealQaEvalRunnerTest" test` PASS，3 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，10 tests。
+- 边界：本片只增强离线 test-side eval / fixture / metrics，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果是离线质量门禁增强，不是大规模真实 answer faithfulness benchmark。
+- 下一步：可继续 RAG 方向把 hard negative / answer faithfulness 代表 case 小规模迁移到真实 smoke；也可转入 Memory 编辑 / 合并交互与门禁，或做 README / showcase 面试口径同步。
+
+## 2026-06-29 追加任务：Quality Loop v3.4 RAG Answer Grounding Gate v1
+
+- 目标：把真实 RAG smoke 从“检索和 citation 数量达标”继续推进到“最终回答文本确实落在 evidence 上”，要求回答包含预期 evidence marker、不包含 forbidden marker，并带 citation marker。
+- 已完成：`cloud-quality-smoke.ps1` 新增 `Test-AnswerGrounding`，在单文档 RAG、KnowledgeBase 两文档 RAG 和 representative corpus 三文档 RAG 后检查 `answerPresent`、`expectedMarkerHits`、`forbiddenMarkerHit` 和 `citationMarkerPresent`；artifact 只保存长度、计数和布尔结果，不保存回答原文、prompt、evidence context 或 response 原文。
+- 已完成专项入口：`rag-real-qa-eval-smoke.ps1` 的 plan 输出新增 `answer_grounding` case type 和 `answerGrounding` gate；Representative Corpus 问题文本已明确要求逐字带出 `ALPHA-CLOUD-GATE`、`BETA-CONTEXT-GATE` 和 `real-incident-detection-marker`，使 gate 检查对象与测试目标对齐。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，3 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260629003157-630db5`。
+- 关键结果：`answerGrounding` gate 覆盖 `singleDocumentRag`、`knowledgeBaseRag` 和 `representativeCorpus` 三个 scope；三者均 `answerPresent=true`、`expectedMarkersSatisfied=true`、`forbiddenMarkerHit=false`、`citationMarkerPresent=true`。Representative corpus 同轮返回 `8` retrieve hits / `8` citations，documentHitCounts 覆盖 Gamma `203:2`、Beta `202:3`、Alpha `201:3`；no-evidence、Conversation Trace、权限隔离、前端 routes、cleanup 和 artifact 脱敏均保持 PASS。
+- 边界：本片只增强 smoke runner、脚本安全测试和脱敏记录，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。真实 smoke 创建了临时用户、三份文档、KnowledgeBase 和 Conversation 数据，artifact 位于 ignored `backend/target/rag-real-qa/.../artifact.json`；该结论是小规模真实链路回答落证门禁，不是大规模真实语料 benchmark 或线上 SLA。
+- 下一步：可进入 Memory 编辑 / 合并交互与门禁，或继续 RAG 方向做 hard negative corpus、answer faithfulness 更细粒度审计、README / showcase 面试口径同步。
+
+## 2026-06-28 追加任务：Quality Loop v3.3 RAG Real Corpus 真实链路代表性三文档门禁
+
+- 目标：把 RAG Real Corpus 的代表性企业问答样例从离线 eval 小规模迁移进真实链路 smoke，让 RAG Real QA 专项 smoke 不只复用两文档通用门禁，还能验证三文档代表 corpus 的多文档覆盖、citation grounding 和脱敏 artifact。
+- 已完成：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRepresentativeCorpusGate`，额外创建一份 incident review Gamma 文档，并与既有 Alpha / Beta 两文档组成 Representative Corpus KB；gate 要求 retrieve 和 QA citation 都覆盖 Alpha / Beta / Gamma 三份文档，artifact 只记录 ids、count、documentHitCounts 和 score summary。
+- 已完成专项入口：`rag-real-qa-eval-smoke.ps1` 默认打开 representative corpus gate，并提供 `-SkipRepresentativeCorpusGate` 跳过开关，避免通用 cloud smoke 默认增加真实链路成本；plan 输出包含 `representative_corpus` 和 `representativeCorpusEnabledByDefault=true`。
+- 已验证：`rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests；`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，9 tests；真实 `rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-qa-20260628234235-5c1b94`。
+- 关键结果：代表性三文档 gate 返回 `8` retrieve hits / `8` citations，documentHitCounts 覆盖 Gamma `196:2`、Beta `195:3`、Alpha `194:3`；no-evidence、Conversation Trace、权限隔离、前端 routes、cleanup 和 artifact 脱敏均保持 PASS。
+- 边界：本片只增强 smoke runner 和脚本安全测试，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。真实 smoke 创建了临时用户、三份文档、KnowledgeBase 和 Conversation 数据，artifact 位于 ignored `backend/target/rag-real-qa/.../artifact.json`；该结论是小规模真实链路代表性门禁，不是大规模 relevance benchmark。
+- 下一步：可进入 Memory 编辑 / 合并交互与门禁，或继续 RAG 方向做 answer grounding 审计 / hard negative corpus / README 与 showcase 面试口径同步。
+
+## 2026-06-28 追加任务：Quality Loop v3.2 Memory Governance 第一片
+
+- 目标：把 Memory 从“能接受 / 忽略候选”推进到“接受前有治理门禁”，先阻止明显重复 ACTIVE memory 和同类型偏好冲突候选直接生效，同时让前端能展示治理提示。
+- 已完成：`UserMemoryResponse` 新增脱敏治理字段 `duplicateOfId`、`conflictWithId`、`governanceHint`、`similarityScore`；`UserMemoryServiceImpl` 在手动创建和接受候选前检查同类型 ACTIVE memory 的精确重复、近似重复和少量明确冲突词；候选列表 / 提取结果会带重复或冲突提示。
+- 已完成前端展示：`/conversations` Memory 抽屉读取治理字段，显示疑似重复、冲突 memory id 和相似度提示；不新增“自动合并”按钮，不删除旧记忆，不改表结构。
+- 已完成真实 smoke 门禁：`memory-quality-smoke.ps1` / `cloud-quality-smoke.ps1 -EnableMemoryQualityGate` 新增 Memory Governance 检查，先创建 ACTIVE `ANSWER_STYLE` 基线，再从临时会话抽取冲突 answer-style suggestion，要求返回 `governanceHint=conflict_active_memory`、`conflictWithId` 非空，并验证直接 accept 被阻止，错误原因匹配治理门禁。
+- 已验证：Gemini CLI 做轻量 UX sanity 建议；`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-memory-quality-20260628223255-0a06e6`；`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，54 tests；此前 `mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，255 tests；`npm run lint` PASS；`npm run build` PASS。
+- 边界：本片不做真实 LLM memory extraction，不做自动合并 / 自动删除，不改数据库结构，不删除业务数据，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。真实 smoke 创建了临时 smoke 用户、文档、KnowledgeBase、Conversation 和 memory 数据，artifact 位于 ignored `backend/target/memory-quality/.../artifact.json`。
+- 下一步：进入下一轮自驱切片，可优先做 Memory 编辑 / 合并交互设计与门禁，或回到 RAG Real Corpus 的真实链路代表 case 迁移；继续避免把 smoke 级 PASS 写成大规模个性化效果评测。
+
+## 2026-06-28 追加任务：Quality Loop v3.1 RAG Real Corpus Eval 第一片
+
+- 目标：把 RAG Real QA Eval 从 9 个偏 synthetic marker 的小样例扩展为更贴近企业知识库真实问答形态的离线质量门禁，先覆盖长文档、近义 no-evidence、多文档总结、citation grounding、scope isolation 和 hybrid / rerank 干扰。
+- 已完成：`real-qa-eval-cases.json` 从 9 个 case 扩到 22 个 case，新增 security policy、runbook、onboarding、expense policy、contract clause、incident review、API policy、access audit 等脱敏企业场景样例；新增 `long_document`、`near_miss_no_evidence`、`multi_doc_summary`、`citation_grounding`、`scope_isolation` 等类别。
+- 已完成指标增强：`RagRealQaEvalMetrics` 新增 `longDocumentCasePassRate`、`nearMissNoEvidenceRate`、`multiDocSummaryPassRate`、`distractorSuppressionRate`，artifact 仍只输出脱敏 summary，不保存文档全文、query 原文、prompt、evidence context、模型输出或 secrets。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
+- 边界：本片只增强离线 test-side eval，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。该结果提升 RAG 质量门禁覆盖度，但仍不是大规模真实语料 benchmark。
+- 下一步：进入 Memory Governance v1 第一片，优先做重复 / 冲突记忆检测、接受候选前的治理提示和对应离线 / API 门禁；后续再把代表性 RAG case 小规模迁移进真实链路 smoke。
+
+## 2026-06-28 追加任务：Quality Loop v2.3 Memory 产品化第一片
+
+- 目标：把 `/conversations` 的 Memory 抽屉从“能看到 ACTIVE / SUGGESTED 列表”推进到“用户能理解来源、置信度、优先级和重复风险”，提升候选接受 / 忽略前的判断质量。
+- 已完成：Memory 面板新增生效 / 候选 / 重复提示 KPI、类型分布、来源说明（手动添加 / 系统候选 + 会话 / 消息来源）、priority、confidence、更新时间、ACTIVE 重复提示和候选已存在提示；候选按 priority / confidence 排序，生效记忆按 priority / 更新时间排序。Gemini CLI 只用于轻量 UX sanity 建议，Codex 落地代码与安全验证。
+- 已验证：`npm run lint` PASS；`npm run build` PASS；真实浏览器创建临时用户、3 条 ACTIVE memory、2 条 suggestion，marker 为 `docpilot-memory-ui-product-1782651263292`，Conversation `41`。桌面 Memory 面板显示 KPI、来源、confidence 和重复提示，`cardCount=5`，`scrollWidth=clientWidth=1265`；`390x844` 下 `scrollWidth=clientWidth=375`，`metaCount=17`，`cardCount=5`；`320x740` 下 `scrollWidth=clientWidth=305`，`kpiCount=3`，`metaCount=17`，`cardCount=5`。
+- 边界：本片只改前端 Memory 展示和 CSS，不改后端 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交截图 / artifact / 日志原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。该结果证明 Memory 管理体验更可解释，不代表真实模型长期记忆抽取能力提升。
+- 下一步候选：README / showcase 面试口径同步，或继续做 Memory 冲突 / 合并 / 编辑能力设计与门禁。
+
+## 2026-06-28 追加任务：Quality Loop v2.2 Rerank Hard Smoke
+
+- 目标：把 Phase 3 rerank 验证从“provider 可调用且无回退”推进到“hard fixture 能观察排序 uplift”，避免继续用满分通用 KB smoke 宣称真实效果提升。
+- 已完成：`cloud-quality-smoke.ps1` 新增默认关闭的 `-EnableRerankHardGate`，在真实链路中复用 Alpha / Beta 两份临时文档作为目标 / 支撑文档，并只额外上传 1 份关键词干扰文档，避免触发 `60s / 3 uploads / user` 文件上传限流；`rerank-effect-smoke.ps1` 默认开启 hard gate，并输出 target / support / distractor 的 retrieve count、best rank、citation count 和 rerank score summary。
+- 已验证：`rerank-effect-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=RerankEffectSmokeScriptSafetyTest,RagRealQaEvalSmokeScriptSafetyTest" test` PASS，4 tests；真实 `rerank-effect-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS。baseline marker 为 `docpilot-rerank-effect-hybrid-20260628204120-3e9f69`，rerank marker 为 `docpilot-rerank-effect-rerank-20260628204339-7aac45`；hard fixture 中 target rank `2 -> 1`，distractor rank `3 -> 4`，`rerankApplied=true`，`hardUpliftObserved=true`，no-evidence 和权限隔离无回退；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
+- 边界：本片只改 smoke runner 和脚本安全测试，不改生产 API、不改数据库结构、不删除业务数据、不操作远程 Docker、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。该结果是小规模 hard smoke uplift 证据，仍不是大规模 relevance benchmark。
+- 下一步：已进入 v2.3 Memory 产品化第一片并收口为 DONE。
+
+## 2026-06-28 追加任务：Frontend UX Audit v1 真实浏览器审计
+
+- 目标：从真实用户视角检查 RAG、Memory、Trace、citation、KnowledgeBase evidence 和移动端布局，确认质量门禁的 API 结果能在前端关键路径上被用户看见、点到、读懂。
+- 已完成：复用本地 tunnel / backend / frontend，使用浏览器上下文创建临时用户、两份 txt 文档、KnowledgeBase、ACTIVE memory 和绑定 KB 的 Conversation；marker 为 `docpilot-frontend-ux-2647184760`，文档为 `175/176`，KnowledgeBase 为 `36`，Conversation 为 `35`。
+- 已验证：两文档 parse `SUCCESS`；Conversation Trace 为 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=2`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=2`、`documentHitCounts={175:1,176:1}`；会话气泡 footer 显示 `2 条来源`；Trace 面板和 Memory 面板均可通过真实点击打开，ACTIVE memory 可见。
+- KnowledgeBase 页面验证：页面内点击“查看引用来源”后展示 provider / 索引集合、`来源不足: 否`、来源文档分布 `#175: 1 / #176: 1`、召回片段和引用来源卡片；两份临时文档 marker 均可见。桌面 `/conversations`、`/knowledge-bases` 均无横向溢出。
+- 移动端验证：`390x844` 下 `/conversations` 的 `.dp-chat-shell`、`.dp-chat-main`、`.dp-chat-topbar`、`.dp-chat-thread`、`.dp-chat-composer-wrap` 均约束在 `346px`，页面 `scrollWidth=clientWidth=375`；`/knowledge-bases` 同样 `scrollWidth=clientWidth=375`。
+- Gemini 轻量 UX sanity review 提醒：继续关注技术观测字段对非技术用户的认知负担、Trace / Memory 数据量增长后的可读性，以及 `390px` 以下更窄移动端视口。
+- 追加 v1.1 验证：同一临时用户下新增一条包含长标识符的 ACTIVE memory，检查 `360x780` 与 `320x740` 极窄移动端。`/conversations` Memory 抽屉可打开，长 memory 未撑破页面；`360px` 下页面 `scrollWidth=clientWidth=345`，`320px` 下页面 `scrollWidth=clientWidth=305`；`/knowledge-bases` 同样无横向溢出。
+- 边界：本片创建了临时审计数据，但未改后端 / 前端业务代码，未删除业务数据，未改数据库结构，未操作远程 Docker，未提交 artifact / 截图 / 日志原文，未打印 `.env` / token / API key / 云地址 / 连接串，未 push。
+- 已完成 KnowledgeBase 技术字段产品化降噪：`/knowledge-bases` 问答结果区默认展示“来源覆盖 / 引用来源 / 回答状态 / 生成次数”，把 provider、collection、retrieval mode、rerank、answer provider / model 收进“工程观测”折叠区；工程审计信息仍可展开查看。
+- 已验证：`npm run lint` PASS；真实浏览器页面检索后默认态不显示 Provider / Collection 细节，展开“工程观测”后可见 `Provider / Collection / Retrieval / Rerank / Answer / Model`；`360px` 移动端无横向溢出；`npm run build` PASS。
+- 已完成更难 rerank uplift fixture 第一片：RAG Real QA Eval 新增 `real-rerank-distractor-ordering`，用 export / audit / retention 词面干扰文档检验 citation 和 forbidden marker；metrics 新增 `rerankUpliftCandidatePassRate`，不再只统计候选 case 占比。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，9 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，204 tests。
+- 已完成 Memory 长列表交互审计：重新注册临时用户并创建 `16` 条 ACTIVE memory，marker 为 `docpilot-memory-ui-1782649237433`，Conversation `37`；`390x844` 下 Memory 抽屉可打开、列表可滚动、`memoryItemCount=17`、`deleteButtonCount=16`、`scrollWidth=clientWidth=390`，桌面 `1036x850` 同样无横向溢出。中途发现本地 Next dev 与 `npm run build` 混用后 `.next` chunk 缓存失效，已清理生成目录并重启本地 frontend；未改业务代码。
+- 下一步候选：Quality Loop v2 三条主线已完成一轮闭环；真实 rerank smoke harder fixture 已由 v2.2 收口为 PASS，后续继续进入 Memory 产品化或 README / showcase 面试口径同步收口。
+
+## 2026-06-28 追加任务：Memory Quality Eval v1 真实链路 smoke 第二片
+
+- 目标：把 Memory Quality Eval 从离线 test-side 门禁推进到真实链路 smoke，验证临时会话中候选记忆抽取、接受 / 忽略状态分层、ACTIVE 列表隔离，以及绑定 KnowledgeBase 后 trace 同时包含 userMemory 和 ragEvidence。
+- 已完成：新增 `scripts/smoke/memory-quality-smoke.ps1`，并给 `cloud-quality-smoke.ps1` 增加默认关闭的 `-EnableMemoryQualityGate`；Memory 专项 wrapper 默认使用 `SmokePrefix=docpilot-memory-quality`、artifact root `backend/target/memory-quality` 并打开 memory gate。`RuleBasedMemoryExtractionService` 同步补充英文 smoke 消息关键词识别，避免真实 smoke 必须依赖中文脚本字符串。
+- 已验证：`memory-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`mvn "-Dtest=MemoryQualitySmokeScriptSafetyTest,RuleBasedMemoryExtractionServiceTest" test` PASS，5 tests；真实 `memory-quality-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-memory-quality-20260628193150-625bf6`；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，252 tests。
+- 关键结果：Memory 专项 gate 抽取候选 `2` 条，accepted suggestion 变为 `ACTIVE`，ignored suggestion 变为 `IGNORED` 且不出现在 ACTIVE 列表；trace 显示 `contextSourceCounts.recentMessages=2`、`userMemory=1`、`ragEvidence=6`、`memoryCount=1`、`evidenceCount=6`，documentHitCounts 覆盖两份临时文档。完整 delegated gates 中 tunnel、backend health、frontend routes、两文档 parse/index、chunk 质量、MySQL/Qdrant 一致性、单文档 RAG、KB RAG、no-evidence、Conversation Trace、权限隔离和 artifact 脱敏均 PASS。
+- 边界：本片创建了临时 smoke 用户、文档、KnowledgeBase、Conversation 和 memory 数据，但未操作远程 Docker、未走 `hk-ops`、未删除业务数据、未改数据库结构、未提交 artifact 原文、未打印 `.env` / token / API key / 云地址 / 连接串、未 push。早期失败 run 只留下 ignored artifact，用于本地诊断，不提交。
+- 下一步：进入 Frontend UX Audit v1，使用真实前后端链路和浏览器检查 `/conversations` memory / trace / citation 展示、KnowledgeBase evidence 可读性、移动端布局和关键路径，不只看 API gate。
+
+## 2026-06-28 追加任务：Memory Quality Eval v1 离线基线第一片
+
+- 目标：把 Conversation Memory 从零散单测推进为可重复质量门禁，先离线覆盖候选抽取、敏感内容拦截、ACTIVE / SUGGESTED / IGNORED 状态分层、RAG evidence 不进入 memory、Context Trace source counts。
+- 已完成：新增 `backend/src/test/resources/memory/memory-quality-eval-cases.json`，以及 `MemoryQualityEvalCase` / `MemoryQualityEvalRunner` / `MemoryQualityEvalResult` / `MemoryQualityEvalMetrics` 和 fixture / runner 测试；runner 复用真实 `RuleBasedMemoryExtractionService`、`MemorySelector`、`ContextAssemblyServiceImpl` 和 `MemorySafetyValidator`，用 test double 提供会话消息、记忆和 RAG evidence。
+- 已验证：`mvn "-Dtest=*MemoryQualityEval*,*Memory*,*Context*" test` PASS，48 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*" test` PASS，249 tests。
+- 边界：本片只做离线 test-side eval，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。artifact 只保存 case id、计数、布尔指标和失败原因，不保存对话全文、memory content、prompt、evidence context、token 或密钥。
+- 下一步：已由第二片真实 `memory-quality-smoke.ps1 -Mode run` 收口为 PASS。
+
+## 2026-06-28 追加任务：RAG Real QA Eval v1 真实链路 run 第三片
+
+- 目标：把 RAG Real QA Eval 从离线基线和 wrapper 验证推进到真实链路证据，确认临时用户、两文档、KnowledgeBase、Conversation Trace、权限隔离和脱敏 artifact 在完整 cloud quality gate 中保持通过。
+- 已完成：执行 `scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode run -FrontendBaseUrl http://127.0.0.1:3007`，marker 为 `docpilot-rag-real-qa-20260628164757-ac2a1d`；runner 启动本地 tunnel / backend / frontend，创建临时 smoke 用户、两份 txt 文档、KnowledgeBase、Conversation，并生成 ignored 脱敏 artifact。
+- 已验证：整体 `PASS`；覆盖配置一致性、tunnel、backend health、frontend route、注册、上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、populated-KB no-evidence、Conversation Trace、四个权限隔离负向检查、artifact 脱敏扫描和 cleanup。
+- 关键结果：两份文档均为 `3/3` chunks indexed 且 MySQL / Qdrant matched；单文档 RAG `3` hits / `3` citations；KnowledgeBase RAG `6` hits / `6` citations，documentHitCounts 覆盖两文档；no-evidence gate 返回 `0` hits / `0` citations；Conversation Trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`。
+- 边界：本片创建了临时 smoke 数据，但未操作远程 Docker、未走 `hk-ops`、未删除业务数据、未改数据库结构、未提交 artifact 原文、未打印 `.env` / token / API key / 云地址 / 连接串、未 push。
+- 下一步：进入 Memory Quality Eval v1，先做离线 / runtime 小闭环，验证长期记忆候选、ACTIVE / SUGGESTED / IGNORED 分层、RAG evidence 不污染 memory、trace source counts 和真实会话体验；随后继续 Frontend UX Audit。
+
+## 2026-06-28 追加任务：RAG Real QA Eval v1 离线基线第一片
+
+- 目标：把下一轮质量循环从单纯 smoke / 少量 synthetic case，推进到更贴近真实问答类型的离线 RAG QA eval 基线，先覆盖事实查找、跨文档总结、比较、多跳式证据、no-evidence、语义干扰、hybrid keyword 噪声和 rerank uplift shaped case。
+- 已完成：新增 `real-qa-eval-cases.json`，以及 `RagRealQaEvalCase` / `RagRealQaEvalRunner` / `RagRealQaEvalResult` / `RagRealQaEvalMetrics` 和对应 fixture / runner 测试；runner 复用既有 KnowledgeBase RAG eval harness，继续使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient`，artifact 只输出脱敏 summary，不保存文档原文、query、模型输入、evidence context 或模型输出。
+- 已验证：`mvn "-Dtest=*RealQaEval*,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，7 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，202 tests。
+- 边界：本片只做离线质量基线，不启动 tunnel / backend / frontend，不创建业务数据，不调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。
+- 下一步：进入真实链路 RAG Real QA smoke runner，把同类 case 小规模迁移到临时用户 / 文档 / KB / Conversation 的真实链路验证；随后继续 Memory Quality Eval 和 Frontend UX Audit。
+
+## 2026-06-28 追加任务：RAG Real QA Eval v1 真实链路入口第二片
+
+- 目标：为 RAG Real QA Eval 建立独立真实链路 smoke 入口，后续可以用专属 marker / artifact 路径收口真实临时用户、文档、KnowledgeBase、Conversation Trace 和权限门禁，而不是把所有证据混在通用 cloud quality smoke 下。
+- 已完成：新增 `scripts/smoke/rag-real-qa-eval-smoke.ps1`，支持 `plan` / `dry-run` / `run`，默认 `SmokePrefix=docpilot-rag-real-qa`、artifact 根目录 `backend/target/rag-real-qa`；当前 wrapper 委托 `cloud-quality-smoke.ps1` 执行完整业务质量门禁，并在 plan 输出 real-QA case 类型清单。
+- 已验证：`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/smoke/rag-real-qa-eval-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS，当前记录 MySQL / Qdrant local ports 未监听但 dry-run 本身 PASS；`mvn "-Dtest=RagRealQaEvalSmokeScriptSafetyTest" test` PASS，2 tests。
+- 边界：本片只新增真实链路入口和脚本安全测试；未执行 `run`，未启动 tunnel / backend / frontend，未创建业务数据，未调用真实 provider / Qdrant / MySQL，不改生产 API，不改数据库结构，不提交 artifact 原文，不 push。
+- 下一步：已由第三片执行 `rag-real-qa-eval-smoke.ps1 -Mode run` 并收口为 PASS。
+
+## 2026-06-28 追加任务：Phase 3 small real rerank provider validation 收口
+
+- 目标：做小规模真实 rerank provider 实效验证，判断 rerank / hybrid 是否实际改善召回与 citation，同时不默认扩大能力范围。
+- 已完成：新增 `scripts/smoke/rerank-effect-smoke.ps1`，支持 `plan` / `dry-run` / `run`；`run` 通过环境变量覆盖执行两轮 cloud quality smoke：hybrid-only baseline 与 hybrid+real-rerank candidate，并输出脱敏对比 artifact。`cloud-quality-smoke.ps1` 的 KnowledgeBase gate 同步输出 `retrievalMode`、`rerankApplied`、`rerankModel`、rerank score summary。
+- 已验证：PowerShell parser PASS；`rerank-effect-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；真实 `-Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS。baseline marker 为 `docpilot-rerank-effect-hybrid-20260628151134-170d38`，rerank marker 为 `docpilot-rerank-effect-rerank-20260628151301-6b0060`；rerank run 显示 `rerankApplied=true`、rerank score count `6`，KB hit / citation / coveredDocumentCount 与 baseline 均持平，no-evidence 和权限隔离无回退。
+- 结论：当前 smoke fixture 下 baseline 已达到两文档覆盖和 6 citations，真实 rerank provider 没有带来可量化覆盖提升，但证明了 provider 可用、rerank score 进入 response / artifact、且核心 RAG / security gate 无回退；不能把该结果写成大规模 relevance uplift。
+- 边界：本片只新增 smoke runner 和脱敏观测字段；不改数据库结构、不删除业务数据、不提交 artifact / 日志 / 截图、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 下一步候选：若继续提升真实效果，优先设计更难的 rerank eval / smoke case（baseline 会排序错误或被干扰文档诱导），再判断 rerank 是否带来正向 uplift；不要仅靠当前满分 fixture 宣称 rerank 显著提升。
+
+## 2026-06-28 追加任务：Phase 2 KB multi-document coverage 收口
+
+- 目标：修复真实体验审计中 KnowledgeBase 手动两文档总结问题只召回 Alpha 文档、漏掉 Beta 文档的问题，同时不破坏 populated-KB no-evidence 门禁。
+- 已完成：KnowledgeBase hybrid retrieval 的二次 confidence gate 改为 summary intent 感知；summary / all-documents 类问题中，`keywordScore>0` 的 hybrid 候选可进入后续 scope guard、rerank 和多文档 diversity selection，普通非 summary 问法仍按 `vectorScore` / similarity threshold 阻断低置信 keyword 噪声。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，11 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，199 tests；真实 `scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007 -ReuseRunningServices` PASS，marker 为 `docpilot-rag-real-quality-20260628150434-2b7b39`，KnowledgeBase 两文档 gate 命中分布 `{152:3,153:3}`，no-evidence gate、Conversation Trace、权限隔离和前端 route smoke 均 PASS。
+- 边界：本片只改 KnowledgeBase retrieval gate 和对应单测；不改数据库结构、不删除业务数据、不提交 artifact / 日志 / 截图、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 下一步：进入 Phase 3 小规模真实 rerank provider 实效验证；只验证 rerank / hybrid 是否改善召回与 citation，不默认扩大能力范围，不做大规模付费 eval。
+
+## 2026-06-28 追加任务：Phase 2 mobile conversation layout 第一片
+
+- 目标：修复移动端 `/conversations` 在 `390x844` 视口下横向溢出，主聊天区被长标题 / KB label / composer 控件撑到视口外的问题。
+- 已完成：移动端 `.dp-chat-main` 增加 inline-size containment、overflow 和宽度约束；主区直接子项强制 `min-width:0` / `max-width:100%` / stretch；topbar pill 支持单行截断；thread 与 composer wrapper 限制在主区宽度内。
+- 已验证：`npm run lint` PASS；Playwright 在 `390x844` 下测量 `.dp-chat-shell`、`.dp-chat-main`、`.dp-chat-topbar`、`.dp-chat-thread`、`.dp-chat-composer-wrap` 均为 `346px` 宽，页面整体 `scrollWidth` 不再超过 viewport；composer meta 内部保留横向滚动但不撑开页面。
+- 边界：本片只修移动端会话页响应式 CSS，不改 API、不改业务逻辑、不改数据库结构、不提交截图 / 日志 / artifact、不 push。
+- 下一步：处理 KnowledgeBase 页面手动两文档问题只召回单文档的问题，优先分析 retrieval 参数、问题改写、多文档覆盖策略与 rerank/hybrid 交互。
+
+## 2026-06-28 追加任务：Phase 2 document detail citation 第一片
+
+- 目标：修复文档详情页流式 RAG 回答出现 `[1]`，但右侧“引用来源”仍显示暂无引用的问题。
+- 已完成：`rag-api.ts` 支持 RAG SSE 的 `retrieval` 与逐条 `citation` 事件；文档详情页在流式回答期间实时更新 `ragRetrieval` 与 `ragCitations`；SSE retrieval 摘要只有 `hitCount` 时，引用面板用 `hitCount` 兜底显示命中数量。
+- 已验证：`npm run lint` PASS；Playwright 在 `http://localhost:3007/documents/150` 发送流式 RAG 问题后，右侧“引用来源”显示 `检索命中 1 条`、`引用 1`、score、chunk version 与 snippet。
+- 边界：本片只修前端 RAG SSE 事件消费和展示，不改后端 API、不改数据库结构、不保存 prompt / evidence 原文、不提交 artifact / 日志 / 截图、不 push。
+- 下一步：修移动端 `/conversations` 横向溢出；随后处理 KnowledgeBase 手动两文档问法只召回单文档的问题。
+
+## 2026-06-28 追加任务：Phase 2 citation display 第一片
+
+- 目标：修复 `/conversations` 历史消息重新加载后，回答正文含 `[1]` / `[2]`、Trace 有 RAG evidence，但气泡 footer 显示 `0` 条引用的真实体验问题。
+- 已完成：前端加载会话历史时会 best-effort 拉取最新助手消息的 `ContextTrace`，并把 `message.citations.length` 或 `contextTrace.evidenceCount` 作为来源数量展示；无 trace 时仍保持聊天消息可渲染。
+- 已验证：`npm run lint` PASS；Playwright 刷新 `http://localhost:3007/conversations` 后，临时会话 `docpilot-phase2-ui-audit-1782628501578` 的助手消息 footer 从 `0 条引用` 修正为 `2 条来源`，右侧 Trace 同时显示 `RAG 证据=2`、`长期记忆=1`。
+- 边界：本片只修 `/conversations` 前端展示一致性，不改后端 API、不改数据库结构、不保存 prompt / evidence 原文、不提交 artifact / 日志 / 截图、不 push。
+- 下一步：继续修文档详情页 citation 面板不同步，随后处理移动端 `/conversations` 横向溢出；KnowledgeBase 手动两文档覆盖不稳作为 Phase 2 后续检索质量切片。
+
+## 2026-06-28 追加任务：Phase 2 真实体验审计第一片
+
+- 目标：用真实浏览器和真实 backend / frontend / tunnel 链路，从用户视角检查 RAG、Memory、Trace 和前端关键路径，而不是只看 smoke runner 的 API gate。
+- 已完成：启动本地 tunnel、backend、frontend；修复 `WebMvcConfig` 中本地 smoke 端口 `3007` / `3100` 未被 CORS allowlist 覆盖导致浏览器登录 / 注册 403 的问题；使用 marker `docpilot-phase2-ui-audit-1782628501578` 创建两份临时 txt 文档、KnowledgeBase、Conversation 和 ACTIVE memory。
+- 已验证：浏览器 UI 注册成功；两文档 `150/151` parse `SUCCESS`；单文档 RAG `1` hit / `1` citation；KnowledgeBase API 多文档 RAG `2` hits / `2` citations 且 documentHitCounts 为 `{150:1,151:1}`；Conversation Trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=2`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=2`。
+- 发现问题：文档详情实时 RAG 回答有 `[1]` 但右侧引用来源仍为空；KnowledgeBase 页面手动两文档问题只召回 `150`、漏掉 `151`；Conversation 回答正文有 `[1]` / `[2]` 且 Trace evidence 为 `2`，但气泡 footer 显示 `0` 条引用；移动端 `/conversations` 在 `390x844` 下横向溢出。
+- 边界：本片创建了临时审计数据，但不删除业务数据、不改数据库结构、不提交 artifact / 截图 / 日志原文、不打印或提交 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 下一步：优先修复前端 citation / Trace 展示一致性和移动端会话页布局，再回到 KnowledgeBase 多文档召回稳定性；这些完成后再进入 Phase 3 小规模真实 rerank provider 效果验证。
+
+## 2026-06-28 追加任务：RAG Quality Upgrade v8 第二片
+
+- 目标：补齐单文档 RAG 离线 smoke case，让单文档链路也覆盖 populated-document no-evidence、grounding citation marker 和单文档 distractor 抑制，而不是只靠空文档 no-evidence。
+- 已完成：`rag-document-retrieval-smoke-cases.json` 从 4 个 case 扩到 7 个 case；`RagDocumentRetrievalQualitySmokeTest` 新增 case 级 `minSimilarityThreshold` 和可选 `forbiddenMarker` 检查，验证低置信结果过滤与 distractor 不进入 hit / citation。
+- 已验证：`mvn "-Dtest=RagDocumentRetrievalQualitySmokeTest" test` PASS，2 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 边界：本片只增强离线 smoke harness / case，不改生产 API、不改数据库结构、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 结论：v8 eval corpus expansion 当前两片已完成，KnowledgeBase 与单文档 RAG 离线质量门禁均已扩容；下一阶段进入 Phase 2 真实体验审计，从用户视角跑完整业务链路并检查 RAG、Memory、前端路径和 trace 展示效果。
+
+## 2026-06-28 追加任务：RAG Quality Upgrade v8 第一片
+
+- 目标：先把 KnowledgeBase RAG 离线 eval corpus 从“少量链路样例”扩展为更像质量门禁的 case 集，覆盖 no-evidence、grounding、多文档干扰、hybrid keyword 噪声和 scope 干扰。
+- 已完成：`knowledge-base-rag-eval-cases.json` 从 5 个 case 扩到 11 个 case；新增 case 级 `minSimilarityThreshold`，用于稳定模拟真实链路 confidence gate；补充 `semantic-no-evidence-populated-kb`、`hybrid-keyword-noise-no-evidence`、`multi-document-three-way-summary`、`grounded-answer-distractor-suppression`、`cross-topic-distractor-routing` 和 `out-of-scope-semantic-distractor`。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalFixtureTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagEvalRunnerTest" test` PASS，5 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；真实 `scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260628141419-fb7c21`。
+- 边界：本片不改生产 API、不改数据库结构、不强制真实 rerank provider、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 下一步：继续 v8 第二片，检查并扩展单文档 RAG eval / smoke case，补 no-evidence、grounding 和 distractor 覆盖，然后再进入 Phase 2 真实体验审计。
+
+## 2026-06-27 追加任务：真实链路优先自驱协议
+
+- 目标：把用户长期授权后的自驱模式从“最小 / mock 验证优先”调整为“真实链路优先验证”，让后续 RAG、KnowledgeBase、Conversation Memory、Context Trace、权限隔离和前端关键路径改动尽量以真实用户体验链路收口。
+- 已完成：`AGENTS.md` 与 `docs/ai-dev/CONSTRAINTS.md` 已补充真实链路优先规则；自驱模式下默认允许启动本地 tunnel / backend / frontend、运行真实 smoke、创建带统一 marker 的临时 smoke 数据、使用本机已有真实配置并生成 ignored 脱敏 artifact；`docs/ai-dev/ROADMAP_RAG.md` 已同步 RAG 质量门禁口径。
+- 边界：仍禁止 push、提交 `.env` / secrets / artifact 原文、打印 token / API key / 云地址 / 连接串、删除业务数据、改数据库结构、清空 collection、远程 Docker 启停 / 重启 / 迁移或大规模高成本 provider eval；这些高风险操作仍需单独确认。
+- 下一步：进入 `RAG Quality Upgrade v8: eval corpus expansion`。后续每个 RAG / Memory 质量切片先跑离线门禁；环境可达时继续跑真实链路 smoke，否则只能记录 `REVIEW` 或 `BLOCKED`，不能把用户体验质量写成已真实验证。
+
+## 2026-06-27 追加任务：自驱迭代推进协议文档化
+
+- 目标：把用户授权后的“连续自驱迭代推进”写入项目协作规则，让后续协作代理能理解：在明确授权后，应自行拆小片、实现、验证、自审、提交、回写文档，并继续推进下一片，直到大目标完成或遇到阻塞。
+- 已完成：`AGENTS.md` 新增自驱迭代模式入口、循环步骤、停止条件和提交规则；`docs/ai-dev/CONSTRAINTS.md` 新增自驱迭代安全边界。
+- 边界：该模式不允许绕过安全限制；仍禁止 push、远程 Docker / `hk-ops` 未授权操作、删除业务数据、提交真实密钥或 artifact 原文。
+- 下一步：进入 `RAG Quality Upgrade v8: eval corpus expansion`，优先扩大 no-evidence / grounding / multi-document 干扰 eval case。
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v7
+
+- 目标：把 Conversation Context / User Memory / RAG Evidence / Context Trace 的边界做清楚，避免把 RAG evidence 当作长期记忆，也避免长期记忆污染知识库证据。
+- 成功标准：Conversation Trace 能区分 `conversationContext`、`userMemory`、`ragEvidence` 和 fallback；RAG evidence 不自动写入长期记忆；长期记忆候选仍需要用户接受后才进入上下文；相关离线测试和真实 smoke 能证明 KB evidence 与 memory 同时存在时上下文可解释。
+- 明确不做：本轮不引入复杂多 Agent 编排、不改数据库结构、不操作远程 Docker、不删除业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+- 已完成 v7 第一片：`ContextTrace` API 新增计算型 `contextSourceCounts` / `contextSourceFlags`，基于既有 summary / recent / memory / RAG evidence 字段生成，不改表结构、不持久化 prompt 或 evidence 原文；`/conversations` 右侧 Trace 面板展示会话摘要、最近消息、长期记忆和 RAG 证据拆分。
+- 已验证：`mvn "-Dtest=*Context*,*Conversation*,*Memory*" test` PASS，56 tests；`npm run lint` PASS。
+- 已完成 v7 第二片：新增 memory-aware RAG 负向测试，证明 assistant / RAG evidence 文本不会被长期记忆抽取为候选，且 `MemorySelector` 只把 `ACTIVE` user memory 放进上下文，`SUGGESTED` / `IGNORED` 不进入 prompt。
+- 已验证：`mvn "-Dtest=RuleBasedMemoryExtractionServiceTest,MemorySelectorTest,ContextAssemblyServiceImplTest" test` PASS，6 tests。
+- 已完成 v7 第三片：真实 `rag-real-quality-smoke.ps1 -Mode run` 已把 Conversation Trace gate 扩展为同时要求 KB RAG evidence 与 `ACTIVE` user memory，artifact 只保存脱敏 source counts，不保存 prompt 或 evidence 原文。
+- 已验证：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run` PASS，marker 为 `docpilot-rag-real-quality-20260627220736-8f03b9`，其中 `conversationTrace` 显示 `evidenceCount=6`、`memoryCount=1`、`contextSourceCounts.userMemory=1`、`contextSourceCounts.ragEvidence=6`。
+- v7 结论：DONE。下一步建议是 v8 eval corpus expansion：扩大 no-evidence / grounding / multi-document 干扰 case，而不是继续堆功能。
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v5
+
+- 已完成 chunk structure quality 小步落地：`DocumentChunkCandidate` 新增 section title / ordinal / source block ordinal / structure type / quality flags；`ChunkingServiceImpl` 从 Markdown heading、文本块和基础异常信号生成结构元数据。
+- `RagIndexingServiceImpl` 将结构 metadata 透传到 embedding metadata 与 Qdrant `VectorPoint` payload；不改数据库结构，不保存 prompt、token、密钥、连接串或云地址。
+- `scripts/smoke/cloud-quality-smoke.ps1` 的 `chunkQuality` gate 已增强 MySQL 侧 offset order、token/content length、duplicate hash 检查；`mysqlQdrantConsistency` gate 已校验 Qdrant payload 中的结构字段。
+- 已验证：`mvn "-Dtest=ChunkingServiceImplTest,RagIndexingServiceImplTest,VectorPointTest" test` PASS，28 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 已执行真实链路默认 run：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627213040-4038e1`；chunkQuality、MySQL / Qdrant payload 结构字段、单文档 RAG、KB 两文档 RAG、no-evidence、Conversation Trace、权限隔离、前端 route 和 artifact redaction 均 PASS。
+
+## 下一步代码任务：RAG Quality Upgrade v6
+
+- 目标：把 hybrid / rerank 从“可选增强”推进到有明确默认边界、质量对比和失败降级策略的 production gate。
+- 成功标准：默认离线测试不依赖真实 rerank provider；eval / smoke 能区分 vector-only、hybrid 和 rerank 的 hit / citation / multi-document coverage / no-evidence 指标；真实 rerank provider 仍必须显式配置。
+- 明确不做：本轮不强制真实 rerank provider、不操作远程 Docker、不改数据库结构、不删除业务数据、不提交 artifact 原文、不打印 `.env` / token / API key / 云地址 / 连接串、不 push。
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v6
+
+- 已完成 v6 第一片：KnowledgeBase RAG 离线 eval 现在同一批 case 同时跑 `vector` 与 `hybrid` 两种 retrieval mode，并在脱敏 artifact 中输出 `retrievalModeMetrics.vector` / `retrievalModeMetrics.hybrid`。
+- 默认 eval 仍使用 `MockEmbeddingProvider` + `InMemoryVectorStoreClient`，不依赖真实 rerank provider；hybrid eval 使用内存 keyword retriever，只服务质量门禁，不改变线上默认 `hybridEnabled=false`。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest" test` PASS，4 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 已完成 v6 第二片：rerank provider 现在必须外部配置完整才发 HTTP；`enabled=true` 但缺少 provider 所需字段时直接 identity fallback，避免半配置状态误触发外部调用。
+- 已验证：`mvn "-Dtest=*Rerank*,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，14 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests；`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627214532-e1fb65`。
+- v6 结论：DONE。真实 rerank provider 效果仍未强制验证，后续必须在用户显式提供配置后单独 smoke。
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v4
+
+- 已完成 KnowledgeBase QA answer audit 小步落地：`KnowledgeBaseRagQaAnswer` 新增脱敏 `audit`，记录 `grounded`、evidence / citation count、documentHitCounts、score / vectorScore / fusedScore / rerankScore summary、retrievalMode、rerank 信息、fallbackReason 和 modelCallCount。
+- `KnowledgeBaseRagQaResponse` 已暴露 audit；不保存 prompt、evidence 原文、模型输入输出、token、密钥或连接串。
+- 离线 KnowledgeBase RAG eval 新增 `groundedAnswerRate` 和 `noEvidenceCitationFreeRate`，并把 grounded answer miss / no-evidence citation leak 纳入 case failure reasons。
+- 已验证：`mvn "-Dtest=KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagControllerTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagRetrievalServiceImplTest" test` PASS，21 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 已执行真实链路默认 run：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627211711-383cda`；未提交 artifact 原文，未 push。
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v3
+
+- 已完成 no-evidence threshold / grounded refusal 小步落地：KnowledgeBase hybrid retrieval 在融合后继续执行 evidence confidence gate，hybrid hit 带 `vectorScore` 时使用原始向量相似度判断阈值，不把 RRF `fusedScore` 当作 similarity。
+- 默认质量阈值已校准为 `APP_RAG_RETRIEVAL_MIN_SIMILARITY_THRESHOLD=0.50`，同步到 `application.yml`、`.env*.example`、smoke runner 和 RAG hybrid guide；`RagRetrievalProperties` 程序化默认仍保持 `0.0`，避免破坏离线 harness。
+- 已补测试：programmatic default / threshold validation、KnowledgeBase vector threshold no-evidence、hybrid fused hit 低置信 no-evidence、hybrid 使用 vectorScore 而非 fusedScore 做门禁。
+- 已验证：`mvn "-Dtest=RagRetrievalPropertiesTest,RagDocumentRetrievalServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseEvidenceContextBuilderTest,ContextAssemblyServiceImplTest" test` PASS，33 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，198 tests。
+- 已执行真实链路默认 run：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007` PASS，marker 为 `docpilot-rag-real-quality-20260627210458-9d0321`；`noEvidenceThreshold` 返回 `noEvidence=true`、`0` retrieve hits、`0` QA citations。
+- 本轮创建了临时 smoke 用户、文档、KnowledgeBase 和 Conversation，并写入 ignored artifact；未操作远程 Docker，未走 `hk-ops`，未删除业务数据，未改数据库结构，未提交 artifact 原文，未 push。
+
+## 已完成代码任务：RAG Quality Upgrade v4
+
+- 目标：强化 citation grounding 与 answer audit，确保回答层只使用通过 evidence confidence gate 的 citations，并把 no-evidence / fallback / score summary / documentHitCounts 以脱敏方式进入 response、trace 或 artifact。
+- 成功标准：离线 eval 增加 citation grounding / no-evidence precision / forbidden answer leak case；真实 smoke 保持 `noEvidenceThreshold=PASS`、单文档 RAG、KB 两文档 RAG、Conversation Trace、权限隔离和 artifact redaction 不回退。该标准已由 marker `docpilot-rag-real-quality-20260627211711-383cda` 验证。
+- 明确不做：不改数据库结构，不操作远程 Docker，不走 `hk-ops`，不删除业务数据，不强制真实 rerank provider，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。
+
+## 2026-06-27 追加任务：RAG / Memory 生产化路线定线
+
+- 本轮目标是先把关键事实源从“求职级展示收口”调整为“生产化知识库 RAG + 会话记忆核心闭环”，避免后续 agent 继续沿旧路线只做展示包装。
+- 文档定线只更新 `AGENTS.md`、`docs/README.md`、`STATE.md`、`CURRENT_TASK.md`、`ROADMAP_RAG.md`、`DECISIONS.md` 和 `PROGRESS_LOG.md`；不启动 tunnel / backend / frontend，不创建业务数据，不改数据库结构，不 push。
+- 当前真实证据以 v3 smoke 为准：`rag-real-quality-smoke.ps1 -Mode run` 已在默认阈值 `0.50` 下验证真实 embedding + Qdrant 链路整体 `PASS`，包括 populated-KB no-evidence。
+- 下一轮代码任务固定为 v4：强化 citation grounding 与 answer audit，把通过门禁的 evidence、fallback 和 score summary 做成更清晰的质量证据。
+- 本轮不得把项目写成完整商业 SaaS、线上 SLA、大规模多租户计费、高可用运维、成熟多 Agent 或已完成生产级 no-evidence。
+
+## 已完成代码任务：RAG Quality Upgrade v3
+
+- 目标：统一单文档 RAG、KnowledgeBase RAG 和 Conversation KnowledgeBase evidence 的 no-evidence 判定，让没有达到置信阈值的检索结果不进入 grounded QA。
+- 成功标准：`scripts/smoke/rag-real-quality-smoke.ps1 -Mode run` 中 `noEvidenceThreshold` gate 变为 `PASS`；单文档 RAG、KB 两文档 RAG、Conversation Trace、权限隔离和 artifact redaction 不回退。该标准已由 marker `docpilot-rag-real-quality-20260627210458-9d0321` 验证。
+- 实现结果：基于已有 `app.rag.retrieval.min-similarity-threshold` 补齐 KnowledgeBase hybrid 路径，并增加安全默认值、score 观测和离线测试；未强制真实 rerank provider。
+- 明确不做：不改数据库结构，不操作远程 Docker，不走 `hk-ops`，不删除业务数据，不提交 artifact 原文，不打印 `.env` / token / API key / 云地址 / 连接串，不 push。
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v2
+
+- 已新增 `scripts/smoke/rag-real-quality-smoke.ps1`，作为真实 embedding + Qdrant 检索质量门禁入口；脚本支持 `-Mode plan`、`-Mode dry-run`、`-Mode run`，默认 artifact 写入 ignored 路径 `backend/target/rag-quality/<smokeMarker>/artifact.json`。
+- v2 复用并增强 `scripts/smoke/cloud-quality-smoke.ps1`：新增 `-SmokePrefix` 参数，并增加 `noEvidenceThreshold` gate；无关 populated-KB query 如果仍返回最近证据，状态标记为 `REVIEW`，不伪装成 PASS。
+- 已执行 `-Mode run -ArtifactRoot backend/target/rag-quality -FrontendBaseUrl http://127.0.0.1:3007`，marker 为 `docpilot-rag-real-quality-20260627195744-d5b6e2`，overallStatus 为 `REVIEW`。
+- 本次真实链路 PASS 项：tunnel、backend health、frontend route、注册、两文档上传 / parse / indexing、chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、权限隔离、artifact 脱敏。
+- 本次 REVIEW 项：`noEvidenceThreshold`，无关 populated-KB query 仍返回 `3` 个 retrieve hits / `3` 个 QA citations，说明后续需要调 `minSimilarityThreshold`、rerank 或 no-evidence 策略。
+- 本轮同步修复 `scripts/dev/cleanup-agent-processes.ps1` 的进程匹配规则，覆盖 `DocPilotApplication`、`npm run dev` 和带引号的 `next dev` 形态；本轮收尾时已手动确认 8081 / 3007 / 13306 / 6333 均未监听。
+
+## 2026-06-27 追加任务：RAG Quality Upgrade v1
+
+- 已完成第一版“从玩具 RAG 到求职级真实效果 RAG”的小步落地：单文档 retrieval 接入统一 `app.rag.retrieval.min-similarity-threshold`，避免配置只对 KnowledgeBase 生效、单文档链路仍对无关问题返回最近 chunk。
+- 已增强 KnowledgeBase RAG 离线 eval：case fixture 可声明 `expectedAnswerMarkers`、`forbiddenAnswerMarkers`、`minCitationCount` 和 `requiresMultiDocumentCoverage`；eval result / artifact 新增 `answerHitRate`、`citationCountRate`、`multiDocumentCoverageRate`、`forbiddenAnswerLeakRate`。
+- 当前离线 artifact 仍写入 ignored 路径 `backend/target/rag-eval/knowledge-base-rag-eval-latest.json`，只保存 case summary、计数和布尔指标，不保存文档原文、prompt、evidence context、模型输出、token 或密钥。
+- 已验证：`mvn "-Dtest=RagDocumentRetrievalServiceImplTest,KnowledgeBaseRagEvalRunnerTest,KnowledgeBaseRagEvalMetricsTest,KnowledgeBaseRagEvalFixtureTest" test` PASS，12 tests；`mvn "-Dtest=*Rag*,*KnowledgeBase*" test` PASS，192 tests；`mvn -DskipTests compile` PASS；`mvn test -DskipITs` PASS，729 tests，0 failures，0 errors，1 skipped。
+- 当前边界：本轮不调用真实 embedding / rerank / answer provider，不启动 tunnel，不创建业务数据，不改数据库结构，不改前端；该 v1 是离线质量门禁增强，不等于真实 provider 效果评测已完成。
+
+## 2026-06-27 追加任务：云端完整业务 Smoke 质量门禁增强
+
+- 已新增 `scripts/smoke/cloud-quality-smoke.ps1`，把 cloud smoke 从“链路能跑通”扩展为可执行质量门禁 runner。
+- runner 支持 `-Mode plan`、`-Mode dry-run`、`-Mode run`：`plan` 只输出门禁清单，`dry-run` 只做本地前置检查，`run` 才会启动 / 复用 tunnel、backend、frontend 并创建临时业务数据。
+- 统一 `smokeMarker` 贯穿临时用户、两份 txt 文档、KnowledgeBase、Conversation、问题文本和 artifact；artifact 默认写入 ignored 路径 `tmp-e2e/docpilot-cloud-quality-smoke/<smokeMarker>/artifact.json`。
+- `run` 模式门禁覆盖 tunnel 连通、backend health、frontend route、注册 / 登录、两文档上传 / parse / indexing、MySQL chunk 质量、MySQL / Qdrant payload 一致性、单文档 RAG、KnowledgeBase 两文档 RAG、Conversation Trace、至少四个权限隔离负向检查、artifact 脱敏扫描、清理和最终 `git status`。
+- 当前已验证：Windows PowerShell 5 parser PASS；`-Mode plan` PASS；`-Mode dry-run` PASS；`-Mode run -ArtifactRoot backend/target/smoke -FrontendBaseUrl http://127.0.0.1:3007` PASS。
+- 本次 `run` marker 为 `docpilot-cloud-quality-20260627022219-37efd4`，脱敏 artifact 位于 `backend/target/smoke/docpilot-cloud-quality-20260627022219-37efd4/artifact.json`，artifact 不提交。
+- 本次 `run` 生成临时用户、文档、KnowledgeBase 和 Conversation；没有操作远程 Docker，没有使用 `hk-ops`，没有删除业务数据，没有改数据库结构，没有 push。
+
+## T013 本轮已完成
+
+- 新增会话级上下文 MVP 后端底座：`tb_conversation`、`tb_conversation_message`、`tb_conversation_summary`、`tb_context_trace`、`tb_user_memory` 五张新表迁移脚本；未改动既有 `qa_history`、`agent_task`、`agent_step`、RAG 或 KnowledgeBase 表结构。
+- 新增 `conversation` / `memory` / `ai.context` 后端 package，提供会话创建、列表、知识库绑定、非流式消息发送、会话摘要读取 / 删除、用户长期记忆手动维护接口。
+- 新增 `ContextAssemblyService`，支持 `RECENT_TURNS` 和 `AGENT_MEMORY` 两种模式；上下文来源包含系统提示、长期记忆、会话摘要、最近轮次和可选 KnowledgeBase evidence。
+- KnowledgeBase evidence 只复用现有 `KnowledgeBaseRagRetrievalService` 与 `KnowledgeBaseScopeGuard`，不直连 Qdrant，不改现有 RAG / Agent / ToolCall 主链路。
+- 新增 token 预算、优先级裁剪、prompt rendering、trace response、记忆敏感内容拦截和权限过滤单元测试。
+- 新增摘要级 `ContextTrace` 持久化与按消息查询 API：只保存 mode、计数、token 估算、RAG hit 分布、fallback / truncated 摘要字段，不保存完整 prompt 或 evidence 原文；trace 写入失败不影响主回答链路。
+- 新增显式 `POST /api/conversations/{conversationId}/summary/refresh`，使用本地 extractive 摘要压缩最近消息；不调用真实外部模型，不做后台自动摘要。
+- 新增长期记忆候选机制：规则式 `MemoryExtractionService` 从会话用户消息中提取 `SUGGESTED` 记忆，提供候选列表、提取、接受、忽略 API；候选记忆默认不进入 prompt，只有接受后才转为 `ACTIVE`。
+- 新增 `KnowledgeBaseEvidenceContextBuilderTest`，覆盖 Agent Memory 绑定 KnowledgeBase 后的中文必需 RAG 触发、英文可选触发、no-evidence 中文 fallback、禁用 RAG 时不检索、长 evidence 截断。
+- 新增前端会话工作台 MVP：`/conversations` 页面、会话 / 记忆 API wrapper、顶部导航入口；支持创建会话、发送非流式消息、绑定 / 解绑 KnowledgeBase、查看 summary / trace、手动维护 ACTIVE 记忆、提取 / 接受 / 忽略候选记忆。
+- 完成求职展示级前端收口：`/` 首页改为工程链路总览与 smoke 边界入口，`/dashboard` 增加推荐演示路径和会话上下文入口，`/knowledge-bases` 增加 retrieval / evidence / answer model / model call / 命中文档分布可观测卡片，`/conversations` 增强非流式 MVP、摘要级 Trace、Memory 与 KnowledgeBase evidence 的展示口径。
+- 完成前端 AI 产品感重点页二次精修：`/` 首页新增系统流程面板和产品级 CTA，`/dashboard` 收敛为 Demo Command Center，`/knowledge-bases` 和 `/conversations` 未登录态不再暴露完整空工作台，并强化 KnowledgeBase evidence / Agent Memory Trace 的观测层级。
+- 完成 `/conversations` 核心页 GPT / DeepSeek 风格重做：按 Gemini CLI headless 建议，将页面从三栏工程控制台收敛为左侧会话历史、居中聊天流、底部悬浮 composer 和右侧 Context Inspector 抽屉；Trace / Memory / Summary / KnowledgeBase evidence 继续保留，但退为聊天辅助信息，不再抢占主聊天区。
+- 完成前端 UI 文案成熟化收口：按 Gemini CLI 文案建议去掉页面上的“求职 / 面试 / MVP / 演示 / 生产级 / smoke”等内部口径，把首页、Dashboard、KnowledgeBase、Conversations、Agent、登录、上传和文档详情页的说明改为更克制的产品表达；不改后端 API，不新增依赖。
+- 完成近期新增代码质量修复：KnowledgeBase Hybrid 检索按 `indexVersion` 过滤并保留 keyword-only hit 元数据；RRF `rrfK` 配置生效；BM25 scorer 改为请求内局部状态；rerank 真正接入 KnowledgeBase RAG 主链路并输出观测字段；会话消息发送改为先生成答案、再用 conversation 行锁连续写入 user / assistant 消息；前端记忆类型改为后端合法枚举并展示 score breakdown。
+- 完成当前收口修复：README / showcase 面试材料已同步 Hybrid / Rerank “默认关闭可选增强”的口径；`.env.example` / `.env.demo.example` / `.env.cloud.example` 已补充安全占位配置；`DEMO_SMOKE_RECORD.md` 明确真实 rerank provider 尚未 smoke。
+- 完成 tunnel 协作入口修复：MySQL / Qdrant tunnel 详细说明原本已在 `backend/README.md`；本轮已在 `AGENTS.md` 增加一线提醒，明确云 MySQL / Qdrant runtime smoke 前必须启动 `scripts/dev/start-cloud-tunnels.ps1`，普通离线测试和前端未登录态 smoke 不要求 tunnel。
+- 完成交付前审查收口修复：`.claude/` 与 `test-hybrid-rag.sh` 已加入 `.gitignore`，保留本地文件但不作为交付内容；会话发送事务已收窄到最终落库阶段，模型调用和 trace best-effort 不再包在同一个长事务内。
+
+## T013 已验证
+
+```powershell
+cd backend
+mvn -DskipTests compile
+mvn "-Dtest=*Context*,*Conversation*,*Memory*" test
+mvn "-Dtest=*Rag*,*KnowledgeBase*" test
+mvn "-Dtest=*Agent*,*Tool*,*ToolCall*,OpenAi*" test
+
+cd frontend
+npm run lint
+npm run build
+```
+
+验证结果：
+
+- backend compile：PASS。
+- Context / Conversation / Memory tests：54 tests，0 failures，0 errors。
+- RAG / KnowledgeBase 回归：189 tests，0 failures，0 errors。
+- 2026-06-26 Hybrid / Rerank / Conversation 修复回归：`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests，0 failures，0 errors；`npm run lint` PASS；`npm run build` PASS。
+- 2026-06-26 收口验证：`mvn -DskipTests compile` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests，0 failures，0 errors；`mvn test -DskipITs` PASS，728 tests，0 failures，0 errors，1 skipped；`npm run lint` PASS；`npm run build` PASS；`git diff --check` 仅有 CRLF 工作区提示；中文乱码扫描仅命中既有测试正则 / 归档历史 / AGENTS 规则文本；敏感配置扫描确认真实配置只在本地 `.env` 类文件中，未复制密钥值。
+- 2026-06-26 Playwright 收口验证：本地启动 `frontend` dev server 于 `http://localhost:3007`，打开 `/`、`/dashboard`、`/knowledge-bases`、`/conversations`、`/agent` 桌面页面，以及移动端 `/`、`/conversations`，页面均可渲染；console 主要为既有 `favicon.ico` 404 和 dev Fast Refresh / RSC fallback 日志。
+- 2026-06-26 tunnel 文档收口验证：已确认 `backend/README.md` 存在 `scripts/dev/start-cloud-tunnels.ps1`、`13306`、`6333` 说明；本轮只做文档 / 脚本收口，未启动 SSH tunnel，未做云 MySQL / Qdrant runtime smoke。
+- 2026-06-26 交付前审查收口验证：`mvn "-Dtest=ConversationMessageServiceImplTest" test` PASS，5 tests，0 failures，0 errors；`mvn -DskipTests compile` PASS；`mvn "-Dtest=*Rag*,*KnowledgeBase*,*Conversation*,*Memory*,*Rerank*" test` PASS，233 tests，0 failures，0 errors；`mvn test -DskipITs` PASS，728 tests，0 failures，0 errors，1 skipped；`npm run lint` PASS；`npm run build` PASS；`git diff --check` 仅有 CRLF 工作区提示；乱码扫描仅命中 AGENTS 规则文本；脱敏敏感配置扫描确认真实密钥命中位于未跟踪 `backend/.env`，tracked 示例 / yml 为占位、默认本地值或环境变量引用。
+- Agent / Tool / ToolCall / OpenAI adapter 回归：186 tests，0 failures，0 errors。
+- 2026-06-12 本轮补充连接点测试后：默认离线全量 `mvn test` 已通过，结果为 707 tests，0 failures，0 errors，1 skipped；测试结束阶段出现 scheduled task 访问云端 MySQL 的本机 SSH tunnel 入口被拒日志，说明当时 tunnel / 转发端口未连通，但 Surefire 最终 BUILD SUCCESS。
+- 2026-06-12 追加候选记忆后：默认离线全量 `mvn test` 已通过，结果为 702 tests，0 failures，0 errors，1 skipped。
+- 2026-06-12 追加实现后：默认离线全量 `mvn test` 已通过，结果为 693 tests，0 failures，0 errors，1 skipped。
+- 2026-06-12 此前修复记录：默认离线全量 `mvn test` 曾通过，结果为 683 tests，0 failures，0 errors，1 skipped。
+- `DocumentChunkServiceImplTest.shouldReplaceChunksByDeletingVersionBeforeInsert` 已按当前 chunking policy 更新断言：短文本块会先合并，再按默认 `800/120` 切分，因此示例文本应保存为 1 个 chunk，并继续校验 delete-before-insert、version、chunk index、content、hash、offset、token count 和 status。
+- 先前报告中的 `DocumentAgentRealProviderRuntimeHarnessTest` 与 `ManualKnowledgeBaseRagProbeTest` 在当前源码树和 git 索引中不存在；clean 前 surefire 目录残留了旧失败报告。执行 `mvn clean test` 后旧报告已清除，默认测试未运行真实 provider 或远程 Qdrant probe。
+- frontend lint：PASS。
+- frontend build：PASS；`/conversations` 已进入 Next.js route 输出。
+- Playwright 打开 `http://localhost:3007/conversations`：PASS；未登录态页面正常渲染，console 仅有既有 `favicon.ico` 404。
+- 2026-06-13 前端展示收口验证：`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `/`、`/dashboard`、`/knowledge-bases`、`/conversations` PASS，桌面和移动端首页 / 会话页无明显重叠或空白；console 仅观察到既有 `favicon.ico` 404。
+- 2026-06-13 前端 AI 产品感精修验证：`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `/`、`/dashboard`、`/knowledge-bases`、`/conversations` PASS，桌面截图检查重点页面无明显重叠，移动端首页按钮和流程面板可用；console 仅有既有 `favicon.ico` 404。
+- 2026-06-13 `/conversations` 核心页精修验证：`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `/conversations` 桌面 / 移动端 PASS，未登录态不暴露空工作台；首页 / Dashboard / KnowledgeBase HTTP 200。构建期间重启 dev server 后，Next 静态 chunk 404 消失，未观察到新增页面错误。
+- 2026-06-14 `/conversations` 聊天产品页重做验证：Gemini CLI 通过 `-p` headless 模式输出 GPT / DeepSeek 风格建议；`npm run lint` PASS，`npm run build` PASS；Playwright 打开 `/conversations` 桌面 / 移动端 PASS，未登录态为居中聊天产品入口，登录态布局烟测确认左侧会话栏、中间聊天流、底部 composer 和右侧 Context Inspector 抽屉可渲染；console 仅有既有 `favicon.ico` 404。
+- 2026-06-14 前端 UI 文案成熟化验证：Gemini CLI 通过 stdin + `-p` headless 模式输出文案方向；Codex 落地并拦截过度营销表达。`npm run lint` PASS，`npm run build` PASS；前端高暴露词扫描未命中“求职 / 面试 / MVP / smoke / 生产级 / 演示”等 UI 文案残留，中文乱码扫描未命中。Playwright 打开 `/`、`/dashboard`、`/knowledge-bases`、`/conversations`、`/agent`、`/agent/tools` PASS，并检查移动端 `/`、`/conversations` 无明显溢出；console 仅有既有 `favicon.ico` 404 和一次 dev hot reload RSC fallback，页面已正常渲染。
+- 2026-06-13 已按用户授权，通过当前本机 SSH tunnel 入口对云服务器 Docker MySQL 执行 `backend/src/main/resources/sql/007_init_conversation_context.sql`；已确认 `tb_conversation`、`tb_conversation_message`、`tb_conversation_summary`、`tb_context_trace`、`tb_user_memory` 五张表存在。
+- 2026-06-13 迁移后 runtime smoke：本机 SSH tunnel 入口到云服务器 Docker MySQL / Qdrant 检查 PASS，backend `/actuator/health` 为 `UP`，frontend `/conversations` 为 HTTP 200；登录态完成创建会话、发送消息、查看 trace、刷新摘要、提取候选记忆、接受候选记忆、再次发送消息验证 ACTIVE 记忆进入 Agent Memory 上下文。第二轮 trace 显示 `Memory=1`、`summaryUsed=是`、最近消息 `2` 条 / `1` 轮、无截断、无 fallback、未跳过模型。
+- 2026-06-13 T013 KnowledgeBase-bound evidence runtime smoke：新建临时用户、上传 txt、创建文档、触发解析并等待 `SUCCESS`，创建 KnowledgeBase 并添加文档；KnowledgeBase retrieval 命中 1 条 evidence。随后创建绑定该 KB 的 Agent Memory 会话并发送知识库问题，API trace 显示 `ragTriggered=true`、`ragRequired=true`、`evidenceCount=1`、`documentHitCounts={93:1}`、citation `1`、无 fallback、未跳过模型。
+- 2026-06-13 T013 浏览器端到端验证：在 `/conversations` 页面使用绑定 KnowledgeBase `#8` 的会话发送中文“根据知识库”问题，助手回答引用 `t013-ui-kb-0613093939.txt`，Context Trace 显示 `Evidence=1`、`RAG 触发=是`、`RAG 必需=是`、`No Evidence=否`、`Fallback=否`、`模型跳过=否`，展开命中文档分布显示 `#94: 1`。
+
+## T013 当前边界
+
+- 本轮仅小范围修正文档入口、配置示例和本地清理脚本；未调用真实外部服务、未操作远程服务器、未读取或提交 `.env` / secrets / API key。
+- `.claude/` 和 `test-hybrid-rag.sh` 已按 local-only 处理并加入 `.gitignore`；未删除本地文件，未执行 `git add` / `git commit` / `git push`。
+- 不做后台自动摘要生成、不做真实模型记忆抽取、不持久化完整 prompt / evidence 原文、不接管现有 Agent 主链路、不新增 KnowledgeBase Agent Tool。
+- 新 API 与前端工作台先提供非流式 MVP；SSE、Agent 主链路集成和真实模型记忆抽取留到后续阶段。
+- 登录态 runtime smoke 已覆盖 Conversation API、summary、trace、candidate memory -> ACTIVE memory -> Agent Memory 上下文选择，以及绑定 KnowledgeBase 后 evidence 进入 Context Trace 的浏览器端到端验证。
+
+## 建议提交切片
+
+- `feat(conversation)`: `ai.context`、`conversation`、`memory` 后端包，`007_init_conversation_context.sql`，对应 controller / service / mapper / schema / unit tests，前端 `/conversations`、`conversation-api.ts`、`memory-api.ts`。
+- `feat(rag)`: KnowledgeBase Hybrid / Rerank 增强、BM25 / RRF / rerank 包、retrieval response 观测字段、RAG 配置示例、RAG / KnowledgeBase 相关测试和 `RAG_HYBRID_*` 参考文档。
+- `feat(frontend)`: 首页、Dashboard、KnowledgeBase、Agent、登录、上传、文档页等产品化展示和全局样式改动；注意继续保持页面文案不直接使用“求职 / 面试 / MVP / smoke / 生产级”等内部口径。
+- `docs(workflow)`: `AGENTS.md`、`backend/README.md`、`docs/ai-dev/CONSTRAINTS.md`、`scripts/dev/start-cloud-tunnels.ps1`、`scripts/dev/cleanup-agent-processes.ps1`，聚焦 tunnel / Gemini / agent 协作和清理规则。
+- `docs(showcase)`: 根 `README.md`、`docs/showcase/*`、`STATE.md`、`CURRENT_TASK.md`、`PROGRESS_LOG.md`，用于对外展示口径和当前事实源收口。
+
+## 当前交付状态
+
+- 已按切片完成本地提交：`feat(conversation): add context memory workspace`、`feat(rag): add hybrid retrieval and rerank controls`、`feat(frontend): polish AI workspace presentation`、`docs(workflow): document cloud tunnel workflow`。
+- 最终 `docs(showcase)` 切片包含根 `README.md`、`docs/README.md`、`STATE.md`、`CURRENT_TASK.md`、`PROGRESS_LOG.md`、`docs/showcase/*` 和 T013 设计参考资料，用于对外展示口径和当前事实源收口。
+- 当前交付整理验证通过：staged diff whitespace check、全仓 diff check、敏感配置扫描、中文乱码扫描、后端 compile、后端重点测试、后端全量单测、前端 lint / build 均通过。
+- 本轮仍未做云 MySQL / Qdrant runtime smoke；全量后端测试中的 scheduled outbox tunnel 连接失败日志只说明未连 runtime 环境，当前云链路仍以既有 smoke 文档为准。
+
+## 已提交切片归属
+
+- `feat(rag)` 文件范围：`backend/src/main/java/com/docpilot/backend/ai/rag/**` 中 Hybrid / BM25 / RRF / Rerank 相关新增和响应字段改动，`KnowledgeBaseRagQaServiceImpl` / `KnowledgeBaseRagRetrievalServiceImpl`，`KnowledgeBaseRag*Response`，`application.yml` 中 retrieval / rerank 配置，`backend/.env*.example` 安全占位，RAG / KnowledgeBase 相关测试，以及 `docs/ai-dev/RAG_HYBRID_*`。
+- `feat(frontend)` 文件范围：`frontend/app/{page,dashboard,knowledge-bases,agent,agent/tools,documents,login,upload,layout}.tsx`、`frontend/app/globals.css`、`frontend/lib/knowledge-base-api.ts`；`globals.css` 同时支撑 `/conversations` 视觉，第一包单独提交后会话页可编译但完整样式依赖本切片。
+- `docs(workflow)` 文件范围：`.gitignore`、`AGENTS.md`、`backend/README.md`、`docs/ai-dev/CONSTRAINTS.md`、`scripts/dev/start-cloud-tunnels.ps1`、`scripts/dev/cleanup-agent-processes.ps1`。
+- `docs(showcase)` 文件范围：根 `README.md`、`docs/README.md`、`docs/ai-dev/STATE.md`、`docs/ai-dev/CURRENT_TASK.md`、`docs/ai-dev/PROGRESS_LOG.md`、`docs/showcase/*`，以及 `docs/ai-dev/会话级上下文管理/` / `docs/ai-dev/上下文会话系统设计路线.md` 作为 T013 设计参考资料。
+- 跨切片注意：`application.yml` 同时包含 `.env` import 上移和 RAG retrieval / rerank 配置，已随 `feat(rag)` 提交；workflow 文档只解释行为，不重复实现配置。
+
+## 设计文档归属
+
+- `docs/ai-dev/会话级上下文管理/` 和 `docs/ai-dev/上下文会话系统设计路线.md` 当前应作为 T013 设计参考资料保留，适合随 `feat(conversation)` 或单独 `docs(conversation)` 提交。
+- 这些设计文档不作为当前任务源；后续 agent 仍以 `STATE.md`、`CURRENT_TASK.md`、`PROGRESS_LOG.md` 和代码 / 测试为准。
+- 如后续要压缩文档体量，优先在单独任务中归档或提炼，不在当前交付收口中删除。
+
+## 剩余真实风险
+
+- 全仓状态需以最终 `docs(showcase)` 提交后的 `git status --short` 为准。
+- 本轮未启动 SSH tunnel，未执行云 MySQL / Qdrant runtime smoke；`mvn test -DskipITs` 中 scheduled outbox job 的 tunnel 连接失败日志只能说明未连 runtime 环境，不代表云链路验证通过。
+- KnowledgeBase Hybrid / Rerank 仍是默认关闭的可选增强；真实 rerank provider 尚未 smoke。
+- T013 Conversation / Memory 仍是非流式 MVP，不接管现有 Agent 主链路。
+
+## 上一任务记录：KnowledgeBase RAG 问答质量修复
+
+## 目标
+
+修复“总结整个资料集”类问题中，多文档知识库虽然有 4 个成员文档和 6 条 evidence，但召回几乎被单一文档垄断、chunk 过短、回答模型无法总结整个资料集的问题。
+
+## 本轮已完成
+
+- 后端 chunking 从“短段落直接成 chunk”改为先合并 Markdown / 文本块，再按窗口切分，默认 chunk size 调整为 `800`、overlap 调整为 `120`。
+- KnowledgeBase retrieval 扩大向量候选池，对外仍保留请求 `topK`；摘要 / 资料集 / 知识库类问题优先覆盖每个文档，并限制单文档命中数。
+- KnowledgeBase retrieval response 新增 `documentHitCounts`，用于观察每个文档的最终命中数量。
+- KnowledgeBase QA response 新增 `answerProvider`、`answerModel`、`modelCallCount`，用于确认是否真实调用回答模型。
+- KnowledgeBase summary prompt 增加“整体总结 + 按文档标题总结 + 缺失文档证据需说明”的提示。
+- RAG vector store 配置兼容 `RAG_VECTOR_PROVIDER` / `RAG_VECTOR_DIMENSION` 别名；未把误用的 `RAG_VECTOR_COLLECTION=http://...` 当 endpoint。
+- `.env` 导入职责已从 `application-local.yml` 上移到 `application.yml`，并保留 `SPRING_CONFIG_IMPORT` 覆盖能力；`application-local.yml` 只保留 local profile 的端口、目录和中间件默认值覆盖。
+- 前端 KnowledgeBase API 类型已同步新增 response 字段。
+- 已按用户授权对目标 KnowledgeBase 文档 `83/84/85/86` 执行 rebuild / reindex：先写入临时验证 collection `docpilot_kb_quality_20260606`，随后将本地 `backend/.env` 切到稳定 collection `docpilot_rag_v2` 并完成重建；KnowledgeBase id 为 `3`，userId 为 `21`。
+
+## 已验证
+
+```powershell
+cd backend
+mvn "-Dtest=ChunkingServiceImplTest,KnowledgeBaseRagRetrievalServiceImplTest,KnowledgeBaseRagQaServiceImplTest,KnowledgeBaseRagPromptBuilderTest,RagVectorStorePropertiesTest,KnowledgeBaseRagControllerTest" test
+mvn -DskipTests compile
+mvn "-Dtest=*Rag*" test
+
+cd frontend
+npm run lint
+```
+
+授权后的运行时 reindex 验证：
+
+```powershell
+cd backend
+mvn "-Dtest=ManualKnowledgeBaseRagReindexTest" "-Dspring.profiles.active=local" test
+```
+
+配置整理验证：
+
+```powershell
+cd backend
+mvn "-Dtest=RagVectorStorePropertiesTest" test
+mvn "-Dtest=DocPilotApplicationTests" test
+mvn -DskipTests compile
+```
+
+验证结果：
+
+- targeted backend tests：36 tests，0 failures，0 errors。
+- backend `*Rag*` tests：164 tests，0 failures，0 errors。
+- backend compile：PASS。
+- frontend lint：PASS。
+- config import tests：`RagVectorStorePropertiesTest` 9/9 pass，`DocPilotApplicationTests` 1/1 pass。
+- runtime reindex：document `83/84/85/86` rebuild 成功，稳定 collection 为 `docpilot_rag_v2`，chunk / vector 数分别为 `35/35`、`18/18`、`10/10`、`16/16`；“总结资料集”检索 hit 数为 `6`，`documentHitCounts={83:2,84:1,85:1,86:2}`。
+
+## 当前边界
+
+- 本轮没有操作远程 / 云端 MySQL、Qdrant 或服务进程。
+- 已通过 Spring service 正式执行 rebuild / reindex，没有直接手写 SQL 或直接改 Qdrant payload。
+- 当前本地 `backend/.env` 已配置为 `RAG_VECTOR_STORE_PROVIDER=qdrant`、`RAG_QDRANT_COLLECTION=docpilot_rag_v2`、`RAG_QDRANT_DIMENSION=1024`，并继续使用本机 `.env` 中的真实 endpoint / key；真实 `.env` 不提交。
+- 如果当前环境仍使用 mock / fake embedding，语义召回质量仍会受限；本轮代码只让 provider/model/call count 更可观测。
+
+## 下一步候选
+
+- 前端展示 `documentHitCounts`、`answerProvider`、`answerModel`、`modelCallCount`，便于演示时解释检索和模型调用。
+- 为 KnowledgeBase QA 补 SSE 流式路径，并保持与非流式 response 字段一致。
+
+## 2026-06-08 环境恢复插曲（DONE）
+
+- 目标：让本地后端通过 SSH tunnel 连接云端 MySQL / Qdrant，并恢复 `/actuator/health`。
+- 已确认：`backend/.env` 目标配置为 `MYSQL_HOST=127.0.0.1`、`MYSQL_PORT=13306`、`RAG_QDRANT_ENDPOINT=http://127.0.0.1:6333`。
+- 已验证：通过本地 `13306` tunnel 使用 `docpilot_app` 登录 `docpilot` 仍失败，错误来源为 `docpilot_app@172.20.0.1`，说明 Spring 配置解析生效，但远程 MySQL 用户认证 / host 授权仍不匹配。
+- 已由 `hk-ops` 确认远程 MySQL 数据目录备份有效：`/data/docpilot/backups/mysql-datadir-20260607-010918.tar`，基础 tar 完整性校验通过。
+- 已由 `hk-ops` 修复 `docpilot_app` 认证 / 授权，保留 `docpilot_app` 对 `docpilot` schema 的访问能力；未修改业务表结构或业务数据。
+- 已由 `hk-ops` 将 Docker MySQL host 端口从公网监听收口为远程本机 `127.0.0.1:13306` 监听，`docpilot-mysql` 仍为 healthy。
+- 本地已恢复 SSH tunnel：`127.0.0.1:13306` 连接远程 MySQL，`127.0.0.1:6333` 连接远程 Qdrant；MySQL CLI `SELECT 1` 成功，Qdrant `/collections` 可达。
+- 后端已用 local profile 启动，HikariPool 初始化成功，未再出现 MySQL `Access denied` 或 Hikari timeout；`GET http://localhost:8081/actuator/health` 返回 `UP`。
+- 已完成最小业务 smoke：注册临时用户、上传 txt、创建文档、创建解析任务、解析达到 `SUCCESS`、RAG retrieve 命中、RAG QA 返回 citation 且回答包含本次 smoke marker；记录 ID 为 user `88`、file `89`、document `87`、parseTask `83`。
+- 已新增 `scripts/dev/start-cloud-tunnels.ps1` 固化本地 MySQL / Qdrant tunnel 启动与连通性检查；`backend/README.md` 已同步说明云 MySQL / Qdrant 不再走公网直连。
+- 已定位并修复前端多文档问答报 `knowledge base RAG answer generation failed`：复现确认 KnowledgeBase retrieve 成功但真实回答模型在约 12 秒 read timeout 后失败；后端已为 KnowledgeBase QA 增加 answer 生成失败兜底，保留 retrieval / citations 返回，并将本机 `backend/.env` 的 `AI_REAL_READ_TIMEOUT_MS` 调整为 `30000`。复验 KnowledgeBase QA code `0`、citation `2`、modelCallCount `1`，记录 ID 为 user `90`、KB `5`、documents `90/91`。
+
+## 2026-07-13 ParseTask RAG_INDEX_FAILED 恢复排查（SUPERSEDED / 已由 2026-07-14 收口）
+
+- 触发：用户真实解析 task `1322` / document `1431` / fileRecord `1435` 在 `INDEXING` 阶段失败，日志仅显示 `errorType=RAG_INDEX_FAILED`，MQ consume success。
+- 只读定位：ParseTask 和 Document 均为 `FAILED`；Document 已保留 `8031` 字 content 和摘要；`tb_document_chunk` 为 `0`，说明失败发生在 MySQL chunk replace / Qdrant upsert 之前。
+- 环境定位：当前 embedding provider 为 OpenAI-compatible / 百炼 `text-embedding-v4`，单条 embedding 成功且维度 `1024`；Qdrant collection `docpilot_rag_v2` 为 green，vector size `1024`。
+- 根因复现：用 document `1431` 正文模拟默认 800 字 chunk，约 `18` 个 chunks；一次 batch 请求百炼 embedding 返回 HTTP 400：batch size 不得大于 `10`。
+- 已修复代码：OpenAI-compatible embedding provider 自动将 batch 拆为最多 `10` 条一组；ParseTask 对 `RagIndexingResult.FAILED` 生成白名单结构化错误摘要，包含 `failureCode`、`indexVersion`、`chunkCount`、`preparedVectorCount`，不持久化 provider 原始 message / endpoint / token / SQL / 文档片段。
+- 已验证：`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,OpenAICompatibleEmbeddingProviderTest,RagIndexingServiceImplTest" test` 通过；`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,QdrantVectorStoreClientTest,ParseTaskServiceImplTest,ParseTaskRecoveryServiceTest" test` 通过，68 tests / 0 failures。
+- 历史状态：该段记录的是 2026-07-13 当时的 REVIEW 状态。
+- 最新收口：2026-07-14 已通过长文档 `LONG_MD` canary 和原 task `1322` 只读 DB / Qdrant / outbox / consume 复验收口；document `1431` 和 task `1322` 当前均为 SUCCESS，原文档 chunk / indexed / vectorId / Qdrant point 为 `12 / 12 / 12 / 12`。详见本文顶部“Document Parser 长文档 batch split / 原失败任务恢复复验”。

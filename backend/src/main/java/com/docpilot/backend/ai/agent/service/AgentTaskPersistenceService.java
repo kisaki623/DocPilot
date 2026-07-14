@@ -21,6 +21,15 @@ public interface AgentTaskPersistenceService {
                          Long durationMs,
                          String status);
 
+    AgentStep createStep(Long taskId,
+                         int stepIndex,
+                         String toolName,
+                         String inputSummary,
+                         String outputSummary,
+                         Long durationMs,
+                         String status,
+                         String errorMsg);
+
     AgentTask getTaskByUserAndId(Long userId, Long taskId);
 
     List<AgentStep> getStepsByTaskId(Long taskId);

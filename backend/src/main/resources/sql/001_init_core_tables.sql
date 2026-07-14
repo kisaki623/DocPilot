@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS tb_user (
     phone VARCHAR(32) DEFAULT NULL COMMENT 'Optional phone number',
     nickname VARCHAR(64) DEFAULT NULL COMMENT 'Display name',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT 'User status: ACTIVE, DISABLED',
+    is_internal_admin TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Internal admin flag for restricted console access',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation time',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update time',
     PRIMARY KEY (id),
@@ -39,12 +40,14 @@ CREATE TABLE IF NOT EXISTS tb_document (
     summary TEXT COMMENT 'Parsed summary',
     content LONGTEXT COMMENT 'Parsed full content',
     parse_status VARCHAR(20) NOT NULL DEFAULT 'PENDING' COMMENT 'Parse status: PENDING, UPLOADED, PARSING, SPLITTING, SUMMARIZING, INDEXING, SUCCESS, FAILED (兼容 PROCESSING)',
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE' COMMENT 'Document status: ACTIVE, REMOVED',
     create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation time',
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update time',
     PRIMARY KEY (id),
     KEY idx_document_user_id (user_id),
     KEY idx_document_file_record_id (file_record_id),
-    KEY idx_document_parse_status (parse_status)
+    KEY idx_document_parse_status (parse_status),
+    KEY idx_document_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Document table';
 
 CREATE TABLE IF NOT EXISTS tb_parse_task (

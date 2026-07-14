@@ -1,0 +1,12 @@
+# DocPilot 默认主线程：
+# 负责日常开发、任务协调、整合子 Agent 结果
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
+
+[agents]
+# 同时最多打开几个 Agent 线程
+max_threads = 5
+
+# 只允许主 Agent 创建直接子 Agent，
+# 防止子 Agent 继续无限创建下一层 Agent
+max_depth = 1

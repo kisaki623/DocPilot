@@ -1,5 +1,7 @@
 package com.docpilot.backend.ai.rag;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -65,7 +67,7 @@ class QdrantPreflightScriptSafetyTest {
     @Test
     void shouldDefaultToDryRunAndRedactEnvironmentValues() throws Exception {
         ProcessBuilder builder = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
@@ -85,13 +87,13 @@ class QdrantPreflightScriptSafetyTest {
         assertThat(process.exitValue()).isZero();
         assertThat(output)
                 .contains("READY_DRY_RUN")
-                .contains("\"providerIsQdrant\":  true")
-                .contains("\"endpointPresent\":  true")
-                .contains("\"collectionPresent\":  true")
-                .contains("\"apiKeyPresent\":  true")
-                .contains("\"requestAllowed\":  false")
-                .contains("\"requestAttempted\":  false")
-                .contains("\"dryRun\":  true")
+                .containsPattern("\"providerIsQdrant\"\\s*:\\s*true")
+                .containsPattern("\"endpointPresent\"\\s*:\\s*true")
+                .containsPattern("\"collectionPresent\"\\s*:\\s*true")
+                .containsPattern("\"apiKeyPresent\"\\s*:\\s*true")
+                .containsPattern("\"requestAllowed\"\\s*:\\s*false")
+                .containsPattern("\"requestAttempted\"\\s*:\\s*false")
+                .containsPattern("\"dryRun\"\\s*:\\s*true")
                 .doesNotContain("https://")
                 .doesNotContain("qdrant.example.invalid")
                 .doesNotContain("docpilot_eval_collection")

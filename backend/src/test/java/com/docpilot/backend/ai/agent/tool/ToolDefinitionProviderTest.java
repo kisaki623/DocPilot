@@ -15,17 +15,23 @@ class ToolDefinitionProviderTest {
     private final ToolDefinitionProvider provider = new ToolDefinitionProvider(new ToolRegistry(List.of(
             new StubTool("document_status_tool"),
             new StubTool("document_summary_tool"),
-            new StubTool("document_qa_tool")
+            new StubTool("document_qa_tool"),
+            new StubTool(DocumentSearchTool.TOOL_NAME),
+            new StubTool(KnowledgeBaseSearchTool.TOOL_NAME),
+            new StubTool(DocumentRagQaTool.TOOL_NAME)
     )));
 
     @Test
     void shouldReturnDefinitionsForCurrentTools() {
         List<ToolDefinition> definitions = provider.getAllDefinitions();
 
-        assertEquals(3, definitions.size());
+        assertEquals(6, definitions.size());
         assertTrue(definitions.stream().anyMatch(definition -> "document_status_tool".equals(definition.toolName())));
         assertTrue(definitions.stream().anyMatch(definition -> "document_summary_tool".equals(definition.toolName())));
         assertTrue(definitions.stream().anyMatch(definition -> "document_qa_tool".equals(definition.toolName())));
+        assertTrue(definitions.stream().anyMatch(definition -> DocumentSearchTool.TOOL_NAME.equals(definition.toolName())));
+        assertTrue(definitions.stream().anyMatch(definition -> KnowledgeBaseSearchTool.TOOL_NAME.equals(definition.toolName())));
+        assertTrue(definitions.stream().anyMatch(definition -> DocumentRagQaTool.TOOL_NAME.equals(definition.toolName())));
     }
 
     @Test
@@ -54,6 +60,23 @@ class ToolDefinitionProviderTest {
 
         assertFalse(qaDefinition.description().contains("执行SQL"));
         assertFalse(qaDefinition.description().contains("系统命令"));
+    }
+
+    @Test
+    void shouldNotExposeLegacyRagShowcaseToolToLlmSelection() {
+        ToolDefinitionProvider provider = new ToolDefinitionProvider(new ToolRegistry(List.of(
+                new StubTool("document_status_tool"),
+                new StubTool("document_summary_tool"),
+                new StubTool("document_qa_tool"),
+                new StubTool(DocumentSearchTool.TOOL_NAME),
+                new StubTool(KnowledgeBaseSearchTool.TOOL_NAME),
+                new StubTool(DocumentRagQaTool.TOOL_NAME),
+                new StubTool(DocumentRagTool.TOOL_NAME)
+        )));
+
+        List<ToolDefinition> definitions = provider.getAllDefinitions();
+
+        assertFalse(definitions.stream().anyMatch(definition -> DocumentRagTool.TOOL_NAME.equals(definition.toolName())));
     }
 
     private record StubTool(String toolName) implements AgentTool<Object, Object> {

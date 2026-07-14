@@ -14,7 +14,9 @@ class FakeLlmToolSelectorTest {
     private final List<ToolDefinition> toolDefinitions = List.of(
             new ToolDefinition("document_status_tool", "Document status", "Checks parse status.", "{}", "{}", true),
             new ToolDefinition("document_summary_tool", "Document summary", "Returns summary.", "{}", "{}", true),
-            new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true)
+            new ToolDefinition("document_qa_tool", "Document QA", "Answers with citations.", "{}", "{}", true),
+            new ToolDefinition(DocumentSearchTool.TOOL_NAME, "Document search", "Retrieves chunks.", "{}", "{}", true),
+            new ToolDefinition(DocumentRagQaTool.TOOL_NAME, "RAG QA", "Answers with RAG citations.", "{}", "{}", true)
     );
 
     @Test
@@ -24,7 +26,12 @@ class FakeLlmToolSelectorTest {
 
     @Test
     void shouldMirrorQaTask() {
-        assertShadowMatchesPrimary("answer with evidence", true, true, "qa_tool");
+        assertShadowMatchesPrimary("answer with evidence", true, true, "rag_tool");
+    }
+
+    @Test
+    void shouldMirrorSearchOnlyTask() {
+        assertShadowMatchesPrimary("retrieve topK chunks", true, true, "search_tool");
     }
 
     @Test

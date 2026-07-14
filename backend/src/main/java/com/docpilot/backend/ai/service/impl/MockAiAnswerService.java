@@ -1,6 +1,7 @@
 package com.docpilot.backend.ai.service.impl;
 
 import com.docpilot.backend.ai.service.AiAnswerService;
+import com.docpilot.backend.ai.service.ConversationAnswerRequest;
 import com.docpilot.backend.common.util.ValidationUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -42,6 +43,29 @@ public class MockAiAnswerService implements AiAnswerService {
     }
 
     @Override
+    public String answerConversation(ConversationAnswerRequest request) {
+        ValidationUtils.requireNonNull(request, "request");
+        ValidationUtils.requireNonBlank(request.question(), "question");
+
+        String normalizedContext = request.promptMessages().stream()
+                .map(message -> "[" + message.role() + "] " + message.content())
+                .reduce("", (left, right) -> left.isBlank() ? right : left + "\n" + right)
+                .trim();
+        if (normalizedContext.length() > ANSWER_CONTEXT_PREVIEW_LENGTH) {
+            normalizedContext = normalizedContext.substring(0, ANSWER_CONTEXT_PREVIEW_LENGTH) + "...";
+        }
+        if (normalizedContext.isBlank()) {
+            normalizedContext = request.question();
+        }
+
+        return "[mock-answer] source=conversation"
+                + "\ngroundingPolicy: " + request.groundingPolicy()
+                + "\nrouteDecision: " + request.routeDecision()
+                + "\nquestion: " + request.question()
+                + "\nanswer:\n" + normalizedContext;
+    }
+
+    @Override
     public void streamAnswer(String documentContext, String question, Consumer<String> chunkConsumer) {
         ValidationUtils.requireNonNull(chunkConsumer, "chunkConsumer");
 
@@ -60,6 +84,16 @@ public class MockAiAnswerService implements AiAnswerService {
                 }
             }
         }
+    }
+
+    @Override
+    public String provider() {
+        return "mock";
+    }
+
+    @Override
+    public String model() {
+        return "mock";
     }
 
     private List<String> selectRelevantLines(String context, String question) {

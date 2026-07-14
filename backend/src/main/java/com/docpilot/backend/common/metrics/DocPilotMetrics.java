@@ -10,6 +10,11 @@ import java.util.concurrent.TimeUnit;
 public final class DocPilotMetrics {
 
     private static final String PARSE_STAGE_DURATION = "docpilot.parse.stage.duration";
+    private static final String DOCUMENT_PARSER_DURATION = "docpilot.document.parser.duration";
+    private static final String DOCUMENT_PARSER_EXTRACTED_CHARS = "docpilot.document.parser.extracted.chars";
+    private static final String DOCUMENT_PARSER_BLOCK_COUNT = "docpilot.document.parser.block.count";
+    private static final String DOCUMENT_PARSER_PAGE_COUNT = "docpilot.document.parser.page.count";
+    private static final String DOCUMENT_PARSER_WARNING_COUNT = "docpilot.document.parser.warning.count";
     private static final String MQ_CONSUME_TOTAL = "docpilot.mq.consume.total";
     private static final String MQ_OUTBOX_DISPATCH_TOTAL = "docpilot.mq.outbox.dispatch.total";
     private static final String LOCK_COMPETITION_TOTAL = "docpilot.lock.competition.total";
@@ -32,6 +37,24 @@ public final class DocPilotMetrics {
                 .tag("stage", normalize(stage))
                 .register(Metrics.globalRegistry)
                 .record(durationNanos, TimeUnit.NANOSECONDS);
+    }
+
+    public static void recordDocumentParserResult(String parserName,
+                                                  String result,
+                                                  long durationMs,
+                                                  int extractedChars,
+                                                  int pageCount,
+                                                  int blockCount,
+                                                  int warningCount) {
+        Timer.builder(DOCUMENT_PARSER_DURATION)
+                .tag("parser", normalize(parserName))
+                .tag("result", normalize(result))
+                .register(Metrics.globalRegistry)
+                .record(Math.max(0L, durationMs), TimeUnit.MILLISECONDS);
+        recordSummary(DOCUMENT_PARSER_EXTRACTED_CHARS, "chars", parserName, result, extractedChars);
+        recordSummary(DOCUMENT_PARSER_PAGE_COUNT, "pages", parserName, result, pageCount);
+        recordSummary(DOCUMENT_PARSER_BLOCK_COUNT, "blocks", parserName, result, blockCount);
+        recordSummary(DOCUMENT_PARSER_WARNING_COUNT, "warnings", parserName, result, warningCount);
     }
 
     public static void recordMqConsume(String result) {
@@ -108,6 +131,22 @@ public final class DocPilotMetrics {
                 "scene", normalize(scene),
                 "result", normalize(result)
         ).increment();
+    }
+
+    private static void recordSummary(String metric,
+                                      String baseUnit,
+                                      String parserName,
+                                      String result,
+                                      int value) {
+        if (value < 0) {
+            return;
+        }
+        DistributionSummary.builder(metric)
+                .baseUnit(baseUnit)
+                .tag("parser", normalize(parserName))
+                .tag("result", normalize(result))
+                .register(Metrics.globalRegistry)
+                .record(value);
     }
 
     private static String normalize(String value) {

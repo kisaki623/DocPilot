@@ -1,5 +1,7 @@
 package com.docpilot.backend.ai.rag;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -23,7 +25,7 @@ class OfflineAgentRagDemoSuiteArtifactSchemaTest {
         Files.deleteIfExists(outputPath);
 
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",

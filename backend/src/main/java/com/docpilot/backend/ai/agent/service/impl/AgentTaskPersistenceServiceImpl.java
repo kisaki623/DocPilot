@@ -84,6 +84,18 @@ public class AgentTaskPersistenceServiceImpl implements AgentTaskPersistenceServ
                                 String outputSummary,
                                 Long durationMs,
                                 String status) {
+        return createStep(taskId, stepIndex, toolName, inputSummary, outputSummary, durationMs, status, null);
+    }
+
+    @Override
+    public AgentStep createStep(Long taskId,
+                                int stepIndex,
+                                String toolName,
+                                String inputSummary,
+                                String outputSummary,
+                                Long durationMs,
+                                String status,
+                                String errorMsg) {
         ValidationUtils.requireNonNull(taskId, "taskId");
         ValidationUtils.requireNonBlank(toolName, "toolName");
         ValidationUtils.requireNonBlank(status, "status");
@@ -96,6 +108,7 @@ public class AgentTaskPersistenceServiceImpl implements AgentTaskPersistenceServ
         step.setInputSummary(truncate(inputSummary, STEP_SUMMARY_MAX_LENGTH));
         step.setOutputSummary(truncate(outputSummary, STEP_SUMMARY_MAX_LENGTH));
         step.setStatus(status);
+        step.setErrorMsg(truncate(errorMsg, ERROR_MSG_MAX_LENGTH));
         step.setDurationMs(durationMs);
         step.setStartTime(now);
         step.setFinishTime(now);

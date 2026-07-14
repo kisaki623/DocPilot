@@ -1,0 +1,122 @@
+{
+  "mode" : "offline",
+  "embeddingProvider" : "fake",
+  "stores" : [ {
+    "provider" : "in_memory",
+    "totalCases" : 7,
+    "positiveCases" : 4,
+    "positiveHits" : 4,
+    "positiveHitRate" : "1.0000",
+    "averageRetrievedCount" : "0.86",
+    "noMatchPassed" : true,
+    "emptyDocumentPassed" : true,
+    "isolationPassed" : true,
+    "fallbackUsed" : false,
+    "fallbackReason" : "",
+    "failedCaseIds" : [ ],
+    "caseSummaries" : [ {
+      "id" : "cache-hit",
+      "expectedHit" : true,
+      "expectedMarker" : "cache-evidence",
+      "retrievedCount" : 1,
+      "hit" : true,
+      "miss" : false,
+      "passed" : true
+    }, {
+      "id" : "upload-hit",
+      "expectedHit" : true,
+      "expectedMarker" : "upload-evidence",
+      "retrievedCount" : 1,
+      "hit" : true,
+      "miss" : false,
+      "passed" : true
+    }, {
+      "id" : "agent-hit",
+      "expectedHit" : true,
+      "expectedMarker" : "agent-evidence",
+      "retrievedCount" : 1,
+      "hit" : true,
+      "miss" : false,
+      "passed" : true
+    }, {
+      "id" : "no-match-query",
+      "expectedHit" : false,
+      "expectedMarker" : "payment-gateway",
+      "retrievedCount" : 1,
+      "hit" : false,
+      "miss" : true,
+      "passed" : true
+    }, {
+      "id" : "empty-document",
+      "expectedHit" : false,
+      "expectedMarker" : "empty-document",
+      "retrievedCount" : 0,
+      "hit" : false,
+      "miss" : true,
+      "passed" : true
+    }, {
+      "id" : "same-keyword-wrong-topic",
+      "expectedHit" : false,
+      "expectedMarker" : "wrong-topic-agent-policy",
+      "retrievedCount" : 1,
+      "hit" : false,
+      "miss" : true,
+      "passed" : true
+    }, {
+      "id" : "topk-over-available-chunks",
+      "expectedHit" : true,
+      "expectedMarker" : "topk-boundary",
+      "retrievedCount" : 1,
+      "hit" : true,
+      "miss" : false,
+      "passed" : true
+    } ]
+  }, {
+    "provider" : "qdrant_fake_server",
+    "totalCases" : 1,
+    "positiveCases" : 1,
+    "positiveHits" : 1,
+    "positiveHitRate" : "1.0000",
+    "averageRetrievedCount" : "1.00",
+    "noMatchPassed" : true,
+    "emptyDocumentPassed" : true,
+    "isolationPassed" : true,
+    "fallbackUsed" : false,
+    "fallbackReason" : "",
+    "failedCaseIds" : [ ],
+    "caseSummaries" : [ {
+      "id" : "qdrant-fake-hit",
+      "expectedHit" : true,
+      "expectedMarker" : "qdrant-artifact",
+      "retrievedCount" : 1,
+      "hit" : true,
+      "miss" : false,
+      "passed" : true
+    } ]
+  }, {
+    "provider" : "qdrant_fake_server_fallback",
+    "totalCases" : 1,
+    "positiveCases" : 0,
+    "positiveHits" : 0,
+    "positiveHitRate" : "0.0000",
+    "averageRetrievedCount" : "0.00",
+    "noMatchPassed" : true,
+    "emptyDocumentPassed" : true,
+    "isolationPassed" : true,
+    "fallbackUsed" : true,
+    "fallbackReason" : "qdrant_http_error",
+    "failedCaseIds" : [ ],
+    "caseSummaries" : [ {
+      "id" : "qdrant-fallback",
+      "expectedHit" : false,
+      "expectedMarker" : "qdrant-fallback",
+      "retrievedCount" : 0,
+      "hit" : false,
+      "miss" : true,
+      "passed" : true
+    } ]
+  } ],
+  "fallbackReason" : "qdrant_http_error",
+  "sanitized" : true,
+  "notes" : [ "Synthetic cases only", "No document text or model inputs are stored", "Qdrant coverage uses a local fake server" ]
+}

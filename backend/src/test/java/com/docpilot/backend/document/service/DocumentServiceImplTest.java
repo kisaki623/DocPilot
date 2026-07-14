@@ -3,15 +3,20 @@ package com.docpilot.backend.document.service;
 import com.docpilot.backend.common.exception.BusinessException;
 import com.docpilot.backend.common.constant.CommonConstants;
 import com.docpilot.backend.common.constant.ParseStatusConstants;
+import com.docpilot.backend.common.error.ErrorCode;
+import com.docpilot.backend.document.constant.DocumentStatus;
 import com.docpilot.backend.document.entity.Document;
 import com.docpilot.backend.document.mapper.DocumentMapper;
 import com.docpilot.backend.document.service.impl.DocumentServiceImpl;
 import com.docpilot.backend.document.vo.DocumentCreateResponse;
+import com.docpilot.backend.document.vo.DocumentDeleteResponse;
 import com.docpilot.backend.document.vo.DocumentDetailResponse;
 import com.docpilot.backend.document.vo.DocumentListItemResponse;
 import com.docpilot.backend.document.vo.DocumentListResponse;
 import com.docpilot.backend.file.entity.FileRecord;
 import com.docpilot.backend.file.mapper.FileRecordMapper;
+import com.docpilot.backend.knowledge.constant.KnowledgeBaseStatus;
+import com.docpilot.backend.knowledge.mapper.KnowledgeBaseDocumentMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Test;
@@ -47,6 +52,9 @@ class DocumentServiceImplTest {
     private FileRecordMapper fileRecordMapper;
 
     @Mock
+    private KnowledgeBaseDocumentMapper knowledgeBaseDocumentMapper;
+
+    @Mock
     private StringRedisTemplate stringRedisTemplate;
 
     @Mock
@@ -56,7 +64,13 @@ class DocumentServiceImplTest {
 
     private DocumentServiceImpl buildService() {
         lenient().when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
-        return new DocumentServiceImpl(documentMapper, fileRecordMapper, stringRedisTemplate, objectMapper);
+        return new DocumentServiceImpl(
+                documentMapper,
+                fileRecordMapper,
+                knowledgeBaseDocumentMapper,
+                stringRedisTemplate,
+                objectMapper
+        );
     }
 
     @Test
@@ -86,6 +100,7 @@ class DocumentServiceImplTest {
         ArgumentCaptor<Document> captor = ArgumentCaptor.forClass(Document.class);
         verify(documentMapper).insert(captor.capture());
         assertEquals("PENDING", captor.getValue().getParseStatus());
+        assertEquals(DocumentStatus.ACTIVE, captor.getValue().getStatus());
     }
 
     @Test
@@ -377,6 +392,91 @@ class DocumentServiceImplTest {
         when(documentMapper.selectUserDocumentDetail(101L, 100L)).thenReturn(detail);
 
         assertThrows(BusinessException.class, () -> documentService.getDetailById(101L, 100L));
+    }
+
+    @Test
+    void shouldSoftDeleteOwnedDocumentAndRemoveKnowledgeBaseRelations() {
+        DocumentServiceImpl documentService = buildService();
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setStatus(DocumentStatus.ACTIVE);
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(knowledgeBaseDocumentMapper.updateActiveStatusByUserAndDocumentId(
+                100L,
+                101L,
+                KnowledgeBaseStatus.REMOVED
+        )).thenReturn(2);
+        when(documentMapper.updateStatusByIdAndUserId(101L, 100L, DocumentStatus.REMOVED)).thenReturn(1);
+
+        DocumentDeleteResponse response = documentService.deleteById(101L, 100L);
+
+        assertEquals(101L, response.getDocumentId());
+        assertEquals(DocumentStatus.REMOVED, response.getStatus());
+        assertEquals(2, response.getRemovedKnowledgeBaseRelationCount());
+        verify(documentMapper).updateStatusByIdAndUserId(101L, 100L, DocumentStatus.REMOVED);
+        verify(knowledgeBaseDocumentMapper).updateActiveStatusByUserAndDocumentId(100L, 101L, KnowledgeBaseStatus.REMOVED);
+        verify(stringRedisTemplate).delete(CommonConstants.buildDocumentDetailCacheKey(100L, 101L));
+    }
+
+    @Test
+    void shouldTreatRepeatedDeleteAsIdempotent() {
+        DocumentServiceImpl documentService = buildService();
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setStatus(DocumentStatus.REMOVED);
+        when(documentMapper.selectById(101L)).thenReturn(document);
+        when(knowledgeBaseDocumentMapper.updateActiveStatusByUserAndDocumentId(
+                100L,
+                101L,
+                KnowledgeBaseStatus.REMOVED
+        )).thenReturn(0);
+
+        DocumentDeleteResponse response = documentService.deleteById(101L, 100L);
+
+        assertEquals(DocumentStatus.REMOVED, response.getStatus());
+        assertEquals(0, response.getRemovedKnowledgeBaseRelationCount());
+        verify(documentMapper, never()).updateStatusByIdAndUserId(101L, 100L, DocumentStatus.REMOVED);
+    }
+
+    @Test
+    void shouldRejectDeleteForDocumentOwnedByAnotherUser() {
+        DocumentServiceImpl documentService = buildService();
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(200L);
+        document.setStatus(DocumentStatus.ACTIVE);
+        when(documentMapper.selectById(101L)).thenReturn(document);
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> documentService.deleteById(101L, 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_FORBIDDEN, ex.getErrorCode());
+        verify(documentMapper, never()).updateStatusByIdAndUserId(101L, 100L, DocumentStatus.REMOVED);
+        verify(knowledgeBaseDocumentMapper, never()).updateActiveStatusByUserAndDocumentId(
+                any(),
+                any(),
+                anyString()
+        );
+    }
+
+    @Test
+    void shouldRejectDetailForRemovedDocument() {
+        DocumentServiceImpl documentService = buildService();
+
+        Document document = new Document();
+        document.setId(101L);
+        document.setUserId(100L);
+        document.setStatus(DocumentStatus.REMOVED);
+        when(documentMapper.selectById(101L)).thenReturn(document);
+
+        BusinessException ex = assertThrows(BusinessException.class, () -> documentService.getDetailById(101L, 100L));
+
+        assertEquals(ErrorCode.DOCUMENT_NOT_FOUND, ex.getErrorCode());
+        verify(documentMapper, never()).selectUserDocumentDetail(101L, 100L);
     }
 }
 

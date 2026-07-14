@@ -1,18 +1,19 @@
 # DocPilot
 
-> AI 文档解析与问答工程化平台。项目围绕“上传文档 -> 异步解析 -> 文档问答 -> SSE 流式输出 -> 引用证据 -> Agent 工具执行与 Trace 展示”这条链路展开，呈现一个从业务流程、后端工程到 AI 交互体验逐步闭环的全栈项目。
+> 企业文档知识库 RAG + 会话记忆工程化平台。项目围绕“上传文档 -> 异步解析 -> RAG indexing -> 单文档 / 多文档 KnowledgeBase 检索问答 -> SSE 流式输出 -> 可信引用 -> Conversation Memory / Trace -> Agent Quality Console 质量门禁”这条链路展开，呈现一个从业务流程、后端工程到 AI 质量治理逐步闭环的全栈项目。
 
-DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、SSE 降级、引用证据、Agent 工具选择、执行步骤落库和脱敏调试信息。
+DocPilot 关注的不只是“能问答”，而是围绕文档型 AI 应用常见的工程问题做一套可演示、可追踪、可复盘的实现：异步任务投递、幂等消费、对象存储、缓存与限流、真实 embedding + Qdrant smoke、SSE 降级、quote-level 引用证据、GroundingPolicy 回答路由、no-evidence / hard-negative / answer faithfulness 质量门禁、Conversation Trace、用户记忆治理、Agent 工具选择、执行步骤落库和脱敏质量控制台。
 
 ## 项目定位
 
-DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工具编排的工程化展示项目。它适合作为 Java 后端实习、AI 应用开发、Agent 开发和 AI 全栈方向的作品入口，重点展示一条可运行、可观察、可复盘的 AI 文档处理链路。
+DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程化项目。它适合作为 Java 后端实习、AI 应用开发、RAG / Agent 工程和 AI 全栈方向的作品入口，重点展示一条可运行、可观察、可评测、可回归的 AI 文档处理链路。
 
 | 方向 | README 前半部分重点展示 |
 | --- | --- |
 | 后端工程 | Spring Boot 分层、MyBatis-Plus、RocketMQ + Outbox、Redisson 幂等、Redis 缓存与限流、MinIO 上传链路 |
-| AI 应用 | 文档问答、SSE 流式输出、引用证据、检索召回演示、问答历史与异常降级 |
-| Agent 工作流 | ToolRegistry、ToolSelector、AgentTask / AgentStep trace、工具选择依据与执行轨迹 |
+| AI 应用 | 单文档 / 多文档 RAG、真实 embedding + Qdrant smoke、SSE 流式输出、引用证据、问答历史与异常降级 |
+| RAG / Memory 质量 | GroundingPolicy、no-evidence、answer grounding、answer faithfulness、Conversation Trace、Memory governance、真实 audit / eval artifact |
+| Agent / 质量控制台 | ToolRegistry、ToolSelector、AgentTask / AgentStep trace、Agent Quality Console、失败桶、Run Comparison、token / cost 数值 |
 | 全栈联调 | Next.js 页面、文档状态轮询、问答流式事件解析、Agent 工作流可视化、错误降级与空状态文案 |
 
 ## 建议阅读顺序
@@ -27,20 +28,23 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 
 ```text
 登录工作台
--> 上传 txt / md 文档
+-> 上传 txt / md / 文本型 PDF / 本地 HTML / DOCX 文档
 -> 观察异步解析状态
 -> 进入文档详情页提问
 -> 查看 SSE 输出、Markdown 渲染和引用证据
--> 进入 Agent 页面运行摘要 / 问答 / 检索召回任务
--> 查看工具选择、执行步骤、最终回答和 Agent Trace
+-> 进入 KnowledgeBase / Conversations 查看多文档证据、Memory 和 Context Trace
+-> 进入 /quality 查看真实 audit run、失败桶、Eval Catalog 和成本摘要
+-> 可选进入 Agent 页面查看工具选择、执行步骤、最终回答和 Agent Trace
 ```
 
 ## 核心能力
 
-- **业务闭环**：账号登录、文件上传、文档创建、异步解析、文档列表 / 详情、普通问答、SSE 流式问答、引用证据和历史问答。
-- **异步链路**：使用 Outbox + RocketMQ 思路拆分接口响应与耗时解析，配合补偿扫描、消费去重和 Redisson 锁降低重复任务与消息不一致风险。
-- **AI 问答体验**：支持普通问答与 SSE 流式输出；流式异常时回退普通问答；回答展示 Markdown、代码块和引用片段。
+- **业务闭环**：账号登录、文件上传、文档创建、异步解析、RAG indexing、文档列表 / 详情、普通问答、SSE 流式问答、引用证据和历史问答。
+- **异步链路**：使用 Outbox + RocketMQ 拆分接口响应与耗时解析，配合补偿扫描、消费去重和 Redisson 锁降低重复任务与消息不一致风险；该链路已在演示环境完成真实 smoke。
+- **AI 问答体验**：支持单文档 / 多文档 RAG retrieve、普通问答与 SSE 流式输出；回答展示 Markdown、代码块和结构化 citations，并通过 GroundingPolicy、no-evidence、answer grounding、hard negative 与权限隔离 smoke 约束质量边界。
+- **会话记忆与 Trace**：支持 Conversation Context、会话摘要、ACTIVE / SUGGESTED / IGNORED memory、候选治理、KnowledgeBase evidence 进入 Context Trace，并保持 user memory 与 RAG evidence 分层。
 - **Agent 工作流**：`/agent` 页面展示工具选择、执行步骤、持久化轨迹、最终回答、引用证据和检索召回结果。
+- **内部质量控制台**：`/quality` 聚合真实 audit / eval artifact，展示 Gate、Eval Catalog、Failure Triage、Trace 定位、Run Comparison 和 Model / Cost Summary；只展示脱敏摘要和数值统计。
 - **可复盘的工程细节**：README、截图、smoke 脚本和本地验证记录共同保留实现证据，便于从页面演示追溯到后端链路。
 
 ## 当前实现状态
@@ -48,12 +52,15 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 | 能力 | 当前状态 |
 | --- | --- |
 | 文档上传与创建 | 已实现普通上传、分片上传会话、文档创建与解析任务创建 |
-| 异步解析任务 | 已实现 Outbox / RocketMQ 链路设计、解析任务状态追踪、补偿与幂等相关代码；完整运行依赖可用 MQ / consumer 环境 |
-| 文档问答 | 已实现普通问答、历史问答、引用展示、Markdown 渲染 |
+| 异步解析任务 | 已实现 Outbox / RocketMQ 链路、解析任务状态追踪、补偿与幂等；解析模块支持 txt / md、文本型 PDF、本地 HTML 和 DOCX；演示环境已验证 MQ 投递、消费和解析成功 |
+| 文档问答 | 已实现普通问答、历史问答、引用展示、Markdown 渲染，以及单文档 RAG QA |
 | SSE 流式问答 | 已实现流式事件解析、增量输出与失败降级 |
 | Agent 工具链 | 已实现文档状态、摘要、问答、检索召回工具，以及 ToolRegistry / ToolSelector |
 | Agent Trace | 已实现 AgentTask / AgentStep 持久化，前端可展示步骤、耗时、输入摘要和输出摘要 |
-| 检索召回展示 | 已实现 chunking、scope isolation、召回片段、相关度、引用 metadata 和脱敏 trace summary |
+| 检索召回展示 | 已实现 chunking、scope isolation、单文档 / 多文档 RAG retrieve、Qdrant adapter、真实 embedding smoke、召回片段、相关度、引用 metadata 和脱敏 trace summary |
+| RAG 质量门禁 | 已实现 chunk 质量、MySQL / Qdrant payload 一致性、no-evidence、answer grounding、hard negative、answer faithfulness、Conversation Trace 和权限隔离 smoke；artifact 脱敏后只记录计数、状态和 score summary |
+| Conversation Memory | 已实现会话上下文、摘要、用户记忆候选、ACTIVE memory、重复 / 冲突治理、Context Trace 和 KnowledgeBase evidence 分层；回答依据支持 `MODEL_ONLY / AUTO_RAG / STRICT_KB` |
+| Agent Quality Console | 已实现内部 `/quality` Overview + Run Detail、Quality API、Eval Catalog、Failure Triage、Trace Reference、Run Comparison 和 Model / Cost Summary |
 | 观测与验证 | 保留 Actuator health、benchmark / eval 记录、smoke 脚本和 lint/build/test 验证方式 |
 
 ## 页面预览
@@ -78,7 +85,7 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 ## 系统主链路
 
 1. 用户注册 / 登录，前端保存 token。
-2. 用户上传 `txt / md / pdf` 文件，后端写入对象存储。
+2. 用户上传 `txt / md / pdf / html / docx` 文件，后端写入对象存储。
 3. 用户创建文档，后端创建解析任务并进入异步解析链路。
 4. 前端轮询文档状态，展示 `PENDING / PARSING / SUCCESS / FAILED` 等状态。
 5. 用户进入文档详情，查看摘要、正文、解析状态和引用证据。
@@ -86,7 +93,7 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 7. 用户进入 `/agent`，选择已解析文档并运行摘要、问答或检索召回类任务。
 8. 前端展示 Agent 工具决策、执行步骤、持久化 trace、citations 和最终回答。
 
-> 说明：`pdf` 目前主要是占位 / 基础解析边界，真实文本解析能力以 `txt / md` 更稳定。
+> 说明：当前 Document Parser MVP 支持稳定文本抽取：`txt / md` 走 UTF-8 文本解析，文本型 PDF 走 PDFBox 页级文本抽取，本地 HTML 走 Jsoup 去除 `script/style/nav` 等噪声，DOCX 走 Apache POI 抽取段落、标题和表格文本。它不是 OCR、扫描件识别、外部网页抓取或复杂版面理解平台。
 
 ## 核心工程设计
 
@@ -100,7 +107,11 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 
 ### MinIO 上传与对象存储
 
-项目包含普通上传和分片上传会话，支持上传状态查询和合并完成。对象存储与文档业务记录分离，便于说明文件系统、数据库记录和解析任务之间的边界。
+项目包含普通上传和分片上传会话，支持上传状态查询和合并完成。对象存储与文档业务记录分离，便于说明文件系统、数据库记录和解析任务之间的边界；演示环境已补充 MinIO active storage 最小上传 / 解析 smoke。
+
+### Document Parser MVP
+
+解析消费侧已引入统一 `DocumentParser` / `ParserRegistry` / `ParseResult` 抽象，解析结果包含 `fullText`、blocks、pageNumber / sectionPath / blockType、parserName、parserVersion、parseDurationMs、extractedChars、pageCount、blockCount 和 warnings。上传后的异步解析会按 contentType / file extension 选择 txt / md、PDF、HTML 或 DOCX parser，再进入既有 chunking、embedding、vector index 和 RAG QA 链路。解析日志和 metrics 只记录 parserName、耗时、字符数、页数、block 数和 warning 数，不打印文档全文。
 
 ### AI 问答 + SSE 降级
 
@@ -110,9 +121,17 @@ DocPilot 是一个面向文档上传、异步解析、文档问答和 Agent 工�
 
 Agent 目前聚焦文档业务场景，围绕状态查询、摘要、问答与 RAG 召回形成最小工具闭环。后端根据任务选择工具，执行过程写入 `AgentTask` / `AgentStep`，前端用 timeline 展示 step、耗时、输入摘要和输出摘要。
 
-### 检索召回 Showcase
+### RAG 检索召回与 Qdrant
 
-当前检索召回展示覆盖 chunking、topK 召回、相关度、citation metadata、scope isolation、index lifecycle 和脱敏 trace summary。它用于说明文档问答如何从“全文上下文”进一步演进到“召回片段 + 引用证据”的链路。
+当前 RAG 链路覆盖 chunking、chunk 持久化、parse success 自动 indexing、EmbeddingProvider 抽象、Qdrant VectorStore adapter、topK 召回、citation metadata、scope isolation、index lifecycle 和脱敏 trace summary。演示环境已完成单文档 RAG、KnowledgeBase 多文档 RAG、真实 embedding provider + Qdrant smoke collection 验证；质量门禁已覆盖 no-evidence、answer grounding、hard negative、answer faithfulness、MySQL / Qdrant payload 一致性和 Conversation Trace。离线 eval 仍使用 mock embedding + in-memory vector store，便于稳定复现质量指标。
+
+### Conversation Memory 与 Context Trace
+
+Conversation 工作台支持会话、摘要、最近消息、用户长期记忆候选、ACTIVE memory 和 KnowledgeBase evidence。回答依据拆分为 `MODEL_ONLY / AUTO_RAG / STRICT_KB`：未绑定知识库的普通问题直接走底层模型，`AUTO_RAG` 只在资料意图触发时检索，显式严格知识库模式缺少 evidence 才拒答。Trace 中会区分 `recentMessages`、`conversationSummary`、`userMemory` 和 `ragEvidence`，并记录 `groundingPolicy`、`routeDecision`、`llmCalled`、`modelSkipped`，避免把普通会话误展示成“0 条来源”，也避免把 RAG evidence 自动写成长期记忆；Memory 治理支持重复 / 冲突提示、候选接受 / 忽略和用户可控处理。
+
+### Agent Quality Console
+
+`/quality` 是内部质量控制台，不面向普通用户入口。它从 ignored 的脱敏 artifact 中聚合最近真实 audit / eval run，展示 PASS / REVIEW / BLOCKED、Gate 列表、Eval case 目录、失败桶、trace reference、修复前后 run comparison 和 token / cost 数值。所有 parser、DTO 和 API 都采用字段白名单，不返回 prompt、answer 原文、文档全文、evidence context、API key、token、secret、连接串或云地址。
 
 ## 快速开始
 
@@ -122,6 +141,8 @@ Agent 目前聚焦文档业务场景，围绕状态查询、摘要、问答与 R
 docker compose -f docker-compose.demo.yml up -d
 docker compose -f docker-compose.demo.yml ps
 ```
+
+首次启动会在空的 `docpilot_mysql_data` volume 中执行 `deploy/mysql/init/` 的完整 demo schema 快照（核心文档、Outbox、Agent、RAG、KnowledgeBase、Conversation 与 Memory）。已有 MySQL volume 不会自动重新执行初始化 SQL；不要通过删除现有 volume 来升级业务数据。
 
 ### 2. 启动后端
 
@@ -194,7 +215,7 @@ npm run lint
 npm run build
 ```
 
-Smoke 脚本示例：
+Smoke 脚本 / 记录示例：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-main-flow.ps1 -BaseUrl http://127.0.0.1:8081
@@ -202,7 +223,7 @@ powershell -ExecutionPolicy Bypass -File backend/scripts/demo/smoke-qa-stream.ps
 powershell -ExecutionPolicy Bypass -File backend/scripts/agent/smoke-agent-min.ps1 -BackendBaseUrl http://127.0.0.1:8081
 ```
 
-最近一次本地验证记录中，后端全量测试、前端 lint 和前端 build 均通过。公开 README 不依赖协作文档作为证明材料；如果你要复现，请以本机实际运行结果为准。
+最新演示证据记录见 `docs/showcase/DEMO_SMOKE_RECORD.md`。其中已归档单文档 RAG、多文档 KnowledgeBase RAG、真实回答模型、真实 embedding + Qdrant、RAG hard-negative / answer-grounding / answer faithfulness 质量门禁、Conversation Trace、Memory quality、Agent Quality Console 真实审计回归、MinIO active storage、RocketMQ + Outbox 和权限越界失败案例。公开 README 不依赖协作文档作为唯一证明材料；如果你要复现，请以本机实际运行结果为准。
 
 ## 验证方式
 
@@ -219,7 +240,7 @@ npm run lint
 npm run build
 ```
 
-说明：历史 eval 指标属于本地验证记录，不是线上服务承诺，也不代表固定 SLA。
+说明：历史 eval / smoke 指标属于本地或演示环境验证记录，不是线上服务承诺，也不代表固定 SLA。
 
 ## 项目结构
 
@@ -235,10 +256,11 @@ DocPilot/
 ## 当前边界
 
 - 项目定位为工程展示与面试演示环境，不按生产 SaaS 的 SLA 或运维标准承诺。
-- 完整上传解析 runtime 依赖可用 RocketMQ NameServer / Broker / consumer；若关闭 MQ，会进入 no-op producer 路径，适合做接口联调但不会推进真实异步解析。
-- AI 默认可使用 mock answer service；真实模型调用依赖本地环境变量和可用 OpenAI-compatible provider。
-- PDF 解析能力有限，当前更适合展示 `txt / md` 文档链路。
-- RAG Showcase 默认使用 fake embedding + in-memory vector store，适合展示检索增强链路；真实 embedding provider 和 Qdrant runtime 需要额外环境验证。
+- 完整上传解析 runtime 依赖可用 RocketMQ NameServer / Broker / consumer；演示环境已跑通 active MQ smoke，若关闭 MQ，会进入 no-op producer 路径，适合做接口联调但不会推进真实异步解析。
+- AI 默认可使用 mock answer service；真实回答模型已完成一次 smoke，复现仍依赖本地环境变量和可用 OpenAI-compatible provider。
+- Document Parser MVP 支持文本型 PDF、本地 HTML 和 DOCX 的基础文本抽取，但不支持 OCR、扫描件识别、外部网页抓取、`.doc` 旧格式或复杂版面还原；页码 / block locator 已进入 parser、chunk、retrieval 和 citation 链路，但仍不是复杂版面坐标级定位系统。
+- RAG 测试 / eval 仍可使用 fake embedding + in-memory vector store；真实 embedding provider + Qdrant 已在 smoke collection 验证，KnowledgeBase RAG 已有默认关闭的 Hybrid / Rerank 可选增强，hard-negative 支持度门禁是近阈值启发式而不是通用语义蕴含模型；这些都不等同于生产级完整向量 RAG、生产默认 rerank / hybrid search 或线上 SLA。
+- Agent Quality Console 是内部质量控制台，当前基于 ignored artifact 聚合最近 run；它不是企业级 APM、告警系统、多租户后台或长期质量数据仓库。
 - Agent 当前围绕文档业务工具形成同步 API 闭环，MQ 异步 Agent 和多 Agent 编排属于后续演进方向。
 - `llm_execute` 是默认关闭的 OpenAI-compatible chat completions JSON 选择方案，再由服务端 allowlist 执行已有工具；尚未切换到官方 tools/function_call 接口。
 - selector Prometheus metrics 目前仍处于设计 / demo 边界，完整生产监控闭环留作后续扩展。
@@ -249,12 +271,13 @@ DocPilot/
 建议优先展示这条 5 分钟链路：
 
 ```text
-已解析文档
--> 文档详情页普通问答 / SSE 问答
--> 查看 citations 与 Markdown 渲染
--> Agent Showcase 运行摘要 / 问答 / RAG 召回任务
--> 展示 routingReason、matchedKeywords、retrieved chunks、score、trace/debug summary 和 persisted steps
--> 说明 llm_execute 默认关闭、allowlist + fallback 设计，以及 RAG 尚未接真实向量库生产链路
+最新真实 audit
+-> /quality 查看 PASS / REVIEW、失败桶、Eval Catalog、Run Comparison 和成本摘要
+-> KnowledgeBase 展示多文档 RAG citations 和 documentHitCounts
+-> Conversations 展示 Context Trace、RAG evidence 和 ACTIVE memory 分层
+-> 文档详情页普通问答 / SSE 问答查看 quote-level citations
+-> 可选展示 Agent Showcase 的工具选择、retrieved chunks、trace/debug summary 和 persisted steps
+-> 说明 llm_execute 默认关闭、Quality Console 不是企业级 APM、真实 embedding + Qdrant 已做 smoke 但不是线上 SLA
 ```
 
-如果要展示“上传 -> 自动解析 -> 问答”的完整链路，请先确认 RocketMQ / consumer 环境可用。
+如果要展示“上传 -> 自动解析 -> RAG 问答”的完整链路，请先确认 RocketMQ / consumer、Qdrant tunnel 和真实 embedding provider 环境可用。

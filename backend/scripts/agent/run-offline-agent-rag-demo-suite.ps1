@@ -6,6 +6,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function Get-PowerShellExecutable {
+  if ($env:OS -eq "Windows_NT") {
+    return "powershell"
+  }
+  return "pwsh"
+}
+
 if ($Help) {
   Write-Host "Runs the offline Agent/RAG demo suite with fake embedding and in-memory vector store checks."
   Write-Host "Usage: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/agent/run-offline-agent-rag-demo-suite.ps1 [-SkipTests]"
@@ -67,7 +74,8 @@ function Invoke-OfflineScriptCheck {
 
   Push-Location $backendRoot
   try {
-    & powershell @commandArguments *> $null
+    $powerShellExecutable = Get-PowerShellExecutable
+    & $powerShellExecutable @commandArguments *> $null
     $exitCode = $LASTEXITCODE
   } finally {
     Pop-Location

@@ -5,8 +5,11 @@ import com.docpilot.backend.ai.agent.entity.AgentTask;
 import com.docpilot.backend.ai.agent.config.AgentSelectorProperties;
 import com.docpilot.backend.ai.agent.service.DocumentAgentService;
 import com.docpilot.backend.ai.agent.service.AgentTaskPersistenceService;
+import com.docpilot.backend.ai.agent.dto.ToolCallRequest;
+import com.docpilot.backend.ai.agent.service.ToolCallService;
 import com.docpilot.backend.ai.agent.tool.DocumentQaTool;
-import com.docpilot.backend.ai.agent.tool.DocumentRagTool;
+import com.docpilot.backend.ai.agent.tool.DocumentRagQaTool;
+import com.docpilot.backend.ai.agent.tool.DocumentSearchTool;
 import com.docpilot.backend.ai.agent.tool.DocumentStatusTool;
 import com.docpilot.backend.ai.agent.tool.DocumentSummaryTool;
 import com.docpilot.backend.ai.agent.tool.LlmToolSelectionParser;
@@ -25,7 +28,11 @@ import com.docpilot.backend.ai.agent.tool.ToolExecutionDecision;
 import com.docpilot.backend.ai.agent.tool.ToolDefinitionProvider;
 import com.docpilot.backend.ai.agent.tool.ToolRegistry;
 import com.docpilot.backend.ai.agent.tool.ToolSelector;
+import com.docpilot.backend.ai.agent.tool.spec.ToolCallResult;
+import com.docpilot.backend.ai.agent.tool.spec.ToolCallStatus;
 import com.docpilot.backend.ai.agent.vo.DocumentAgentResponse;
+import com.docpilot.backend.ai.rag.RagEvidenceCitation;
+import com.docpilot.backend.ai.rag.RagRetrievalHit;
 import com.docpilot.backend.ai.vo.DocumentQaResponse;
 import com.docpilot.backend.common.error.ErrorCode;
 import com.docpilot.backend.common.exception.BusinessException;
@@ -36,7 +43,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -44,9 +53,14 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
 
     private static final Logger log = LoggerFactory.getLogger(DocumentAgentServiceImpl.class);
 
+    private static final String DOCUMENT_STATUS_TOOL_NAME = "document_status_tool";
     private static final int STEP_OUTPUT_MAX_LENGTH = 200;
+    private static final String SEARCH_TOOL_UNAVAILABLE_ANSWER = "Document search tool is temporarily unavailable. Please try again later.";
+    private static final String STATUS_TOOL_UNAVAILABLE_ANSWER = "文档状态检查暂不可用，请稍后重试。";
+    private static final String RAG_TOOL_UNAVAILABLE_ANSWER = "RAG 工具调用暂不可用，请稍后重试。";
 
     private final ToolRegistry toolRegistry;
+    private final ToolCallService toolCallService;
     private final ToolSelector toolSelector;
     private final AgentTaskPersistenceService persistenceService;
     private final AgentSelectorProperties selectorProperties;
@@ -57,6 +71,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
     private final RealLlmToolSelectorFactory realLlmToolSelectorFactory;
 
     public DocumentAgentServiceImpl(ToolRegistry toolRegistry,
+                                    ToolCallService toolCallService,
                                     ToolSelector toolSelector,
                                     AgentTaskPersistenceService persistenceService,
                                     AgentSelectorProperties selectorProperties,
@@ -66,6 +81,7 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                                     LlmToolSelectionPromptBuilder realShadowPromptBuilder,
                                     LlmToolSelectionParser realShadowParser) {
         this.toolRegistry = toolRegistry;
+        this.toolCallService = toolCallService;
         this.toolSelector = toolSelector;
         this.persistenceService = persistenceService;
         this.selectorProperties = selectorProperties;
@@ -107,20 +123,32 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         response.setTaskId(taskId);
 
         try {
-            DocumentStatusTool documentStatusTool = toolRegistry.get("document_status_tool");
-            TimedResult<DocumentStatusTool.StatusResult> statusResult = timedExecute(() ->
-                    documentStatusTool.execute(new DocumentStatusTool.StatusInput(userId, request.getDocumentId())));
-            steps.add(buildStep(
-                    1,
-                    documentStatusTool.getToolName(),
-                    "documentId=" + request.getDocumentId(),
-                    String.format("parseStatus=%s, parseReady=%s", statusResult.value().parseStatus(), statusResult.value().parseReady()),
-                    statusResult.durationMs(),
-                    "success"
+            String statusInputSummary = "documentId=" + request.getDocumentId();
+            ToolCallResult statusCall = toolCallService.call(userId, toolCallRequest(
+                    DOCUMENT_STATUS_TOOL_NAME,
+                    Map.of("documentId", request.getDocumentId())
             ));
+            steps.add(buildStepFromToolCall(1, statusInputSummary, statusCall));
             persistLastStep(taskId, steps);
 
-            DocumentStatusTool.StatusResult detail = statusResult.value();
+            if (!statusCall.success()) {
+                rethrowProtectedToolFailure(statusCall);
+                response.setDecision("status_only");
+                response.setPrimaryDecision("status_only");
+                response.setLlmDecision("");
+                response.setFinalDecision("status_only");
+                response.setFallbackUsed(true);
+                response.setFallbackReason(safeToolCallError(statusCall));
+                response.setExecutionMode(selectorProperties == null ? AgentSelectorProperties.MODE_KEYWORD : selectorProperties.getMode());
+                response.setToolSelectionSource(ToolExecutionDecision.SOURCE_KEYWORD);
+                response.setRoutingReason("文档状态工具调用失败，返回安全状态提示，避免继续执行摘要或问答工具");
+                response.setMatchedKeywords(List.of());
+                response.setFinalAnswer(STATUS_TOOL_UNAVAILABLE_ANSWER);
+                response.setSteps(steps);
+                return completeSuccess(taskId, response, beginNanos);
+            }
+
+            DocumentStatusTool.StatusResult detail = requireToolResult(statusCall, DocumentStatusTool.StatusResult.class);
             if (!detail.parseReady()) {
                 response.setDecision("status_only");
                 response.setPrimaryDecision("status_only");
@@ -177,27 +205,12 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                 return completeSuccess(taskId, response, beginNanos);
             }
 
-            if ("rag_tool".equals(executionDecision.finalDecision())) {
-                DocumentRagTool documentRagTool = toolRegistry.get(DocumentRagTool.TOOL_NAME);
-                TimedResult<DocumentRagTool.RagResult> ragResult = timedExecute(() ->
-                        documentRagTool.execute(new DocumentRagTool.RagInput(request.getDocumentId(), task, detail.content(), 3)));
-                DocumentRagTool.RagResult rag = ragResult.value();
-                steps.add(buildStep(
-                        2,
-                        documentRagTool.getToolName(),
-                        "documentId=" + request.getDocumentId() + ", topK=" + rag.topK(),
-                        rag.outputSummary(),
-                        ragResult.durationMs(),
-                        "success"
-                ));
-                persistLastStep(taskId, steps);
+            if ("search_tool".equals(executionDecision.finalDecision())) {
+                return runDocumentSearchTool(userId, request, task, response, steps, taskId, beginNanos);
+            }
 
-                response.setDecision("rag_tool");
-                response.setFinalAnswer(buildRagAnswer(rag));
-                response.setRagResults(toResponseRagResults(rag.retrievedChunks()));
-                response.setRagAnswerContext(rag.answerContext());
-                response.setSteps(steps);
-                return completeSuccess(taskId, response, beginNanos);
+            if ("rag_tool".equals(executionDecision.finalDecision())) {
+                return runRagQaTool(userId, request, task, response, steps, taskId, beginNanos);
             }
 
             DocumentQaTool documentQaTool = toolRegistry.get("document_qa_tool");
@@ -282,7 +295,8 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         return switch (decision) {
             case "status_only" -> "document_status_tool";
             case "summary_tool" -> "document_summary_tool";
-            case "rag_tool" -> DocumentRagTool.TOOL_NAME;
+            case "search_tool" -> DocumentSearchTool.TOOL_NAME;
+            case "rag_tool" -> DocumentRagQaTool.TOOL_NAME;
             case "qa_tool" -> "document_qa_tool";
             default -> throw new IllegalArgumentException("Unsupported LLM tool decision");
         };
@@ -433,27 +447,301 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                 + "；状态说明：" + desc;
     }
 
-    private String buildRagAnswer(DocumentRagTool.RagResult rag) {
-        if (rag.retrievedChunks().isEmpty()) {
-            return "RAG demo did not retrieve chunks. The document may not contain parsed text yet.";
+    private DocumentAgentResponse runRagQaTool(Long userId,
+                                               DocumentAgentRequest request,
+                                               String task,
+                                               DocumentAgentResponse response,
+                                               List<DocumentAgentResponse.AgentStep> steps,
+                                               Long taskId,
+                                               long beginNanos) {
+        String inputSummary = "documentId=" + request.getDocumentId()
+                + ", topK=" + safeNumber(request.getTopK())
+                + ", indexVersion=" + safeNumber(request.getIndexVersion())
+                + ", task=" + summarize(task);
+        ToolCallResult ragCall = toolCallService.call(userId, toolCallRequest(
+                DocumentRagQaTool.TOOL_NAME,
+                ragArguments(request, task, response.getSessionId())
+        ));
+        steps.add(buildStepFromToolCall(2, inputSummary, ragCall));
+        persistLastStep(taskId, steps);
+
+        response.setDecision("rag_tool");
+        response.setSteps(steps);
+        if (!ragCall.success()) {
+            rethrowProtectedToolFailure(ragCall);
+            response.setFinalAnswer(RAG_TOOL_UNAVAILABLE_ANSWER);
+            response.setRagResults(List.of());
+            response.setRagCitations(List.of());
+            response.setCitations(List.of());
+            response.setRagAnswerContext("");
+            return completeSuccess(taskId, response, beginNanos);
         }
-        return "RAG demo retrieved " + rag.retrievedChunks().size()
-                + " chunk(s) from " + rag.chunkCount()
-                + " indexed chunk(s) using fake embeddings and an in-memory vector store.";
+
+        DocumentRagQaTool.RagQaResult rag = requireToolResult(ragCall, DocumentRagQaTool.RagQaResult.class);
+        response.setFinalAnswer(rag.answer());
+        response.setSessionId(normalizeSessionId(rag.sessionId()));
+        response.setRagResults(toResponseRagResults(rag.retrievalHits()));
+        response.setRagCitations(rag.citations());
+        response.setCitations(toLegacyCitationItems(rag.citations()));
+        response.setRagAnswerContext(buildRagAnswerContext(rag.citations()));
+        return completeSuccess(taskId, response, beginNanos);
     }
 
-    private List<DocumentAgentResponse.RagRetrievedChunk> toResponseRagResults(List<DocumentRagTool.RetrievedChunk> chunks) {
+    private DocumentAgentResponse runDocumentSearchTool(Long userId,
+                                                        DocumentAgentRequest request,
+                                                        String task,
+                                                        DocumentAgentResponse response,
+                                                        List<DocumentAgentResponse.AgentStep> steps,
+                                                        Long taskId,
+                                                        long beginNanos) {
+        String inputSummary = "documentId=" + request.getDocumentId()
+                + ", topK=" + safeNumber(request.getTopK())
+                + ", indexVersion=" + safeNumber(request.getIndexVersion())
+                + ", query=" + summarize(task);
+        ToolCallResult searchCall = toolCallService.call(userId, toolCallRequest(
+                DocumentSearchTool.TOOL_NAME,
+                searchArguments(request, task)
+        ));
+        steps.add(buildStepFromToolCall(2, inputSummary, searchCall));
+        persistLastStep(taskId, steps);
+
+        response.setDecision("search_tool");
+        response.setSteps(steps);
+        if (!searchCall.success()) {
+            rethrowProtectedToolFailure(searchCall);
+            response.setFinalAnswer(SEARCH_TOOL_UNAVAILABLE_ANSWER);
+            response.setRagResults(List.of());
+            response.setRagCitations(List.of());
+            response.setCitations(List.of());
+            response.setRagAnswerContext("");
+            return completeSuccess(taskId, response, beginNanos);
+        }
+
+        DocumentSearchTool.SearchResult search = requireToolResult(searchCall, DocumentSearchTool.SearchResult.class);
+        response.setFinalAnswer(buildSearchAnswer(search));
+        response.setRagAnswerContext(buildSearchAnswerContext(search.citations()));
+        return completeSuccess(taskId, response, beginNanos);
+    }
+
+    private ToolCallRequest toolCallRequest(String toolName, Map<String, Object> arguments) {
+        ToolCallRequest request = new ToolCallRequest();
+        request.setToolName(toolName);
+        request.setArguments(arguments);
+        return request;
+    }
+
+    private Map<String, Object> ragArguments(DocumentAgentRequest request, String task, String sessionId) {
+        Map<String, Object> arguments = new LinkedHashMap<>();
+        arguments.put("documentId", request.getDocumentId());
+        arguments.put("question", task);
+        if (sessionId != null && !sessionId.isBlank()) {
+            arguments.put("sessionId", sessionId);
+        }
+        if (request.getTopK() != null) {
+            arguments.put("topK", request.getTopK());
+        }
+        if (request.getIndexVersion() != null) {
+            arguments.put("indexVersion", request.getIndexVersion());
+        }
+        return arguments;
+    }
+
+    private Map<String, Object> searchArguments(DocumentAgentRequest request, String task) {
+        Map<String, Object> arguments = new LinkedHashMap<>();
+        arguments.put("documentId", request.getDocumentId());
+        arguments.put("query", task);
+        if (request.getTopK() != null) {
+            arguments.put("topK", request.getTopK());
+        }
+        if (request.getIndexVersion() != null) {
+            arguments.put("indexVersion", request.getIndexVersion());
+        }
+        return arguments;
+    }
+
+    private <T> T requireToolResult(ToolCallResult result, Class<T> expectedType) {
+        Object value = result.result();
+        if (!expectedType.isInstance(value)) {
+            throw new IllegalStateException("Unexpected tool result type for " + result.toolName());
+        }
+        return expectedType.cast(value);
+    }
+
+    private DocumentAgentResponse.AgentStep buildStepFromToolCall(int stepIndex,
+                                                                  String inputSummary,
+                                                                  ToolCallResult result) {
+        String status = ToolCallStatus.SUCCESS.equals(result.status()) ? "success" : "failed";
+        String outputSummary = result.success()
+                ? result.outputSummary()
+                : "tool call failed: " + safeToolCallError(result);
+        String errorMessage = result.success() ? "" : safeToolCallError(result);
+        return buildStep(
+                stepIndex,
+                result.toolName(),
+                inputSummary,
+                outputSummary,
+                result.durationMs(),
+                status,
+                errorMessage
+        );
+    }
+
+    private void rethrowProtectedToolFailure(ToolCallResult result) {
+        ErrorCode errorCode = errorCodeFrom(result.errorType());
+        if (errorCode == ErrorCode.DOCUMENT_FORBIDDEN
+                || errorCode == ErrorCode.DOCUMENT_NOT_FOUND
+                || errorCode == ErrorCode.UNAUTHORIZED
+                || errorCode == ErrorCode.FORBIDDEN) {
+            throw new BusinessException(errorCode);
+        }
+    }
+
+    private ErrorCode errorCodeFrom(String errorType) {
+        if (errorType == null || errorType.isBlank()) {
+            return null;
+        }
+        try {
+            return ErrorCode.valueOf(errorType.trim());
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
+    }
+
+    private String safeToolCallError(ToolCallResult result) {
+        if (result == null) {
+            return "TOOL_CALL_FAILED";
+        }
+        if (result.errorType() != null && !result.errorType().isBlank()) {
+            return result.errorType();
+        }
+        return "TOOL_CALL_FAILED";
+    }
+
+    private List<DocumentAgentResponse.RagRetrievedChunk> toResponseRagResults(List<RagRetrievalHit> hits) {
         List<DocumentAgentResponse.RagRetrievedChunk> results = new ArrayList<>();
-        for (DocumentRagTool.RetrievedChunk chunk : chunks) {
+        for (RagRetrievalHit hit : safeHits(hits)) {
             DocumentAgentResponse.RagRetrievedChunk item = new DocumentAgentResponse.RagRetrievedChunk();
-            item.setRank(chunk.rank());
-            item.setChunkIndex(chunk.chunkIndex());
-            item.setScore(chunk.score());
-            item.setSnippet(chunk.snippet());
-            item.setMetadata(chunk.metadata());
+            item.setRank(hit.citationIndex());
+            item.setVectorId(hit.vectorId());
+            item.setDocumentId(hit.documentId());
+            item.setIndexVersion(hit.indexVersion());
+            item.setChunkId(hit.chunkId());
+            item.setChunkIndex(hit.chunkIndex());
+            item.setScore(hit.score());
+            item.setSnippet(hit.snippet());
+            item.setContentHash(hit.contentHash());
+            item.setStartOffset(hit.startOffset());
+            item.setEndOffset(hit.endOffset());
+            item.setTokenCount(hit.tokenCount());
+            item.setEmbeddingModel(hit.embeddingModel());
+            item.setMetadata(toRagMetadata(hit));
             results.add(item);
         }
         return results;
+    }
+
+    private List<DocumentQaResponse.CitationItem> toLegacyCitationItems(List<RagEvidenceCitation> citations) {
+        List<DocumentQaResponse.CitationItem> items = new ArrayList<>();
+        for (RagEvidenceCitation citation : safeCitations(citations)) {
+            DocumentQaResponse.CitationItem item = new DocumentQaResponse.CitationItem();
+            item.setChunkIndex(citation.chunkIndex());
+            item.setCharStart(citation.startOffset());
+            item.setCharEnd(citation.endOffset());
+            item.setSnippet(citation.snippet());
+            item.setScore((int) Math.round(citation.score() * 100));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private String buildRagAnswerContext(List<RagEvidenceCitation> citations) {
+        List<RagEvidenceCitation> safeCitations = safeCitations(citations);
+        if (safeCitations.isEmpty()) {
+            return "";
+        }
+        StringBuilder context = new StringBuilder();
+        for (RagEvidenceCitation citation : safeCitations) {
+            if (!context.isEmpty()) {
+                context.append('\n');
+            }
+            context.append('[').append(citation.index()).append("] ").append(citation.snippet());
+        }
+        return context.toString();
+    }
+
+    private String buildSearchAnswer(DocumentSearchTool.SearchResult search) {
+        if (search == null || search.noEvidence() || search.hitCount() <= 0) {
+            return "No evidence chunks were retrieved for the current document.";
+        }
+        StringBuilder answer = new StringBuilder();
+        answer.append("Retrieved ")
+                .append(search.hitCount())
+                .append(" evidence chunk(s), citationCount=")
+                .append(search.citationCount())
+                .append(", topK=")
+                .append(search.topK())
+                .append(".");
+        int limit = Math.min(3, search.citations().size());
+        for (int i = 0; i < limit; i++) {
+            DocumentSearchTool.SearchCitation citation = search.citations().get(i);
+            answer.append("\n[").append(citation.index()).append("] ")
+                    .append("chunkId=").append(citation.chunkId())
+                    .append(", chunkIndex=").append(citation.chunkIndex())
+                    .append(", score=").append(String.format(java.util.Locale.ROOT, "%.4f", citation.score()));
+            if (!citation.sourceLocator().isBlank()) {
+                answer.append(", sourceLocator=").append(citation.sourceLocator());
+            }
+            if (!citation.quoteText().isBlank()) {
+                answer.append(", quote=").append(citation.quoteText());
+            }
+        }
+        return answer.toString();
+    }
+
+    private String buildSearchAnswerContext(List<DocumentSearchTool.SearchCitation> citations) {
+        if (citations == null || citations.isEmpty()) {
+            return "";
+        }
+        StringBuilder context = new StringBuilder();
+        int limit = Math.min(3, citations.size());
+        for (int i = 0; i < limit; i++) {
+            DocumentSearchTool.SearchCitation citation = citations.get(i);
+            if (!context.isEmpty()) {
+                context.append('\n');
+            }
+            context.append('[').append(citation.index()).append("] ").append(citation.snippet());
+        }
+        return context.toString();
+    }
+
+    private Map<String, String> toRagMetadata(RagRetrievalHit hit) {
+        Map<String, String> metadata = new LinkedHashMap<>();
+        putMetadata(metadata, "userId", hit.userId());
+        putMetadata(metadata, "documentId", hit.documentId());
+        putMetadata(metadata, "indexVersion", hit.indexVersion());
+        putMetadata(metadata, "chunkId", hit.chunkId());
+        putMetadata(metadata, "chunkIndex", hit.chunkIndex());
+        putMetadata(metadata, "contentHash", hit.contentHash());
+        putMetadata(metadata, "startOffset", hit.startOffset());
+        putMetadata(metadata, "endOffset", hit.endOffset());
+        putMetadata(metadata, "tokenCount", hit.tokenCount());
+        putMetadata(metadata, "embeddingModel", hit.embeddingModel());
+        putMetadata(metadata, "vectorId", hit.vectorId());
+        return metadata;
+    }
+
+    private void putMetadata(Map<String, String> metadata, String key, Object value) {
+        if (value != null && !String.valueOf(value).isBlank()) {
+            metadata.put(key, String.valueOf(value));
+        }
+    }
+
+    private List<RagRetrievalHit> safeHits(List<RagRetrievalHit> hits) {
+        return hits == null ? List.of() : hits;
+    }
+
+    private List<RagEvidenceCitation> safeCitations(List<RagEvidenceCitation> citations) {
+        return citations == null ? List.of() : citations;
     }
 
     private String summarize(String text) {
@@ -482,11 +770,22 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                                                       String outputSummary,
                                                       long durationMs,
                                                       String status) {
+        return buildStep(stepIndex, toolName, inputSummary, outputSummary, durationMs, status, "");
+    }
+
+    private DocumentAgentResponse.AgentStep buildStep(int stepIndex,
+                                                      String toolName,
+                                                      String inputSummary,
+                                                      String outputSummary,
+                                                      long durationMs,
+                                                      String status,
+                                                      String errorMessage) {
         DocumentAgentResponse.AgentStep step = new DocumentAgentResponse.AgentStep();
         step.setStepIndex(stepIndex);
         step.setToolName(toolName);
         step.setInputSummary(summarize(inputSummary));
         step.setOutputSummary(summarize(outputSummary));
+        step.setErrorMessage(summarize(errorMessage));
         step.setDurationMs(durationMs);
         step.setStatus(status);
         return step;
@@ -508,7 +807,8 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
                     step.getInputSummary(),
                     step.getOutputSummary(),
                     step.getDurationMs(),
-                    step.getStatus()
+                    step.getStatus(),
+                    step.getErrorMessage()
             );
         } catch (Exception ex) {
             log.warn("Failed to create agent step record, taskId={}, stepIndex={}", taskId, step.getStepIndex(), ex);
@@ -520,6 +820,10 @@ public class DocumentAgentServiceImpl implements DocumentAgentService {
         T value = supplier.get();
         long durationMs = (System.nanoTime() - start) / 1_000_000L;
         return new TimedResult<>(value, durationMs);
+    }
+
+    private String safeNumber(Integer value) {
+        return value == null ? "default" : String.valueOf(value);
     }
 
     @FunctionalInterface

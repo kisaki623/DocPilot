@@ -1,7 +1,14 @@
 server:
   port: ${SERVER_PORT:8080}
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force-response: true
 
 spring:
+  config:
+    import: ${SPRING_CONFIG_IMPORT:optional:file:./.env[.properties]}
   application:
     name: docpilot-backend
   profiles:
@@ -27,6 +34,10 @@ spring:
       max-request-size: ${MULTIPART_MAX_REQUEST_SIZE:20MB}
 
 app:
+  document:
+    parser:
+      max-file-size-bytes: ${APP_DOCUMENT_PARSER_MAX_FILE_SIZE_BYTES:20971520}
+      timeout-ms: ${APP_DOCUMENT_PARSER_TIMEOUT_MS:10000}
   file:
     upload-dir: ${FILE_UPLOAD_DIR:./data/uploads}
     storage:
@@ -72,6 +83,7 @@ app:
       shadow-enabled: ${AGENT_SELECTOR_SHADOW_ENABLED:false}
   rag:
     embedding:
+      enabled: ${APP_RAG_EMBEDDING_ENABLED:true}
       provider: ${APP_RAG_EMBEDDING_PROVIDER:fake}
       base-url: ${APP_RAG_EMBEDDING_BASE_URL:}
       model: ${APP_RAG_EMBEDDING_MODEL:}
@@ -79,12 +91,31 @@ app:
       connect-timeout-ms: ${APP_RAG_EMBEDDING_CONNECT_TIMEOUT_MS:5000}
       request-timeout-ms: ${APP_RAG_EMBEDDING_REQUEST_TIMEOUT_MS:30000}
       dimension: ${APP_RAG_EMBEDDING_DIMENSION:32}
+    retrieval:
+      hybrid-enabled: ${APP_RAG_RETRIEVAL_HYBRID_ENABLED:false}
+      multi-query-enabled: ${APP_RAG_RETRIEVAL_MULTI_QUERY_ENABLED:false}
+      max-query-variants: ${APP_RAG_RETRIEVAL_MAX_QUERY_VARIANTS:3}
+      min-similarity-threshold: ${APP_RAG_RETRIEVAL_MIN_SIMILARITY_THRESHOLD:0.50}
+      rrf-k: ${APP_RAG_RETRIEVAL_RRF_K:60}
+    rerank:
+      enabled: ${APP_RAG_RERANK_ENABLED:false}
+      provider: ${APP_RAG_RERANK_PROVIDER:disabled}
+      base-url: ${APP_RAG_RERANK_BASE_URL:}
+      api-key: ${APP_RAG_RERANK_API_KEY:}
+      model: ${APP_RAG_RERANK_MODEL:}
+      connect-timeout-ms: ${APP_RAG_RERANK_CONNECT_TIMEOUT_MS:5000}
+      request-timeout-ms: ${APP_RAG_RERANK_REQUEST_TIMEOUT_MS:30000}
     vector-store:
-      provider: ${RAG_VECTOR_STORE_PROVIDER:${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}}
+      provider: ${RAG_VECTOR_STORE_PROVIDER:${RAG_VECTOR_PROVIDER:${APP_RAG_VECTOR_STORE_PROVIDER:in_memory}}}
       qdrant:
         collection: ${RAG_QDRANT_COLLECTION:${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION:docpilot_rag_demo}}
         endpoint: ${RAG_QDRANT_ENDPOINT:${APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT:}}
+        host: ${RAG_QDRANT_HOST:${APP_RAG_VECTOR_STORE_QDRANT_HOST:}}
+        port: ${RAG_QDRANT_PORT:${APP_RAG_VECTOR_STORE_QDRANT_PORT:6333}}
         api-key: ${RAG_QDRANT_API_KEY:${APP_RAG_VECTOR_STORE_QDRANT_API_KEY:}}
+        dimension: ${RAG_QDRANT_DIMENSION:${RAG_VECTOR_DIMENSION:${APP_RAG_VECTOR_STORE_QDRANT_DIMENSION:1536}}}
+        distance: ${RAG_QDRANT_DISTANCE:${APP_RAG_VECTOR_STORE_QDRANT_DISTANCE:Cosine}}
+        collection-init-enabled: ${RAG_QDRANT_COLLECTION_INIT_ENABLED:${APP_RAG_VECTOR_STORE_QDRANT_COLLECTION_INIT_ENABLED:false}}
         connect-timeout-ms: ${RAG_QDRANT_CONNECT_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_CONNECT_TIMEOUT_MS:5000}}
         request-timeout-ms: ${RAG_QDRANT_REQUEST_TIMEOUT_MS:${APP_RAG_VECTOR_STORE_QDRANT_REQUEST_TIMEOUT_MS:30000}}
   rocketmq:
@@ -92,13 +123,21 @@ app:
     parse-topic: ${DOCPILOT_PARSE_TOPIC:docpilot-parse-topic}
     consumer-group: ${ROCKETMQ_CONSUMER_GROUP:docpilot-parse-consumer-group}
     outbox:
+      scan-enabled: ${ROCKETMQ_OUTBOX_SCAN_ENABLED:true}
       scan-fixed-delay-ms: ${ROCKETMQ_OUTBOX_SCAN_FIXED_DELAY_MS:15000}
       scan-batch-size: ${ROCKETMQ_OUTBOX_SCAN_BATCH_SIZE:20}
       retry-backoff-seconds: ${ROCKETMQ_OUTBOX_RETRY_BACKOFF_SECONDS:30}
       max-retry-count: ${ROCKETMQ_OUTBOX_MAX_RETRY_COUNT:20}
   redisson:
+    enabled: ${APP_REDISSON_ENABLED:true}
     lock-watchdog-timeout-ms: ${REDISSON_LOCK_WATCHDOG_TIMEOUT_MS:30000}
     parse-task-lock-fail-message: ${REDISSON_PARSE_TASK_LOCK_FAIL_MESSAGE:当前文档解析任务处理中，请稍后重试}
+  quality:
+    console:
+      enabled: ${APP_QUALITY_CONSOLE_ENABLED:false}
+      environment: ${APP_QUALITY_CONSOLE_ENVIRONMENT:${spring.profiles.active:local}}
+    import:
+      max-file-bytes: ${APP_QUALITY_IMPORT_MAX_FILE_BYTES:2097152}
 
 rocketmq:
   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}

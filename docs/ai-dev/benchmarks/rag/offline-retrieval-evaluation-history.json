@@ -1,0 +1,21 @@
+{
+  "artifact" : "offline-retrieval-evaluation-history",
+  "metricDefinition" : "hitCount counts cases whose expected hit/miss behavior passed",
+  "entries" : [ {
+    "generatedAt" : "2026-05-21T00:00:00Z",
+    "vectorStoreProvider" : "in_memory",
+    "embeddingProvider" : "fake",
+    "caseCount" : 7,
+    "hitCount" : 7,
+    "missCount" : 0,
+    "hitRate" : "1.0000"
+  }, {
+    "generatedAt" : "2026-05-21T00:00:00Z",
+    "vectorStoreProvider" : "fake_server",
+    "embeddingProvider" : "fake",
+    "caseCount" : 1,
+    "hitCount" : 1,
+    "missCount" : 0,
+    "hitRate" : "1.0000"
+  } ]
+}

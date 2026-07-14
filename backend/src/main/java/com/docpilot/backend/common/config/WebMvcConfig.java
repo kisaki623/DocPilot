@@ -24,7 +24,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "http://localhost:3001",
                         "http://127.0.0.1:3001",
                         "http://localhost:3002",
-                        "http://127.0.0.1:3002"
+                        "http://127.0.0.1:3002",
+                        "http://localhost:3007",
+                        "http://127.0.0.1:3007",
+                        "http://localhost:3100",
+                        "http://127.0.0.1:3100"
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")

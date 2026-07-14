@@ -1,0 +1,6140 @@
+﻿# CHANGELOG_CODING.md
+
+记录 Codex 协作过程中的关键变更。不要把它写成业务功能宣传页；每条记录都应说明目标、范围、验证和遗留问题。
+
+## 2026-05-27 - Release Audit Public IP Default Removal
+
+### 本轮目标
+
+修复 GitHub 推送前 release audit 发现的唯一阻塞项：`backend/scripts/demo/check-task11_7.ps1` 中被跟踪的公网 IP 默认值风险。不新增功能，不改业务代码，不读取 `backend/.env`。
+
+### 修改文件
+
+- `backend/scripts/demo/check-task11_7.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 移除 demo 检查脚本中的公网 IP 默认值。
+- local 模式默认使用本地安全地址。
+- cloud 模式要求通过 `-CloudHost` 或 `DOCPILOT_CLOUD_HOST` 显式传入远程目标；缺失时输出 `configured=false` 并停止。
+- 脚本输出只展示 `localhost`、`remote-redacted` 或 `configured=false` 这类目标分类，不打印完整远程 endpoint。
+
+### 验证结果
+
+- PowerShell parser syntax check：通过。
+- `check-task11_7.ps1 -Mode cloud -SkipRocketMQ -SkipMinio`：通过预期阻塞分支，只输出 `configured=false`。
+- 指定范围公网 IP 脱敏扫描：0 hits。
+- 指定范围 secret/token 候选复核：命中均为示例变量、参数名、header 构造或 `API_KEY=false` 状态记录，未发现真实 secret。
+- `backend/.env`：仍未被 git 跟踪；本轮未读取内容。
+- `git diff --check`：通过。
+- `cd backend; mvn test -DskipITs`：通过，459 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 当前边界
+
+- 未修改业务代码、后端 Java、前端、配置文件、Maven 依赖、数据库表或 docker-compose。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+- 未输出原始公网 IP、endpoint、token、secret、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
+## 2026-05-22 - T136 Offline Agent RAG Demo Status Sync
+
+### 本轮目标
+
+同步 T131-T135 的真实状态和边界；不新增功能，不写投递材料，不新增 T137 之后任务。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T131 `b5eeca0`：新增 `backend/scripts/agent/run-offline-agent-rag-demo-suite.ps1`，默认 offline / dry-run，聚合既有 Agent DryRun、RAG vector store demo、retrieval eval、artifact、trace smoke 和 trend check。
+- 记录 T132 `d89b7e7`：新增 offline demo summary artifact schema / redaction 测试。
+- 记录 T133 `b507e32`：增强 offline RAG eval trend history delta 稳定性测试。
+- 记录 T134 `9bb4f49`：新增 `backend/scripts/demo/check-mq-readiness.ps1`，只读诊断 T010/MQ readiness，输出变量名和 True/False，不连接中间件。
+- 记录 T135 `cb4002e`：后端全量回归通过，459 tests。
+
+### 验证结果
+
+- PowerShell：`scripts/agent/run-offline-agent-rag-demo-suite.ps1 -SkipTests` 通过。
+- PowerShell：`scripts/demo/check-mq-readiness.ps1` 与 `-Json` 通过。
+- `cd backend; mvn "-Dtest=*OfflineAgentRagDemoSuite*" test`：通过，3 tests。
+- `cd backend; mvn "-Dtest=*RagRetrievalEvaluationTrend*" test`：通过，3 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，92 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，459 tests。
+- Frontend lint/build：未运行，原因是本轮未修改 `frontend/`。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未接 LangChain4j / Spring AI / Redis Vector。
+- T010 / MQ 仍 BLOCKED；本轮只做只读 readiness 诊断，未修复或启用生产 MQ。
+- 未启动长期后端 / 前端服务进程。
+- 未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
+### 下一步建议
+
+- 给 offline Agent/RAG demo suite 增加可选 CI 入口，默认仍不调用真实服务。
+- 给 offline demo artifact 加 `schemaVersion` 并补兼容性测试。
+- 如需推进 T010，只在用户明确提供本地 MQ / MySQL / Redis / 存储环境后做脱敏 runtime 验证。
+
+## 2026-05-22 - T135 Offline Demo Backend Full Regression
+
+### 本轮目标
+
+运行 T131-T134 后的后端全量回归，并记录当前测试状态。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录后端全量回归结果。
+- 同步 T131-T134 后测试数和安全边界。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，459 tests。
+- Frontend lint/build：未运行，原因是本轮未修改 `frontend/`。
+- 文档 mojibake 扫描：执行于本轮文档修改前，仅命中既有历史扫描命令示例 / 历史说明中的 replacement-character scan token，未发现本轮新增乱码。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未接 LangChain4j / Spring AI / Redis Vector。
+- 未处理 T010 / MQ blocked；T134 仅新增只读 readiness 诊断。
+- 未启动长期后端 / 前端服务进程。
+- 未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
+## 2026-05-21 - T130 RAG Demo Regression Closeout
+
+### 本轮目标
+
+完成 T126-T129 后端回归和协作文档同步；不新增功能，不写投递材料。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T126 `06a6ff0`：Agent showcase demo DryRun 输出改为脱敏 JSON summary。
+- 记录 T127 `a0e9a6e`：offline RAG eval history 字段稳定性测试。
+- 记录 T128 `1cdecfa`：RAG debug trace redaction 覆盖增强。
+- 记录 T129 `7d4c98a`：Agent / QA RAG 一致性回归和 `sourceType=rag_chunk` metadata 边界。
+- 同步本轮后端全量回归结果和未做事项。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，455 tests。
+- Frontend lint/build：未运行，原因是本轮未修改 `frontend/`。
+- 文档 mojibake 扫描：执行于本轮文档修改前，仅命中既有历史扫描命令示例 / 历史说明中的 replacement-character scan token，未发现本轮新增乱码。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未接 LangChain4j / Spring AI / Redis Vector。
+- 未处理 T010 / MQ blocked。
+- 未启动长期后端 / 前端服务进程。
+- 未输出 token、endpoint 原文、Authorization、API key、baseUrl、prompt、文档正文或 provider response。
+
+## 2026-05-21 - T123 RAG Demo Backend Full Regression
+
+### 本轮目标
+
+运行 T116-T122 后的后端全量回归，并记录当前测试状态。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录后端全量回归结果。
+- 同步 T116-T122 后测试数和安全边界。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，452 tests。
+- 测试后 `git status --short`：为空。
+
+### 当前边界
+
+- 未修改业务代码。
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+- 未启动长期后端 / 前端服务进程。
+
+## 2026-05-21 - T122 Qdrant Preflight Redaction Test
+
+### 本轮目标
+
+给 Qdrant preflight 脚本补静态 / DryRun 安全检查，确认默认不连接外部服务且输出脱敏。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `shouldDefaultToDryRunAndRedactEnvironmentValues` 测试。
+- 测试向子进程注入假的 Qdrant provider、endpoint、collection 和 api key，但不传 `-AllowRequest`。
+- 断言脚本输出 `READY_DRY_RUN`、`requestAttempted=false`、`dryRun=true` 和存在性布尔字段。
+- 断言输出不包含原始 endpoint、collection、api key、Authorization、api-key、provider response、documentText 或 prompt。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- `cd backend; mvn "-Dtest=QdrantPreflightScriptSafetyTest" test`：通过，2 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未修改 preflight 脚本真实请求逻辑。
+- 未真实连接 Qdrant。
+- 未输出 endpoint 原文、API key、Authorization、baseUrl、prompt、文档正文或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T121 Agent RAG Tool Consistency Coverage
+
+### 本轮目标
+
+给 Agent `rag_tool` 增加更多一致性测试，覆盖 RAG 路由、空召回 fallback、输出脱敏和原有工具路径不受影响。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- RAG 路由用例加入私有正文标记，确认 step `outputSummary`、final answer 和 `ragResults.snippet` 不泄露正文标记。
+- RAG 路由用例补充 `ragResults` score、snippet、metadata 断言，保护前端 / Agent response 向后兼容。
+- 新增空召回 RAG 用例，确认 final answer 友好提示、`ragResults` 为空但非 null、`ragAnswerContext` 为空串，并保留 `fallbackUsed=true` / `fallbackReason=no_match` 摘要。
+- summary / QA / status 用例补充 `documentRagTool` 不被调用断言，避免 RAG 测试改动影响原有工具路径。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=DocumentAgentServiceImplTest" test`：通过，10 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，85 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 只修改测试。
+- 未改变 Agent routing 默认行为。
+- 未新增公开 API。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T120 RAG QA Debug Trace Formatting Coverage
+
+### 本轮目标
+
+加强 `RagQaTraceFormatter` 测试，覆盖 RAG flag、retrieval、fallback、截断、cache key 和脱敏展示边界。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceFormatterTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 disabled + qdrant_disabled 组合测试。
+- 覆盖 `ragEnabled=false` 时的 `in_memory`、retrievedCount=0、fallbackUsed=false、cacheKeyRagAware=false。
+- 覆盖 `ragEnabled=true` 时的 `qdrant_disabled`、topK、retrievedCount>0、contextHashPresent、contextTruncated、citationCount、cacheKeyRagAware。
+- 继续确认 formatter summary 不输出正文、prompt、provider response、Authorization、documentText 或 context 原文。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagQaTrace*" test`：通过，9 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，85 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未修改生产逻辑。
+- 未新增公开 API。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T119 RAG Offline Eval Trend Summary
+
+### 本轮目标
+
+新增一个离线小工具，读取 T118 history artifact 并输出 trend / comparison 摘要。
+
+### 修改文件
+
+- `backend/scripts/rag/show-rag-eval-trend.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationTrendScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `show-rag-eval-trend.ps1`，默认读取 `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.json`。
+- 输出 `offline-rag-eval-trend-summary`，按 `vectorStoreProvider` 汇总 latest hitRate、caseCount、previous hitRate 和 delta 字段。
+- 当前 history 只有一轮记录，因此 `previousHitRatePresent=false`、`deltaPresent=false`；字段已经为后续追加历史记录预留。
+- 新增脚本安全测试，执行脚本并确认输出不包含鉴权、地址、正文、prompt、provider response 或本地 fake server 地址。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rag/show-rag-eval-trend.ps1`：通过。
+- `cd backend; mvn "-Dtest=RagRetrievalEvaluationTrendScriptSafetyTest" test`：通过，2 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 脚本只读取本地 synthetic history artifact。
+- 不发 HTTP，不启动服务。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T118 RAG Offline Eval History Artifact
+
+### 本轮目标
+
+在不调用真实 provider、不连接真实 Qdrant 的前提下，补一个可提交的离线 RAG retrieval eval history artifact。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationArtifactTest.java`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.json`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation-history.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `RagRetrievalEvaluationArtifactTest` 继续生成现有 offline retrieval eval JSON / Markdown，同时新增 history JSON / Markdown。
+- history 记录 `generatedAt`、`vectorStoreProvider`、`embeddingProvider=fake`、`caseCount`、`hitCount`、`missCount`、`hitRate`。
+- 当前 history 覆盖 `in_memory` 与本地 `fake_server` 两条聚合记录。
+- `hitCount` 定义为符合 expected hit / miss 行为的 case 数，避免把 no-match / empty document 这类成功边界样例误写成失败。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=RagRetrievalEvaluationArtifactTest" test`：通过，1 test。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- Artifact 只保存 synthetic eval 聚合指标。
+- 未保存文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T117 Agent Demo Script Redaction Test
+
+### 本轮目标
+
+补 demo 脚本 DryRun 输出的可运行脱敏测试，确保演示脚本不会在预览模式打印鉴权、地址、prompt、正文或 provider response。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/AgentDemoScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `dryRunOutputShouldStayRedacted` 测试。
+- 测试通过 PowerShell 启动 `demo-agent-showcase.ps1 -DryRun`，并传入远程样式后端地址。
+- 断言输出包含 dry-run、plannedSteps、remote-redacted 和 rag debug summary 检查计划。
+- 断言输出不包含原始地址、Authorization、Bearer、API key、baseUrl / endpoint 字段、prompt、document content / documentText 或 provider response。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test`：通过，2 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 测试只运行 DryRun。
+- 未启动后端服务。
+- 未真实运行 Agent runtime。
+- 未输出 token、endpoint 原文、文档正文、prompt、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T116 Agent Demo Script DryRun
+
+### 本轮目标
+
+给 Agent showcase demo 脚本补显式 `-DryRun` 模式，允许开发者在没有 token / documentId、没有后端服务的情况下预览脱敏演示步骤。
+
+### 修改文件
+
+- `backend/scripts/agent/demo-agent-showcase.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/AgentDemoScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `demo-agent-showcase.ps1` 新增 `-DryRun` 参数。
+- DryRun 直接输出 sanitized summary 和 `plannedSteps`，覆盖 backend health、summary / QA / RAG agent task、decision / routingReason / matchedKeywords / trace / citations / rag debug summary 检查计划。
+- DryRun 不要求 `DOCPILOT_AUTH_TOKEN` 或 `DocumentId`，不调用后端，不启动服务，不输出原始 baseUrl。
+- 真实模式原有 health check、Authorization header 构造和 Agent run 调用路径保持不变。
+- `AgentDemoScriptSafetyTest` 增加 DryRun / plannedSteps 静态断言。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- `-DryRun` 模式：通过，只输出脱敏计划。
+- `cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未启动后端服务。
+- 未真实运行 Agent runtime。
+- 未输出 token、endpoint 原文、文档正文、prompt、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T115 RAG Showcase Hardening Closeout
+
+### 本轮目标
+
+阶段收口验证并同步 T108-T114 的真实完成情况；不写投递材料，不新增功能。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T108-T114 均已单独提交：T108 `f6d10d5`、T109 `5f7e997`、T110 `e1d2691`、T111 `99f0513`、T112 `a1a0782`、T113 `9ee22a2`、T114 `d428795`。
+- 记录后端全量测试和前端 lint/build 结果。
+- 同步交接文档中的当前工作区状态。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，446 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+- `git status --short`：收口前为空。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未接 LangChain4j / Spring AI / Redis Vector。
+- 未处理 T010 / MQ blocked。
+- 未启动长期后端 / 前端服务进程。
+
+## 2026-05-21 - T114 Agent RAG Demo Script Sanitized Check
+
+### 本轮目标
+
+增强 Agent / RAG demo 脚本的一键脱敏检查，输出安全 summary；缺 token 或 documentId 时友好提示，不失败成堆栈。
+
+### 修改文件
+
+- `backend/scripts/agent/demo-agent-showcase.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/AgentDemoScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `demo-agent-showcase.ps1` 新增 sanitized summary：backendReachable、backendLocation、authTokenPresent、documentIdPresent、agentRunOk、decision、ragRetrievedCount、citationCount、traceStepCount、mode、note。
+- 原始后端地址只归类为 localhost / remote-redacted / unknown。
+- 缺 token 或 documentId 时输出 dry-run summary 和中文友好提示，不抛 PowerShell 堆栈。
+- Agent run 失败时只输出脱敏失败状态，不输出响应正文或鉴权信息。
+- 新增脚本安全测试，防止 summary 输出原始 base URL、token、documentText、provider response 或 finalAnswer。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- 缺 token / documentId 模式：通过，只输出脱敏 summary。
+- `cd backend; mvn "-Dtest=AgentDemoScriptSafetyTest" test`：通过，1 test。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未启动后端服务。
+- 未真实运行 Agent runtime。
+- 未输出 token、endpoint 原文、文档正文、prompt、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T113 Agent Showcase RAG Debug Trace
+
+### 本轮目标
+
+在 `/agent` 页面可选展示脱敏 RAG debug trace，并中文化页面中残留的英文状态文案；不新增 API。
+
+### 修改文件
+
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `parseRagTraceSummary`，只从 Agent step `outputSummary` 白名单解析 RAG trace 字段。
+- 新增“RAG 调试摘要”区域，展示 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextTruncated、fallbackUsed、fallbackReason、cacheKeyRagAware。
+- 将工作流可见状态从 done / waiting / loading 类英文改成中文展示。
+- 未展示文档正文、prompt 或 provider response。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未修改后端接口。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T112 Agent RAG Tool QA Trace Alignment
+
+### 本轮目标
+
+增强 Agent `rag_tool` 与 QA RAG context / trace 的一致性测试和输出口径，证明 retrieval、citation metadata、fallback 和原有 routing 行为边界一致。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/AgentRagQaConsistencyTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `DocumentRagTool.outputSummary` 改为复用 `RagQaTraceFormatter.formatInterviewSummary`。
+- Agent rag_tool summary 现在与 QA trace 同口径输出 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware。
+- `AgentRagQaConsistencyTest` 增加 Agent retrieved chunk metadata / chunkIndex 与 QA citation metadata / trace summary 对齐断言。
+- `DocumentRagToolTest` 增加 ragEnabled、contextTruncated、cacheKeyRagAware、fallback retrievedCount / citationCount 断言。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，82 tests。
+- `cd backend; mvn "-Dtest=*DocumentAgent*" test`：通过，30 tests。
+- `cd backend; mvn "-Dtest=DocumentToolSelectorTest" test`：通过，9 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未改变 Agent routing 默认行为。
+- 未修改 summary / qa / status selector 行为。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T111 RAG QA Trace Formatter Sanitized Tests
+
+### 本轮目标
+
+增强 `RagQaTraceFormatter` / `RagQaTrace` 的脱敏格式化测试，覆盖 fallback、零召回、截断、citation、cache key 和敏感 fallback reason。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTrace.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceFormatterTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 interview summary 测试，覆盖 `fallbackUsed=true`、`contextTruncated=true`、`retrievedCount=0`、`citationCount>0`、`cacheKeyRagAware=true`、`contextHashPresent=true`。
+- 新增不安全 fallback reason 测试，确认 formatter 输出中不出现 Authorization、Bearer、API key、baseUrl、provider response、prompt 或 documentText。
+- `RagQaTrace.safeFallbackReason` 对明显不安全的 fallback reason 统一输出 `redacted_fallback_reason`。
+- 保持 `qdrant_http_error` 等正常安全 reason 原样输出。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagQaTrace*" test`：通过，8 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，82 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T110 RAG Retrieval Eval Edge Cases
+
+### 本轮目标
+
+补 RAG 召回 eval 的失败样例和边界样例，并让 artifact 明确记录 expectedHit、expectedMarker、retrievedCount、hit / miss。
+
+### 修改文件
+
+- `backend/src/test/resources/rag/rag-retrieval-eval-cases.json`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationArtifactTest.java`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.json`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 same-keyword-wrong-topic、topK over available chunks 和 metadata isolation negative eval cases。
+- `RagRetrievalEvaluationResult.safeReport()` 新增 `caseSummaries`。
+- 离线 artifact JSON / Markdown 新增 case-level table，覆盖 in-memory、fake Qdrant hit 和 Qdrant fallback。
+- 每个 case 只输出 synthetic case id、expected marker label、retrievedCount、hit、miss、passed，不输出正文。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagRetrievalEvaluation*" test`：通过，7 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，80 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- artifact 只保存 synthetic fixture 指标。
+- 未提交真实文档内容。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T109 Offline RAG Demo Summary
+
+### 本轮目标
+
+增强 RAG 离线 demo 脚本输出，让本地开发者能看到更完整的脱敏 retrieval 摘要，同时保持不依赖真实 provider / Qdrant。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStoreOfflineDemoTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 在 `rag-vector-store-offline-demo-summary.json` 中新增 `retrievalSummaries`。
+- 覆盖 in-memory smoke、本地 fake Qdrant smoke 和 Qdrant fallback smoke。
+- 每条 summary 输出 vectorStoreType、embeddingProvider、sampleId、documentId、短 query label、topK、retrievedCount、score summary、citation metadata presence summary、fallbackUsed / fallbackReason 和 contextHashPresent。
+- 保留原有聚合字段，避免影响现有脚本读取路径。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagVectorStoreOfflineDemo*" test`：通过，3 tests。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts/rag/run-rag-vector-store-offline-demo.ps1`：通过，打印脱敏 summary。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 只增强离线 test-generated summary。
+- 不输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T108 Offline RAG Eval And Qdrant Safety Review
+
+### 本轮目标
+
+只读审查 T099-T107 的 RAG / Qdrant / eval / preflight 相关改动，确认 offline demo、fake server、artifact、preflight 和文档边界没有引入真实 provider / Qdrant 风险。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 检查最近相关 commit 的文件范围和脚本 / 测试 / artifact 内容。
+- 确认默认 vector store provider 仍为 `in_memory`，Qdrant HTTP adapter 仍需显式 provider / endpoint 配置。
+- 确认 Qdrant preflight 默认 dry-run；只有显式 `-AllowRequest` 且环境齐全时才可能尝试只读检查。
+- 确认 embedding preflight 不发 HTTP，只输出环境变量存在性布尔。
+- 确认 offline demo / eval 使用 fake embedding、in-memory store、本地 fake Qdrant server 和 synthetic fixture，artifact 只保存脱敏指标。
+- 记录一处旧设计文档漂移：`docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md` 的早期 preflight smoke 表述不如 T104 脚本准确，当前以脚本和 git 记录为准。
+
+### 验证结果
+
+- `git diff --stat`：写入审查记录前为空。
+- RAG scripts / tests / docs secret、endpoint 原文、Authorization、provider response、prompt、文档正文风险扫描：未发现需修改生产代码的问题。
+- 新增文档 diff mojibake 扫描：通过。
+- 新增文档 diff 敏感形态扫描：通过。
+
+### 当前边界
+
+- 只修改协作文档。
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T107 Full Validation And Status Sync
+
+### 本轮目标
+
+运行完整验证，并同步 `docs/TODO_NEXT.md`、`docs/CODEX_HANDOFF.md`、`docs/CHANGELOG_CODING.md`。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 执行后端全量测试。
+- 记录 T099-T106 的任务状态已单独提交。
+- 记录本轮未修改 frontend 代码，因此未运行 frontend lint/build。
+- 记录测试后工作区状态为空。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，443 tests。
+- `git status --short`：测试后为空。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未新增数据库表。
+- 未新增 Maven 依赖。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+- 未启动长期后端 / 前端服务进程。
+
+## 2026-05-21 - T106 Agent RAG Demo Checklist
+
+### 本轮目标
+
+只补一个功能 demo checklist，方便后续截图或面试演示；不做投递材料收口，不写简历 bullet。
+
+### 修改文件
+
+- `docs/AGENT_RAG_DEMO_CHECKLIST.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `/agent` Agent + RAG Showcase 演示前置条件：需要当前账号可访问且已解析成功的 `documentId`。
+- 记录 RAG 召回和普通 QA 两条演示顺序。
+- 列出必须截图字段：documentId、decision、taskId、routingReason、matchedKeywords、RAG chunks、score / metadata、workflow、持久化 steps 和 citations。
+- 明确 fake embedding + in-memory、Qdrant disabled、真实 embedding BLOCKED、QA RAG flag 默认关闭、`llm_execute` 默认关闭和 T010/MQ 未覆盖边界。
+
+### 验证结果
+
+- 中文 Markdown 乱码特征扫描：通过。
+- 文档敏感形态扫描：未发现实际密钥、真实 endpoint 或 token；checklist 仅以禁止输出项形式提到 API Key、Authorization、baseUrl、endpoint 原文。
+
+### 当前边界
+
+- 只新增文档。
+- 未修改前端代码。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T105 Embedding Provider Preflight Checklist
+
+### 本轮目标
+
+增强真实 embedding provider preflight，不发 HTTP，只检查环境变量存在性和配置命名是否一致。
+
+### 修改文件
+
+- `backend/scripts/rag/preflight-embedding-provider.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/EmbeddingProviderPreflightScriptSafetyTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `preflight-embedding-provider.ps1`，检查 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 是否存在。
+- 脚本只输出存在性布尔和 READY_DRY_RUN / SKIPPED / BLOCKED 状态，不输出任何变量值。
+- 脚本不读取 `.env`，不发 HTTP，不调用真实 provider。
+- 新增脚本安全测试，确认脚本不包含 HTTP 调用、`.env` 读取、Authorization 或原始变量输出。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- 脚本缺环境默认脱敏 BLOCKED 输出：通过。
+- 脚本变量齐全场景仍为 READY_DRY_RUN 且 `httpAttempted=false`：通过。
+- `cd backend; mvn "-Dtest=EmbeddingProviderPreflightScriptSafetyTest" test`：通过，1 test。
+- `cd backend; mvn "-Dtest=*Embedding*" test`：通过，17 tests。
+- 变更文件敏感形态扫描：通过。
+
+### 当前边界
+
+- 真实 embedding runtime 在缺少必要环境变量时继续 BLOCKED。
+- fake embedding + in-memory RAG demo / eval / test 不受影响。
+- 未读取 `backend/.env`。
+- 未输出 API key、baseUrl、Authorization、request body、provider response、prompt 或文档正文。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T104 Qdrant Provider Preflight Redaction
+
+### 本轮目标
+
+增强 Qdrant provider preflight 脚本 / 文档，使它默认 dry-run，只检查环境变量是否存在并输出 True/False。
+
+### 修改文件
+
+- `backend/scripts/rag/preflight-qdrant-vector-store.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `APP_RAG_VECTOR_STORE_PROVIDER`、`APP_RAG_VECTOR_STORE_QDRANT_ENDPOINT`、`APP_RAG_VECTOR_STORE_QDRANT_COLLECTION`、`APP_RAG_VECTOR_STORE_QDRANT_API_KEY` 存在性布尔检查。
+- 保留既有 `RAG_VECTOR_STORE_PROVIDER` / `RAG_QDRANT_*` 兼容检查，只输出存在性布尔，不输出值。
+- 新增 `-AllowRequest` 显式开关；默认即使环境变量齐全也只返回 `READY_DRY_RUN`，不连接 Qdrant。
+- `-AllowCreateCollection` 仍需配合显式请求允许才可能尝试 create，避免 dry-run 模式误创建 collection。
+- 更新脚本安全测试，锁定 APP_* 检查、默认 dry-run 状态和敏感输出禁止项。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- 脚本默认 dry-run 脱敏输出：通过。
+- `cd backend; mvn "-Dtest=QdrantPreflightScriptSafetyTest" test`：通过，1 test。
+- 变更文件敏感词 / endpoint 形态检查：通过。
+
+### 当前边界
+
+- 未修改 `application.yml`。
+- 未修改 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实连接 Qdrant。
+- 未输出 endpoint 原文、API key、Authorization、baseUrl、provider response、prompt 或文档正文。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T103 Agent Rag QA Consistency
+
+### 本轮目标
+
+补测试证明 Agent `rag_tool` 与 QA RAG flag 的 retrieval / context / fallback / cache key 行为边界一致。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/AgentRagQaConsistencyTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 Agent rag_tool 与 QA RAG context 的召回 / trace 边界一致性测试。
+- 新增 VectorStore `RagSearchScope` userId + documentId 隔离测试。
+- 新增 Agent rag_tool 在 qdrant disabled 时友好 fallback 的一致性测试。
+- 新增 QA flag=false 普通 QA 不变、QA flag=true cache key 包含 RAG context hash 的一致性测试。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*Agent*Rag*" test`：通过，5 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，80 tests。
+- `cd backend; mvn test -DskipITs`：通过，442 tests。
+
+### 当前边界
+
+- 只新增测试。
+- 未修改 production routing 默认行为。
+- 未新增公开 API。
+- 未修改前端。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+- Agent rag_tool 的 retrieved chunks / answerContext 是前端展示证据的用户可见内容；trace summary 和 cache key 仍保持脱敏。
+
+## 2026-05-21 - T102 RAG QA Debug Trace Summary
+
+### 本轮目标
+
+增强 `RagQaTrace` / `RagQaTraceFormatter`，让后端能输出更适合面试展示的脱敏 RAG QA trace。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTraceFormatter.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceFormatterTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 复核 `RagQaTrace` 已具备目标字段，没有重复新增 record 字段。
+- 在 `RagQaTraceFormatter` 新增 `toInterviewSafeMap` 和 `formatInterviewSummary`，固定输出 ragEnabled、embeddingProvider、vectorStoreType、topK、retrievedCount、contextHashPresent、contextTruncated、fallbackUsed、fallbackReason、citationCount、indexReused、cacheKeyRagAware。
+- 新增测试确认字段顺序、字段内容、summary 格式，以及不输出文档正文 / prompt marker / 多余上下文字段。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，75 tests。
+- `cd backend; mvn "-Dtest=DocumentQaServiceImplTest" test`：通过，37 tests。
+- `cd backend; mvn test -DskipITs`：通过，437 tests。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未修改前端。
+- 未新增数据库表、Maven 依赖或 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T101 RAG Eval Artifact Generator
+
+### 本轮目标
+
+新增离线 eval artifact 生成器，用 synthetic cases 评估 in-memory、fake Qdrant、no-match、empty document、多 documentId isolation 和 fallback 场景，并输出 JSON artifact 与 Markdown summary。
+
+### 修改文件
+
+- `backend/scripts/rag/run-rag-evaluation-artifact.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationArtifactTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationArtifactScriptSafetyTest.java`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.json`
+- `docs/ai-dev/benchmarks/rag/offline-retrieval-evaluation.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 artifact 生成脚本，默认运行 `*Rag*EvaluationArtifact*` 测试并输出 Markdown summary。
+- 新增 JUnit artifact 生成器，覆盖 in-memory positive hit rate、no-match query、empty document、多 documentId isolation、本地 fake Qdrant retrieval hit rate 和 Qdrant HTTP error fallback row。
+- 生成可提交的 JSON / Markdown artifact，内容只包含 provider、计数、hit rate、隔离 / fallback 布尔结果和 failedCaseIds。
+- 新增脚本安全测试，确保脚本不包含 Authorization、Bearer、apiKey、baseUrl、provider response、documentText 或 prompt 等敏感输出关键词。
+
+### 验证结果
+
+- PowerShell 语法解析：通过。
+- `cd backend; mvn "-Dtest=*Rag*Evaluation*" test`：通过，7 tests。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过，74 tests。
+- `cd backend; mvn test -DskipITs`：通过，436 tests。
+
+### 当前边界
+
+- 只使用 synthetic fixture，不提交真实文档内容。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T100 RAG Qdrant Offline Demo Script
+
+### 本轮目标
+
+新增一个不依赖真实 provider、不依赖真实 Qdrant、不读取 `backend/.env` 的离线 RAG vector store demo / smoke 脚本。
+
+### 修改文件
+
+- `backend/scripts/rag/run-rag-vector-store-offline-demo.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStoreOfflineDemoTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStoreOfflineDemoScriptSafetyTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增离线 demo 脚本，默认运行 `*RagVectorStoreOfflineDemo*` 测试并打印 `target/rag-demo/rag-vector-store-offline-demo-summary.json`。
+- 新增 JUnit demo 生成器，覆盖 fake embedding 稳定性、in-memory index / retrieve、本地 fake Qdrant server upsert / search 和 Qdrant HTTP error fallback reason。
+- 新增脚本安全测试，确保脚本文案不包含 Authorization、Bearer、apiKey、baseUrl、provider response、documentText 或 prompt 等敏感输出关键词。
+- 同步 RAG 设计文档，明确该 demo 不是真实 provider / 真实 Qdrant runtime。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagVectorStoreOfflineDemo*" test`：通过，3 tests。
+- PowerShell 语法解析：通过。
+- `cd backend; mvn "-Dtest=*Rag*" test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未输出文档正文、prompt、endpoint 原文、Authorization、API key、baseUrl 或 provider response。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T099 RAG Qdrant Review
+
+### 本轮目标
+
+只读审查 T092-T098 的 RAG eval、Qdrant adapter、fake server test、fallback 和 preflight / boundary 文档，确认默认路径、脱敏输出和真实 runtime 边界。
+
+### 修改文件
+
+- `docs/RAG_QDRANT_REVIEW_NOTES.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 复核 T092-T098 diff 涉及的 eval 脚本、trace smoke 脚本、Qdrant payload、Qdrant fake server tests、eval fixture 和 RAG 文档。
+- 记录默认 provider 仍为 `in_memory`，`qdrant` 只有显式配置 provider + endpoint 后才会构造 HTTP adapter。
+- 记录脚本与 report 只输出脱敏摘要，不输出文档正文、prompt、endpoint 原文、Authorization、API key 或 provider response。
+- 记录需要继续保留的真实 runtime 边界：显式启用真实 Qdrant 时，当前 adapter 会把 chunk text 作为 payload 发送到配置 endpoint，真实环境前需要确认部署归属和数据合规。
+
+### 验证结果
+
+- 完成只读 diff / grep 审查。
+- 中文 Markdown mojibake 扫描通过。
+- 敏感形态扫描未发现 secret / token / Authorization / provider response / endpoint 原文输出。
+
+### 当前边界
+
+- 未修改生产代码。
+- 未新增 API、数据库表、Maven 依赖或 docker-compose。
+- 未读取 `backend/.env`。
+- 未真实调用 provider。
+- 未真实连接 Qdrant。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T098 Overnight RAG Evaluation Closeout
+
+### 本轮目标
+
+收口 T092-T098 夜间 RAG evaluation / retrieval / Qdrant adapter / embedding preflight 队列，不新增功能。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T092 `0872202` offline retrieval eval、T093 `476573b` retrieval hardening docs、T093b `e35c01c` eval runner report、T094 `ef29c91` sanitized RAG QA smoke、T095 `af19b69` Qdrant adapter safety coverage、T096 `206b5c8` boundary alignment。
+- 记录 T097 `c640f66` 已完成环境变量存在性 preflight，但真实 embedding runtime 继续 BLOCKED。
+- 记录本轮没有新增 API / DB / Maven 依赖 / docker-compose，没有真实接 Qdrant / Redis Vector / LangChain4j / Spring AI，没有处理 T010 / MQ blocked。
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，431 tests。
+- 本轮未修改 frontend，因此未运行 frontend lint/build。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 secret、baseUrl、endpoint、Authorization、prompt、文档正文或 provider response。
+- 未启动后端 / 前端长期服务；Maven 测试中的随机端口测试进程随测试结束释放。
+- T010 / MQ 仍 BLOCKED，原因仍是 MQ disabled / `NoopParseTaskMessageProducer` 解析链路不推进。
+
+## 2026-05-21 - T097 Real Embedding Provider Preflight
+
+### 本轮目标
+
+只检查真实 embedding provider 必要环境变量存在性；如果缺失则标记 BLOCKED，不发起真实 provider 调用。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 检查当前 shell 中 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 是否存在。
+- 当前四个必要变量均为 False，因此真实 embedding runtime 继续 BLOCKED。
+- 未发起 `/embeddings` HTTP 调用。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Embedding* test`：通过，16 tests。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出任何环境变量值、API Key、baseUrl、Authorization、request body、response body、provider response、prompt 或文档正文。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T096 RAG Implementation Boundary Alignment
+
+### 本轮目标
+
+检查 README / RAG 文档 / handoff 口径，避免把 fake embedding、in-memory vector store、默认关闭 Qdrant adapter 或 function-calling-style 工具执行模式写成生产完整能力。
+
+### 修改文件
+
+- `README.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- README 首屏岗位相关描述从 `Function Calling` 收紧为 `Function-calling-style 工具执行`。
+- 复核 RAG minimal design、vector store selection、adapter boundary、TODO、handoff 和 changelog 中的 Qdrant / embedding / LangChain4j / production RAG 表述；当前命中均为边界说明或历史记录。
+- 继续明确当前不是生产完整 RAG，不是 OpenAI 官方 tools/function_call API 默认接入，不是真实 Qdrant runtime 上线。
+
+### 验证结果
+
+- overclaim 关键词扫描：完成。
+- 中文 Markdown mojibake 扫描：完成，仅命中既有扫描命令示例 / 历史说明中的 `�`。
+- `git diff --check`：通过。
+
+### 当前边界
+
+- 仅修改文档口径。
+- 未修改 Java / TS / 配置 / docker-compose。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未读取 `backend/.env`。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T095 Qdrant Adapter Safety Coverage
+
+### 本轮目标
+
+在不真实连接 Qdrant 的情况下，补强 Qdrant adapter 的安全边界、payload/filter 和 fallback 测试。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantPointPayload.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPayloadMappingTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantVectorStoreTest.java`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `QdrantPointPayload` 的 metadata 改为白名单字段，避免把正文、prompt 或 provider response 类字段复制进 metadata / citation。
+- `QdrantPayloadMappingTest` 覆盖 metadata/citation 不包含正文类字段。
+- `QdrantVectorStoreTest` 覆盖显式 userId + documentId search filter、缺 endpoint fail-fast 和 HTTP 500 错误脱敏。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过，21 tests。
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过，26 tests。
+- `cd backend; mvn test -DskipITs`：通过，431 tests。
+
+### 当前边界
+
+- 默认 provider 仍为 `in_memory`。
+- Qdrant adapter 仍默认关闭。
+- 测试只使用 JDK 本地 fake HTTP server。
+- 未启动真实 Qdrant，未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T094 RAG QA Trace Smoke Evidence
+
+### 本轮目标
+
+增强现有 RAG QA trace / demo smoke 证据，让面试演示可以看到脱敏 RAG trace 摘要，但不需要真实服务、token 或真实 provider。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceSmokeEvidenceTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceSmokeScriptSafetyTest.java`
+- `backend/scripts/rag/run-rag-qa-trace-smoke.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagQaTraceSmokeEvidenceTest`，使用 fake embedding + in-memory vector store 构建本地 RAG QA trace。
+- 生成 `target/rag-evidence/rag-qa-trace-summary.json`，只包含 `RagDebugReporter` 白名单字段。
+- 新增 `run-rag-qa-trace-smoke.ps1`，可运行 targeted test 并打印脱敏 summary。
+- 新增脚本安全测试，确认脚本不包含 Authorization、token、endpoint、API Key、文档正文、prompt 或 provider response 输出口。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagQaTraceSmokeEvidence*,RagQaTraceSmokeScriptSafetyTest" test`：通过，2 tests。
+- `cd backend; mvn "-Dtest=*RagQa*" test`：通过，17 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，69 tests。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts\rag\run-rag-qa-trace-smoke.ps1 -Help`：通过。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts\rag\run-rag-qa-trace-smoke.ps1 -SkipTests`：通过，输出脱敏 JSON summary。
+- `cd backend; mvn test -DskipITs`：通过，428 tests。
+
+### 当前边界
+
+- 未调用真实 embedding provider。
+- 未启动或连接真实 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T093b RAG Eval Runner Report Stabilization
+
+### 本轮目标
+
+把 RAG retrieval eval 从测试断言扩展为稳定的本地评估入口和脱敏 report，方便后续展示和面试解释。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvalScriptSafetyTest.java`
+- `backend/scripts/rag/run-rag-retrieval-eval.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `RagRetrievalEvaluationTest` 生成 `target/rag-eval/rag-retrieval-eval-summary.json`。
+- 新增本地脚本 `run-rag-retrieval-eval.ps1`，运行 fake embedding + in-memory retrieval eval，并打印脱敏 summary。
+- report 字段只包含 provider、embeddingProvider、total、hitCount、missCount、hitRate、averageRetrievedCount、reusedIndexCount、isolatedDocumentChecks 和 failedCaseIds。
+- eval 覆盖命中、未命中、空文档、同 documentId/version 复用、不同 documentId 隔离和本地 fake Qdrant adapter eval。
+- 新增脚本安全测试，确认不输出 Authorization、token、endpoint、API Key、文档正文、prompt 或 provider response。
+
+### 验证结果
+
+- `cd backend; mvn "-Dtest=*RagRetrievalEvaluation*,RagRetrievalEvalScriptSafetyTest" test`：通过，6 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，67 tests。
+- `cd backend; powershell -NoProfile -ExecutionPolicy Bypass -File scripts\rag\run-rag-retrieval-eval.ps1 -SkipTests`：通过，输出脱敏聚合指标。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未调用真实 embedding provider。
+- 未启动真实 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T093 RAG Retrieval Hardening And Eval Docs
+
+### 本轮目标
+
+收口 T088-T092 文档，明确当前是“稳定 chunk 策略、检索隔离、脱敏 trace、Qdrant collection 边界、离线 retrieval eval”的 RAG 工程化增强，不是生产完整 RAG 上线。
+
+### 修改文件
+
+- `README.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T088 可配置 chunking policy。
+- 记录 T089 retrieval scope isolation。
+- 记录 T090 脱敏 debug snapshot / reporter。
+- 记录 T091 Qdrant collection preflight boundary。
+- 记录 T092 offline retrieval eval cases。
+- 明确默认 vector store provider 仍为 `in_memory`，Qdrant adapter 仍默认关闭。
+
+### 验证结果
+
+- 指定文档 mojibake 关键词扫描：通过。
+- `cd backend; mvn test -DskipITs`：通过，423 tests。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未修改 docker-compose。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未修改前端。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T092 RAG Retrieval Offline Eval
+
+### 本轮目标
+
+新增轻量离线 retrieval eval，用固定小样例验证 RAG chunk / embedding / vector store / retrieval 是否能跑通，作为求职展示证据。
+
+### 修改文件
+
+- `backend/src/test/resources/rag/rag-retrieval-eval-cases.json`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagRetrievalEvaluationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 5 条安全小样例，覆盖 Redis / RocketMQ / MinIO 正例、空文档负例和无匹配负例。
+- 默认 eval 使用 fake embedding + in-memory vector store，不调用真实 provider。
+- 新增一条本地 fake Qdrant server adapter eval，验证 Qdrant adapter 可进入同一评测口径。
+- 指标包含 total、hitCount、missCount、hitRate、averageRetrievedCount 和 failedCaseIds；负例按 retrieval miss 统计，failedCaseIds 只表示预期与实际不一致。
+- 失败摘要只输出 case id 和聚合指标，不输出完整文档正文、prompt、secret、endpoint、Authorization 或 provider response。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*RagRetrievalEvaluation* test`：通过，3 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，64 tests。
+- `cd backend; mvn test -DskipITs`：通过，423 tests。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T091 Qdrant Collection Preflight Boundary
+
+### 本轮目标
+
+补 Qdrant collection lifecycle 的 request builder / preflight 边界，但不真实创建 collection，不启动真实 Qdrant。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantCollectionInfoRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantCollectionCreateRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantCollectionResponseParser.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantCollectionPreflightResult.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantCollectionBoundaryTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `backend/scripts/rag/preflight-qdrant-vector-store.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 collection info path builder。
+- 新增 create collection payload builder，支持 vector size 和 distance metric。
+- 新增 collection response parser 与 preflight result。
+- Qdrant preflight 脚本支持 `-DryRun`、`-AllowCreateCollection`、`VectorSize`、`Distance`。
+- 脚本默认仍只读；只有显式 `-AllowCreateCollection` 且 GET collection 返回 404 时才会尝试 create。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过，18 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，61 tests。
+- PowerShell 脚本语法检查：通过。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未修改 docker-compose。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未输出 endpoint、Authorization、provider response、文档正文或 prompt。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T090 RAG Debug Snapshot Reporter
+
+### 本轮目标
+
+新增内部脱敏 RAG debug snapshot / reporter，帮助面试和排障说明 RAG 链路状态，但不新增 API / Actuator / 前端。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagDebugSnapshot.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagDebugReporter.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagDebugReporterTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `RagDebugSnapshot` 支持从 `RagQaTrace` / `RagQaContext` 生成脱敏白名单摘要。
+- `RagDebugReporter` 输出 safe map 和单行格式化字符串。
+- snapshot 字段覆盖 RAG enable、embedding / vector store、document / user 存在性、topK、retrievedCount、chunkCount、indexReused、indexTruncated、context 摘要、fallback 摘要、citationCount 和 cacheKeyRagAware。
+- fallback reason 只保留安全短 token，避免异常消息尾部带出敏感内容。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，61 tests。
+- `cd backend; mvn test -DskipITs`：通过，414 tests。
+
+### 当前边界
+
+- 未新增公开 API、Actuator、Prometheus、前端、数据库表、Maven 依赖或 docker-compose。
+- 未输出文档正文、prompt、provider response、endpoint、API key 或 Authorization。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T089 RAG Retrieval Scope Isolation
+
+### 本轮目标
+
+强化 RAG 检索隔离，确保任何 VectorStore search 都必须携带 userId + documentId 或等价隔离条件，避免跨用户 / 跨文档召回风险。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagSearchScope.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/InMemoryVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/DisabledQdrantVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantSearchRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagRetrievalService.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/VectorStoreContractTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPayloadMappingTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaContextBuilderTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagMinimalInternalServiceTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagSearchScope`，显式承载 userId + documentId。
+- `VectorStore` 新增 scope-aware add/search 入口，旧 documentId search 仅委托到默认 `system` scope。
+- `InMemoryVectorStore` 按 userId + documentId 双条件过滤，防止同 documentId 下跨用户召回。
+- `QdrantSearchRequestBuilder` 通过 `RagSearchScope` 构造 filter，缺 userId / documentId 会 fail fast。
+- `QdrantVectorStore` add/search 校验 scope；RAG QA context 和 Agent rag_tool 默认兼容路径仍使用 `system` scope，不改变对外行为。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，57 tests。
+- `cd backend; mvn -Dtest=*Agent* test`：通过，53 tests。
+- `cd backend; mvn test -DskipITs`：通过，410 tests。
+
+### 当前边界
+
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未启动真实 Qdrant，未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未输出 endpoint、Authorization、provider response、文档正文或 prompt。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T088 RAG Chunking Policy
+
+### 本轮目标
+
+把当前 RAG chunk 切分逻辑收敛成可配置、可测试、可面试解释的 chunking policy。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagChunkingPolicy.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagChunker.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagChunkMetadata.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTrace.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTraceFormatter.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagChunkerTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagMinimalInternalServiceTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagIndexLifecycleTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaTraceFormatterTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagChunkingPolicy`，支持 `maxChunkChars`、`overlapChars`、`maxChunksPerDocument`。
+- 新增 `RagChunker` 和 `RagChunkMetadata`，生成稳定 chunkId、contentHash/chunkHash、documentVersion、chunkIndex、startOffset/endOffset 等 metadata。
+- `RagIndexService` 改为通过 chunking policy 生成 chunks，保留旧构造器兼容。
+- `RagIndexResult`、`RagQaTrace`、trace formatter 和 Agent RAG step 摘要增加 `indexTruncated`，用于表达超大文档被截断索引。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，57 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未输出 chunk 正文到日志。
+- 未启动真实 Qdrant，未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T087 Qdrant Integration Test Boundary Docs
+
+### 本轮目标
+
+收口 T082-T086 文档，明确当前是“默认关闭、fake server 验证过的 Qdrant adapter 链路”，不是生产 Qdrant 上线。
+
+### 修改文件
+
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T082 Qdrant 配置 / 环境变量命名校准。
+- 记录 T083 RAG 主链路通过 `VectorStore` 抽象运行。
+- 记录 T084 Qdrant fake server index/search 测试。
+- 记录 T085 RAG QA context 走 Qdrant adapter 集成测试。
+- 记录 T086 Qdrant 故障 fallback 测试。
+- 明确默认 provider 仍为 `in_memory`，Qdrant adapter 仍默认关闭。
+
+### 验证结果
+
+- 指定文档 mojibake 关键词扫描：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未修改 docker-compose。
+- 未新增公开 API、数据库表或 Maven 依赖。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T086 Qdrant Failure Fallback Behavior
+
+### 本轮目标
+
+验证 Qdrant adapter 失败时不会破坏默认 QA / Agent 体验，失败只记录脱敏 fallback reason。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagFallbackReasonClassifier.java`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/DocumentQaServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagFallbackReasonClassifierTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantRagQaContextIntegrationTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentQaServiceImplTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagFallbackReasonClassifier`，将 Qdrant HTTP error、timeout、disabled 和其他检索失败归一为安全 reason。
+- `DocumentQaServiceImpl` 的 RAG fallback 使用白名单 reason，并继续普通 QA。
+- `DocumentRagTool` 在向量库失败时返回空召回 + `fallbackUsed=true`，不让 rag_tool 直接抛出 provider 异常。
+- 测试覆盖 Qdrant HTTP 500、timeout 分类、disabled 分类、空结果和 Agent rag_tool 友好 fallback。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `cd backend; mvn -Dtest=*DocumentQaServiceImplTest test`：通过。
+- `cd backend; mvn -Dtest=*Agent* test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未启动真实 Qdrant。
+- 未输出 endpoint 原文、Authorization、provider response、文档正文或 prompt。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T085 RAG QA Context Qdrant Adapter Integration
+
+### 本轮目标
+
+证明 `provider=qdrant` 时，RAG QA context 构建链路可以通过 Qdrant adapter 返回召回结果，且只使用本地 fake server。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantRagQaContextIntegrationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `QdrantRagQaContextIntegrationTest`。
+- 构造 `RagQaContextBuilder` / `RagIndexManager` / `VectorStoreFactory`，显式配置 `provider=qdrant` 指向 JDK 本地 fake server。
+- 验证 index 阶段 delete / upsert、query 阶段 search、userId + documentId filter。
+- 验证 `retrievedCount`、`contextHashPresent`、citation metadata 和 `trace.vectorStoreType=qdrant`。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未启动真实 Qdrant，未访问外网。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未输出 endpoint 原文、Authorization、provider response、文档正文或 prompt。
+
+## 2026-05-21 - T084 Qdrant Fake Server Index Search Test
+
+### 本轮目标
+
+用 JDK 本地 fake HTTP server 验证 `QdrantVectorStore` 的 upsert / search 链路，不依赖真实 Qdrant。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantVectorStoreTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 在同一个本地 fake server 中依次执行 `add` 和 `searchTopK`。
+- 验证 upsert 请求 path / method / point id / vector / payload metadata。
+- 验证 search 请求 path / method / vector / topK / userId + documentId filter。
+- 验证 fake server 返回 Qdrant 风格 response 后可解析为 topK result。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过。
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+
+### 当前边界
+
+- 测试只使用本地 fake server，未启动真实 Qdrant。
+- 未访问外网，未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未输出 endpoint 原文、Authorization、provider response、文档正文或 prompt。
+
+## 2026-05-21 - T083 RAG VectorStore Abstraction Pipeline
+
+### 本轮目标
+
+确认 RAG 主链路通过 `VectorStore` 抽象运行，默认实现仍为 in-memory，不硬编码具体向量库。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStoreFactory.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTrace.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaContextBuilderTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagMinimalInternalServiceTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `VectorStoreFactory` 的默认 fallback 参数提升为 `VectorStore`。
+- `RagQaContextBuilder` 和 `DocumentRagTool` 内部默认 store 字段改为 `VectorStore` 抽象。
+- `RagQaTrace` 新增可传入实际 `vectorStoreType` 的 retrieval / fallback 重载。
+- 新增自定义 `VectorStore` 测试，验证 `RagIndexService` / `RagRetrievalService` / `RagQaContextBuilder` 通过抽象调用 add / delete / search。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `cd backend; mvn -Dtest=*Agent* test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 默认 provider 仍为 `in_memory`。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose。
+- 未启动真实 Qdrant。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T082 Qdrant Config Env Naming Alignment
+
+### 本轮目标
+
+统一 Qdrant vector store 相关配置与 preflight 脚本环境变量命名，避免 application.yml、properties class、脚本和文档口径不一致。
+
+### 修改文件
+
+- `backend/src/main/resources/application.yml`
+- `backend/scripts/rag/preflight-qdrant-vector-store.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStorePropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `application.yml` 优先读取推荐变量：`RAG_VECTOR_STORE_PROVIDER`、`RAG_QDRANT_ENDPOINT`、`RAG_QDRANT_API_KEY`、`RAG_QDRANT_COLLECTION`、`RAG_QDRANT_CONNECT_TIMEOUT_MS`、`RAG_QDRANT_REQUEST_TIMEOUT_MS`。
+- 保留旧 `APP_RAG_VECTOR_STORE_*` fallback，避免破坏已有本地配置。
+- preflight 脚本同步检查 timeout 变量存在性，只输出 True/False 摘要。
+- 配置绑定测试覆盖默认 `in_memory` 和显式 `qdrant` 配置对象。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过。
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- 默认 provider 仍为 `in_memory`。
+- 未读取 `backend/.env`。
+- 未输出任何环境变量值、endpoint 原文、API key 或 Authorization。
+- 未启动真实 Qdrant。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+
+## 2026-05-21 - T081 Qdrant Adapter Boundary Docs
+
+### 本轮目标
+
+收口 T077-T080 文档，明确当前已实现默认关闭的 Qdrant HTTP adapter，但未启动真实 Qdrant / 未改 docker-compose / 未新增依赖。
+
+### 修改文件
+
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 记录 T077 VectorStore contract tests。
+- 记录 T078 Qdrant payload mapping。
+- 记录 T079 默认关闭的 Qdrant HTTP adapter 和本地 fake server 测试。
+- 记录 T080 脱敏 Qdrant preflight 脚本。
+- 明确默认 vector store provider 仍是 `in_memory`。
+- 明确真实 Qdrant runtime 仍需要用户提供环境和服务，当前未启动真实 Qdrant。
+
+### 验证结果
+
+- 指定文档 mojibake 关键词扫描：通过。
+- `cd backend; mvn test -DskipITs`：通过，386 tests。
+
+### 当前边界
+
+- 未修改前端。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未启动真实 Qdrant。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T080 Qdrant Vector Store Preflight Script
+
+### 本轮目标
+
+新增脱敏 Qdrant preflight 脚本，环境缺失时只记录 SKIPPED / BLOCKED，不影响项目。
+
+### 修改文件
+
+- `backend/scripts/rag/preflight-qdrant-vector-store.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPreflightScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 脚本只检查当前 shell 中 `RAG_VECTOR_STORE_PROVIDER`、`RAG_QDRANT_ENDPOINT`、`RAG_QDRANT_COLLECTION`、`RAG_QDRANT_API_KEY` 的存在性。
+- provider 不是 `qdrant` 时输出 SKIPPED。
+- endpoint 或 collection 缺失时输出 BLOCKED，不发请求。
+- 环境齐全且未传 `-SkipRequest` 时只做 collection 只读 GET 检查，不做写入或 upsert。
+- 输出只包含存在性布尔、`isLocalhost`、`requestAttempted`、状态码或错误类型。
+
+### 验证结果
+
+- PowerShell 语法检查：通过。
+- `cd backend; mvn -Dtest=QdrantPreflightScriptSafetyTest test`：通过。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 endpoint 原文、API key、Authorization、provider response、文档正文或 prompt。
+- 未启动真实 Qdrant。
+- 未改 docker-compose。
+- 未新增 Maven 依赖、公开 API 或数据库表。
+
+## 2026-05-21 - T079 Qdrant HTTP Vector Store
+
+### 本轮目标
+
+实现默认关闭的 Qdrant HTTP adapter，测试使用 JDK 本地 fake HTTP server，不依赖真实 Qdrant。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagVectorStoreProperties.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStoreFactory.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantVectorStore.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStorePropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/VectorStoreFactoryTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantVectorStoreTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增显式 provider `qdrant`，默认 provider 仍为 `in_memory`。
+- `VectorStoreFactory` 仅在显式 `qdrant` 时创建 `QdrantVectorStore`。
+- `QdrantVectorStore` 使用 Java `HttpClient` 调用 Qdrant 风格 upsert / search / delete 路径。
+- endpoint 为空时 fail-fast，不发请求。
+- apiKey 为空允许无认证模式；apiKey 存在时仅作为 Authorization header 使用，异常信息不包含 token 或响应体。
+- 单元测试使用 JDK 本地 fake HTTP server 验证 path / method / body shape / parser topK。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过。
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 当前边界
+
+- 未启动真实 Qdrant。
+- 未改 docker-compose。
+- 未新增 Maven 依赖、公开 API 或数据库表。
+- 未接 Redis Vector、LangChain4j 或 Spring AI。
+- 默认 vector store provider 仍为 `in_memory`。
+
+## 2026-05-21 - T078 Qdrant Payload Mapping
+
+### 本轮目标
+
+新增 Qdrant request / response model 和 payload builder / parser，但不发真实网络请求。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantPointPayload.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantUpsertRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantSearchRequestBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantSearchResponseParser.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/QdrantRetrievedPoint.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/QdrantPayloadMappingTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- upsert payload 包含 point id、vector、userId、documentId、documentVersion、chunkIndex、contentHash / chunkHash 和 citation metadata。
+- search payload 包含 vector、topK 和 userId + documentId filter。
+- parser 支持解析 Qdrant 风格 search response 的 score / payload / metadata，并转换为内部 `VectorSearchResult`。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Qdrant* test`：通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+
+### 当前边界
+
+- 未发 HTTP。
+- 未新增 Maven 依赖、公开 API、数据库表或 docker-compose。
+- 未真实接 Qdrant / Redis Vector。
+- 未输出文档正文、prompt、provider response 或 secret。
+
+## 2026-05-21 - T077 VectorStore Contract Tests
+
+### 本轮目标
+
+补充 VectorStore contract tests，确保 in-memory store、qdrant_disabled skeleton 与 factory 默认选择行为稳定。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/VectorStoreContractTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 覆盖默认 provider 为 `in_memory`。
+- 覆盖 in-memory add / searchTopK、不同 documentId 隔离、topK 同分时按 chunkIndex 稳定排序。
+- 覆盖 `qdrant_disabled` 在无 endpoint / apiKey 时仍只抛出本地 disabled 异常，不发 HTTP。
+- 覆盖未知 provider fail-fast。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*VectorStore* test`：通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+
+### 当前边界
+
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未发真实 HTTP。
+- 未真实接 Qdrant / Redis Vector。
+- 未接 LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T076 RAG Demo and Vector Skeleton Docs Closeout
+
+### 本轮目标
+
+收口 T072-T075 文档，准确区分已完成的 fake embedding + in-memory RAG demo、trace、index lifecycle、Qdrant skeleton 与未完成的真实 embedding / 真实向量库 runtime。
+
+### 修改文件
+
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 明确 T072 已完成脱敏 RAG QA demo 脚本。
+- 明确 T073 已完成 Agent step / smoke 的脱敏 RAG trace 摘要。
+- 明确 T074 已完成 in-memory index lifecycle tracking。
+- 明确 T075 只是 Qdrant disabled skeleton / adapter boundary，未真实接 Qdrant。
+- README、面试 brief 和简历 bullet 同步为克制口径：可以讲 RAG demo、QA RAG feature flag、RAG trace、index lifecycle、Qdrant adapter skeleton；不能写真实 embedding / 真实 Qdrant / 生产完整 RAG 已完成。
+
+### 验证结果
+
+- 文档收口前指定文档 mojibake 关键词扫描通过。
+- 文档收口后指定文档 mojibake 关键词扫描通过。
+- `cd backend; mvn test -DskipITs`：通过，369 tests。
+
+### 当前边界
+
+- 未修改前端。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose。
+- 未真实接 Qdrant / Redis Vector。
+- 未接 LangChain4j 或 Spring AI。
+- 真实 embedding runtime 仍因 `APP_RAG_EMBEDDING_*` 缺失保持 BLOCKED。
+- T010 / MQ 仍 BLOCKED。
+
+## 2026-05-21 - T075 Qdrant Vector Store Skeleton
+
+### 本轮目标
+
+新增 Qdrant vector store adapter skeleton 和配置边界，默认关闭，不新增依赖、不发真实 HTTP、不改 docker-compose。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagVectorStoreProperties.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStoreFactory.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/DisabledQdrantVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/main/resources/application.yml`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagVectorStorePropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/VectorStoreFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `app.rag.vector-store.provider=in_memory|qdrant_disabled`，默认仍为 `in_memory`。
+- 新增 Qdrant collection / endpoint / api-key / timeout placeholder，默认 endpoint 和 api-key 为空。
+- `VectorStoreFactory` 根据配置选择现有 `InMemoryVectorStore` 或 `DisabledQdrantVectorStore`。
+- `qdrant_disabled` 只返回本地 disabled skeleton；调用 add / search / delete / clear 会抛出明确 disabled 异常，不发 HTTP。
+- QA RAG builder 和 Agent RAG tool 通过 factory 获取 vector store，默认路径仍使用 in-memory。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，37 tests。
+- `cd backend; mvn -Dtest=VectorStoreFactoryTest test`：通过，3 tests。
+- `cd backend; mvn test -DskipITs`：通过，369 tests。
+
+### 当前边界
+
+- 未真实接 Qdrant / Redis Vector。
+- 未新增 Maven 依赖、公开 API、数据库表或 docker-compose。
+- 未接 LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T074 RAG In-Memory Index Lifecycle
+
+### 本轮目标
+
+为 fake embedding + in-memory vector store 补最小 index lifecycle，避免 demo / smoke 表现为同一文档内容每次查询都重复完整 index。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexKey.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexState.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexManager.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/InMemoryVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTrace.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagQaTraceFormatter.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagIndexLifecycleTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagIndexKey` / `RagIndexState` / `RagIndexManager`，以 documentId、documentVersion、contentHash、embeddingProvider、vectorStoreType 判断 index 是否可复用。
+- `InMemoryVectorStore` 支持按 documentId 删除旧 chunks；版本或内容变化时替换该文档的内存向量。
+- `RagIndexService.indexDocument` 返回 `RagIndexResult`，同一 document/version/contentHash 会跳过重复 index。
+- QA RAG trace 与 Agent RAG step 摘要新增 `indexReused=true/false`。
+- 保留 `RagQaContextBuilder(EmbeddingModelFactory, RagEmbeddingProperties)` 兼容构造器，但它内部仍走默认 `InMemoryVectorStore + RagIndexManager` 生命周期逻辑。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，32 tests。
+- `cd backend; mvn -Dtest=*Agent* test`：通过，53 tests。
+- `cd backend; mvn test -DskipITs`：通过，361 tests。
+
+### 当前边界
+
+- 只做内存态 demo lifecycle，不落库、不新增公开 API、不引入分布式缓存。
+- 未新增依赖、数据库表或 docker-compose。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI；未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T073 Agent RAG Trace Step Summary
+
+### 本轮目标
+
+让 Agent RAG 工具步骤和 smoke 输出能看到脱敏 RAG trace 摘要，展示 RAG 过程证据。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- `DocumentRagTool.outputSummary` 输出白名单 trace-style 字段：embedding provider、vector store type、topK、retrievedCount、contextHashPresent、fallbackUsed、fallbackReason 和 citationCount。
+- Agent RAG step 的 `outputSummary` 复用工具返回的脱敏摘要。
+- 测试覆盖摘要字段存在、空文档 fallback 和不输出 chunk 正文。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Agent* test`：通过，53 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，25 tests。
+- `cd backend; mvn test -DskipITs`：通过，354 tests。
+
+### 当前边界
+
+- 未新增公开 API、前端、数据库表、依赖或 docker-compose。
+- 未输出文档正文、chunk 全文、prompt、provider response 或 secret。
+- 未接 LangChain4j、Qdrant 或 Redis Vector；未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T072 RAG QA Demo Script
+
+### 本轮目标
+
+新增一个面试 / 演示用的 RAG QA demo 脚本，在已启动且显式开启 `app.rag.qa.enabled=true` 的后端上输出脱敏 RAG trace-style 摘要。
+
+### 修改文件
+
+- `backend/scripts/rag/demo-rag-qa-fake.ps1`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaDemoScriptSafetyTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `demo-rag-qa-fake.ps1`，支持 `BackendBaseUrl`、`DocumentId`、`AuthToken`、`Question` 参数。
+- token 只通过参数或 `DOCPILOT_AUTH_TOKEN` 注入，不打印。
+- 脚本只调用已有 `/api/ai/qa`，不新增公开 API。
+- 输出字段限制为 `isLocalhost`、`ragEnabled`、`embeddingProvider`、`vectorStoreType`、`documentIdPresent`、`topK`、`retrievedCount`、`contextHashPresent`、`fallbackUsed`、`fallbackReason`、`citationCount`、`cacheKeyRagAware`。
+- 新增脚本文本安全测试，避免输出 answer、citation snippet、文档正文、provider response 或 token。
+
+### 验证结果
+
+- PowerShell 语法检查通过。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，25 tests。
+
+### 当前边界
+
+- 本轮未启动后端服务，未执行真实 runtime 调用。
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、prompt、provider response、文档正文或 chunk 全文。
+- 未新增 API、数据库表、依赖或 docker-compose。
+- 未接 LangChain4j、Qdrant 或 Redis Vector；未处理 T010 / MQ blocked。
+
+## 2026-05-21 - T071x RAG Docs UTF-8 Recovery Check
+
+### 本轮目标
+
+处理 T072-T076 前发现的 RAG 文档乱码阻塞，确认三份 RAG 文档是否需要从 git 历史恢复。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 检查 `docs/RAG_MINIMAL_DESIGN.md`、`docs/VECTOR_STORE_SELECTION.md`、`docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md` 当前内容和 git 历史候选版本。
+- 使用 UTF-8 读取方式扫描当前三份文档，确认文件内容本身未命中 mojibake 关键词。
+- 结论：普通 PowerShell `Get-Content` 输出乱码属于控制台解码显示问题，不需要回滚或重写三份 RAG 文档正文。
+
+### 验证结果
+
+- 三份 RAG 文档 UTF-8 关键词扫描通过；用户给定的 mojibake 关键词集合命中数均为 0。
+- `git diff --check` 通过。
+
+### 当前边界
+
+- 未修改 RAG 设计正文。
+- 未修改 Java、TypeScript、配置或 docker-compose。
+- 未读取 `backend/.env`，未输出 secret、baseUrl、Authorization、prompt、provider response 或文档正文。
+- 未处理 T010 / MQ blocked，未接 LangChain4j、Qdrant 或 Redis Vector。
+
+## 2026-05-20 - T071 Vector Store Adapter Boundary Design
+
+### 本轮目标
+
+只读设计下一步真实向量库 adapter 边界，不接 Qdrant / Redis Vector，不新增依赖，不修改 docker-compose，不新增数据库表。
+
+### 修改文件
+
+- `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `docs/RAG_VECTOR_STORE_ADAPTER_DESIGN.md`，记录当前 fake embedding、in-memory vector store、OpenAI-compatible embedding adapter runtime BLOCKED、QA RAG feature flag 默认关闭和内部 trace 状态。
+- 明确后续真实向量库优先 Qdrant，Redis Vector 仅在 Redis Stack / RediSearch 可用时作为备选。
+- 设计最小内部 adapter 接口、point / query / hit 值对象、collection / payload metadata、userId / documentId / documentVersion 隔离、topK / score / citation metadata、fallback 和测试策略。
+
+### 验证结果
+
+- 文档 diff 自查。
+- 中文 Markdown 乱码特征扫描：未发现新增乱码；历史 TODO 中用于扫描命令示例包含 `�` 字符，属于既有命中。
+
+### 当前边界
+
+- 未修改生产 Java、测试 Java、前端或配置。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose 服务。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+- 未读取 `backend/.env`，未输出 secret、prompt、provider response 或文档正文。
+
+## 2026-05-20 - T070 RAG QA Debug Trace
+
+### 本轮目标
+
+新增内部 RAG QA debug trace / dump 对象，方便测试、脚本和面试材料说明 RAG 检索、截断、fallback 和 cache key 边界；不新增公开 API，不改前端。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/DocumentQaServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagQaTrace`，记录 ragEnabled、embeddingProvider、vectorStoreType、documentIdPresent、topK、retrievedCount、maxContextChars、contextChars、contextTruncated、contextHashPresent、fallbackUsed、fallbackReason、citationCount 和 cacheKeyRagAware。
+- 新增 `RagQaTraceFormatter`，只输出白名单脱敏字段。
+- `RagQaContext` 向后兼容新增 trace 字段，既有 5 参数构造仍可用。
+- `RagQaContextBuilder` 填充 retrieval / truncation / citation 摘要；`DocumentQaServiceImpl` 在 RAG fallback 时只记录安全异常类型作为 fallbackReason。
+- 补充测试确认 trace 不含文档正文或 prompt marker，能表达 contextHash、fallback reason、contextTruncated 和 cacheKeyRagAware。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，24 tests。
+- `cd backend; mvn -Dtest=DocumentQaServiceImplTest test`：通过，36 tests。
+- `cd backend; mvn test -DskipITs`：通过，353 tests。
+
+### 当前边界
+
+- 未新增公开 REST API、Actuator endpoint、前端展示、数据库表、落库字段、Maven 依赖或 docker-compose 服务。
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、prompt、provider response、文档正文或 chunk 全文。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+
+## 2026-05-20 - T069 RAG QA Fake Smoke Verification
+
+### 本轮目标
+
+新增一个不依赖真实 embedding、Qdrant、Redis Vector 或 LangChain4j 的 RAG QA smoke，证明默认关闭的 QA RAG feature flag 在显式开启时可注入受限 context，并保留普通 QA 默认行为。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagQaSmokeVerificationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `RagQaSmokeVerificationTest`，使用 `RagQaContextBuilder` + fake embedding + in-memory vector store 构造 RAG context，并通过 `DocumentQaServiceImpl` 走真实 QA service path。
+- 覆盖 `app.rag.qa.enabled=true` 时 QA 输入包含受限 RAG context、retrievedCount > 0、context hash 存在、citation metadata 存在、cache key 对 RAG context hash 敏感。
+- 覆盖 `app.rag.qa.enabled=false` 时不调用 RAG builder，普通 QA context 仍按原路径传给 `AiAnswerService`。
+- smoke summary 只包含 documentId、ragEnabled、topK、contextHashExists、retrievedCount、fallbackUsed、citationCount 和 cacheKeyRagAware 等脱敏字段。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过，21 tests。
+- `cd backend; mvn -Dtest=DocumentQaServiceImplTest test`：通过，36 tests。
+- `cd backend; mvn test -DskipITs`：通过，350 tests。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、prompt、provider response 或文档正文。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose 服务。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+
+## 2026-05-20 - T068 Embedding Provider Preflight Retry
+
+### 本轮目标
+
+重新检查真实 embedding provider 环境变量；若齐全则做一次脱敏 embeddings health smoke，若缺失则准确记录 BLOCKED 并继续后续 fake embedding / in-memory RAG QA smoke。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+
+### 完成范围
+
+- 检查 `APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 的存在性。
+- 当前四个必要环境变量均为 False，真实 embedding runtime 保持 BLOCKED。
+- 未发起真实 embeddings HTTP 调用，未新增 preflight 脚本。
+
+### 验证结果
+
+- 仅文档记录更新；未修改 Java、前端或配置代码，未运行全量测试。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、request body、provider response 或文档正文。
+- 未把 chat model 当 embedding model 使用。
+- T068 BLOCKED 不阻塞 T069 / T070 / T071，因为后续 smoke 基于 fake embedding + in-memory vector store。
+
+## 2026-05-20 - T067 QA RAG Feature Flag Integration
+
+### 本轮目标
+
+在默认关闭前提下，把 RAG context 接入 QA execute path，并确认普通 QA / SSE / cache / rate limit 行为不被默认改动。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/`
+- `backend/src/main/java/com/docpilot/backend/ai/service/impl/DocumentQaServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentQaServiceImplTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `README.md`
+
+### 完成范围
+
+- 新增 `RagQaProperties`，默认 `app.rag.qa.enabled=false`，并支持 topK、maxContextChars 和 fallbackEnabled。
+- 新增 `RagQaContextBuilder`，使用当前 embedding factory + in-memory vector store 构造受限 RAG context，支持最大长度截断。
+- `DocumentQaServiceImpl` 仅在 flag 开启且 RAG 召回成功时注入 RAG context；RAG 异常或空召回会 fallback 普通 QA。
+- RAG context 使用时，QA answer cache key 加入 topK、maxContextChars 和 context hash，避免 flag=true/false 或不同 RAG 参数复用错误缓存。
+- 补充测试覆盖默认不变、flag=true context 注入、异常 fallback、空召回 fallback、maxContextChars / topK 传递、SSE 路径、rate limit 和 cache key 隔离。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentQaServiceImplTest test`：通过，36 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，19 tests。
+- `cd backend; mvn test -DskipITs`：通过，348 tests。
+
+### 当前边界
+
+- feature flag 默认关闭，默认 QA 行为不变。
+- T063 完成的是 embedding adapter；真实 embedding runtime 仍因环境变量缺失 BLOCKED，不能写成真实向量 RAG 已完成。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose 服务。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+- 未处理 T010 / MQ blocked。
+
+## 2026-05-20 - T063 Embedding Provider Adapter Preflight
+
+### 本轮目标
+
+新增真实 embedding adapter 架构，默认保持 fake embedding + in-memory RAG demo 行为；随后只做真实 embedding provider 环境变量 preflight，不强行通过 runtime。
+
+### 修改文件
+
+- `backend/src/main/resources/application.yml`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 完成范围
+
+- 新增 `app.rag.embedding.*` 独立配置命名空间，默认 provider 仍为 `fake`，不复用 selector / QA chat 配置。
+- 保留 `FakeEmbeddingModel` 默认路径，新增 `DisabledEmbeddingModel`、OpenAI-compatible `/embeddings` adapter skeleton 和 `EmbeddingModelFactory`。
+- `DocumentRagTool` 与 `RagIndexService` 已支持通过 factory 选择 embedding model；当前默认行为仍是 fake embedding + in-memory vector store demo。
+- OpenAI-compatible adapter 测试只使用本地 stub server 与 parser / request builder，不真实联网，不输出 secret。
+- T063d preflight：`APP_RAG_EMBEDDING_PROVIDER`、`APP_RAG_EMBEDDING_BASE_URL`、`APP_RAG_EMBEDDING_MODEL`、`APP_RAG_EMBEDDING_API_KEY` 存在性均为 False，真实 embedding runtime 标记为 BLOCKED，未发起真实 HTTP。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Embedding* test`：通过，16 tests。
+- `cd backend; mvn -Dtest=*Rag* test`：通过，13 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，334 tests。
+
+### 当前边界
+
+- 未读取 `backend/.env`，未输出 API Key、baseUrl、Authorization、request body、provider response 或文档正文。
+- 未新增公开 API、数据库表、Maven 依赖或 docker-compose 服务。
+- 未接 Qdrant / Redis Vector、LangChain4j 或 Spring AI。
+- 真实 embedding provider runtime 尚未验证；不能写成真实向量 RAG 已完成。
+
+## 2026-05-20 - T062 LLM Execute Runtime Verification Closeout
+
+### 本轮目标
+
+在 T062c 真实 provider summary / QA / RAG runtime 通过后，完成 T062d fallback 验证与 T062e 文档收口。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/service/DocumentAgentLlmExecuteModeTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+
+### 完成范围
+
+- T062d：新增 provider timeout fallback 服务级测试，使用本地 stub server 和极短 request timeout 验证 `llm_execute` 失败后回退 keyword selector，最终仍由服务端执行 keyword 选中的工具。
+- 现有测试继续覆盖 provider disabled、provider exception、invalid decision / unknown toolName、decision / toolNames 不匹配、parser failure 等 fallback 路径。
+- T062e：协作文档已收口，明确当前实现是 Function-calling-style / LLM 工具选择执行模式；OpenAI-compatible client 使用 chat completions 文本 JSON 输出再解析，不是 OpenAI 官方 tools / function_call API。
+- 文档明确默认 production routing 仍为 `keyword`，`llm_execute` 必须显式开启；模型只返回 decision / toolNames，实际工具执行和参数构造仍由服务端 `ToolRegistry` allowlist 控制。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过，11 tests。
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest,RealLlmSelectorShadowRunnerTest,OpenAiCompatibleLlmToolSelectionClientTest test`：通过，29 tests。
+- `cd backend; mvn test -DskipITs`：通过，318 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 当前边界
+
+- 未读取 `backend/.env`，未输出 secret、baseUrl、Authorization、prompt、provider 响应或文档正文。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose 服务。
+- 未修改默认 production routing，默认仍为 keyword selector。
+- 未处理 T010 / MQ blocked；T063 / T067 未执行。
+
+## 2026-05-20 - T062c Recovery Real Provider Runtime
+
+### 本轮目标
+
+修复真实 provider `llm_execute` runtime 的偶发 timeout / fallback 不稳定问题，并重新验证 summary / QA / RAG 三条工具路径；本轮不进入 T063 / T067。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClient.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactory.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClientTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactoryTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+
+### 完成范围
+
+- T062c0：新增 `llmConnectTimeoutMs`，默认 5000ms；`llmRequestTimeoutMs` 默认改为 30000ms；OpenAI-compatible client 的 `HttpClient.connectTimeout` 与 `HttpRequest.timeout` 分别使用独立配置；factory 已传入两个 timeout。
+- 修复 fake provider 对 compact prompt `Task:` marker 的兼容，避免离线 shadow / factory tests 在新 prompt 格式下误读 available tools 文本。
+- T062c1：真实 provider health smoke 通过，只输出存在性与分类结果，不输出环境变量值、baseUrl、prompt 或响应正文。
+- T062c2-c4：真实 provider `llm_execute` 独立 runtime 验证 summary / QA / RAG 三条路径通过；LLM decision 可解析，服务端 allowlist 校验通过，server-side 工具执行成功，`fallbackUsed=false`。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过，12 tests。
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过，8 tests。
+- `cd backend; mvn -Dtest=LlmToolSelectionClientFactoryTest test`：通过，5 tests。
+- `cd backend; mvn -Dtest=FakeLlmToolSelectionClientTest,RealLlmToolSelectorFactoryTest,RealLlmSelectorShadowRunnerTest,RealShadowProviderEvaluationTest test`：通过，26 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，317 tests。
+- 临时 health / runtime harness 已删除，未提交。
+
+### 当前边界
+
+- 当前实现仍不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 allowlist 校验并执行工具。
+- 默认 production routing 仍为 `keyword`；`llm_execute` 必须显式开启。
+- 未读取 `backend/.env`，未输出 API Key、baseUrl、Authorization、prompt、provider 响应或文档正文。
+- 未新增公开 API、前端、数据库表、Maven 依赖或 docker-compose 服务。
+- T062d fallback 路径验证尚未执行；T010 / MQ blocked 未处理；T063 / T067 未执行。
+
+## 2026-05-20 - T062 LLM Execute Runtime Validation Closeout
+
+### 本轮目标
+
+按 T062a-c 验证 `llm_execute` 安全边界、fake provider 全路径和真实 provider runtime 前置条件；若真实 provider 环境缺失则停止，不编造通过结果。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/service/DocumentAgentLlmExecuteModeTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/PROMPT_ENGINEERING_NOTES.md`
+
+### 完成范围
+
+- T062a：审计确认默认 routing 仍为 `keyword`，默认 provider 仍为 `disabled`，`llm_execute` 必须显式开启；日志与 fallback reason 不输出 prompt、文档正文、API Key、baseUrl 或 Authorization。
+- T062b：fake provider 覆盖 summary / QA / RAG 三条 `llm_execute` 工具执行路径；响应包含 primary / llm / final decision、`toolSelectionSource=llm_execute`、`fallbackUsed=false`；服务端执行 allowlist 中工具。
+- T062b 还补齐 keyword mode 不变、provider disabled fallback、未知 toolName fallback、decision / toolNames 不匹配 fallback。
+- T062c：真实 provider runtime 验证 BLOCKED，当前 shell 未注入 5 个必要环境变量，未执行真实 HTTP。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过，10 tests。
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentToolSelectorTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，314 tests。
+
+### 当前边界
+
+- T062c 是 BLOCKED，不是通过：`APP_AGENT_SELECTOR_MODE=false`、`APP_AGENT_SELECTOR_LLM_PROVIDER=false`、`APP_AGENT_SELECTOR_LLM_BASE_URL=false`、`APP_AGENT_SELECTOR_LLM_MODEL=false`、`APP_AGENT_SELECTOR_LLM_API_KEY=false`。
+- 未读取 `backend/.env`，未输出任何真实变量值、API Key、baseUrl、Authorization、prompt 或文档正文。
+- 没有真实 provider HTTP 调用，provider 调用次数为 0。
+- T062d 未执行，因为 T062c 触发停止条件；T063 / T067 未执行。
+- 当前实现不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端 allowlist 校验并执行工具。
+- 未新增公开 API，未修改默认 production routing，未修改默认配置，未新增数据库表，未改 docker-compose。
+
+## 2026-05-20 - T062a LLM Execute Safety Audit
+
+### 本轮目标
+
+审计 `llm_execute` 真实 provider 执行路径的默认关闭、安全日志、allowlist 校验和 fallback 脱敏边界。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 审计结论
+
+- 默认 production routing 仍为 `keyword`，默认 provider 仍为 `disabled`，`llm_execute` 必须显式开启。
+- 当前实现不是 OpenAI 官方 tools / function_call API，而是 OpenAI-compatible chat completions 文本 JSON 选择，再由服务端执行工具。
+- LLM 只能返回 `decision` / `toolNames` 等选择字段；服务端通过 parser、`ToolRegistry` allowlist 和 required tool 校验，使用既有上下文执行 summary / QA / RAG，不执行模型生成代码，也不信任模型传入任意参数。
+- provider disabled、HTTP / timeout / client 异常、非法 JSON、未知 toolName、decision 与 toolNames 不匹配时 fail-open 回退 keyword selector。
+- 日志与 fallback reason 只保留 provider、decision 和异常类型摘要，不输出 prompt、文档正文、API Key、baseUrl 或 Authorization。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过。
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 当前边界
+
+- T062a 未真实调用 provider。
+- 未读取 `backend/.env`。
+- 未修改生产代码、默认配置、公开 API、数据库表、docker-compose 或 production routing。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+
+## 2026-05-20 - T051-T060 Overnight Closeout
+
+### 本轮目标
+
+按夜间队列完成 T051、T058、T059、T060 后执行全局验证，并更新协作文档收口。
+
+### 完成范围
+
+- T051：默认关闭的 LLM tool execution mode，显式 `llm_execute` 才允许 LLM decision 进入工具选择；ToolRegistry allowlist 校验；失败 fallback keyword。
+- T058：`/agent` 页面新增 Agent Workflow timeline，基于已有 run response 和 persisted trace 派生展示。
+- T059：新增 `docs/PROMPT_ENGINEERING_NOTES.md`，补齐 prompt、JSON 输出协议、parser、allowlist、fallback 和 bad case 证据链。
+- T060：新增 `backend/scripts/agent/demo-agent-showcase.ps1` 和 `docs/DEMO_SCRIPT.md`，提供安全 demo 脚本。
+
+### 最终验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，312 tests。
+- `cd frontend; npm run lint`：通过，无 ESLint warning / error。
+- `cd frontend; npm run build`：通过，Next.js production build 成功。
+
+### 当前边界
+
+- T051d 真实 provider execute runtime 仍为 BLOCKED：当前 shell 未注入 provider / 中间件环境变量。
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl、Authorization、prompt、文档正文或完整 answer。
+- 未新增公开 API。
+- 未修改默认 production routing。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+- 未新增数据库表、DDL 或 docker-compose 服务。
+- 未处理 T010 / MQ blocked。
+- 本轮未启动长期后端 / 前端服务，无本轮需清理的服务进程。
+
+## 2026-05-20 - T060 Agent Showcase Demo Script
+
+### 本轮目标
+
+新增一个安全版 Agent Showcase demo 脚本，默认只验证当前已有后端服务，不读取 `backend/.env`，不输出 secret，不硬编码 API Key 或 token。
+
+### 修改文件
+
+- `backend/scripts/agent/demo-agent-showcase.ps1`
+- `docs/DEMO_SCRIPT.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `demo-agent-showcase.ps1`，参数包括 `BackendBaseUrl`、`DocumentId`、`Mode=qa|rag|summary` 和可选 `Token`。
+- `DocumentId` 必须显式传入；脚本不会硬编码 `documentId=61`。
+- token 只通过 `-Token` 或当前 shell 的 `DOCPILOT_AUTH_TOKEN` 注入，脚本不会打印 token。
+- 调用 `/api/ai/agent/run` 后只输出脱敏摘要：taskId、decision、routingReason 是否存在、matchedKeywords / citations / ragResults / steps 计数、fallbackUsed 和 toolSelectionSource。
+- 新增 `docs/DEMO_SCRIPT.md` 记录使用方式、输出字段和安全边界。
+
+### 验证结果
+
+- PowerShell 语法检查通过。
+- 当前 shell 未提供 `DOCPILOT_AUTH_TOKEN`，因此未执行真实 runtime 调用。
+- 本轮未启动后端 / 前端服务，未连接远程环境。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未输出 API Key、baseUrl 敏感值、Authorization、prompt、文档正文或完整 answer。
+- 未新增公开 API。
+- 未修改默认 production routing。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+
+## 2026-05-20 - T059 Prompt Engineering Evidence Notes
+
+### 本轮目标
+
+补齐 Prompt Engineering / Tool Selection Engineering 证据链，让面试时能讲清楚 prompt、输出协议、解析、allowlist、fallback 和 bad cases。
+
+### 修改文件
+
+- `docs/PROMPT_ENGINEERING_NOTES.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/INTERVIEW_QA.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/PROMPT_ENGINEERING_NOTES.md`。
+- 记录 tool selection prompt 的结构：task、document state、tool definitions、decision enum、安全限制和 JSON 输出协议。
+- 记录 parser 校验：JSON object、decision enum、toolNames 非空数组、ToolRegistry allowlist、confidence 范围。
+- 记录 execute mode 的服务端二次校验：decision required tool、registered tool、server-side 工具输入构造。
+- 记录 fallback 策略：provider disabled / timeout / client 异常、非法 JSON、未知 toolName、decision 与 toolNames 冲突时回退 keyword selector。
+- 记录 shadow-only 到 execute mode 的演进路径和 bad cases。
+
+### 验证结果
+
+- 文档 diff 自查。
+- 中文 Markdown 乱码特征扫描：未发现新增乱码。
+- 过度宣传关键词扫描：命中均处于否定或边界说明语境。
+
+### 当前边界
+
+- 未修改 Java 生产代码。
+- 未新增测试。
+- 未真实调用 provider。
+- 未输出真实 prompt、文档正文、API Key、baseUrl、Authorization 或模型完整返回。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+
+## 2026-05-20 - T058 Agent Workflow Showcase
+
+### 本轮目标
+
+增强 `/agent` Showcase 页面 workflow 感知，让招聘方能看出当前 Agent 链路是“接收任务 -> 选择工具 -> 执行工具 -> 生成结果 -> 持久化 trace”，而不是普通接口调用。
+
+### 修改文件
+
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+
+### 实现内容
+
+- 在结果区新增 Agent Workflow timeline。
+- timeline 只基于已有响应字段和持久化 trace 派生：`documentId`、`decision`、`routingReason`、runtime steps、`taskId`、persisted steps 和 task status。
+- 执行工具阶段优先展示 persisted steps，未加载到 persisted trace 时展示本次 runtime steps。
+- 持久化 trace 阶段区分 `taskId returned`、`loading persisted trace` 和 persisted task status。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，无 ESLint warning / error。
+- `cd frontend; npm run build`：通过，Next.js production build 成功。
+- `cd backend; mvn test -DskipITs`：通过，312 tests。
+
+### 当前边界
+
+- 未新增公开 API。
+- 未修改后端 response VO。
+- 未修改 Agent 默认 routing。
+- 未新增数据库表、中间件或 docker-compose 服务。
+- 未接 LangChain4j、Qdrant、Redis Vector 或真实 embedding。
+- 未伪造不存在的后端步骤；页面只展示已有数据的 workflow 视图。
+
+## 2026-05-20 - T051 LLM Tool Execution Mode
+
+### 本轮目标
+
+新增默认关闭的 Function Calling / Tool Execution 可开关模式：默认仍用 keyword selector；只有显式设置 `app.agent.selector.mode=llm_execute` 时，才允许 LLM selector 的结果作为实际执行工具。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolExecutionDecision.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/vo/DocumentAgentResponse.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/service/DocumentAgentLlmExecuteModeTest.java`
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/INTERVIEW_QA.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `AgentSelectorProperties` 新增 `MODE_LLM_EXECUTE`，默认仍为 `keyword`，并兼容 `real-llm-execute` alias。
+- 新增 `ToolExecutionDecision`，记录 primaryDecision、llmDecision、finalDecision、fallbackUsed、fallbackReason、provider、matched、routingReason、matchedKeywords 和 toolSelectionSource。
+- `DocumentAgentServiceImpl` 在文档 parseReady 后先计算 keyword primary decision；仅当 `mode=llm_execute` 时调用 real LLM selector，并校验 LLM 返回 decision / toolName 必须匹配 `ToolRegistry` allowlist。
+- 工具执行仍由服务端按现有上下文构造输入：`userId`、`documentId`、`task`、`sessionId` 和已解析文档内容；不执行模型生成代码，不信任模型生成任意参数。
+- provider disabled、provider 异常、parser 失败、非法 toolName 或 required toolName 缺失时 fail-open 回退 keyword selector。
+- `DocumentAgentResponse` 向后兼容新增 selection debug 字段：`primaryDecision`、`llmDecision`、`finalDecision`、`fallbackUsed`、`fallbackReason`、`executionMode`、`toolSelectionSource`。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn -Dtest=*ToolSelector* test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentLlmExecuteModeTest test`：通过，8 tests。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，312 tests。
+- `cd frontend; npm run lint`：通过，无 ESLint warning / error。
+- `cd frontend; npm run build`：通过，Next.js production build 成功。
+
+### T051d runtime 状态
+
+- T051d 真实 provider execute runtime：BLOCKED。
+- 当前 shell 未注入 OpenAI-compatible provider 和本地 / 远程中间件环境变量。
+- 本轮未读取 `backend/.env`，未输出 API Key、完整 baseUrl、Authorization、prompt 或文档内容。
+- 本轮未启动后端 / 前端服务，未调用真实 provider，未连接远程 SQL / DDL。
+
+### 当前边界
+
+- 默认 production routing 仍是 keyword selector。
+- `llm_execute` 必须显式开启。
+- 未新增公开 API。
+- 未修改前端页面。
+- 未接 LangChain4j、Spring AI、MCP、Qdrant、Redis Vector 或真实 embedding。
+- 未新增数据库表或 DDL。
+- 未处理完整 T010 / MQ blocked。
+- 不能写成生产环境已启用 Function Calling。
+
+### 最终收口
+
+- T051a-c 和 T051e 已完成并提交。
+- T051d 因当前 shell 未注入 provider / 中间件环境变量保持 BLOCKED，未做真实 provider execute runtime。
+- 全局验证已完成：后端全量测试、前端 lint 和前端 build 均通过。
+- 本轮未启动长期后端 / 前端服务，无本轮需清理的服务进程。
+
+## 2026-05-20 - T057 Agent + RAG Showcase Runtime Evidence
+
+### 本轮目标
+
+为求职投递准备 Agent + RAG Showcase 的 runtime 证据：真实打开 `/agent` 页面，使用当前账号可访问的已解析文档验证 `rag_tool` 和普通 QA 路径，并生成可引用截图。
+
+### 当前已完成
+
+- 使用本轮独立后端 `8082` 和前端 `3001` 完成浏览器验证，未误杀既有 `8081` / `3000` 服务。
+- 使用 `documentId=61` 触发 `rag_tool`，页面展示 `routingReason`、`matchedKeywords`、retrieved chunk、score、metadata、answer context 入口、`taskId` 和 persisted steps。
+- 使用同一文档触发普通 QA，页面展示 `qa_tool`、citations 和 persisted steps，确认原有 QA 路径未被 RAG demo 破坏。
+- 新增截图包：`docs/assets/screenshots/agent-showcase-overview.png`、`agent-rag-retrieval-results.png`、`agent-routing-explanation.png`、`agent-persisted-steps.png`、`agent-citations.png`。
+- README、项目面试 brief 和简历 bullet 已引用或描述 Agent + RAG Showcase 证据。
+
+### T057d 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过，302 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+- 本轮启动的独立后端 / 前端进程已在收尾阶段清理；既有 `8081` / `3000` 进程不是本轮启动，未误杀。
+
+### 当前边界
+
+- 截图来自测试文档 `documentId=61`，不包含 API Key、token、真实公网 IP、环境变量或私密用户文档。
+- RAG 仍是 fake embedding + in-memory vector store demo；未接真实 embedding、Qdrant / Redis Vector、LangChain4j、数据库表或公开 REST API。
+- 本轮未改变 production routing；未处理完整 T010 / MQ blocked。
+
+## 2026-05-20 - T055 RAG Agent Showcase Demo
+
+### 本轮目标
+
+把 T054 的 fake embedding + in-memory vector store 内部 RAG 能力接到 Agent Showcase demo 路径，并让 `/agent` 页面展示 RAG 召回片段、score / similarity、citation metadata 和 Agent trace。本轮不接真实 embedding provider，不接 Qdrant / Redis Vector，不接 LangChain4j，不新增数据库表，不新增公开 REST API，不修改 production routing。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentRagTool.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolDefinitionProvider.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionParser.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionPromptBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClient.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/vo/DocumentAgentResponse.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentRagToolTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelectorTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `frontend/app/agent/page.tsx`
+- `frontend/lib/agent-api.ts`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增实验性 `document_rag_tool`，从已解析文档正文构建 fake embedding + in-memory vector store，并返回 topK retrieved chunks、score、metadata 和 answer context。
+- `DocumentToolSelector` 只在明确 RAG / 检索 / 召回 / 相似度 / 片段 / 找依据类任务中路由到 `rag_tool`，避免影响原有 summary / QA / status 行为。
+- `DocumentAgentResponse` 向后兼容新增 `ragResults` / `ragAnswerContext` 字段；没有删除或改变原字段。
+- `/agent` 页面新增 RAG 召回任务模板和展示区，展示 retrieved chunks、score / similarity、citation metadata、RAG demo 边界说明、finalAnswer 和 trace。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=*Rag* test`：通过。
+- `mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `mvn -Dtest=DocumentToolSelectorTest test`：通过。
+- `mvn -DskipTests compile`：通过。
+- `mvn test -DskipITs`：通过，302 tests passed。
+- `cd frontend; npm run lint`：通过。
+- `npm run build`：通过。
+
+### 明确未做事项
+
+- 未读取 `backend/.env`，未输出 secret。
+- 未接真实 embedding provider、Qdrant、Redis Vector 或 LangChain4j。
+- 未新增数据库表、DDL、docker-compose 服务或公开 REST API。
+- 未修改 `application.yml` / `application-local.yml`。
+- 未改变 production routing；RAG 是求职展示用的实验性 Agent demo 路径。
+- 未处理完整 T010 / MQ blocked；完整上传解析链路仍为 BLOCKED。
+
+## 2026-05-19 - T054 RAG Minimal Internal Service
+
+### 本轮目标
+
+用 fake embedding + in-memory fake vector store 打通最小 RAG 内部闭环。本轮不接真实 embedding provider，不接 Qdrant，不接 LangChain4j，不新增数据库表，不新增公开 REST API，不修改 production Agent routing。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/rag/DocumentChunk.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/EmbeddingVector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/EmbeddingModel.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/FakeEmbeddingModel.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/InMemoryVectorStore.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/VectorSearchResult.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagIndexService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagRetrievalService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagAnswerContextBuilder.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagAnswerContext.java`
+- `backend/src/main/java/com/docpilot/backend/ai/rag/RagCitation.java`
+- `backend/src/test/java/com/docpilot/backend/ai/rag/RagMinimalInternalServiceTest.java`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `DocumentChunk` 和 `EmbeddingVector` 等 RAG 内部值对象。
+- 新增 `EmbeddingModel` 接口和 `FakeEmbeddingModel`，用稳定 hash bag-of-terms 生成可重复 embedding。
+- 新增 `VectorStore` 接口和 `InMemoryVectorStore`，支持 add / searchTopK，按 documentId 过滤并以 cosine similarity 排序。
+- 新增 `RagIndexService`，支持把文档文本按 chunkSize / overlap 切分为 chunks，并写入内存向量库。
+- 新增 `RagRetrievalService`，支持根据 question 生成 query embedding 并检索 topK chunks。
+- 新增 `RagAnswerContextBuilder`，将检索结果组装成可注入 prompt 的上下文，并保留 citation metadata。
+- 新增单元测试覆盖 chunk split、fake embedding deterministic、vector store topK、retrieval by query 和 answer context with citations。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RagMinimalInternalServiceTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，297 tests。
+- 全量测试前已通过 T054x 稳定既有 `Task11_6BenchmarkTest.shouldGenerateStage11Task11_6BenchmarkArtifacts` 的 cache hit timing 脆弱断言；该修复独立提交，未跳过测试或降低业务断言。
+
+### 当前边界
+
+- 未读取 `backend/.env`。
+- 未新增依赖。
+- 未修改 `pom.xml`。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未新增数据库表或 DDL。
+- 未新增公开 REST API。
+- 未接真实 embedding provider。
+- 未接 Qdrant / Redis Vector。
+- 未接 LangChain4j。
+- 未修改现有 QA / Agent 主流程。
+- 未改变 production routing。
+
+## 2026-05-19 - T053 Vector Store Selection
+
+### 本轮目标
+
+比较 Qdrant、Redis Vector / Redis Stack、MySQL fallback 和 in-memory fake vector store，给 DocPilot 最小 RAG 选出求职冲刺优先方案和后续工程化方案。本轮只写选型，不实现代码。
+
+### 修改文件
+
+- `docs/VECTOR_STORE_SELECTION.md`
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/VECTOR_STORE_SELECTION.md`，按接入成本、本地 / 远程中间件成本、Java / Spring Boot 复杂度、求职展示价值、生产化潜力、测试难度和面试解释难度比较四类方案。
+- 明确求职冲刺优先方案：fake embedding + in-memory fake vector store，先打通 service、retrieve、citations 和测试闭环。
+- 明确后续工程化方案：Qdrant 作为 primary vector store，MySQL 保存 chunk metadata，in-memory fake 保留为测试替身。
+- 说明 Redis Vector / Redis Stack 只在运行环境确实支持 RediSearch / vector index 时作为备选。
+- 补充 T054 前置确认项：是否允许新增 docker-compose 服务、是否使用远程中间件、embedding 使用 fake 还是真实模型、是否需要新表。
+
+### 验证结果
+
+- 文档 diff 自查。
+- 未运行后端 / 前端测试；本轮未修改代码。
+
+### 当前边界
+
+- 未修改 docker-compose。
+- 未修改配置文件。
+- 未新增后端 API。
+- 未实现 embedding。
+- 未实现向量库。
+- 未修改 DDL。
+- 未修改 production routing。
+
+## 2026-05-19 - T052 RAG Minimal Design
+
+### 本轮目标
+
+设计 DocPilot 从当前轻量文档问答升级到最小 RAG 的最短路径。本轮只写设计，不实现 RAG，不新增 API，不接 embedding provider，不接向量库。
+
+### 修改文件
+
+- `docs/RAG_MINIMAL_DESIGN.md`
+- `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/RAG_MINIMAL_DESIGN.md`，明确当前已有链路：文档上传 / 解析状态、文档问答、citations 和 Agent QA tool。
+- 设计最小 RAG 目标链路：parsed text、chunk、embedding、vector store、retrieve topK、prompt assemble、answer、citations / score 展示。
+- 补充 `document_chunk`、`chunk_embedding` 或 vector store payload 的数据模型草案。
+- 补充内部 service 草案、fallback 策略、fake embedding / deterministic retrieve / citation mapping 测试策略和面试说法。
+- 架构说明同步加入最小 RAG 演进路径，避免把当前轻量检索增强误写成完整向量 RAG。
+
+### 验证结果
+
+- 文档 diff 自查。
+- 未运行后端 / 前端测试；本轮未修改代码。
+
+### 当前边界
+
+- 未实现 RAG。
+- 未新增后端 API。
+- 未修改后端 Java、前端代码、配置、DDL 或 production routing。
+- 未接 embedding provider。
+- 未接向量库。
+- 完整 T010 仍因 MQ disabled / `NoopParseTaskMessageProducer` BLOCKED。
+
+## 2026-05-19 - T056 Job Materials Refocus
+
+### 本轮目标
+
+把 README 和 docs 中的项目介绍切换到 AI Agent / RAG / Function Calling 求职展示口径。
+
+### 修改文件
+
+- `README.md`
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`
+- `docs/RESUME_BULLETS.md`
+- `docs/INTERVIEW_QA.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- README 新增面向 AI Agent Internship Reviewers 的快速说明，突出 Agent Showcase、ToolRegistry / ToolSelector、执行轨迹和真实边界。
+- 项目 brief 增加求职展示优先级，建议优先展示 Agent Showcase 和 SSE / citations，再诚实解释 RAG 与 Function Calling 下一阶段规划。
+- 架构说明补充 `/agent` Showcase 页面在展示链路中的位置。
+- 简历 bullet 新增 AI Agent / RAG 实习投递版本。
+- 面试 QA 补充 LangChain / LangGraph / Dify 区别、是否是真 Function Calling、RAG 还没做如何解释等问题。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改 Java 生产代码。
+- 未修改前端代码。
+- 未修改配置文件。
+- 未新增 API。
+- 未接 RAG。
+- 未接真实 Function Calling takeover。
+- 未改变 production routing。
+- 未把 RAG、Prometheus、Spring Security 或 Function Calling takeover 写成已完成。
+
+## 2026-05-19 - T050 Agent Showcase Page
+
+### 本轮目标
+
+把 `/agent` 页面打磨成适合发给招聘方截图的 Agent Showcase 页面。
+
+### 修改文件
+
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 页面标题调整为 Java AI Agent 文档问答 Demo。
+- 新增招聘方可读说明，概括 ToolRegistry、DocumentToolSelector、AgentTask / AgentStep 和 citations。
+- 新增 Lite 验证边界，明确只验证已解析文档上的 Agent 运行，不验证上传解析链路；real provider 当前只做 shadow-only。
+- 任务模板改为摘要、状态 + 总结、证据问答三类截图友好入口。
+- 结果区强化展示 decision、routingReason、matchedKeywords、taskId、citations 和持久化 steps。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 当前边界
+
+- 未修改后端 Java。
+- 未修改后端配置。
+- 未修改 DDL。
+- 未修改 package / lock 文件。
+- 未新增 API。
+- 未接 RAG。
+- 未接真实 Function Calling takeover。
+- 未改变 production routing。
+- 本轮未做浏览器 runtime 验证；后续可用当前账号已解析文档复测。
+
+## 2026-05-17 - T040e README Interview Showcase
+
+### 本轮目标
+
+更新 README 对外展示口径，让 GitHub 主页更适合投递，同时避免把设计中、BLOCKED 或默认关闭的能力写成已完成。
+
+### 修改文件
+
+- `README.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- README 补充 AI 文档问答、SSE 流式响应、Agent 最小闭环、AgentTask / AgentStep 持久化、ToolSelector、selector shadow compare、真实 provider shadow-only、metrics debug dump 和默认关闭 Actuator endpoint。
+- 调整 Prometheus / Actuator 表述：selector Prometheus metrics 仍是设计，`agentSelectorShadow` endpoint 默认关闭，未生产开启。
+- 调整面试演示建议：优先展示已解析文档上的 QA / SSE 和 Agent trace；完整上传解析链路需先确认 RocketMQ / consumer 环境。
+- 明确 T010 与 T030 仍为 BLOCKED，shadow decision 不接管 production routing。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端代码。
+- 未修改配置文件。
+- 未新增 Spring Security。
+- 未接 Prometheus。
+- 未真正开启 Actuator endpoint。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+
+## 2026-05-17 - T040a Project Interview Brief
+
+### 本轮目标
+
+进入 T040 项目投递和面试向收口，先完成当前真实能力审计。
+
+### 修改文件
+
+- `docs/PROJECT_INTERVIEW_BRIEF.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增项目一句话定位。
+- 梳理当前真实已实现能力、半实现能力和 BLOCKED 能力。
+- 明确不能写成已完成的能力：Prometheus 未接入、Spring Security 未接入、Actuator endpoint 默认关闭、shadow decision 未接管 production routing。
+- 整理 5 个适合简历展示的工程亮点。
+- 补充面试高风险追问和诚实回答。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端代码。
+- 未修改配置文件。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+- T010 仍 BLOCKED。
+- T030 仍 BLOCKED。
+
+## 2026-05-17 - T040b Project Architecture Overview
+
+### 本轮目标
+
+创建项目架构说明，帮助面试时讲清整体系统、核心链路和边界。
+
+### 修改文件
+
+- `docs/PROJECT_ARCHITECTURE_OVERVIEW.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增总体架构说明，覆盖 Next.js、Spring Boot、MySQL、Redis、RocketMQ、MinIO 和 OpenAI-compatible provider。
+- 补充文档上传、解析任务、问答、SSE、Agent run、AgentTask / AgentStep、selector shadow、metrics debug dump 和默认关闭 Actuator endpoint 的链路说明。
+- 新增系统总体架构图和 Agent 执行链路图。
+- 明确完整 MQ 解析链路当前验证 BLOCKED、Actuator endpoint 默认关闭、Prometheus 只是设计未接入。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改代码、测试、前端或配置。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+
+## 2026-05-17 - T040c Resume Bullets
+
+### 本轮目标
+
+整理 DocPilot 面向 Java 后端实习、AI 应用开发和 AI 全栈投递的简历 bullet。
+
+### 修改文件
+
+- `docs/RESUME_BULLETS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增保守版、标准后端实习版和 AI 应用工程化版三套简历写法。
+- 每套包含项目名称、一句话描述和 3-5 条 bullet。
+- 明确哪些能力只能写成设计或预留，不能写成已完成。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改代码、测试、前端或配置。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+
+## 2026-05-17 - T040d Interview QA
+
+### 本轮目标
+
+生成面向 Java 后端实习面试的 DocPilot 问答稿。
+
+### 修改文件
+
+- `docs/INTERVIEW_QA.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 30 个高频面试问题，覆盖项目介绍、上传解析、RocketMQ、SSE、Agent、selector shadow、真实 provider、metrics / Actuator、BLOCKED 点和后续优化。
+- 每题包含面试可背版回答、面试官追问、诚实边界和项目对应位置。
+
+### 当前边界
+
+- 仅修改文档。
+- 未修改代码、测试、前端或配置。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+
+## 2026-05-17 - T031/T032 Actuator Enablement And Metrics Planning
+
+### 本轮目标
+
+连续完成 T031 local / dev 临时开启示例文档和 T032 selector shadow Prometheus metrics 设计。本轮只写文档，不修改代码、测试、配置或前端。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- T031 已完成：补充 local PowerShell 临时环境变量示例、dev 运维侧显式开启边界、配置命名注意和禁止策略。
+- T032 已完成：新增 `docs/AGENT_SELECTOR_PROMETHEUS_METRICS_DESIGN.md`，设计候选数值指标、低风险 label、禁止字段、风险和 T033-T036 后续拆分。
+- 同步 TODO / HANDOFF / observability / shadow mode，标记 T031 / T032 完成。
+
+### 当前边界
+
+- T031 只是文档示例，没有真正开启 endpoint。
+- T032 只是 Prometheus 设计，没有接入 Prometheus。
+- T030 仍 BLOCKED，原因是项目缺少 Spring Security Web 鉴权体系。
+- 不建议现在为了 T030 引入 Spring Security 依赖。
+- endpoint 当前仍默认关闭。
+- 没有修改 Java 生产代码。
+- 没有修改测试代码。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有修改任何 profile 配置文件。
+- 没有新增 Maven 依赖。
+- 没有修改前端。
+- 没有读取或输出 secret。
+- 没有修改 production routing。
+- 完整 T010 仍为 BLOCKED。
+
+### 下一步
+
+建议进入 T033 Prometheus metrics 设计审查，或先开 T030-design-review 重新收窄鉴权验证方案。
+
+## 2026-05-17 - T030 Selector Actuator Security Test Preflight
+
+### 本轮目标
+
+测试内验证 `agentSelectorShadow` Actuator endpoint 的鉴权策略，包括未认证、普通用户、运维 / 管理角色访问行为。
+
+### 当前结果
+
+T030a preflight 已完成，但 T030 进入 BLOCKED。当前后端只发现 `spring-security-crypto`，没有发现 `spring-boot-starter-security`、`spring-security-test`、`SecurityFilterChain` 或现有 Web 鉴权测试配置。
+
+### 阻塞原因
+
+本轮边界不允许新增 Maven 依赖，不允许修改生产配置，也不允许新增生产 Spring Security 配置。因此无法在测试内可靠验证未认证 401 / 403、普通用户 403、OPS / ACTUATOR_ADMIN 200 的访问策略。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 当前边界
+
+- 未新增测试类。
+- 未修改 Java 生产代码。
+- 未修改现有测试代码。
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未修改前端。
+- 未接 Prometheus。
+- 未操作远程中间件。
+- 未真实调用 provider。
+- 未读取或输出 secret。
+- 未修改 production routing。
+- 完整 T010 仍为 BLOCKED。
+
+### 下一步
+
+需要用户确认是否允许新增测试所需的 Spring Security 依赖，或先开 T030-design-review 重新收窄鉴权验证方案。
+
+## 2026-05-17 - T029 Actuator Security Integration Design
+
+### 本轮目标
+
+完成 Spring Security / Actuator 安全集成设计。本轮只写文档，不修改 Java、测试、配置、前端，不真正开启 endpoint。
+
+### 修改文件
+
+- `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/AGENT_ACTUATOR_SECURITY_INTEGRATION_DESIGN.md`。
+- 设计未来 `agentSelectorShadow` Actuator endpoint 的访问角色、路径边界、未授权访问行为和访问来源限制。
+- 设计未来 T030 测试内鉴权策略验证范围。
+- 补充 dev / prod 开启前人工 checklist 和回滚策略。
+- 同步 TODO / HANDOFF / selector actuator / observability / shadow mode 文档，将 T029 标记为完成的设计任务。
+
+### 当前边界
+
+- T029 只写设计文档。
+- endpoint 当前仍默认关闭。
+- 没有实现 Spring Security。
+- 没有新增 `SecurityFilterChain`。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有真正开启 endpoint。
+- 没有接 Prometheus。
+- 没有修改 Java 生产代码。
+- 没有修改测试代码。
+- 没有修改前端。
+- 没有读取或输出 secret。
+- 没有修改 production routing。
+- 完整 T010 仍为 BLOCKED。
+
+### 下一步
+
+建议进入 T030-test-security-integration 的测试内鉴权策略验证设计审查，或先让 CC / 人工审查 T029；不建议直接进入生产开启。
+
+## 2026-05-16 - T028 Selector Actuator Local Enablement Plan
+
+### 本轮目标
+
+同步 T027 完成状态，并完成 T028 dev profile / local enablement proposal。本轮只写文档，不修改 Java、测试、配置、前端，不真正开启 endpoint。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录 T027 已完成：`AgentSelectorShadowEndpointEnabledTest` 在测试 properties 中显式开启 endpoint，返回 200，字段白名单 / 黑名单、空 metrics 和 metrics 不变检查通过。
+- 补充配置命名坑：`management.endpoint.agent-selector-shadow.enabled=true` 使用单数 endpoint 和 relaxed binding；`management.endpoints.web.exposure.include=agentSelectorShadow` 使用复数 endpoints，值必须是 endpoint id；禁止 `management.endpoints.web.exposure.include=*`。
+- 补充 local 临时环境变量开启草案，明确只是本地临时示例，不是仓库默认配置。
+- 补充 dev 部署环境变量开启草案和 dev 开启前置条件。
+- 拆分后续 T029-T032，避免后续直接上生产开启。
+
+### 当前边界
+
+- T028 是设计文档任务。
+- endpoint 当前仍默认关闭。
+- 没有修改 `application.yml`。
+- 没有修改 `application-local.yml`。
+- 没有真正开启 dev / local / prod endpoint。
+- 没有新增 Spring Security。
+- 没有接 Prometheus。
+- 没有修改 Java 生产代码。
+- 没有修改测试代码。
+- 没有修改前端。
+- 没有读取或输出 secret。
+- 没有修改 production routing。
+- 完整 T010 仍为 BLOCKED。
+
+### 下一步
+
+当时下一步指向 T029-security-integration-design，或先让 CC / 人工审查 T028 的 local / dev 开启方案；该设计任务现已由 T029 完成。
+
+## 2026-05-16 - T027 Selector Actuator Enabled Test
+
+### 本轮目标
+
+同步 T027 测试内显式开启验证结果。本轮只更新文档，不修改代码、测试、配置或前端。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 记录内容
+
+- T027 已完成，commit 为 `71db1cd test(agent): verify selector actuator endpoint enabled in test`。
+- T027 新增 `AgentSelectorShadowEndpointEnabledTest`。
+- T027 只在测试 properties 中显式开启 endpoint。
+- 显式开启后 `GET /actuator/agentSelectorShadow` 返回 200。
+- 白名单字段检查、黑名单字段检查、空 metrics 检查和 metrics 不变检查均通过。
+- T027 未修改 `application.yml`、`application-local.yml`、生产代码、前端、Spring Security 或 Prometheus。
+- T027 未真实调用 provider，未读取或输出 secret。
+- 默认状态仍关闭，生产环境仍未开启。
+- 完整 T010 仍为 BLOCKED。
+
+### 配置命名注意
+
+- `management.endpoint.agent-selector-shadow.enabled=true`：`endpoint` 是单数，`agent-selector-shadow` 是 endpoint id `agentSelectorShadow` 的 relaxed binding 写法。
+- `management.endpoints.web.exposure.include=agentSelectorShadow`：`endpoints` 是复数，`exposure.include` 的值使用 endpoint id `agentSelectorShadow`，不要写成 `agent-selector-shadow`。
+- 禁止使用 `management.endpoints.web.exposure.include=*`。
+
+## 2026-05-16 - T025 Selector Actuator Security Plan
+
+### 本轮目标
+
+完成 Agent selector shadow Actuator endpoint 安全配置 / 显式开启策略设计。本轮只写设计文档，不真正开启 endpoint。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `docs/AGENT_SELECTOR_ACTUATOR_SECURITY_PLAN.md`。
+- 记录 T024 已实现默认关闭的 `AgentSelectorShadowEndpoint`，endpoint id 为 `agentSelectorShadow`，并使用 `enableByDefault=false`。
+- 明确 T025 只设计如何安全开启，不真正开启 endpoint。
+- 补充 local / dev / test / prod 分环境策略。
+- 明确禁止 `management.endpoints.web.exposure.include=*`、公网匿名访问、普通用户访问、前端直接调用和日志打印完整响应。
+- 明确禁止输出 API Key、Authorization、baseUrl、prompt、用户 task、文档内容、模型完整返回、provider raw error、用户 ID、文档 ID、sessionId 或最终回答。
+- 拆分未来 T026-T030：安全审查、测试内显式开启验证、dev profile 方案、Spring Security / Actuator 安全集成、Prometheus 数值指标设计。
+- 同步现有 selector shadow / observability / actuator / async 设计文档和协作文档。
+
+### 当前边界
+
+- endpoint 当前仍默认关闭。
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未加入 `management.endpoints.web.exposure.include`。
+- 未新增 Spring Security 配置。
+- 未接 Prometheus。
+- 未开启 dev / prod 访问。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端。
+- 未真实调用 provider。
+- 未读取 `backend/.env`。
+- 未输出 secret。
+- 未修改 production routing。
+- 未让 shadow decision 接管 primary decision。
+- 完整 T010 仍为 BLOCKED，等待 MQ / 解析消费链路。
+
+### 下一步
+
+建议进入 T026：CC / 人工审查 T025 安全开启策略。审查通过后，再考虑 T027 只在测试 properties 中显式开启 endpoint，验证 200 和字段白名单 / 黑名单。
+
+### T025e 最终自检
+
+- T025a-e 已完成。
+- T025 是设计文档任务。
+- endpoint 仍默认关闭。
+- 没有开启 actuator exposure。
+- 没有新增 Spring Security 配置。
+- 没有接 Prometheus。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端。
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未新增 `management.endpoints.web.exposure.include`。
+- 未读取或输出 secret。
+- 未修改 production routing。
+- 下一步建议 T026：CC / 人工审查 T025 安全开启策略。
+- 完整 T010 仍为 BLOCKED。
+
+## 2026-05-12 - 初始化 Codex 协作文档与 TODO 看板
+
+### 本轮目标
+
+只做项目体检、文档初始化和 TODO 协同机制建立，为后续 Codex 接手提供固定入口。本轮不修改业务代码、不改接口逻辑、不改依赖版本、不改数据库结构、不改配置逻辑。
+
+### 阅读过的关键文件
+
+- `README.md`
+- `backend/README.md`
+- `frontend/README.md`
+- `docs/ai-dev/STATE.md`
+- `docs/ai-dev/PROJECT.md`
+- `docs/ai-dev/TASKS.md`
+- `docs/ai-dev/CONSTRAINTS.md`
+- `docs/ai-dev/HANDOFF.md`
+- `docs/ai-dev/SHOWCASE.md`
+- `backend/pom.xml`
+- `frontend/package.json`
+- `docker-compose.demo.yml`
+- `backend/src/main/resources/application.yml`
+- `backend/src/main/resources/application-local.yml`
+- `backend/src/main/resources/sql/`
+- `deploy/`
+- `git status --short`
+- `git log --oneline -5`
+- `git diff --stat`
+
+### 新增 / 更新文档
+
+- 新增 `AGENTS.md`：后续 agent 的项目规则、启动验证命令、协作约束和面试口径。
+- 新增 `docs/CODEX_HANDOFF.md`：当前真实状态、功能边界、风险和接手路径。
+- 新增 `docs/TODO_NEXT.md`：Codex 协作看板，初始化 8 个最小可执行任务。
+- 新增 `docs/CHANGELOG_CODING.md`：记录本轮文档初始化。
+
+### 本轮没有修改业务代码
+
+本轮只创建协作文档，不修改后端源码、前端源码、接口逻辑、依赖版本、数据库脚本或配置逻辑。当前工作区已有的业务文件改动来自本轮之前，未在本轮处理或回滚。
+
+### 当前发现的主要问题
+
+- 工作区存在大量未提交改动和未跟踪文件，后续每轮必须先看 `git status` / `git diff`。
+- `docs/ai-dev/HANDOFF.md` 等历史文档存在乱码和阶段漂移风险。
+- README / SHOWCASE / STATE / HANDOFF 中的 eval 指标存在明确冲突，不只是“可能漂移”：README 记录 `answerSuccessRate=57.143%`、`citationHitRate=46.154%`；STATE 记录 `answerSuccessRate=50%`、`citationHitRate=50%`；最新 artifact JSON 记录 `answerSuccessRate=90%`、`citationHitRate=100%`。需要通过 T001a/T001b 定位权威 artifact 后统一引用。
+- 项目功能已较多，但必须保持克制口径：轻量检索增强不是完整向量 RAG，最小 Agent 不是成熟多 Agent 平台，PDF 解析不是主能力。
+- 本地 / 云中间件、真实模型密钥、端口占用仍是后续验证的主要不确定项。
+
+### 下一步建议
+
+当时建议先执行 `T000：审计工作区改动 + 敏感信息检查`。完成后再执行 T001a/T001b 收敛 eval 指标证据链，随后执行最小 smoke 验证，确认当前仓库在本地仍能构建、测试和演示。
+
+## 2026-05-12 - T000b 敏感信息脱敏与协作文档入库策略修正
+
+### 本轮目标
+
+只做安全脱敏和 `.gitignore` 协作文档规则修正，不做业务功能开发。
+
+### 修改文件
+
+- `.gitignore`
+- `README.md`
+- `backend/README.md`
+- `backend/.env.cloud.example`
+- `backend/src/main/resources/application-local.yml`
+- `docs/ai-dev/CONSTRAINTS.md`
+- `docs/TODO_NEXT.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 脱敏信息类型
+
+- 将公开文档中的真实公网 IP 替换为 `<CLOUD_HOST>`。
+- 将 cloud example 文件中的真实公网 IP 替换为 `<YOUR_CLOUD_HOST>`。
+- 将本地 Spring 配置中的真实公网 IP 替换为 `${CLOUD_HOST:localhost}`。
+
+### 协作文档入库策略
+
+- 保留 `docs/ai-dev/**` 既有放行规则。
+- 新增 `docs/CODEX_HANDOFF.md`、`docs/TODO_NEXT.md`、`docs/CHANGELOG_CODING.md` 的 `.gitignore` 例外规则。
+- 暂不放行 `docs/agent-upgrade-roadmap.md`，等待用户确认其是否属于正式规划文档。
+
+### 明确未做事项
+
+- 未修改后端业务代码。
+- 未修改前端业务代码。
+- 未修改 `backend/.env`。
+- 未执行 `git add` / `git commit` / `git push`。
+
+## 2026-05-13 - T002a AI 问答 / SSE 后端验证结果记录
+
+### 本轮目标
+
+只记录 T002a-verify 的真实验证结果，不修改业务代码、测试代码或配置文件，不执行 Git 暂存、提交或推送。
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过，Maven 输出 `BUILD SUCCESS`。
+- `cd backend; mvn test -DskipITs`：通过，Maven 输出 `BUILD SUCCESS`。
+- 测试统计：`Tests run: 141, Failures: 0, Errors: 0, Skipped: 0`。
+- 测试日志中出现 SSE 兜底、限流、Redis 降级、解析失败等异常路径日志，但均属于测试覆盖场景，未造成测试失败。
+
+### 结论
+
+- 当前 AI 问答 / SSE 后端改进包没有编译或测试阻塞。
+- 建议下一步进入 Claude Code 只读提交前审查。
+- 该改进包适合作为独立提交候选，但提交前仍需审查 diff 边界和敏感信息风险。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 明确未做事项
+
+- 未修改后端业务代码。
+- 未修改前端业务代码。
+- 未修改测试代码。
+- 未修改配置文件。
+- 未执行 `git add` / `git commit` / `git push`。
+
+## 2026-05-13 - T002b 前端 QA / SSE 展示改进验证记录
+
+### 本轮目标
+
+自审、验证并提交前端 QA / SSE 展示改进包；保持与后端 `91421a9 feat(ai): improve document QA SSE robustness` 拆分提交，不混入 Agent Demo、benchmark、`.run` 或根 README / AGENTS。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，`next lint` 输出无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建、类型检查和静态页面生成成功。
+- 当前 `package.json` 无 `test` 脚本，因此本轮未执行前端 test。
+
+### 自审结论
+
+- 白名单文件未发现真实 API Key、token、password、secret 或真实公网 IP。
+- `frontend/lib/qa-api.ts` 已适配后端 SSE `meta/chunk/done/error` 事件，并能解析结构化 `done/error` payload。
+- 文档详情页保留流式输出、首字延迟展示、引用更新、失败自动降级普通问答和历史回答 Markdown 渲染。
+- `MarkdownViewer` 新增 inline mode，不改变默认 card 模式，降低破坏普通 Markdown 展示的风险。
+- `dashboard/layout/frontend README` 中存在 Agent 入口或说明改动，不属于本轮 QA/SSE 提交范围，本轮不提交。
+
+### 修改文件
+
+- `frontend/app/documents/[documentId]/page.tsx`
+- `frontend/components/markdown-viewer.tsx`
+- `frontend/components/markdown-viewer.module.css`
+- `frontend/lib/qa-api.ts`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 明确未做事项
+
+- 未提交 Agent Demo。
+- 未提交 benchmark。
+- 未提交 `.run` 配置。
+- 未提交根目录 `README.md` 或 `AGENTS.md`。
+- 未执行 `git push`。
+
+## 2026-05-13 - 固化 commit message 协作规则
+
+### 本轮目标
+
+只将 commit message 格式规则写入协作文档（AGENTS.md、CODEX_TOOLING.md），使后续 Claude Code / Codex CLI 生成 commit message 时有统一约束，避免出现 Co-Authored-By、多行 body、工具/模型签名等问题。
+
+### 修改文件
+
+- `AGENTS.md`
+- `docs/CODEX_TOOLING.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 规则摘要
+
+- 单行 conventional commits 格式（`type(scope): description`）。
+- 不生成多行 body、不添加 Co-Authored-By、不出现工具/模型名称（Claude、Anthropic、Opus、AI assistant、Codex）。
+- 详细实现说明写入 CHANGELOG / HANDOFF / TODO_NEXT，不写入 commit message。
+- commit message 要像正常开发者提交，不是 AI 生成说明。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改前端代码。
+- 未修改配置文件。
+- 未执行 `git add` / `git commit` / `git push`。
+
+### 后续约束
+
+所有 Claude Code / Codex CLI 在本仓库生成 commit message 时必须遵守 AGENTS.md 和 CODEX_TOOLING.md 中的 Commit Message 规则。
+
+## 2026-05-13 - T003 Agent Demo 提交
+
+### 本轮目标
+
+自审、验证并提交 Agent Demo 最小工具编排闭环。
+
+### 提交文件
+
+- 后端 Agent 模块（9 个）：controller / dto / service / impl / tool x4 / vo。
+- 后端测试（1 个）：`DocumentAgentServiceImplTest.java`。
+- 后端 smoke 脚本（1 个）：`smoke-agent-min.ps1`。
+- 前端 Agent 页面/API（2 个）：`agent/page.tsx` / `agent-api.ts`。
+- 前端导航入口（2 个）：`layout.tsx` / `dashboard/page.tsx`。
+
+### 验证结果
+
+- `mvn -DskipTests compile`：通过。
+- `mvn test -DskipITs`：通过（141 tests, 0 failures）。
+- `npm run lint`：通过。
+- `npm run build`：通过。
+- smoke 脚本语法已确认，未实跑。
+
+### 明确未提交
+
+- `.run` 配置、benchmark、README、AGENTS、`docs/ai-dev`。
+
+## 2026-05-13 - T004a Agent 执行痕迹持久化骨架
+
+### 本轮目标
+
+新增 AgentTask / AgentStep 持久化骨架，为后续 Agent 执行痕迹、工具步骤 trace 和失败诊断落库做准备。
+
+### 修改文件
+
+- `deploy/mysql/init/01_add_agent_tables.sql`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/entity/AgentTask.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/entity/AgentStep.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/mapper/AgentTaskMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/mapper/AgentStepMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/AgentTaskPersistenceService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/AgentTaskPersistenceServiceImpl.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 结果摘要
+
+- 新增 `tb_agent_task` 和 `tb_agent_step` DDL。
+- 新增 MyBatis-Plus Entity / Mapper。
+- 新增 `AgentTaskPersistenceService` 骨架，支持创建 task、标记成功/失败、创建 step。
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未接入 `DocumentAgentServiceImpl`。
+- 未执行 DDL。
+- 未修改前端。
+- 未接 RocketMQ。
+- 未引入 Spring AI / LangChain4j / MCP。
+
+## 2026-05-13 - T004b Agent 执行痕迹持久化接入
+
+### 本轮目标
+
+将 T004a 的 AgentTask / AgentStep 持久化服务接入 `DocumentAgentServiceImpl`，让每次 Agent run best-effort 记录 task、tool step、成功或失败状态。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/vo/DocumentAgentResponse.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未新增 Agent task 查询 API。
+- 未执行 DDL。
+- 未修改前端。
+- 未接 RocketMQ。
+
+## 2026-05-13 - T004c Agent 执行轨迹查询 API
+
+### 本轮目标
+
+提供 Agent task / step 查询接口，可按 `taskId` 查询当前用户的单次 Agent 执行记录和步骤列表。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/controller/DocumentAgentController.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/mapper/AgentTaskMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/mapper/AgentStepMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/AgentTaskPersistenceService.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/AgentTaskPersistenceServiceImpl.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未修改前端 Agent 页面。
+- 未执行 DDL。
+- 未新增 MQ / Outbox。
+
+## 2026-05-13 - T004d Agent smoke 与协作文档收尾
+
+### 本轮目标
+
+补充 Agent smoke 对 `taskId` 的断言，并将 T004b/T004c/T004d 的完成状态同步到协作文档。
+
+### 修改文件
+
+- `backend/scripts/agent/smoke-agent-min.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- `cd backend; mvn test -DskipITs`：通过。
+- `powershell -NoProfile -Command "Get-Command .\backend\scripts\agent\smoke-agent-min.ps1 -ErrorAction Stop"`：通过。
+
+### 明确未做事项
+
+- 未实跑 Agent smoke。
+- 未启动后端服务。
+- 未执行 DDL。
+
+## 2026-05-13 - T004e Agent 持久化运行时 smoke
+
+### 本轮目标
+
+连续完成 AgentTask / AgentStep 远程表检查、授权建表、运行时 smoke、接口查询和远程数据库只读核验。
+
+### 修改文件
+
+- `backend/scripts/agent/smoke-agent-min.ps1`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- T004e-1：hk-ops 只读检查确认远程 `docpilot` 数据库存在，目标表起初不存在。
+- T004e-2：经用户确认后，hk-ops 仅执行两条授权的 `CREATE TABLE IF NOT EXISTS`，随后确认 `tb_agent_task` / `tb_agent_step` 存在且结构与 DDL 大致一致。
+- T004e-3：本地后端启动后，`scripts/agent/smoke-agent-min.ps1` 通过；Agent run 返回 `taskId`；task 查询接口与 step 查询接口通过。
+- hk-ops 远程只读 SELECT 确认本次 smoke 的 task 与 steps 已写入远程 `tb_agent_task` / `tb_agent_step`。
+
+### 明确未做事项
+
+- 未修改 Java 业务代码。
+- 未修改前端业务代码。
+- 未修改 DDL。
+- 未读取或输出 `backend/.env`。
+- 未执行远程 `ALTER / DROP / DELETE / UPDATE / INSERT / TRUNCATE`。
+- 未执行 `git push`。
+
+## 2026-05-13 - T005b DocumentToolSelector 独立规则测试
+
+### 本轮目标
+
+补充 `DocumentToolSelector` 的独立单元测试，锁定 status / summary / evidence / 默认 QA 路由逻辑，避免后续工具选择规则漂移。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 覆盖范围
+
+- `status_only`：状态 / 解析完成类任务仅选择 `document_status_tool`。
+- `summary_tool`：总结 / 摘要类任务选择 `document_status_tool` + `document_summary_tool`。
+- `qa_tool`：证据 / 引用类任务选择 `document_status_tool` + `document_qa_tool`。
+- 默认 QA：普通问题默认进入 QA 工具链。
+- summary + evidence 冲突：证据需求优先进入 QA，避免总结工具丢失引用诉求。
+- 空字符串 / 空白输入：默认进入 QA 工具链。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentToolSelectorTest test`：通过（6 tests, 0 failures）。
+- `cd backend; mvn test -DskipITs`：通过（147 tests, 0 failures）。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未修改 `DocumentAgentServiceImpl`。
+- 未修改前端。
+- 未修改 DDL。
+- 未接 MQ / RAG / MCP / Spring AI / LangChain4j。
+
+## 2026-05-13 - T005c Agent ToolSelector runtime smoke
+
+### 本轮目标
+
+运行 Agent runtime smoke，确认 T005a 接入 `ToolRegistry` / `ToolSelector` 后，真实接口链路的 summary / QA 路由、`taskId` 返回和 task / step 查询仍然正常。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- 本地后端以 `local` profile 启动，`/actuator/health` 可访问。
+- `cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1`：通过。
+- summary run 返回 `summary_tool`，包含 2 个步骤和有效 `taskId`。
+- QA run 返回 `qa_tool`，包含 2 个步骤、有效 `taskId` 和引用结果。
+- Agent task 查询接口返回对应 task 与 steps。
+- Agent step 查询接口返回对应 steps。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未修改前端。
+- 未修改 DDL。
+- 未修改 smoke 脚本。
+- 未读取 `backend/.env`。
+- 未执行 `git add` / `git commit` / `git push`。
+- 本轮结束前已停止本地后端，确认 8081 端口释放。
+
+## 2026-05-13 - T006a 前端 Agent 持久化执行轨迹展示
+
+### 本轮目标
+
+让前端 Agent 页面在 `/api/ai/agent/run` 返回 `taskId` 后，调用后端 task / step 查询接口并展示持久化后的执行轨迹。
+
+### 修改文件
+
+- `frontend/lib/agent-api.ts`
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `frontend/lib/agent-api.ts` 新增 `getAgentTask(taskId)` 和 `getAgentTaskSteps(taskId)`，路径来自 `DocumentAgentController`。
+- `frontend/app/agent/page.tsx` 在 Agent run 成功且存在 `taskId` 时自动查询持久化 task / steps。
+- 页面新增“持久化执行轨迹”区域，展示 taskId、status、decision、totalDurationMs、step count，以及每个 step 的 stepIndex、toolName、status、durationMs、inputSummary、outputSummary。
+- task / step 查询失败时只显示友好提示，不影响原始 Agent 回答、内存 trace 和引用展示。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建、类型检查和静态页面生成完成。
+
+### 明确未做事项
+
+- 未修改后端 Java。
+- 未修改 DDL。
+- 未修改 README / frontend README。
+- 未修改 `.run`。
+- 未修改 benchmark / docs-ai-dev。
+- 未新增依赖或修改 package / lock 文件。
+
+## 2026-05-13 - T006b 前端 Agent trace 运行时验证
+
+### 本轮目标
+
+真实运行前端 Agent 页面，确认 T006a 新增的持久化 task / step trace 展示在浏览器中可用。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 验证结果
+
+- 本地后端 8081 启动成功，`/actuator/health` 可访问。
+- 本地前端 3000 启动成功，`/agent` 可访问。
+- `cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1`：通过，summary / QA run 均返回有效 `taskId`，task / step 查询接口通过。
+- Playwright 打开 `/agent`，通过合法注册、上传、建文档、解析和 Agent run 验证页面展示。
+- 页面展示“持久化执行轨迹”，包含 taskId、`SUCCESS` 状态、`qa_tool` 决策、2 条 step、`document_status_tool` / `document_qa_tool`、durationMs、inputSummary、outputSummary。
+- `cd frontend; npm run lint`：通过，无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建和类型检查完成。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改 DDL。
+- 未读取 `backend/.env`。
+- 未输出真实 token、密码、API Key。
+- 未执行 `git push`。
+- 本轮启动的后端 / 前端进程已停止，8081 / 3000 / 3001 端口已释放。
+
+## 2026-05-13 - T007 项目文档收口
+
+### 本轮目标
+
+收口根 README 与 frontend README，让公开文档反映当前真实实现：AI 问答 / SSE、最小 Agent、AgentTask / AgentStep 执行轨迹、task / step 查询接口和前端持久化 trace 展示。
+
+### 修改文件
+
+- `README.md`
+- `frontend/README.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- README 补充最小 Agent 工具链闭环、执行轨迹落库、查询接口、前端 trace 展示和当前验证记录。
+- README 明确边界：当前不是成熟多 Agent 平台；ToolSelector 是规则 / 关键词选择，不是 LLM Tool Calling；未接 MQ 异步 Agent、完整 RAG、向量库、MCP、Spring AI 或 LangChain4j。
+- frontend README 补充 dashboard、document QA、Agent 页面和持久化 task / step trace 展示能力。
+- frontend README 保留启动、lint、build 和联调说明，不记录敏感信息。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建和类型检查完成。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改后端 Java。
+- 未修改 DDL。
+- 未提交 `.run`。
+- 未提交 benchmark / docs-ai-dev。
+- 未新增依赖或修改 package / lock 文件。
+
+## 2026-05-13 - T009a Agent ToolSelector 可解释性增强
+
+### 本轮目标
+
+让 Agent 工具路由结果从仅有 `decision` 扩展为同时返回 `routingReason` 和 `matchedKeywords`，便于前端展示和后续 smoke 验证。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/vo/DocumentAgentResponse.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `ToolSelector.SelectResult` 新增 `reason` 和 `matchedKeywords`，并保留 `of(decision, toolNames)` 兼容便捷方法。
+- `DocumentToolSelector` 改为收集命中关键词，summary + evidence 冲突时继续路由到 `qa_tool`。
+- `DocumentAgentServiceImpl` 将 selector reason / matched keywords 写入 `DocumentAgentResponse`；parseReady=false 短路路径仍不调用 selector，并返回固定路由原因。
+- `DocumentAgentServiceImplTest` 增加路由原因断言。
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过（147 tests, 0 failures）。
+
+### 明确未做事项
+
+- 未修改 DDL。
+- 未修改 Controller。
+- 未修改前端。
+- 未修改 smoke 脚本。
+- 未持久化 `routingReason` / `matchedKeywords` 到 AgentTask。
+- 未接 MQ / RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling。
+
+## 2026-05-13 - T009b DocumentToolSelector 可解释性测试
+
+### 本轮目标
+
+补充 `DocumentToolSelector` 独立单元测试，锁定 `decision`、`reason`、`matchedKeywords` 的规则行为。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DocumentToolSelectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 覆盖范围
+
+- 状态查询路由到 `status_only`，并返回状态类命中关键词和 reason。
+- 摘要任务路由到 `summary_tool`，并返回摘要类命中关键词和 reason。
+- 证据 / 原文引用任务路由到 `qa_tool`，reason 体现证据或引用需求。
+- 默认 QA 在无关键词命中时返回空 matchedKeywords 和非空 reason。
+- summary + evidence 冲突时继续优先 `qa_tool`。
+- 英文关键词大小写不敏感。
+- 空字符串、空白字符串和 null 输入按当前实现默认进入 QA。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentToolSelectorTest test`：通过（8 tests, 0 failures）。
+- `cd backend; mvn test -DskipITs`：通过（149 tests, 0 failures）。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未修改前端。
+- 未修改 DDL。
+- 未接 MQ / RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling。
+
+## 2026-05-13 - T009c 前端展示 Agent 路由解释
+
+### 本轮目标
+
+让 Agent 页面展示后端返回的 `routingReason` 和 `matchedKeywords`，使工具路由结果对用户可见。
+
+### 修改文件
+
+- `frontend/lib/agent-api.ts`
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentRunData` 增加 `routingReason?: string` 和 `matchedKeywords?: string[]`。
+- Agent 运行结果区新增“路由决策”卡片，仅在 `routingReason` 存在时展示。
+- 命中关键词以轻量 badge 展示；关键词为空或字段缺失时不渲染标签。
+- 保留原有 decision、finalAnswer、citations、steps 和持久化 trace 展示。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过，无 warning / error。
+- `cd frontend; npm run build`：通过，Next.js 生产构建和类型检查完成。
+
+### 明确未做事项
+
+- 未修改后端 Java。
+- 未修改 DDL。
+- 未新增依赖。
+- 未修改 package / lock 文件。
+
+## 2026-05-13 - T009d Agent 路由解释 smoke 与异步设计文档
+
+### 本轮目标
+
+验证 T009a-c 的路由解释全链路，并记录未来异步 Agent 演进方案。本轮不实现异步 Agent，不接 MQ。
+
+### 修改文件
+
+- `backend/scripts/agent/smoke-agent-min.ps1`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/AgentTool.java`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- smoke 脚本增加 summary run 的 `routingReason`、`matchedKeywords` 和 `summary_tool` 断言。
+- smoke 脚本增加 QA run 的 `routingReason`、`qa_tool` 和 citation 断言。
+- smoke 输出增加 summary / QA 的 routing reason 与 matched keywords。
+- `AgentTool` 补充 Javadoc，说明新增工具的最小接入路径。
+- 新增 `docs/AGENT_ASYNC_DESIGN.md`，对比 RocketMQ、Spring `@Async` 和 DB polling，并推荐未来基于 `AgentTask` 状态机和 RocketMQ 的异步演进路线。
+
+### 验证结果
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过（149 tests, 0 failures）。
+- `cd backend; powershell -ExecutionPolicy Bypass -File scripts/agent/smoke-agent-min.ps1`：通过，summary / QA 均返回 routing reason，summary 返回 matched keywords，QA 返回引用。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未实现异步 Agent。
+- 未新增 RocketMQ topic / consumer。
+- 未修改 DDL。
+- 未修改前端页面。
+- 未接 RAG / MCP / Spring AI / LangChain4j / LLM Tool Calling。
+
+## 2026-05-12 - T001b 统一 eval 指标引用
+
+### 本轮目标
+
+统一 README / STATE / 协作文档中的 Stage C eval 指标引用，消除 README、STATE、artifact 三套指标冲突。
+
+### 修改文件
+
+- `README.md`
+- `docs/ai-dev/STATE.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/TODO_NEXT.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 当前权威指标来源
+
+- Artifact：`docs/ai-dev/benchmarks/artifacts/stagec_eval_latest.json`
+- `generatedAt=2026-04-18T18:58:42.2763129+00:00`
+- `datasetName=stagec-core-qa-eval`
+- `datasetVersion=2026-04-19-r2`
+- `caseCount/streamPairs=20/8`
+- `answerSuccessRate=90%`
+- `citationHitRate=100%`
+
+### 明确未做事项
+
+- 未修改后端业务代码。
+- 未修改前端业务代码。
+- 未重跑 eval。
+- 未修改 artifact JSON。
+- 未执行 `git add` / `git commit` / `git push`。
+
+### 不确定项
+
+- `stagec_eval_latest.json` 未记录实际运行时 `AI_MODE`、模型名或 provider。
+- 当前指标是仓库内 artifact 证据，不代表线上 SLA。
+- 后续 T005a/T005b 需要补充运行时配置记录并重跑 eval。
+
+## 2026-05-12 - T000d Codex subagents 与 MCP 工具边界记录
+
+### 本轮目标
+
+新增工具能力边界文档，让后续 Claude Code、Codex、ChatGPT 接手时能明确 subagents、context7 MCP、playwright MCP 的用途、授权条件和禁止事项。
+
+### 修改文件
+
+- `AGENTS.md`
+- `docs/CODEX_TOOLING.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/TODO_NEXT.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 记录内容
+
+- `code-map`、`docs-research`、`hk-ops`、`risk-review`、`test-audit`、`ui-check` 的用途和边界。
+- `context7 MCP` 用于查询官方/库文档，避免凭空猜测。
+- `playwright MCP` 用于浏览器自动化、前端 smoke test、UI/E2E 检查。
+- `hk-ops` 远程访问前必须说明目的、命令类别、是否只读，并等待用户确认。
+- `playwright` 不应未经用户确认启动长期驻留 dev server。
+
+### 明确未做事项
+
+- 未记录任何真实 IP、账号、密码、token、API Key 或 `.env` 内容。
+- 未修改后端业务代码。
+- 未修改前端业务代码。
+- 未执行 `git add` / `git commit` / `git push`。
+
+## 2026-05-12 - T000c 剩余敏感信息复核与 `.run` 配置检查
+
+### 本轮目标
+
+只做剩余敏感信息复核，重点检查 IDEA `.run/*.xml` 配置文件；如发现真实公网 IP 或敏感值，仅对 `.run/*.xml` 做必要脱敏。
+
+### 检查范围
+
+- `.run/*.xml`
+- `README.md`
+- `backend/README.md`
+- `backend/.env.cloud.example`
+- `backend/.env.demo.example`
+- `backend/src/main/resources/application-*.yml`
+- `docs/**/*.md`
+- `AGENTS.md`
+
+### 结果摘要
+
+- `.run/*.xml` 未命中真实公网 IP。
+- `.run/*.xml` 未命中密码、token、secret、API Key 等敏感关键词。
+- T000b 已处理的目标文件未再次命中真实公网 IP。
+- `backend/.env` 仍未被 Git 跟踪，且本轮未读取或修改其内容。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 明确未做事项
+
+- 未修改 `.run/*.xml`，因为未发现需要脱敏的真实敏感值。
+- 未修改后端业务代码。
+- 未修改前端业务代码。
+- 未修改 `backend/.env`。
+- 未执行 `git add` / `git commit` / `git push`。
+
+## 2026-05-13 - T009e 协作文档事实状态同步
+
+### 本轮目标
+
+同步协作文档中的当前状态描述，让 `docs/CODEX_HANDOFF.md`、`docs/TODO_NEXT.md` 和 `docs/CHANGELOG_CODING.md` 与当前 git / 代码状态一致。
+
+### 原因
+
+新会话恢复上下文时发现协作文档仍停留在旧的工作区风险口径、推荐先做 T000，但实际 `git status --short` 为空，且 `git log --oneline -20` 已显示 T009a-d 完成。
+
+### 修正内容
+
+- `docs/CODEX_HANDOFF.md` 改为记录当前工作区干净、T009a-d 已完成、`ToolSelector` 已支持 `routingReason` / `matchedKeywords`、前端 Agent 页面已展示路由决策、smoke 已增强路由解释断言。
+- `docs/TODO_NEXT.md` 新增 T009e 完成记录和 T010 runtime 验证任务，推荐下一步改为 T010，并补充 T011 面试向项目总结 / 架构图 / 简历亮点收口。
+- 协作文档明确暂不直接进入 MQ / RAG / MCP / LLM Tool Calling。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改后端 Java。
+- 未修改前端业务代码。
+- 未修改 DDL、README、`.run`、benchmark 或 `docs/ai-dev`。
+- 未执行 T010 runtime 验证。
+- 未读取或修改 `backend/.env`。
+
+### 下一步
+
+进入 `T010-runtime-verify`，完整验证 Agent 路由可解释性在浏览器端真实可用。
+
+## 2026-05-14 - T010z 记录 runtime 验证阻塞状态
+
+### 本轮目标
+
+记录 T010-runtime-verify 当前 BLOCKED 状态，避免后续新会话误以为 Agent 路由解释浏览器端完整验证已经通过。
+
+### T010x 诊断结果
+
+- T010x 已复现后端 smoke 在文档解析阶段超时。
+- 原始失败信息：`Parse timeout after 120 seconds.`
+- 后端日志摘要显示 `NoopParseTaskMessageProducer` 跳过解析消息发送。
+- 当前 MQ disabled / no-op producer 模式下不会推进真实异步解析，worker 不会消费并更新 `parseStatus`。
+
+### 结论
+
+- T010 未通过。
+- 失败原因不是 Agent `routingReason` / `matchedKeywords` 代码问题，而是完整 smoke 依赖上传后真实异步解析链路。
+- 完整 T010 需要可用 MQ / 解析消费环境后再重跑；若用户不想接 MQ，只能单独定义 T010-lite，并明确它不是完整上传解析链路验证。
+
+### 本轮未做事项
+
+- 未修改业务代码。
+- 未修改后端 Java。
+- 未修改前端代码。
+- 未修改 DDL、README、`.run`、benchmark 或 `docs/ai-dev`。
+- 未使用 hk-ops。
+- 未远程连接服务器。
+- 未启动或修改 RocketMQ。
+- 未把 T010 写成通过。
+
+### 下一步
+
+执行 `T010m-local-mq-readiness-check`，只读检查本地 MQ / parse 配置入口和完整 T010 所需环境条件。
+
+## 2026-05-14 - T010-lite-ui 前端 Agent lite 验证入口
+
+### 本轮目标
+
+在完整 T010 仍被 MQ disabled / no-op parser queue 阻塞的前提下，只为 `/agent` 页面增加当前用户可访问 `documentId` 的选择 / 输入入口，方便后续执行 Agent-only lite 验证。
+
+### 修改文件
+
+- `frontend/app/agent/page.tsx`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 保留 `/agent` 页面已有当前用户文档列表下拉框。
+- 新增手动输入 `documentId` 的输入框，不硬编码任何文档 ID。
+- 页面展示 Lite 验证模式说明：仅验证已解析文档上的 Agent 运行，不验证上传和解析链路。
+- 文档不存在或当前账号无权访问时，页面显示友好错误，不影响原有 Agent run、decision、routingReason、matchedKeywords、持久化 trace 和 citations 展示逻辑。
+
+### 验证结果
+
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未修改后端 Java。
+- 未修改 DDL。
+- 未修改 `package.json` 或 lock 文件。
+- 未修改 smoke 脚本。
+- 未启动或修改 RocketMQ。
+- 未使用 hk-ops 或远程连接。
+- 未验证上传解析链路。
+- 未把 T010-lite 写成完整 T010 通过。
+
+## 2026-05-14 - T010-lite-run Agent-only runtime 验证
+
+### 本轮目标
+
+在完整 T010 仍被 MQ disabled / no-op parser queue 阻塞的前提下，只验证已解析文档上的 Agent routing explainability 运行链路：已解析文档 -> Agent run -> routingReason / matchedKeywords -> task / step trace -> 前端展示。
+
+### 验证对象
+
+- 使用 `documentId=61`，该文档来自当前浏览器登录账号的 `/agent` 文档下拉列表，页面显示为解析成功。
+- 本轮不使用 `documentId=58`，不硬编码 documentId，不验证上传解析链路。
+
+### 浏览器验证结果
+
+- Playwright 打开 `/agent` 并使用 `documentId=61`。
+- summary 任务“总结一下这篇文档”通过，页面显示 `decision=summary_tool`、路由决策、`routingReason`、matched keyword、持久化执行轨迹、`taskId`、`SUCCESS`、2 条 step、toolName、durationMs、inputSummary、outputSummary。
+- QA 任务“根据原文证据回答这篇文档的核心内容是什么”通过，页面显示 `decision=qa_tool`、路由决策、`routingReason`、matched keyword、持久化执行轨迹、`taskId`、`SUCCESS`、2 条 step、toolName、durationMs、inputSummary、outputSummary，并展示 citations。
+
+### CLI lite smoke
+
+- 未执行。
+- 原因：当前 smoke 脚本会注册新的临时账号，无法保证该账号有权访问浏览器当前账号下的 `documentId=61`；本轮不把 CLI 账号不一致误判为浏览器 lite 验证失败。
+
+### 构建验证
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，测试统计为 149 tests，0 failures，0 errors。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未修改后端 Java。
+- 未修改前端业务代码。
+- 未修改 DDL。
+- 未启动或修改 RocketMQ。
+- 未使用 hk-ops。
+- 未远程连接服务器。
+- 未读取或输出 `backend/.env`。
+- 未执行 `git push`。
+- 未把 T010-lite 写成完整 T010 通过；完整 T010 仍为 BLOCKED。
+
+## 2026-05-14 - T011a Tool Schema / Tool Metadata
+
+### 本轮目标
+
+进入 P3 LLM Tool Selection 的基础设施阶段，先为当前 Agent 工具建立稳定 Tool Definition，不调用真实 LLM、不接 function calling、不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolDefinition.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/ToolDefinitionProvider.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/ToolDefinitionProviderTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `ToolDefinition` record，包含 toolName、displayName、description、inputSchemaText、outputSchemaText 和 safeForLlmSelection。
+- 新增 `ToolDefinitionProvider`，基于当前 `ToolRegistry` 注册工具返回 `document_status_tool`、`document_summary_tool`、`document_qa_tool` 三个工具定义。
+- 单元测试覆盖 3 个工具定义存在、toolName 不重复、description / schema 非空，以及 QA 工具描述不声明危险能力。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=ToolDefinitionProviderTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-15 - T017c Fake Provider Real Shadow Service Path
+
+### 本轮目标
+
+在 service 测试中验证 `realShadowEnabled=true + provider=fake` 时 real shadow 可以成功执行，但真实工具仍由 primary `DocumentToolSelector` decision 决定。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentRealShadowPathTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentServiceImpl` 的 real shadow runner 改为通过 `RealLlmToolSelectorFactory` 和 `AgentSelectorProperties` 创建 selector。
+- 默认 provider 仍是 `disabled`，默认 `realShadowEnabled=false`，默认不运行 real shadow。
+- provider=fake 只在测试中用于验证 real shadow success path。
+- 测试覆盖 provider=fake 成功时真实执行仍来自 primary decision。
+- 测试覆盖 `realShadowRecordMetrics=false` 时不记录 real metrics，显式开启后才记录。
+- 保留 real shadow fail-open 边界，失败不影响 Agent 主流程。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentRealShadowPathTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，223 tests。
+
+### 明确未做事项
+
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未改变 production routing。
+
+## 2026-05-15 - T017x Fake Provider Routing Alignment
+
+### 本轮目标
+
+修正 `FakeLlmToolSelectionClient` 的本地规则，使 provider=fake 更稳定模拟未来 LLM selector 的 JSON 输出，并尽量对齐当前 `DocumentToolSelector` 的 routing 基线。
+
+### 诊断结论
+
+- fake provider 已优先从 prompt 的 `Current task:` 提取真实 task，没有直接扫描整个 prompt。
+- T017d failures 主要来自 blank task 被 `LlmToolSelectionPromptBuilder` 拒绝，属于 real shadow runner 输入边界。
+- mismatch 主要来自 fake provider 规则缺口：`progress` / `state` 状态词、中文摘要词、evidence / 引用 / 根据原文词，以及 summary + evidence 冲突优先级。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- fake provider 增强 status / summary / evidence 关键词集合。
+- routing 优先级调整为 evidence 优先，其次 summary，其次 status，最后默认 QA。
+- 保留从 `Current task:` 提取真实 task 的行为，避免可用工具描述污染 decision。
+- 单元测试覆盖 summary、QA/evidence、status、summary + evidence 冲突、中文摘要、中文证据、英文大小写、空白输入、JSON 可解析性、合法 toolNames 和 confidence 范围。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=FakeLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未修改 `DocumentToolSelector`。
+- 未修改 `tool-selector-eval-cases.json`。
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
+## 2026-05-15 - T017d Fake Provider Real Shadow Evaluation
+
+### 本轮目标
+
+新增 provider=fake 的 real shadow 离线评估，验证 `RealLlmSelectorShadowRunner` 通过 factory-backed selector 路径运行时能达到 shadow compare 阈值。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealShadowProviderEvaluationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `RealShadowProviderEvaluationTest`。
+- 复用 `tool-selector-eval-cases.json` 的 24 条样例。
+- primary 使用 `DocumentToolSelector`。
+- shadow 使用 `RealLlmSelectorShadowRunner + provider=fake`。
+- 输出 total、success、failures、matched、mismatch、matchRate 和 successRate。
+
+### 评估结果
+
+- total=24
+- success=22
+- failures=2
+- matched=22
+- mismatch=0
+- matchRate=0.9167
+- successRate=0.9167
+
+两个 failure 来自 blank task 被 `LlmToolSelectionPromptBuilder` 拒绝，属于 real shadow prompt 输入边界；非空样例均成功且无 mismatch。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealShadowProviderEvaluationTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，229 tests。
+
+### 明确未做事项
+
+- 未修改 `tool-selector-eval-cases.json`。
+- 未修改 `DocumentToolSelector`。
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
+## 2026-05-15 - T017e Fake Provider Shadow Validation 文档状态
+
+### 本轮目标
+
+更新 selector shadow 文档和协作状态，说明 factory-backed real shadow 路径已具备 provider=fake 离线评估证据，但仍没有真实 provider 调用。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录 `RealLlmToolSelectorFactory` 已有，`RealLlmSelectorShadowRunner` 支持 factory-backed selector。
+- 记录 provider=fake 已完成离线 shadow evaluation。
+- 记录 T017d 评估结果：total=24、success=22、failures=2、matched=22、mismatch=0、matchRate=0.9167。
+- 明确 provider=disabled 仍是默认，openai-compatible 仍 dry-run disabled 且不联网。
+- 将下一步推荐更新为 T018：fake provider shadow-only runtime / smoke。
+
+### 验证结果
+
+- `git status --short`：已检查。
+- `git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改代码。
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
+## 2026-05-15 - T018 Fake Provider Shadow Runtime Verification
+
+### 本轮目标
+
+使用 provider=fake 完成 real shadow selector 的 shadow-only runtime / smoke 验证，确认运行时 real shadow 分支可观察，但 production routing 仍由 primary `DocumentToolSelector` 决定。
+
+### 验证方式
+
+- 本地后端在用户授权下连接远程中间件运行。
+- 启动时使用命令行参数开启 `shadowEnabled=true`、`realShadowEnabled=true`、`realShadowRecordMetrics=true`、`llmProvider=fake`，未修改配置文件。
+- 前端浏览器打开 `/agent`，选择当前账号可访问的已解析文档 `documentId=61`。
+- 未使用 hk-ops，未执行远程 DB 只读 SELECT。
+
+### Runtime 结果
+
+- summary 验证通过：primary decision=`summary_tool`，页面正常返回回答，展示 routingReason、matchedKeywords 和持久化 trace；后端安全日志可见 `provider=fake` real shadow compare，shadow decision=`summary_tool`，matched=true，metricsRecorded=true。
+- QA 验证通过：primary decision=`qa_tool`，页面正常返回回答并展示 citations，展示 routingReason、matchedKeywords 和持久化 trace；后端安全日志可见 `provider=fake` real shadow compare，shadow decision=`qa_tool`，matched=true，metricsRecorded=true。
+- 真实执行工具仍由 primary decision 决定；fake provider 只用于 shadow compare / metrics。
+
+### 回归验证
+
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，229 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+- 本轮启动的后端 / 前端进程已清理，端口已释放。
+
+### 明确未做事项
+
+- 未验证完整上传 / 解析 / MQ 链路；完整 T010 仍为 BLOCKED。
+- 未真实调用 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未向模型 provider 发真实 HTTP。
+- 未使用 hk-ops。
+- 未修改 production routing。
+- 未新增 API。
+- 未修改前端。
+
+## 2026-05-15 - T019-preflight Real Provider Shadow Safety Plan
+
+### 本轮目标
+
+只做真实 provider shadow-only 调用前置检查与安全方案，不真实调用 provider，不读取 API Key，不改变当前 Agent 行为。
+
+### 检查范围
+
+- `OpenAiCompatibleLlmToolSelectionClient`：当前仍返回 disabled response，不发 HTTP。
+- `LlmToolSelectionClientFactory`：默认 provider=disabled，默认返回 `DisabledLlmToolSelectionClient`。
+- `RealLlmToolSelector`：只串联 prompt builder、client 和 parser；client disabled 或 blank response 会失败，不 fallback 成 keyword selector。
+- `RealLlmSelectorShadowRunner`：捕获 selector 失败并返回 `success=false` / `shouldRecordMetrics=false`。
+- `AgentSelectorProperties`：默认 `realShadowEnabled=false`、`realShadowRecordMetrics=false`、`llmProvider=disabled`。
+- `DocumentAgentServiceImpl`：真实执行仍以 primary `DocumentToolSelector` decision 为准，real shadow 只在开关打开后旁路执行。
+
+### 修改文件
+
+- `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增真实 provider shadow-only 前置安全文档。
+- 明确 T019 只能 shadow-only，不能接管 production routing，不能影响 Agent API 返回。
+- 明确 API Key 注入和日志脱敏原则。
+- 明确真实 HTTP 调用边界、验证方案、停止条件和用户确认项。
+- 将 `T019-real-shadow-only` 标记为 BLOCKED，等待用户确认 provider、baseUrl、model、API Key 注入方式、真实 HTTP、费用和日志脱敏策略。
+
+### 明确未做事项
+
+- 未真实调用 DeepSeek / OpenAI / 硅基流动或其他 provider。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发真实 HTTP。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未新增 API。
+- 未修改前端。
+- 未修改数据库。
+- 未改变 production routing。
+
+## 2026-05-15 - T019a Real Selector Provider Credentials Config
+
+### 本轮目标
+
+补齐 selector real provider 需要的最小配置字段，但保持默认安全关闭，不修改配置文件。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `llmApiKey` 字段，默认空字符串。
+- 新增 `llmMaxTokens` 字段，默认 256，并校验必须为正数。
+- 新增 `llmTemperature` 字段，默认 0，并校验范围为 0.0 到 2.0。
+- 测试覆盖默认 provider disabled、默认 real shadow 关闭、openai-compatible provider 绑定不会自动启用 real shadow，以及新增字段校验。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未读取真实 API Key。
+- 未读取 `backend/.env`。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未真实调用 provider。
+- 未改变 production routing。
+
+## 2026-05-15 - T019b OpenAI-compatible Selector Client
+
+### 本轮目标
+
+将 `OpenAiCompatibleLlmToolSelectionClient` 从 dry-run skeleton 升级为可真实调用 OpenAI-compatible chat completions 的 client，同时保持缺配置时不联网。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClient.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleToolSelectionRequest.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactory.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClientTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 使用 JDK `HttpClient` 调用 `{baseUrl}/chat/completions`。
+- 请求 body 使用 OpenAI-compatible chat completions 格式，包含 system / user messages、`temperature`、`max_tokens` 和 `stream=false`。
+- 缺少 apiKey / baseUrl / model 时直接返回 disabled response，不发 HTTP。
+- 响应只提取 `choices[0].message.content` 作为 rawText，后续仍由 `LlmToolSelectionParser` 校验。
+- 非 2xx、provider JSON 解析失败、空 content、IO / timeout / interrupted 均返回 disabled/failure，不影响 primary routing。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -Dtest=LlmToolSelectionClientFactoryTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 单元测试未使用真实 API Key，仅使用本地 stub server。
+- 未读取 `backend/.env`。
+- 未输出 API Key、Authorization header、prompt、文档内容或完整 baseUrl。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未新增 API。
+- 未改变 production routing。
+
+## 2026-05-15 - T019c Real Provider Shadow Fail-open Tests
+
+### 本轮目标
+
+补充真实 provider shadow fail-open 测试，确保 openai-compatible 配置缺失、client failure 或 parser failure 不影响 primary Agent run。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentRealShadowPathTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunnerTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelectorFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- service 测试覆盖 openai-compatible provider 缺 apiKey / 缺 baseUrl 时 real shadow fail-open，primary decision 仍为 `summary_tool`。
+- service 测试覆盖 real shadow parser failure 不影响 Agent run，且不记录 real shadow 成功 metrics。
+- runner 测试覆盖 client exception 和 openai-compatible 缺 baseUrl failure。
+- factory 测试覆盖 openai-compatible apiKey 为空时仍为 disabled failure。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentRealShadowPathTest test`：通过。
+- `cd backend; mvn -Dtest=RealLlmSelectorShadowRunnerTest test`：通过。
+- `cd backend; mvn -Dtest=RealLlmToolSelectorFactoryTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未真实调用外部模型。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未新增 API。
+- 未改变 production routing。
+
+## 2026-05-15 - T019 Recovery and Real Provider Shadow Validation
+
+### 本轮目标
+
+修复 T019e 全量测试受本机真实 provider 环境变量影响的问题，并在回归全部通过后记录真实 provider shadow-only 验证结果。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/test/java/com/docpilot/backend/DocPilotApplicationTests.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `AgentSelectorProperties` 增加 OpenAI-compatible 常见 provider alias 归一化，避免兼容接口 provider 命名差异导致配置绑定失败。
+- `AgentSelectorPropertiesTest` 显式隔离 selector provider、model、baseUrl、apiKey、timeout、maxTokens、temperature 和 shadow flags 默认值，避免继承本机真实 provider 环境。
+- `DocPilotApplicationTests` 显式隔离 selector provider 默认值，避免 contextLoads 受真实 provider 环境污染。
+- 记录 T019 真实 provider shadow-only 运行结果：provider=`openai_compatible`，真实 HTTP 调用 2 次，summary primary / shadow 均为 `summary_tool`，QA primary / shadow 均为 `qa_tool`，mismatch=false，QA citations 正常。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -Dtest=LlmToolSelectionClientFactoryTest test`：通过。
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentRealShadowPathTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，244 tests。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 协作代理未读取或输出 API Key；未输出完整 baseUrl、Authorization header、prompt、文档内容或模型完整返回。
+- 未读取 `backend/.env`。
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未改变 production routing，真实工具执行仍由 `DocumentToolSelector` primary decision 决定。
+- 未新增 API。
+- 未修改前端代码。
+- 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
+
+## 2026-05-16 - T024 Selector Actuator Endpoint Implementation
+
+### 本轮目标
+
+实现默认关闭、只读、安全字段白名单的 Agent selector shadow metrics Actuator endpoint。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/AgentSelectorShadowEndpoint.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/AgentSelectorShadowEndpointTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/AgentSelectorShadowEndpointExposureTest.java`
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `AgentSelectorShadowEndpoint`。
+- endpoint 使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`。
+- endpoint id 为 `agentSelectorShadow`，候选 path 为 `/actuator/agentSelectorShadow`，通过 `@ReadOperation` 提供只读 GET 语义。
+- endpoint 只依赖 `SelectorMetricsDebugReporter`，返回 `SelectorMetricsDebugSnapshot`。
+- 新增单元测试验证空 metrics、字段黑名单和只读行为。
+- 新增 Spring context 测试验证默认未开启 / 未加入 exposure 时返回 404。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorShadowEndpointTest test`：通过。
+- `cd backend; mvn -Dtest=AgentSelectorShadowEndpointExposureTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过，286 tests，0 failures，0 errors。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未修改 `application.yml`。
+- 未修改 `application-local.yml`。
+- 未加入 `management.endpoints.web.exposure.include`。
+- 未新增普通 REST API 或 Controller。
+- 未接 Prometheus。
+- 未落库。
+- 未修改前端。
+- 未真实调用 provider。
+- 未读取或输出 secret。
+- 未改变 production routing，真实工具执行仍由 `DocumentToolSelector` 决定。
+- 未测试未授权访问；当前没有专门的 Actuator Spring Security 配置，该项留到 T025。
+
+## 2026-05-16 - T024 Selector Actuator Endpoint Implementation Boundary
+
+### 本轮目标
+
+先补充 T024 实现前的安全边界文档，再进入默认关闭 Actuator endpoint 最小实现。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 补充内容
+
+- T024 实现必须使用 `@Endpoint(id = "agentSelectorShadow", enableByDefault = false)`。
+- 这是项目中第一个自定义 Actuator endpoint，没有既有模式可复用，因此必须最小实现。
+- T024 不修改 `application.yml` / `application-local.yml`。
+- T024 不加入 `management.endpoints.web.exposure.include`。
+- T024 只做默认关闭 endpoint、单元测试和 context 默认 404 测试。
+- T024 暂不测试“未授权访问被拒绝”，因为当前项目没有专门的 Actuator Spring Security 配置；该项留到 T025。
+- T024 不接 Prometheus；项目现有 Prometheus endpoint 和 selector-specific Prometheus metrics 是两回事，本轮不修改现有 Prometheus 配置。
+
+### 明确未做事项
+
+- 未新增 Actuator endpoint 代码。
+- 未修改 Java 生产代码。
+- 未修改配置文件。
+- 未修改前端。
+- 未接 Prometheus。
+- 未读取或输出 secret。
+
+## 2026-05-16 - T023 Selector Actuator Endpoint Design
+
+### 本轮目标
+
+只写 Agent selector shadow metrics Actuator endpoint 设计草案，不新增 endpoint、不改 Java 生产代码、不改配置、不接 Prometheus。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_ACTUATOR_ENDPOINT_DESIGN.md`
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 设计内容
+
+- 新增 Actuator endpoint 设计草案，候选 id 为 `agentSelectorShadow`，候选 path 为 `/actuator/agentSelectorShadow`，候选方法为 GET，只读。
+- 明确目标：给开发者和运维查看 selector shadow metrics，只输出聚合指标，不影响 production routing。
+- 明确非目标：不做管理端 API、前端页面、Prometheus export、metrics 落库、用户 / 文档维度查询、raw sample、阈值修改或 production routing 切换。
+- 补充返回字段白名单和禁止字段黑名单。
+- 补充访问控制、Actuator exposure、脱敏、审计和风险。
+- 补充未来 T024 候选实现类、依赖关系、测试策略和验收标准。
+- 同步路线文档，说明 T024 前建议先做 Claude Code / 人工安全审查。
+
+### 当前结论
+
+- T023 只是设计文档任务。
+- 尚未实现 Actuator endpoint。
+- 短期仍使用 T021 内部 debug dump。
+- T024 才可能进入候选实现，且应先安全审查。
+- 完整 T010 仍为 BLOCKED，等待 MQ / 解析消费链路。
+
+### T023e 自检结果
+
+- `git status --short` 干净后进入 T023e。
+- `git diff --name-only HEAD~4..HEAD` 仅包含允许文档。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端。
+- 未新增 HTTP API / Controller。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未读取或输出 secret。
+
+### 明确未做事项
+
+- 未新增 HTTP API。
+- 未新增 Controller。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未落库。
+- 未修改 Java 生产代码或测试代码。
+- 未修改前端。
+- 未读取或输出 API Key、baseUrl、Authorization、prompt、用户 task、文档内容或模型完整返回。
+- 未改变 production routing。
+
+## 2026-05-16 - T022 Selector Observability Decision
+
+### 本轮目标
+
+只做 Agent selector shadow metrics 观测入口设计决策，不新增接口、不新增 Actuator endpoint、不接 Prometheus、不修改生产代码。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_OBSERVABILITY_DECISION.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 设计内容
+
+- 新增 selector observability 决策文档，记录 T019 / T020 / T021 后的观测入口选择。
+- 比较本地 debug dump、Actuator endpoint、管理端 API、Prometheus metrics 四种方案。
+- 补充决策矩阵，覆盖实现成本、安全风险、本地开发、线上运维、鉴权、网络暴露、面试展示、生产环境、趋势观察和告警。
+- 补充安全威胁模型，明确可能泄露的信息、攻击面、防护策略、字段白名单和字段黑名单。
+- 同步现有 shadow mode / async design / TODO / handoff，当前推荐下一步为 T023 Actuator endpoint 设计草案，不直接实现接口。
+
+### 当前结论
+
+- 短期继续使用 T021 的内部 debug dump。
+- T023 优先做 Actuator endpoint 设计草案，默认不实现。
+- Prometheus 作为中期路线，只暴露数值指标和安全枚举 label。
+- 管理端 API 暂缓，等待权限体系、管理员角色和审计策略明确。
+
+### T022e 自检结果
+
+- `git status --short` 干净后进入 T022e。
+- `git diff --name-only HEAD~4..HEAD` 仅包含允许文档。
+- 未修改 Java 生产代码。
+- 未修改测试代码。
+- 未修改前端。
+- 未新增 HTTP API / Controller。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未读取或输出 secret。
+
+### 明确未做事项
+
+- 未新增 HTTP API。
+- 未新增 Controller。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未落库。
+- 未修改 Java 生产代码。
+- 未修改前端。
+- 未读取或输出 API Key、baseUrl、Authorization、prompt、用户 task、文档内容或模型完整返回。
+- 未改变 production routing。
+- 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
+
+## 2026-05-15 - T021 Selector Metrics Debug Boundary
+
+### 本轮目标
+
+为 selector shadow metrics 提供内部只读 debug dump / reporter，并说明为什么当前暂不开放 HTTP API / Actuator / Prometheus 观测入口。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugSnapshot.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugReporter.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugSnapshotTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugReporterTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsDebugEvaluationTest.java`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/AGENT_ASYNC_DESIGN.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `SelectorMetricsDebugSnapshot`，将 metrics snapshot 和 threshold decision 格式化为安全 view。
+- 新增 `SelectorMetricsDebugReporter`，只读组合 `SelectorMetricsCollector` 与 `SelectorShadowThresholdPolicy`，不清空 metrics，不改变状态。
+- 新增离线 debug evaluation 测试，验证 dump 可展示 total / success / failure / matched / mismatch、matchRate、failureRate、provider 聚合、decision pair 聚合和 threshold decision。
+- 文档说明暂不开放 API / Actuator：避免在管理端鉴权、内网边界和脱敏策略未设计前暴露 provider / decision metrics。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=SelectorMetricsDebug*Test test`：通过。
+- `cd backend; mvn -Dtest=SelectorMetricsDebugEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=ShadowToolSelectorEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=RealShadowProviderEvaluationTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### T021e 状态收口
+
+- `docs/TODO_NEXT.md` 已将 T021 标记为 DONE。
+- `docs/CODEX_HANDOFF.md` 已更新下一步为 T022：Actuator / 管理 API / Prometheus 观测入口设计决策。
+- 当前仍仅提供内部 debug dump / reporter，不新增 API / Actuator / Prometheus。
+- 完整 T010 仍为 BLOCKED，等待 MQ / 解析消费链路。
+
+### 明确未做事项
+
+- 未真实调用 provider。
+- 未读取或输出 API Key、完整 baseUrl、Authorization header、prompt、用户 task、文档内容或模型完整返回。
+- 未读取 `backend/.env`。
+- 未改变 production routing。
+- 未新增 HTTP API。
+- 未新增 Actuator endpoint。
+- 未接 Prometheus。
+- 未落库。
+- 未修改前端。
+- 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
+
+## 2026-05-15 - T020 Selector Shadow Threshold Metrics
+
+### 本轮目标
+
+把 T019 的真实 provider shadow-only 能力升级为可观测、可评估、可设置阈值的 shadow 评估基础设施，但不让 shadow decision 接管 production routing。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsCollector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsSnapshot.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorShadowThresholdDecision.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorShadowThresholdPolicy.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsCollectorTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorShadowThresholdPolicyTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorShadowThresholdEvaluationTest.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/REAL_PROVIDER_SHADOW_PREFLIGHT.md`
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `SelectorMetricsCollector` / `SelectorMetricsSnapshot` 增强为记录 totalCount、successCount、failureCount、matchedCount、mismatchCount、matchRate、failureRate、lastUpdatedTime。
+- metrics 支持 provider 维度聚合和 primaryDecision / shadowDecision 的安全 decision pair 聚合。
+- 新增 `SelectorShadowThresholdPolicy` / `SelectorShadowThresholdDecision`，默认 `minimumSamples=20`、`minMatchRate=0.95`、`maxFailureRate=0.05`。
+- 阈值策略只返回 `allowPromotionCandidate` 和 reason，不修改配置，不改变 production routing。
+- 新增离线 threshold evaluation 测试，确认 promotion candidate 不会改变 `DocumentAgentServiceImpl` 的 primary decision。
+- 文档补充 metrics 字段、threshold policy、日志脱敏边界和下一步 T021。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=SelectorMetricsCollectorTest test`：通过。
+- `cd backend; mvn -Dtest=SelectorShadowThresholdPolicyTest test`：通过。
+- `cd backend; mvn -Dtest=SelectorShadowThresholdEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=ShadowToolSelectorEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=RealShadowProviderEvaluationTest test`：通过。
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+- `cd frontend; npm run lint`：通过。
+- `cd frontend; npm run build`：通过。
+
+### 明确未做事项
+
+- 未真实调用 provider。
+- 未读取或输出 API Key、完整 baseUrl、Authorization header、prompt、用户 task、文档内容或模型完整返回。
+- 未读取 `backend/.env`。
+- 未改变 production routing，真实工具执行仍由 `DocumentToolSelector` primary decision 决定。
+- 未新增 API，未改前端。
+- 未落库，未接 Prometheus。
+- 未接 function calling / RAG / MCP / Spring AI / LangChain4j。
+- 未把完整 T010 写成通过；完整上传 / 解析 / MQ 链路仍为 BLOCKED。
+
+## 2026-05-14 - T011d Tool Selector Evaluation Cases
+
+### 本轮目标
+
+新增 selector 评估样例集和离线测试，为后续比较关键词 selector 与未来 LLM selector 建立基线。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/ToolSelectorEvaluationTest.java`
+- `backend/src/test/resources/agent/tool-selector-eval-cases.json`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 24 条 `tool-selector-eval-cases.json` 样例，覆盖状态查询、摘要查询、证据问答、英文大小写、中文表达、模糊表达、summary + evidence 冲突和空白输入。
+- 新增 `ToolSelectorEvaluationTest`，读取 JSON 样例并调用当前 `DocumentToolSelector`，断言 decision 符合 expectedDecision。
+- 测试输出 pass count / total count，当前基线为 24/24。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=ToolSelectorEvaluationTest test`：通过，24/24 cases。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T012a Shadow LLM Selector Adapter
+
+### 本轮目标
+
+进入 P3 Shadow LLM Selector 基础设施阶段，新增未来 LLM selector 的适配接口、fake shadow implementation 和 compare result。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelector.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmSelectorShadowResult.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelector` 接口，定义 `selectWithPrompt` 输入 task、parseReady、hasSummary 和工具定义列表，返回 `LlmToolSelectionResult`。
+- 新增 `FakeLlmToolSelector`，不联网、不调用真实 LLM，仅复用 `DocumentToolSelector` 或在 parseReady=false 时返回状态工具决策。
+- 新增 `LlmSelectorShadowResult`，记录 primaryDecision、shadowDecision、matched、primaryReason 和 shadowReason。
+- 单元测试覆盖 summary、QA、status、parseReady=false、matched=true 和 shadowDecision 非空。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=FakeLlmToolSelectorTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T012b Selector Feature Flags
+
+### 本轮目标
+
+新增 Agent selector feature flags，为后续 shadow compare 提供显式配置。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/main/resources/application.yml`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `AgentSelectorProperties`，绑定 `app.agent.selector` 配置。
+- 新增 `app.agent.selector.mode`，允许 `keyword` / `shadow_llm`，默认 `keyword`。
+- 新增 `app.agent.selector.shadow-enabled`，默认 `false`。
+- 配置测试覆盖默认值、shadow 配置绑定和非法 mode 拒绝。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T012c Selector Shadow Comparison
+
+### 本轮目标
+
+在 `DocumentAgentServiceImpl` 中接入 primary selector + shadow selector compare，但 primary decision 仍唯一生效。本轮不调用真实 LLM，不接 function calling，不改变 API 返回或默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmSelectorShadowResult.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentServiceImpl` 在文档 parseReady 后仍先使用 primary `ToolSelector` 得到真实 decision。
+- 当 `app.agent.selector.shadow-enabled=true` 时，旁路调用 `LlmToolSelector`，生成 `LlmSelectorShadowResult` 并记录 compare 日志。
+- shadow selector 异常只记录 warn，primary decision 和真实工具执行不受影响。
+- parseReady=false 时仍直接返回状态提示，不运行 primary selector 或 shadow compare。
+- 单元测试覆盖 shadow compare 不影响真实工具执行、matched=true、开关关闭不运行、parseReady=false 不运行。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，175 tests，0 failures，0 errors。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 API 返回协议。
+- 未修改 AgentTask / AgentStep schema。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T012d Selector Shadow Metrics
+
+### 本轮目标
+
+新增 selector compare metrics 的内存态 collector 和 snapshot，为后续 shadow compare 观测打基础。本轮不接 Micrometer / Prometheus，不新增 API，不落库。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsSnapshot.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsCollector.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/SelectorMetricsCollectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `SelectorMetricsSnapshot`，包含 totalComparisons、matchedCount、mismatchCount、matchRate 和 lastUpdatedTime。
+- 新增 `SelectorMetricsCollector`，通过 `record(primaryDecision, shadowDecision)` 线程安全记录 match / mismatch。
+- collector 仅内存态保存数据，不落库、不接外部指标系统、不暴露接口。
+- 单元测试覆盖全 match、部分 mismatch、matchRate 正确、空 snapshot 和并发 record。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=SelectorMetricsCollectorTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，179 tests，0 failures，0 errors。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未落库。
+- 未接 Micrometer / Prometheus。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T013a Selector Shadow Metrics 接入
+
+### 本轮目标
+
+将 `SelectorMetricsCollector` 接入 `DocumentAgentServiceImpl` 的 shadow compare 路径，让 shadow compare 成功执行后能记录 primary / shadow decision 的 match 情况。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentServiceImpl` 构造函数注入 `SelectorMetricsCollector`。
+- shadow compare 成功生成 `LlmSelectorShadowResult` 后调用 `record(primaryDecision, shadowDecision)`。
+- shadow 关闭、parseReady=false、shadow selector 未执行或 shadow selector 异常时不记录 comparison。
+- 单元测试补充 metrics 断言：关闭时不增加、开启且 matched 时 totalComparisons / matchedCount 增加、parseReady=false 不增加、真实 decision 和工具执行仍由 primary selector 决定。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过，179 tests，0 failures，0 errors。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 API 返回协议。
+- 未修改 AgentTask / AgentStep schema。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T013b Shadow Selector 离线评估
+
+### 本轮目标
+
+新增 Shadow Selector 离线评估测试，复用现有 `tool-selector-eval-cases.json` 对比 primary `DocumentToolSelector` 与 `FakeLlmToolSelector`，统计 match rate。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/ShadowToolSelectorEvaluationTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `ShadowToolSelectorEvaluationTest`，读取现有 24 条 tool selector eval cases。
+- 每条 case 执行 primary selector 与 fake shadow selector，并记录到 `SelectorMetricsCollector`。
+- 断言 shadow decision 非空，并断言 matchRate 不低于 0.95。
+- mismatch 时输出 task、primary decision 与 shadow decision，便于后续排查。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=ShadowToolSelectorEvaluationTest test`：通过。
+- 离线结果：24 cases，23 matched，1 mismatch，matchRate=0.9583。
+- 唯一 mismatch：空白 task 且 parseReady=false 时，primary 当前默认 `qa_tool`，fake shadow 根据 parse-not-ready 返回 `status_only`。
+- `cd backend; mvn test -DskipITs`：通过，180 tests，0 failures，0 errors。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未修改 eval cases。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T013c Selector Shadow Mode 设计说明
+
+### 本轮目标
+
+新增 selector shadow mode 设计说明，避免后续接手者误以为 LLM selector 已接管生产。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录当前 selector 架构：primary 为 `DocumentToolSelector`，shadow 为 `FakeLlmToolSelector`。
+- 说明 `ToolDefinitionProvider`、`LlmToolSelectionPromptBuilder` 和 `LlmToolSelectionParser` 的边界。
+- 记录 feature flag、内存态 metrics、当前已验证内容、完整 T010 BLOCKED 原因和不能硬吹的边界。
+- 给出后续 T014-T017 路线：disabled real adapter、shadow-only real call、人工审核 eval、达到阈值后再考虑小流量接管。
+
+### 验证结果
+
+- `git status --short`：检查通过。
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md` 已新增。
+
+### 明确未做事项
+
+- 未修改代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T013d Selector Shadow Roadmap 状态更新
+
+### 本轮目标
+
+更新协作文档当前阶段，把 T013 Selector Shadow Observability 闭环收口，并将下一步推荐切换到 T014。
+
+### 修改文件
+
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录 T013a-c 已完成：selector shadow metrics 已接入、shadow offline evaluation 已完成、shadow mode 文档已新增。
+- 明确当前默认行为仍是 keyword selector。
+- 明确当前没有真实 LLM 调用，shadow decision 不接管生产 routing。
+- 明确完整 T010 仍为 BLOCKED，原因仍是 MQ disabled / `NoopParseTaskMessageProducer`。
+- 下一步推荐 T014：real LLM selector disabled adapter，默认关闭，不接管生产。
+- 明确不建议直接进入生产 LLM tool calling、MCP、RAG、多 Agent 或 MQ 异步 Agent。
+
+### 验证结果
+
+- `git status --short`：检查通过。
+- `git diff -- docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T014a Disabled LLM Selection Client
+
+### 本轮目标
+
+新增真实 LLM tool selector 未来调用模型时使用的 client 抽象，同时提供 disabled client，确保当前不会误调用外部模型。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClient.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientResponse.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/DisabledLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/DisabledLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelectionClient` 接口，定义 `completeSelectionPrompt(String prompt)`。
+- 新增 `LlmToolSelectionClientResponse`，包含 rawText、provider、model、disabled 和 errorMessage。
+- 新增 `DisabledLlmToolSelectionClient`，调用时只返回 disabled response，不联网、不调用真实模型、不读取环境变量。
+- 单元测试覆盖 disabled=true、provider/model disabled 标识、errorMessage 非空，以及 blank / null prompt 不抛敏感异常。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DisabledLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未读取 `backend/.env`。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T014b Real LLM Tool Selector Adapter
+
+### 本轮目标
+
+新增 `RealLlmToolSelector` adapter，把 prompt builder、client、parser 串起来。本轮不接入生产 service，不真实调用外部模型。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelector.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelectorTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `RealLlmToolSelector`，实现 `LlmToolSelector`。
+- `selectWithPrompt` 先构建 prompt，再调用 `LlmToolSelectionClient`，最后用 `LlmToolSelectionParser` 解析 rawText。
+- client disabled 时抛出明确异常。
+- client 返回非法 JSON 或 client 失败时抛出异常，不静默 fallback 到 keyword selector。
+- 单元测试使用 fake client 覆盖 summary、QA、disabled、非法 JSON 和不 fallback 路径。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealLlmToolSelectorTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未读取 `backend/.env`。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未接入 `DocumentAgentServiceImpl`。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T014c Real LLM Selector Shadow Runner
+
+### 本轮目标
+
+新增 Real LLM selector disabled shadow runner，用于未来把 `RealLlmToolSelector` 接入 shadow compare。本轮仍不接入生产 service，不记录 metrics，不真实调用模型。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunner.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunResult.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunnerTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `RealLlmSelectorShadowRunner`，输入 primary decision、task、parseReady、hasSummary 和工具定义列表。
+- runner 内部调用 `RealLlmToolSelector`。
+- disabled client 或解析异常失败时返回 success=false、shouldRecordMetrics=false，不影响 primary decision。
+- 成功时返回 shadowDecision、matched 和 shouldRecordMetrics=true。
+- 单元测试覆盖 disabled、valid fake client、matched、mismatch、失败不记录 metrics 和成功可记录 metrics。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealLlmSelectorShadowRunnerTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未读取 `backend/.env`。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未新增 API。
+- 未修改 DDL。
+- 未修改前端。
+- 未接入 `DocumentAgentServiceImpl`。
+- 未记录 metrics。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-15 - T014d Real LLM Selector Adapter 文档状态
+
+### 本轮目标
+
+更新 Selector Shadow Mode 文档和协作文档，说明 real LLM selector adapter 已有，但当前默认 disabled、未真实调用、未接入生产 service、未接管 routing。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 在 `docs/AGENT_SELECTOR_SHADOW_MODE.md` 中补充 `LlmToolSelectionClient`、`DisabledLlmToolSelectionClient`、`RealLlmToolSelector` 和 `RealLlmSelectorShadowRunner` 的当前状态。
+- 明确 disabled client 不联网、不调用真实模型、不读取环境变量或 `backend/.env`，用于防止误调用真实 provider。
+- 明确 `RealLlmToolSelector` 只串联 prompt builder、client 和 parser，当前不是生产 Spring bean，未注入 `DocumentAgentServiceImpl`。
+- 明确 `RealLlmSelectorShadowRunner` 未来可用于 real selector shadow compare，当前只在单元测试中验证 disabled / fake client 行为。
+- 将协作文档下一步推荐更新为 T015：在 feature flag 严格关闭的前提下接入 runner 到 service shadow 路径，真实 provider 调用另开任务。
+
+### 验证结果
+
+- `git status --short`：已检查。
+- `git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未接入 `DocumentAgentServiceImpl`。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-15 - T016b Fake LLM Selection Client
+
+### 本轮目标
+
+新增可测试的 fake provider client，用于后续 shadow-only smoke。本 client 不联网、不读取密钥、不读取环境变量。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/FakeLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `FakeLlmToolSelectionClient`，实现 `LlmToolSelectionClient`。
+- 根据 prompt 中 `Current task` 内容返回 `summary_tool`、`qa_tool` 或 `status_only` 的合法 JSON。
+- 返回 provider=`fake`、model=`fake-selector`、disabled=false。
+- 测试使用 `LlmToolSelectionParser` 解析 fake client 的 rawText，验证输出协议可用。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=FakeLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未联网。
+- 未读取 API Key。
+- 未读取环境变量。
+- 未读取 `backend/.env`。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未改变 disabled client。
+- 未改变 production routing。
+
+## 2026-05-15 - T016c OpenAI-compatible Selector Client Skeleton
+
+### 本轮目标
+
+新增 OpenAI-compatible LLM selection client 结构骨架，但本轮不发 HTTP 请求、不联网、不读取密钥。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleToolSelectionRequest.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleToolSelectionResponse.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClient.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/OpenAiCompatibleLlmToolSelectionClientTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 OpenAI-compatible request record，包含 model、messages、temperature 和 maxTokens。
+- 新增 OpenAI-compatible response record，包含 rawText、provider、model 和 finishReason。
+- 新增 `OpenAiCompatibleLlmToolSelectionClient`，实现 `LlmToolSelectionClient`。
+- 当前 `completeSelectionPrompt` 只返回 provider=`openai_compatible` 的 disabled response，不发起网络请求。
+- 提供 `buildRequest(prompt)` 纯构造方法，为未来真实 provider 接入做结构准备。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=OpenAiCompatibleLlmToolSelectionClientTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未引入 HTTP client。
+- 未发 HTTP 请求。
+- 未读取 API Key。
+- 未读取环境变量。
+- 未读取 `backend/.env`。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未接入 production service。
+- 未改变 production routing。
+
+## 2026-05-15 - T017b Factory-backed Real Shadow Runner
+
+### 本轮目标
+
+让 `RealLlmSelectorShadowRunner` 支持通过 `RealLlmToolSelectorFactory` 和 `AgentSelectorProperties` 创建 factory-backed selector。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunner.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmSelectorShadowRunnerTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `RealLlmSelectorShadowRunner` 保留原有直接注入 `RealLlmToolSelector` 的构造方式。
+- 新增 factory-backed 构造方式：`RealLlmToolSelectorFactory` + `AgentSelectorProperties`。
+- 默认 disabled provider 返回 success=false / shouldRecordMetrics=false。
+- provider=`fake` 可返回 success=true，并根据 primary / shadow decision 判断 matched。
+- provider=`openai_compatible` 仍 dry-run disabled，不联网。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealLlmSelectorShadowRunnerTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未修改 `DocumentAgentServiceImpl`。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP 请求。
+- 未调用真实 LLM。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
+## 2026-05-15 - T017a Factory-backed Real Selector Builder
+
+### 本轮目标
+
+新增小型构造器，将 provider settings、LLM selection client factory、prompt builder 和 parser 串成 `RealLlmToolSelector`。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelectorFactory.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/RealLlmToolSelectorFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `RealLlmToolSelectorFactory`。
+- 默认 properties 下通过 `LlmToolSelectionClientFactory` 创建 disabled client，selector 调用明确失败。
+- provider=`fake` 时 selector 可返回合法 decision。
+- provider=`openai_compatible` 时 selector 仍使用 dry-run disabled client，不联网。
+- unknown provider fallback disabled。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=RealLlmToolSelectorFactoryTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未接入 `DocumentAgentServiceImpl`。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP 请求。
+- 未调用真实 LLM。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
+## 2026-05-15 - T016e Provider Client Skeleton 文档状态
+
+### 本轮目标
+
+更新 selector shadow 文档和协作状态，说明 provider-specific skeleton 已有，但当前仍未真实调用任何外部模型。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 记录 T016 新增的 provider settings、`FakeLlmToolSelectionClient`、`OpenAiCompatibleLlmToolSelectionClient` skeleton 和 `LlmToolSelectionClientFactory`。
+- 明确 provider 当前状态：`disabled` 为默认；`fake` 仅用于测试和未来 shadow-only 验证；`openai_compatible` 只有 dry-run 骨架，不联网。
+- 明确当前没有 DeepSeek / OpenAI / 硅基流动真实调用，没有读取 API Key，没有读取 `backend/.env`，没有真实 HTTP 请求。
+- 将下一步推荐更新为 T017：以默认 disabled 的方式把 factory 接入 real shadow client 构造路径。
+
+### 验证结果
+
+- `git status --short`：已检查。
+- `git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未调用真实 LLM。
+- 未读取 API Key。
+- 未读取 `backend/.env`。
+- 未发 HTTP 请求。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
+## 2026-05-15 - T016d LLM Selection Client Factory
+
+### 本轮目标
+
+新增 LLM selection client factory，根据 provider 配置选择 disabled / fake / OpenAI-compatible client，但默认必须返回 disabled client。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactory.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionClientFactoryTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelectionClientFactory`。
+- provider=`disabled` 或 null properties 时返回 `DisabledLlmToolSelectionClient`。
+- provider=`fake` 时返回 `FakeLlmToolSelectionClient`。
+- provider=`openai_compatible` 时返回 `OpenAiCompatibleLlmToolSelectionClient` skeleton。
+- unknown provider fallback disabled，不返回真实联网 client。
+- 本轮不把 factory 接入 production service，不改变现有 bean 注入结构。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=LlmToolSelectionClientFactoryTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未接入 `DocumentAgentServiceImpl`。
+- 未调用真实 LLM。
+- 未发 HTTP 请求。
+- 未读取 API Key。
+- 未读取环境变量。
+- 未读取 `backend/.env`。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未改变 production routing。
+
+## 2026-05-15 - T016a LLM Selector Provider Settings
+
+### 本轮目标
+
+新增 LLM selector provider 配置模型，为后续 disabled / fake / OpenAI-compatible client skeleton 选择做准备，但默认仍为 disabled。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `llmProvider`，允许 `disabled`、`fake`、`openai_compatible`，默认 `disabled`。
+- 新增 `llmModel`，默认空字符串。
+- 新增 `llmBaseUrl`，默认空字符串。
+- 新增 `llmRequestTimeoutMs`，默认 `3000`，并校验必须为正数。
+- 配置测试覆盖默认安全值、显式绑定、非法 provider 和非法 timeout。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未读取环境变量。
+- 未读取 `backend/.env`。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-15 - T015d Real Shadow Selector Integration 文档状态
+
+### 本轮目标
+
+更新 selector shadow mode 文档和协作状态，说明 `RealLlmSelectorShadowRunner` 已接入 service 的 real shadow 分支，但默认关闭，且 disabled client 防止真实模型调用。
+
+### 修改文件
+
+- `docs/AGENT_SELECTOR_SHADOW_MODE.md`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 更新 real shadow path 当前状态：runner 已接入 `DocumentAgentServiceImpl`，默认 `realShadowEnabled=false`，默认不运行。
+- 明确即使开启 real shadow，当前 client 仍为 `DisabledLlmToolSelectionClient`，不会真实调用模型。
+- 明确 selector 决策顺序：primary `DocumentToolSelector` 唯一决定真实工具执行；fake shadow 与 real shadow 都只用于旁路 compare。
+- 明确 fake shadow metrics 已可记录，real shadow metrics 默认不记录，只有 `realShadowRecordMetrics=true` 且 real shadow success 时才允许记录。
+- 更新后续路线到 T016：provider-specific disabled / fake client skeleton，真实 provider 调用另开任务。
+
+### 验证结果
+
+- `git status --short`：已检查。
+- `git diff -- docs/AGENT_SELECTOR_SHADOW_MODE.md docs/TODO_NEXT.md docs/CHANGELOG_CODING.md docs/CODEX_HANDOFF.md`：已复核。
+
+### 明确未做事项
+
+- 未修改业务代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-15 - T015c Real Shadow Path Tests
+
+### 本轮目标
+
+新增聚焦 real shadow path 的 service 单元测试，避免 `DocumentAgentServiceImplTest` 继续膨胀，同时锁定 real shadow 接入边界。
+
+### 修改文件
+
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentRealShadowPathTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `DocumentAgentRealShadowPathTest`。
+- 覆盖默认配置下不运行 real shadow。
+- 覆盖开启 fake shadow 不会隐式开启 real shadow。
+- 覆盖 real shadow 使用 disabled client 时 agent run 仍成功。
+- 覆盖 real shadow 异常时 fail-open。
+- 覆盖 parseReady=false 时跳过 fake shadow 和 real shadow。
+- 覆盖 `realShadowRecordMetrics=false` 时 real shadow success 不记录 metrics。
+- 覆盖 `realShadowRecordMetrics=true` 且 real shadow success 时记录 metrics。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentRealShadowPathTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未修改生产代码。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-15 - T015b Disabled Real Selector Shadow Path
+
+### 本轮目标
+
+把 `RealLlmSelectorShadowRunner` 接入 `DocumentAgentServiceImpl` 的 shadow 路径，但默认严格关闭，不让 real shadow 影响生产工具选择。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/service/impl/DocumentAgentServiceImpl.java`
+- `backend/src/test/java/com/docpilot/backend/ai/service/DocumentAgentServiceImplTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- `DocumentAgentServiceImpl` 在构造时基于 prompt builder、LLM selection client 和 parser 创建 `RealLlmSelectorShadowRunner`。
+- fake shadow compare 与 real shadow compare 分离执行，互相失败不影响 primary decision。
+- real shadow 仅在 `shadowEnabled=true` 且 `realShadowEnabled=true` 时执行。
+- real shadow 返回失败或抛出异常时 fail-open，主流程继续使用 primary `DocumentToolSelector` decision。
+- real shadow metrics 只有在 `realShadowRecordMetrics=true` 且 runner success 时才允许记录；默认不记录。
+- 单元测试覆盖默认不运行、fake shadow 不隐式启用 real shadow、disabled client 不影响主流程、real shadow 异常 fail-open、parseReady=false 跳过 shadow。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=DocumentAgentServiceImplTest test`：通过。
+- `cd backend; mvn test -DskipITs`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未修改 `application.yml`。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-15 - T015a Real Shadow Selector Safety Flags
+
+### 本轮目标
+
+为 real LLM selector shadow runner 补充更细粒度安全开关，默认严格关闭，避免真实 selector shadow 路径被误启用。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/config/AgentSelectorProperties.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/config/AgentSelectorPropertiesTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `realShadowEnabled`，默认 `false`，用于控制是否允许执行 `RealLlmSelectorShadowRunner`。
+- 新增 `realShadowRecordMetrics`，默认 `false`，避免 real shadow metrics 与现有 fake shadow metrics 混淆。
+- 新增 `realShadowFailOpen`，默认 `true`，确保 real shadow 失败时主流程继续使用 primary decision。
+- 配置测试覆盖默认值和显式绑定值。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=AgentSelectorPropertiesTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未修改 `application.yml` 或 `application-local.yml`。
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未新增 API。
+- 未修改前端。
+- 未修改 DDL。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T011c Tool Selection Prompt Builder
+
+### 本轮目标
+
+新增未来 LLM Tool Selection 的 prompt builder，为后续真实 LLM selector 提供稳定提示词骨架。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionPromptBuilder.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionPromptBuilderTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelectionPromptBuilder`，输入 task、parseReady、hasSummary 和 `ToolDefinition` 列表，输出工具选择 prompt。
+- prompt 包含当前任务、文档解析状态、是否已有 summary、可用工具列表、每个工具的输入输出 schema、JSON 输出协议和安全限制。
+- prompt 明确 decision 只能从 `status_only`、`summary_tool`、`qa_tool` 中选择，并禁止生成 SQL、系统命令或调用未列出的工具。
+- 单元测试覆盖 toolName、JSON 输出格式、安全限制、task、parseReady、hasSummary 和 decision 值。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=LlmToolSelectionPromptBuilderTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。
+
+## 2026-05-14 - T011b LLM Tool Selection 输出协议和解析器
+
+### 本轮目标
+
+定义未来 LLM Tool Selection 的 JSON 输出协议，并实现离线 parser。本轮不调用真实 LLM，不接 function calling，不改变默认 Agent 行为。
+
+### 修改文件
+
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionResult.java`
+- `backend/src/main/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionParser.java`
+- `backend/src/test/java/com/docpilot/backend/ai/agent/tool/LlmToolSelectionParserTest.java`
+- `docs/TODO_NEXT.md`
+- `docs/CODEX_HANDOFF.md`
+- `docs/CHANGELOG_CODING.md`
+
+### 实现内容
+
+- 新增 `LlmToolSelectionResult`，包含 decision、toolNames、routingReason、matchedKeywords、confidence。
+- 新增 `LlmToolSelectionParser`，可从原始文本中提取第一个 JSON object，并校验 decision、已注册工具名、confidence 范围和 toolNames 非空。
+- 解析失败时抛出明确异常，不做静默 fallback。
+- 单元测试覆盖标准 JSON、前后带自然语言、非法 decision、未知 toolName、confidence 越界、空输入和空 toolNames。
+
+### 验证结果
+
+- `cd backend; mvn -Dtest=LlmToolSelectionParserTest test`：通过。
+- `cd backend; mvn -DskipTests compile`：通过。
+
+### 明确未做事项
+
+- 未调用真实 LLM。
+- 未接 function calling。
+- 未引入新依赖。
+- 未修改 `pom.xml`。
+- 未修改 DDL。
+- 未修改前端。
+- 未改变当前默认 `DocumentToolSelector` 关键词路由行为。

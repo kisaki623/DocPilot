@@ -7,6 +7,9 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Mapper
 public interface ParseTaskMapper extends BaseMapper<ParseTask> {
 
@@ -58,5 +61,38 @@ public interface ParseTaskMapper extends BaseMapper<ParseTask> {
 				""")
 		int resetTerminalTaskForReparse(@Param("taskId") Long taskId,
 													 @Param("userId") Long userId);
+
+		@Select("""
+				SELECT id,
+				       user_id,
+				       document_id,
+				       file_record_id,
+				       status,
+				       error_msg,
+				       retry_count,
+				       start_time,
+				       finish_time,
+				       create_time,
+				       update_time
+				  FROM tb_parse_task
+				 WHERE status IN ('PENDING', 'UPLOADED', 'PARSING', 'SPLITTING', 'SUMMARIZING', 'INDEXING', 'PROCESSING')
+				   AND update_time < #{staleBefore}
+				 ORDER BY update_time ASC
+				 LIMIT #{limit}
+				""")
+		List<ParseTask> selectStaleProcessingTasks(@Param("staleBefore") LocalDateTime staleBefore,
+												   @Param("limit") Integer limit);
+
+		@Update("""
+				UPDATE tb_parse_task
+				   SET status = 'FAILED',
+				       error_msg = #{errorMsg},
+				       finish_time = #{finishTime}
+				 WHERE id = #{taskId}
+				   AND status IN ('PENDING', 'UPLOADED', 'PARSING', 'SPLITTING', 'SUMMARIZING', 'INDEXING', 'PROCESSING')
+				""")
+		int markStaleTaskFailed(@Param("taskId") Long taskId,
+								 @Param("errorMsg") String errorMsg,
+								 @Param("finishTime") LocalDateTime finishTime);
 }
 

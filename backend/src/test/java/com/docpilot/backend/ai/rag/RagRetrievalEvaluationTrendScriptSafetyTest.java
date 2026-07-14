@@ -1,5 +1,7 @@
 package com.docpilot.backend.ai.rag;
 
+import com.docpilot.backend.testutil.PowerShellTestSupport;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -15,7 +17,7 @@ class RagRetrievalEvaluationTrendScriptSafetyTest {
     @Test
     void shouldPrintSanitizedTrendSummaryFromOfflineHistory() throws Exception {
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
@@ -95,7 +97,7 @@ class RagRetrievalEvaluationTrendScriptSafetyTest {
                 """, StandardCharsets.UTF_8);
 
         Process process = new ProcessBuilder(
-                "powershell",
+                PowerShellTestSupport.executable(),
                 "-NoProfile",
                 "-ExecutionPolicy",
                 "Bypass",
@@ -113,13 +115,13 @@ class RagRetrievalEvaluationTrendScriptSafetyTest {
         assertThat(process.exitValue()).isZero();
         assertThat(output)
                 .contains("offline-rag-eval-trend-summary")
-                .contains("\"caseCount\":  4")
-                .contains("\"latestHitRate\":  \"0.7500\"")
-                .contains("\"previousHitRatePresent\":  true")
-                .contains("\"previousHitRate\":  \"0.5000\"")
-                .contains("\"deltaPresent\":  true")
-                .contains("\"delta\":  \"+0.2500\"")
-                .contains("\"embeddingProvider\":  \"fake\"")
+                .containsPattern("\"caseCount\"\\s*:\\s*4")
+                .containsPattern("\"latestHitRate\"\\s*:\\s*\"0.7500\"")
+                .containsPattern("\"previousHitRatePresent\"\\s*:\\s*true")
+                .containsPattern("\"previousHitRate\"\\s*:\\s*\"0.5000\"")
+                .containsPattern("\"deltaPresent\"\\s*:\\s*true")
+                .containsPattern("\"delta\"\\s*:\\s*\"\\+0.2500\"")
+                .containsPattern("\"embeddingProvider\"\\s*:\\s*\"fake\"")
                 .doesNotContain("Authorization")
                 .doesNotContain("Bearer")
                 .doesNotContain("apiKey")

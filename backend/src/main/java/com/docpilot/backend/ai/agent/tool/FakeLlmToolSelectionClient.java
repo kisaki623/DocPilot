@@ -7,6 +7,7 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
     private static final String DECISION_STATUS = "status_only";
     private static final String DECISION_SUMMARY = "summary_tool";
     private static final String DECISION_QA = "qa_tool";
+    private static final String DECISION_SEARCH = "search_tool";
     private static final String DECISION_RAG = "rag_tool";
 
     private static final String[] STATUS_KEYWORDS = {
@@ -61,6 +62,24 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
             "\u627e\u4f9d\u636e"
     };
 
+    private static final String[] ANSWER_KEYWORDS = {
+            "answer",
+            "question",
+            "explain",
+            "why",
+            "what",
+            "which",
+            "\u56de\u7b54",
+            "\u95ee\u9898",
+            "\u8bf4\u660e",
+            "\u89e3\u91ca",
+            "\u4e3a\u4ec0\u4e48",
+            "\u5982\u4f55",
+            "\u600e\u4e48",
+            "\u662f\u4ec0\u4e48",
+            "\u591a\u5c11"
+    };
+
     @Override
     public LlmToolSelectionClientResponse completeSelectionPrompt(String prompt) {
         String task = extractCurrentTask(prompt);
@@ -99,11 +118,12 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
         boolean summaryIntent = containsAny(normalizedTask, SUMMARY_KEYWORDS);
         boolean statusIntent = containsAny(normalizedTask, STATUS_KEYWORDS);
         boolean ragIntent = containsAny(normalizedTask, RAG_KEYWORDS);
+        boolean answerIntent = containsAny(normalizedTask, ANSWER_KEYWORDS);
 
-        if (evidenceIntent) {
-            return DECISION_QA;
-        }
-        if (ragIntent) {
+        if (ragIntent || evidenceIntent) {
+            if (!summaryIntent && !answerIntent) {
+                return DECISION_SEARCH;
+            }
             return DECISION_RAG;
         }
         if (summaryIntent) {
@@ -147,8 +167,17 @@ public class FakeLlmToolSelectionClient implements LlmToolSelectionClient {
             case DECISION_RAG -> """
                     {
                       "decision": "rag_tool",
-                      "toolNames": ["document_status_tool", "document_rag_tool"],
-                      "routingReason": "Fake selector routed to RAG retrieval for retrieval-related task.",
+                      "toolNames": ["document_status_tool", "rag_qa_tool"],
+                      "routingReason": "Fake selector routed to RAG QA for retrieval or evidence-related task.",
+                      "matchedKeywords": ["retrieval"],
+                      "confidence": 0.8
+                    }
+                    """;
+            case DECISION_SEARCH -> """
+                    {
+                      "decision": "search_tool",
+                      "toolNames": ["document_status_tool", "document_search_tool"],
+                      "routingReason": "Fake selector routed to document search for retrieval-only task.",
                       "matchedKeywords": ["retrieval"],
                       "confidence": 0.8
                     }
