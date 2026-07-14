@@ -1,5 +1,13 @@
 # DocPilot 当前状态
 
+## 2026-07-14 Document Parser 长文档 batch split 与原失败任务状态（VERIFIED / CORE）
+
+- `REA-20260713-P1-001` 已完成核心恢复复验：百炼 `text-embedding-v4` 单批上限导致的长文档 `RAG_INDEX_FAILED` 已由 `OpenAICompatibleEmbeddingProvider` 分批请求、ParseTask 结构化错误摘要和真实长文档 canary 覆盖。
+- `document-parser-real-chain-smoke.ps1` 现在包含 `LONG_MD` fixture，真实 run 中生成约 `17755` 字 Markdown 并切出 `25` 个 chunks，超过 provider 单批 `10` 条上限；脚本同时验证 MySQL `INDEXED` chunk、`vectorId`、Qdrant filtered point、payload 摘要和 locator payload 的一致性。
+- 最新真实 marker `docpilot-parser-real-chain-20260714184055-21d3de`：overall `REVIEW` 仅因为 `-SkipFrontend`；核心 `parserRealChain=PASS`，PDF / HTML / DOCX / LONG_MD 均 parse、direct retrieve、QA retrieval、citation、source locator 通过；总计 chunk / indexed / vectorId / Qdrant point 为 `32 / 32 / 32 / 32`，parser boundary `4/4` 和 artifact redaction PASS。
+- 原用户失败链路已恢复：document `1431` 为 `ACTIVE / SUCCESS`，task `1322` 为 `SUCCESS`、`retry_count=2`、无错误摘要；MySQL chunk / indexed / vectorId 为 `12 / 12 / 12`，Qdrant filtered point 为 `12`，最新 outbox `SENT`、consume record `SUCCESS`。
+- 已验证：脚本 plan / dry-run PASS，`DocumentParserRealChainSmokeScriptSafetyTest` PASS，后端定向 `38` tests PASS。边界：本片未冒充 zeus owner 调用原文档 QA，也未做浏览器 UI；原文档引用能力以 DB / Qdrant parity 证明恢复，retrieve / citation / locator 由同环境 LONG_MD canary 证明。
+
 ## 2026-07-14 Agent Memory 单条停用 / 恢复状态（VERIFIED / API+UI）
 
 - `REA-20260713-P2-033` 已收口：长期记忆现在支持单条停用与恢复，后端复用既有 `ARCHIVED` 状态表示“停用 / 暂不注入上下文但保留可恢复”，未新增数据库迁移或 `DISABLED` 枚举。
@@ -631,4 +639,4 @@ DocPilot 是 Java Spring Boot + Next.js 的企业文档知识库 RAG + 会话记
 - 已确认真实解析失败 task `1322` 的根因不是 parser、Qdrant collection 不存在或维度不一致，而是 OpenAI-compatible embedding provider 一次提交约 `18` 个 chunks，超过百炼 batch size `10` 限制，provider 返回 HTTP 400。
 - OpenAI-compatible embedding provider 已改为最多 `10` 条一组拆分 batch；这影响后续所有真实 embedding indexing / rebuild / retry。
 - ParseTask 的 RAG indexing 失败错误现在采用结构化安全摘要，不再持久化原始 provider message；错误摘要用于用户可见 status API 和后端日志诊断。
-- task `1322` 仍需在新版后端启动后通过 retry / reparse 恢复，不能仅凭离线测试标记为真实业务数据已恢复。
+- 历史上 task `1322` 需要新版后端 retry / reparse 才能恢复；2026-07-14 已只读核验其当前为 `SUCCESS`、`retry_count=2`，document `1431` 为 `SUCCESS`，MySQL / Qdrant parity 为 `12 / 12 / 12 / 12`，不再保持未恢复状态。

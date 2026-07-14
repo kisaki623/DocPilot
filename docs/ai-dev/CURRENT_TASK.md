@@ -1,5 +1,17 @@
 # Current Task
 
+## 2026-07-14 Document Parser 长文档 batch split / 原失败任务恢复复验（VERIFIED / CORE）
+
+- 本轮目标：收口 `REA-20260713-P1-001`，证明百炼 `text-embedding-v4` 单批上限导致的长文档 `RAG_INDEX_FAILED` 已被“provider batch split + ParseTask 结构化失败摘要 + 真实重试恢复”闭环覆盖。
+- Runner 增强：`document-parser-real-chain-smoke.ps1` 新增 `LONG_MD` fixture，生成约 `17755` 字的长 Markdown，真实切出 `25` 个 chunks，超过 provider 单批 `10` 条上限；同时把每个 fixture 的 MySQL / Qdrant 一致性写入脱敏字段：`indexedChunkCount`、`vectorIdCount`、`qdrantPointCount`、`payloadSummaryOkCount`、`locatorPayloadCount`、`mysqlQdrantParity`。
+- 质量门禁：`parserRealChain` 现在不仅要求 parse / retrieve / QA citation / source locator 成功，还要求 MySQL chunk 已 `INDEXED`、全部有 `vectorId`、Qdrant filtered point 数与 chunk 数一致、payload 摘要字段一致；parity 失败会进入 `FAILED_CORE_FLOW`，不再被 citation 成功掩盖。
+- 上传限流边界：真实上传接口对单用户有限流，本轮将 `LONG_MD` 放入第二个临时 smoke 用户，避免第四次上传误触发 rate limit；direct retrieve follow-up 已改为携带各 case 自己的 token，避免跨用户后续确认误用主用户 token。
+- 真实 canary：`document-parser-real-chain-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-parser-real-chain-20260714184055-21d3de`，overall `REVIEW` 仅因为显式跳过前端；核心 `parserRealChain=PASS`。PDF / HTML / DOCX / LONG_MD 均 `parseStatus=SUCCESS`、direct retrieve / QA retrieval / citation / source locator 均为 true；总计 `chunkCount=32`、`indexedChunkCount=32`、`vectorIdCount=32`、`qdrantPointCount=32`、`payloadSummaryOkCount=32`、`locatorPayloadCount=32`、`mysqlQdrantParity=true`，parser boundary `4/4` PASS，artifact redaction PASS。
+- 原失败任务恢复证据：document `1431` 当前 `parse_status=SUCCESS`，task `1322` 当前 `status=SUCCESS`、`retry_count=2`、`error_msg` 为空；MySQL chunk summary 为 `12 / 12 / 12`（chunk / indexed / vectorId），Qdrant filtered point count 为 `12`，payload 摘要和 locator payload 均为 `12`；最新 outbox 为 `SENT`，最新 consume record 为 `SUCCESS`。
+- 已验证：PowerShell parser PASS；脚本 `-Mode plan` / `-Mode dry-run` PASS；`DocumentParserRealChainSmokeScriptSafetyTest` PASS；后端定向 `DocumentParserRealChainSmokeScriptSafetyTest,OpenAICompatibleEmbeddingProviderTest,RagIndexingServiceImplTest,ParseTaskConsumeEntryServiceImplTest` 共 `38` tests PASS。
+- 边界：本轮没有重置 zeus 密码、没有伪造 zeus token、没有用 owner API 重新发起原文档 QA；原文档恢复结论基于真实 DB / outbox / consume / Qdrant parity，通用 retrieve / citation / locator 由同环境长文档 canary 证明。`-SkipFrontend` 表示本片不声明浏览器 UI 通过。
+- 状态：`VERIFIED / CORE`。`REA-20260713-P1-001` 从 REVIEW 收口为 VERIFIED；后续如要展示到 Quality Console UI，可另跑非 `-SkipFrontend` 的 parser smoke 或导入最新 artifact。
+
 ## 2026-07-14 Agent Memory 单条停用 / 恢复收口（VERIFIED / API+UI）
 
 - 本轮目标：解决 `REA-20260713-P2-033` 中 T31 只能证明 `RECENT_TURNS` 会话级禁用和 delete lifecycle、不能证明“禁用某条长期记忆后其它 `AGENT_MEMORY` 会话也不会使用它”的缺口。
@@ -2080,7 +2092,7 @@ mvn -DskipTests compile
 - 已新增 `scripts/dev/start-cloud-tunnels.ps1` 固化本地 MySQL / Qdrant tunnel 启动与连通性检查；`backend/README.md` 已同步说明云 MySQL / Qdrant 不再走公网直连。
 - 已定位并修复前端多文档问答报 `knowledge base RAG answer generation failed`：复现确认 KnowledgeBase retrieve 成功但真实回答模型在约 12 秒 read timeout 后失败；后端已为 KnowledgeBase QA 增加 answer 生成失败兜底，保留 retrieval / citations 返回，并将本机 `backend/.env` 的 `AI_REAL_READ_TIMEOUT_MS` 调整为 `30000`。复验 KnowledgeBase QA code `0`、citation `2`、modelCallCount `1`，记录 ID 为 user `90`、KB `5`、documents `90/91`。
 
-## 2026-07-13 ParseTask RAG_INDEX_FAILED 恢复排查（REVIEW）
+## 2026-07-13 ParseTask RAG_INDEX_FAILED 恢复排查（SUPERSEDED / 已由 2026-07-14 收口）
 
 - 触发：用户真实解析 task `1322` / document `1431` / fileRecord `1435` 在 `INDEXING` 阶段失败，日志仅显示 `errorType=RAG_INDEX_FAILED`，MQ consume success。
 - 只读定位：ParseTask 和 Document 均为 `FAILED`；Document 已保留 `8031` 字 content 和摘要；`tb_document_chunk` 为 `0`，说明失败发生在 MySQL chunk replace / Qdrant upsert 之前。
@@ -2088,4 +2100,5 @@ mvn -DskipTests compile
 - 根因复现：用 document `1431` 正文模拟默认 800 字 chunk，约 `18` 个 chunks；一次 batch 请求百炼 embedding 返回 HTTP 400：batch size 不得大于 `10`。
 - 已修复代码：OpenAI-compatible embedding provider 自动将 batch 拆为最多 `10` 条一组；ParseTask 对 `RagIndexingResult.FAILED` 生成白名单结构化错误摘要，包含 `failureCode`、`indexVersion`、`chunkCount`、`preparedVectorCount`，不持久化 provider 原始 message / endpoint / token / SQL / 文档片段。
 - 已验证：`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,OpenAICompatibleEmbeddingProviderTest,RagIndexingServiceImplTest" test` 通过；`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,QdrantVectorStoreClientTest,ParseTaskServiceImplTest,ParseTaskRecoveryServiceTest" test` 通过，68 tests / 0 failures。
-- 状态：代码与离线回归为 PASS；尚未重启当前运行中的后端，也未对 task `1322` 执行 retry / reparse，因此真实业务数据恢复仍为 REVIEW。
+- 历史状态：该段记录的是 2026-07-13 当时的 REVIEW 状态。
+- 最新收口：2026-07-14 已通过长文档 `LONG_MD` canary 和原 task `1322` 只读 DB / Qdrant / outbox / consume 复验收口；document `1431` 和 task `1322` 当前均为 SUCCESS，原文档 chunk / indexed / vectorId / Qdrant point 为 `12 / 12 / 12 / 12`。详见本文顶部“Document Parser 长文档 batch split / 原失败任务恢复复验”。

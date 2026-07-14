@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-14 Document Parser long document batch split closeout
+
+- 增强 `document-parser-real-chain-smoke.ps1`：新增 `LONG_MD` 长 Markdown fixture，真实 run 切出 `25` 个 chunks，用于覆盖 embedding provider 单批上限 `10` 的分批索引风险。
+- Runner artifact 新增脱敏 index parity 字段：`indexedChunkCount`、`vectorIdCount`、`qdrantPointCount`、`payloadSummaryOkCount`、`locatorPayloadCount`、`mysqlQdrantParity`；parity 失败会使 `parserRealChain` 进入 `FAILED_CORE_FLOW`。
+- 规避真实上传 rate limit：PDF / HTML / DOCX 使用主临时用户，LONG_MD 使用第二临时用户；direct retrieve follow-up 现在保存并使用各 case 自己的 token，避免跨用户确认误用。
+- 真实验证 marker `docpilot-parser-real-chain-20260714184055-21d3de`：overall `REVIEW` 仅因为 `-SkipFrontend`，核心 `parserRealChain=PASS`；四类文件均 parse / retrieve / citation / source locator 通过，总计 `32 / 32 / 32 / 32`（chunk / indexed / vectorId / Qdrant point），parser boundary `4/4`，artifact redaction PASS。
+- 原失败 task `1322` / document `1431` 已通过只读 DB + Qdrant 核验恢复：task/document 均 SUCCESS，retryCount `2`，MySQL chunk / indexed / vectorId 为 `12 / 12 / 12`，Qdrant point 为 `12`，最新 outbox `SENT`、consume `SUCCESS`。
+- 验证：PowerShell parser PASS；脚本 `plan` / `dry-run` PASS；`DocumentParserRealChainSmokeScriptSafetyTest` PASS；`DocumentParserRealChainSmokeScriptSafetyTest,OpenAICompatibleEmbeddingProviderTest,RagIndexingServiceImplTest,ParseTaskConsumeEntryServiceImplTest` 共 `38` tests PASS。
+
 ## 2026-07-14 Agent Memory per-memory disable / restore closeout
 
 - 复用 `ARCHIVED` 作为单条长期记忆停用状态，新增 `/api/memories/disabled`、`/{memoryId}/disable`、`/{memoryId}/restore`，恢复前重新执行敏感内容和 duplicate / conflict governance，不新增 DB 迁移或 `DISABLED` 枚举。

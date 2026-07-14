@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-14 | `docpilot-parser-real-chain-20260714184055-21d3de` | VERIFIED / CORE（长文档 batch split 与原失败任务恢复已核验） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260714184055-21d3de/artifact.json` | 收口 `REA-20260713-P1-001`：parser runner 新增 LONG_MD 长文档 canary，真实切出 `25` chunks，PDF / HTML / DOCX / LONG_MD 均 parse / retrieve / citation / source locator 通过；MySQL chunk / indexed / vectorId / Qdrant point 总计 `32 / 32 / 32 / 32`，payload 和 locator 摘要均 `32`，parser boundary `4/4`，artifact redaction PASS。原失败 document `1431` / task `1322` 已只读核验为 SUCCESS，task retryCount `2`，原文档 MySQL / Qdrant parity 为 `12 / 12 / 12 / 12`，最新 outbox `SENT`、consume `SUCCESS`。 |
 | 2026-07-14 | `docpilot-memory-quality-20260714175619-8f1939` / `memory-ui-disable-restore-20260714100303` | VERIFIED / API+UI（T31 per-memory disable / restore 已收口） | `backend/target/memory-quality/docpilot-memory-quality-20260714175619-8f1939/artifact.json` / `backend/target/memory-ui-disable-restore-20260714100303/memory-ui-disable-restore-summary.json` | 修复 `REA-20260713-P2-033`：复用 `ARCHIVED` 作为单条 memory 停用状态，新增 disabled list、disable、restore API；T31 真实 smoke 证明停用后新 `AGENT_MEMORY` 不再选入且 `use_count` 不变，恢复后重新选入，跨用户 disable / restore 被拒，delete 后不可 restore。浏览器验证 `/conversations` Memory 抽屉停用 / 恢复 PASS，console error `0`，桌面 / `390px` / `320px` 无横向溢出。 |
 | 2026-07-14 | `quality-console-closeout-20260714160116` | VERIFIED（Quality artifact import root 隔离已收口） | `backend/target/quality-console-closeout-20260714160116/api-summary.json` | 修复 `REA-20260714-P3-039`：单测 artifact 改用临时 repo root，runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 测试 marker，DB-backed runs/detail/trends 隐藏历史误导入测试 marker。真实 API 验证 `limit=1` 不再导入测试样本，`firstRunIsTestMarker=false`；`limit=50` 后 Memory/RAG representative domain trends 可见。 |
 | 2026-07-14 | `quality-console-disabled-state-20260714` | VERIFIED / UI+API（disabled 文案与开启后可见性均验证） | 无新 artifact | 用户报告 Agent Quality Console 显示“运行次数 0 / 暂无样本 / 当前账号无权限”。根因是当前后端未开启 `app.quality.console.enabled`，业务返回 `quality console is disabled`，但前端把 403 泛化成账号无权限并把加载失败渲染成空 artifact。已修复错误文案、加载失败空态和旧 marker 选择；临时 3007 验证 disabled 文案，临时 18081 + 3008 验证真实 runs / trend / eval cases / detail 可见，登记为 `REA-20260714-P2-038`。 |
@@ -88,6 +89,7 @@
 | `REA-20260713-P2-037` | VERIFIED / UI | P2 | 可信引用 / 前端可解释性问题 | Conversation / Citation UI | `conversation-citation-expand-20260714172419` | 回答卡片混淆召回证据和实际引用，来源区域横向拥挤且无法定位支持片段 |
 | `REA-20260713-P2-036` | VERIFIED / API | P2 | 可信引用 / 前端可解释性问题 | Conversation / Context Trace / KnowledgeBase RAG / Citation UI | zeus / `运维知识库演示` | Conversation 历史消息刷新后 citation cards 丢失且 hitCounts 有零值噪声 |
 | `REA-20260713-P1-035` | VERIFIED（已验证） | P1 | 会话 RAG 路由质量问题 | Conversation / AUTO_RAG / KnowledgeBase evidence | zeus / `运维知识库演示` | 绑定 KB 的 P1 SLA 问题未触发 RAG，底层模型给出无证据错误数字 |
+| `REA-20260713-P1-001` | VERIFIED / CORE | P1 | 真实链路 bug / RAG indexing failure | ParseTask / OpenAI-compatible Embedding / Qdrant Indexing | task `1322` / document `1431` | 长文档解析在 RAG indexing 阶段失败且错误信息不可诊断 |
 | `REA-20260713-P3-034` | BLOCKED | P3 | 本地环境阻塞 | Backend startup / Cloud tunnel / Frontend proxy | `local-runtime-diagnosis-20260713` | 本地 MySQL / Qdrant tunnel 未启动，导致后端 health 和登录接口超时并连带前端业务请求报错 |
 | `REA-20260713-P2-033` | VERIFIED / API+UI | P2 | 验收能力缺口 | Memory API / Conversation context mode / Memory UI | `docpilot-memory-quality-20260713015241-320bed` -> `docpilot-memory-quality-20260714175619-8f1939` | T31 严格 per-memory 禁用 / 恢复能力已实现并通过真实 smoke 与浏览器验证 |
 | `REA-20260713-P3-032` | VERIFIED（已验证） | P3 | 工程流程问题 | Conversation grounding smoke runner | `conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` 初跑 | 函数内 `$MyInvocation.MyCommand.Path` 为 null，导致真实 smoke 启动 tunnel 前失败 |
@@ -1829,7 +1831,7 @@
 
 ### `REA-20260713-P1-001` 长文档解析在 RAG indexing 阶段失败且错误信息不可诊断
 
-状态：REVIEW（代码修复和离线回归已完成，真实 task 待新版后端重启后 retry / reparse）
+状态：VERIFIED / CORE（代码修复、长文档真实 canary、原失败 task DB / Qdrant / outbox / consume 恢复均已核验）
 
 严重级别：P1
 
@@ -1843,12 +1845,20 @@
 2. RocketMQ 发送并消费 parse task `1322`。
 3. 后端日志显示 `errorType=RAG_INDEX_FAILED`，但未给出底层原因。
 
-实际结果：
+初始实际结果：
 
 - ParseTask `1322` 状态为 `FAILED`。
 - Document `1431` 状态为 `FAILED`，但 content / summary 已写入。
 - `tb_document_chunk` 中 document `1431` 的 chunk 数为 `0`。
 - 用户可见错误只有 `RAG_INDEX_FAILED [stage=INDEXING]: indexing completed with status FAILED`，无法判断是 embedding、Qdrant 还是 DB 写入问题。
+
+恢复后结果：
+
+- Document `1431` 当前为 `ACTIVE / SUCCESS`。
+- ParseTask `1322` 当前为 `SUCCESS`、`retry_count=2`、`error_msg` 为空。
+- MySQL chunk summary 为 `12 / 12 / 12`（chunk / indexed / vectorId）。
+- Qdrant 按 user / document / indexVersion 过滤后 point count 为 `12`，payload 摘要与 locator payload 均为 `12`。
+- 最新 outbox 为 `SENT`，最新 consume record 为 `SUCCESS`。
 
 预期结果：
 
@@ -1875,11 +1885,15 @@
 - 手工复现：document `1431` 正文模拟约 `18` chunks 一次 batch 请求返回 HTTP 400，错误原因为 batch size 不得大于 `10`。
 - 自动化验证：`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,OpenAICompatibleEmbeddingProviderTest,RagIndexingServiceImplTest" test` 通过。
 - 自动化验证：`mvn "-Dtest=ParseTaskConsumeEntryServiceImplTest,RagIndexingServiceImplTest,RagIndexingTriggerServiceImplTest,QdrantVectorStoreClientTest,ParseTaskServiceImplTest,ParseTaskRecoveryServiceTest" test` 通过，68 tests / 0 failures。
+- 2026-07-14 增强真实 parser runner：`document-parser-real-chain-smoke.ps1` 新增 LONG_MD 长文档 canary，artifact 增加 MySQL / Qdrant parity 计数，不保存正文、prompt、answer、evidence context、token、endpoint 或连接串。
+- 2026-07-14 真实 canary：marker `docpilot-parser-real-chain-20260714184055-21d3de`，overall `REVIEW` 仅因 `-SkipFrontend`，核心 `parserRealChain=PASS`；PDF / HTML / DOCX / LONG_MD 均 parse / retrieve / citation / source locator 通过，LONG_MD `chunkCount=25`，总计 chunk / indexed / vectorId / Qdrant point 为 `32 / 32 / 32 / 32`，payload 摘要与 locator payload 均为 `32`，parser boundary `4/4`，artifact redaction PASS。
+- 2026-07-14 原失败链路只读核验：document `1431` / task `1322` 已恢复为 SUCCESS，原文档 chunk / indexed / vectorId / Qdrant point 为 `12 / 12 / 12 / 12`，最新 outbox `SENT`、consume `SUCCESS`。
+- 2026-07-14 回归：脚本 plan / dry-run PASS；`DocumentParserRealChainSmokeScriptSafetyTest` PASS；`DocumentParserRealChainSmokeScriptSafetyTest,OpenAICompatibleEmbeddingProviderTest,RagIndexingServiceImplTest,ParseTaskConsumeEntryServiceImplTest` 共 `38` tests PASS。
 
-剩余动作：
+剩余边界：
 
-- 重启当前运行中的后端，使 batch split 修复生效。
-- 对 task `1322` 关联文档执行 retry / reparse，并验证 ParseTask `SUCCESS`、chunkCount > 0、vectorCount = chunkCount、知识库问答可返回 citation。
+- 未重置 zeus 密码、未伪造 zeus token、未用 owner API 对原 document `1431` 重新发起 QA；原文档恢复结论基于 DB / Qdrant / outbox / consume parity，同环境长文档 canary 证明 retrieve / citation / locator 链路。
+- 本轮真实 run 显式 `-SkipFrontend`，因此不声明浏览器 UI 验证通过。
 
 ### `REA-20260714-P2-038` Quality Console disabled 被误显示为账号无权限和暂无样本
 

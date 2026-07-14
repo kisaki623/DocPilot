@@ -408,6 +408,204 @@ function Get-ChunkCount([hashtable]$envValues, [long]$userId, [long]$documentId)
   return [int]([string]$first)
 }
 
+function Convert-NullableInt($value) {
+  if ($null -eq $value -or [string]$value -eq "NULL" -or [string]::IsNullOrWhiteSpace([string]$value)) {
+    return $null
+  }
+  return [int]([string]$value)
+}
+
+function Convert-NullableString($value) {
+  if ($null -eq $value -or [string]$value -eq "NULL") {
+    return $null
+  }
+  return [string]$value
+}
+
+function Get-MysqlChunkMetadata([hashtable]$envValues, [long]$userId, [long]$documentId) {
+  $query = @"
+SELECT id,document_id,user_id,chunk_index,content_hash,token_count,index_status,index_version,COALESCE(embedding_model,''),vector_id
+FROM tb_document_chunk
+WHERE user_id=${userId} AND document_id=${documentId} AND index_version=${IndexVersion}
+ORDER BY chunk_index ASC,id ASC;
+"@
+  $lines = Invoke-MysqlQuery $envValues $query
+  $chunks = @()
+  foreach ($line in @($lines)) {
+    if (-not $line) { continue }
+    $cols = [string]$line -split "`t"
+    if ($cols.Count -lt 10) { continue }
+    $chunks += [ordered]@{
+      chunkId = [long]$cols[0]
+      documentId = [long]$cols[1]
+      userId = [long]$cols[2]
+      chunkIndex = [int]$cols[3]
+      contentHash = Convert-NullableString $cols[4]
+      tokenCount = Convert-NullableInt $cols[5]
+      indexStatus = [string]$cols[6]
+      indexVersion = [int]$cols[7]
+      embeddingModel = Convert-NullableString $cols[8]
+      vectorId = Convert-NullableString $cols[9]
+    }
+  }
+  return $chunks
+}
+
+function Wait-IndexedChunkMetadata([hashtable]$envValues, [long]$userId, [long]$documentId) {
+  $deadline = (Get-Date).AddSeconds(120)
+  $lastChunks = @()
+  do {
+    $chunks = Get-MysqlChunkMetadata $envValues $userId $documentId
+    if ($chunks.Count -gt 0) {
+      $lastChunks = $chunks
+      $notIndexed = @($chunks | Where-Object { $_.indexStatus -ne "INDEXED" -or -not $_.vectorId }).Count
+      if ($notIndexed -eq 0) {
+        return $chunks
+      }
+    }
+    Start-Sleep -Seconds 3
+  } while ((Get-Date) -lt $deadline)
+  return $lastChunks
+}
+
+function Invoke-QdrantScroll([string]$collection, [long]$userId, [long]$documentId) {
+  $all = @()
+  $offset = $null
+  do {
+    $filter = [ordered]@{
+      must = @(
+        [ordered]@{ key = "userId"; match = [ordered]@{ value = $userId } },
+        [ordered]@{ key = "documentId"; match = [ordered]@{ value = $documentId } },
+        [ordered]@{ key = "indexVersion"; match = [ordered]@{ value = $IndexVersion } }
+      )
+    }
+    $body = [ordered]@{
+      limit = 100
+      with_payload = $true
+      with_vector = $false
+      filter = $filter
+    }
+    if ($offset) {
+      $body["offset"] = $offset
+    }
+    $uri = "http://127.0.0.1:${QdrantLocalPort}/collections/$collection/points/scroll"
+    $result = Invoke-WithRetry {
+      Invoke-RestMethod -Method POST -Uri $uri -ContentType "application/json" -Body ($body | ConvertTo-Json -Depth 20) -TimeoutSec 30
+    } 5
+    $all += @($result.result.points)
+    $offset = $result.result.next_page_offset
+  } while ($offset)
+  return $all
+}
+
+function New-MysqlQdrantParitySummary([array]$chunks, [array]$points, [long]$documentId) {
+  $pointsById = @{}
+  foreach ($point in @($points)) {
+    $pointsById[[string]$point.id] = $point
+  }
+  $missingVectorIds = 0
+  $mismatchedFields = New-Object System.Collections.Generic.List[string]
+  $locatorPayloadCount = 0
+  $payloadSummaryOkCount = 0
+  foreach ($chunk in @($chunks)) {
+    $chunkOk = $true
+    if (-not $chunk.vectorId -or -not $pointsById.ContainsKey([string]$chunk.vectorId)) {
+      $missingVectorIds++
+      continue
+    }
+    $payload = $pointsById[[string]$chunk.vectorId].payload
+    foreach ($field in @("userId", "documentId", "indexVersion", "chunkIndex", "contentHash", "chunkId", "tokenCount", "embeddingModel")) {
+      $expected = switch ($field) {
+        "userId" { $chunk.userId }
+        "documentId" { $chunk.documentId }
+        "indexVersion" { $chunk.indexVersion }
+        "chunkIndex" { $chunk.chunkIndex }
+        "contentHash" { $chunk.contentHash }
+        "chunkId" { $chunk.chunkId }
+        "tokenCount" { $chunk.tokenCount }
+        "embeddingModel" { $chunk.embeddingModel }
+      }
+      $actual = $payload.$field
+      if (($null -ne $expected) -and ([string]$actual -ne [string]$expected)) {
+        $mismatchedFields.Add($field)
+        $chunkOk = $false
+      }
+    }
+    $hasLocatorPayload = @("sourceLocator", "sectionPath", "structureType", "pageNumber", "blockType", "sourceBlockOrdinal") | Where-Object {
+      $null -ne $payload.$_ -and -not [string]::IsNullOrWhiteSpace([string]$payload.$_)
+    }
+    if (@($hasLocatorPayload).Count -gt 0) {
+      $locatorPayloadCount++
+    }
+    if ($chunkOk) {
+      $payloadSummaryOkCount++
+    }
+  }
+  $indexedChunkCount = @($chunks | Where-Object { $_.indexStatus -eq "INDEXED" }).Count
+  $vectorIdCount = @($chunks | Where-Object { $_.vectorId }).Count
+  $chunkCount = @($chunks).Count
+  $qdrantPointCount = @($points).Count
+  $mismatchCount = @($mismatchedFields | Select-Object -Unique).Count
+  return [ordered]@{
+    documentId = $documentId
+    chunkCount = $chunkCount
+    indexedChunkCount = $indexedChunkCount
+    vectorIdCount = $vectorIdCount
+    qdrantPointCount = $qdrantPointCount
+    payloadSummaryOkCount = $payloadSummaryOkCount
+    locatorPayloadCount = $locatorPayloadCount
+    missingVectorIds = $missingVectorIds
+    mismatchedFields = @($mismatchedFields | Select-Object -Unique)
+    mysqlQdrantParity = ($chunkCount -gt 0 -and $indexedChunkCount -eq $chunkCount -and $vectorIdCount -eq $chunkCount -and $qdrantPointCount -eq $chunkCount -and $missingVectorIds -eq 0 -and $mismatchCount -eq 0)
+  }
+}
+
+function Get-IndexParitySummary([hashtable]$envValues, [long]$userId, [long]$documentId) {
+  $collection = Get-EnvValue $envValues @("RAG_QDRANT_COLLECTION", "APP_RAG_VECTOR_STORE_QDRANT_COLLECTION") "docpilot_rag_demo"
+  try {
+    $chunks = Wait-IndexedChunkMetadata $envValues $userId $documentId
+    if (@($chunks).Count -eq 0) {
+      return [ordered]@{
+        documentId = $documentId
+        chunkCount = 0
+        indexedChunkCount = 0
+        vectorIdCount = 0
+        qdrantPointCount = $null
+        payloadSummaryOkCount = 0
+        locatorPayloadCount = 0
+        missingVectorIds = 0
+        mismatchedFields = @()
+        mysqlQdrantParity = $false
+      }
+    }
+    $deadline = (Get-Date).AddSeconds(60)
+    $lastSummary = $null
+    do {
+      $points = Invoke-QdrantScroll $collection $userId $documentId
+      $lastSummary = New-MysqlQdrantParitySummary $chunks $points $documentId
+      if ([bool]$lastSummary.mysqlQdrantParity) {
+        return $lastSummary
+      }
+      Start-Sleep -Seconds 3
+    } while ((Get-Date) -lt $deadline)
+    return $lastSummary
+  } catch {
+    [void](Confirm-EnvironmentStability "mysql/qdrant parity")
+    return [ordered]@{
+      documentId = $documentId
+      chunkCount = $null
+      indexedChunkCount = $null
+      vectorIdCount = $null
+      qdrantPointCount = $null
+      payloadSummaryOkCount = $null
+      locatorPayloadCount = $null
+      missingVectorIds = $null
+      mismatchedFields = @("parity_check_unavailable")
+      mysqlQdrantParity = $false
+    }
+  }
+}
+
 function Get-ParseFailureCode([hashtable]$envValues, [long]$userId, [long]$documentId) {
   $query = "SELECT COALESCE(error_msg, '') FROM tb_parse_task WHERE user_id=${userId} AND document_id=${documentId} ORDER BY id DESC LIMIT 1;"
   $lines = Invoke-MysqlQuery $envValues $query
@@ -569,10 +767,19 @@ function New-Fixtures([string]$dir, [string]$marker) {
 "@, [System.Text.UTF8Encoding]::new($false))
   $docx = Join-Path $dir "${marker}-docx.docx"
   Write-DocxFixture $docx $marker
+  $longMd = Join-Path $dir "${marker}-long-batch.md"
+  $longParagraphs = New-Object System.Collections.Generic.List[string]
+  $longParagraphs.Add("# Long Markdown Parser Smoke $marker")
+  $longParagraphs.Add("## Long Batch Section")
+  for ($i = 1; $i -le 24; $i++) {
+    $longParagraphs.Add(("Long markdown batch split paragraph {0} keeps long-batch-marker and long-batch-source-locator evidence inside a realistic repeated operations runbook. " -f $i) + (("The paragraph repeats deployment, rollback, audit, and customer-support context so the parser and embedding pipeline must produce more than ten chunks without relying on a single provider batch. " * 3).Trim()))
+  }
+  [System.IO.File]::WriteAllText($longMd, ($longParagraphs -join "`n`n"), [System.Text.UTF8Encoding]::new($false))
   return @(
     [ordered]@{ fileType = "PDF"; path = $pdf; contentType = "application/pdf"; parserName = "pdfbox"; query = "pdf-alpha-marker"; expectedLocator = "PDF Parser Smoke Title"; expectedStructures = @("pdf_text", "pdf_page_locator") },
     [ordered]@{ fileType = "HTML"; path = $html; contentType = "text/html"; parserName = "jsoup-html"; query = "html-alpha-marker"; expectedLocator = "HTML Evidence Section"; expectedMinChunks = 2; expectedStructures = @("html_heading", "html_table", "html_link", "html_list", "html_noise_excluded", "html_multi_chunk") },
-    [ordered]@{ fileType = "DOCX"; path = $docx; contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; parserName = "poi-docx"; query = "docx-table-marker"; expectedLocator = "DOCX Parser Smoke Title"; expectedStructures = @("docx_heading", "docx_table", "docx_list") }
+    [ordered]@{ fileType = "DOCX"; path = $docx; contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"; parserName = "poi-docx"; query = "docx-table-marker"; expectedLocator = "DOCX Parser Smoke Title"; expectedStructures = @("docx_heading", "docx_table", "docx_list") },
+    [ordered]@{ fileType = "LONG_MD"; path = $longMd; contentType = "text/markdown"; parserName = "text"; query = "long-batch-marker"; expectedLocator = "Long Batch Section"; expectedMinChunks = 12; expectedStructures = @("long_md_heading", "long_md_source_locator", "embedding_batch_split_candidate") }
   )
 }
 
@@ -600,6 +807,12 @@ function Get-FixtureStructureSignals($case, [string]$parseStatus, [string]$parse
     if ($text.Contains("# DOCX Parser Smoke Title")) { $signals += "docx_heading" }
     if ($text.Contains("DOCX Table Evidence")) { $signals += "docx_table" }
     if ($text.Contains("DOCX list marker")) { $signals += "docx_list" }
+  } elseif ($case.fileType -eq "LONG_MD") {
+    if ($text.Contains("# Long Markdown Parser Smoke") -and $text.Contains("## Long Batch Section")) { $signals += "long_md_heading" }
+    if ($sourceLocatorPresent) { $signals += "long_md_source_locator" }
+    if ($null -ne $case.expectedMinChunks -and $null -ne $chunkCount -and [int]$chunkCount -ge [int]$case.expectedMinChunks) {
+      $signals += "embedding_batch_split_candidate"
+    }
   }
   return @($signals | Select-Object -Unique)
 }
@@ -640,6 +853,14 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
   $parseStatus = [string]$detail.parseStatus
   $extractedChars = if ($detail.content) { ([string]$detail.content).Length } else { 0 }
   $chunkCount = $null
+  $indexedChunkCount = $null
+  $vectorIdCount = $null
+  $qdrantPointCount = $null
+  $payloadSummaryOkCount = $null
+  $locatorPayloadCount = $null
+  $missingVectorIds = $null
+  $mismatchedPayloadFields = @()
+  $mysqlQdrantParity = $false
   $retrieveHit = $false
   $directRetrieveHit = $false
   $qaRetrievalHit = $false
@@ -654,8 +875,17 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
   $parsedText = ""
   if ($parseStatus -eq "SUCCESS") {
     $parsedText = if ($detail.content) { [string]$detail.content } else { "" }
-    $script:CurrentParserStage = "chunk_wait"
-    $chunkCount = Wait-ChunkCount $envValues $userId ([long]$document.data.id)
+    $script:CurrentParserStage = "index_parity"
+    $paritySummary = Get-IndexParitySummary $envValues $userId ([long]$document.data.id)
+    $chunkCount = $paritySummary.chunkCount
+    $indexedChunkCount = $paritySummary.indexedChunkCount
+    $vectorIdCount = $paritySummary.vectorIdCount
+    $qdrantPointCount = $paritySummary.qdrantPointCount
+    $payloadSummaryOkCount = $paritySummary.payloadSummaryOkCount
+    $locatorPayloadCount = $paritySummary.locatorPayloadCount
+    $missingVectorIds = $paritySummary.missingVectorIds
+    $mismatchedPayloadFields = @($paritySummary.mismatchedFields)
+    $mysqlQdrantParity = [bool]$paritySummary.mysqlQdrantParity
     if ($null -ne $expectedMinChunks -and $null -ne $chunkCount) {
       $multiChunkVerified = [int]$chunkCount -ge $expectedMinChunks
     }
@@ -740,6 +970,8 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
       $failureReason = "citation source locator is incomplete"
     } elseif ($multiChunkVerified -eq $false) {
       $failureReason = "expected minimum chunk count was not reached"
+    } elseif (-not $mysqlQdrantParity) {
+      $failureReason = "mysql/qdrant index parity is incomplete"
     }
   } else {
     $failureReason = "parse failed"
@@ -755,6 +987,14 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     blockCount = $null
     warningCount = $null
     chunkCount = $chunkCount
+    indexedChunkCount = $indexedChunkCount
+    vectorIdCount = $vectorIdCount
+    qdrantPointCount = $qdrantPointCount
+    payloadSummaryOkCount = $payloadSummaryOkCount
+    locatorPayloadCount = $locatorPayloadCount
+    missingVectorIds = $missingVectorIds
+    mismatchedPayloadFields = $mismatchedPayloadFields
+    mysqlQdrantParity = $mysqlQdrantParity
     expectedMinChunks = $expectedMinChunks
     multiChunkVerified = $multiChunkVerified
     retrieveHit = $retrieveHit
@@ -773,6 +1013,7 @@ function Invoke-ParserCase($case, [hashtable]$envValues, [long]$userId, [string]
     $script:DirectRetrieveFollowUps += [pscustomobject]@{
       documentId = [long]$document.data.id
       question = $question
+      token = $token
       result = $caseResult
     }
   }
@@ -789,10 +1030,11 @@ function Confirm-DirectRetrieveFollowUps([string]$token) {
     $followUpAttempts = 0
     $retrieve = $null
     $hits = @()
+    $caseToken = if (-not [string]::IsNullOrWhiteSpace([string]$followUp.token)) { [string]$followUp.token } else { $token }
     for ($attempt = 1; $attempt -le 20; $attempt++) {
       $followUpAttempts = $attempt
-      $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $followUp.documentId; query = $followUp.question; topK = 5; indexVersion = $IndexVersion }) $token -AllowFailure
-      $hits = if ($retrieve.ok) { @($retrieve.data.hits) } else { @() }
+      $retrieve = Invoke-JsonApi "POST" "/api/rag/retrieve" ([ordered]@{ documentId = $followUp.documentId; query = $followUp.question; topK = 5; indexVersion = $IndexVersion }) $caseToken -AllowFailure
+      $hits = if ($retrieve.ok) { To-SafeArray $retrieve.data.hits } else { @() }
       if ((Get-SafeItemCount $hits) -gt 0) {
         $followUp.result["directRetrieveHit"] = $true
         $followUp.result["retrieveHit"] = $true
@@ -966,7 +1208,7 @@ function New-RagCallDiagnostic($response, $payload, [array]$hits, [int]$attempts
 }
 
 function New-ParserQualityReport([array]$results, $boundary, [string]$qualityStatus) {
-  $expectedTypes = @("PDF", "HTML", "DOCX")
+  $expectedTypes = @("PDF", "HTML", "DOCX", "LONG_MD")
   $coveredTypes = @($results | ForEach-Object { [string]$_.fileType } | Where-Object { $_ } | Select-Object -Unique)
   $missingTypes = @($expectedTypes | Where-Object { $coveredTypes -notcontains $_ })
   $expectedStructureSignals = @($results | ForEach-Object { @($_.expectedStructures) } | Where-Object { $_ } | Select-Object -Unique)
@@ -1027,6 +1269,28 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
       }
     }
   }
+  $indexParityKnown = @($results | Where-Object { $null -ne $_.indexedChunkCount -and $null -ne $_.vectorIdCount -and $null -ne $_.qdrantPointCount }).Count
+  $indexParityVerified = @($results | Where-Object { $_.mysqlQdrantParity -eq $true }).Count
+  $indexedChunkCount = $null
+  $vectorIdCount = $null
+  $qdrantPointCount = $null
+  $payloadSummaryOkCount = $null
+  $locatorPayloadCount = $null
+  if ($indexParityKnown -gt 0) {
+    $indexedChunkCount = 0
+    $vectorIdCount = 0
+    $qdrantPointCount = 0
+    $payloadSummaryOkCount = 0
+    $locatorPayloadCount = 0
+    foreach ($result in @($results)) {
+      if ($null -ne $result.indexedChunkCount) { $indexedChunkCount += [int]$result.indexedChunkCount }
+      if ($null -ne $result.vectorIdCount) { $vectorIdCount += [int]$result.vectorIdCount }
+      if ($null -ne $result.qdrantPointCount) { $qdrantPointCount += [int]$result.qdrantPointCount }
+      if ($null -ne $result.payloadSummaryOkCount) { $payloadSummaryOkCount += [int]$result.payloadSummaryOkCount }
+      if ($null -ne $result.locatorPayloadCount) { $locatorPayloadCount += [int]$result.locatorPayloadCount }
+    }
+  }
+  $parityMismatchedFields = @($results | ForEach-Object { @($_.mismatchedPayloadFields) } | Where-Object { $_ } | Select-Object -Unique)
   $warningCountKnown = @($results | Where-Object { $null -ne $_.warningCount }).Count
   $totalWarningCount = $null
   $filesWithWarnings = $null
@@ -1069,6 +1333,9 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   if ($multiChunkExpected -gt 0 -and $multiChunkVerified -lt $multiChunkExpected) {
     $reviewReasons += "multi_chunk_source_coverage_missing"
   }
+  if ($parsedFileCount -gt 0 -and $indexParityVerified -lt $parsedFileCount) {
+    $reviewReasons += "mysql_qdrant_parity_missing"
+  }
   if ($null -ne $negativeCaseFailCount -and [int]$negativeCaseFailCount -gt 0) {
     $reviewReasons += "parser_boundary_failed"
   }
@@ -1082,6 +1349,9 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
   $unavailableMetrics = @()
   if ($chunkCountKnown -lt $fileCount) {
     $unavailableMetrics += "chunkCount"
+  }
+  if ($indexParityKnown -lt $parsedFileCount) {
+    $unavailableMetrics += "mysqlQdrantParity"
   }
   if ($warningCountKnown -lt $fileCount) {
     $unavailableMetrics += "warningCount"
@@ -1106,6 +1376,17 @@ function New-ParserQualityReport([array]$results, $boundary, [string]$qualitySta
       expectedFileCount = $multiChunkExpected
       verifiedFileCount = $multiChunkVerified
       allVerified = if ($multiChunkExpected -eq 0) { $null } else { $multiChunkVerified -eq $multiChunkExpected }
+    }
+    indexParitySummary = [ordered]@{
+      parityKnownFileCount = $indexParityKnown
+      parityVerifiedFileCount = $indexParityVerified
+      allVerified = if ($parsedFileCount -eq 0) { $null } else { $indexParityVerified -eq $parsedFileCount }
+      indexedChunkCount = $indexedChunkCount
+      vectorIdCount = $vectorIdCount
+      qdrantPointCount = $qdrantPointCount
+      payloadSummaryOkCount = $payloadSummaryOkCount
+      locatorPayloadCount = $locatorPayloadCount
+      mismatchedFields = $parityMismatchedFields
     }
     parseStatusSummary = [ordered]@{
       fileCount = $fileCount
@@ -1157,8 +1438,8 @@ if ($Mode -eq "plan") {
   [ordered]@{
     mode = "plan"
     willCreateBusinessData = $false
-    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke user", "upload PDF/HTML/DOCX fixtures including local HTML noise-isolation and multi-chunk fixture", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
-    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "expectedMinChunks", "multiChunkVerified", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "expectedStructures", "structureSignals", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
+    runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke users so LONG_MD does not trip the real upload rate limit", "upload PDF/HTML/DOCX/LONG_MD fixtures including local HTML noise-isolation, multi-chunk, and long markdown embedding batch-split coverage", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
+    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "indexedChunkCount", "vectorIdCount", "qdrantPointCount", "payloadSummaryOkCount", "locatorPayloadCount", "mysqlQdrantParity", "expectedMinChunks", "multiChunkVerified", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "expectedStructures", "structureSignals", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -1168,9 +1449,9 @@ if ($Mode -eq "dry-run") {
   [ordered]@{
     mode = "dry-run"
     willCreateBusinessData = $false
-    checks = @("script parameters parsed", "fixture recipes including local HTML noise isolation and multi-chunk coverage available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
-    supportedTypes = @("PDF", "HTML", "DOCX")
-    parserQualityReport = @("fileTypeCoverage", "fixtureStructureCoverage", "parseStatusSummary", "sourceLocatorSummary", "ragChainSummary", "boundarySummary", "warningsSummary", "reviewReasons")
+    checks = @("script parameters parsed", "fixture recipes including local HTML noise isolation, multi-chunk coverage, and long markdown batch-split coverage available", "negative parser boundary recipes available", "artifact schema is redacted", "run mode remains explicit")
+    supportedTypes = @("PDF", "HTML", "DOCX", "LONG_MD")
+    parserQualityReport = @("fileTypeCoverage", "fixtureStructureCoverage", "multiChunkSummary", "indexParitySummary", "parseStatusSummary", "sourceLocatorSummary", "ragChainSummary", "boundarySummary", "warningsSummary", "reviewReasons")
   } | ConvertTo-Json -Depth 10
   exit 0
 }
@@ -1193,21 +1474,28 @@ try {
   Start-FrontendIfNeeded $runDir
 
   $fixtures = New-Fixtures $fixtureDir $marker
-  Set-Gate "fixtures" "PASS" @("generated local PDF/HTML/DOCX smoke fixtures")
+  Set-Gate "fixtures" "PASS" @("generated local PDF/HTML/DOCX/LONG_MD smoke fixtures")
 
   $username = "parser_$($marker.Substring($marker.Length - 6))"
   $password = "ParserSmoke123!"
   $register = Invoke-JsonApi "POST" "/api/auth/register" ([ordered]@{ username = $username; password = $password; nickname = "Parser Smoke" })
   $token = [string]$register.data.token
   $userId = [long]$register.data.userId
-  Set-Gate "auth" "PASS" @("temporary smoke user registered")
+  $longUsername = "parserl_$($marker.Substring($marker.Length - 6))"
+  $longRegister = Invoke-JsonApi "POST" "/api/auth/register" ([ordered]@{ username = $longUsername; password = $password; nickname = "Parser Long Smoke" })
+  $longToken = [string]$longRegister.data.token
+  $longUserId = [long]$longRegister.data.userId
+  Set-Gate "auth" "PASS" @("temporary smoke users registered")
 
   foreach ($fixture in $fixtures) {
     try {
-      $results += Invoke-ParserCase $fixture $envValues $userId $token
+      $caseToken = if ($fixture.fileType -eq "LONG_MD") { $longToken } else { $token }
+      $caseUserId = if ($fixture.fileType -eq "LONG_MD") { $longUserId } else { $userId }
+      $results += Invoke-ParserCase $fixture $envValues $caseUserId $caseToken
     } catch {
       $safeStage = if ([string]::IsNullOrWhiteSpace($script:CurrentParserStage)) { "unknown" } else { $script:CurrentParserStage }
       [void](Confirm-EnvironmentStability "parser case ${safeStage}")
+      $expectedMinChunks = if ($null -eq $fixture.expectedMinChunks) { $null } else { [int]$fixture.expectedMinChunks }
       $results += [ordered]@{
         fileType = $fixture.fileType
         parserName = $fixture.parserName
@@ -1217,11 +1505,23 @@ try {
         blockCount = $null
         warningCount = $null
         chunkCount = $null
+        indexedChunkCount = $null
+        vectorIdCount = $null
+        qdrantPointCount = $null
+        payloadSummaryOkCount = $null
+        locatorPayloadCount = $null
+        missingVectorIds = $null
+        mismatchedPayloadFields = @()
+        mysqlQdrantParity = $false
+        expectedMinChunks = $expectedMinChunks
+        multiChunkVerified = if ($null -eq $expectedMinChunks) { $null } else { $false }
         retrieveHit = $false
         directRetrieveHit = $false
         qaRetrievalHit = $false
         citationPresent = $false
         sourceLocatorPresent = $false
+        expectedStructures = @($fixture.expectedStructures)
+        structureSignals = @()
         directRetrieveDiagnostic = $null
         qaRetrieveDiagnostic = $null
         failureReason = "runtime_error_$safeStage"
@@ -1236,12 +1536,16 @@ try {
   $failedCore = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" -or -not $_.retrieveHit -or -not $_.citationPresent })
   $locatorReview = @($results | Where-Object { -not $_.sourceLocatorPresent })
   $multiChunkReview = @($results | Where-Object { $null -ne $_.expectedMinChunks -and $_.multiChunkVerified -ne $true })
-  if ($script:EnvironmentUnstable -and $failedCore.Count -gt 0) {
+  $indexParityReview = @($results | Where-Object { $_.parseStatus -eq "SUCCESS" -and $_.mysqlQdrantParity -ne $true })
+  if ($script:EnvironmentUnstable -and ($failedCore.Count -gt 0 -or $indexParityReview.Count -gt 0)) {
     $parserStatus = "BLOCKED"
     $parserChecks = @("local runtime environment became unstable before parser chain could be judged")
   } elseif ($failedCore.Count -gt 0) {
     $parserStatus = "FAILED_CORE_FLOW"
     $parserChecks = @("one or more parser fixtures did not reach retrieve/citation")
+  } elseif ($indexParityReview.Count -gt 0) {
+    $parserStatus = "FAILED_CORE_FLOW"
+    $parserChecks = @("one or more parser fixtures did not reach mysql/qdrant index parity")
   } elseif ($locatorReview.Count -gt 0) {
     $parserStatus = "REVIEW"
     $parserChecks = @("one or more parser fixtures has incomplete source locator")
@@ -1253,15 +1557,25 @@ try {
     $parserChecks = @("one or more parser fixtures did not reach the expected minimum chunk count")
   } else {
     $parserStatus = "PASS"
-    $parserChecks = @("PDF/HTML/DOCX upload parse retrieve citation passed")
+    $parserChecks = @("PDF/HTML/DOCX/LONG_MD upload parse retrieve citation passed")
   }
   $totalChunkCount = 0
+  $totalIndexedChunkCount = 0
+  $totalVectorIdCount = 0
+  $totalQdrantPointCount = 0
+  $totalPayloadSummaryOkCount = 0
+  $totalLocatorPayloadCount = 0
   $hasChunkCount = $false
   foreach ($result in @($results)) {
     if ($null -ne $result.chunkCount) {
       $totalChunkCount += [int]$result.chunkCount
       $hasChunkCount = $true
     }
+    if ($null -ne $result.indexedChunkCount) { $totalIndexedChunkCount += [int]$result.indexedChunkCount }
+    if ($null -ne $result.vectorIdCount) { $totalVectorIdCount += [int]$result.vectorIdCount }
+    if ($null -ne $result.qdrantPointCount) { $totalQdrantPointCount += [int]$result.qdrantPointCount }
+    if ($null -ne $result.payloadSummaryOkCount) { $totalPayloadSummaryOkCount += [int]$result.payloadSummaryOkCount }
+    if ($null -ne $result.locatorPayloadCount) { $totalLocatorPayloadCount += [int]$result.locatorPayloadCount }
   }
   $durationAverage = if ($results.Count -gt 0) {
     [int](($results | ForEach-Object { [int]$_.durationMs } | Measure-Object -Average).Average)
@@ -1273,6 +1587,11 @@ try {
     parsedFileCount = @($results | Where-Object { $_.parseStatus -eq "SUCCESS" }).Count
     parserFailureCount = @($results | Where-Object { $_.parseStatus -ne "SUCCESS" }).Count
     chunkCount = if ($hasChunkCount) { $totalChunkCount } else { 0 }
+    indexedChunkCount = $totalIndexedChunkCount
+    vectorIdCount = $totalVectorIdCount
+    qdrantPointCount = $totalQdrantPointCount
+    payloadSummaryOkCount = $totalPayloadSummaryOkCount
+    locatorPayloadCount = $totalLocatorPayloadCount
     retrieveHitCount = @($results | Where-Object { $_.retrieveHit }).Count
     directRetrieveHitCount = @($results | Where-Object { $_.directRetrieveHit }).Count
     qaRetrievalHitCount = @($results | Where-Object { $_.qaRetrievalHit }).Count
@@ -1283,6 +1602,7 @@ try {
     retrieveHit = (@($results | Where-Object { $_.retrieveHit }).Count -eq $results.Count)
     citationPresent = (@($results | Where-Object { $_.citationPresent }).Count -eq $results.Count)
     sourceLocatorPresent = (@($results | Where-Object { $_.sourceLocatorPresent }).Count -eq $results.Count)
+    mysqlQdrantParity = (@($results | Where-Object { $_.mysqlQdrantParity }).Count -eq $results.Count)
   }
 
   $boundary = Invoke-BoundaryChecks $fixtureDir $envValues

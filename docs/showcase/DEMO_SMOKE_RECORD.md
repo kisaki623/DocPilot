@@ -4,6 +4,28 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-14 Document Parser Long Markdown Batch Split
+
+状态：PASS（parser core）/ REVIEW（overall 仅因本轮显式 SkipFrontend）
+
+Runner / 验证：
+
+- `scripts/smoke/document-parser-real-chain-smoke.ps1 -Mode run -SkipFrontend`
+- 后端定向 parser / embedding / indexing / ParseTask 回归测试
+
+Marker:
+
+- `docpilot-parser-real-chain-20260714184055-21d3de`
+
+已验证：
+
+- 新增 LONG_MD 长文档 fixture，真实 run 中约 `17755` 字，切出 `25` 个 chunks，覆盖超过 embedding provider 单批 `10` 条上限的分批索引路径。
+- PDF / HTML / DOCX / LONG_MD 均 `parseStatus=SUCCESS`，direct retrieve、QA retrieval、citation、source locator 均通过。
+- MySQL / Qdrant 一致性通过：总计 `chunkCount=32`、`indexedChunkCount=32`、`vectorIdCount=32`、`qdrantPointCount=32`、`payloadSummaryOkCount=32`、`locatorPayloadCount=32`，`mysqlQdrantParity=true`。
+- parser boundary `4/4` PASS，artifact redaction PASS；原失败 document `1431` / task `1322` 也已只读核验为 SUCCESS，chunk / indexed / vectorId / Qdrant point 为 `12 / 12 / 12 / 12`，最新 outbox `SENT`、consume `SUCCESS`。
+
+边界：本次没有做浏览器 UI 验证，overall 为 REVIEW 仅因 `-SkipFrontend`；没有重置或伪造真实用户登录态，原失败文档的 QA 引用不以 owner API 复跑声明，恢复证据来自 DB / MQ outbox-consume / Qdrant parity，同环境长文档 canary 证明 retrieve、citation 和 locator 链路可用。
+
 ## 2026-07-14 Agent Quality Console DB-backed Internal Console
 
 状态：PASS（DB migration + internal admin + persisted QualityRun + import hygiene + DB-backed domain trends + UI/API）
