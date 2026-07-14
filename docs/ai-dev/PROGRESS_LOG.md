@@ -1650,7 +1650,7 @@
 
 - 已由 `hk-ops` 按用户授权修复腾讯云服务器 Prometheus 9090 暴露：远程 `/opt/docpilot/docker-compose.yml` 中 `docpilot-prometheus` 端口从 `9090:9090` 收口为 `127.0.0.1:9090:9090`，并执行 `docker compose up -d docpilot-prometheus`。
 - 已移除远程 `firewalld` public zone 的 `9090/tcp` 放行并 reload；Prometheus 容器仍保持 ready，本机 `127.0.0.1:9090/-/ready` 可用。
-- 已验证远程监听只剩 `127.0.0.1:9090`，Docker 映射为 `127.0.0.1:9090->9090/tcp`，服务器访问公网 IP `62.234.3.22:9090` 超时；本机 `Test-NetConnection 62.234.3.22 -Port 9090` 返回 `False`。
+- 已验证远程监听只剩 `127.0.0.1:9090`，Docker 映射为 `127.0.0.1:9090->9090/tcp`，服务器访问公网 IP `<PUBLIC_IP_REDACTED>:9090` 超时；本机 `Test-NetConnection <PUBLIC_IP_REDACTED> -Port 9090` 返回 `False`。
 - 远程有效备份为 `/opt/docpilot/docker-compose.yml.bak.20260613-112819`；另有一次服务名定位失败前创建的未修改备份 `/opt/docpilot/docker-compose.yml.bak.20260613-112738`。
 - 本轮未修改腾讯云安全组；建议在腾讯云控制台重新检测，并删除或收口仍可能存在的云侧 9090 入站规则作为第二道防线。
 

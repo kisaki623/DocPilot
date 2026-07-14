@@ -493,7 +493,7 @@ class DocumentAgentLlmExecuteModeTest {
 
         String privateContent = "PRIVATE_DOC_CONTENT_SHOULD_NOT_LEAK";
         String privatePrompt = "Current task: prompt text SHOULD_NOT_LEAK";
-        String secretMarker = "sk-test-secret-should-not-leak";
+        String secretMarker = "docpilot-fake-secret-marker-should-not-leak";
         stubReadyStatus(117L, "safe summary", privateContent);
         stubKeywordSelection("summary_tool", "keyword summary reason", "summary");
         stubToolDefinitions();

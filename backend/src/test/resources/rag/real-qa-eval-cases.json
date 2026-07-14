@@ -931,20 +931,20 @@
     "topK": 1,
     "query": "Which evidence says vendor risk review requires a remediation owner?",
     "documents": [
-      {"documentId": 4791, "title": "Vendor Risk Review", "text": "Vendor risk review marker real-vendor-risk-remediation-owner-marker says every high risk finding requires a remediation owner."},
-      {"documentId": 4792, "title": "Vendor Risk Newsletter", "text": "Vendor risk newsletter marker real-vendor-risk-newsletter-forbidden-marker summarizes awareness posts without remediation ownership."}
+      {"documentId": 4791, "title": "Vendor Risk Review", "text": "Vendor risk review marker real-vendor-riskcase-remediation-owner-marker says every high risk finding requires a remediation owner."},
+      {"documentId": 4792, "title": "Vendor Risk Newsletter", "text": "Vendor risk newsletter marker real-vendor-riskcase-newsletter-forbidden-marker summarizes awareness posts without remediation ownership."}
     ],
     "outOfScopeDocuments": [],
-    "expectedMarkers": ["real-vendor-risk-remediation-owner-marker"],
-    "expectedAnswerMarkers": ["real-vendor-risk-remediation-owner-marker"],
-    "requiredCitationMarkers": ["real-vendor-risk-remediation-owner-marker"],
-    "forbiddenAnswerMarkers": ["real-vendor-risk-newsletter-forbidden-marker", "without remediation ownership"],
+    "expectedMarkers": ["real-vendor-riskcase-remediation-owner-marker"],
+    "expectedAnswerMarkers": ["real-vendor-riskcase-remediation-owner-marker"],
+    "requiredCitationMarkers": ["real-vendor-riskcase-remediation-owner-marker"],
+    "forbiddenAnswerMarkers": ["real-vendor-riskcase-newsletter-forbidden-marker", "without remediation ownership"],
     "expectedClaims": [
       {
-        "id": "vendor-risk-remediation-owner",
-        "answerMarkers": ["real-vendor-risk-remediation-owner-marker"],
-        "evidenceMarkers": ["real-vendor-risk-remediation-owner-marker"],
-        "forbiddenMarkers": ["real-vendor-risk-newsletter-forbidden-marker"]
+        "id": "vendor-riskcase-remediation-owner",
+        "answerMarkers": ["real-vendor-riskcase-remediation-owner-marker"],
+        "evidenceMarkers": ["real-vendor-riskcase-remediation-owner-marker"],
+        "forbiddenMarkers": ["real-vendor-riskcase-newsletter-forbidden-marker"]
       }
     ],
     "expectedDocumentIds": [4791],

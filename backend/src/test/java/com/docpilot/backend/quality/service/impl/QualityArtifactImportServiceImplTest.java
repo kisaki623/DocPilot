@@ -107,9 +107,9 @@ class QualityArtifactImportServiceImplTest {
                   "smokeMarker": "%s",
                   "status": "PASS",
                   "gates": {"g":{"status":"PASS"}},
-                  "provider": "Authorization: Bearer abcdefghijklmnopqrstuvwxyz"
+                  "provider": "Authorization: Bearer %s"
                 }
-                """.formatted(marker));
+                """.formatted(marker, "abcdefghijklmnopqrstuvwxyz"));
         QualityArtifactImportServiceImpl service = service();
 
         var result = service.importRecentArtifacts(1, 7L);
