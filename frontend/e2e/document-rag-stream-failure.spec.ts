@@ -42,6 +42,49 @@ async function prepareDocumentPage(page: Page, streamBody: string) {
       await route.fulfill({ contentType: "application/json", body: apiBody([]) });
       return;
     }
+    if (path === "/backend/api/task/parse/status") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: apiBody({
+          taskId: 789,
+          userId: 7,
+          documentId,
+          fileRecordId: 456,
+          status: "SUCCESS",
+          statusLabel: "解析完成",
+          statusDescription: "解析已完成",
+          documentParseStatus: "SUCCESS",
+          terminal: true,
+          processing: false,
+          retryAllowed: false,
+          reparseAllowed: true,
+          safeReindexAllowed: true,
+          contentOnlyReindexAllowed: false,
+          parsedContentPresent: true,
+          stale: false,
+          recoveryAction: "NONE",
+          recoveryDescription: "无需恢复操作",
+          retryCount: 0,
+          updateTime: "2026-07-10T00:00:00Z",
+        }),
+      });
+      return;
+    }
+    if (path === "/backend/api/quality/status") {
+      await route.fulfill({
+        contentType: "application/json",
+        body: apiBody({
+          enabled: false,
+          authorized: false,
+          reason: "quality console disabled in e2e fixture",
+          dataMode: "disabled",
+          runCount: 0,
+          lastImportedAt: null,
+          environment: "playwright",
+        }),
+      });
+      return;
+    }
     if (path === `/backend/api/documents/${documentId}/qa/rag/stream`) {
       streamRequests += 1;
       await route.fulfill({

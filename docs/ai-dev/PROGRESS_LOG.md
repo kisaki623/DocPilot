@@ -1,5 +1,11 @@
 # Progress Log
 
+## 2026-07-14 GitHub PR CI checks 修复
+
+- 修复 PR #4 上 Backend tests 失败：`MemoryQualityEvalRunner` 的 eval harness 补齐 `memoryMapper.markUsed(...)` mock，匹配当前 `MemorySelector` 只有 markUsed 成功才注入 ACTIVE memory 的生产语义。
+- 修复 PR #4 上 Frontend checks 失败：`document-rag-stream-failure.spec.ts` 补齐文档页真实会触发的 `/backend/api/task/parse/status` 与全局布局 `/backend/api/quality/status` mock，避免未 mock 请求落到 404 并触发 console error 断言。
+- 已验证：`mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（1031 tests / 5 skipped）；`npm run lint` PASS；`npm run build` PASS；`npm run test:e2e` PASS（14 tests）。
+
 ## 2026-07-14 Document Parser long document batch split closeout
 
 - 增强 `document-parser-real-chain-smoke.ps1`：新增 `LONG_MD` 长 Markdown fixture，真实 run 切出 `25` 个 chunks，用于覆盖 embedding provider 单批上限 `10` 的分批索引风险。

@@ -204,6 +204,8 @@ public class MemoryQualityEvalRunner {
                     .thenReturn(messages(evalCase));
             when(memoryMapper.selectActiveByUser(eq(evalCase.userId()), eq(null), anyInt()))
                     .thenReturn(memories(evalCase));
+            when(memoryMapper.markUsed(eq(evalCase.userId()), any(), any()))
+                    .thenReturn(1);
             when(summaryService.getActiveSummary(evalCase.userId(), evalCase.conversationId()))
                     .thenReturn(summary(evalCase));
             when(evidenceBuilder.build(eq(conversation), eq(evalCase.currentMessage()), any(ContextPolicy.class), any()))

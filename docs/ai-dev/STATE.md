@@ -1,5 +1,12 @@
 # DocPilot 当前状态
 
+## 2026-07-14 GitHub PR #4 发布分支 CI 状态（VERIFIED / LOCAL）
+
+- PR #4 的本地 CI 等价验证已恢复：后端全量测试 `1031` tests PASS（`5` skipped），前端 lint / production build PASS，前端 Playwright E2E `14` tests PASS。
+- 后端 CI 失败根因是 Memory 质量评测测试夹具未跟上 `MemorySelector` 的 `markUsed` 注入语义；已在 `MemoryQualityEvalRunner` eval harness 中补齐 mock。
+- 前端 CI 失败根因是文档 RAG stream E2E fixture 未覆盖当前页面真实请求的 parse status 与 Quality Console status；已补齐 mock，避免未 mock 404 造成 console error 失败。
+- 当前边界：这是测试夹具 / CI 收口修复，不改变用户侧业务路由、RAG、Memory 或 Quality Console 权限语义；远端 GitHub Actions 结果以 push 后 PR checks 为准。
+
 ## 2026-07-14 Document Parser 长文档 batch split 与原失败任务状态（VERIFIED / CORE）
 
 - `REA-20260713-P1-001` 已完成核心恢复复验：百炼 `text-embedding-v4` 单批上限导致的长文档 `RAG_INDEX_FAILED` 已由 `OpenAICompatibleEmbeddingProvider` 分批请求、ParseTask 结构化错误摘要和真实长文档 canary 覆盖。

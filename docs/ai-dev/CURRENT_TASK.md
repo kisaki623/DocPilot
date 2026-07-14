@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-07-14 GitHub PR #4 CI checks 修复（VERIFIED / LOCAL）
+
+- 本轮目标：解释并修复 GitHub PR #4 页面显示的 `CI / Backend tests (Java 17)` 与 `CI / Frontend checks (Node 20)` 失败，不扩展业务功能。
+- 后端根因与修复：Memory 单条停用 / 恢复后，生产 `MemorySelector` 会在 `markUsed(...)` 成功后才注入长期记忆；`MemoryQualityEvalRunner` 测试夹具缺少 `memoryMapper.markUsed(...)` mock，导致默认 eval case 误判 ACTIVE memory 未进入上下文。已补齐 mock。
+- 前端根因与修复：文档 RAG stream E2E fixture 只 mock 了 document / history / stream 链路，但当前页面还会请求 parse task status，global layout 还会请求 Quality Console status；未 mock 请求落到 fallback 404，触发 console error 断言失败。已补齐 `/backend/api/task/parse/status` 与 `/backend/api/quality/status` mock。
+- 已验证：后端定向 `MemoryQualityEvalRunnerTest` PASS；前端定向 `document-rag-stream-failure.spec.ts` PASS；完整本地 CI 等价验证 `mvn --batch-mode --no-transfer-progress test -DskipITs` PASS（1031 tests / 5 skipped）、`npm run lint` PASS、`npm run build` PASS、`npm run test:e2e` PASS（14 tests）。
+- 状态：`VERIFIED / LOCAL`。下一步是提交、push 并等待 GitHub Actions 重新跑远端检查。
+
 ## 2026-07-14 Document Parser 长文档 batch split / 原失败任务恢复复验（VERIFIED / CORE）
 
 - 本轮目标：收口 `REA-20260713-P1-001`，证明百炼 `text-embedding-v4` 单批上限导致的长文档 `RAG_INDEX_FAILED` 已被“provider batch split + ParseTask 结构化失败摘要 + 真实重试恢复”闭环覆盖。
