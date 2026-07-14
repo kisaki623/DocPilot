@@ -94,7 +94,7 @@
 
 - `docs/assets/screenshots/`：README、项目展示、求职展示用截图资源。
 
-当前截图主要服务已有 showcase。RAG no-evidence、answer audit、chunk structure quality、v6 hybrid / rerank gate 和 v7 memory-aware trace 已有 smoke / eval 证据；等 eval corpus 和面试展示材料继续增强后，再补新的 RAG / Memory 截图会更有价值。
+当前截图主要服务已有 showcase。2026-07-14 README 专用截图已补齐 Conversation RAG 引用来源、Context Inspector 技术详情和 Quality Console PASS 样本 / 核心门禁视角；公开 README 不把内部排障用的混合失败率概览作为首屏图。RAG no-evidence、answer audit、chunk structure quality、v6 hybrid / rerank gate 和 v7 memory-aware trace 已有 smoke / eval 证据；等 eval corpus 和面试展示材料继续增强后，再补新的 RAG / Memory 截图会更有价值。
 
 ## 8. 使用规则
 

@@ -67,14 +67,14 @@ DocPilot 是一个面向企业文档知识库场景的 RAG + 会话记忆工程�
 
 ## 页面预览
 
-以下截图来自 2026-07-14 本地真实 runtime 验证，使用虚构的 README 展示知识库和临时 smoke 数据。截图已检查，不包含 API Key、token、真实公网 IP、连接串或环境变量。
+以下截图均来自 DocPilot 本地实际运行环境，展示知识库管理、文档解析、会话问答和质量分析等核心功能。页面中的文档与业务数据均为脱敏测试数据。
 
 | 页面 | 展示内容 |
 | --- | --- |
 | ![Conversation RAG 引用来源](docs/assets/screenshots/readme/readme-conversation-rag-citations.png) | Conversation 绑定 KnowledgeBase 后，回答正文引用编号可定位来源卡；页面区分实际引用、召回证据和命中文档 |
 | ![Context Inspector 技术详情](docs/assets/screenshots/readme/readme-context-inspector-tech.png) | 同一 assistant message 绑定 Context Inspector，默认摘要、可切换技术详情，展示 route、evidence gate、阶段耗时和 token 分配 |
-| ![Quality Console 概览](docs/assets/screenshots/readme/readme-quality-console-overview.png) | 内部质量控制台展示 DB-backed run、数据来源、最近导入、通过 / 复查 / 失败计数和失败桶 |
-| ![Quality Console 趋势](docs/assets/screenshots/readme/readme-quality-console-trends.png) | 趋势页聚合 Memory quality smoke 与 RAG representative eval 的脱敏指标，辅助定位质量回归 |
+| ![Quality Console PASS 样本详情](docs/assets/screenshots/readme/readme-quality-console-overview.png) | 内部质量控制台筛选 PASS 核心样本，展示 DB-backed run、质量门禁、失败 / 复查为 0 和运行对比 |
+| ![Quality Console 核心门禁](docs/assets/screenshots/readme/readme-quality-console-gates.png) | 同一 PASS 样本展开门禁页，展示 20 项已通过门禁，并保留内部排障视角用于后续治理 |
 | ![上传与解析工作流](docs/assets/screenshots/upload-workflow.png) | 文档上传、异步解析状态和后续问答入口 |
 | ![Agent 工作流](docs/assets/screenshots/agent-workflow.png) | 工具选择、执行轨迹、结果与引用展示 |
 

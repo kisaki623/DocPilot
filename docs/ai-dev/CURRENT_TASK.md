@@ -1,5 +1,13 @@
 # Current Task
 
+## 2026-07-14 README Quality Console 展示图修正（VERIFIED / UI）
+
+- 本轮目标：修正 README 中 Quality Console 图把内部排障混合数据放到公开首屏的问题；不造假数据、不删除失败历史、不改业务代码。
+- 已完成：`README.md` 中 Quality Console 两张图改为 PASS 核心样本展示视角；`readme-quality-console-overview.png` 展示 `docpilot-cloud-quality-20260712212603-173e7d` 的 DB-backed PASS run、质量门禁 `20`、失败 / 复查 `0 / 0` 和运行对比；`readme-quality-console-gates.png` 展示同一 run 的门禁页，失败门禁 `0`、需复查门禁 `0`、已通过门禁 `20`。
+- 真实 UI 验证：临时后端 `18081` + 前端 `3007`，临时内部管理员 userId `772`；前端代理 `/backend/api/quality/status` 返回 enabled / authorized / runCount `55`；Playwright 选择状态筛选 `PASS` 与 marker `docpilot-cloud-quality-20260712212603-173e7d` 截图，console error `0`。
+- 后续治理任务：全量 QualityRun 最近 `50` 条中 PASS `27`、REVIEW `17`、FAILED_CORE_FLOW `6`；这些低数据不再作为 README 首屏展示，但需要后续按来源分桶审计并修复真实质量问题或 artifact 缺字段问题。
+- 安全边界：截图和 summary 不保存 token、密码、prompt、answer 原文、evidence context、连接串或云地址；临时 token 只在 ignored target 目录中短暂使用，收尾时删除；本轮不提交 raw artifact / 日志。
+
 ## 2026-07-14 GitHub PR #4 CI checks 修复（VERIFIED / LOCAL）
 
 - 本轮目标：解释并修复 GitHub PR #4 页面显示的 `CI / Backend tests (Java 17)` 与 `CI / Frontend checks (Node 20)` 失败，不扩展业务功能。

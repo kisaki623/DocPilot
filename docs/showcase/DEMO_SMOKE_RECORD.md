@@ -4,6 +4,30 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-14 README Quality Console PASS Showcase
+
+状态：PASS（README 展示截图 / 真实 UI）
+
+验证：
+
+- 临时后端 `18081` + 临时前端 `3007`
+- Playwright 浏览器截图
+- 临时内部管理员访问 DB-backed Quality Console
+
+Marker:
+
+- 展示样本：`docpilot-cloud-quality-20260712212603-173e7d`
+- 截图 run：`readme-quality-showcase-20260714214023`
+
+已验证：
+
+- README Quality Console 展示图改为筛选后的 PASS 核心样本，不再把内部排障用的全量混合低通过率概览作为公开首屏图。
+- 选中 run 状态 `PASS`、质量门禁 `20`、失败 / 复查 `0 / 0`；门禁页显示失败门禁 `0`、需复查门禁 `0`、已通过门禁 `20`。
+- Quality status 返回 enabled / authorized，runCount `55`；Playwright 截图 console error 为 `0`。
+- 新截图：`docs/assets/screenshots/readme/readme-quality-console-overview.png` 与 `docs/assets/screenshots/readme/readme-quality-console-gates.png`。
+
+边界：这是 README 展示口径修正，不是删除失败历史或伪造质量数据。内部 Quality Console 仍保留 REVIEW / FAILED_CORE_FLOW 运行用于排障；最近 `50` 条 QualityRun 的低数据已作为后续治理任务记录，不写成整体已优化。
+
 ## 2026-07-14 Document Parser Long Markdown Batch Split
 
 状态：PASS（parser core）/ REVIEW（overall 仅因本轮显式 SkipFrontend）

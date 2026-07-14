@@ -1,5 +1,12 @@
 # DocPilot 当前状态
 
+## 2026-07-14 README Quality Console 展示口径（VERIFIED / UI）
+
+- 根 README 的 Quality Console 图已从“内部排障混合数据概览”修正为“PASS 核心样本详情 + 核心门禁”视角，避免公开首屏直接显示全量最近 runs 的低通过率 / 失败率而被误读为系统整体质量差。
+- 新展示样本使用真实 DB-backed run `docpilot-cloud-quality-20260712212603-173e7d`：状态 `PASS`、质量门禁 `20`、失败 / 复查 `0 / 0`。截图分别保存为 `docs/assets/screenshots/readme/readme-quality-console-overview.png` 和 `docs/assets/screenshots/readme/readme-quality-console-gates.png`。
+- 本轮仍保留内部排障事实：最近 `50` 条 QualityRun 中 PASS `27`、REVIEW `17`、FAILED_CORE_FLOW `6`，后续需要按来源拆分预期失败、环境阻塞、真实质量缺口和 artifact 字段缺失；不能通过删除失败历史或伪造通过率解决。
+- 真实验证：临时后端 `18081` + 前端 `3007`，临时内部管理员 userId `772`；Quality status enabled / authorized，runCount `55`；Playwright 截图 console error `0`。
+
 ## 2026-07-14 GitHub PR #4 发布分支 CI 状态（VERIFIED / LOCAL）
 
 - PR #4 的本地 CI 等价验证已恢复：后端全量测试 `1031` tests PASS（`5` skipped），前端 lint / production build PASS，前端 Playwright E2E `14` tests PASS。

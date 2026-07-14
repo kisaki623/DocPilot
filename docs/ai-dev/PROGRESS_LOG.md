@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-14 README Quality Console 展示图修正
+
+- 重新截取 README 的 Quality Console 图片：不再使用全量混合 runs 的低通过率概览，改为筛选后的 PASS 核心样本 `docpilot-cloud-quality-20260712212603-173e7d`。
+- 新图展示 DB-backed PASS run、质量门禁 `20`、失败 / 复查 `0 / 0`、运行对比和门禁页；第二张图片从趋势图改为核心门禁图 `readme-quality-console-gates.png`。
+- 真实 UI 验证：临时后端 `18081` + 前端 `3007`，Quality status enabled / authorized，runCount `55`，Playwright 截图 console error `0`。
+- 后续治理记录：最近 `50` 条 QualityRun 为 PASS `27` / REVIEW `17` / FAILED_CORE_FLOW `6`，低数据作为内部质量治理任务保留，不在 README 首屏展示。
+
 ## 2026-07-14 GitHub PR CI checks 修复
 
 - 修复 PR #4 上 Backend tests 失败：`MemoryQualityEvalRunner` 的 eval harness 补齐 `memoryMapper.markUsed(...)` mock，匹配当前 `MemorySelector` 只有 markUsed 成功才注入 ACTIVE memory 的生产语义。
