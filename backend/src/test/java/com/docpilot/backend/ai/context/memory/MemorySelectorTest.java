@@ -31,7 +31,9 @@ class MemorySelectorTest {
         UserMemory suggested = memory(2L, UserMemoryStatus.SUGGESTED, "候选记忆不应进入上下文");
         UserMemory ignored = memory(3L, UserMemoryStatus.IGNORED, "已忽略记忆不应进入上下文");
         UserMemory deleted = memory(4L, UserMemoryStatus.DELETED, "已删除记忆不应进入上下文");
-        when(userMemoryMapper.selectActiveByUser(7L, null, 5)).thenReturn(List.of(active, suggested, ignored, deleted));
+        UserMemory disabled = memory(5L, UserMemoryStatus.ARCHIVED, "已暂停记忆不应进入上下文");
+        when(userMemoryMapper.selectActiveByUser(7L, null, 5)).thenReturn(List.of(active, suggested, ignored, deleted, disabled));
+        when(userMemoryMapper.markUsed(eq(7L), eq(1L), any())).thenReturn(1);
 
         List<ContextItem> items = selector.select(7L, 5);
 
@@ -40,10 +42,23 @@ class MemorySelectorTest {
         assertThat(items.get(0).content()).contains("偏好中文回答");
         assertThat(items.get(0).content()).doesNotContain("候选记忆");
         assertThat(items.get(0).content()).doesNotContain("已删除记忆");
+        assertThat(items.get(0).content()).doesNotContain("已暂停记忆");
         verify(userMemoryMapper).markUsed(eq(7L), eq(1L), any());
         verify(userMemoryMapper, never()).markUsed(eq(7L), eq(2L), any());
         verify(userMemoryMapper, never()).markUsed(eq(7L), eq(3L), any());
         verify(userMemoryMapper, never()).markUsed(eq(7L), eq(4L), any());
+        verify(userMemoryMapper, never()).markUsed(eq(7L), eq(5L), any());
+    }
+
+    @Test
+    void shouldSkipMemoryWhenMarkUsedLosesActiveRace() {
+        UserMemory active = memory(1L, UserMemoryStatus.ACTIVE, "偏好中文回答");
+        when(userMemoryMapper.selectActiveByUser(7L, null, 5)).thenReturn(List.of(active));
+        when(userMemoryMapper.markUsed(eq(7L), eq(1L), any())).thenReturn(0);
+
+        List<ContextItem> items = selector.select(7L, 5);
+
+        assertThat(items).isEmpty();
     }
 
     @Test

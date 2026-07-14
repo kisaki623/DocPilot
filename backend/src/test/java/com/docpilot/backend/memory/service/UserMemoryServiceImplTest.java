@@ -11,13 +11,18 @@ import com.docpilot.backend.memory.service.impl.UserMemoryServiceImpl;
 import com.docpilot.backend.memory.vo.UserMemoryResponse;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -34,6 +39,44 @@ class UserMemoryServiceImplTest {
             safetyValidator,
             extractionService
     );
+
+    @Test
+    void shouldLockActiveMemoryGovernanceWhenCreatingMemory() throws Exception {
+        RedissonClient redissonClient = mock(RedissonClient.class);
+        RLock lock = mock(RLock.class);
+        ReflectionTestUtils.setField(service, "redissonClient", redissonClient);
+        when(redissonClient.getLock("docpilot:memory:governance:7:PREFERENCE")).thenReturn(lock);
+        when(lock.tryLock(3L, TimeUnit.SECONDS)).thenReturn(true);
+        when(lock.isHeldByCurrentThread()).thenReturn(true);
+        when(memoryMapper.insert(any(UserMemory.class))).thenAnswer(invocation -> {
+            UserMemory memory = invocation.getArgument(0);
+            memory.setId(99L);
+            return 1;
+        });
+
+        UserMemoryResponse response = service.create(7L, UserMemoryType.PREFERENCE, "偏好中文回答", 20, null, null);
+
+        assertThat(response.status()).isEqualTo(UserMemoryStatus.ACTIVE);
+        verify(redissonClient).getLock("docpilot:memory:governance:7:PREFERENCE");
+        verify(lock).tryLock(3L, TimeUnit.SECONDS);
+        verify(lock).unlock();
+        verify(memoryMapper).insert(any(UserMemory.class));
+    }
+
+    @Test
+    void shouldRejectActiveMemoryMutationWhenGovernanceLockUnavailable() throws Exception {
+        RedissonClient redissonClient = mock(RedissonClient.class);
+        RLock lock = mock(RLock.class);
+        ReflectionTestUtils.setField(service, "redissonClient", redissonClient);
+        when(redissonClient.getLock("docpilot:memory:governance:7:PREFERENCE")).thenReturn(lock);
+        when(lock.tryLock(3L, TimeUnit.SECONDS)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.create(7L, UserMemoryType.PREFERENCE, "偏好中文回答", 20, null, null))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("memory operation is busy");
+        verify(memoryMapper, never()).insert(any(UserMemory.class));
+        verify(lock, never()).unlock();
+    }
 
     @Test
     void shouldPersistExtractedSuggestionsAsSuggested() {
@@ -124,6 +167,115 @@ class UserMemoryServiceImplTest {
         assertThatThrownBy(() -> service.update(7L, 99L, "偏好先给结论", 55))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("only active memory can be edited");
+    }
+
+    @Test
+    void shouldListDisabledMemories() {
+        UserMemory disabled = memory(99L, UserMemoryStatus.ARCHIVED);
+        when(memoryMapper.selectByUserAndStatus(7L, UserMemoryStatus.ARCHIVED, UserMemoryType.PREFERENCE, 5))
+                .thenReturn(List.of(disabled));
+
+        List<UserMemoryResponse> responses = service.listDisabled(7L, UserMemoryType.PREFERENCE, 5);
+
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).status()).isEqualTo(UserMemoryStatus.ARCHIVED);
+    }
+
+    @Test
+    void shouldDisableActiveMemory() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ACTIVE);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.updateStatus(7L, 99L, UserMemoryStatus.ACTIVE, UserMemoryStatus.ARCHIVED)).thenReturn(1);
+
+        UserMemoryResponse response = service.disable(7L, 99L);
+
+        assertThat(response.status()).isEqualTo(UserMemoryStatus.ARCHIVED);
+        verify(memoryMapper).updateStatus(7L, 99L, UserMemoryStatus.ACTIVE, UserMemoryStatus.ARCHIVED);
+    }
+
+    @Test
+    void shouldTreatRepeatedDisableAsIdempotentSuccess() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ARCHIVED);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+
+        UserMemoryResponse response = service.disable(7L, 99L);
+
+        assertThat(response.status()).isEqualTo(UserMemoryStatus.ARCHIVED);
+        verify(memoryMapper, never()).updateStatus(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectDisablingNonActiveMemory() {
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory(99L, UserMemoryStatus.SUGGESTED));
+
+        assertThatThrownBy(() -> service.disable(7L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("only active memory can be disabled");
+        verify(memoryMapper, never()).updateStatus(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRestoreDisabledMemory() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ARCHIVED);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of());
+        when(memoryMapper.updateStatus(7L, 99L, UserMemoryStatus.ARCHIVED, UserMemoryStatus.ACTIVE)).thenReturn(1);
+
+        UserMemoryResponse response = service.restore(7L, 99L);
+
+        assertThat(response.status()).isEqualTo(UserMemoryStatus.ACTIVE);
+        verify(memoryMapper).updateStatus(7L, 99L, UserMemoryStatus.ARCHIVED, UserMemoryStatus.ACTIVE);
+    }
+
+    @Test
+    void shouldTreatRepeatedRestoreAsIdempotentSuccess() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ACTIVE);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of(memory));
+
+        UserMemoryResponse response = service.restore(7L, 99L);
+
+        assertThat(response.status()).isEqualTo(UserMemoryStatus.ACTIVE);
+        verify(memoryMapper, never()).updateStatus(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectRestoringDisabledMemoryWhenDuplicateActiveExists() {
+        UserMemory disabled = memory(99L, UserMemoryStatus.ARCHIVED);
+        UserMemory active = memory(88L, UserMemoryStatus.ACTIVE);
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(disabled);
+        when(memoryMapper.selectActiveByUser(7L, UserMemoryType.PREFERENCE, 100)).thenReturn(List.of(active));
+
+        assertThatThrownBy(() -> service.restore(7L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("memory restore requires governance");
+        verify(memoryMapper, never()).updateStatus(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectRestoringSensitiveArchivedMemory() {
+        UserMemory memory = memory(99L, UserMemoryStatus.ARCHIVED);
+        memory.setContent("sensitive placeholder content");
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory);
+        doThrow(new BusinessException(ErrorCode.MEMORY_SENSITIVE_CONTENT_REJECTED))
+                .when(safetyValidator)
+                .validate(memory.getContent());
+
+        assertThatThrownBy(() -> service.restore(7L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(throwable -> assertThat(((BusinessException) throwable).getErrorCode())
+                        .isEqualTo(ErrorCode.MEMORY_SENSITIVE_CONTENT_REJECTED));
+        verify(memoryMapper, never()).updateStatus(any(), any(), any(), any());
+    }
+
+    @Test
+    void shouldRejectRestoringSuggestedMemory() {
+        when(memoryMapper.selectByIdAndUserId(7L, 99L)).thenReturn(memory(99L, UserMemoryStatus.SUGGESTED));
+
+        assertThatThrownBy(() -> service.restore(7L, 99L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("only disabled memory can be restored");
+        verify(memoryMapper, never()).updateStatus(any(), any(), any(), any());
     }
 
     @Test

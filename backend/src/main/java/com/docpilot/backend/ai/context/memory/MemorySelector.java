@@ -37,6 +37,9 @@ public class MemorySelector {
                 continue;
             }
             String content = memory.getMemoryType() + ": " + memory.getContent();
+            if (userMemoryMapper.markUsed(userId, memory.getId(), now) <= 0) {
+                continue;
+            }
             items.add(new ContextItem(
                     ContextType.MEMORY,
                     content,
@@ -48,7 +51,6 @@ public class MemorySelector {
                     memory.getStatus(),
                     Map.of("memoryType", memory.getMemoryType())
             ));
-            userMemoryMapper.markUsed(userId, memory.getId(), now);
         }
         return List.copyOf(items);
     }

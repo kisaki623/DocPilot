@@ -1,7 +1,7 @@
 import { apiRequest, type ApiResponse } from "@/lib/api";
 import { buildAuthorizationHeader } from "@/lib/auth";
 
-export type UserMemoryStatus = "ACTIVE" | "SUGGESTED" | "IGNORED" | "DELETED" | string;
+export type UserMemoryStatus = "ACTIVE" | "ARCHIVED" | "SUGGESTED" | "IGNORED" | "DELETED" | string;
 export type UserMemoryType =
   | "PREFERENCE"
   | "PROJECT_STATE"
@@ -48,6 +48,18 @@ export function listUserMemories(params: {
   limit?: number;
 } = {}): Promise<ApiResponse<UserMemoryItem[]>> {
   return apiRequest<UserMemoryItem[]>(`/api/memories${buildQuery(params)}`, {
+    method: "GET",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
+  });
+}
+
+export function listDisabledUserMemories(params: {
+  memoryType?: string;
+  limit?: number;
+} = {}): Promise<ApiResponse<UserMemoryItem[]>> {
+  return apiRequest<UserMemoryItem[]>(`/api/memories/disabled${buildQuery(params)}`, {
     method: "GET",
     headers: {
       ...buildAuthorizationHeader()
@@ -151,6 +163,24 @@ export function resolveMemorySuggestion(
 export function deleteUserMemory(memoryId: number): Promise<ApiResponse<UserMemoryItem>> {
   return apiRequest<UserMemoryItem>(`/api/memories/${memoryId}`, {
     method: "DELETE",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
+  });
+}
+
+export function disableUserMemory(memoryId: number): Promise<ApiResponse<UserMemoryItem>> {
+  return apiRequest<UserMemoryItem>(`/api/memories/${memoryId}/disable`, {
+    method: "POST",
+    headers: {
+      ...buildAuthorizationHeader()
+    }
+  });
+}
+
+export function restoreUserMemory(memoryId: number): Promise<ApiResponse<UserMemoryItem>> {
+  return apiRequest<UserMemoryItem>(`/api/memories/${memoryId}/restore`, {
+    method: "POST",
     headers: {
       ...buildAuthorizationHeader()
     }

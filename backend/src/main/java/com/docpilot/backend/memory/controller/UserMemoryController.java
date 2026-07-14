@@ -50,6 +50,14 @@ public class UserMemoryController {
         return ApiResponse.success(userMemoryService.list(userId, memoryType, limit));
     }
 
+    @GetMapping("/disabled")
+    public ApiResponse<List<UserMemoryResponse>> listDisabled(
+            @RequestParam(value = "memoryType", required = false) String memoryType,
+            @RequestParam(value = "limit", required = false) Integer limit) {
+        Long userId = UserHolder.requireUserId();
+        return ApiResponse.success(userMemoryService.listDisabled(userId, memoryType, limit));
+    }
+
     @GetMapping("/suggestions")
     public ApiResponse<List<UserMemoryResponse>> listSuggestions(
             @RequestParam(value = "memoryType", required = false) String memoryType,
@@ -104,6 +112,18 @@ public class UserMemoryController {
                 request == null ? null : request.getContent(),
                 request == null ? null : request.getPriority()
         ));
+    }
+
+    @PostMapping("/{memoryId}/disable")
+    public ApiResponse<UserMemoryResponse> disable(@PathVariable("memoryId") Long memoryId) {
+        Long userId = UserHolder.requireUserId();
+        return ApiResponse.success(userMemoryService.disable(userId, memoryId));
+    }
+
+    @PostMapping("/{memoryId}/restore")
+    public ApiResponse<UserMemoryResponse> restore(@PathVariable("memoryId") Long memoryId) {
+        Long userId = UserHolder.requireUserId();
+        return ApiResponse.success(userMemoryService.restore(userId, memoryId));
     }
 
     @DeleteMapping("/{memoryId}")

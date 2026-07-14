@@ -13,6 +13,9 @@ import com.docpilot.backend.memory.service.MemorySafetyValidator;
 import com.docpilot.backend.memory.service.MemorySuggestionCandidate;
 import com.docpilot.backend.memory.service.UserMemoryService;
 import com.docpilot.backend.memory.vo.UserMemoryResponse;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +26,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 @Service
 public class UserMemoryServiceImpl implements UserMemoryService {
@@ -31,10 +36,14 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     private static final int MAX_MEMORY_LIMIT = 100;
     private static final int CONTENT_MAX_CHARS = 1_000;
     private static final double SIMILARITY_DUPLICATE_THRESHOLD = 0.80D;
+    private static final long MEMORY_GOVERNANCE_LOCK_WAIT_SECONDS = 3L;
 
     private final UserMemoryMapper userMemoryMapper;
     private final MemorySafetyValidator memorySafetyValidator;
     private final MemoryExtractionService memoryExtractionService;
+
+    @Autowired(required = false)
+    private RedissonClient redissonClient;
 
     private enum ResolveAction {
         KEEP_ACTIVE,
@@ -61,24 +70,26 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         ValidationUtils.requireNonNull(userId, "userId");
         String resolvedType = UserMemoryType.normalizeOrDefault(memoryType);
         String normalizedContent = normalizeAndValidateContent(content);
-        ensureNoBlockingGovernance(userId, resolvedType, normalizedContent, null, "duplicate active memory already exists");
+        return withActiveMemoryGovernanceLock(userId, resolvedType, () -> {
+            ensureNoBlockingGovernance(userId, resolvedType, normalizedContent, null, "duplicate active memory already exists");
 
-        UserMemory memory = new UserMemory();
-        memory.setUserId(userId);
-        memory.setMemoryType(resolvedType);
-        memory.setContent(normalizedContent);
-        memory.setSourceType(UserMemorySourceType.MANUAL);
-        memory.setSourceConversationId(sourceConversationId);
-        memory.setSourceMessageId(sourceMessageId);
-        memory.setStatus(UserMemoryStatus.ACTIVE);
-        memory.setPriority(priority == null ? 0 : Math.max(0, priority));
-        memory.setConfidence(BigDecimal.ONE);
-        memory.setUseCount(0);
+            UserMemory memory = new UserMemory();
+            memory.setUserId(userId);
+            memory.setMemoryType(resolvedType);
+            memory.setContent(normalizedContent);
+            memory.setSourceType(UserMemorySourceType.MANUAL);
+            memory.setSourceConversationId(sourceConversationId);
+            memory.setSourceMessageId(sourceMessageId);
+            memory.setStatus(UserMemoryStatus.ACTIVE);
+            memory.setPriority(priority == null ? 0 : Math.max(0, priority));
+            memory.setConfidence(BigDecimal.ONE);
+            memory.setUseCount(0);
 
-        if (userMemoryMapper.insert(memory) <= 0) {
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to save user memory");
-        }
-        return UserMemoryResponse.from(memory);
+            if (userMemoryMapper.insert(memory) <= 0) {
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to save user memory");
+            }
+            return UserMemoryResponse.from(memory);
+        });
     }
 
     @Override
@@ -91,6 +102,23 @@ public class UserMemoryServiceImpl implements UserMemoryService {
                 .stream()
                 .map(memory -> UserMemoryResponse.from(memory, duplicateActiveId(memory), null,
                         duplicateActiveId(memory) == null ? "" : "duplicate_active_memory", null))
+                .toList();
+    }
+
+    @Override
+    public List<UserMemoryResponse> listDisabled(Long userId, String memoryType, Integer limit) {
+        ValidationUtils.requireNonNull(userId, "userId");
+        String normalizedType = memoryType == null || memoryType.isBlank()
+                ? null
+                : UserMemoryType.normalizeOrDefault(memoryType);
+        return userMemoryMapper.selectByUserAndStatus(
+                        userId,
+                        UserMemoryStatus.ARCHIVED,
+                        normalizedType,
+                        resolveLimit(limit)
+                )
+                .stream()
+                .map(UserMemoryResponse::from)
                 .toList();
     }
 
@@ -127,19 +155,22 @@ public class UserMemoryServiceImpl implements UserMemoryService {
     @Transactional
     public UserMemoryResponse acceptSuggestion(Long userId, Long memoryId) {
         UserMemory memory = requireMemory(userId, memoryId);
-        if (!UserMemoryStatus.SUGGESTED.equals(memory.getStatus())) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "memory is not a suggestion");
-        }
-        MemoryGovernance governance = governanceFor(userId, memory);
-        if (governance.hasBlockingIssue()) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST,
-                    "memory suggestion requires governance before accept: " + governance.hint());
-        }
-        if (userMemoryMapper.updateStatus(userId, memoryId, UserMemoryStatus.SUGGESTED, UserMemoryStatus.ACTIVE) <= 0) {
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to accept memory suggestion");
-        }
-        memory.setStatus(UserMemoryStatus.ACTIVE);
-        return UserMemoryResponse.from(memory);
+        return withActiveMemoryGovernanceLock(userId, memory.getMemoryType(), () -> {
+            UserMemory current = requireMemory(userId, memoryId);
+            if (!UserMemoryStatus.SUGGESTED.equals(current.getStatus())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "memory is not a suggestion");
+            }
+            MemoryGovernance governance = governanceFor(userId, current);
+            if (governance.hasBlockingIssue()) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST,
+                        "memory suggestion requires governance before accept: " + governance.hint());
+            }
+            if (userMemoryMapper.updateStatus(userId, memoryId, UserMemoryStatus.SUGGESTED, UserMemoryStatus.ACTIVE) <= 0) {
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to accept memory suggestion");
+            }
+            current.setStatus(UserMemoryStatus.ACTIVE);
+            return UserMemoryResponse.from(current);
+        });
     }
 
     @Override
@@ -170,67 +201,132 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         }
         ValidationUtils.requireNonNull(activeMemoryId, "activeMemoryId");
         UserMemory active = requireMemory(userId, activeMemoryId);
-        if (!UserMemoryStatus.ACTIVE.equals(active.getStatus())) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "target memory is not active");
-        }
-        if (!active.getMemoryType().equals(suggestion.getMemoryType())) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "memory type mismatch");
-        }
+        return withActiveMemoryGovernanceLock(userId, suggestion.getMemoryType(), () -> {
+            UserMemory currentSuggestion = requireMemory(userId, memoryId);
+            if (!UserMemoryStatus.SUGGESTED.equals(currentSuggestion.getStatus())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "memory is not a suggestion");
+            }
+            UserMemory currentActive = requireMemory(userId, activeMemoryId);
+            if (!UserMemoryStatus.ACTIVE.equals(currentActive.getStatus())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "target memory is not active");
+            }
+            if (!currentActive.getMemoryType().equals(currentSuggestion.getMemoryType())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "memory type mismatch");
+            }
 
-        ResolveAction resolvedAction = resolveAction(action);
-        if (resolvedAction == ResolveAction.KEEP_ACTIVE) {
-            markSuggestionIgnored(userId, memoryId, suggestion);
-            return UserMemoryResponse.from(suggestion);
-        }
+            ResolveAction resolvedAction = resolveAction(action);
+            if (resolvedAction == ResolveAction.KEEP_ACTIVE) {
+                markSuggestionIgnored(userId, memoryId, currentSuggestion);
+                return UserMemoryResponse.from(currentSuggestion);
+            }
 
-        String nextContent = resolvedAction == ResolveAction.REPLACE_ACTIVE
-                ? suggestion.getContent()
-                : normalizeAndValidateContent(mergedContent);
-        if (resolvedAction == ResolveAction.REPLACE_ACTIVE) {
-            nextContent = normalizeAndValidateContent(nextContent);
-        }
-        Integer nextPriority = priority == null ? active.getPriority() : Math.max(0, priority);
-        ensureNoBlockingGovernance(userId, active.getMemoryType(), nextContent, activeMemoryId,
-                "memory resolve requires governance");
+            String nextContent = resolvedAction == ResolveAction.REPLACE_ACTIVE
+                    ? currentSuggestion.getContent()
+                    : normalizeAndValidateContent(mergedContent);
+            if (resolvedAction == ResolveAction.REPLACE_ACTIVE) {
+                nextContent = normalizeAndValidateContent(nextContent);
+            }
+            Integer nextPriority = priority == null ? currentActive.getPriority() : Math.max(0, priority);
+            ensureNoBlockingGovernance(userId, currentActive.getMemoryType(), nextContent, activeMemoryId,
+                    "memory resolve requires governance");
 
-        if (userMemoryMapper.updateContentAndPriority(
-                userId,
-                activeMemoryId,
-                UserMemoryStatus.ACTIVE,
-                nextContent,
-                nextPriority
-        ) <= 0) {
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to update active memory");
-        }
-        active.setContent(nextContent);
-        active.setPriority(nextPriority);
-        markSuggestionIgnored(userId, memoryId, suggestion);
-        return toResponse(active, governanceFor(userId, active));
+            if (userMemoryMapper.updateContentAndPriority(
+                    userId,
+                    activeMemoryId,
+                    UserMemoryStatus.ACTIVE,
+                    nextContent,
+                    nextPriority
+            ) <= 0) {
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to update active memory");
+            }
+            currentActive.setContent(nextContent);
+            currentActive.setPriority(nextPriority);
+            markSuggestionIgnored(userId, memoryId, currentSuggestion);
+            return toResponse(currentActive, governanceFor(userId, currentActive));
+        });
     }
 
     @Override
     @Transactional
     public UserMemoryResponse update(Long userId, Long memoryId, String content, Integer priority) {
         UserMemory memory = requireMemory(userId, memoryId);
-        if (!UserMemoryStatus.ACTIVE.equals(memory.getStatus())) {
-            throw new BusinessException(ErrorCode.BAD_REQUEST, "only active memory can be edited");
-        }
         String normalizedContent = normalizeAndValidateContent(content);
-        Integer nextPriority = priority == null ? memory.getPriority() : Math.max(0, priority);
-        ensureNoBlockingGovernance(userId, memory.getMemoryType(), normalizedContent, memoryId,
-                "memory edit requires governance");
-        if (userMemoryMapper.updateContentAndPriority(
-                userId,
-                memoryId,
-                UserMemoryStatus.ACTIVE,
-                normalizedContent,
-                nextPriority
-        ) <= 0) {
-            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to update user memory");
-        }
-        memory.setContent(normalizedContent);
-        memory.setPriority(nextPriority);
-        return toResponse(memory, governanceFor(userId, memory));
+        return withActiveMemoryGovernanceLock(userId, memory.getMemoryType(), () -> {
+            UserMemory current = requireMemory(userId, memoryId);
+            if (!UserMemoryStatus.ACTIVE.equals(current.getStatus())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "only active memory can be edited");
+            }
+            Integer nextPriority = priority == null ? current.getPriority() : Math.max(0, priority);
+            ensureNoBlockingGovernance(userId, current.getMemoryType(), normalizedContent, memoryId,
+                    "memory edit requires governance");
+            if (userMemoryMapper.updateContentAndPriority(
+                    userId,
+                    memoryId,
+                    UserMemoryStatus.ACTIVE,
+                    normalizedContent,
+                    nextPriority
+            ) <= 0) {
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to update user memory");
+            }
+            current.setContent(normalizedContent);
+            current.setPriority(nextPriority);
+            return toResponse(current, governanceFor(userId, current));
+        });
+    }
+
+    @Override
+    @Transactional
+    public UserMemoryResponse disable(Long userId, Long memoryId) {
+        ValidationUtils.requireNonNull(userId, "userId");
+        ValidationUtils.requireNonNull(memoryId, "memoryId");
+        UserMemory memory = requireMemory(userId, memoryId);
+        return withActiveMemoryGovernanceLock(userId, memory.getMemoryType(), () -> {
+            UserMemory current = requireMemory(userId, memoryId);
+            if (UserMemoryStatus.ARCHIVED.equals(current.getStatus())) {
+                return UserMemoryResponse.from(current);
+            }
+            if (!UserMemoryStatus.ACTIVE.equals(current.getStatus())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "only active memory can be disabled");
+            }
+            if (userMemoryMapper.updateStatus(userId, memoryId, UserMemoryStatus.ACTIVE, UserMemoryStatus.ARCHIVED) <= 0) {
+                UserMemory latest = requireMemory(userId, memoryId);
+                if (UserMemoryStatus.ARCHIVED.equals(latest.getStatus())) {
+                    return UserMemoryResponse.from(latest);
+                }
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to disable user memory");
+            }
+            current.setStatus(UserMemoryStatus.ARCHIVED);
+            return UserMemoryResponse.from(current);
+        });
+    }
+
+    @Override
+    @Transactional
+    public UserMemoryResponse restore(Long userId, Long memoryId) {
+        ValidationUtils.requireNonNull(userId, "userId");
+        ValidationUtils.requireNonNull(memoryId, "memoryId");
+        UserMemory memory = requireMemory(userId, memoryId);
+        return withActiveMemoryGovernanceLock(userId, memory.getMemoryType(), () -> {
+            UserMemory current = requireMemory(userId, memoryId);
+            if (UserMemoryStatus.ACTIVE.equals(current.getStatus())) {
+                return toResponse(current, governanceFor(userId, current));
+            }
+            if (!UserMemoryStatus.ARCHIVED.equals(current.getStatus())) {
+                throw new BusinessException(ErrorCode.BAD_REQUEST, "only disabled memory can be restored");
+            }
+            memorySafetyValidator.validate(current.getContent());
+            ensureNoBlockingGovernance(userId, current.getMemoryType(), current.getContent(), memoryId,
+                    "memory restore requires governance");
+            if (userMemoryMapper.updateStatus(userId, memoryId, UserMemoryStatus.ARCHIVED, UserMemoryStatus.ACTIVE) <= 0) {
+                UserMemory latest = requireMemory(userId, memoryId);
+                if (UserMemoryStatus.ACTIVE.equals(latest.getStatus())) {
+                    return toResponse(latest, governanceFor(userId, latest));
+                }
+                throw new BusinessException(ErrorCode.BUSINESS_ERROR, "failed to restore user memory");
+            }
+            current.setStatus(UserMemoryStatus.ACTIVE);
+            return toResponse(current, governanceFor(userId, current));
+        });
     }
 
     @Override
@@ -264,6 +360,33 @@ public class UserMemoryServiceImpl implements UserMemoryService {
         MemoryGovernance governance = governanceFor(userId, memoryType, content, excludeMemoryId);
         if (governance.hasBlockingIssue()) {
             throw new BusinessException(ErrorCode.BAD_REQUEST, message + ": " + governance.hint());
+        }
+    }
+
+    private UserMemoryResponse withActiveMemoryGovernanceLock(Long userId,
+                                                              String memoryType,
+                                                              Supplier<UserMemoryResponse> supplier) {
+        if (redissonClient == null) {
+            return supplier.get();
+        }
+        String lockKey = "docpilot:memory:governance:" + userId + ":" + UserMemoryType.normalizeOrDefault(memoryType);
+        RLock lock = redissonClient.getLock(lockKey);
+        boolean locked;
+        try {
+            locked = lock.tryLock(MEMORY_GOVERNANCE_LOCK_WAIT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ErrorCode.BUSINESS_ERROR, "memory governance lock interrupted");
+        }
+        if (!locked) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST, "memory operation is busy, please retry later");
+        }
+        try {
+            return supplier.get();
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
     }
 

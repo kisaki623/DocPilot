@@ -1,5 +1,15 @@
 # DocPilot 当前状态
 
+## 2026-07-14 Agent Memory 单条停用 / 恢复状态（VERIFIED / API+UI）
+
+- `REA-20260713-P2-033` 已收口：长期记忆现在支持单条停用与恢复，后端复用既有 `ARCHIVED` 状态表示“停用 / 暂不注入上下文但保留可恢复”，未新增数据库迁移或 `DISABLED` 枚举。
+- Memory API 新增 `GET /api/memories/disabled`、`POST /api/memories/{memoryId}/disable` 和 `POST /api/memories/{memoryId}/restore`。`disable` 为 `ACTIVE -> ARCHIVED`，重复停用幂等；`restore` 为 `ARCHIVED -> ACTIVE`，重复恢复 ACTIVE 幂等；`DELETED / SUGGESTED / IGNORED` 不可恢复为 ACTIVE。
+- 恢复前会重新执行 `MemorySafetyValidator` 和重复 / 冲突治理；跨用户访问仍通过 `selectByIdAndUserId` 隔离。会改变 ACTIVE memory 集合的 `create / acceptSuggestion / resolveSuggestion / update / disable / restore` 路径已放入按 `userId + memoryType` 维度的 Redisson governance lock，锁内重新读取记录并执行治理检查，降低并发恢复 / 接受 / 创建绕过治理的风险。
+- `UserMemoryMapper.markUsed` 只允许 `ACTIVE` 行更新，`MemorySelector` 只有在 `markUsed` 成功后才注入 `ContextItem`，避免停用竞态导致已停用 memory 进入上下文。
+- Conversation Memory 抽屉现在展示生效 / 停用 / 候选 KPI，生效记忆支持“停用”，停用记忆在“已停用的长期记忆”分区中支持“恢复 / 删除”；恢复提示说明会重新检查冲突和敏感内容。停用列表加载失败时降级为空列表，不阻塞 Conversation 页面和其它 Memory 数据。
+- 验证：后端定向 `67` tests PASS；PowerShell parser 对 cloud / memory smoke 均 PASS；`memory-quality-smoke.ps1 -Mode plan` PASS；前端 lint / build PASS。真实 memory smoke `docpilot-memory-quality-20260714175619-8f1939` 中 `memoryQuality=PASS`、`t31StrictMemoryDisableCapability=IMPLEMENTED`；真实 UI marker `memory-ui-disable-restore-20260714100303` 停用 / 恢复 PASS，console error `0`，桌面 / `390px` / `320px` 横向溢出均为 `0`。
+- 边界：本次解决的是用户可控的单条长期记忆停用 / 恢复，不新增 Memory 版本历史、审计表、全局记忆开关、弱网 / 多标签冲突处理或真实模型大样本长期记忆质量 benchmark。
+
 ## 2026-07-14 Agent Quality Console 持久化内部控制台状态（VERIFIED / DB+API+UI / CLOSEOUT）
 
 - Agent Quality Console 已从 artifact-backed 开发页升级为 DB-backed 内部质量控制台：默认仍由 `APP_QUALITY_CONSOLE_ENABLED=false` 关闭，开启后还必须满足当前登录用户 `status=ACTIVE` 且 `tb_user.is_internal_admin=1`。
@@ -64,19 +74,19 @@
 - 结论：这轮不是前端 Next.js 进程崩溃，也不是端口未启动；主要是后端启动时未先建立云 MySQL / Qdrant 本地 tunnel，导致需要数据库的 API 卡住，并连带前端业务请求报错。
 - 未执行修复启动：本轮只做只读诊断与脱敏记录，未启动 tunnel、未重启用户已有 backend / frontend、未创建业务数据。
 
-## 2026-07-13 Agent Memory T31 删除 / 会话禁用自动化验收状态（VERIFIED / REVIEW）
+## 2026-07-13 Agent Memory T31 删除 / 会话禁用自动化验收状态（SUPERSEDED / HISTORICAL）
 
 - Memory quality smoke 已纳入高强度验收 T31 的两个可自动化子项：`RECENT_TURNS` contextMode 会话级禁用长期记忆，以及 ACTIVE memory soft delete 后不再被新的 `AGENT_MEMORY` Trace 选入。
 - 最新真实 marker：`docpilot-memory-quality-20260713015241-320bed`，命令为 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend`；T31 case `passed=true`，目标 memory 创建后 `AGENT_MEMORY` Trace `memoryCount=1` 且 `use_count` 增加 1，`RECENT_TURNS` Trace `memoryCount=0` 且 `use_count` 不变，delete 后 DB 精确状态为 `DELETED`，新 `AGENT_MEMORY` Trace `memoryCount=0` 且 `use_count` 不再增加。
 - 同轮 T29 / T30 继续 PASS：候选记忆仍需用户确认，敏感 `api key` / `sk-...` 形状仍不产生候选或持久行；artifact redaction PASS，常用端口无 LISTEN 残留。
-- 边界：当前产品 / 后端没有 per-memory `DISABLED` 状态、禁用 / 恢复 API 或用户全局长期记忆开关，因此严格 T31 “禁用某条记忆”仍是 REVIEW / 产品待定义；已登记 `REA-20260713-P2-033`。该结果不代表前端 Memory 管理页、T32 长会话摘要、Agent ToolCall 或弱网 / 多标签 UI 已通过。
+- 历史边界：该 2026-07-13 run 当时只证明 `RECENT_TURNS` 会话级禁用和 delete lifecycle，并据此登记 `REA-20260713-P2-033`。严格 per-memory 停用 / 恢复已由 2026-07-14 新增 API、smoke 和浏览器验证收口；本历史结果不代表 T32 长会话摘要、Agent ToolCall 或弱网 / 多标签 UI 已通过。
 
 ## 2026-07-13 Agent Memory T29/T30 自动化验收状态（VERIFIED / PARTIAL）
 
 - Memory quality smoke 已纳入高强度验收 T29 / T30：T29 验证候选记忆必须经用户确认后才从 `SUGGESTED` 变为 `ACTIVE`，且 accept 后可在 `AGENT_MEMORY` Trace 中以 `PREFERENCE` memory 类型被观测；T30 验证带凭据形状的偏好文本不会生成候选、不会进入 ACTIVE / SUGGESTED list，`tb_user_memory` 按 source conversation 计数为 0。
 - 后端 Memory 安全边界同步补强：`api key` / `api-key` / `sk-...` 形状由 `MemorySafetyValidator` 拦截；规则式抽取先识别“优先考虑 / prefer / do not”等强偏好信号，避免中文项目偏好被“回答”关键词误归为回答风格。
 - 最新真实 marker：`docpilot-memory-quality-20260713013642-34b1f5`，命令为 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend`；`memoryQuality` gate PASS，artifact redaction PASS，常用端口无 LISTEN 残留。
-- 边界：本片只证明 T29/T30 的 API / Trace / DB gate 已通过；T31 删除 / 会话模式禁用已在后续 memory marker 中补充，但严格 per-memory 禁用能力仍待产品定义。Memory 管理页、T32 长会话摘要、Agent ToolCall 和弱网 / 多标签 UI 仍待执行。
+- 边界：本片只证明 T29/T30 的 API / Trace / DB gate 已通过；T31 删除 / 会话模式禁用已在后续 memory marker 中补充，严格 per-memory 停用 / 恢复已在 2026-07-14 单独收口。T32 长会话摘要、Agent ToolCall 和弱网 / 多标签 UI 仍待执行。
 
 ## 2026-07-13 Conversation 最近轮次 T27/T28 自动化验收状态（VERIFIED / PARTIAL）
 
@@ -93,7 +103,7 @@
 - 真实 run 先暴露 `REA-20260713-P1-031`：T11 citations 覆盖正确但答案遗漏部分风险控制措施；已增强 `KnowledgeBaseRagPromptBuilder` 的 summary prompt，要求数量型总结按 requested item count 输出、跨文档综合不能跳过已检索文档，并对风险控制 / 控制措施问题抽取审批、凭据 / Token / 日志 / 审计和运维缓解措施。
 - 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` 中 `fixedBusinessCorpus` 与 `knowledgeBaseLifecycle` gate 均为 `PASS`；T26 disposable 文档删除前 retrieve / QA 各 1 条，删除后 KB detail 0 个文档、retrieve / QA no-evidence 且 0 citation，文档详情返回业务错误；overallStatus 仍为 `REVIEW`，原因是本轮显式 `-SkipFrontend`。
 - 已验证：wrapper `plan` PASS、delegate `dry-run` PASS；`mvn "-Dtest=KnowledgeBaseRagPromptBuilderTest,KnowledgeBaseRagQaServiceImplTest,CloudQualitySmokeScriptSafetyTest,HighIntensityFixedCorpusSmokeScriptSafetyTest,DocumentServiceImplTest" test` PASS（51 tests）；artifact raw-field scan PASS，3000 / 3001 / 3002 / 3007 / 3100 / 8081 无 LISTEN 残留。
-- 边界：T26 当前验证的是软删除文档后的 KB 关系清理和 citation / retrieve 不再召回；MySQL chunk 和 Qdrant point 仍作为残留计数观测，不声明物理删除。完整 T01-T47 仍未覆盖 T31 严格 per-memory 禁用能力、T32 长会话摘要、Agent ToolCall 全矩阵、弱网并发、多标签页和浏览器缩放 UI。
+- 边界：T26 当前验证的是软删除文档后的 KB 关系清理和 citation / retrieve 不再召回；MySQL chunk 和 Qdrant point 仍作为残留计数观测，不声明物理删除。完整 T01-T47 仍未覆盖 T32 长会话摘要、Agent ToolCall 全矩阵、弱网并发、多标签页和浏览器缩放 UI；T31 严格 per-memory 停用 / 恢复已在 2026-07-14 单独收口。
 
 ## 2026-07-12 高强度固定业务语料自动化验收修复状态（VERIFIED / PARTIAL）
 
@@ -101,7 +111,7 @@
 - 已验证脚本入口：wrapper `plan` PASS、delegate `dry-run` PASS、Windows PowerShell `ParseFile` PASS；`HighIntensityFixedCorpusSmokeScriptSafetyTest` + `CloudQualitySmokeScriptSafetyTest` 共 6 tests PASS。`cloud-quality-smoke.ps1` 需要保持 UTF-8 BOM + CRLF，避免 Windows PowerShell 5.1 读取中文 fixture 时 mojibake。
 - 已修复并验证 P1 质量问题 `REA-20260712-P1-030`：KnowledgeBase QA 的数字 citation 精炼现在只作用于非多文档问题；中文“综合 / 分别出现在什么文档”等多文档问题会保留跨文档 citation；错误前提 / 冲突规则问题使用更明确的纠错 prompt，但不硬编码固定语料业务值。
 - 最新真实 run marker `docpilot-high-intensity-fixed-corpus-20260712230404-a0bc35` 的 `fixedBusinessCorpus` gate 为 `PASS`：T02 duplicate upload 与 T06-T15 全部 PASS；T08 正确处理废弃草案冲突，T11 覆盖 `INCIDENT_REVIEW` / `API_POLICY` / `CONTRACT_ALPHA` / `SLA_BETA`，T12 覆盖 `CONTRACT_ALPHA` / `API_POLICY`。
-- 本次真实 run 的 overallStatus 为 `REVIEW` 是因为命令显式 `-SkipFrontend`，不是 fixed corpus gate 失败；后续已补 T22-T26 KnowledgeBase 生命周期、T29/T30 Memory gate 以及 T31 删除 / 会话级禁用 gate，但完整 T01-T47 高强度验收仍未完成，T31 严格 per-memory 禁用能力、T32、Agent、弱网并发、多标签页和缩放 UI 仍待后续阶段执行。
+- 本次真实 run 的 overallStatus 为 `REVIEW` 是因为命令显式 `-SkipFrontend`，不是 fixed corpus gate 失败；后续已补 T22-T26 KnowledgeBase 生命周期、T29/T30 Memory gate 以及 T31 删除 / 会话级禁用 gate。T31 严格 per-memory 停用 / 恢复已在 2026-07-14 单独收口；完整 T01-T47 高强度验收中的 T32、Agent、弱网并发、多标签页和缩放 UI 仍待后续阶段执行。
 - 本轮真实 run 的 JSON artifact 只保存 ignored 脱敏摘要，固定 synthetic 源文件上传后从 artifact 目录删除，最新 marker 的 `fixed-business-corpus` 目录为空；run 会在业务库 / 存储中创建临时 smoke 文档作为测试输入，但不提交 token、密码、prompt、answer、evidence context、连接串或云地址。runner cleanup 后确认 3000 / 3001 / 3002 / 3007 / 3100 / 8081 均无 LISTEN 残留。
 
 ## 2026-07-12 高强度验收执行状态（VERIFIED / PARTIAL）

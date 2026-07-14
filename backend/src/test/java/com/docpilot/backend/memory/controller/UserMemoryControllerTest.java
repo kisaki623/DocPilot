@@ -53,6 +53,16 @@ class UserMemoryControllerTest {
     }
 
     @Test
+    void shouldListDisabledWithCurrentUser() {
+        UserHolder.setUserId(7L);
+        when(userMemoryService.listDisabled(7L, "PREFERENCE", 5)).thenReturn(List.of());
+
+        controller.listDisabled("PREFERENCE", 5);
+
+        verify(userMemoryService).listDisabled(7L, "PREFERENCE", 5);
+    }
+
+    @Test
     void shouldDeleteWithCurrentUser() {
         UserHolder.setUserId(7L);
         when(userMemoryService.delete(7L, 99L)).thenReturn(response());
@@ -60,6 +70,26 @@ class UserMemoryControllerTest {
         controller.delete(99L);
 
         verify(userMemoryService).delete(7L, 99L);
+    }
+
+    @Test
+    void shouldDisableWithCurrentUser() {
+        UserHolder.setUserId(7L);
+        when(userMemoryService.disable(7L, 99L)).thenReturn(response());
+
+        controller.disable(99L);
+
+        verify(userMemoryService).disable(7L, 99L);
+    }
+
+    @Test
+    void shouldRestoreWithCurrentUser() {
+        UserHolder.setUserId(7L);
+        when(userMemoryService.restore(7L, 99L)).thenReturn(response());
+
+        controller.restore(99L);
+
+        verify(userMemoryService).restore(7L, 99L);
     }
 
     @Test

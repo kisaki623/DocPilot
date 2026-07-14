@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-14 Agent Memory per-memory disable / restore closeout
+
+- 复用 `ARCHIVED` 作为单条长期记忆停用状态，新增 `/api/memories/disabled`、`/{memoryId}/disable`、`/{memoryId}/restore`，恢复前重新执行敏感内容和 duplicate / conflict governance，不新增 DB 迁移或 `DISABLED` 枚举。
+- 将 `create / acceptSuggestion / resolveSuggestion / update / disable / restore` 等 ACTIVE memory 集合变更路径放入按 `userId + memoryType` 维度的 Redisson governance lock，并在锁内重新读取记录和执行治理检查，降低并发 restore / accept / create 绕过治理的风险。
+- `markUsed` 增加 `status='ACTIVE'` 条件，`MemorySelector` 只在 markUsed 成功后注入 `ContextItem`，避免查询后停用竞态把 archived memory 写进回答上下文。
+- `/conversations` Memory 抽屉新增停用 KPI 与“已停用的长期记忆”分区；生效记忆可停用，停用记忆可恢复 / 删除；停用列表接口失败时降级为空停用列表，不阻塞页面加载。
+- T31 memory smoke 扩展为 ACTIVE 命中、RECENT_TURNS 抑制、per-memory 停用、停用后不命中且 use_count 不变、恢复后重新命中、跨用户禁用 / 恢复拒绝、删除后不可恢复。
+- 验证：后端定向 67 tests PASS；PowerShell parser PASS；`memory-quality-smoke.ps1 -Mode plan` PASS；前端 lint / build PASS；真实 `docpilot-memory-quality-20260714175619-8f1939` 中 `memoryQuality=PASS` 且 `t31StrictMemoryDisableCapability=IMPLEMENTED`；真实 UI marker `memory-ui-disable-restore-20260714100303` PASS，console error `0`，桌面 / `390px` / `320px` 横向溢出均为 `0`。
+
 ## 2026-07-14 Conversation citation source UI verification
 
 - 用临时后端 `18081` + 前端 `3007` 复验 Conversation 回答卡片引用来源展示，marker `conversation-citation-expand-20260714172419`，Conversation `261`，assistant `#567`。
@@ -69,7 +78,7 @@
 - T31 断言链：创建唯一 `PREFERENCE` ACTIVE memory 后，`AGENT_MEMORY` Trace 必须选入该 memory 且目标 `use_count` 增加；`RECENT_TURNS` 会话必须 `memoryEnabled=false`、Trace memory 为 0 且 `use_count` 不变；`DELETE /api/memories/{id}` 后 API / DB 均为 `DELETED`，ACTIVE list 与 ACTIVE DB count 归零；删除后的新 `AGENT_MEMORY` Trace memory 为 0 且 deleted row `use_count` 不变。
 - 后端测试补强：`UserMemoryServiceImplTest` 覆盖 soft delete、跨用户 / 不存在删除、更新 0 行和重复删除；`MemorySelectorTest` 覆盖 DELETED / 非 ACTIVE 不进上下文与 `maxCount=0`；`ContextAssemblyServiceImplTest` 覆盖 `memoryEnabled=false` 时不调用长期记忆 selector。
 - 验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ContextAssemblyServiceImplTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（57 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS；真实 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` marker `docpilot-memory-quality-20260713015241-320bed` 中 T31/T29/T30 自动化断言通过，artifact scan PASS，常用端口无 LISTEN 残留。
-- 边界：`memoryQuality` gate 状态为 `REVIEW`，原因是当前没有 per-memory 禁用 / 恢复 API 或 `DISABLED` 状态；本片覆盖的是会话级 `RECENT_TURNS` 禁用与删除生命周期，不覆盖严格“禁用某条记忆”的产品能力、前端 Memory 管理页或 T32 长会话摘要。
+- 历史边界：该 run 的 `memoryQuality` gate 当时为 `REVIEW`，原因是缺少 per-memory 停用 / 恢复 API；本片覆盖的是会话级 `RECENT_TURNS` 禁用与删除生命周期。该缺口已由 2026-07-14 单条记忆停用 / 恢复收口验证取代。
 
 ## 2026-07-13 Agent Memory T29/T30 gate
 
@@ -78,7 +87,7 @@
 - T30 断言链：先用无敏感片段的 Java 后端偏好做正对照，确认可产生 `PREFERENCE` 候选；再用运行时拼接的 `sk-...` 假凭据形状和 `api key` 标签构造敏感文本，要求 extract 候选数为 0、ACTIVE / SUGGESTED 列表无泄漏、`tb_user_memory` 按 source conversation 计数为 0。
 - 后端补强：`MemorySafetyValidator` 拦截 `api key` / `api-key` / `sk-...` 形状；`RuleBasedMemoryExtractionService` 将“优先考虑 / prefer / do not”强偏好信号前置，修复中文 T29 文案含“回答”时被误归为 `ANSWER_STYLE` 的问题。MySQL helper 改为 stdin 输入 SQL，避免测试语料出现在本机进程命令行。
 - 验证：PowerShell Parser `PARSE_OK`；`mvn "-Dtest=MemorySafetyValidatorTest,RuleBasedMemoryExtractionServiceTest,UserMemoryServiceImplTest,MemorySelectorTest,ConversationContextTraceServiceImplTest,MemoryQualitySmokeScriptSafetyTest" test` PASS（44 tests）；`memory-quality-smoke.ps1 -Mode plan` PASS；`memory-quality-smoke.ps1 -Mode dry-run -SkipFrontend` PASS；真实 `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend` 中 `memoryQuality` gate PASS，marker `docpilot-memory-quality-20260713013642-34b1f5`，overallStatus `REVIEW` 仅因前端跳过；artifact scan PASS，常用端口无 LISTEN 残留。
-- 边界：本片覆盖 T29/T30 API / Trace / DB gate；T31 删除 / 会话级禁用已由后续 lifecycle gate 补充，但严格 per-memory 禁用能力仍待定义。本片不覆盖前端 Memory 管理页、T32 长会话摘要、Agent ToolCall 或弱网并发 UI。
+- 边界：本片覆盖 T29/T30 API / Trace / DB gate；T31 删除 / 会话级禁用已由后续 lifecycle gate 补充，严格 per-memory 停用 / 恢复已由 2026-07-14 单独收口。本片不覆盖 T32 长会话摘要、Agent ToolCall 或弱网并发 UI。
 
 ## 2026-07-13 Conversation 最近轮次 T27/T28 gate
 

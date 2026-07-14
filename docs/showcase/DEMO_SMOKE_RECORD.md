@@ -55,6 +55,30 @@ Marker:
 
 边界：本次只验证 Conversation 回答卡片 citation UI，不覆盖 KnowledgeBase 页、文档详情页或 Agent 页的视觉改造；artifact 位于 ignored `backend/target/conversation-citation-expand-20260714172419/ui-citation-browser-check.json`，只保留 marker、id 和计数，不提交 token、密码、prompt、answer、evidence 全文、连接串或云地址。
 
+## 2026-07-14 Agent Memory Per-memory Disable / Restore
+
+状态：PASS（Memory API / Trace / DB gate + Conversation Memory UI）
+
+Runner / 验证：
+
+- `scripts/smoke/memory-quality-smoke.ps1 -Mode run -SkipFrontend`
+- 临时后端 `18081` + 临时前端 `3007` 浏览器验证 `/conversations` Memory 抽屉
+
+Marker:
+
+- memory quality：`docpilot-memory-quality-20260714175619-8f1939`
+- UI：`memory-ui-disable-restore-20260714100303`
+
+已验证：
+
+- 单条长期记忆停用 / 恢复已实现：复用 `ARCHIVED` 作为停用状态，不新增 `DISABLED` 枚举或 DB 迁移。
+- T31 gate 覆盖 ACTIVE memory 被 `AGENT_MEMORY` 选入、`RECENT_TURNS` 会话级抑制、per-memory 停用后不再被新 `AGENT_MEMORY` 选入且 `use_count` 不变、恢复后再次被选入、跨用户 disable / restore 被拒、delete 后不可 restore。
+- `memoryQuality` gate 为 PASS，`t31StrictMemoryDisableCapability=IMPLEMENTED`；本次整体 run 为 REVIEW 仅因为命令显式 `-SkipFrontend`。
+- Conversation Memory 抽屉可见“停用”按钮、“已停用的长期记忆”分区和“恢复”按钮；恢复后 active list 包含该 memory，disabled list 为空。
+- 浏览器验证 console error 为 `0`，桌面、`390px`、`320px` 视口横向溢出均为 `0`。
+
+边界：这是单条长期记忆生命周期和 UI 管理的真实链路 smoke，不代表 Memory 版本历史 / 审计、全局记忆开关、弱网并发、多标签冲突或真实模型大样本长期记忆质量成熟。artifact 位于 ignored `backend/target/memory-quality/.../artifact.json` 与 `backend/target/memory-ui-disable-restore-*/memory-ui-disable-restore-summary.json`，只保留 marker、id、状态和计数，不提交 memory content、用户消息、prompt、answer、token、连接串或云地址。
+
 ## 2026-07-12 High Intensity Acceptance Layer 1
 
 状态：PASS
@@ -125,7 +149,7 @@ Marker:
 
 ## 2026-07-13 Agent Memory Candidate, Sensitive Rejection And Lifecycle Gate
 
-状态：REVIEW（memoryQuality gate；frontend skipped；strict per-memory disable not implemented）
+状态：SUPERSEDED（历史 REVIEW；per-memory disable / restore 已由 2026-07-14 收口）
 
 Runner:
 
@@ -143,7 +167,7 @@ Marker:
 - 原有 Memory governance 同轮继续 PASS：answer-style / task-goal 候选、accept / ignore 分层、冲突治理、冲突 accept 阻断、keep / replace / merge、敏感 edit 拦截和 ACTIVE edit 均通过。
 - artifact redaction scan PASS，常用端口无 LISTEN 残留。
 
-边界：本次 run 显式 `-SkipFrontend`，且当前产品 / 后端没有 per-memory `DISABLED` 状态、禁用 / 恢复 API 或用户全局长期记忆开关，因此严格 T31“禁用某条记忆”仍为 REVIEW；该证据证明的是 `RECENT_TURNS` 会话级禁用与 delete lifecycle，不代表前端 Memory 管理页、T32 长会话摘要、Agent ToolCall 或弱网并发 UI 已通过。artifact 位于 ignored `backend/target/memory-quality/.../artifact.json`，不提交用户消息、memory content、fake key、prompt、answer、evidence context、token、连接串或云地址。
+边界：本次 run 显式 `-SkipFrontend`，该 2026-07-13 证据当时只证明 `RECENT_TURNS` 会话级禁用与 delete lifecycle，并发现严格 per-memory 禁用缺口。该缺口已由 2026-07-14 `docpilot-memory-quality-20260714175619-8f1939` 与 `memory-ui-disable-restore-20260714100303` 收口；旧 run 不代表 T32 长会话摘要、Agent ToolCall 或弱网并发 UI 已通过。artifact 位于 ignored `backend/target/memory-quality/.../artifact.json`，不提交用户消息、memory content、fake key、prompt、answer、evidence context、token、连接串或云地址。
 
 ## 2026-07-12 Quality Console Memory / RAG Trend View
 

@@ -15,6 +15,8 @@ public interface UserMemoryService {
 
     List<UserMemoryResponse> list(Long userId, String memoryType, Integer limit);
 
+    List<UserMemoryResponse> listDisabled(Long userId, String memoryType, Integer limit);
+
     List<UserMemoryResponse> listSuggestions(Long userId, String memoryType, Integer limit);
 
     List<UserMemoryResponse> extractSuggestions(Long userId, Long conversationId, Integer limit);
@@ -31,6 +33,10 @@ public interface UserMemoryService {
                                          Integer priority);
 
     UserMemoryResponse update(Long userId, Long memoryId, String content, Integer priority);
+
+    UserMemoryResponse disable(Long userId, Long memoryId);
+
+    UserMemoryResponse restore(Long userId, Long memoryId);
 
     UserMemoryResponse delete(Long userId, Long memoryId);
 }

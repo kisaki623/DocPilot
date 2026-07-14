@@ -107,6 +107,7 @@ public interface UserMemoryMapper extends BaseMapper<UserMemory> {
                    use_count = COALESCE(use_count, 0) + 1
              WHERE id = #{memoryId}
                AND user_id = #{userId}
+               AND status = 'ACTIVE'
             """)
     int markUsed(@Param("userId") Long userId,
                  @Param("memoryId") Long memoryId,

@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-14 | `docpilot-memory-quality-20260714175619-8f1939` / `memory-ui-disable-restore-20260714100303` | VERIFIED / API+UI（T31 per-memory disable / restore 已收口） | `backend/target/memory-quality/docpilot-memory-quality-20260714175619-8f1939/artifact.json` / `backend/target/memory-ui-disable-restore-20260714100303/memory-ui-disable-restore-summary.json` | 修复 `REA-20260713-P2-033`：复用 `ARCHIVED` 作为单条 memory 停用状态，新增 disabled list、disable、restore API；T31 真实 smoke 证明停用后新 `AGENT_MEMORY` 不再选入且 `use_count` 不变，恢复后重新选入，跨用户 disable / restore 被拒，delete 后不可 restore。浏览器验证 `/conversations` Memory 抽屉停用 / 恢复 PASS，console error `0`，桌面 / `390px` / `320px` 无横向溢出。 |
 | 2026-07-14 | `quality-console-closeout-20260714160116` | VERIFIED（Quality artifact import root 隔离已收口） | `backend/target/quality-console-closeout-20260714160116/api-summary.json` | 修复 `REA-20260714-P3-039`：单测 artifact 改用临时 repo root，runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 测试 marker，DB-backed runs/detail/trends 隐藏历史误导入测试 marker。真实 API 验证 `limit=1` 不再导入测试样本，`firstRunIsTestMarker=false`；`limit=50` 后 Memory/RAG representative domain trends 可见。 |
 | 2026-07-14 | `quality-console-disabled-state-20260714` | VERIFIED / UI+API（disabled 文案与开启后可见性均验证） | 无新 artifact | 用户报告 Agent Quality Console 显示“运行次数 0 / 暂无样本 / 当前账号无权限”。根因是当前后端未开启 `app.quality.console.enabled`，业务返回 `quality console is disabled`，但前端把 403 泛化成账号无权限并把加载失败渲染成空 artifact。已修复错误文案、加载失败空态和旧 marker 选择；临时 3007 验证 disabled 文案，临时 18081 + 3008 验证真实 runs / trend / eval cases / detail 可见，登记为 `REA-20260714-P2-038`。 |
 | 2026-07-14 | `conversation-citation-expand-20260714172419` | VERIFIED / UI（Conversation citation 来源展示交互已验） | `backend/target/conversation-citation-expand-20260714172419/ui-citation-browser-check.json` | 复验 `REA-20260713-P2-037`：临时后端 `18081` + 前端 `3007` 创建 3 条返回证据、正文实际只引用 `[1]` / `[2]` 的 Conversation。浏览器验证回答卡片显示 `2` 实际引用、`3` 召回证据、`3` 命中文档；默认 2 张引用卡，展开后 3 张完整证据卡；点击正文 `[1]` 聚焦并高亮 `citation-567-1`；桌面 / `390px` / `320px` 横向溢出均为 `0`，console error 为 `0`。 |
@@ -41,7 +42,7 @@
 | 2026-07-13 | `docpilot-citation-list-20260713224003-82668e` | VERIFIED / API（迁移与历史 list citation 恢复通过） | `backend/target/conversation-citation-list/docpilot-citation-list-20260713224003-82668e/artifact.json` | 用户复查 zeus / `运维知识库演示` 后发现最新 RAG 回答事实正确，但历史消息刷新后 citation cards 不能恢复，且 Trace 出现 `documentHitCounts` 零命中文档噪声。已新增 `citations_json` 快照、历史 list 恢复顶层 citations、hitCounts positive-only 和前端零值过滤；真实 MySQL 已执行 `009`，临时新版后端验证 send/list citation 数量均为 1、签名一致、send/list zero-hit count 均为 0，登记为 `REA-20260713-P2-036`。 |
 | 2026-07-13 | `docpilot-conversation-grounding-20260713212058-5915ed` | VERIFIED（Conversation AUTO_RAG 泛化路由修复） | `backend/target/conversation-grounding/docpilot-conversation-grounding-20260713212058-5915ed/artifact.json` | 用户 zeus / `运维知识库演示` 会话中 P1 SLA 问题未触发 RAG，Trace 为 `AUTO_INTENT_NOT_TRIGGERED_MODEL`、`ragTriggered=false`、`evidenceCount=0`，底层模型给出与 KB 不一致的响应 / 恢复时间；已改为极窄 negative gate + evidence probe，并新增 AUTO required no-evidence 拒答 case。真实 smoke 9/9 PASS，登记为 `REA-20260713-P1-035`。 |
 | 2026-07-13 | `local-runtime-diagnosis-20260713` | BLOCKED（本地 tunnel 缺失导致后端 DB 请求超时） | 无新 artifact | 用户已有 frontend `3000` 与 backend `8081` 进程在监听；前端公开路由返回 200，后端未鉴权 Quality API 返回业务 401。但本地 `13306` / `6333` tunnel 端口不可达，`/actuator/health` 与登录接口通过直连和前端代理均超时；JVM thread dump 显示请求线程等待 Hikari 获取 MySQL 连接。结论是启动顺序 / tunnel 缺失导致的环境阻塞，登记为 `REA-20260713-P3-034`。 |
-| 2026-07-13 | `docpilot-memory-quality-20260713015241-320bed` | REVIEW（T31 删除 / 会话级禁用通过，strict per-memory disable 缺口） | `backend/target/memory-quality/docpilot-memory-quality-20260713015241-320bed/artifact.json` | 扩展 memory quality runner 覆盖 T31：唯一 ACTIVE memory 在 `AGENT_MEMORY` Trace 中被选入且 `use_count` 增加，`RECENT_TURNS` 会话抑制长期记忆且 `use_count` 不变，delete 后 API / DB 状态为 `DELETED`，新的 `AGENT_MEMORY` Trace 不再选入。发现当前没有 per-memory `DISABLED` 状态或禁用 / 恢复 API，登记为 `REA-20260713-P2-033`；artifact redaction scan PASS，常用端口无 LISTEN 残留。 |
+| 2026-07-13 | `docpilot-memory-quality-20260713015241-320bed` | SUPERSEDED（历史 REVIEW；已由 2026-07-14 收口） | `backend/target/memory-quality/docpilot-memory-quality-20260713015241-320bed/artifact.json` | 扩展 memory quality runner 覆盖 T31：唯一 ACTIVE memory 在 `AGENT_MEMORY` Trace 中被选入且 `use_count` 增加，`RECENT_TURNS` 会话抑制长期记忆且 `use_count` 不变，delete 后 API / DB 状态为 `DELETED`，新的 `AGENT_MEMORY` Trace 不再选入。当时发现缺少 per-memory 停用 / 恢复 API，登记为 `REA-20260713-P2-033`；该缺口已由 `docpilot-memory-quality-20260714175619-8f1939` 与 `memory-ui-disable-restore-20260714100303` 收口。 |
 | 2026-07-13 | `docpilot-conversation-grounding-20260713010452-f8e612` | PASS（T27/T28 Conversation 最近轮次 gate） | `backend/target/conversation-grounding/docpilot-conversation-grounding-20260713010452-f8e612/artifact.json` | 扩展 conversation grounding runner 到 8 个 case：新增 T27 同会话最近轮次项目代号记忆和 T28 跨会话隔离。首次真实 run 前发现 runner 取脚本路径为 null，登记为 `REA-20260713-P3-032`；修复后复跑 PASS，artifact redaction scan PASS，常用端口无 LISTEN 残留。 |
 | 2026-07-13 | `docpilot-high-intensity-fixed-corpus-20260713004622-113df1` | REVIEW（fixedBusinessCorpus PASS / lifecycle PASS / frontend skipped） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260713004622-113df1/artifact.json` | 修复 `REA-20260713-P1-031` 后复跑高强度固定语料 runner：`fixedBusinessCorpus` gate PASS，T11 多文档风险控制 answer claim 恢复；`knowledgeBaseLifecycle` gate PASS，覆盖 T22-T26，其中 T26 disposable 文档删除后 KB detail 0 文档、retrieve / QA no-evidence 且 0 citation。整体 run 为 REVIEW 仅因为显式 `-SkipFrontend`；artifact raw-field scan PASS，常用端口无 LISTEN 残留。 |
 | 2026-07-13 | `docpilot-high-intensity-fixed-corpus-20260713004019-b28e65` | FAILED_CORE_FLOW（固定业务语料 T11 回归） | `backend/target/high-intensity-acceptance/docpilot-high-intensity-fixed-corpus-20260713004019-b28e65/artifact.json` | 扩展 T26 KnowledgeBase 生命周期前执行真实高强度 runner：tunnel、backend、上传解析、chunk / Qdrant 一致性、单文档 RAG、KnowledgeBase RAG 和短文档 gate 通过；固定语料 T11 出现 `answer_claim_missing`，citations 已覆盖 `INCIDENT_REVIEW` / `API_POLICY` / `SLA_BETA` / `CONTRACT_ALPHA`，但模型答案未覆盖全部风险控制措施。artifact 已脱敏，不保存 raw answer / prompt / evidence context。 |
@@ -88,7 +89,7 @@
 | `REA-20260713-P2-036` | VERIFIED / API | P2 | 可信引用 / 前端可解释性问题 | Conversation / Context Trace / KnowledgeBase RAG / Citation UI | zeus / `运维知识库演示` | Conversation 历史消息刷新后 citation cards 丢失且 hitCounts 有零值噪声 |
 | `REA-20260713-P1-035` | VERIFIED（已验证） | P1 | 会话 RAG 路由质量问题 | Conversation / AUTO_RAG / KnowledgeBase evidence | zeus / `运维知识库演示` | 绑定 KB 的 P1 SLA 问题未触发 RAG，底层模型给出无证据错误数字 |
 | `REA-20260713-P3-034` | BLOCKED | P3 | 本地环境阻塞 | Backend startup / Cloud tunnel / Frontend proxy | `local-runtime-diagnosis-20260713` | 本地 MySQL / Qdrant tunnel 未启动，导致后端 health 和登录接口超时并连带前端业务请求报错 |
-| `REA-20260713-P2-033` | OPEN（待产品定义） | P2 | 验收能力缺口 | Memory API / Conversation context mode | `docpilot-memory-quality-20260713015241-320bed` | T31 严格 per-memory 禁用能力未实现，目前只能证明会话级禁用和删除生命周期 |
+| `REA-20260713-P2-033` | VERIFIED / API+UI | P2 | 验收能力缺口 | Memory API / Conversation context mode / Memory UI | `docpilot-memory-quality-20260713015241-320bed` -> `docpilot-memory-quality-20260714175619-8f1939` | T31 严格 per-memory 禁用 / 恢复能力已实现并通过真实 smoke 与浏览器验证 |
 | `REA-20260713-P3-032` | VERIFIED（已验证） | P3 | 工程流程问题 | Conversation grounding smoke runner | `conversation-grounding-smoke.ps1 -Mode run -SkipFrontend` 初跑 | 函数内 `$MyInvocation.MyCommand.Path` 为 null，导致真实 smoke 启动 tunnel 前失败 |
 | `REA-20260713-P1-031` | VERIFIED（已验证） | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Prompt | `docpilot-high-intensity-fixed-corpus-20260713004019-b28e65` | 固定业务语料 T11 citations 覆盖正确但答案遗漏部分风险控制措施 |
 | `REA-20260712-P1-030` | VERIFIED（已验证） | P1 | RAG 质量问题 | KnowledgeBase RAG QA / Citation | `docpilot-high-intensity-fixed-corpus-20260712223206-eae7f3` | 固定业务语料 T08 / T11 / T12 暴露回答完整性和 citation 支撑不足 |
@@ -283,13 +284,14 @@
 
 ## 2026-07-13 Memory lifecycle 问题闭环
 
-### `REA-20260713-P2-033` T31 严格 per-memory 禁用能力未实现，目前只能证明会话级禁用和删除生命周期
+### `REA-20260713-P2-033` T31 严格 per-memory 禁用 / 恢复能力缺口已收口
 
-- 状态：OPEN（待产品定义）
+- 状态：VERIFIED / API+UI
 - 严重级别：P2
 - 类型：验收能力缺口
-- 模块：Memory API / Conversation context mode
+- 模块：Memory API / Conversation context mode / Memory UI
 - 发现 marker：`docpilot-memory-quality-20260713015241-320bed`
+- 修复验证 marker：`docpilot-memory-quality-20260714175619-8f1939`、`memory-ui-disable-restore-20260714100303`
 
 复现步骤：
 
@@ -301,30 +303,39 @@
 
 - `RECENT_TURNS` 会话级禁用成立：conversation `memoryEnabled=false`，Trace `memoryUsed=false`、`memoryCount=0`，目标 memory `use_count` 不变。
 - 删除生命周期成立：`DELETE /api/memories/{memoryId}` 返回 `DELETED`，DB 精确行状态为 `DELETED`，ACTIVE list / ACTIVE DB count 归零，删除后的新 `AGENT_MEMORY` Trace 不再选入该 memory。
-- 当前没有 per-memory `DISABLED` 状态、禁用 / 恢复 API 或用户全局长期记忆开关；因此无法证明“禁用某条 memory 后，其它 `AGENT_MEMORY` 会话也不使用它”。
+- 当时没有 per-memory `DISABLED` 状态、禁用 / 恢复 API 或用户全局长期记忆开关；因此无法证明“禁用某条 memory 后，其它 `AGENT_MEMORY` 会话也不使用它”。
 - 本轮 artifact 只保存 caseId、id、状态、Trace 计数、`use_count` delta 和布尔断言，不保存 memory content、用户消息、prompt、answer 或 evidence context。
 
-预期结果：
+修复结果：
 
-- 如果产品要求 T31 覆盖“禁用某条记忆”，应明确禁用语义：是 memory 行状态、用户全局开关、会话级开关，还是前端仅隐藏 / 删除。
-- 明确语义后，应提供可验证 API / 状态，并让 Trace / DB gate 证明禁用后不会被 selector 选入。
+- 采用最小产品语义：单条长期记忆停用是“保留记录但后续上下文不再使用”，后端复用既有 `ARCHIVED` 状态，不新增 `DISABLED` 枚举或 DB 迁移。
+- 新增 `GET /api/memories/disabled`、`POST /api/memories/{memoryId}/disable`、`POST /api/memories/{memoryId}/restore`。`ACTIVE -> ARCHIVED` 和 `ARCHIVED -> ACTIVE` 为主流程，重复停用 / 恢复幂等；`DELETED` 不可恢复。
+- 恢复前重新执行 `MemorySafetyValidator` 与 duplicate / conflict governance；跨用户 disable / restore 仍被 `selectByIdAndUserId` 隔离。`create / acceptSuggestion / resolveSuggestion / update / disable / restore` 等 ACTIVE memory 集合变更路径已放入按 `userId + memoryType` 维度的 Redisson governance lock，锁内重新读取记录并执行治理检查，降低并发恢复 / 接受 / 创建绕过治理的风险。
+- `markUsed` SQL 增加 `status='ACTIVE'`，`MemorySelector` 只有 markUsed 成功才注入 `ContextItem`，避免查询后被停用的 memory 仍进入当前回答。
+- 前端 Conversation Memory 抽屉新增停用 KPI、“已停用的长期记忆”分区、停用和恢复按钮；停用列表接口失败时降级为空列表，不阻塞 Conversation 页面和其它 Memory 数据加载。
 
 可能原因：
 
-- 现有设计只有 `ACTIVE / SUGGESTED / IGNORED / ARCHIVED / DELETED` 等状态，尚未定义 `DISABLED` 或恢复语义。
-- Conversation 的 `RECENT_TURNS` / `AGENT_MEMORY` 只是在会话创建时决定 `memoryEnabled`，不是用户级或单条 memory 级开关。
+- 已确认根因不是 selector 本身不能过滤状态，而是此前产品与 API 没有暴露“保留但暂停使用”的单条 memory 生命周期。
+- `RECENT_TURNS` / `AGENT_MEMORY` 仍只是会话上下文模式；单条停用现在通过 memory 行状态控制。
 
-建议修复位置：
+修复位置：
 
-- `backend/src/main/java/com/docpilot/backend/memory/constant/UserMemoryStatus.java`
 - `backend/src/main/java/com/docpilot/backend/memory/controller/UserMemoryController.java`
 - `backend/src/main/java/com/docpilot/backend/memory/service/impl/UserMemoryServiceImpl.java`
+- `backend/src/main/java/com/docpilot/backend/memory/mapper/UserMemoryMapper.java`
+- `backend/src/main/java/com/docpilot/backend/ai/context/memory/MemorySelector.java`
 - `frontend/` Memory 管理入口（若产品选择暴露禁用 / 恢复操作）
 - `scripts/smoke/cloud-quality-smoke.ps1`
 
-修复提交：未修复；本提交只新增自动化证据、DB / Trace 断言和台账记录。
+修复提交：待本轮提交。
 
-验证记录：`docpilot-memory-quality-20260713015241-320bed` 中 T31 删除 lifecycle 与 `RECENT_TURNS` 会话级禁用断言通过；`memoryQuality` gate 为 REVIEW，safeMessage 指向 strict per-memory disable API 未实现；artifact redaction scan PASS，常用端口无 LISTEN 残留。
+验证记录：
+
+- `docpilot-memory-quality-20260713015241-320bed` 中 T31 删除 lifecycle 与 `RECENT_TURNS` 会话级禁用断言通过，但 strict per-memory disable 缺口存在，作为历史发现保留。
+- `docpilot-memory-quality-20260714175619-8f1939` 中 `memoryQuality=PASS`，`t31PerMemoryDisableCovered=true`、`t31RestoreLifecycleCovered=true`、`t31CrossUserDisableRestoreBlocked=true`、`t31RestoreAfterDeleteBlocked=true`、`t31StrictMemoryDisableCapability=IMPLEMENTED`。
+- `memory-ui-disable-restore-20260714100303` 浏览器验证 `/conversations` Memory 抽屉：停用 / 恢复 PASS，恢复后 active list 包含该 memory、disabled list 为空，console error `0`，桌面 / `390px` / `320px` 横向溢出均为 `0`。
+- 本轮验证：后端定向 `67` tests PASS；PowerShell parser PASS；`memory-quality-smoke.ps1 -Mode plan` PASS；前端 lint / build PASS；临时后端 / 前端已清理。
 
 ## 2026-07-12 Conversation grounding policy 问题闭环
 

@@ -38,11 +38,14 @@ import {
 import {
   acceptMemorySuggestion,
   createUserMemory,
+  disableUserMemory,
   deleteUserMemory,
   extractMemorySuggestions,
   ignoreMemorySuggestion,
+  listDisabledUserMemories,
   listMemorySuggestions,
   listUserMemories,
+  restoreUserMemory,
   resolveMemorySuggestion,
   updateUserMemory,
   type MemorySuggestionResolveAction,
@@ -98,7 +101,7 @@ function statusBadge(status?: string): string {
   if (status === "DELETED" || status === "IGNORED" || status === "FAILED") {
     return "dp-badge dp-badge-danger";
   }
-  if (status === "SUGGESTED" || status === "PENDING") {
+  if (status === "SUGGESTED" || status === "PENDING" || status === "ARCHIVED") {
     return "dp-badge dp-badge-warning";
   }
   return "dp-badge dp-badge-info";
@@ -784,6 +787,7 @@ export default function ConversationsPage() {
   );
 
   const [memories, setMemories] = useState<UserMemoryItem[]>([]);
+  const [disabledMemories, setDisabledMemories] = useState<UserMemoryItem[]>([]);
   const [suggestions, setSuggestions] = useState<UserMemoryItem[]>([]);
   const [memoryLoading, setMemoryLoading] = useState(false);
   const [newMemoryType, setNewMemoryType] = useState<UserMemoryType>("CUSTOM");
@@ -876,6 +880,13 @@ export default function ConversationsPage() {
     });
   }, [memories]);
 
+  const sortedDisabledMemories = useMemo(() => {
+    return [...disabledMemories].sort((left, right) =>
+      new Date(right.updatedAt || right.createdAt || 0).getTime()
+      - new Date(left.updatedAt || left.createdAt || 0).getTime(),
+    );
+  }, [disabledMemories]);
+
   const sortedSuggestions = useMemo(() => {
     return [...suggestions].sort((left, right) => {
       const priorityDelta = (right.priority ?? 0) - (left.priority ?? 0);
@@ -923,11 +934,13 @@ export default function ConversationsPage() {
   const loadMemoryState = useCallback(async () => {
     setMemoryLoading(true);
     try {
-      const [memoryResponse, suggestionResponse] = await Promise.all([
+      const [memoryResponse, disabledMemoryResponse, suggestionResponse] = await Promise.all([
         listUserMemories({ limit: 30 }),
+        listDisabledUserMemories({ limit: 30 }).catch(() => ({ code: 0, message: "", data: [] })),
         listMemorySuggestions({ limit: 30 }),
       ]);
       setMemories(memoryResponse.data || []);
+      setDisabledMemories(disabledMemoryResponse.data || []);
       setSuggestions(suggestionResponse.data || []);
     } catch (error) {
       const message = error instanceof Error ? error.message : "加载记忆失败";
@@ -944,6 +957,7 @@ export default function ConversationsPage() {
       setConversations([]);
       setKnowledgeBases([]);
       setMessages([]);
+      setDisabledMemories([]);
       setSummary(null);
       setTrace(null);
       setLoading(false);
@@ -958,17 +972,20 @@ export default function ConversationsPage() {
         conversationResponse,
         knowledgeBaseResponse,
         memoryResponse,
+        disabledMemoryResponse,
         suggestionResponse,
       ] = await Promise.all([
         listConversations(50),
         listKnowledgeBases(),
         listUserMemories({ limit: 30 }),
+        listDisabledUserMemories({ limit: 30 }).catch(() => ({ code: 0, message: "", data: [] })),
         listMemorySuggestions({ limit: 30 }),
       ]);
       const nextConversations = conversationResponse.data || [];
       setConversations(nextConversations);
       setKnowledgeBases(knowledgeBaseResponse.data || []);
       setMemories(memoryResponse.data || []);
+      setDisabledMemories(disabledMemoryResponse.data || []);
       setSuggestions(suggestionResponse.data || []);
       setSelectedConversationId((current) => {
         if (
@@ -985,6 +1002,7 @@ export default function ConversationsPage() {
       setErrorMessage(message);
       setConversations([]);
       setKnowledgeBases([]);
+      setDisabledMemories([]);
     } finally {
       setLoading(false);
     }
@@ -1574,6 +1592,36 @@ export default function ConversationsPage() {
     }
   }
 
+  async function handleDisableMemory(memoryId: number) {
+    setMemoryLoading(true);
+    setErrorMessage("");
+    try {
+      await disableUserMemory(memoryId);
+      await loadMemoryState();
+      setStatusMessage("记忆已停用，后续回答不会再使用它。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "停用记忆失败";
+      setErrorMessage(message);
+    } finally {
+      setMemoryLoading(false);
+    }
+  }
+
+  async function handleRestoreMemory(memoryId: number) {
+    setMemoryLoading(true);
+    setErrorMessage("");
+    try {
+      await restoreUserMemory(memoryId);
+      await loadMemoryState();
+      setStatusMessage("记忆已恢复，后续回答可以再次使用它。");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "恢复记忆失败";
+      setErrorMessage(message);
+    } finally {
+      setMemoryLoading(false);
+    }
+  }
+
   function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -2005,6 +2053,7 @@ export default function ConversationsPage() {
             </div>
             <div className="dp-chat-memory-kpis">
               <span>生效 {memories.length}</span>
+              <span>停用 {disabledMemories.length}</span>
               <span>候选 {suggestions.length}</span>
               <span>重复提示 {duplicateActiveMemoryIds.size + suggestionAlreadyActiveIds.size}</span>
             </div>
@@ -2032,6 +2081,7 @@ export default function ConversationsPage() {
                       ) : (
                         <>
                           <button type="button" onClick={() => handleStartEditMemory(memory)} disabled={memoryLoading}>编辑</button>
+                          <button type="button" onClick={() => handleDisableMemory(memory.memoryId)} disabled={memoryLoading}>停用</button>
                           <button type="button" onClick={() => handleDeleteMemory(memory.memoryId)} disabled={memoryLoading}>删除</button>
                         </>
                       )}
@@ -2056,6 +2106,33 @@ export default function ConversationsPage() {
                 </li>
                 );
               })}
+            </ul>
+            <div className="mt-5 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-bold text-slate-900">已停用的长期记忆</h3>
+              <span className="dp-chat-pill">{disabledMemories.length} 条</span>
+            </div>
+            <p className="mt-1 text-xs leading-5 text-slate-500">停用后，后续回答不会使用这些记忆；恢复前会重新检查冲突和敏感内容。</p>
+            <ul className="dp-chat-memory-list">
+              {disabledMemories.length === 0 ? <li>暂无停用记忆。</li> : null}
+              {sortedDisabledMemories.map((memory) => (
+                <li key={memory.memoryId} className="is-suggestion">
+                  <div className="dp-chat-memory-card-head">
+                    <span>{memoryTypeLabel(memory.memoryType)}</span>
+                    <div className="dp-chat-memory-actions">
+                      <button type="button" onClick={() => handleRestoreMemory(memory.memoryId)} disabled={memoryLoading}>恢复</button>
+                      <button type="button" onClick={() => handleDeleteMemory(memory.memoryId)} disabled={memoryLoading}>删除</button>
+                    </div>
+                  </div>
+                  <span className={statusBadge(memory.status)}>{memory.status === "ARCHIVED" ? "已停用" : memory.status}</span>
+                  <p>{memory.content}</p>
+                  <small>priority {memory.priority ?? "-"}</small>
+                  <div className="dp-chat-memory-meta">
+                    <span>{memorySourceText(memory)}</span>
+                    <span>confidence {formatConfidence(memory.confidence)}</span>
+                    <span>更新 {formatDateTime(memory.updatedAt || memory.createdAt)}</span>
+                  </div>
+                </li>
+              ))}
             </ul>
             <div className="mt-5 flex items-center justify-between gap-2"><h3 className="text-sm font-bold text-slate-900">待确认的记忆候选</h3><button type="button" onClick={handleExtractSuggestions} disabled={!selectedConversationId || memoryLoading || messages.length === 0} className="dp-chat-small-btn">提取候选</button></div>
             <ul className="dp-chat-memory-list">
