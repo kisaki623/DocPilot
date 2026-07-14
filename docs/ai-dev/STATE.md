@@ -28,13 +28,15 @@
 - 技术详情安全边界已通过测试固化：不输出完整 prompt、assembled context、`ContextItem.content`、citation `quoteText/snippet`、证据全文、密钥、连接串、provider 原始错误体或 stack trace；历史 trace 缺少技术详情时标记 `available=false`。
 - 已验证：后端编译 PASS；后端定向 48 tests PASS；后端全量 `mvn test -DskipITs` PASS（999 tests / 5 skipped）；前端 `npm run lint` PASS、`npm run build` PASS；临时新版后端 `18081` + 前端 `3007` 的 Playwright 验证通过，marker `docpilot-context-inspector-ui-20260714003520`，覆盖顶部入口、回答内入口、`摘要 / 技术详情` 两层、assistant `#561` 严格模式无证据 gate 和 assistant `#559` 普通模型链路，`1021px` 打开态无横向溢出。边界：未替换用户已有 `8081` 进程，正向 evidence score row 未做浏览器视觉验证。
 
-## 2026-07-13 Conversation 引用来源展示状态（REVIEW / FRONTEND）
+## 2026-07-13 Conversation 引用来源展示状态（VERIFIED / UI）
 
 - Conversation 回答卡片已从“横向铺满所有返回 citations”改成“摘要指标 + 默认实际引用 + 可展开完整返回证据”的结构，减少把检索召回结果误称为实际引用的混淆。
 - 页面现在区分 `实际引用`、`召回证据`、`命中文档`：正文出现 `[n]` 的 citation 计入实际引用；`contextTrace.evidenceCount` 表示召回证据；`documentHitCounts` 过滤正命中文档，缺 trace 的历史消息从 citations 自身 fallback 统计命中文档。
 - 正文 citation marker 会渲染为内部锚点样式，点击 `[n]` 可聚焦并高亮对应证据卡片；来源卡片展示文档标题、章节 / locator、chunk、quote/snippet 和次要 score，不再把文件名、编号、相似度压成一条横向 pill。
 - Trace Inspector 文案同步调整为“召回证据 / 实际引用 / 命中文档”，和回答卡片的来源口径保持一致。
-- 已验证：前端 `npm run lint` PASS、`npm run build` PASS。边界：未启动真实浏览器 / 后端 / tunnel 做点击定位、移动端和长文件名视觉验收。
+- 已验证：前端 `npm run lint` PASS、`npm run build` PASS；2026-07-14 临时后端 `18081` + 前端 `3007` 的 Playwright 复验通过，marker `conversation-citation-expand-20260714172419`，Conversation `261`，assistant `#567`。
+- 复验结果：API 前置为 `STRICT_KB_EVIDENCE`、`evidenceCount=3`、`citationCount=3`、历史 list citation `3`；回答正文实际只引用 `[1]` / `[2]`。页面默认显示 `2` 实际引用、`3` 召回证据、`3` 命中文档和 2 张实际引用卡；展开后显示 3 张完整返回证据卡；点击正文 `[1]` 聚焦并高亮 `citation-567-1`；桌面 / `390px` / `320px` 横向溢出均为 `0`，console error 为 `0`。
+- 边界：本轮验证的是 Conversation 回答卡片 citation UI，不覆盖 KnowledgeBase 页、文档详情页或 Agent 页的新视觉改造。
 
 ## 2026-07-13 Conversation citation 持久化与 hitCounts 去零状态（VERIFIED / API）
 

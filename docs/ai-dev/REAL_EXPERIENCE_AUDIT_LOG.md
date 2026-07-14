@@ -36,7 +36,8 @@
 | --- | --- | --- | --- | --- |
 | 2026-07-14 | `quality-console-closeout-20260714160116` | VERIFIED（Quality artifact import root 隔离已收口） | `backend/target/quality-console-closeout-20260714160116/api-summary.json` | 修复 `REA-20260714-P3-039`：单测 artifact 改用临时 repo root，runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 测试 marker，DB-backed runs/detail/trends 隐藏历史误导入测试 marker。真实 API 验证 `limit=1` 不再导入测试样本，`firstRunIsTestMarker=false`；`limit=50` 后 Memory/RAG representative domain trends 可见。 |
 | 2026-07-14 | `quality-console-disabled-state-20260714` | VERIFIED / UI+API（disabled 文案与开启后可见性均验证） | 无新 artifact | 用户报告 Agent Quality Console 显示“运行次数 0 / 暂无样本 / 当前账号无权限”。根因是当前后端未开启 `app.quality.console.enabled`，业务返回 `quality console is disabled`，但前端把 403 泛化成账号无权限并把加载失败渲染成空 artifact。已修复错误文案、加载失败空态和旧 marker 选择；临时 3007 验证 disabled 文案，临时 18081 + 3008 验证真实 runs / trend / eval cases / detail 可见，登记为 `REA-20260714-P2-038`。 |
-| 2026-07-13 | `conversation-citation-ui-20260713` | FIXED_PENDING_VERIFY（前端 lint/build 通过，浏览器交互待验） | 无新 artifact | 用户指出 Conversation 回答卡片把全部召回证据横向称为“知识库来源”，与正文实际引用 `[2]`、`[5]` 混淆且可读性差。已改为默认展示实际引用、区分实际引用 / 召回证据 / 命中文档、展开查看完整返回证据，并支持点击正文引用定位证据卡片；登记为 `REA-20260713-P2-037`。 |
+| 2026-07-14 | `conversation-citation-expand-20260714172419` | VERIFIED / UI（Conversation citation 来源展示交互已验） | `backend/target/conversation-citation-expand-20260714172419/ui-citation-browser-check.json` | 复验 `REA-20260713-P2-037`：临时后端 `18081` + 前端 `3007` 创建 3 条返回证据、正文实际只引用 `[1]` / `[2]` 的 Conversation。浏览器验证回答卡片显示 `2` 实际引用、`3` 召回证据、`3` 命中文档；默认 2 张引用卡，展开后 3 张完整证据卡；点击正文 `[1]` 聚焦并高亮 `citation-567-1`；桌面 / `390px` / `320px` 横向溢出均为 `0`，console error 为 `0`。 |
+| 2026-07-13 | `conversation-citation-ui-20260713` | SUPERSEDED（已由 2026-07-14 浏览器验证收口） | 无新 artifact | 用户指出 Conversation 回答卡片把全部召回证据横向称为“知识库来源”，与正文实际引用 `[2]`、`[5]` 混淆且可读性差。已改为默认展示实际引用、区分实际引用 / 召回证据 / 命中文档、展开查看完整返回证据，并支持点击正文引用定位证据卡片；登记为 `REA-20260713-P2-037`。 |
 | 2026-07-13 | `docpilot-citation-list-20260713224003-82668e` | VERIFIED / API（迁移与历史 list citation 恢复通过） | `backend/target/conversation-citation-list/docpilot-citation-list-20260713224003-82668e/artifact.json` | 用户复查 zeus / `运维知识库演示` 后发现最新 RAG 回答事实正确，但历史消息刷新后 citation cards 不能恢复，且 Trace 出现 `documentHitCounts` 零命中文档噪声。已新增 `citations_json` 快照、历史 list 恢复顶层 citations、hitCounts positive-only 和前端零值过滤；真实 MySQL 已执行 `009`，临时新版后端验证 send/list citation 数量均为 1、签名一致、send/list zero-hit count 均为 0，登记为 `REA-20260713-P2-036`。 |
 | 2026-07-13 | `docpilot-conversation-grounding-20260713212058-5915ed` | VERIFIED（Conversation AUTO_RAG 泛化路由修复） | `backend/target/conversation-grounding/docpilot-conversation-grounding-20260713212058-5915ed/artifact.json` | 用户 zeus / `运维知识库演示` 会话中 P1 SLA 问题未触发 RAG，Trace 为 `AUTO_INTENT_NOT_TRIGGERED_MODEL`、`ragTriggered=false`、`evidenceCount=0`，底层模型给出与 KB 不一致的响应 / 恢复时间；已改为极窄 negative gate + evidence probe，并新增 AUTO required no-evidence 拒答 case。真实 smoke 9/9 PASS，登记为 `REA-20260713-P1-035`。 |
 | 2026-07-13 | `local-runtime-diagnosis-20260713` | BLOCKED（本地 tunnel 缺失导致后端 DB 请求超时） | 无新 artifact | 用户已有 frontend `3000` 与 backend `8081` 进程在监听；前端公开路由返回 200，后端未鉴权 Quality API 返回业务 401。但本地 `13306` / `6333` tunnel 端口不可达，`/actuator/health` 与登录接口通过直连和前端代理均超时；JVM thread dump 显示请求线程等待 Hikari 获取 MySQL 连接。结论是启动顺序 / tunnel 缺失导致的环境阻塞，登记为 `REA-20260713-P3-034`。 |
@@ -83,7 +84,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | `REA-20260714-P3-039` | VERIFIED（已验证） | P3 | 工程流程 / 质量控制台导入体验 | Agent Quality Console / Artifact Import / Test artifact isolation | `docpilot-agent-quality-eval-20260714151238-756d91` 验证前置导入 | Quality Console artifact import root 会优先扫到单测残留 `docpilot-import-*` 样本 |
 | `REA-20260714-P2-038` | VERIFIED / UI+API | P2 | 质量控制台体验 / 诊断误导 | Agent Quality Console / Frontend / Quality API | `quality-console-disabled-state-20260714` | Quality Console disabled 被误显示为账号无权限和暂无样本 |
-| `REA-20260713-P2-037` | FIXED_PENDING_VERIFY | P2 | 可信引用 / 前端可解释性问题 | Conversation / Citation UI | `conversation-citation-ui-20260713` | 回答卡片混淆召回证据和实际引用，来源区域横向拥挤且无法定位支持片段 |
+| `REA-20260713-P2-037` | VERIFIED / UI | P2 | 可信引用 / 前端可解释性问题 | Conversation / Citation UI | `conversation-citation-expand-20260714172419` | 回答卡片混淆召回证据和实际引用，来源区域横向拥挤且无法定位支持片段 |
 | `REA-20260713-P2-036` | VERIFIED / API | P2 | 可信引用 / 前端可解释性问题 | Conversation / Context Trace / KnowledgeBase RAG / Citation UI | zeus / `运维知识库演示` | Conversation 历史消息刷新后 citation cards 丢失且 hitCounts 有零值噪声 |
 | `REA-20260713-P1-035` | VERIFIED（已验证） | P1 | 会话 RAG 路由质量问题 | Conversation / AUTO_RAG / KnowledgeBase evidence | zeus / `运维知识库演示` | 绑定 KB 的 P1 SLA 问题未触发 RAG，底层模型给出无证据错误数字 |
 | `REA-20260713-P3-034` | BLOCKED | P3 | 本地环境阻塞 | Backend startup / Cloud tunnel / Frontend proxy | `local-runtime-diagnosis-20260713` | 本地 MySQL / Qdrant tunnel 未启动，导致后端 health 和登录接口超时并连带前端业务请求报错 |
@@ -1914,7 +1915,7 @@
 
 ### `REA-20260713-P2-037` 回答卡片混淆召回证据和实际引用，来源区域横向拥挤且无法定位支持片段
 
-状态：FIXED_PENDING_VERIFY（前端 lint/build 已通过；浏览器交互待验）
+状态：VERIFIED / UI（代码修复、前端构建和浏览器交互均已验证）
 
 严重级别：P2
 
@@ -1958,13 +1959,16 @@
 - `frontend/components/markdown-viewer.module.css`
 - `frontend/app/globals.css`
 
-修复提交：待提交
+修复提交：已随 Conversation citation UI 前端优化提交；本轮补充浏览器验证收口。
 
 验证记录：
 
 - `frontend npm run lint` PASS。
 - `frontend npm run build` PASS。
-- 未启动真实浏览器 / 后端 / tunnel；点击定位、移动端视觉和长文件名场景仍需后续 Playwright 或手动会话验证。
+- 2026-07-14 复验：临时后端 `18081` + 临时前端 `3007`，marker `conversation-citation-expand-20260714172419`，Conversation `261`，assistant message `567`。
+- API 前置：`groundingPolicy=STRICT_KB`、`routeDecision=STRICT_KB_EVIDENCE`、`evidenceCount=3`、`citationCount=3`、历史 list `listedCitationCount=3`，回答正文实际 citation marker 只包含 `[1]` / `[2]`。
+- 浏览器结果：来源摘要显示 `2` 实际引用、`3` 召回证据、`3` 命中文档；默认只渲染 `2` 张实际引用卡；点击“查看全部返回证据（3）”后渲染 `3` 张证据卡；点击正文 `[1]` 后聚焦并高亮 `citation-567-1`。
+- 响应式结果：桌面、`390px`、`320px` 视口横向溢出均为 `0`，console error 为 `0`。脱敏 artifact：`backend/target/conversation-citation-expand-20260714172419/ui-citation-browser-check.json`。
 
 ### `REA-20260713-P2-036` Conversation 历史消息刷新后 citation cards 丢失且 hitCounts 有零值噪声
 

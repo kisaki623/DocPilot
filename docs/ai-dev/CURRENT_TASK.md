@@ -33,14 +33,16 @@
 - 真实迁移与 UI 验证：用户授权后已执行真实 MySQL `010_add_context_trace_technical_details.sql`，结果为 `beforeColumnExists=false`、`afterColumnExists=true`、`applied=true`；临时新版后端 `18081` + 临时前端 `3007` 通过 Playwright 验证 Conversation 页面单一 Inspector 面板、顶部入口、回答内入口、`摘要 / 技术详情` 两层和具体 assistant message 绑定切换。验证数据 marker 为 `docpilot-context-inspector-ui-20260714003520`，conversationId `259`，assistant `#561` 覆盖 `STRICT_KB` 无 evidence / `modelSkipped=true` / evidence gate failed，assistant `#559` 覆盖 `MODEL_ONLY` / `ragTriggered=false` / `llmCalled=true`；`1021px` 视口打开态无横向溢出。
 - 状态：`VERIFIED / UI+API`。本轮没有替换用户已有 `8081` 后端进程；UI 验证使用临时端口和 mock AI，未在浏览器中验证正向 evidence score row 的视觉行，但后端测试已覆盖 score row 安全字段和序列化。
 
-## 2026-07-13 Conversation 引用来源展示优化（REVIEW / FRONTEND）
+## 2026-07-13 Conversation 引用来源展示优化（VERIFIED / UI）
 
 - 本轮目标：优化 Conversation 回答卡片中的知识库引用来源展示，解决“全部召回证据横向铺开”“6 条知识库来源与正文实际引用混淆”“文件名 / 编号 / 相似度堆叠难读”“点击引用不能定位证据片段”等体验问题。
 - 已实现：`frontend/app/conversations/page.tsx` 默认只突出展示回答正文实际出现的 citation 编号；来源摘要拆成 `实际引用 / 召回证据 / 命中文档`；完整返回证据改为可展开区；引用卡片展示文档标题、章节 / locator、chunk、quote/snippet 和次要分数字段；正文 `[n]` 变为内部可点击引用，点击后聚焦并高亮对应证据卡片。
 - 兼容边界：未改后端 API / DTO / Trace schema；继续使用 `ConversationMessageResponse.citations` 与 `contextTrace.evidenceCount/documentHitCounts`；对没有完整 Trace 的历史消息从 citations 自身 fallback 统计命中文档数。
 - 已同步：`MarkdownViewer` 增加内部锚点点击回调，保留外链安全属性；`globals.css` 移除旧横向滚动 pill，新增响应式 citation panel / card 样式；Trace Inspector 文案从“来源”调整为“召回证据 / 实际引用 / 命中文档”。
 - 已验证：`frontend npm run lint` PASS；`frontend npm run build` PASS。
-- 状态：`REVIEW / FRONTEND`。代码和生产构建已通过；本轮未启动浏览器 / 后端 / tunnel 做真实点击与滚动定位验证，后续可用 Playwright 或手动会话确认交互差异。
+- 浏览器复验：2026-07-14 启动临时后端 `18081` + 前端 `3007`，创建 marker `conversation-citation-expand-20260714172419` 的受控 Conversation，`groundingPolicy=STRICT_KB`、`routeDecision=STRICT_KB_EVIDENCE`、`evidenceCount=3`、`citationCount=3`，回答正文实际只出现 `[1]` / `[2]`。
+- UI 结果：回答卡片摘要显示 `2` 实际引用、`3` 召回证据、`3` 命中文档；默认只展示 2 张实际引用卡；点击“查看全部返回证据（3）”后展示 3 张证据卡；点击正文 `[1]` 后聚焦并高亮 `citation-567-1`；桌面、`390px`、`320px` 横向溢出均为 `0`，console error 为 `0`。
+- 状态：`VERIFIED / UI`。脱敏 artifact 位于 `backend/target/conversation-citation-expand-20260714172419/ui-citation-browser-check.json`；本轮没有发现需继续修改的 citation UI 缺口。
 
 ## 2026-07-13 Conversation citation 持久化与 hitCounts 去零（VERIFIED / API）
 

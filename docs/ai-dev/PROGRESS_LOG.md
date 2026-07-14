@@ -1,5 +1,12 @@
 # Progress Log
 
+## 2026-07-14 Conversation citation source UI verification
+
+- 用临时后端 `18081` + 前端 `3007` 复验 Conversation 回答卡片引用来源展示，marker `conversation-citation-expand-20260714172419`，Conversation `261`，assistant `#567`。
+- API 前置为 `STRICT_KB_EVIDENCE`：`evidenceCount=3`、`citationCount=3`、历史 list citation `3`，回答正文实际只出现 `[1]` / `[2]`，用于验证“实际引用少于返回证据”的默认折叠场景。
+- Playwright 结果：来源摘要显示 `2` 实际引用、`3` 召回证据、`3` 命中文档；默认 2 张实际引用卡，展开后 3 张完整返回证据卡；点击正文 `[1]` 后聚焦并高亮 `citation-567-1`；桌面、`390px`、`320px` 横向溢出均为 `0`，console error 为 `0`。
+- 已将 `REA-20260713-P2-037` 从 `FIXED_PENDING_VERIFY` 更新为 `VERIFIED / UI`；脱敏 artifact：`backend/target/conversation-citation-expand-20260714172419/ui-citation-browser-check.json`。本轮没有改业务代码。
+
 ## 2026-07-14 Agent Quality Console 持久化收尾
 
 - 修复 `REA-20260714-P3-039`：Quality import 单测改用 `@TempDir`，runtime import 在 `limit` 截断前过滤 `docpilot-import-*` 保留测试 marker；DB-backed runs/detail/trends 隐藏历史误导入测试 marker，不做破坏性删除。

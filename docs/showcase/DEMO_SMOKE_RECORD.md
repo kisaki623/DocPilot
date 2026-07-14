@@ -32,6 +32,29 @@ Marker:
 
 边界：Quality Console 仍是内部控制台，默认配置不开启；本次验证使用临时本地端口和开发库，不是生产运维系统。artifact 位于 ignored 目录，只保留 marker、状态、计数和脱敏 id，不提交 token、密码、raw prompt、answer、evidence context、连接串或云地址。历史残留的 `docpilot-import-*` 测试 marker 不做破坏性删除，但默认导入、runs/detail/trends 已隐藏或跳过，避免影响真实质量控制台验收。
 
+## 2026-07-14 Conversation Citation Source UI
+
+状态：PASS（Conversation 回答卡片引用来源交互）
+
+验证：
+
+- 临时后端 `18081` + 临时前端 `3007`
+- Playwright 浏览器验证
+
+Marker:
+
+- `conversation-citation-expand-20260714172419`
+
+已验证：
+
+- 受控 Conversation 生成 `3` 条返回 evidence / citations，回答正文实际只出现 `[1]` / `[2]`，用于验证“实际引用少于召回证据”的常见场景。
+- 回答卡片来源摘要区分 `2` 实际引用、`3` 召回证据、`3` 命中文档。
+- 默认只展示 2 张正文实际引用卡；点击“查看全部返回证据（3）”后展示 3 张完整证据卡。
+- 点击正文 `[1]` 后聚焦并高亮对应来源卡片 `citation-567-1`。
+- 桌面、`390px`、`320px` 视口横向溢出均为 `0`，console error 为 `0`。
+
+边界：本次只验证 Conversation 回答卡片 citation UI，不覆盖 KnowledgeBase 页、文档详情页或 Agent 页的视觉改造；artifact 位于 ignored `backend/target/conversation-citation-expand-20260714172419/ui-citation-browser-check.json`，只保留 marker、id 和计数，不提交 token、密码、prompt、answer、evidence 全文、连接串或云地址。
+
 ## 2026-07-12 High Intensity Acceptance Layer 1
 
 状态：PASS
