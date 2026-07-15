@@ -109,7 +109,19 @@ async function prepareQualityPage(page: Page) {
         gates: [],
         evalCases: [],
         traceReferences: [],
-        diagnostics: null,
+        diagnostics: {
+          runObservation: {
+            schemaVersion: 1,
+            suiteId: "memory_quality",
+            suiteVersion: "2026-07-15",
+            coverageProfile: "runtime_full",
+            startedAt: "2026-07-15T00:00:00Z",
+            finishedAt: "2026-07-15T00:01:00Z",
+            durationMs: 60000,
+            latencyMs: null,
+            sampleGaps: ["tokenUsageMissing", "costMetricMissing"],
+          },
+        },
       }),
     });
   });
@@ -139,7 +151,11 @@ test("quality overview diagnostics expose sample gaps without hiding failures", 
   await expect(page.getByText(/已有 5 \/ 20 条整次运行 durationMs/)).toBeVisible();
   await expect(page.getByText(/存在失败运行，但 artifact 没有提供结构化 failure bucket/)).toBeVisible();
   await expect(page.getByText(/存在复查运行，但 artifact 没有提供结构化 review bucket/)).toBeVisible();
-  await expect(page.getByText("P95 延迟")).toBeVisible();
+  await expect(page.getByText("memory_quality")).toBeVisible();
+  await expect(page.getByText("真实链路完整覆盖")).toBeVisible();
+  await expect(page.getByText("缺少 token 样本 / 缺少成本样本").first()).toBeVisible();
+  await expect(page.getByText("缺少 token 样本 / 缺少成本样本")).toHaveCount(2);
+  await expect(page.getByText("平均模型延迟")).toBeVisible();
   await expect(page.getByText("4,400 (5 / 20)")).toHaveCount(0);
 
   expect(fixture.pageErrors).toEqual([]);

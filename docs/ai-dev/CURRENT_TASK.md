@@ -1,10 +1,24 @@
 # Current Task
 
+## 2026-07-15 Quality Console 运行观测采样收口（VERIFIED / DB+UI+SMOKE）
+
+- 本轮目标：在上一片“六项诊断不误导”的基础上，把真实 smoke / eval artifact 增强为可持久化的 `qualityRun` 运行观测，避免后续 Quality Console 只能显示“暂无样本”或靠旧字段猜测。
+- 后端实现：`QualityRunDiagnostics` 新增 `runObservation` 白名单摘要，包含 `suiteId`、`suiteVersion`、`coverageProfile`、`startedAt`、`finishedAt`、`durationMs`、`latencyMs` 与 `sampleGaps`；artifact-backed 与 DB-backed trends 均只从 `diagnostics.runObservation` 读取运行耗时 / 模型延迟，不再用 gate / eval duration fallback 冒充。
+- 导入与脱敏：token / cost 提取收敛到 `qualityRun.tokenUsage` / `qualityRun.token_usage` / 根级 `tokenUsage` / `token_usage` 白名单字段，不再递归扫描任意 `usage` 节点；空 token usage 不写入有效样本，负数 token / cost 被拒绝。
+- Runner 增强：`cloud-quality-smoke.ps1` 写入 `qualityRun`，在本机自启动后端时通过 loopback Prometheus 采样 `docpilot_ai_token_usage_tokens_sum`、`docpilot_ai_cost_estimate_currency_sum`、`docpilot_ai_call_duration_seconds_sum/count`，并记录 `metricsNotIsolated`、`prometheusUnavailable`、`metricsBaselineMissing`、`metricsProcessRestarted` 等缺口；`document-parser-real-chain-smoke.ps1` 也写入 Parser suite 的 `qualityRun`，明确标记 Parser 链路无模型 token / cost / latency 样本。
+- 前端展示：`/quality` 运行详情显示质量套件、覆盖档位、版本与样本缺口；缺 `runObservation` 的旧 artifact 显示“旧 artifact 未提供运行观测”，`runtime_full` 显示“真实链路完整覆盖”，成本 / token / latency 缺口以原因文案展示而不是按 `0` 计算。
+- 独立审查修正：reviewer 指出 `latencyMs` 来自 Prometheus sum / count，是平均模型调用耗时，不是 P95；已将 Overview 卡片改为“平均模型延迟”，删除前端 p95 计算，并在 helper 中明确不等于 P95。reviewer 同时指出复用已有后端时指标不可归因；`cloud-quality-smoke.ps1` 已改为只有本轮自启动后端才采样模型指标，否则写入 `metricsNotIsolated`。
+- 真实补证：`document-parser-real-chain-smoke.ps1 -Mode run` marker `docpilot-parser-real-chain-20260715170711-7d59a3` PASS，`qualityRun.suiteId=document_parser_real_chain`、`coverageProfile=runtime_full`、缺口为 token / cost / latency / model metrics；`memory-quality-smoke.ps1 -Mode run` marker `docpilot-memory-quality-20260715171027-11134f` PASS，`qualityRun.suiteId=memory_quality`、`coverageProfile=runtime_full`、真实 token 为 prompt `5758`、completion `1251`、total `7009`，仅成本指标缺口。
+- QualityRun 导入：临时后端 `18081` 开启 Quality Console，注册短临时内部管理员并调用 `/api/quality/imports/artifacts?limit=80`；DB-backed detail 确认两个 marker 均为 `PASS / artifact_import`，Parser gate `8`，Memory gate `19`，二者 `diagnostics.runObservation` 均可读；`/api/quality/trends?limit=40` 已能从新观测字段计算 `averageDurationMs=79441.0` 与 `averageLatencyMs=3395.0`。
+- 真实 UI 验证：临时前端 `3007` 代理到 `18081`，管理员打开 `/quality?autoload=1` 能看到最新 Memory run、`memory_quality`、真实链路完整覆盖和“缺少成本样本”；console error `0`，桌面横向溢出 `0`。
+- 已验证：后端定向 `QualityArtifactServiceImplTest,QualityRunServiceImplTest` 共 `22` tests PASS；前端 `npm run lint` PASS；`NODE_OPTIONS=--max-old-space-size=4096 npm run build` PASS；`npx playwright test e2e/quality-console-diagnostics.spec.ts` PASS；PowerShell parser 对 cloud / parser smoke PASS；`cloud-quality-smoke.ps1 -Mode dry-run` PASS；`document-parser-real-chain-smoke.ps1 -Mode dry-run` PASS；`memory-quality-smoke.ps1 -Mode plan` PASS；临时 `18081 / 3007` 已清理。
+- 边界：本轮没有删除旧失败历史，没有把历史 REVIEW 自动改 PASS，也没有补齐所有旧 artifact 的 token / cost / latency；成本仍依赖后续配置或指标，复用运行中后端时会标记 `metricsNotIsolated` 而不是伪装成可归因样本。artifact 导入仍按 raw SHA 去重，旧 DB 行如需按新 parser 语义重解释，应另做受控 reimport 设计。
+
 ## 2026-07-15 Quality Console 六项诊断治理第一片（VERIFIED / UI+SMOKE）
 
-- 本轮目标：针对内部质量控制台“通过率、复查率、失败率、P95 延迟、平均 token、成功运行成本”六项诊断明显异常的问题，先完成不误导的观测口径修正，并补上 Parser / Memory 最新真实前端 gate 证据。
+- 本轮目标：针对内部质量控制台“通过率、复查率、失败率、平均模型延迟、平均 token、成功运行成本”六项诊断明显异常的问题，先完成不误导的观测口径修正，并补上 Parser / Memory 最新真实前端 gate 证据。
 - 只读基线：DB-backed 最近 `20` 条可见 QualityRun 为 PASS `9`、REVIEW `6`、FAILED_CORE_FLOW `5`；`latencyMs` 样本 `0/20`，`durationMs` 样本 `5/20`，token / cost 样本均为 `0`。Parser / Memory 最新 REVIEW 的主因均为 `frontend route smoke skipped`，旧 Conversation grounding FAILED 已有后续 PASS。
-- 前端修复：`/quality` 六项诊断卡现在显示样本数；无 `latencyMs` 时不再用 `durationMs` 冒充 P95 延迟，只提示已有整次运行耗时但语义不同；平均 token / 成功运行成本显示有效样本分母，缺失值不按 `0` 处理；成功运行成本只统计 PASS / SUCCESS 且有 `estimatedCost` 的 run；失败 / 复查 TopN 只使用 trend bucket 聚合，避免 summary + trend 双计数；当存在失败 / 复查 run 但 bucket 为空时，明确提示 artifact 缺结构化归因。
+- 前端修复：`/quality` 六项诊断卡现在显示样本数；`latencyMs` 按平均模型调用延迟展示，无 `latencyMs` 时不再用 `durationMs` 冒充模型延迟，只提示已有整次运行耗时但语义不同；平均 token / 成功运行成本显示有效样本分母，缺失值不按 `0` 处理；成功运行成本只统计 PASS / SUCCESS 且有 `estimatedCost` 的 run；失败 / 复查 TopN 只使用 trend bucket 聚合，避免 summary + trend 双计数；当存在失败 / 复查 run 但 bucket 为空时，明确提示 artifact 缺结构化归因。
 - 新增回归：`frontend/e2e/quality-console-diagnostics.spec.ts` 使用 mock Quality API fixture 覆盖 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和 bucket 空归因提示。
 - 真实补证：启动本地 tunnel 后，非 `-SkipFrontend` 运行 `document-parser-real-chain-smoke.ps1 -Mode run` 得到 marker `docpilot-parser-real-chain-20260715161900-912198`，overall `PASS`，frontend gate `PASS`，Parser PDF / HTML / DOCX / LONG_MD 均 parse / retrieve / citation / source locator 通过；非 `-SkipFrontend` 运行 `memory-quality-smoke.ps1 -Mode run` 得到 marker `docpilot-memory-quality-20260715162027-941f55`，overall `PASS`，frontendRoutes `PASS`，Memory T29 / T30 / T31 关键链路均 PASS。
 - QualityRun 导入：临时后端 `18081` 开启 Quality Console，注册临时内部管理员并调用 `/api/quality/imports/artifacts?limit=50`；DB 已确认两个新 marker 均导入为 `PASS`，Parser gate `8 / failed 0 / review 0`，Memory gate `19 / failed 0 / review 0`。最近 `20` 条可见状态改善为 PASS `10`、REVIEW `6`、FAILED_CORE_FLOW `4`。

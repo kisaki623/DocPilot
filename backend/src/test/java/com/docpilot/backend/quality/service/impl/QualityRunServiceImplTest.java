@@ -61,7 +61,11 @@ class QualityRunServiceImplTest {
         assertThat(trend.statusCounts()).containsEntry("PASS", 1);
         assertThat(trend.averageCasePassRate()).isEqualTo(1.0);
         assertThat(trend.totalTokens()).isEqualTo(17);
+        assertThat(trend.averageLatencyMs()).isEqualTo(1250.5);
+        assertThat(trend.averageDurationMs()).isEqualTo(60000.0);
         assertThat(trend.points()).hasSize(1);
+        assertThat(trend.points().get(0).latencyMs()).isEqualTo(1250.5);
+        assertThat(trend.points().get(0).durationMs()).isEqualTo(60000L);
     }
 
     @Test
@@ -135,7 +139,17 @@ class QualityRunServiceImplTest {
         run.setEstimatedCost(new BigDecimal("0.01000000"));
         run.setFailureBucketsJson("[]");
         run.setReviewBucketsJson("[]");
-        run.setDiagnosticsJson("{}");
+        run.setDiagnosticsJson("""
+                {
+                  "runObservation": {
+                    "suiteId": "agent_quality",
+                    "coverageProfile": "runtime_full",
+                    "durationMs": 60000,
+                    "latencyMs": 1250.5,
+                    "sampleGaps": []
+                  }
+                }
+                """);
         run.setTraceReferencesJson("[]");
         run.setArtifactMissing(false);
         run.setArtifactParseFailed(false);

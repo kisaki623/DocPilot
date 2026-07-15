@@ -139,12 +139,12 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                 casePassRateSum += casePassRate;
                 casePassRateCount++;
             }
-            Double latencyMs = sumMetric(detail, "latencyMs");
+            Double latencyMs = runLatencyMs(detail);
             if (latencyMs != null) {
                 latencySum += latencyMs;
                 latencyCount++;
             }
-            Double durationMs = sumMetric(detail, "durationMs");
+            Double durationMs = runDurationMs(detail);
             if (durationMs != null) {
                 durationSum += durationMs;
                 durationCount++;
@@ -249,6 +249,15 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
             }
         }
         return found ? sum : null;
+    }
+
+    private Double runLatencyMs(QualityRunDetail detail) {
+        return detail.diagnostics().runObservation().latencyMs();
+    }
+
+    private Double runDurationMs(QualityRunDetail detail) {
+        Long observed = detail.diagnostics().runObservation().durationMs();
+        return observed == null ? null : observed.doubleValue();
     }
 
     private Double average(double sum, int count) {
@@ -1089,40 +1098,57 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     }
 
     private QualityTokenUsageSummary extractTokenUsage(JsonNode root) {
-        TokenUsageAccumulator accumulator = new TokenUsageAccumulator();
-        collectTokenUsage(root, accumulator);
-        return accumulator.toSummary();
+        return parseTokenUsage(root.path("qualityRun").path("tokenUsage"))
+                .or(() -> parseTokenUsage(root.path("qualityRun").path("token_usage")))
+                .or(() -> parseTokenUsage(root.path("tokenUsage")))
+                .or(() -> parseTokenUsage(root.path("token_usage")))
+                .orElseGet(QualityTokenUsageSummary::empty);
     }
 
-    private void collectTokenUsage(JsonNode node, TokenUsageAccumulator accumulator) {
-        if (node == null || node.isMissingNode() || node.isNull()) {
-            return;
+    private Optional<QualityTokenUsageSummary> parseTokenUsage(JsonNode node) {
+        if (node == null || !node.isObject()) {
+            return Optional.empty();
         }
-        if (node.isObject()) {
-            node.fields().forEachRemaining(entry -> {
-                String field = entry.getKey();
-                JsonNode value = entry.getValue();
-                String normalized = normalizeFieldName(field);
-                if (value.isNumber()) {
-                    switch (normalized) {
-                        case "prompttokens" -> accumulator.promptTokens = value.intValue();
-                        case "completiontokens" -> accumulator.completionTokens = value.intValue();
-                        case "totaltokens" -> accumulator.totalTokens = value.intValue();
-                        case "estimatedcost" -> accumulator.estimatedCost = value.decimalValue();
-                        default -> {
-                        }
-                    }
-                } else if (isTokenUsageContainer(normalized)) {
-                    collectTokenUsage(value, accumulator);
-                } else if (!isSensitiveField(field) && value.isContainerNode()) {
-                    collectTokenUsage(value, accumulator);
-                }
-            });
-        } else if (node.isArray()) {
-            for (JsonNode item : node) {
-                collectTokenUsage(item, accumulator);
+        TokenUsageAccumulator accumulator = new TokenUsageAccumulator();
+        node.fields().forEachRemaining(entry -> {
+            String field = entry.getKey();
+            JsonNode value = entry.getValue();
+            if (!value.isNumber() || isSensitiveField(field)) {
+                return;
             }
+            switch (normalizeFieldName(field)) {
+                case "prompttokens" -> accumulator.promptTokens = safeTokenInt(value);
+                case "completiontokens" -> accumulator.completionTokens = safeTokenInt(value);
+                case "totaltokens" -> accumulator.totalTokens = safeTokenInt(value);
+                case "estimatedcost" -> accumulator.estimatedCost = safeCost(value);
+                default -> {
+                }
+            }
+        });
+        QualityTokenUsageSummary summary = accumulator.toSummary();
+        if (summary.promptTokens() == null
+                && summary.completionTokens() == null
+                && summary.totalTokens() == null
+                && summary.estimatedCost() == null) {
+            return Optional.empty();
         }
+        return Optional.of(summary);
+    }
+
+    private Integer safeTokenInt(JsonNode value) {
+        if (value == null || !value.canConvertToInt()) {
+            return null;
+        }
+        int parsed = value.intValue();
+        return parsed < 0 ? null : parsed;
+    }
+
+    private BigDecimal safeCost(JsonNode value) {
+        if (value == null || !value.isNumber()) {
+            return null;
+        }
+        BigDecimal parsed = value.decimalValue();
+        return parsed.signum() < 0 ? null : parsed;
     }
 
     private QualityRunDiagnostics buildDiagnostics(JsonNode root,
@@ -1144,6 +1170,7 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
         );
 
         return new QualityRunDiagnostics(
+                runObservationSummary(root),
                 documentCoverage.toSummary(),
                 new QualityRunDiagnostics.ToolQualitySummary(
                         nullableInt(toolCallCount),
@@ -1157,6 +1184,24 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
                         nullableInt(contextSources.ragEvidenceCount)
                 ),
                 parserQualitySummary(root.path("parserQualityReport"))
+        );
+    }
+
+    private QualityRunDiagnostics.RunObservationSummary runObservationSummary(JsonNode root) {
+        JsonNode node = root.path("qualityRun");
+        if (node == null || !node.isObject()) {
+            return QualityRunDiagnostics.RunObservationSummary.empty();
+        }
+        return new QualityRunDiagnostics.RunObservationSummary(
+                optionalInt(node, "schemaVersion"),
+                firstScalarText(node, "suiteId").orElse(""),
+                firstScalarText(node, "suiteVersion").orElse(""),
+                firstScalarText(node, "coverageProfile").orElse(""),
+                firstScalarText(node, "startedAt").orElse(""),
+                firstScalarText(node, "finishedAt").orElse(""),
+                optionalLong(node, "durationMs"),
+                optionalDouble(node, "latencyMs"),
+                stringList(node.path("sampleGaps"))
         );
     }
 
@@ -1226,6 +1271,11 @@ public class QualityArtifactServiceImpl implements QualityArtifactService {
     private Double optionalDouble(JsonNode node, String fieldName) {
         JsonNode value = node.path(fieldName);
         return value.isNumber() && !isSensitiveField(fieldName) ? value.doubleValue() : null;
+    }
+
+    private Long optionalLong(JsonNode node, String fieldName) {
+        JsonNode value = node.path(fieldName);
+        return value.isNumber() && !isSensitiveField(fieldName) ? value.longValue() : null;
     }
 
     private void collectSafeObjectSummaries(JsonNode node,

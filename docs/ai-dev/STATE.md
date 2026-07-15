@@ -1,9 +1,20 @@
 # DocPilot 当前状态
 
+## 2026-07-15 Quality Console 运行观测采样状态（VERIFIED / DB+UI+SMOKE）
+
+- 内部 Quality Console 已从“只显示已有 artifact 聚合口径”继续推进到“新 smoke artifact 主动写入可持久化运行观测”。`QualityRunDiagnostics.runObservation` 现在可承载 suite、coverage profile、开始 / 结束时间、整次运行耗时、模型延迟样本和样本缺口。
+- DB-backed 与 artifact-backed trend 的运行耗时 / 模型延迟口径已收敛：只读取 `diagnostics.runObservation`，不再从 gate / eval duration fallback，避免把整次 smoke 时长、case 时长和 provider 延迟混在一起。
+- 真实 runner 已开始写入 `qualityRun`：`cloud-quality-smoke.ps1` 在可归因本机后端场景下从 loopback Prometheus 采样 token / cost / 模型调用耗时，并用 `sampleGaps` 显式记录不可归因原因；`document-parser-real-chain-smoke.ps1` 对 Parser suite 写入 runtime coverage 和“模型指标不可用 / 不适用”缺口。
+- 前端 `/quality` 已展示运行套件、覆盖档位、样本缺口和旧 artifact 观测缺失提示；`runtime_full` 显示为“真实链路完整覆盖”，成本 / token / latency 无样本不再被当作 `0`。
+- 独立审查后已修正延迟口径：`latencyMs` 来自模型调用 sum / count 时只代表平均模型调用延迟，不再在 Overview 中命名为 P95；复用已有后端时不采集 Prometheus delta，而是标记 `metricsNotIsolated`。
+- 最新真实证据：Parser marker `docpilot-parser-real-chain-20260715170711-7d59a3` PASS，`suiteId=document_parser_real_chain`、`coverageProfile=runtime_full`；Memory marker `docpilot-memory-quality-20260715171027-11134f` PASS，`suiteId=memory_quality`、`coverageProfile=runtime_full`、token prompt `5758` / completion `1251` / total `7009`，仅成本样本缺口。
+- 持久化导入：临时 `18081` 后端导入上述 artifacts 后，DB-backed detail 可读 `diagnostics.runObservation`；`/api/quality/trends?limit=40` 已能基于观测字段计算 `averageDurationMs=79441.0` 与 `averageLatencyMs=3395.0`。临时 `3007` 前端真实 UI 验证 `/quality?autoload=1` 可见最新 Memory run、`memory_quality`、真实链路完整覆盖和“缺少成本样本”，console error `0`、横向溢出 `0`。
+- 已验证：后端质量服务定向 `26` tests PASS，前端 lint / build / Quality Console e2e PASS，cloud / parser smoke 脚本语法与 dry-run PASS，memory quality plan PASS。边界是旧 artifact 不会被追溯补字段，历史 REVIEW / FAILED 不会被自动改写，成本样本仍依赖后续 cost metric / price config。
+
 ## 2026-07-15 Quality Console 诊断口径与最新补证状态（VERIFIED / UI+SMOKE）
 
-- 内部 Quality Console 六项诊断已完成第一片“口径诚实化”：状态占比仍按最近加载 QualityRun 计算，但 P95 延迟、平均 token、成功运行成本都会显示有效样本数，缺失值不按 `0` 处理。
-- `/quality` 不再用 `durationMs` 冒充 `latencyMs`；当 `latencyMs` 样本为 `0` 时显示“暂无 latency 样本”，并说明已有整次运行 `durationMs` 不能代表阶段延迟。后续需要 runner 输出规范化阶段级 `latencyMs`。
+- 内部 Quality Console 六项诊断已完成第一片“口径诚实化”：状态占比仍按最近加载 QualityRun 计算，但平均模型延迟、平均 token、成功运行成本都会显示有效样本数，缺失值不按 `0` 处理。
+- `/quality` 不再用 `durationMs` 冒充 `latencyMs`；当 `latencyMs` 样本为 `0` 时显示“暂无 latency 样本”，并说明已有整次运行 `durationMs` 不能代表模型调用延迟。当前 `latencyMs` 表示单次运行内平均模型调用延迟，不再命名为 P95。
 - 成功运行成本现在只平均 PASS / SUCCESS 且存在 `estimatedCost` 的 run；失败 / 复查 TopN 只使用 trend bucket 聚合，避免 summary buckets 与 trend buckets 重复计数；存在 FAILED / REVIEW run 但 bucket 为空时，页面会提示 artifact 缺结构化归因。
 - 新增前端 e2e `quality-console-diagnostics.spec.ts`，用 mock Quality API fixture 锁定 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和空 bucket 归因提示。
 - 最新真实补证已导入 DB-backed QualityRun：`docpilot-parser-real-chain-20260715161900-912198` 为 PASS，frontend gate PASS，Parser 四类文件核心链路均 PASS；`docpilot-memory-quality-20260715162027-941f55` 为 PASS，frontendRoutes PASS，Memory T29 / T30 / T31 关键链路均 PASS。

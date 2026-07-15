@@ -1,9 +1,19 @@
 # Progress Log
 
+## 2026-07-15 Quality Console run observation sampling
+
+- 为 QualityRun diagnostics 增加 `runObservation` 白名单摘要，记录 suite、coverage profile、开始 / 结束时间、duration、latency 和 sample gaps；DB-backed / artifact-backed trend 只从该字段读取耗时，不再用 gate / eval duration fallback。
+- 收敛 token / cost 提取边界：只接受 `qualityRun.tokenUsage` / `qualityRun.token_usage` / 根级 `tokenUsage` / `token_usage`，不再递归扫描任意 `usage`；空样本、负数 token / cost 不进入有效样本。
+- `cloud-quality-smoke.ps1` 写入 `qualityRun`，并在可归因本机后端场景通过 loopback Prometheus 采样 token / cost / 模型调用耗时；无法归因时记录 `metricsNotIsolated`、`prometheusUnavailable`、`metricsBaselineMissing`、`metricsProcessRestarted` 等缺口。
+- `document-parser-real-chain-smoke.ps1` 写入 Parser suite 的 `qualityRun`，明确标记 Parser 链路无模型 token / cost / latency 样本；前端 `/quality` 显示 suite、coverage profile、sample gaps 和旧 artifact 缺观测提示。
+- 独立 reviewer 指出 `latencyMs` 是平均模型调用耗时而非 P95；已把 Overview 卡片改为“平均模型延迟”，删除 p95 计算，并补充复用后端时 `metricsNotIsolated` 的脚本安全测试。
+- 真实验证：Parser marker `docpilot-parser-real-chain-20260715170711-7d59a3` PASS，Memory marker `docpilot-memory-quality-20260715171027-11134f` PASS；临时 18081 导入两个 artifacts 后，detail 可读 `diagnostics.runObservation`，Memory token 为 prompt `5758` / completion `1251` / total `7009`，UI 可见 `memory_quality`、真实链路完整覆盖和“缺少成本样本”。
+- 验证命令：后端定向 26 tests PASS；前端 lint / build / `quality-console-diagnostics.spec.ts` PASS；cloud / parser smoke 脚本 parse + dry-run PASS；memory-quality plan PASS；真实 UI console error `0`、横向溢出 `0`；临时 18081 / 3007 已清理。
+
 ## 2026-07-15 Quality Console six diagnostics governance
 
 - 只读审计 DB-backed 最近 `20` 条可见 QualityRun：PASS `9`、REVIEW `6`、FAILED_CORE_FLOW `5`，`latencyMs` / token / cost 样本缺失；Parser / Memory 最新 REVIEW 主要来自 frontend route smoke skipped。
-- 修正 `/quality` 六项诊断口径：显示样本数；无 `latencyMs` 不再用 `durationMs` 冒充 P95 延迟；token / cost 缺失不按 `0` 处理；成功成本只统计有成本样本的 PASS / SUCCESS；失败 / 复查 TopN 去掉 summary + trend 双计数；空 bucket 时提示缺结构化归因。
+- 修正 `/quality` 六项诊断口径：显示样本数；`latencyMs` 按平均模型调用延迟展示，无 `latencyMs` 不再用 `durationMs` 冒充模型延迟；token / cost 缺失不按 `0` 处理；成功成本只统计有成本样本的 PASS / SUCCESS；失败 / 复查 TopN 去掉 summary + trend 双计数；空 bucket 时提示缺结构化归因。
 - 新增 `quality-console-diagnostics.spec.ts`，用 mock Quality API fixture 覆盖 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和 bucket 空态。
 - 真实补证：`document-parser-real-chain-smoke.ps1 -Mode run` 非 `-SkipFrontend` marker `docpilot-parser-real-chain-20260715161900-912198` PASS，frontend gate PASS；`memory-quality-smoke.ps1 -Mode run` 非 `-SkipFrontend` marker `docpilot-memory-quality-20260715162027-941f55` PASS，frontendRoutes PASS。
 - 临时 18081 后端导入最新 artifacts 后，DB 确认两个 marker 均为 PASS；最近 `20` 条可见状态改善为 PASS `10` / REVIEW `6` / FAILED_CORE_FLOW `4`。旧失败历史未删除，后续应补 suite / coverage profile 与 latency/token/cost 采样。

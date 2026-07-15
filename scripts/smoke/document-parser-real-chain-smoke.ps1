@@ -1152,6 +1152,30 @@ function Stop-StartedProcesses() {
   }
 }
 
+function Get-QualityCoverageProfile {
+  if ($SkipFrontend) { return "runtime_core_only" }
+  return "runtime_full"
+}
+
+function New-QualityRunObservation([datetime]$startedAt, [datetime]$finishedAt) {
+  $sampleGaps = @("tokenUsageMissing", "costMetricMissing", "latencyMetricMissing", "modelMetricsUnavailable")
+  if ($ReuseRunningServices) {
+    $sampleGaps += "metricsNotIsolated"
+  }
+  return [ordered]@{
+    schemaVersion = 1
+    suiteId = "document_parser_real_chain"
+    suiteVersion = "2026-07-15"
+    coverageProfile = Get-QualityCoverageProfile
+    startedAt = $startedAt.ToString("o")
+    finishedAt = $finishedAt.ToString("o")
+    durationMs = [long]($finishedAt - $startedAt).TotalMilliseconds
+    latencyMs = $null
+    tokenUsage = [ordered]@{}
+    sampleGaps = @($sampleGaps | Select-Object -Unique)
+  }
+}
+
 function Write-Artifact($artifact, [string]$path) {
   Test-ArtifactSafe $artifact
   $json = $artifact | ConvertTo-Json -Depth 20
@@ -1439,7 +1463,7 @@ if ($Mode -eq "plan") {
     mode = "plan"
     willCreateBusinessData = $false
     runModeOnly = @("start controlled local tunnel/backend/frontend unless -ReuseRunningServices is explicit", "register temporary smoke users so LONG_MD does not trip the real upload rate limit", "upload PDF/HTML/DOCX/LONG_MD fixtures including local HTML noise-isolation, multi-chunk, and long markdown embedding batch-split coverage", "wait parse", "wait direct retrieve until vector search is visible with the same user-style question used by QA", "confirm direct retrieve again after QA retrieval if indexing visibility is delayed", "validate QA retrieve and citation", "verify unsupported/empty/corrupted parser boundaries", "write redacted artifact")
-    artifactSchema = @("fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "indexedChunkCount", "vectorIdCount", "qdrantPointCount", "payloadSummaryOkCount", "locatorPayloadCount", "mysqlQdrantParity", "expectedMinChunks", "multiChunkVerified", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "expectedStructures", "structureSignals", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
+    artifactSchema = @("qualityRun.schemaVersion", "qualityRun.suiteId", "qualityRun.coverageProfile", "qualityRun.durationMs", "qualityRun.sampleGaps", "fileType", "parserName", "parseStatus", "extractedChars", "pageCount", "blockCount", "warningCount", "chunkCount", "indexedChunkCount", "vectorIdCount", "qdrantPointCount", "payloadSummaryOkCount", "locatorPayloadCount", "mysqlQdrantParity", "expectedMinChunks", "multiChunkVerified", "retrieveHit", "directRetrieveHit", "qaRetrievalHit", "citationPresent", "expectedStructures", "structureSignals", "directRetrieveDiagnostic", "qaRetrieveDiagnostic", "failureReason", "durationMs", "boundary.caseId", "boundary.failureCode", "boundary.expectedFailureCode", "parserQualityReport")
     forbiddenArtifactFields = @("prompt", "answer", "document full text", "evidence context", "secret", "connection string", "cloud address")
   } | ConvertTo-Json -Depth 10
   exit 0
@@ -1628,12 +1652,15 @@ try {
     Set-Gate "runtime" "BLOCKED" @() "smoke stopped before completion"
   }
 } finally {
+  $finishedAt = Get-Date
+  $qualityRunObservation = New-QualityRunObservation $startedAt $finishedAt
   $artifact = [ordered]@{
     schemaVersion = 1
     marker = $marker
     status = $script:OverallStatus
     startedAt = $startedAt.ToString("o")
-    finishedAt = (Get-Date).ToString("o")
+    finishedAt = $finishedAt.ToString("o")
+    qualityRun = $qualityRunObservation
     gates = $script:Gates
     files = $results
     boundary = $boundary

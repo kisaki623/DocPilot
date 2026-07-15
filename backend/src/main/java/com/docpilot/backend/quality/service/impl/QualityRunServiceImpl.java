@@ -213,12 +213,12 @@ public class QualityRunServiceImpl implements QualityArtifactService {
                 passRateSum += casePassRate;
                 passRateCount++;
             }
-            Double latencyMs = sumMetric(detail, "latencyMs");
+            Double latencyMs = runLatencyMs(detail);
             if (latencyMs != null) {
                 latencySum += latencyMs;
                 latencyCount++;
             }
-            Double durationMs = sumMetric(detail, "durationMs");
+            Double durationMs = runDurationMs(detail);
             if (durationMs != null) {
                 durationSum += durationMs;
                 durationCount++;
@@ -294,6 +294,15 @@ public class QualityRunServiceImpl implements QualityArtifactService {
             }
         }
         return null;
+    }
+
+    private Double runLatencyMs(QualityRunDetail detail) {
+        return detail.diagnostics().runObservation().latencyMs();
+    }
+
+    private Double runDurationMs(QualityRunDetail detail) {
+        Long observed = detail.diagnostics().runObservation().durationMs();
+        return observed == null ? null : observed.doubleValue();
     }
 
     private Double sumMetric(QualityRunDetail detail, String name) {

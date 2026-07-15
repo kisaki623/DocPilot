@@ -39,6 +39,9 @@ $script:RunArtifactDir = $null
 $script:BackendStartCount = 0
 $script:FrontendStartCount = 0
 $script:CleanupDone = $false
+$script:QualityMetricSnapshotBefore = $null
+$script:QualityRunStartedAt = $null
+$script:QualityMetricsIsolated = $false
 
 $StatusRank = @{
   PASS = 0
@@ -325,6 +328,7 @@ function Wait-FrontendRoute([int]$timeoutSeconds = 90) {
 
 function Start-BackendIfNeeded() {
   if (Wait-BackendHealth 3) {
+    $script:QualityMetricsIsolated = $false
     Set-Gate "backendHealth" "PASS" @("reused running backend")
     return
   }
@@ -351,6 +355,7 @@ function Start-BackendIfNeeded() {
   if (-not (Wait-BackendHealth 120)) {
     Stop-WithStatus "BLOCKED" "backendHealth" "backend health did not become UP within timeout"
   }
+  $script:QualityMetricsIsolated = $true
   Set-Gate "backendHealth" "PASS" @("started backend", "actuator health UP")
 }
 
@@ -758,6 +763,172 @@ function Get-SafeExceptionMessage($errorRecord) {
     return $message.Substring(0, 240)
   }
   return $message
+}
+
+function Get-QualitySuiteId {
+  $normalized = $SmokePrefix.ToLowerInvariant()
+  if ($normalized.Contains("memory-quality")) { return "memory_quality" }
+  if ($normalized.Contains("conversation-grounding")) { return "conversation_grounding" }
+  if ($normalized.Contains("real-user-qa")) { return "real_user_qa" }
+  if ($normalized.Contains("cloud-quality")) { return "cloud_quality" }
+  return ($normalized -replace '[^a-z0-9]+', '_').Trim('_')
+}
+
+function Get-QualityCoverageProfile {
+  if ($SkipFrontend) { return "runtime_core_only" }
+  return "runtime_full"
+}
+
+function Convert-ToInvariantDouble([string]$value) {
+  $parsed = 0.0
+  if ([double]::TryParse($value, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$parsed)) {
+    return $parsed
+  }
+  return $null
+}
+
+function Get-PrometheusSeriesSum([string]$text, [string]$metricName, [string]$tagName = "", [string]$tagValue = "") {
+  if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+  $sum = 0.0
+  $found = $false
+  foreach ($line in ($text -split "`n")) {
+    $trimmed = $line.Trim()
+    if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith("#")) { continue }
+    if (-not $trimmed.StartsWith($metricName)) { continue }
+    if (-not [string]::IsNullOrWhiteSpace($tagName)) {
+      $tagPattern = "$tagName=`"$tagValue`""
+      if (-not $trimmed.Contains($tagPattern)) { continue }
+    }
+    $parts = $trimmed -split '\s+'
+    if ($parts.Count -lt 2) { continue }
+    $value = Convert-ToInvariantDouble $parts[-1]
+    if ($null -ne $value) {
+      $sum += [double]$value
+      $found = $true
+    }
+  }
+  if ($found) { return $sum }
+  return $null
+}
+
+function Test-LoopbackBackendBaseUrl {
+  try {
+    $uri = [System.Uri]::new($BackendBaseUrl)
+    return $uri.Host -eq "127.0.0.1" -or $uri.Host -eq "localhost" -or $uri.Host -eq "::1"
+  } catch {
+    return $false
+  }
+}
+
+function Get-QualityMetricSnapshot {
+  $snapshot = [ordered]@{
+    scrapeSucceeded = $false
+    processStartTime = $null
+    promptTokens = $null
+    completionTokens = $null
+    totalTokens = $null
+    estimatedCost = $null
+    latencySecondsSum = $null
+    latencyCount = $null
+    sampleGaps = @()
+  }
+  if (-not $script:QualityMetricsIsolated) {
+    $snapshot.sampleGaps += "metricsNotIsolated"
+    return $snapshot
+  }
+  if (-not (Test-LoopbackBackendBaseUrl)) {
+    $snapshot.sampleGaps += "prometheusNotLocal"
+    return $snapshot
+  }
+  try {
+    $response = Invoke-WebRequest -UseBasicParsing -Uri ($BackendBaseUrl.TrimEnd("/") + "/actuator/prometheus") -TimeoutSec 8
+    $text = [string]$response.Content
+    $snapshot.scrapeSucceeded = $true
+    $snapshot.processStartTime = Get-PrometheusSeriesSum $text "process_start_time_seconds"
+    $snapshot.promptTokens = Get-PrometheusSeriesSum $text "docpilot_ai_token_usage_tokens_sum" "type" "prompt"
+    $snapshot.completionTokens = Get-PrometheusSeriesSum $text "docpilot_ai_token_usage_tokens_sum" "type" "completion"
+    $snapshot.totalTokens = Get-PrometheusSeriesSum $text "docpilot_ai_token_usage_tokens_sum" "type" "total"
+    $snapshot.estimatedCost = Get-PrometheusSeriesSum $text "docpilot_ai_cost_estimate_currency_sum" "currency" "usd"
+    $snapshot.latencySecondsSum = Get-PrometheusSeriesSum $text "docpilot_ai_call_duration_seconds_sum"
+    $snapshot.latencyCount = Get-PrometheusSeriesSum $text "docpilot_ai_call_duration_seconds_count"
+  } catch {
+    $snapshot.sampleGaps += "prometheusUnavailable"
+  }
+  return $snapshot
+}
+
+function Get-QualityMetricDelta($before, $after, [string]$fieldName, [bool]$sameProcess) {
+  if ($null -eq $before -or $null -eq $after) { return $null }
+  if (-not [bool]$before.scrapeSucceeded -or -not [bool]$after.scrapeSucceeded -or -not $sameProcess) { return $null }
+  $beforeValue = $before[$fieldName]
+  $afterValue = $after[$fieldName]
+  if ($null -eq $afterValue) { return $null }
+  if ($null -eq $beforeValue) { $beforeValue = 0.0 }
+  $delta = [double]$afterValue - [double]$beforeValue
+  if ($delta -lt 0) { return $null }
+  return $delta
+}
+
+function New-QualityRunObservation([datetime]$startedAt, [datetime]$finishedAt) {
+  $after = Get-QualityMetricSnapshot
+  $gaps = New-Object System.Collections.Generic.List[string]
+  if ($null -eq $script:QualityMetricSnapshotBefore) {
+    $gaps.Add("metricsBaselineMissing")
+  } else {
+    foreach ($gap in @($script:QualityMetricSnapshotBefore.sampleGaps)) { $gaps.Add([string]$gap) }
+  }
+  foreach ($gap in @($after.sampleGaps)) { $gaps.Add([string]$gap) }
+
+  $sameProcess = $true
+  if ($script:QualityMetricSnapshotBefore -ne $null -and $after -ne $null) {
+    $beforeProcessStart = $script:QualityMetricSnapshotBefore.processStartTime
+    $afterProcessStart = $after.processStartTime
+    if ($null -ne $beforeProcessStart -and $null -ne $afterProcessStart) {
+      $sameProcess = [math]::Abs([double]$beforeProcessStart - [double]$afterProcessStart) -lt 0.001
+      if (-not $sameProcess) { $gaps.Add("metricsProcessRestarted") }
+    } elseif ([bool]$script:QualityMetricSnapshotBefore.scrapeSucceeded -and [bool]$after.scrapeSucceeded) {
+      $gaps.Add("processStartTimeMissing")
+    }
+  }
+
+  $promptTokens = Get-QualityMetricDelta $script:QualityMetricSnapshotBefore $after "promptTokens" $sameProcess
+  $completionTokens = Get-QualityMetricDelta $script:QualityMetricSnapshotBefore $after "completionTokens" $sameProcess
+  $totalTokens = Get-QualityMetricDelta $script:QualityMetricSnapshotBefore $after "totalTokens" $sameProcess
+  $estimatedCost = Get-QualityMetricDelta $script:QualityMetricSnapshotBefore $after "estimatedCost" $sameProcess
+  $latencySeconds = Get-QualityMetricDelta $script:QualityMetricSnapshotBefore $after "latencySecondsSum" $sameProcess
+  $latencyCount = Get-QualityMetricDelta $script:QualityMetricSnapshotBefore $after "latencyCount" $sameProcess
+  $latencyMs = $null
+  if ($null -ne $latencySeconds -and $null -ne $latencyCount -and [double]$latencyCount -gt 0) {
+    $latencyMs = [math]::Round(([double]$latencySeconds / [double]$latencyCount) * 1000.0, 2)
+  } else {
+    $gaps.Add("latencyMetricMissing")
+  }
+  if ($null -eq $totalTokens -or [double]$totalTokens -le 0) {
+    $gaps.Add("tokenUsageMissing")
+  }
+  if ($null -eq $estimatedCost -or [double]$estimatedCost -le 0) {
+    $gaps.Add("costMetricMissing")
+  }
+
+  $tokenUsage = [ordered]@{}
+  if ($null -ne $promptTokens -and [double]$promptTokens -gt 0) { $tokenUsage.promptTokens = [int][math]::Round([double]$promptTokens) }
+  if ($null -ne $completionTokens -and [double]$completionTokens -gt 0) { $tokenUsage.completionTokens = [int][math]::Round([double]$completionTokens) }
+  if ($null -ne $totalTokens -and [double]$totalTokens -gt 0) { $tokenUsage.totalTokens = [int][math]::Round([double]$totalTokens) }
+  if ($null -ne $estimatedCost -and [double]$estimatedCost -gt 0) { $tokenUsage.estimatedCost = [math]::Round([double]$estimatedCost, 8) }
+
+  $durationMs = [long]($finishedAt - $startedAt).TotalMilliseconds
+  return [ordered]@{
+    schemaVersion = 1
+    suiteId = Get-QualitySuiteId
+    suiteVersion = "2026-07-15"
+    coverageProfile = Get-QualityCoverageProfile
+    startedAt = $startedAt.ToString("o")
+    finishedAt = $finishedAt.ToString("o")
+    durationMs = $durationMs
+    latencyMs = $latencyMs
+    tokenUsage = $tokenUsage
+    sampleGaps = @($gaps | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
+  }
 }
 
 function Write-SmokeArtifact($artifact) {
@@ -2385,7 +2556,8 @@ function Invoke-DryRun() {
 }
 
 function Invoke-Run() {
-  $startedAt = (Get-Date).ToString("o")
+  $script:QualityRunStartedAt = Get-Date
+  $startedAt = $script:QualityRunStartedAt
   $runSuffix = (Get-Date).ToString("yyyyMMddHHmmss") + "-" + ([Guid]::NewGuid().ToString("N").Substring(0, 6))
   $smokeMarker = "$SmokePrefix-$runSuffix"
   $artifactDir = Join-Path $ArtifactRoot $smokeMarker
@@ -2410,6 +2582,7 @@ function Invoke-Run() {
   Start-TunnelsIfNeeded $EnvFile
   Start-BackendIfNeeded
   Start-FrontendIfNeeded
+  $script:QualityMetricSnapshotBefore = Get-QualityMetricSnapshot
 
   $shortUserSuffix = $runSuffix.Replace("-", "")
   $passwordA = "SmokeA!" + ([Guid]::NewGuid().ToString("N").Substring(0, 12))
@@ -4400,6 +4573,8 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
   $gitStatusAfter = git status --short
   Set-Gate "gitStatus" "PASS" @("initial and final git status checked")
 
+  $finishedAt = Get-Date
+  $qualityRunObservation = New-QualityRunObservation $startedAt $finishedAt
   Stop-StartedProcesses
   Set-Gate "artifactRedaction" "PASS" @("redaction scan before and after write")
 
@@ -4408,9 +4583,10 @@ RR-EVAL-MIXED-FORBIDDEN says this glossary is keyword noise and must not be used
     runId = $runSuffix
     smokeMarker = $smokeMarker
     mode = $Mode
-    startedAt = $startedAt
-    finishedAt = (Get-Date).ToString("o")
+    startedAt = $startedAt.ToString("o")
+    finishedAt = $finishedAt.ToString("o")
     overallStatus = $script:OverallStatus
+    qualityRun = $qualityRunObservation
     environment = [ordered]@{
       backendBase = "local"
       frontendBase = if ($SkipFrontend) { "skipped" } else { "local" }
@@ -4494,12 +4670,16 @@ try {
     $safeMessage = Get-SafeExceptionMessage $_
   }
   if ($script:ArtifactPath) {
+    $finishedAt = Get-Date
+    $startedAtForArtifact = if ($script:QualityRunStartedAt -is [datetime]) { $script:QualityRunStartedAt } else { $finishedAt }
+    $qualityRunObservation = New-QualityRunObservation $startedAtForArtifact $finishedAt
     Stop-StartedProcesses
     $minimal = [ordered]@{
       schemaVersion = 1
       mode = $Mode
       overallStatus = $script:OverallStatus
       safeMessage = $safeMessage
+      qualityRun = $qualityRunObservation
       gates = $script:Gates
     }
     Write-SmokeArtifact $minimal

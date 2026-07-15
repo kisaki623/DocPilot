@@ -54,6 +54,23 @@ class QualityArtifactServiceImplTest {
                   "documentText": "DOCUMENT_FULL_TEXT_SHOULD_NOT_LEAK",
                   "secret": "SECRET_SHOULD_NOT_LEAK",
                   "connectionString": "CONNECTION_STRING_SHOULD_NOT_LEAK",
+                  "qualityRun": {
+                    "schemaVersion": 1,
+                    "suiteId": "rag_real_qa",
+                    "suiteVersion": "2026-07-15",
+                    "coverageProfile": "runtime_full",
+                    "startedAt": "2026-07-15T00:00:00Z",
+                    "finishedAt": "2026-07-15T00:01:00Z",
+                    "durationMs": 60000,
+                    "latencyMs": 1200.5,
+                    "tokenUsage": {
+                      "promptTokens": 20,
+                      "completionTokens": 7,
+                      "totalTokens": 27,
+                      "estimatedCost": 0.03
+                    },
+                    "sampleGaps": ["costMetricMissing"]
+                  },
                   "token_usage": {
                     "prompt_tokens": 12,
                     "completion_tokens": 5,
@@ -100,10 +117,10 @@ class QualityArtifactServiceImplTest {
         assertThat(summary.status()).isEqualTo("PASS");
         assertThat(summary.gateCount()).isEqualTo(1);
         assertThat(summary.reviewBuckets()).containsExactly("manualReview");
-        assertThat(summary.tokenUsage().promptTokens()).isEqualTo(12);
-        assertThat(summary.tokenUsage().completionTokens()).isEqualTo(5);
-        assertThat(summary.tokenUsage().totalTokens()).isEqualTo(17);
-        assertThat(summary.tokenUsage().estimatedCost()).isEqualByComparingTo("0.01");
+        assertThat(summary.tokenUsage().promptTokens()).isEqualTo(20);
+        assertThat(summary.tokenUsage().completionTokens()).isEqualTo(7);
+        assertThat(summary.tokenUsage().totalTokens()).isEqualTo(27);
+        assertThat(summary.tokenUsage().estimatedCost()).isEqualByComparingTo("0.03");
 
         QualityRunDetail detail = service.getRunDetail("docpilot-quality-normal").orElseThrow();
         assertThat(detail.gates()).hasSize(1);
@@ -128,6 +145,11 @@ class QualityArtifactServiceImplTest {
         assertThat(detail.traceReferences().get(0).steps())
                 .extracting(step -> step.stepType())
                 .containsExactly("eval_case", "agent_step");
+        assertThat(detail.diagnostics().runObservation().suiteId()).isEqualTo("rag_real_qa");
+        assertThat(detail.diagnostics().runObservation().coverageProfile()).isEqualTo("runtime_full");
+        assertThat(detail.diagnostics().runObservation().durationMs()).isEqualTo(60000L);
+        assertThat(detail.diagnostics().runObservation().latencyMs()).isEqualTo(1200.5);
+        assertThat(detail.diagnostics().runObservation().sampleGaps()).containsExactly("costMetricMissing");
 
         String serialized = objectMapper.writeValueAsString(detail);
         assertThat(serialized)
@@ -460,6 +482,48 @@ class QualityArtifactServiceImplTest {
                 .doesNotContain("PROMPT_SHOULD_NOT_LEAK")
                 .doesNotContain("ANSWER_SHOULD_NOT_LEAK")
                 .doesNotContain("EVIDENCE_SHOULD_NOT_LEAK");
+    }
+
+    @Test
+    void shouldNotTreatNestedTokenLikeFieldsAsRunTokenUsage() throws Exception {
+        Path artifact = artifactPath("backend/target/audit", "docpilot-quality-token-noise", "artifact.json");
+        Files.writeString(artifact, """
+                {
+                  "smokeMarker": "docpilot-quality-token-noise",
+                  "status": "PASS",
+                  "usage": {
+                    "prompt_tokens": 1,
+                    "completion_tokens": 2,
+                    "total_tokens": 3,
+                    "estimated_cost": 0.04
+                  },
+                  "naturalCorpus": {
+                    "status": "PASS",
+                    "caseResults": [
+                      {
+                        "caseId": "token-noise-case",
+                        "caseType": "rag",
+                        "passed": true,
+                        "totalTokens": 9999,
+                        "estimatedCost": 123.45,
+                        "failureBuckets": [],
+                        "reviewBuckets": []
+                      }
+                    ]
+                  }
+                }
+                """, StandardCharsets.UTF_8);
+
+        QualityArtifactServiceImpl service = new QualityArtifactServiceImpl(repoRoot, objectMapper);
+
+        QualityRunSummary summary = service.getRunDetail("docpilot-quality-token-noise")
+                .orElseThrow()
+                .summary();
+
+        assertThat(summary.tokenUsage().promptTokens()).isNull();
+        assertThat(summary.tokenUsage().completionTokens()).isNull();
+        assertThat(summary.tokenUsage().totalTokens()).isNull();
+        assertThat(summary.tokenUsage().estimatedCost()).isNull();
     }
 
     @Test

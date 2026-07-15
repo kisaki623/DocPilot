@@ -4,6 +4,32 @@
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
 
+## 2026-07-15 Quality Console Run Observation Sampling
+
+状态：PASS（DB-backed 运行观测 / UI / smoke）
+
+验证：
+
+- `document-parser-real-chain-smoke.ps1 -Mode run`
+- `memory-quality-smoke.ps1 -Mode run`
+- 临时后端 `18081` 导入最新 QualityRun artifacts
+- 临时前端 `3007` 浏览器验证 `/quality?autoload=1`
+
+Marker:
+
+- Parser：`docpilot-parser-real-chain-20260715170711-7d59a3`
+- Memory：`docpilot-memory-quality-20260715171027-11134f`
+
+已验证：
+
+- 新 artifact 写入 `qualityRun` 运行观测：suite、coverage profile、开始 / 结束时间、duration、latency 和 sample gaps。
+- Parser run 为 `suiteId=document_parser_real_chain`、`coverageProfile=runtime_full`，明确记录 token / cost / latency / model metrics 缺口。
+- Memory run 为 `suiteId=memory_quality`、`coverageProfile=runtime_full`，真实 token 样本为 prompt `5758`、completion `1251`、total `7009`，仅成本样本缺口。
+- DB-backed detail 可读 `diagnostics.runObservation`；趋势接口已能从新观测字段计算运行耗时 / 模型延迟，不再靠旧 gate / eval duration fallback。
+- `/quality` 页面可见最新 Memory run、`memory_quality`、真实链路完整覆盖和“缺少成本样本”；Overview 将 `latencyMs` 命名为“平均模型延迟”而非 P95；console error `0`，桌面横向溢出 `0`。
+
+边界：这不是删除旧失败历史，也不是把历史 REVIEW / FAILED 自动改 PASS。旧 artifact 不会追溯补字段；成本样本仍依赖后续 cost metric / price config；复用已运行后端时会显式标记指标不可归因。
+
 ## 2026-07-15 Quality Console Diagnostics Governance
 
 状态：PASS（UI 观测口径 + Parser / Memory 最新前端 gate 补证）
@@ -22,7 +48,7 @@ Marker:
 
 已验证：
 
-- `/quality` 六项诊断显示样本数；无 `latencyMs` 时不再用 `durationMs` 冒充 P95 延迟；token / cost 缺失不按 `0` 处理。
+- `/quality` 六项诊断显示样本数；`latencyMs` 按平均模型调用延迟展示，无 `latencyMs` 时不再用 `durationMs` 冒充模型延迟；token / cost 缺失不按 `0` 处理。
 - 成功运行成本只统计 PASS / SUCCESS 且存在 `estimatedCost` 的 run；失败 / 复查 TopN 不再重复叠加 summary buckets 和 trend bucket counts。
 - 当存在 FAILED / REVIEW run 但 artifact 未提供结构化 bucket 时，页面明确提示缺结构化归因。
 - 新增 Playwright fixture 覆盖 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和空 bucket 文案。

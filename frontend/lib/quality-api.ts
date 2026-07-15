@@ -117,7 +117,20 @@ export interface QualityParserQualitySummary {
   unavailableMetrics: string[];
 }
 
+export interface QualityRunObservationSummary {
+  schemaVersion?: number | null;
+  suiteId?: string | null;
+  suiteVersion?: string | null;
+  coverageProfile?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  latencyMs?: number | null;
+  sampleGaps: string[];
+}
+
 export interface QualityRunDiagnostics {
+  runObservation?: QualityRunObservationSummary | null;
   documentCoverage?: QualityDocumentCoverageSummary | null;
   toolQuality?: QualityToolQualitySummary | null;
   memoryQuality?: QualityMemoryQualitySummary | null;

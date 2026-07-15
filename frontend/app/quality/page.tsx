@@ -17,6 +17,7 @@ import {
   type QualityParserQualitySummary,
   type QualityRunDetail,
   type QualityRunSummary,
+  type QualityRunObservationSummary,
   type QualityTokenUsageSummary,
   type QualityTraceReference,
   type QualityDomainTrendSummary,
@@ -174,6 +175,10 @@ interface OperationalMetricSummary {
   latencyMs: number | null;
   durationMs: number | null;
   retryCount: number | null;
+  suiteId: string;
+  suiteVersion: string;
+  coverageProfile: string;
+  sampleGaps: string[];
 }
 
 type DetailSectionId = (typeof DETAIL_SECTIONS)[number]["id"];
@@ -209,7 +214,6 @@ interface OverviewDiagnostics {
   coreFlowFailRate: number | null;
   securityGateFailRate: number | null;
   avgLatencyMs: number | null;
-  p95LatencyMs: number | null;
   latencySampleCount: number;
   latencySampleTotal: number;
   durationSampleCount: number;
@@ -468,6 +472,69 @@ function summarizeTextList(values?: string[]): string {
   return values.slice(0, 4).join(" / ");
 }
 
+function formatCoverageProfile(value?: string | null): string {
+  if (!value) {
+    return "未声明";
+  }
+  const labels: Record<string, string> = {
+    runtime_full: "真实链路完整覆盖",
+    runtime_core_only: "真实核心链路（跳过前端）",
+    offline_contract: "离线契约验证",
+  };
+  return labels[value] || value;
+}
+
+function hasRunObservation(value?: QualityRunObservationSummary | null): boolean {
+  if (!value) {
+    return false;
+  }
+  const observation = value as {
+    schemaVersion?: number | null;
+    suiteId?: string | null;
+    coverageProfile?: string | null;
+    durationMs?: number | null;
+    latencyMs?: number | null;
+    sampleGaps?: string[];
+  };
+  return Boolean(
+    typeof observation.schemaVersion === "number" ||
+      observation.suiteId ||
+      observation.coverageProfile ||
+      typeof observation.durationMs === "number" ||
+      typeof observation.latencyMs === "number" ||
+      (observation.sampleGaps || []).length > 0
+  );
+}
+
+function normalizeSampleGaps(values?: string[], hasObservation = true): string[] {
+  if (!hasObservation) {
+    return ["runObservationMissing"];
+  }
+  return (values || [])
+    .filter((value) => typeof value === "string" && value.trim().length > 0)
+    .map((value) => value.trim().slice(0, 80));
+}
+
+function formatSampleGaps(values: string[]): string {
+  if (values.length === 0) {
+    return "无";
+  }
+  const labels: Record<string, string> = {
+    runObservationMissing: "旧 artifact 未提供运行观测",
+    metricsNotIsolated: "复用后端，指标不可归因",
+    prometheusNotLocal: "非本地后端，不采 Prometheus",
+    prometheusUnavailable: "Prometheus 不可用",
+    metricsBaselineMissing: "缺少指标基线",
+    metricsProcessRestarted: "采样期间后端重启",
+    processStartTimeMissing: "缺少进程一致性指标",
+    latencyMetricMissing: "缺少模型延迟样本",
+    tokenUsageMissing: "缺少 token 样本",
+    costMetricMissing: "缺少成本样本",
+    modelMetricsUnavailable: "模型指标不可用",
+  };
+  return values.map((value) => labels[value] || value).join(" / ");
+}
+
 function tokenUsageTotalOrNull(runs: QualityRunSummary[]): number | null {
   const values = runs
     .map((item) => item.tokenUsage?.totalTokens)
@@ -562,20 +629,6 @@ function average(values: Array<number | null | undefined>): number | null {
     return null;
   }
   return resolved.reduce((sum, value) => sum + value, 0) / resolved.length;
-}
-
-function percentile(values: Array<number | null | undefined>, p: number): number | null {
-  const resolved = values
-    .filter((value): value is number => typeof value === "number" && !Number.isNaN(value))
-    .sort((left, right) => left - right);
-  if (resolved.length === 0) {
-    return null;
-  }
-  const index = Math.min(
-    resolved.length - 1,
-    Math.max(0, Math.ceil((p / 100) * resolved.length) - 1)
-  );
-  return resolved[index];
 }
 
 function diagnosticToneForRate(
@@ -868,6 +921,8 @@ function sumMetric(detail: QualityRunDetail, names: string[]): number | null {
 
 function operationalSummary(detail: QualityRunDetail): OperationalMetricSummary {
   const tokenUsage = detail.summary.tokenUsage;
+  const runObservation = detail.diagnostics?.runObservation;
+  const observationPresent = hasRunObservation(runObservation);
   return {
     promptTokens:
       typeof tokenUsage?.promptTokens === "number" ? tokenUsage.promptTokens : null,
@@ -879,9 +934,13 @@ function operationalSummary(detail: QualityRunDetail): OperationalMetricSummary 
       typeof tokenUsage?.estimatedCost === "number" ? tokenUsage.estimatedCost : null,
     modelCallCount: sumMetric(detail, ["modelCallCount"]),
     toolCallCount: sumMetric(detail, ["toolCallCount"]),
-    latencyMs: sumMetric(detail, ["latencyMs"]),
-    durationMs: sumMetric(detail, ["durationMs"]),
+    latencyMs: typeof runObservation?.latencyMs === "number" ? runObservation.latencyMs : null,
+    durationMs: typeof runObservation?.durationMs === "number" ? runObservation.durationMs : null,
     retryCount: sumMetric(detail, ["retryCount"]),
+    suiteId: observationPresent ? runObservation?.suiteId || "" : "",
+    suiteVersion: observationPresent ? runObservation?.suiteVersion || "" : "",
+    coverageProfile: observationPresent ? runObservation?.coverageProfile || "" : "",
+    sampleGaps: normalizeSampleGaps(runObservation?.sampleGaps, observationPresent),
   };
 }
 
@@ -969,7 +1028,6 @@ function buildOverviewDiagnostics(
     coreFlowFailRate: ratio(coreFlowFailedRuns, totalRuns),
     securityGateFailRate: ratio(securityFailedRuns, totalRuns),
     avgLatencyMs: trend?.averageLatencyMs ?? average(latencyValues),
-    p95LatencyMs: percentile(latencyValues, 95),
     latencySampleCount: latencyValues.length,
     latencySampleTotal: trendRunCount,
     durationSampleCount: durationValues.length,
@@ -1618,22 +1676,22 @@ function QualityOverviewHeader({
   loading: boolean;
   onRefresh: () => void;
 }) {
-  const p95LatencyValue = formatStatWithSample(
-    diagnostics.p95LatencyMs,
+  const avgLatencyValue = formatStatWithSample(
+    diagnostics.avgLatencyMs,
     diagnostics.latencySampleCount,
     diagnostics.latencySampleTotal,
     "暂无 latency 样本"
   );
-  const p95LatencyHelper =
-    diagnostics.p95LatencyMs !== null
-      ? "只基于 latencyMs 样本计算；括号内为有阶段级延迟样本的趋势点数量。"
+  const avgLatencyHelper =
+    diagnostics.avgLatencyMs !== null
+      ? "只基于 qualityRun.latencyMs 样本计算；当前表示单次运行内的平均模型调用延迟，不等于 P95。"
       : diagnostics.durationSampleCount > 0
-        ? `暂无 latencyMs；已有 ${diagnostics.durationSampleCount} / ${diagnostics.durationSampleTotal} 条整次运行 durationMs，但不能冒充阶段延迟。`
+        ? `暂无模型调用 latencyMs；已有 ${diagnostics.durationSampleCount} / ${diagnostics.durationSampleTotal} 条整次运行 durationMs，但不能冒充模型延迟。`
         : "暂无 latencyMs 或 durationMs 样本，说明当前 artifacts 还缺少耗时观测。";
-  const p95LatencyTone =
-    diagnostics.p95LatencyMs === null
+  const avgLatencyTone =
+    diagnostics.avgLatencyMs === null
       ? "neutral"
-      : diagnostics.p95LatencyMs > 5000
+      : diagnostics.avgLatencyMs > 5000
         ? "warning"
         : "success";
   const tokenValue = formatStatWithSample(
@@ -1685,12 +1743,12 @@ function QualityOverviewHeader({
       priority: "Failures / Gates / Trace",
     },
     {
-      label: "P95 延迟",
-      value: p95LatencyValue,
-      helper: p95LatencyHelper,
-      tone: p95LatencyTone,
-      action: diagnostics.p95LatencyMs === null
-        ? "先补阶段级 latencyMs；如需看整次运行耗时，应单独展示 durationMs。"
+      label: "平均模型延迟",
+      value: avgLatencyValue,
+      helper: avgLatencyHelper,
+      tone: avgLatencyTone,
+      action: diagnostics.avgLatencyMs === null
+        ? "先让真实模型 run 写入 qualityRun.latencyMs；如需看整次运行耗时，应单独展示 durationMs。"
         : "明显升高时检查模型调用、工具调用和重试次数。",
       priority: "LLM / RAG / Tool latency",
     },
@@ -3146,6 +3204,7 @@ function RunDetailContent({
     () => buildRunDiagnostics(detail, compareDetail, evalCatalog),
     [compareDetail, detail, evalCatalog]
   );
+  const operational = useMemo(() => operationalSummary(detail), [detail]);
 
   return (
     <div className="grid min-w-0 gap-4">
@@ -3173,6 +3232,29 @@ function RunDetailContent({
             value={`${summary.failedGateCount} / ${summary.reviewGateCount}`}
           />
           <SmallFact label="token 用量" value={formatTokenUsage(summary.tokenUsage)} />
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <SmallFact
+            label="质量套件"
+            value={operational.suiteId || "未声明"}
+          />
+          <SmallFact
+            label="覆盖口径"
+            value={formatCoverageProfile(operational.coverageProfile)}
+          />
+          <SmallFact
+            label="套件版本"
+            value={operational.suiteVersion || "未声明"}
+          />
+          <SmallFact
+            label="采样缺口"
+            value={
+              operational.sampleGaps.length > 0
+                ? formatSampleGaps(operational.sampleGaps)
+                : "无"
+            }
+          />
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -3212,7 +3294,7 @@ function RunDetailContent({
 
       {activeSection === "summary" ? (
         <>
-          <OperationalSummaryPanel summary={operationalSummary(detail)} />
+          <OperationalSummaryPanel summary={operational} />
           <RunComparisonPanel
             current={detail}
             previous={compareDetail}
@@ -4700,6 +4782,12 @@ function OperationalSummaryPanel({
         <SmallFact label="耗时 ms" value={formatNumber(summary.durationMs)} />
         <SmallFact label="重试次数" value={formatNumber(summary.retryCount)} />
       </div>
+      {summary.sampleGaps.length > 0 ? (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          采样缺口：{formatSampleGaps(summary.sampleGaps)}。这些字段不会按 0 处理，
+          需要补 runner 或 provider 指标后才能进入趋势。
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -77,6 +77,22 @@ class CloudQualitySmokeScriptSafetyTest {
                 .doesNotContain("apiKey =");
     }
 
+    @Test
+    void shouldOnlyCollectQualityMetricsWhenBackendWasStartedByTheSmoke() throws Exception {
+        String script = Files.readString(scriptPath(), StandardCharsets.UTF_8);
+
+        assertThat(script)
+                .contains("$script:QualityMetricsIsolated = $false")
+                .contains("if (-not $script:QualityMetricsIsolated)")
+                .contains("$snapshot.sampleGaps += \"metricsNotIsolated\"")
+                .contains("$script:QualityMetricsIsolated = $true")
+                .contains("docpilot_ai_token_usage_tokens_sum")
+                .contains("docpilot_ai_call_duration_seconds_sum")
+                .contains("docpilot_ai_call_duration_seconds_count");
+        assertThat(script.indexOf("$script:QualityMetricsIsolated = $true"))
+                .isGreaterThan(script.indexOf("Wait-BackendHealth 120"));
+    }
+
     private static Path scriptPath() {
         return Path.of("..", "scripts", "smoke", "cloud-quality-smoke.ps1");
     }
