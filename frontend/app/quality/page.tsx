@@ -210,10 +210,17 @@ interface OverviewDiagnostics {
   securityGateFailRate: number | null;
   avgLatencyMs: number | null;
   p95LatencyMs: number | null;
+  latencySampleCount: number;
+  latencySampleTotal: number;
+  durationSampleCount: number;
+  durationSampleTotal: number;
   totalTokens: number | null;
   avgTokens: number | null;
+  tokenSampleCount: number;
   avgEstimatedCost: number | null;
   costPerSuccessfulRun: number | null;
+  costSampleCount: number;
+  passCostSampleCount: number;
   topFailureBuckets: BucketDiagnostic[];
   topReviewBuckets: BucketDiagnostic[];
 }
@@ -518,6 +525,29 @@ function formatCost(value: number | null): string {
     return "0";
   }
   return value < 1 ? value.toFixed(4) : formatNumber(value);
+}
+
+function formatStatWithSample(
+  value: number | null | undefined,
+  sampleCount: number,
+  totalCount: number,
+  emptyLabel: string
+): string {
+  if (typeof value !== "number" || Number.isNaN(value)) {
+    return `${emptyLabel} (${sampleCount} / ${totalCount})`;
+  }
+  return `${formatNumber(value)} (${sampleCount} / ${totalCount})`;
+}
+
+function formatCostWithSample(
+  value: number | null,
+  sampleCount: number,
+  totalCount: number
+): string {
+  if (value === null || Number.isNaN(value)) {
+    return `暂无成本样本 (${sampleCount} / ${totalCount})`;
+  }
+  return `${formatCost(value)} (${sampleCount} / ${totalCount})`;
 }
 
 function ratio(numerator: number, denominator: number): number | null {
@@ -914,20 +944,19 @@ function buildOverviewDiagnostics(
   const costValues = runs
     .map((run) => run.tokenUsage?.estimatedCost)
     .filter((value): value is number => typeof value === "number");
-  const latencyValues = trend?.points?.map((point) => point.latencyMs) || [];
-  const failureBuckets = [
-    ...runs.flatMap((run) => run.failureBuckets),
-    ...Object.entries(trend?.failureBucketCounts || {}).flatMap(([bucket, count]) =>
-      Array.from({ length: count }, () => bucket)
-    ),
-  ];
-  const reviewBuckets = [
-    ...runs.flatMap((run) => run.reviewBuckets),
-    ...Object.entries(trend?.reviewBucketCounts || {}).flatMap(([bucket, count]) =>
-      Array.from({ length: count }, () => bucket)
-    ),
-  ];
-  const totalCost = costValues.reduce((sum, value) => sum + value, 0);
+  const passCostValues = runs
+    .filter((run) => isPassStatus(run.status))
+    .map((run) => run.tokenUsage?.estimatedCost)
+    .filter((value): value is number => typeof value === "number");
+  const latencyValues = (trend?.points?.map((point) => point.latencyMs) || []).filter(
+    (value): value is number => typeof value === "number" && !Number.isNaN(value)
+  );
+  const durationValues = (trend?.points?.map((point) => point.durationMs) || []).filter(
+    (value): value is number => typeof value === "number" && !Number.isNaN(value)
+  );
+  const fallbackFailureBuckets = runs.flatMap((run) => run.failureBuckets);
+  const fallbackReviewBuckets = runs.flatMap((run) => run.reviewBuckets);
+  const trendRunCount = trend?.runCount ?? totalRuns;
 
   return {
     totalRuns,
@@ -941,15 +970,26 @@ function buildOverviewDiagnostics(
     securityGateFailRate: ratio(securityFailedRuns, totalRuns),
     avgLatencyMs: trend?.averageLatencyMs ?? average(latencyValues),
     p95LatencyMs: percentile(latencyValues, 95),
+    latencySampleCount: latencyValues.length,
+    latencySampleTotal: trendRunCount,
+    durationSampleCount: durationValues.length,
+    durationSampleTotal: trendRunCount,
     totalTokens:
       tokenValues.length === 0
         ? trend?.totalTokens ?? null
         : tokenValues.reduce((sum, value) => sum + value, 0),
     avgTokens: average(tokenValues),
+    tokenSampleCount: tokenValues.length,
     avgEstimatedCost: average(costValues),
-    costPerSuccessfulRun: passRuns > 0 && costValues.length > 0 ? totalCost / passRuns : null,
-    topFailureBuckets: topBucketDiagnostics(failureBuckets),
-    topReviewBuckets: topBucketDiagnostics(reviewBuckets),
+    costPerSuccessfulRun: average(passCostValues),
+    costSampleCount: costValues.length,
+    passCostSampleCount: passCostValues.length,
+    topFailureBuckets: trend
+      ? topBucketDiagnosticsFromCounts(trend.failureBucketCounts)
+      : topBucketDiagnostics(fallbackFailureBuckets),
+    topReviewBuckets: trend
+      ? topBucketDiagnosticsFromCounts(trend.reviewBucketCounts)
+      : topBucketDiagnostics(fallbackReviewBuckets),
   };
 }
 
@@ -1578,6 +1618,35 @@ function QualityOverviewHeader({
   loading: boolean;
   onRefresh: () => void;
 }) {
+  const p95LatencyValue = formatStatWithSample(
+    diagnostics.p95LatencyMs,
+    diagnostics.latencySampleCount,
+    diagnostics.latencySampleTotal,
+    "暂无 latency 样本"
+  );
+  const p95LatencyHelper =
+    diagnostics.p95LatencyMs !== null
+      ? "只基于 latencyMs 样本计算；括号内为有阶段级延迟样本的趋势点数量。"
+      : diagnostics.durationSampleCount > 0
+        ? `暂无 latencyMs；已有 ${diagnostics.durationSampleCount} / ${diagnostics.durationSampleTotal} 条整次运行 durationMs，但不能冒充阶段延迟。`
+        : "暂无 latencyMs 或 durationMs 样本，说明当前 artifacts 还缺少耗时观测。";
+  const p95LatencyTone =
+    diagnostics.p95LatencyMs === null
+      ? "neutral"
+      : diagnostics.p95LatencyMs > 5000
+        ? "warning"
+        : "success";
+  const tokenValue = formatStatWithSample(
+    diagnostics.avgTokens,
+    diagnostics.tokenSampleCount,
+    diagnostics.totalRuns,
+    "暂无 token 样本"
+  );
+  const costValue = formatCostWithSample(
+    diagnostics.costPerSuccessfulRun,
+    diagnostics.passCostSampleCount,
+    diagnostics.passRuns
+  );
   const overviewCards: DiagnosticItem[] = [
     {
       label: "通过率",
@@ -1617,26 +1686,32 @@ function QualityOverviewHeader({
     },
     {
       label: "P95 延迟",
-      value: formatNullableStat(diagnostics.p95LatencyMs),
-      helper: "基于最近 trend points 的 latencyMs；没有 point 样本时显示暂无统计。",
-      tone: diagnostics.p95LatencyMs === null ? "neutral" : diagnostics.p95LatencyMs > 5000 ? "warning" : "success",
-      action: "明显升高时检查模型调用、工具调用和重试次数。",
+      value: p95LatencyValue,
+      helper: p95LatencyHelper,
+      tone: p95LatencyTone,
+      action: diagnostics.p95LatencyMs === null
+        ? "先补阶段级 latencyMs；如需看整次运行耗时，应单独展示 durationMs。"
+        : "明显升高时检查模型调用、工具调用和重试次数。",
       priority: "LLM / RAG / Tool latency",
     },
     {
       label: "平均 token 数",
-      value: formatNullableStat(diagnostics.avgTokens),
-      helper: "最近运行中存在 totalTokens 样本时才计算平均值；字段缺失不按 0 处理。",
+      value: tokenValue,
+      helper: "只统计存在 totalTokens 的运行；mock / 无模型运行必须明确缺失原因，不能按 0 处理。",
       tone: "neutral",
-      action: "持续升高时检查 prompt 上下文、RAG evidence 和历史消息裁剪。",
+      action: diagnostics.tokenSampleCount === 0
+        ? "先让真实模型 run 写入 tokenUsage；否则无法评估上下文成本。"
+        : "持续升高时检查 prompt 上下文、RAG evidence 和历史消息裁剪。",
       priority: "Context / Prompt / RAG chunks",
     },
     {
       label: "成功运行成本",
-      value: formatCost(diagnostics.costPerSuccessfulRun),
-      helper: "存在 estimatedCost 样本且有成功运行时才计算；字段缺失显示暂无样本。",
+      value: costValue,
+      helper: "只统计 PASS / SUCCESS 且存在 estimatedCost 的运行；无价格配置或无 token 时显示无成本样本。",
       tone: "neutral",
-      action: "升高时优先排查高 token 或重复模型调用路径。",
+      action: diagnostics.passCostSampleCount === 0
+        ? "先补模型价格配置或 artifact 成本估算字段，再比较成功运行成本。"
+        : "升高时优先排查高 token 或重复模型调用路径。",
       priority: "模型调用 / token 用量 / 重试",
     },
   ];
@@ -1709,12 +1784,20 @@ function QualityOverviewHeader({
           <BucketActionPanel
             title="失败类型 TopN"
             items={diagnostics.topFailureBuckets}
-            emptyText="暂无失败类型。"
+            emptyText={
+              diagnostics.failedRuns > 0
+                ? "存在失败运行，但 artifact 没有提供结构化 failure bucket；请先补 runner 的失败归因。"
+                : "暂无失败类型。"
+            }
           />
           <BucketActionPanel
             title="复查类型 TopN"
             items={diagnostics.topReviewBuckets}
-            emptyText="暂无复查类型。"
+            emptyText={
+              diagnostics.reviewRuns > 0
+                ? "存在复查运行，但 artifact 没有提供结构化 review bucket；请先补 runner 的复查归因。"
+                : "暂无复查类型。"
+            }
           />
         </div>
       </section>

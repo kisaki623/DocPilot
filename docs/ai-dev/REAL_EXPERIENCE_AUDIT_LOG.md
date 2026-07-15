@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-15 | `docpilot-parser-real-chain-20260715161900-912198` / `docpilot-memory-quality-20260715162027-941f55` | VERIFIED / UI+SMOKE（Quality Console 六项诊断口径与最新前端 gate 补证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260715161900-912198/artifact.json` / `backend/target/memory-quality/docpilot-memory-quality-20260715162027-941f55/artifact.json` | 登记 `REA-20260715-P2-042`：Quality Console 六项诊断中最近 `20` 条 PASS `9` / REVIEW `6` / FAILED `5`，且 `latencyMs`、token、cost 样本缺失；页面原口径容易把缺采样解释为暂无问题，且失败 / 复查 TopN 存在重复计数风险。已修正样本数、成本、latency 与 bucket 空态口径，并用非 `-SkipFrontend` Parser / Memory smoke 补证最新 frontend gate PASS；导入后最近 `20` 条改善为 PASS `10` / REVIEW `6` / FAILED `4`。 |
 | 2026-07-14 | `readme-quality-showcase-20260714214023` | VERIFIED / UI（README Quality Console 展示口径已修正） | `backend/target/readme-quality-showcase-20260714214023/quality-pass-screenshot-summary.json` | 登记 `REA-20260714-P3-041`：README 原 Quality Console 图使用内部排障混合视图，公开首屏显示低通过率 / 失败率和暂无统计字段，容易让面试官误读为系统整体质量差。已改为筛选后的 PASS 核心样本 `docpilot-cloud-quality-20260712212603-173e7d`，展示质量门禁 `20`、失败 / 复查 `0 / 0` 和门禁页；Playwright console error `0`。最近 `50` 条 QualityRun 的 PASS `27` / REVIEW `17` / FAILED_CORE_FLOW `6` 已保留为后续质量治理任务，不通过删除失败历史解决。 |
 | 2026-07-14 | `docpilot-parser-real-chain-20260714184055-21d3de` | VERIFIED / CORE（长文档 batch split 与原失败任务恢复已核验） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260714184055-21d3de/artifact.json` | 收口 `REA-20260713-P1-001`：parser runner 新增 LONG_MD 长文档 canary，真实切出 `25` chunks，PDF / HTML / DOCX / LONG_MD 均 parse / retrieve / citation / source locator 通过；MySQL chunk / indexed / vectorId / Qdrant point 总计 `32 / 32 / 32 / 32`，payload 和 locator 摘要均 `32`，parser boundary `4/4`，artifact redaction PASS。原失败 document `1431` / task `1322` 已只读核验为 SUCCESS，task retryCount `2`，原文档 MySQL / Qdrant parity 为 `12 / 12 / 12 / 12`，最新 outbox `SENT`、consume `SUCCESS`。 |
 | 2026-07-14 | `docpilot-memory-quality-20260714175619-8f1939` / `memory-ui-disable-restore-20260714100303` | VERIFIED / API+UI（T31 per-memory disable / restore 已收口） | `backend/target/memory-quality/docpilot-memory-quality-20260714175619-8f1939/artifact.json` / `backend/target/memory-ui-disable-restore-20260714100303/memory-ui-disable-restore-summary.json` | 修复 `REA-20260713-P2-033`：复用 `ARCHIVED` 作为单条 memory 停用状态，新增 disabled list、disable、restore API；T31 真实 smoke 证明停用后新 `AGENT_MEMORY` 不再选入且 `use_count` 不变，恢复后重新选入，跨用户 disable / restore 被拒，delete 后不可 restore。浏览器验证 `/conversations` Memory 抽屉停用 / 恢复 PASS，console error `0`，桌面 / `390px` / `320px` 无横向溢出。 |
@@ -85,6 +86,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260715-P2-042` | VERIFIED / UI+SMOKE | P2 | 质量控制台体验 / 观测口径误导 | Agent Quality Console / QualityRun Trend / Parser & Memory Smoke | `docpilot-parser-real-chain-20260715161900-912198` / `docpilot-memory-quality-20260715162027-941f55` | Quality Console 六项诊断缺样本和空 bucket 容易误导质量治理 |
 | `REA-20260714-P3-041` | VERIFIED / UI | P3 | 展示口径 / 内部质量数据解读 | README / Agent Quality Console / Showcase screenshots | `readme-quality-showcase-20260714214023` | README Quality Console 图误把内部排障混合低数据作为公开首屏展示 |
 | `REA-20260714-P3-039` | VERIFIED（已验证） | P3 | 工程流程 / 质量控制台导入体验 | Agent Quality Console / Artifact Import / Test artifact isolation | `docpilot-agent-quality-eval-20260714151238-756d91` 验证前置导入 | Quality Console artifact import root 会优先扫到单测残留 `docpilot-import-*` 样本 |
 | `REA-20260714-P2-038` | VERIFIED / UI+API | P2 | 质量控制台体验 / 诊断误导 | Agent Quality Console / Frontend / Quality API | `quality-console-disabled-state-20260714` | Quality Console disabled 被误显示为账号无权限和暂无样本 |
@@ -131,6 +133,23 @@
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
 
 ## 2026-07-14 README Quality Console 展示图修正
+
+### `REA-20260715-P2-042` Quality Console 六项诊断缺样本和空 bucket 容易误导质量治理
+
+- 状态：`VERIFIED / UI+SMOKE`
+- 严重级别：`P2`
+- 类型：质量控制台体验 / 观测口径误导
+- 模块：Agent Quality Console / QualityRun Trend / Parser & Memory Smoke
+- 发现 marker：`quality-console-diagnostics-20260715` 只读 DB 聚合；补证 marker `docpilot-parser-real-chain-20260715161900-912198`、`docpilot-memory-quality-20260715162027-941f55`
+- 复现步骤：
+  1. 打开内部 Quality Console 并查看最近 `20` 条 DB-backed QualityRun 的六项诊断。
+  2. 对比 DB 聚合：PASS `9`、REVIEW `6`、FAILED_CORE_FLOW `5`，`latencyMs` 样本 `0/20`，token / cost 样本 `0/20`。
+  3. 查看失败 / 复查 TopN，部分 FAILED / REVIEW run 没有结构化 failure / review bucket。
+- 实际结果：页面容易把“没有采样”呈现成普通“暂无统计”，且失败 / 复查 TopN 可能因 summary buckets 与 trend bucket counts 拼接而重复计数；Parser / Memory 最新 REVIEW 主要来自显式跳过 frontend route smoke，容易被误判为核心质量仍失败。
+- 预期结果：六项诊断应明确显示样本分母；无 `latencyMs` 时不能用 `durationMs` 冒充 P95 延迟；token / cost 缺失不能按 `0` 处理；存在 FAILED / REVIEW 但 bucket 为空时必须提示 artifact 缺结构化归因；Parser / Memory 最新前端 gate 应通过真实 smoke 补证，而不是在 UI 中改写状态。
+- 修复内容：`/quality` 六项诊断卡增加样本数，成功成本只统计有成本样本的 PASS / SUCCESS；失败 / 复查 TopN 改为使用 trend bucket 聚合；空 bucket 时显示“缺结构化归因”。新增 `quality-console-diagnostics.spec.ts` 覆盖 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和空 bucket 文案。
+- 验证记录：非 `-SkipFrontend` Parser smoke `docpilot-parser-real-chain-20260715161900-912198` PASS，frontend gate PASS；非 `-SkipFrontend` Memory smoke `docpilot-memory-quality-20260715162027-941f55` PASS，frontendRoutes PASS；临时 18081 导入两个 artifacts 后 DB 确认为 PASS，最近 `20` 条改善为 PASS `10` / REVIEW `6` / FAILED_CORE_FLOW `4`。`npm run lint`、frontend build、新增 Playwright spec 均 PASS。
+- 剩余边界：旧 FAILED / REVIEW 历史不删除；当前还缺 suite / coverage profile 来可靠标记“已恢复”；`latencyMs`、token、cost 需要后续由真实 runner / artifact schema 补采样。
 
 ### `REA-20260714-P3-041` README Quality Console 图误把内部排障混合低数据作为公开首屏展示
 

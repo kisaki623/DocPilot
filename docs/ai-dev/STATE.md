@@ -1,5 +1,15 @@
 # DocPilot 当前状态
 
+## 2026-07-15 Quality Console 诊断口径与最新补证状态（VERIFIED / UI+SMOKE）
+
+- 内部 Quality Console 六项诊断已完成第一片“口径诚实化”：状态占比仍按最近加载 QualityRun 计算，但 P95 延迟、平均 token、成功运行成本都会显示有效样本数，缺失值不按 `0` 处理。
+- `/quality` 不再用 `durationMs` 冒充 `latencyMs`；当 `latencyMs` 样本为 `0` 时显示“暂无 latency 样本”，并说明已有整次运行 `durationMs` 不能代表阶段延迟。后续需要 runner 输出规范化阶段级 `latencyMs`。
+- 成功运行成本现在只平均 PASS / SUCCESS 且存在 `estimatedCost` 的 run；失败 / 复查 TopN 只使用 trend bucket 聚合，避免 summary buckets 与 trend buckets 重复计数；存在 FAILED / REVIEW run 但 bucket 为空时，页面会提示 artifact 缺结构化归因。
+- 新增前端 e2e `quality-console-diagnostics.spec.ts`，用 mock Quality API fixture 锁定 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和空 bucket 归因提示。
+- 最新真实补证已导入 DB-backed QualityRun：`docpilot-parser-real-chain-20260715161900-912198` 为 PASS，frontend gate PASS，Parser 四类文件核心链路均 PASS；`docpilot-memory-quality-20260715162027-941f55` 为 PASS，frontendRoutes PASS，Memory T29 / T30 / T31 关键链路均 PASS。
+- 当前最近 `20` 条可见 QualityRun 从本轮基线 PASS `9` / REVIEW `6` / FAILED_CORE_FLOW `5` 改善为 PASS `10` / REVIEW `6` / FAILED_CORE_FLOW `4`。旧失败历史仍保留，不通过删除或隐藏历史制造通过率；后续需要按 suite / coverage profile 区分“当前仍失败”和“已被后续 PASS 证明恢复”。
+- 已验证：前端 lint PASS、前端 production build PASS、新增 Playwright spec PASS；Parser / Memory 非 `-SkipFrontend` 真实 smoke PASS；临时 18081 导入完成后已清理，常用端口无残留。
+
 ## 2026-07-14 README Quality Console 展示口径（VERIFIED / UI）
 
 - 根 README 的 Quality Console 图已从“内部排障混合数据概览”修正为“PASS 核心样本详情 + 核心门禁”视角，避免公开首屏直接显示全量最近 runs 的低通过率 / 失败率而被误读为系统整体质量差。

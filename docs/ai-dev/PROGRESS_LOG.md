@@ -1,5 +1,14 @@
 # Progress Log
 
+## 2026-07-15 Quality Console six diagnostics governance
+
+- 只读审计 DB-backed 最近 `20` 条可见 QualityRun：PASS `9`、REVIEW `6`、FAILED_CORE_FLOW `5`，`latencyMs` / token / cost 样本缺失；Parser / Memory 最新 REVIEW 主要来自 frontend route smoke skipped。
+- 修正 `/quality` 六项诊断口径：显示样本数；无 `latencyMs` 不再用 `durationMs` 冒充 P95 延迟；token / cost 缺失不按 `0` 处理；成功成本只统计有成本样本的 PASS / SUCCESS；失败 / 复查 TopN 去掉 summary + trend 双计数；空 bucket 时提示缺结构化归因。
+- 新增 `quality-console-diagnostics.spec.ts`，用 mock Quality API fixture 覆盖 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和 bucket 空态。
+- 真实补证：`document-parser-real-chain-smoke.ps1 -Mode run` 非 `-SkipFrontend` marker `docpilot-parser-real-chain-20260715161900-912198` PASS，frontend gate PASS；`memory-quality-smoke.ps1 -Mode run` 非 `-SkipFrontend` marker `docpilot-memory-quality-20260715162027-941f55` PASS，frontendRoutes PASS。
+- 临时 18081 后端导入最新 artifacts 后，DB 确认两个 marker 均为 PASS；最近 `20` 条可见状态改善为 PASS `10` / REVIEW `6` / FAILED_CORE_FLOW `4`。旧失败历史未删除，后续应补 suite / coverage profile 与 latency/token/cost 采样。
+- 验证：`npm run lint` PASS；`NODE_OPTIONS=--max-old-space-size=4096 npm run build` PASS；`npx playwright test e2e/quality-console-diagnostics.spec.ts` PASS；进程清理后常用端口与 `18081` 无 LISTEN 残留。
+
 ## 2026-07-14 README Quality Console 展示图修正
 
 - 重新截取 README 的 Quality Console 图片：不再使用全量混合 runs 的低通过率概览，改为筛选后的 PASS 核心样本 `docpilot-cloud-quality-20260712212603-173e7d`。

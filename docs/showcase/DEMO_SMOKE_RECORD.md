@@ -1,8 +1,36 @@
 # DocPilot Demo Smoke Record
 
-> Last updated: 2026-07-14
+> Last updated: 2026-07-15
 
 本文件记录用于面试 / 展示准备的 demo smoke 证据摘要，并明确每次验证的能力边界。
+
+## 2026-07-15 Quality Console Diagnostics Governance
+
+状态：PASS（UI 观测口径 + Parser / Memory 最新前端 gate 补证）
+
+验证：
+
+- 前端 Quality Console 派生诊断 e2e fixture
+- `document-parser-real-chain-smoke.ps1 -Mode run`
+- `memory-quality-smoke.ps1 -Mode run`
+- 临时后端 `18081` 导入最新 QualityRun artifacts
+
+Marker:
+
+- Parser：`docpilot-parser-real-chain-20260715161900-912198`
+- Memory：`docpilot-memory-quality-20260715162027-941f55`
+
+已验证：
+
+- `/quality` 六项诊断显示样本数；无 `latencyMs` 时不再用 `durationMs` 冒充 P95 延迟；token / cost 缺失不按 `0` 处理。
+- 成功运行成本只统计 PASS / SUCCESS 且存在 `estimatedCost` 的 run；失败 / 复查 TopN 不再重复叠加 summary buckets 和 trend bucket counts。
+- 当存在 FAILED / REVIEW run 但 artifact 未提供结构化 bucket 时，页面明确提示缺结构化归因。
+- 新增 Playwright fixture 覆盖 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和空 bucket 文案。
+- Parser 最新非 `-SkipFrontend` run 为 PASS，frontend gate PASS，PDF / HTML / DOCX / LONG_MD 均 parse / retrieve / citation / source locator 通过。
+- Memory 最新非 `-SkipFrontend` run 为 PASS，frontendRoutes PASS，T29 / T30 / T31 关键记忆链路通过。
+- 两个 artifact 已导入 DB-backed QualityRun；最近 `20` 条可见状态从 PASS `9` / REVIEW `6` / FAILED `5` 改善为 PASS `10` / REVIEW `6` / FAILED `4`。
+
+边界：本次没有删除旧失败历史，也没有把 skipped frontend 自动改 PASS。`latencyMs`、token、cost 仍需要后续由真实 runner / artifact schema 补采样；“已恢复”视图还需要 suite / coverage profile 支撑，不能只靠 marker 前缀猜测。
 
 ## 2026-07-14 README Quality Console PASS Showcase
 

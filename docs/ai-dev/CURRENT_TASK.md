@@ -1,5 +1,16 @@
 # Current Task
 
+## 2026-07-15 Quality Console 六项诊断治理第一片（VERIFIED / UI+SMOKE）
+
+- 本轮目标：针对内部质量控制台“通过率、复查率、失败率、P95 延迟、平均 token、成功运行成本”六项诊断明显异常的问题，先完成不误导的观测口径修正，并补上 Parser / Memory 最新真实前端 gate 证据。
+- 只读基线：DB-backed 最近 `20` 条可见 QualityRun 为 PASS `9`、REVIEW `6`、FAILED_CORE_FLOW `5`；`latencyMs` 样本 `0/20`，`durationMs` 样本 `5/20`，token / cost 样本均为 `0`。Parser / Memory 最新 REVIEW 的主因均为 `frontend route smoke skipped`，旧 Conversation grounding FAILED 已有后续 PASS。
+- 前端修复：`/quality` 六项诊断卡现在显示样本数；无 `latencyMs` 时不再用 `durationMs` 冒充 P95 延迟，只提示已有整次运行耗时但语义不同；平均 token / 成功运行成本显示有效样本分母，缺失值不按 `0` 处理；成功运行成本只统计 PASS / SUCCESS 且有 `estimatedCost` 的 run；失败 / 复查 TopN 只使用 trend bucket 聚合，避免 summary + trend 双计数；当存在失败 / 复查 run 但 bucket 为空时，明确提示 artifact 缺结构化归因。
+- 新增回归：`frontend/e2e/quality-console-diagnostics.spec.ts` 使用 mock Quality API fixture 覆盖 PASS `9/20`、REVIEW `6/20`、FAILED `5/20`、`latencyMs=0/20`、token / cost 无样本和 bucket 空归因提示。
+- 真实补证：启动本地 tunnel 后，非 `-SkipFrontend` 运行 `document-parser-real-chain-smoke.ps1 -Mode run` 得到 marker `docpilot-parser-real-chain-20260715161900-912198`，overall `PASS`，frontend gate `PASS`，Parser PDF / HTML / DOCX / LONG_MD 均 parse / retrieve / citation / source locator 通过；非 `-SkipFrontend` 运行 `memory-quality-smoke.ps1 -Mode run` 得到 marker `docpilot-memory-quality-20260715162027-941f55`，overall `PASS`，frontendRoutes `PASS`，Memory T29 / T30 / T31 关键链路均 PASS。
+- QualityRun 导入：临时后端 `18081` 开启 Quality Console，注册临时内部管理员并调用 `/api/quality/imports/artifacts?limit=50`；DB 已确认两个新 marker 均导入为 `PASS`，Parser gate `8 / failed 0 / review 0`，Memory gate `19 / failed 0 / review 0`。最近 `20` 条可见状态改善为 PASS `10`、REVIEW `6`、FAILED_CORE_FLOW `4`。
+- 已验证：Gemini CLI 本轮可用但返回了更大范围 UI 建议，实际只采纳“保持字段白名单、不要暴露敏感原文、优雅降级”的安全原则；独立架构审查否决了 `durationMs` 冒充 `latencyMs`，最终已按审查修正。`npm run lint` PASS；`NODE_OPTIONS=--max-old-space-size=4096 npm run build` PASS；新增 Playwright spec PASS；进程清理后常用端口与 `18081` 无 LISTEN 残留。
+- 剩余问题：本片没有删除旧失败历史，也没有把 skipped frontend 自动改 PASS；`latencyMs`、token、cost 仍需后续从真实 runner / artifact schema 补采样，FAILED / REVIEW 历史 run 也需要按 suite / coverage profile 建立“已恢复”视图，不能仅靠 marker 前缀猜测。
+
 ## 2026-07-14 README Quality Console 展示图修正（VERIFIED / UI）
 
 - 本轮目标：修正 README 中 Quality Console 图把内部排障混合数据放到公开首屏的问题；不造假数据、不删除失败历史、不改业务代码。
