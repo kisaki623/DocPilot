@@ -8,6 +8,7 @@
 - 发布前 reviewer blocker 已修：`QdrantVectorStoreClient` 现在只有在 `collection-init-enabled=true` 时才会创建缺失 collection；生产 `.env.prod` 默认 `false`，collection 缺失会 fail-fast，避免填错 collection 后悄悄创建空索引。新增 `deploy/prod/preflight.sh` 拦截占位符、错误 demo/prod collection 默认、维度不一致、collection init 误开启和缺失关键配置。
 - 部署文档明确三种互斥接入：Caddy 容器模式下把现有 Caddy 接入 `docpilot-app` 网络并合并 `caddy.container-snippet.caddy`；宿主机 Caddy 模式下叠加 `docker-compose.host-proxy.override.yml` 并合并 `caddy.host-snippet.caddy`；宿主机 Nginx 模式下叠加同一 host-proxy override 并把 `nginx.host-snippet.conf` 合并到 `kisaki0.top` 的现有 server block。
 - 只读远程预检：目标服务器当前入口更像宿主机 Nginx，Caddy 未作为当前入口；Docker 中间件容器存在且有稳定网络，但尚未创建 / 启动 DocPilot 应用容器。宿主机层面存在若干中间件端口监听，上线前必须确认云安全组 / 防火墙只对公网开放 80/443。
+- 公网域名预检：`kisaki0.top` 当前 DNS A 记录未指向当前 DocPilot 服务器，`https://kisaki0.top/` HEAD 超时；如果要完成正式域名 HTTPS 部署，必须先在 DNS 控制台把 `kisaki0.top` 指到当前服务器，或确认要部署到 DNS 当前指向的另一台机器。
 - 2026-07-16 发布前门禁：`mvn test -DskipITs` PASS（1034 tests / 5 skipped）；`npm run lint` PASS；`npm run build` PASS；主 compose、host-Caddy override、host-proxy override 的 `docker compose config --quiet` 均 PASS；`git diff --check` PASS。
 - 边界：本机 Docker Desktop Linux engine 未启动，backend / frontend `docker build` 实际镜像构建未验证；未读取真实生产 `.env`、未执行数据库迁移、未修改远程 Nginx / Caddy / 防火墙 / Docker 中间件。目标域名由用户确认为 `kisaki0.top`，后续服务器部署以该域名做公网验收。状态保持 `REVIEW / LOCAL`，不能写成生产部署已完成。
 

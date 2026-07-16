@@ -8,6 +8,7 @@
 - 修复发布前 reviewer blocker：Qdrant client 现在尊重 `collection-init-enabled=false`，collection 缺失时 fail-fast；新增 `deploy/prod/preflight.sh`，上线前检查 `.env.prod` 占位符、collection 默认值、关键变量、向量维度一致性、collection init 开关和 Docker network。
 - 新增 `caddy.container-snippet.caddy`、`caddy.host-snippet.caddy`、`nginx.host-snippet.conf` 与宿主机反向代理 loopback override，部署文档要求现有 Caddy / Nginx 合并片段、只开放 80/443，并在上线前核查 schema、MinIO、Qdrant、RocketMQ 和 embedding 维度。
 - 只读远程预检确认目标域名 `kisaki0.top` 后，应优先按宿主机 Nginx 接入；当前不应额外启动 Caddy 抢占 80/443。预检同时发现宿主机层面存在中间件端口监听，上线前必须用云安全组 / 防火墙验收公网只开放 80/443。
+- DNS 预检显示 `kisaki0.top` 当前 A 记录未指向当前 DocPilot 服务器，公网 HTTPS HEAD 超时；正式域名验收需要先修正 DNS 或确认部署目标机器。
 - 验证：主 compose、host-Caddy override、host-proxy override config PASS；`.env.prod.example` preflight 占位符门禁按预期失败；`mvn test -DskipITs` PASS（1034 tests / 5 skipped）；`npm run lint` PASS；`npm run build` PASS；`git diff --check` PASS。Docker Desktop Linux engine 未启动，backend / frontend 镜像实际 build 和服务器 runtime smoke 未验证；目标域名确认为 `kisaki0.top`，状态保持 REVIEW / LOCAL。
 
 ## 2026-07-15 Quality Console run observation sampling

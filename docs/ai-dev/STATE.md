@@ -7,7 +7,7 @@
 - 部署模板不再包含新 Caddy service 或可选 Qdrant service，不再默认创建新 collection、改向量维度、改 RocketMQ group 或开启 hybrid / multi-query / rerank；`.env.prod.example` 要求按目标服务器既有 schema、bucket、base path、collection、dimension、topic/group 填写。
 - Qdrant collection 初始化语义已与部署边界对齐：`collection-init-enabled=false` 时缺失 collection 会 fail-fast，不再自动创建空 collection；只有显式 `true` 才允许创建。生产预检脚本 `deploy/prod/preflight.sh` 会阻止占位符、错误 collection 默认、维度不一致和误开启 collection init。
 - 反向代理接入被拆为三种互斥说明：容器 Caddy 使用 `caddy.container-snippet.caddy`，宿主机 Caddy 使用 `docker-compose.host-proxy.override.yml` + `caddy.host-snippet.caddy`，宿主机 Nginx 使用同一 host-proxy override + `nginx.host-snippet.conf`。只读远程预检显示目标服务器当前更像宿主机 Nginx 入口，`kisaki0.top` 后续应优先按 Nginx 接入，不要强行启动 Caddy 抢占 80/443。
-- 本轮已完成发布前本地门禁：`mvn test -DskipITs` PASS（1034 tests / 5 skipped）、前端 lint / build PASS、主 compose / host-Caddy override / host-proxy override config PASS、`git diff --check` PASS；但 Docker daemon 未启动，backend / frontend 镜像真实 build 未验证，也未做服务器 runtime smoke。只读远程预检发现宿主机层面存在若干中间件端口监听，上线前必须确认云安全组 / 防火墙只对公网放行 80/443。因此当前只能表述为“部署模板已准备到本地 REVIEW”，不是“已经部署成功”。目标公网域名为 `kisaki0.top`。
+- 本轮已完成发布前本地门禁：`mvn test -DskipITs` PASS（1034 tests / 5 skipped）、前端 lint / build PASS、主 compose / host-Caddy override / host-proxy override config PASS、`git diff --check` PASS；但 Docker daemon 未启动，backend / frontend 镜像真实 build 未验证，也未做服务器 runtime smoke。只读远程预检发现宿主机层面存在若干中间件端口监听，上线前必须确认云安全组 / 防火墙只对公网放行 80/443。公网 DNS 预检显示 `kisaki0.top` 当前 A 记录未指向当前 DocPilot 服务器，`https://kisaki0.top/` HEAD 超时；域名 HTTPS 验收在 DNS 修正前处于 BLOCKED。因此当前只能表述为“部署模板已准备到本地 REVIEW”，不是“已经部署成功”。
 
 ## 2026-07-15 Quality Console 运行观测采样状态（VERIFIED / DB+UI+SMOKE）
 
