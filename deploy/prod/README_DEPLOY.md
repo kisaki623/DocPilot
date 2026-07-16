@@ -1,8 +1,8 @@
 # DocPilot 服务器 Docker 部署说明
 
-本目录用于把 DocPilot **后端 Spring Boot 应用**和**前端 Next.js 应用**部署到服务器 Docker 中。当前模板刻意只管理应用容器，默认复用服务器现有的 Caddy、MySQL、Redis、RocketMQ、MinIO 和 Qdrant。
+本目录用于把 DocPilot **后端 Spring Boot 应用**和**前端 Next.js 应用**部署到服务器 Docker 中。当前模板刻意只管理应用容器，默认复用服务器现有的反向代理（Caddy / Nginx）、MySQL、Redis、RocketMQ、MinIO 和 Qdrant。
 
-不要把这里当作“一键生产集群”。它是一个保守的上线骨架：先核实现有数据链路，再让前后端容器接入，避免因为新建空 Qdrant、改 RocketMQ group、替换 Caddy 或重置 volume 导致已有文档、索引和证书链路失效。
+不要把这里当作“一键生产集群”。它是一个保守的上线骨架：先核实现有数据链路，再让前后端容器接入，避免因为新建空 Qdrant、改 RocketMQ group、替换现有反向代理或重置 volume 导致已有文档、索引和证书链路失效。
 
 ## 0. 本模板会做什么、不会做什么
 
@@ -13,11 +13,11 @@
 - 前端以 Next.js standalone 方式运行；
 - 后端连接现有中间件网络；
 - 前端与后端通过应用网络互通；
-- 提供现有 Caddy 的合并片段。
+- 提供现有 Caddy / Nginx 的合并片段。
 
 不会做：
 
-- 不新建 Caddy；
+- 不新建或替换反向代理；
 - 不新建 MySQL / Redis / RocketMQ / MinIO / Qdrant；
 - 不清空或迁移任何 volume；
 - 不自动执行数据库迁移；
@@ -38,7 +38,7 @@ docker volume ls
 
 | 项目 | 要确认什么 |
 | --- | --- |
-| Caddy | 是宿主机进程还是 Docker 容器；当前站点配置位置；证书和域名是否已存在 |
+| 反向代理 | 当前入口是 Caddy 还是 Nginx；是宿主机进程还是 Docker 容器；当前站点配置位置；证书和域名是否已存在 |
 | MySQL | 容器名 / DNS 名、schema 名、当前表结构是否包含最新字段、是否已有备份 |
 | Redis | 容器名 / DNS 名、database、密码是否存在 |
 | RocketMQ | NameServer 地址、Broker 可达地址、topic、producer group、consumer group |
@@ -95,9 +95,11 @@ DOCPILOT_MIDDLEWARE_NETWORK=你的现有中间件网络名
 
 如果现有中间件不在同一个网络中，优先把 `backend` 连接到它们所在的稳定业务网络；不要为了省事把数据库、Redis、RocketMQ、MinIO 或 Qdrant 端口暴露到公网。
 
-## 4. 接入现有 Caddy（二选一）
+## 4. 接入现有反向代理（三选一）
 
-### 方案 A：Caddy 也是 Docker 容器（推荐）
+当前目标域名为 `kisaki0.top`。如果目标服务器已经由宿主机 Nginx 管理 80/443，则优先使用“方案 C：Nginx 是宿主机进程”，不要再额外启动 Caddy 抢占端口。
+
+### 方案 A：Caddy 也是 Docker 容器
 
 把现有 Caddy 容器连接到应用网络：
 
@@ -120,13 +122,39 @@ docker network connect docpilot-app <existing-caddy-container> || true
 ```bash
 docker compose --env-file deploy/prod/.env.prod \
   -f deploy/prod/docker-compose.prod.yml \
-  -f deploy/prod/docker-compose.host-caddy.override.yml \
+  -f deploy/prod/docker-compose.host-proxy.override.yml \
   up -d --build
 ```
 
 然后把 [`caddy.host-snippet.caddy`](caddy.host-snippet.caddy) 合并到现有站点 block 中。该方案只把 `127.0.0.1:3000` 和 `127.0.0.1:8081` 暴露给宿主机 Caddy，不应绑定 `0.0.0.0`。
 
-两种方案不要混用。
+兼容说明：旧文件 [`docker-compose.host-caddy.override.yml`](docker-compose.host-caddy.override.yml) 与 `docker-compose.host-proxy.override.yml` 内容等价，后续推荐使用命名更中性的 host-proxy override。
+
+### 方案 C：Nginx 是宿主机进程
+
+这是 `kisaki0.top` 当前更可能使用的接入方式。启动应用时同样叠加 loopback override：
+
+```bash
+docker compose --env-file deploy/prod/.env.prod \
+  -f deploy/prod/docker-compose.prod.yml \
+  -f deploy/prod/docker-compose.host-proxy.override.yml \
+  up -d --build
+```
+
+然后把 [`nginx.host-snippet.conf`](nginx.host-snippet.conf) 合并到 `kisaki0.top` 对应的 Nginx `server { ... }` 中，而不是新建一份和现有站点冲突的 server block。合并后先执行：
+
+```bash
+nginx -t
+```
+
+通过后再 reload Nginx。该片段语义是：
+
+- `/backend/api/*` 去掉 `/backend` 前缀后转发到 `127.0.0.1:8081/api/*`；
+- `/backend/*` 的非 API 路径直接 404，避免公开 actuator 或内部端点；
+- 其他路径转发到 `127.0.0.1:3000`；
+- SSE / 长回答请求关闭 proxy buffering，避免流式输出被反代缓冲。
+
+三种方案不要混用。尤其不要在宿主机 Nginx 已经占用 80/443 时再启动宿主机 Caddy。
 
 ## 5. 构建和启动应用容器
 
@@ -139,19 +167,19 @@ docker compose --env-file deploy/prod/.env.prod -f deploy/prod/docker-compose.pr
 docker compose --env-file deploy/prod/.env.prod -f deploy/prod/docker-compose.prod.yml up -d
 ```
 
-宿主机 Caddy 方案：
+宿主机反向代理方案（Caddy / Nginx）：
 
 ```bash
 sh deploy/prod/preflight.sh deploy/prod/.env.prod
 
 docker compose --env-file deploy/prod/.env.prod \
   -f deploy/prod/docker-compose.prod.yml \
-  -f deploy/prod/docker-compose.host-caddy.override.yml \
+  -f deploy/prod/docker-compose.host-proxy.override.yml \
   config --quiet
 
 docker compose --env-file deploy/prod/.env.prod \
   -f deploy/prod/docker-compose.prod.yml \
-  -f deploy/prod/docker-compose.host-caddy.override.yml \
+  -f deploy/prod/docker-compose.host-proxy.override.yml \
   up -d --build
 ```
 
@@ -170,9 +198,9 @@ docker compose --env-file deploy/prod/.env.prod -f deploy/prod/docker-compose.pr
 HTTP 验收：
 
 ```bash
-curl -I https://你的域名/
-curl -I https://你的域名/backend/api/quality/status
-curl -I https://你的域名/backend/actuator/health
+curl -I https://kisaki0.top/
+curl -I https://kisaki0.top/backend/api/quality/status
+curl -I https://kisaki0.top/backend/actuator/health
 ```
 
 预期：
@@ -181,7 +209,7 @@ curl -I https://你的域名/backend/actuator/health
 - `/backend/api/...` 能到后端；
 - `/backend/actuator/health` 对公网为 `404`；
 - 浏览器 Network 中 API 请求保持同源 `/backend/api/...`，不出现 CORS 错误；
-- 公网只开放 `80/443`，不要开放 `3000/8081/3306/6379/9876/10909-10912/9000/9001/6333/6334`。
+- 公网只开放 `80/443`，不要开放 `3000/8081/3306/6379/9876/10909-10912/9000/9001/6333/6334`。如果宿主机层面已有中间件端口监听，也必须确认云安全组 / 防火墙没有对公网放行。
 
 业务验收：
 
@@ -213,7 +241,7 @@ docker compose --env-file deploy/prod/.env.prod -f deploy/prod/docker-compose.pr
 docker compose --env-file deploy/prod/.env.prod -f deploy/prod/docker-compose.prod.yml up -d backend frontend
 ```
 
-回滚只替换 `backend` / `frontend`。不要删除 MySQL、MinIO、Qdrant、RocketMQ 或 Caddy 的容器、volume、证书和数据。
+回滚只替换 `backend` / `frontend`。不要删除 MySQL、MinIO、Qdrant、RocketMQ 或现有反向代理的容器、volume、证书和数据。
 
 ## 8. 如果服务器没有现成 Qdrant
 

@@ -34,6 +34,7 @@
 
 | 日期 | Marker | 状态 | Artifact | 摘要 |
 | --- | --- | --- | --- | --- |
+| 2026-07-16 | `server-deploy-readonly-preflight-20260716` | PLANNED（部署接入与公网端口验收待执行） | 无 artifact | 登记 `REA-20260716-P2-043`：服务器只读预检显示 `kisaki0.top` 当前更适合沿用宿主机 Nginx 入口，而不是启动 Caddy；同时宿主机层面存在中间件端口监听，上线前必须确认云安全组 / 防火墙只对公网开放 80/443。已补充 Nginx 接入片段和部署文档，实际改 Nginx、起 Docker、reload 和公网端口收口仍需单独授权执行。 |
 | 2026-07-15 | `docpilot-parser-real-chain-20260715161900-912198` / `docpilot-memory-quality-20260715162027-941f55` | VERIFIED / UI+SMOKE（Quality Console 六项诊断口径与最新前端 gate 补证） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260715161900-912198/artifact.json` / `backend/target/memory-quality/docpilot-memory-quality-20260715162027-941f55/artifact.json` | 登记 `REA-20260715-P2-042`：Quality Console 六项诊断中最近 `20` 条 PASS `9` / REVIEW `6` / FAILED `5`，且 `latencyMs`、token、cost 样本缺失；页面原口径容易把缺采样解释为暂无问题，且失败 / 复查 TopN 存在重复计数风险。已修正样本数、成本、latency 与 bucket 空态口径，并用非 `-SkipFrontend` Parser / Memory smoke 补证最新 frontend gate PASS；导入后最近 `20` 条改善为 PASS `10` / REVIEW `6` / FAILED `4`。 |
 | 2026-07-14 | `readme-quality-showcase-20260714214023` | VERIFIED / UI（README Quality Console 展示口径已修正） | `backend/target/readme-quality-showcase-20260714214023/quality-pass-screenshot-summary.json` | 登记 `REA-20260714-P3-041`：README 原 Quality Console 图使用内部排障混合视图，公开首屏显示低通过率 / 失败率和暂无统计字段，容易让面试官误读为系统整体质量差。已改为筛选后的 PASS 核心样本 `docpilot-cloud-quality-20260712212603-173e7d`，展示质量门禁 `20`、失败 / 复查 `0 / 0` 和门禁页；Playwright console error `0`。最近 `50` 条 QualityRun 的 PASS `27` / REVIEW `17` / FAILED_CORE_FLOW `6` 已保留为后续质量治理任务，不通过删除失败历史解决。 |
 | 2026-07-14 | `docpilot-parser-real-chain-20260714184055-21d3de` | VERIFIED / CORE（长文档 batch split 与原失败任务恢复已核验） | `backend/target/smoke/document-parser-real-chain/docpilot-parser-real-chain-20260714184055-21d3de/artifact.json` | 收口 `REA-20260713-P1-001`：parser runner 新增 LONG_MD 长文档 canary，真实切出 `25` chunks，PDF / HTML / DOCX / LONG_MD 均 parse / retrieve / citation / source locator 通过；MySQL chunk / indexed / vectorId / Qdrant point 总计 `32 / 32 / 32 / 32`，payload 和 locator 摘要均 `32`，parser boundary `4/4`，artifact redaction PASS。原失败 document `1431` / task `1322` 已只读核验为 SUCCESS，task retryCount `2`，原文档 MySQL / Qdrant parity 为 `12 / 12 / 12 / 12`，最新 outbox `SENT`、consume `SUCCESS`。 |
@@ -86,6 +87,7 @@
 
 | ID | 状态 | 严重级别 | 类型 | 模块 | 发现于 | 标题 |
 | --- | --- | --- | --- | --- | --- | --- |
+| `REA-20260716-P2-043` | PLANNED | P2 | 部署安全 / 入口接入风险 | Server Docker Deploy / Nginx / Firewall | `server-deploy-readonly-preflight-20260716` | 服务器当前入口应按宿主机 Nginx 接入且公网端口需上线前收口 |
 | `REA-20260715-P2-042` | VERIFIED / UI+SMOKE | P2 | 质量控制台体验 / 观测口径误导 | Agent Quality Console / QualityRun Trend / Parser & Memory Smoke | `docpilot-parser-real-chain-20260715161900-912198` / `docpilot-memory-quality-20260715162027-941f55` | Quality Console 六项诊断缺样本和空 bucket 容易误导质量治理 |
 | `REA-20260714-P3-041` | VERIFIED / UI | P3 | 展示口径 / 内部质量数据解读 | README / Agent Quality Console / Showcase screenshots | `readme-quality-showcase-20260714214023` | README Quality Console 图误把内部排障混合低数据作为公开首屏展示 |
 | `REA-20260714-P3-039` | VERIFIED（已验证） | P3 | 工程流程 / 质量控制台导入体验 | Agent Quality Console / Artifact Import / Test artifact isolation | `docpilot-agent-quality-eval-20260714151238-756d91` 验证前置导入 | Quality Console artifact import root 会优先扫到单测残留 `docpilot-import-*` 样本 |
@@ -131,6 +133,29 @@
 | `REA-20260705-P3-008` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Frontend Interaction Gate | `docpilot-real-user-qa-20260705205210-8c882e` | frontendInteraction 捕获 KB 阶段 TypeError 时缺少脱敏 message shape，难以定位 |
 | `REA-20260708-P3-009` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260708212024-9bd2ea` | parser smoke 静默复用不受控 backend 导致 QA 阶段误失败 |
 | `REA-20260709-P3-010` | VERIFIED（已验证） | P3 | 工程流程问题 | Smoke Runner / Document Parser | `docpilot-parser-real-chain-20260709230208-fc2876` | parser smoke direct / QA 诊断计数和环境断链归因不够准确 |
+
+## 2026-07-16 服务器部署只读预检
+
+### `REA-20260716-P2-043` 服务器当前入口应按宿主机 Nginx 接入且公网端口需上线前收口
+
+- 状态：`PLANNED`
+- 严重级别：`P2`
+- 类型：部署安全 / 入口接入风险
+- 模块：Server Docker Deploy / Nginx / Firewall
+- 发现 marker：`server-deploy-readonly-preflight-20260716`
+- 复现步骤：
+  1. 在不修改远程服务器的前提下读取 Docker 容器、Docker network、宿主机监听端口和反向代理状态。
+  2. 对比部署模板中的 Caddy 接入假设与服务器当前入口状态。
+- 实际结果：
+  - 服务器当前更适合沿用宿主机 Nginx 做 `kisaki0.top` 的 80/443 入口，Caddy 不应被新启动来抢占端口。
+  - 宿主机层面存在若干中间件端口监听；这不等于已公网暴露，但上线前必须用云安全组 / 防火墙验收公网只开放 80/443。
+- 预期结果：
+  - 应用容器只通过 loopback 或 Docker 内网接入现有反向代理。
+  - 公网只访问 `https://kisaki0.top/` 和同源 `/backend/api/*`，不直接暴露应用端口或中间件端口。
+- 可能原因：部署模板首版偏向 Caddy，而目标服务器实际入口是宿主机 Nginx；中间件历史部署为了本地 tunnel / 运维便利在宿主机层面绑定端口。
+- 建议修复位置：`deploy/prod/nginx.host-snippet.conf`、`deploy/prod/README_DEPLOY.md`、服务器 Nginx 站点配置和云安全组 / 防火墙。
+- 修复提交：本轮部署文档收口提交，具体以 `git log` 为准。
+- 验证记录：本轮已补充 Nginx 片段和部署文档；实际 Nginx 配置合并、Docker 应用容器启动、Nginx reload、HTTPS 与公网端口验收仍待用户单独授权执行。
 
 ## 2026-07-14 README Quality Console 展示图修正
 

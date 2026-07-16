@@ -1,0 +1,8 @@
+services:
+  backend:
+    ports:
+      - "${DOCPILOT_BACKEND_LOOPBACK_BIND:-127.0.0.1:8081}:8081"
+
+  frontend:
+    ports:
+      - "${DOCPILOT_FRONTEND_LOOPBACK_BIND:-127.0.0.1:3000}:3000"

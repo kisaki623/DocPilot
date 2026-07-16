@@ -2,12 +2,12 @@
 
 ## 2026-07-16 服务器 Docker 部署准备状态（REVIEW / LOCAL）
 
-- 仓库已新增保守的服务器 Docker 应用部署模板：只构建和运行 `backend` / `frontend` 两个应用容器，默认复用现有 Caddy、MySQL、Redis、RocketMQ、MinIO 和 Qdrant。
-- 前端已开启 Next.js `standalone` 输出，Docker build 阶段通过 `BACKEND_BASE_URL` build arg 固化服务端 rewrite 兜底；生产浏览器流量仍建议经现有 Caddy 同源访问 `/backend/api/*`，避免跨域和 SSE CORS 复杂度。
+- 仓库已新增保守的服务器 Docker 应用部署模板：只构建和运行 `backend` / `frontend` 两个应用容器，默认复用现有反向代理（Caddy / Nginx）、MySQL、Redis、RocketMQ、MinIO 和 Qdrant。
+- 前端已开启 Next.js `standalone` 输出，Docker build 阶段通过 `BACKEND_BASE_URL` build arg 固化服务端 rewrite 兜底；生产浏览器流量仍建议经现有反向代理同源访问 `/backend/api/*`，避免跨域和 SSE CORS 复杂度。
 - 部署模板不再包含新 Caddy service 或可选 Qdrant service，不再默认创建新 collection、改向量维度、改 RocketMQ group 或开启 hybrid / multi-query / rerank；`.env.prod.example` 要求按目标服务器既有 schema、bucket、base path、collection、dimension、topic/group 填写。
 - Qdrant collection 初始化语义已与部署边界对齐：`collection-init-enabled=false` 时缺失 collection 会 fail-fast，不再自动创建空 collection；只有显式 `true` 才允许创建。生产预检脚本 `deploy/prod/preflight.sh` 会阻止占位符、错误 collection 默认、维度不一致和误开启 collection init。
-- Caddy 接入被拆为两种互斥说明：容器 Caddy 使用 `caddy.container-snippet.caddy`，宿主机 Caddy 使用 `docker-compose.host-caddy.override.yml` + `caddy.host-snippet.caddy`；两种方案都要求公网只暴露 80/443，`3000/8081` 不直接公网开放。
-- 本轮已完成发布前本地门禁：`mvn test -DskipITs` PASS（1034 tests / 5 skipped）、前端 lint / build PASS、主 compose 与 host-Caddy override config PASS、`git diff --check` PASS；但 Docker daemon 未启动，backend / frontend 镜像真实 build 未验证，也未做服务器 runtime smoke。因此当前只能表述为“部署模板已准备到本地 REVIEW”，不是“已经部署成功”。目标公网域名为 `kisaki0.top`。
+- 反向代理接入被拆为三种互斥说明：容器 Caddy 使用 `caddy.container-snippet.caddy`，宿主机 Caddy 使用 `docker-compose.host-proxy.override.yml` + `caddy.host-snippet.caddy`，宿主机 Nginx 使用同一 host-proxy override + `nginx.host-snippet.conf`。只读远程预检显示目标服务器当前更像宿主机 Nginx 入口，`kisaki0.top` 后续应优先按 Nginx 接入，不要强行启动 Caddy 抢占 80/443。
+- 本轮已完成发布前本地门禁：`mvn test -DskipITs` PASS（1034 tests / 5 skipped）、前端 lint / build PASS、主 compose / host-Caddy override / host-proxy override config PASS、`git diff --check` PASS；但 Docker daemon 未启动，backend / frontend 镜像真实 build 未验证，也未做服务器 runtime smoke。只读远程预检发现宿主机层面存在若干中间件端口监听，上线前必须确认云安全组 / 防火墙只对公网放行 80/443。因此当前只能表述为“部署模板已准备到本地 REVIEW”，不是“已经部署成功”。目标公网域名为 `kisaki0.top`。
 
 ## 2026-07-15 Quality Console 运行观测采样状态（VERIFIED / DB+UI+SMOKE）
 

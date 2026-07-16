@@ -202,7 +202,7 @@ npm run dev
 
 ### 4. 服务器 Docker 部署
 
-如果要把前后端部署到服务器 Docker，并通过域名 HTTPS 访问，使用 `deploy/prod/` 下的生产部署模板。该模板默认保留服务器现有 Caddy、MySQL / Redis / RocketMQ / MinIO / Qdrant 数据，只新增 `backend` 和 `frontend` 应用容器；真实密钥写入 ignored 的 `deploy/prod/.env.prod`，不要提交。
+如果要把前后端部署到服务器 Docker，并通过域名 HTTPS 访问，使用 `deploy/prod/` 下的生产部署模板。该模板默认保留服务器现有反向代理（Caddy / Nginx）和 MySQL / Redis / RocketMQ / MinIO / Qdrant 数据，只新增 `backend` 和 `frontend` 应用容器；真实密钥写入 ignored 的 `deploy/prod/.env.prod`，不要提交。
 
 详细步骤见 [`deploy/prod/README_DEPLOY.md`](deploy/prod/README_DEPLOY.md)。
 
