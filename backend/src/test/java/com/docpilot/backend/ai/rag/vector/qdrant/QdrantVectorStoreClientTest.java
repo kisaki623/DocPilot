@@ -37,7 +37,7 @@ class QdrantVectorStoreClientTest {
     }
 
     @Test
-    void shouldCreateCollectionWhenMissing() throws Exception {
+    void shouldCreateCollectionWhenMissingAndInitEnabled() throws Exception {
         startServer(exchange -> {
             if ("GET".equals(exchange.getRequestMethod())) {
                 sendJson(exchange, 404, "{\"status\":\"not_found\"}");
@@ -45,7 +45,9 @@ class QdrantVectorStoreClientTest {
             }
             sendJson(exchange, 200, "{\"status\":\"ok\"}");
         });
-        QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties(false));
+        RagVectorStoreProperties.Qdrant properties = properties(false);
+        properties.setCollectionInitEnabled(true);
+        QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties);
 
         client.ensureCollection();
 
@@ -60,6 +62,22 @@ class QdrantVectorStoreClientTest {
         assertThat(vectors)
                 .containsEntry("size", 2)
                 .containsEntry("distance", "Cosine");
+    }
+
+    @Test
+    void shouldFailFastWhenCollectionMissingAndInitDisabled() throws Exception {
+        startServer(exchange -> sendJson(exchange, 404, "{\"status\":\"not_found\"}"));
+        QdrantVectorStoreClient client = new QdrantVectorStoreClient(properties(false));
+
+        assertThatThrownBy(client::ensureCollection)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Qdrant vector store collection is missing and collection init is disabled.")
+                .hasMessageNotContaining("docpilot_test")
+                .hasMessageNotContaining("127.0.0.1");
+
+        assertThat(requests).hasSize(1);
+        assertThat(requests.get(0).method()).isEqualTo("GET");
+        assertThat(requests.get(0).path()).isEqualTo("/collections/docpilot_test");
     }
 
     @Test

@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+!.env.demo.example
+!.env.cloud.example
+.run/
+.runlogs/
+data/
+target/
+tmp-e2e/
+*.log
+*.tmp
+hs_err_pid*
+startup-check.log
+tmp-startup*.log

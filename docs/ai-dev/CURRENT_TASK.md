@@ -1,5 +1,15 @@
 # Current Task
 
+## 2026-07-16 服务器 Docker 应用容器部署模板（REVIEW / LOCAL）
+
+- 本轮目标：为“前后端部署到服务器 Docker”准备保守的应用容器部署骨架，先不操作远程服务器、不替换现有 Caddy、不新建或重置 MySQL / Redis / RocketMQ / MinIO / Qdrant。
+- 已落地：新增 `backend/Dockerfile`、`frontend/Dockerfile`、前后端 `.dockerignore`、`deploy/prod/docker-compose.prod.yml`、宿主机 Caddy loopback override、容器 / 宿主机两套 Caddy 合并片段、`.env.prod.example` 与部署说明；`frontend/next.config.js` 开启 standalone；`.gitignore` 忽略真实 `deploy/prod/.env.prod`。
+- 架构审查修正：首版候选曾包含新 Caddy service、可选新 Qdrant 和默认新 collection / 1536 维 / 新 MQ group / 默认开启 hybrid+rereank，已按审查全部收回；当前 compose 只包含 `backend` / `frontend`，Qdrant collection init 默认 `false`，advanced retrieval 默认关闭，RocketMQ / Qdrant / MinIO / schema 均要求沿用现有事实。
+- 发布前 reviewer blocker 已修：`QdrantVectorStoreClient` 现在只有在 `collection-init-enabled=true` 时才会创建缺失 collection；生产 `.env.prod` 默认 `false`，collection 缺失会 fail-fast，避免填错 collection 后悄悄创建空索引。新增 `deploy/prod/preflight.sh` 拦截占位符、错误 demo/prod collection 默认、维度不一致、collection init 误开启和缺失关键配置。
+- 部署文档明确两种互斥接入：Caddy 容器模式下把现有 Caddy 接入 `docpilot-app` 网络并合并 `caddy.container-snippet.caddy`；宿主机 Caddy 模式下叠加 `docker-compose.host-caddy.override.yml`，只绑定 `127.0.0.1:3000/8081` 并合并 `caddy.host-snippet.caddy`。
+- 2026-07-16 发布前门禁：`mvn test -DskipITs` PASS（1034 tests / 5 skipped）；`npm run lint` PASS；`npm run build` PASS；主 compose 与 host-Caddy override 的 `docker compose config --quiet` 均 PASS；`git diff --check` PASS。
+- 边界：本机 Docker Desktop Linux engine 未启动，backend / frontend `docker build` 实际镜像构建未验证；未连接服务器、未读取真实生产 `.env`、未执行数据库迁移、未修改远程 Caddy / 防火墙 / Docker 中间件。目标域名由用户确认为 `kisaki0.top`，后续服务器部署以该域名做公网验收。状态保持 `REVIEW / LOCAL`，不能写成生产部署已完成。
+
 ## 2026-07-15 Quality Console 运行观测采样收口（VERIFIED / DB+UI+SMOKE）
 
 - 本轮目标：在上一片“六项诊断不误导”的基础上，把真实 smoke / eval artifact 增强为可持久化的 `qualityRun` 运行观测，避免后续 Quality Console 只能显示“暂无样本”或靠旧字段猜测。

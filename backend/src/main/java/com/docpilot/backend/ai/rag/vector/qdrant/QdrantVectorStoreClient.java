@@ -69,6 +69,9 @@ public class QdrantVectorStoreClient implements VectorStoreClient {
             throw new IllegalStateException("Qdrant vector store collection info request failed with status "
                     + statusCode + ".");
         }
+        if (!properties.isCollectionInitEnabled()) {
+            throw new IllegalStateException("Qdrant vector store collection is missing and collection init is disabled.");
+        }
         String body = collectionCreateRequestBuilder.buildJson(properties.getDimension(), properties.getDistance());
         HttpRequest createRequest = requestBuilder(collectionUri())
                 .PUT(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))

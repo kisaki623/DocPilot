@@ -1,0 +1,24 @@
+# Merge this snippet into the existing Caddy site block when Caddy runs as a container.
+# Place it before the site's frontend fallback handler.
+# The existing Caddy container must be connected to DOCPILOT_APP_NETWORK.
+
+handle /backend/api/* {
+	uri strip_prefix /backend
+	reverse_proxy backend:8081 {
+		transport http {
+			dial_timeout 10s
+			read_timeout 10m
+			write_timeout 10m
+		}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+}
+
+handle /backend/* {
+	respond 404
+}
+
+handle {
+	reverse_proxy frontend:3000
+}

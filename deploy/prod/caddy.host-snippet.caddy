@@ -1,0 +1,24 @@
+# Merge this snippet into the existing Caddy site block when Caddy runs on the host.
+# Start the app with docker-compose.host-caddy.override.yml so only loopback ports are published.
+# Place this snippet before the site's frontend fallback handler.
+
+handle /backend/api/* {
+	uri strip_prefix /backend
+	reverse_proxy 127.0.0.1:8081 {
+		transport http {
+			dial_timeout 10s
+			read_timeout 10m
+			write_timeout 10m
+		}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+}
+
+handle /backend/* {
+	respond 404
+}
+
+handle {
+	reverse_proxy 127.0.0.1:3000
+}

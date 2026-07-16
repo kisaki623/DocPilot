@@ -1,0 +1,67 @@
+name: docpilot-prod
+
+services:
+  backend:
+    image: docpilot-backend:prod
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: ./.env.prod
+        required: false
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: ${SERVER_PORT:-8081}
+      FILE_UPLOAD_DIR: /app/data/uploads
+      FILE_CHUNK_TEMP_DIR: /app/data/upload-chunks
+    expose:
+      - "8081"
+    volumes:
+      - docpilot_backend_data:/app/data
+    networks:
+      - app
+      - middleware
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  frontend:
+    image: docpilot-frontend:prod
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+      args:
+        BACKEND_BASE_URL: ${FRONTEND_BUILD_BACKEND_BASE_URL:-http://backend:8081}
+    restart: unless-stopped
+    environment:
+      BACKEND_BASE_URL: ${FRONTEND_RUNTIME_BACKEND_BASE_URL:-http://backend:8081}
+      NEXT_TELEMETRY_DISABLED: "1"
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    expose:
+      - "3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+networks:
+  app:
+    name: ${DOCPILOT_APP_NETWORK:?set DOCPILOT_APP_NETWORK to the app/proxy Docker network}
+    external: true
+  middleware:
+    name: ${DOCPILOT_MIDDLEWARE_NETWORK:?set DOCPILOT_MIDDLEWARE_NETWORK to the existing middleware Docker network}
+    external: true
+
+volumes:
+  docpilot_backend_data:

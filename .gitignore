@@ -37,6 +37,8 @@ backend/.env
 backend/.env.cloud
 backend/.env.local
 frontend/.env.local
+deploy/prod/.env.prod
+deploy/prod/.env.prod.local
 
 # Local runtime artifacts
 backend/data/

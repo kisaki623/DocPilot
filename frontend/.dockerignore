@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.next/
+node_modules/
+test-results/
+playwright-report/
+.playwright-mcp/
+coverage/
+*.log
+*.tmp
+tsconfig.tsbuildinfo
